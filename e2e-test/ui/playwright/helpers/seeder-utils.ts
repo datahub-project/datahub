@@ -104,10 +104,7 @@ export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
               let inputArr: unknown[];
               if (Array.isArray(rawInputs)) {
                 inputArr = rawInputs;
-              } else if (
-                typeof rawInputs === 'object' &&
-                Array.isArray((rawInputs as Record<string, unknown>).array)
-              ) {
+              } else if (typeof rawInputs === 'object' && Array.isArray((rawInputs as Record<string, unknown>).array)) {
                 inputArr = (rawInputs as Record<string, unknown>).array as unknown[];
               } else {
                 inputArr = [];
@@ -122,7 +119,12 @@ export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
         } else if (urn.startsWith('urn:li:dashboard:')) {
           const dashKey = keys.find((k) => k.includes('DashboardInfo'));
           if (dashKey) {
-            results.push({ urn, entityType: 'dashboard', aspectName: 'dashboardInfo', value: stripNulls(aspect[dashKey]) });
+            results.push({
+              urn,
+              entityType: 'dashboard',
+              aspectName: 'dashboardInfo',
+              value: stripNulls(aspect[dashKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:dataJob:')) {
           const infoKey = keys.find((k) => k.includes('DataJobInfo'));
@@ -136,32 +138,62 @@ export function extractComplexAspects(mcps: Mcp[]): ComplexAspect[] {
           }
           const ioKey = keys.find((k) => k.includes('DataJobInputOutput'));
           if (ioKey) {
-            results.push({ urn, entityType: 'dataJob', aspectName: 'dataJobInputOutput', value: stripNulls(aspect[ioKey]) });
+            results.push({
+              urn,
+              entityType: 'dataJob',
+              aspectName: 'dataJobInputOutput',
+              value: stripNulls(aspect[ioKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:dataFlow:')) {
           const flowKey = keys.find((k) => k.includes('DataFlowInfo'));
           if (flowKey) {
-            results.push({ urn, entityType: 'dataFlow', aspectName: 'dataFlowInfo', value: stripNulls(aspect[flowKey]) });
+            results.push({
+              urn,
+              entityType: 'dataFlow',
+              aspectName: 'dataFlowInfo',
+              value: stripNulls(aspect[flowKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:mlFeature:')) {
           const propsKey = keys.find((k) => k.includes('MLFeatureProperties'));
           if (propsKey) {
-            results.push({ urn, entityType: 'mlFeature', aspectName: 'mlFeatureProperties', value: stripNulls(aspect[propsKey]) });
+            results.push({
+              urn,
+              entityType: 'mlFeature',
+              aspectName: 'mlFeatureProperties',
+              value: stripNulls(aspect[propsKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:mlPrimaryKey:')) {
           const propsKey = keys.find((k) => k.includes('MLPrimaryKeyProperties'));
           if (propsKey) {
-            results.push({ urn, entityType: 'mlPrimaryKey', aspectName: 'mlPrimaryKeyProperties', value: stripNulls(aspect[propsKey]) });
+            results.push({
+              urn,
+              entityType: 'mlPrimaryKey',
+              aspectName: 'mlPrimaryKeyProperties',
+              value: stripNulls(aspect[propsKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:mlModel:')) {
           const propsKey = keys.find((k) => k.includes('MLModelProperties'));
           if (propsKey) {
-            results.push({ urn, entityType: 'mlModel', aspectName: 'mlModelProperties', value: stripNulls(aspect[propsKey]) });
+            results.push({
+              urn,
+              entityType: 'mlModel',
+              aspectName: 'mlModelProperties',
+              value: stripNulls(aspect[propsKey]),
+            });
           }
         } else if (urn.startsWith('urn:li:mlModelGroup:')) {
           const propsKey = keys.find((k) => k.includes('MLModelGroupProperties'));
           if (propsKey) {
-            results.push({ urn, entityType: 'mlModelGroup', aspectName: 'mlModelGroupProperties', value: stripNulls(aspect[propsKey]) });
+            results.push({
+              urn,
+              entityType: 'mlModelGroup',
+              aspectName: 'mlModelGroupProperties',
+              value: stripNulls(aspect[propsKey]),
+            });
           }
         }
       }
@@ -206,7 +238,12 @@ export async function ingestComplexAspects(
 
     if (!response.ok()) {
       const body = await response.text();
-      logger?.warn('ingestComplexAspects: failed', { urn, aspectName, status: response.status(), body: body.slice(0, 200) });
+      logger?.warn('ingestComplexAspects: failed', {
+        urn,
+        aspectName,
+        status: response.status(),
+        body: body.slice(0, 200),
+      });
     } else {
       logger?.info('ingestComplexAspects: ingested', { urn, aspectName });
     }

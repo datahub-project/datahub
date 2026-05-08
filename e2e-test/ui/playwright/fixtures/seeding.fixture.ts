@@ -125,7 +125,6 @@ const TESTS_DIR = path.join(__dirname, '../tests');
 const GLOBAL_DATA_FILE = path.join(__dirname, '../test-data/data.json');
 const GLOBAL_FEATURE_NAME = 'global-data';
 
-
 /** Shape written to the state file after a successful seed. */
 interface SeedState {
   featureName: string;
@@ -305,9 +304,6 @@ export const seedingFixture = base.extend<{}, SeedingFixtureOptions>({
           await ingestMcps(GLOBAL_FEATURE_NAME, gmsToken, gmsUrl(), logger, GLOBAL_DATA_FILE, false);
           freshlySeeded = true;
         }
-
-
-
       }
 
       if (!featureName) {
