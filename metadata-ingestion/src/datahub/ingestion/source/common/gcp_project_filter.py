@@ -211,7 +211,15 @@ def resolve_gcp_projects(
     """
     try:
         if filter_config.project_ids:
-            return [GcpProject(id=pid, name=pid) for pid in filter_config.project_ids]
+            resolved = [
+                GcpProject(id=pid, name=pid) for pid in filter_config.project_ids
+            ]
+            report.info(
+                title="GCP Project Filter",
+                message="Resolved GCP projects via explicit project_ids",
+                context=str([p.id for p in resolved]),
+            )
+            return resolved
 
         if filter_config.project_labels:
             labeled = _search_projects_by_labels(
@@ -223,6 +231,11 @@ def resolve_gcp_projects(
                     title="Project Filter",
                     message="No projects matched provided labels after applying project_id_pattern.",
                 )
+            report.info(
+                title="GCP Project Filter",
+                message="Resolved GCP projects via project_labels and project_id_pattern",
+                context=str([p.id for p in allowed]),
+            )
             return allowed
 
         all_projects = _search_all_projects(projects_client)
@@ -234,6 +247,11 @@ def resolve_gcp_projects(
                     "Could not resolve any GCP projects. Ensure Resource Manager permissions or adjust filters."
                 ),
             )
+        report.info(
+            title="GCP Project Filter",
+            message="Resolved GCP projects via project_id_pattern",
+            context=str([p.id for p in allowed]),
+        )
         return allowed
     except (GoogleAPICallError, GoogleAuthError) as e:
         logger.error("Failed to resolve GCP projects", exc_info=True)
