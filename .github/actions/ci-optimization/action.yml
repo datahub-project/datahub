@@ -41,6 +41,9 @@ outputs:
   java-client-change:
     description: "Java client code has changed"
     value: ${{ steps.filter.outputs.java-client == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  playwright-change:
+    description: "Playwright E2E test code has changed"
+    value: ${{ steps.filter.outputs.e2e-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
 
 runs:
   using: "composite"
@@ -120,3 +123,5 @@ runs:
           java-client:
             - "metadata-integration/java/datahub-client/**"
             - "metadata-models/**"
+          e2e-test:
+            - "e2e-test/**"

@@ -99,6 +99,7 @@ jobs:
       playwright_yarn_cache_key: ${{ steps.playwright-yarn-cache-key.outputs.playwright_yarn_cache_key }}
       playwright_yarn_cache_key_prefix: ${{ steps.playwright-yarn-cache-key.outputs.playwright_yarn_cache_key_prefix }}
       playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
+      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -221,6 +222,7 @@ jobs:
           if [[ "${{ steps.ci-optimize.outputs.backend-change }}" == 'true' || \
                 "${{ steps.ci-optimize.outputs.frontend-change }}" == 'true' || \
                 "${{ steps.ci-optimize.outputs.smoke-test-change }}" == 'true' || \
+                "${{ steps.ci-optimize.outputs.playwright-change }}" == 'true' || \
                 "${{ github.event_name }}" != 'pull_request' ]]; then
             matrix=''
             for ((i = 1; i <= shard_count; i++)); do
