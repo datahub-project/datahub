@@ -1,4 +1,8 @@
 {
+  "env": {
+    "REVDIFF_POPUP_WIDTH": "100%",
+    "REVDIFF_POPUP_HEIGHT": "100%"
+  },
   "permissions": {
     "allow": [
       "Bash(cd:*)",

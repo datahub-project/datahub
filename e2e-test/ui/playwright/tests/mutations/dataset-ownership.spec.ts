@@ -13,7 +13,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { DatasetPage } from '../../pages/dataset.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const username = `Example Name ${testId}`;
@@ -97,13 +97,13 @@ test.describe.skip('add, remove ownership for dataset', () => {
       const datasetPage = new DatasetPage(page, logger, logDir);
       await datasetPage.navigateToDataset(DATASET_URN);
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await datasetPage.addOwner(username, ownerType);
+      await datasetPage.sidebar.owners.add(username, ownerType);
       // Verify in owned assets
       await page.waitForTimeout(3000);
       await page.getByText(username).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.removeOwner(username, userHref);
+      await datasetPage.sidebar.owners.remove(username, userHref);
     });
   }
 
@@ -114,12 +114,12 @@ test.describe.skip('add, remove ownership for dataset', () => {
       const datasetPage = new DatasetPage(page, logger, logDir);
       await datasetPage.navigateToDataset(DATASET_URN);
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
-      await datasetPage.addOwner(groupName, ownerType);
+      await datasetPage.sidebar.owners.add(groupName, ownerType);
       await page.waitForTimeout(3000);
       await page.getByText(groupName).click();
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.removeOwner(groupName, groupHref);
+      await datasetPage.sidebar.owners.remove(groupName, groupHref);
     });
   }
 });

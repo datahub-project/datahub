@@ -9,7 +9,8 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { EntityDocumentationPage } from '../../pages/entity-documentation.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
+import type { DocumentationTab } from '../../pages/entity/tabs/documentation.tab';
 
 test.use({ featureName: 'mutations-v2' });
 
@@ -30,10 +31,12 @@ function getSampleUrl(path?: string): string {
 test.describe.configure({ mode: 'serial' });
 
 test.describe('edit documentation and link to dataset', () => {
-  let docPage: EntityDocumentationPage;
+  let datasetPage: DatasetPage;
+  let docPage: DocumentationTab;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
-    docPage = new EntityDocumentationPage(page, logger, logDir);
+    datasetPage = new DatasetPage(page, logger, logDir);
+    docPage = datasetPage.documentation;
     await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
   });
 

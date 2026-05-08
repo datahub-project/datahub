@@ -1,0 +1,16 @@
+export const DOCUMENTS = {
+  sidebar: '[data-testid="context-documents-sidebar"]',
+  titleInput: '[data-testid="document-title-input"]',
+  createButton: '[data-testid="create-document-button"]',
+  collapseButton: '[data-testid="context-sidebar-collapse-button"]',
+  editorSection: '[data-testid="document-editor-section"]',
+  statusSelect: '[data-testid="document-status-select"]',
+  typeSelect: '[data-testid="document-type-select"]',
+  searchInput: 'input[placeholder="Search documents"]',
+  searchResults: '[data-testid="context-sidebar-search-results"]',
+  treeItem: (urn: string) => `[data-testid="document-tree-item-${urn}"]`,
+  actionsMenuButton: '[data-testid="document-actions-menu-button"]',
+  moveDocumentPopover: '[data-testid="move-document-popover"]',
+  movePopoverSearchResultTitle: '[data-testid="move-popover-search-result-title"]',
+  moveConfirmButton: '[data-testid="move-document-confirm-button"]',
+} as const;
