@@ -235,6 +235,13 @@ bigquery_common = {
     *path_spec_common,
 }
 
+# Analytics Hub SDK is only used by the linked-dataset feature in the
+# BigQuery v2 connector. Kept out of `bigquery_common` so consumers of
+# `bigquery_common` (bigquery-slim, bigquery-queries, fivetran) stay lean.
+bigquery_analyticshub_common = {
+    "google-cloud-bigquery-analyticshub>=0.4.0,<1.0.0",
+}
+
 clickhouse_common = {
     # Clickhouse 0.2.0 adds support for SQLAlchemy 1.4.x
     # Disallow 0.2.5 because of https://github.com/xzkostyan/clickhouse-sqlalchemy/issues/272.
@@ -591,7 +598,11 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | usage_common,
     "bigid": {"requests>=2.28.0,<3.0"},
-    "bigquery": sql_common | bigquery_common | sqlglot_lib | datacatalog_lineage_common,
+    "bigquery": sql_common
+    | bigquery_common
+    | sqlglot_lib
+    | datacatalog_lineage_common
+    | bigquery_analyticshub_common,
     "bigquery-slim": bigquery_common,
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
