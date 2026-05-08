@@ -1008,7 +1008,13 @@ class SigmaAPI:
 
         ``customSQL`` entries carry the SQL definition; ``element`` entries
         carry ``elementId`` + ``sourceIds`` pointing at customSQL names.
-        400/403/404 are swallowed silently (workbooks with no lineage graph).
+
+        Sigma returns 400 (not 404) for workbooks that have no lineage graph at
+        all (empirically observed — workbooks whose only sources are non-SQL
+        warehouse tables never have a /lineage endpoint and return 400).
+        403/404 cover permission-scoped views and deleted workbooks.  5xx is
+        intentionally *not* silenced: a degraded Sigma API would otherwise
+        produce zero lineage aspects with zero warnings.
         """
         logger.debug(f"Fetching lineage for workbook '{workbook_id}'.")
         return self._paginated_raw_entries(

@@ -1173,8 +1173,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Only single-ref formulas are registered so computed expressions
         (``[Custom SQL/A] + [Custom SQL/B]``) do not fabricate upstream edges
         for columns that have no direct pass-through from the SQL source.
-        For workbook charts, SQL column names match display column names in
-        Sigma's formula refs, so no ``_customsql_col_mappings`` rewrite is needed.
+
+        Workbook charts source columns directly from the SQL SELECT list and Sigma
+        surfaces them in formula refs verbatim (e.g. ``[Custom SQL/customer_id]``),
+        so the SQL column name is the display name without any alias translation.
+        If Sigma ever allows renaming customSQL columns in the workbook UI (as DM
+        elements do), this assumption breaks and a ``_customsql_col_mappings`` pass
+        like the DM path would be needed.
         """
         passthrough: Dict[str, str] = {}
         for sigma_col, formula in element.column_formulas.items():
@@ -1196,6 +1201,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         Used to populate ChartInfo.inputs before the SQL aggregator drains.
         Returns an empty list on any failure.
+
+        Note: this is a second, independent invocation of the SQL parser for the same
+        SQL that ``_process_workbook_customsql_element`` later registers with the
+        aggregator (which re-parses at drain time).  The duplication is intentional:
+        the aggregator's resolved in_tables are not available until after all
+        workunits have been emitted, but ``ChartInfo.inputs`` must be written before
+        the page workunits are yielded so that entity-level upstream lineage appears
+        in the UI immediately.  In practice both parses use identical inputs and
+        produce identical URN lists.
         """
         definition = (customsql_entry.definition or "").strip()
         connection_id = customsql_entry.connectionId
@@ -1412,25 +1426,26 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if not downstreams:
                 self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
                 continue
-            try:
-                chart_col = SchemaFieldUrn.from_string(downstreams[0]).field_path
-            except InvalidUrnError:
-                self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
-                logger.debug(
-                    "Skipping FGL entry with invalid downstream URN %r", downstreams[0]
-                )
-                continue
-            for upstream_sf_urn in fgl.upstreams or []:
-                input_fields.append(
-                    InputFieldClass(
-                        schemaFieldUrn=upstream_sf_urn,
-                        schemaField=SchemaFieldClass(
-                            fieldPath=chart_col,
-                            type=SchemaFieldDataTypeClass(StringTypeClass()),
-                            nativeDataType="String",
-                        ),
+            for ds_urn in downstreams:
+                try:
+                    chart_col = SchemaFieldUrn.from_string(ds_urn).field_path
+                except InvalidUrnError:
+                    self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
+                    logger.debug(
+                        "Skipping FGL entry with invalid downstream URN %r", ds_urn
                     )
-                )
+                    continue
+                for upstream_sf_urn in fgl.upstreams or []:
+                    input_fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=upstream_sf_urn,
+                            schemaField=SchemaFieldClass(
+                                fieldPath=chart_col,
+                                type=SchemaFieldDataTypeClass(StringTypeClass()),
+                                nativeDataType="String",
+                            ),
+                        )
+                    )
         return input_fields
 
     def _passthrough_to_input_fields(
@@ -3428,6 +3443,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     element_input_fields
                 )
 
+            # For customSQL charts a second InputFields MCP is emitted at drain time
+            # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
+            # one (later in the workunit stream).  The formula-derived fields stashed
+            # above are merged into the drain MCP so nothing is silently dropped.
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=InputFieldsClass(fields=element_input_fields),
@@ -3613,7 +3632,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             custom_sql_by_name, eid_by_csql_name = (
                 self._build_workbook_customsql_registry(workbook)
             )
-            for csql_name, customsql_entry in custom_sql_by_name.items():
+            # Build once to avoid O(pages × elements) per customSQL lookup.
+            element_by_id: Dict[str, Element] = {
+                e.elementId: e for page in workbook.pages for e in page.elements
+            }
+            # Sorted so the "first wins" behaviour in _process_workbook_customsql_element
+            # is deterministic across runs regardless of API response order.
+            for csql_name, customsql_entry in sorted(custom_sql_by_name.items()):
                 element_ids = eid_by_csql_name.get(csql_name) or []
                 if not element_ids:
                     self.reporter.workbook_customsql_skipped += 1
@@ -3624,18 +3649,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         platform_instance=self.config.platform_instance,
                         name=element_id,
                     )
-                    element = next(
-                        (
-                            e
-                            for page in workbook.pages
-                            for e in page.elements
-                            if e.elementId == element_id
-                        ),
-                        None,
-                    )
+                    element = element_by_id.get(element_id)
                     if element is not None:
                         self._build_workbook_customsql_col_mapping(element, chart_urn)
                     self._process_workbook_customsql_element(chart_urn, customsql_entry)
+                    # The upstream_urns here come from a synchronous pre-drain parse;
+                    # the aggregator produces the same list at drain time from the same
+                    # SQL.  See _parse_customsql_upstream_dataset_urns for details.
                     upstream_urns = self._parse_customsql_upstream_dataset_urns(
                         customsql_entry
                     )
