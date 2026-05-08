@@ -1,5 +1,6 @@
 import logging
-from typing import Dict, Iterable, List, Literal, Optional, Set, Tuple
+from dataclasses import dataclass
+from typing import Any, Dict, Iterable, List, Literal, Optional, Set, Tuple
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
@@ -43,6 +44,7 @@ from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRegistry,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     DataModelElementUpstream,
     DataModelKey,
     DatasetUpstream,
@@ -107,6 +109,8 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
 )
+from datahub.metadata.urns import SchemaFieldUrn
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.error import InvalidUrnError
@@ -122,6 +126,12 @@ logger = logging.getLogger(__name__)
 # rather than trusting a lie. When the API starts returning a typed
 # column field (or we add SQL-based inference), swap this out here.
 SIGMA_DM_UNKNOWN_COLUMN_NATIVE_TYPE = "unknown"
+
+# FGL confidence scores for customSQL element lineage.
+_FGL_CONFIDENCE_SQL_PARSED: float = (
+    0.2  # aggregator-derived; matches SqlParsingAggregator
+)
+_FGL_CONFIDENCE_FORMULA_DERIVED: float = 0.1  # SELECT * synthesis from formula refs
 
 
 def _dm_column_ranks_above(
@@ -187,6 +197,41 @@ CrossDmOutcome = Literal[
     "name_unmatched_but_dm_known",
 ]
 
+# Platforms that require a case bridge: Sigma's /files path reports identifiers
+# in the catalog's native casing, but the DataHub connector for these platforms
+# lower-cases identifiers before URN construction.
+#
+# Snowflake is the only platform in this set: Sigma reports uppercase
+# (e.g. "MYDB/PUBLIC/MYTABLE"), but the Snowflake connector lowercases via
+# snowflake_config.convert_urns_to_lowercase (default=True, see
+# snowflake_config.py). If that flag is set to False, the Snowflake connector
+# emits upper-cased URNs and the edges produced here will dangle; use
+# connection_to_platform_map.convert_urns_to_lowercase=False to match.
+#
+# Other platforms (Postgres, Redshift, etc.) preserve catalog casing in their
+# connectors; Sigma's /files path uses the same casing, so no bridge is needed
+# and they work correctly by default.
+_WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
+
+# Expected root segment of the /files path for warehouse tables.
+_FILES_PATH_ROOT = "Connection Root"
+
+
+@dataclass(frozen=True)
+class _WarehouseTableRef:
+    """Resolved warehouse table coordinates derived from a /files response."""
+
+    connection_id: str
+    db: str
+    schema: str
+    table: str
+
+    def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
+        name = f"{self.db}.{self.schema}.{self.table}"
+        if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+            return name.lower()
+        return name
+
 
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
@@ -246,6 +291,27 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # dataModelIds whose bridge key collided with an earlier DM. The
         # emit loop skips these to avoid unlinked orphan Containers.
         self.dm_collided_data_model_ids: Set[str] = set()
+        # Per-platform SqlParsingAggregator instances for customSQL DM elements,
+        # keyed by (platform, env, platform_instance).
+        self._sql_aggregators: Dict[
+            Tuple[str, str, Optional[str]], SqlParsingAggregator
+        ] = {}
+        # element_dataset_urn -> {sql_col_lower -> sigma_col_name}.
+        # Built from ALL formula refs for FGL rewriting of named-column SELECTs.
+        self._customsql_col_mappings: Dict[str, Dict[str, str]] = {}
+        # Same key, but only single-ref (passthrough) formulas.
+        # Used for SELECT * synthesis to avoid fabricating upstream edges for
+        # computed expressions that reference multiple SQL columns.
+        self._customsql_passthrough_mappings: Dict[str, Dict[str, str]] = {}
+        # Element URNs registered with an aggregator via add_view_definition.
+        # Used to guard against multiple customSQL source_ids on one element
+        # and to scope dm_customsql_upstream_emitted to known registrations.
+        self._customsql_registered_urns: Set[str] = set()
+        # element_urn -> non-customSQL Upstream / FGL objects stashed from the
+        # per-element emit path.  Merged into the aggregator's UpstreamLineage
+        # MCP at drain so the final aspect is consolidated.
+        self._customsql_extra_upstreams: Dict[str, List[Upstream]] = {}
+        self._customsql_extra_fgls: Dict[str, List[FineGrainedLineageClass]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -284,12 +350,49 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 "False -- the pattern has no effect. Enable ingest_data_models "
                 "or remove data_model_pattern to silence this warning.",
             )
+        # Instance-level cache for /files/{inodeId} responses.
+        # Keyed by inodeId (UUID); value is the raw JSON dict or None on failure.
+        # Shared across all DMs so inodes that appear in multiple DMs hit the
+        # network only once.  The cache is unbounded — each entry is a small
+        # JSON dict and the number of unique warehouse-table inodes per tenant
+        # is expected to be in the hundreds, not millions.  If this assumption
+        # proves wrong, an LRU cap can be added without changing the interface.
+        self._files_cache: Dict[str, Optional[Dict[str, Any]]] = {}
+        # Inodes whose /files path already produced an unparseable warning;
+        # prevents N identical warnings when the same inode spans N DMs (H3).
+        self._files_path_unparseable_seen: Set[str] = set()
+        # Once-per-run gate flags so noisy global conditions don't flood logs.
+        self._registry_empty_warned: bool = False
+        # Per-platform set: platforms for which we've emitted a "first emission"
+        # info message noting that casing is unverified.
+        self._warned_unvalidated_platforms: Set[str] = set()
+        # Per-connection set: connectionIds emitted without a
+        # connection_to_platform_map entry; listed in the info message context.
+        self._no_platform_map_conn_ids: Set[str] = set()
         try:
             self.sigma_api = SigmaAPI(self.config, self.reporter)
         except Exception as e:
             raise ConfigurationError("Unable to connect sigma API") from e
 
         self.connection_registry = self._build_connection_registry()
+        # Warn on connection_to_platform_map keys that don't exist in the
+        # registry — a typo in the recipe UUID would silently make the override
+        # inactive and the operator would never know.
+        unknown_override_keys = [
+            k
+            for k in self.config.connection_to_platform_map
+            if k not in self.connection_registry.by_id
+        ]
+        if unknown_override_keys:
+            self.reporter.warning(
+                title="connection_to_platform_map references unknown connectionIds",
+                message=(
+                    "One or more keys in connection_to_platform_map do not match "
+                    "any Sigma connection returned by /v2/connections. The overrides "
+                    "for these keys will be silently ignored."
+                ),
+                context=f"unknown_keys={unknown_override_keys}",
+            )
 
     def _build_connection_registry(self) -> SigmaConnectionRegistry:
         """Fetch /v2/connections and build the in-memory registry.
@@ -542,6 +645,215 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         suffix = source_id[len("inode-") :]
         return self.sigma_dataset_urn_by_url_id.get(suffix)
 
+    def _get_file_metadata_cached(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} with instance-level caching.
+
+        Stores None on failure so repeated calls for a broken inode don't
+        retry the network.
+        """
+        if inode_id not in self._files_cache:
+            self._files_cache[inode_id] = self.sigma_api.get_file_metadata(inode_id)
+        return self._files_cache[inode_id]
+
+    def _build_dm_warehouse_url_id_map(
+        self, data_model: SigmaDataModel
+    ) -> Dict[str, _WarehouseTableRef]:
+        """For each type=table lineage inode on this DM, call /files/{inodeId}
+        (cached) to get the ``urlId`` and ``path``.  Returns a map of
+        urlId -> _WarehouseTableRef so _gen_data_model_element_upstream_lineage
+        can look up by the suffix that element ``sourceIds`` use.
+
+        Path shape assumption: ``Connection Root/<DB>/<SCHEMA>`` (3 segments).
+        This is empirically confirmed for Snowflake.  For other platforms the
+        shape is unverified — MySQL (DB == schema, possibly 2 segments),
+        BigQuery (project/dataset — also 2 without a DB layer), and
+        platforms with deeper catalog hierarchies may produce a different
+        segment count and land in dm_element_warehouse_path_unparseable.
+        TODO: validate /files path shapes for non-Snowflake platforms and
+        adjust the segment parser accordingly.
+
+        Counters bumped here:
+          - dm_element_warehouse_table_lookup_failed
+          - dm_element_warehouse_path_unparseable
+        """
+        result: Dict[str, _WarehouseTableRef] = {}
+        for inode_id, raw in data_model.warehouse_inodes_by_inode_id.items():
+            conn_id = raw["connectionId"]
+            first_attempt = inode_id not in self._files_cache
+            files_data = self._get_file_metadata_cached(inode_id)
+            if files_data is None:
+                # Only count on first failure; cache hits of a prior None
+                # (same inode referenced from N DMs) should not inflate.
+                if first_attempt:
+                    self.reporter.dm_element_warehouse_table_lookup_failed += 1
+                logger.debug(
+                    "DM %s: /files lookup failed for inode %r; skipping.",
+                    data_model.dataModelId,
+                    inode_id,
+                )
+                continue
+            url_id = str(files_data.get("urlId") or "")
+            path = str(files_data.get("path") or "")
+            # Use /files["name"] as the canonical table name — it is the
+            # authoritative source and avoids trusting the lineage entry's
+            # name field, which may be a display label or absent.
+            table_name = str(files_data.get("name") or "")
+            parts = path.split("/")
+            # Validate: exactly 3 non-empty segments and a non-empty urlId.
+            # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
+            # (empty DB segment -> malformed URN), and >3 segments.
+            # H4 TODO: confirm with Sigma whether API path strings are localised;
+            # if so, relax the literal "Connection Root" check.
+            path_invalid = (
+                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            )
+            root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
+            if path_invalid or root_unexpected:
+                # Dedup per inode: a single misconfigured inode shared across N
+                # DMs must not flood the report with N identical warnings (H3).
+                if inode_id not in self._files_path_unparseable_seen:
+                    self._files_path_unparseable_seen.add(inode_id)
+                    self.reporter.dm_element_warehouse_path_unparseable += 1
+                    self.reporter.warning(
+                        title=(
+                            "Sigma warehouse path has unexpected root segment"
+                            if root_unexpected
+                            else "Sigma warehouse /files path unparseable"
+                        ),
+                        message=(
+                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
+                            "no empty segments and a non-empty urlId. "
+                            "Warehouse upstream skipped for this inode."
+                        ),
+                        context=(
+                            f"inode={inode_id}, path={path!r}, "
+                            f"url_id={url_id!r}, table_name={table_name!r}"
+                        ),
+                    )
+                continue
+            if url_id in result:
+                logger.warning(
+                    "DM %s: two inodes share the same urlId %r; "
+                    "the earlier entry will be overwritten. "
+                    "This is unexpected — please report to DataHub.",
+                    data_model.dataModelId,
+                    url_id,
+                )
+            result[url_id] = _WarehouseTableRef(
+                connection_id=conn_id,
+                db=parts[1],
+                schema=parts[2],
+                table=table_name,
+            )
+        return result
+
+    def _resolve_dm_element_warehouse_upstream(
+        self,
+        *,
+        url_id_suffix: str,
+        warehouse_map: Dict[str, _WarehouseTableRef],
+    ) -> Optional[str]:
+        """Resolve a warehouse-table-backed inode sourceId to a fully-qualified
+        warehouse Dataset URN via the connection registry.
+
+        Returns None silently (no counter) when:
+          - url_id_suffix is not in warehouse_map — this inode is a Sigma Dataset,
+            not a warehouse table; not a failure, just not applicable here.
+
+        Returns None and bumps the appropriate counter when:
+          - connection_id is not in the registry or is_mappable=False
+            (dm_element_warehouse_unknown_connection)
+
+        Note: dm_element_warehouse_upstream_emitted is NOT bumped here; the
+        caller bumps it post-dedup so diamond source_ids (multiple inode-
+        entries resolving to the same URN) don't inflate the counter.
+
+        env and platform_instance are resolved from
+        ``config.connection_to_platform_map`` when a matching entry exists,
+        falling back to the Sigma source's own env + platform_instance=None.
+        For multi-env or multi-instance warehouse setups, add entries to
+        ``connection_to_platform_map`` in the recipe so emitted edges point
+        at the URNs the warehouse connector actually produced.
+
+        Note: platform-specific identifier normalization (e.g. BigQuery
+        date-sharded tables, wildcard refs) is not applied — the name
+        emitted is exactly what Sigma's /files path and lineage entry carry.
+        Tables with non-standard identifiers may produce dangling edges.
+        """
+        ref = warehouse_map.get(url_id_suffix)
+        if ref is None:
+            return None
+
+        record = self.connection_registry.get(ref.connection_id)
+        if record is None or not record.is_mappable:
+            # Counter is bumped by caller gated on unresolved_seen to avoid
+            # inflating on diamond source_ids.
+            logger.debug(
+                "inode-%s: connectionId %r not resolvable to a warehouse platform "
+                "(missing from registry or is_mappable=False).",
+                url_id_suffix,
+                ref.connection_id,
+            )
+            return None
+
+        conn_override = self.config.connection_to_platform_map.get(ref.connection_id)
+        # Use per-connection convert_urns_to_lowercase to handle warehouses
+        # where the connector was run with that flag set to False.  Default=True
+        # matches both the Snowflake connector default and most other platforms.
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        fq = ref.fq_name(record.datahub_platform, lowercase=lowercase)
+        # Use per-connection env / platform_instance overrides so the emitted
+        # URN matches what the warehouse connector actually produced.  Falls
+        # back to the Sigma recipe's own env + platform_instance=None, which
+        # is correct for single-env single-instance deployments.
+        target_env = conn_override.env if conn_override else self.config.env
+        target_platform_instance = (
+            conn_override.platform_instance if conn_override else None
+        )
+        # Once-per-platform info when emitting for a platform not in
+        # _WAREHOUSE_LOWERCASE_PLATFORMS, so operators know to verify that
+        # a few emitted edges actually resolve in their DataHub instance.
+        if record.datahub_platform not in _WAREHOUSE_LOWERCASE_PLATFORMS:
+            if record.datahub_platform not in self._warned_unvalidated_platforms:
+                self._warned_unvalidated_platforms.add(record.datahub_platform)
+                self.reporter.info(
+                    title="Sigma warehouse URNs emitted for unvalidated platform",
+                    message=(
+                        "Warehouse Dataset URNs are being emitted for a platform "
+                        "that has not been empirically verified to produce matching "
+                        "URN casing. Spot-check a few lineage edges in your DataHub "
+                        "instance to confirm they resolve correctly."
+                    ),
+                    context=f"platform={record.datahub_platform}",
+                )
+        # Once per unique connectionId without an override, list the IDs in the
+        # info message so operators know which connections to add to
+        # connection_to_platform_map if env / platform_instance mismatches appear.
+        # Fire once per unique connectionId that has no override — gated on
+        # "not already seen" so repeated emissions from the same connection
+        # don't re-fire the message.
+        if (
+            conn_override is None
+            and ref.connection_id not in self._no_platform_map_conn_ids
+        ):
+            self._no_platform_map_conn_ids.add(ref.connection_id)
+            self.reporter.info(
+                title="Sigma warehouse URNs emitted without connection_to_platform_map",
+                message=(
+                    "Warehouse Dataset URNs are being emitted using the Sigma "
+                    "recipe's env and platform_instance=None. If your warehouse "
+                    "connector uses a different env or platform_instance, configure "
+                    "connection_to_platform_map in the Sigma recipe to match."
+                ),
+                context=f"connection_ids_without_override={sorted(self._no_platform_map_conn_ids)}",
+            )
+        return builder.make_dataset_urn_with_platform_instance(
+            platform=record.datahub_platform,
+            name=fq,
+            env=target_env,
+            platform_instance=target_platform_instance,
+        )
+
     def _resolve_dm_element_cross_dm_upstream(
         self,
         source_id: str,
@@ -666,13 +978,312 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # ``malformed`` has no dedicated counter; falls into the caller's
         # generic ``data_model_element_upstreams_unresolved`` bump.
 
+    # ------------------------------------------------------------------
+    # customSQL DM element SQL parsing
+    # ------------------------------------------------------------------
+
+    def _get_sql_aggregator(
+        self,
+        platform: str,
+        env: str,
+        platform_instance: Optional[str],
+    ) -> SqlParsingAggregator:
+        """Return (or lazily create) the per-platform aggregator instance.
+
+        This path is independent of the ``generate_column_lineage=False``
+        kill-switch in ``_get_element_input_details`` (the workbook element
+        SQL path).  That flag guards ``sqlglot.lineage()`` /
+        ``create_lineage_sql_parsed_result`` which caused OOM on large workbook
+        SQL; the aggregator's ``add_view_definition`` uses a different, bounded
+        parsing path and does not share that kill-switch.
+        """
+        cache_key = (platform, env, platform_instance)
+        if cache_key not in self._sql_aggregators:
+            self._sql_aggregators[cache_key] = SqlParsingAggregator(
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                schema_resolver=None,
+                graph=None,
+                generate_lineage=True,
+                generate_queries=False,
+                generate_query_subject_fields=False,
+                generate_usage_statistics=False,
+                generate_query_usage_statistics=False,
+                generate_operations=False,
+            )
+        return self._sql_aggregators[cache_key]
+
+    def _build_customsql_col_mapping(
+        self,
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+    ) -> None:
+        """Populate ``_customsql_col_mappings`` for one customSQL-backed element.
+
+        Scans each column's formula for refs of the form ``[{element.name}/COL]``
+        and maps each SQL column name (lowercased) to the Sigma display column
+        name.  Only refs whose namespace matches the element's own name are
+        registered — cross-element refs (``[OtherElement/COL]``) are skipped so
+        they cannot pollute the rewrite map.  ``finditer`` is used so that
+        formulas referencing multiple SQL columns register all of them.
+        """
+        mapping: Dict[str, str] = {}
+        passthrough: Dict[str, str] = {}
+        for col in element.columns:
+            refs = extract_bracket_refs(col.formula)
+            for ref in refs:
+                if (
+                    ref.column is not None
+                    and ref.source.lower() == element.name.lower()
+                ):
+                    sql_col_lower = ref.column.lower()
+                    if sql_col_lower in mapping and mapping[sql_col_lower] != col.name:
+                        logger.warning(
+                            "DM element %r: SQL column %r referenced by multiple Sigma "
+                            "display columns (%r and %r); using the latter for FGL.",
+                            element_dataset_urn,
+                            ref.column,
+                            mapping[sql_col_lower],
+                            col.name,
+                        )
+                    mapping[sql_col_lower] = col.name
+                    # Single-ref formula = direct passthrough of an upstream column.
+                    # Multi-ref = computed expression; exclude from SELECT * synthesis
+                    # to avoid fabricating upstream edges for non-existent columns.
+                    if len(refs) == 1:
+                        passthrough[sql_col_lower] = col.name
+        if mapping:
+            self._customsql_col_mappings[element_dataset_urn] = mapping
+        if passthrough:
+            self._customsql_passthrough_mappings[element_dataset_urn] = passthrough
+
+    def _process_dm_customsql_element(
+        self,
+        element_dataset_urn: str,
+        customsql_entry: CustomSqlEntry,
+    ) -> None:
+        """Register one customSQL DM element with the per-platform aggregator."""
+        if element_dataset_urn in self._customsql_registered_urns:
+            self.reporter.dm_customsql_skipped += 1
+            self.reporter.warning(
+                title="Sigma DM element has multiple customSQL source_ids",
+                message="Only the first customSQL source_id is used for warehouse lineage; subsequent ones are skipped. The first-seen ordering is determined by Sigma's /lineage API response.",
+                context=(
+                    f"element_urn={element_dataset_urn!r}, "
+                    f"skipped_name={customsql_entry.name!r}, "
+                    f"skipped_definition_prefix={(customsql_entry.definition)[:80]!r}"
+                ),
+            )
+            return
+
+        definition = (customsql_entry.definition or "").strip()
+        if not definition:
+            self.reporter.dm_customsql_skipped += 1
+            return
+
+        connection_id = customsql_entry.connectionId
+        if not connection_id:
+            self.reporter.dm_customsql_skipped += 1
+            return
+        record = self.connection_registry.get(connection_id)
+        if record is None:
+            self.reporter.dm_customsql_skipped += 1
+            logger.warning(
+                "DM customSQL element %r: connectionId=%r not found in connection registry; "
+                "warehouse lineage will be absent.  Check /v2/connections scope/permissions.",
+                element_dataset_urn,
+                connection_id,
+            )
+            return
+        if not record.is_mappable:
+            self.reporter.dm_customsql_skipped += 1
+            logger.warning(
+                "DM customSQL element %r: Sigma connection type %r is not mapped to a "
+                "DataHub platform; warehouse lineage will be absent.  "
+                "Add it to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
+                element_dataset_urn,
+                record.sigma_type,
+            )
+            return
+
+        aggregator = self._get_sql_aggregator(
+            platform=record.datahub_platform,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        try:
+            aggregator.add_view_definition(
+                view_urn=element_dataset_urn,
+                view_definition=definition,
+                default_db=record.default_database,
+                default_schema=record.default_schema,
+            )
+            self.reporter.dm_customsql_aggregator_invocations += 1
+            self._customsql_registered_urns.add(element_dataset_urn)
+        except Exception as e:
+            self.reporter.dm_customsql_aggregator_invocation_errors += 1
+            self.reporter.warning(
+                title="Sigma DM customSQL element registration failed",
+                message="SqlParsingAggregator.add_view_definition raised; this element will be emitted without warehouse lineage.",
+                context=f"element_urn={element_dataset_urn}, customsql_name={customsql_entry.name!r}, connection_id={connection_id!r}, platform={record.datahub_platform}",
+                exc=e,
+            )
+
+    def _rewrite_fgl_downstreams(
+        self, mcp: MetadataChangeProposalWrapper
+    ) -> MetadataChangeProposalWrapper:
+        """Rewrite FGL downstream schemaField URNs to use Sigma column names.
+
+        The aggregator derives downstream field names from the SQL SELECT list
+        (e.g. ``customer_id``), but DataHub's SchemaMetadata for Sigma elements
+        uses the display names from ``/columns`` (e.g. ``Customer Id``).
+        ``_customsql_col_mappings`` bridges the two via the formula ref
+        ``[Custom SQL/CUSTOMER_ID]`` that Sigma stores on each column.
+
+        FGL entries whose downstreams cannot be rewritten are dropped; the
+        entity-level ``upstreams`` list on the aspect is always preserved.
+        """
+        aspect = mcp.aspect
+        if not isinstance(aspect, UpstreamLineage):
+            return mcp
+        entity_urn = str(mcp.entityUrn)
+        # Only count MCPs for element URNs we registered — the aggregator
+        # should only emit for those, but guard in case of future changes.
+        if entity_urn in self._customsql_registered_urns:
+            self.reporter.dm_customsql_upstream_emitted += 1
+
+        # Merge non-customSQL upstreams stashed from the per-element emit so the
+        # final aspect is consolidated rather than the second emission overwriting.
+        extra_upstreams = self._customsql_extra_upstreams.get(entity_urn)
+        if extra_upstreams:
+            aspect.upstreams = list(aspect.upstreams or []) + extra_upstreams
+
+        # Extra FGLs come from the non-customSQL path and already use Sigma
+        # display names — keep them separate from the aggregator FGL so the
+        # rewrite loop below doesn't try to remap them.
+        extra_fgls = self._customsql_extra_fgls.get(entity_urn)
+
+        if not aspect.fineGrainedLineages:
+            # For SELECT * on a single upstream, synthesize FGL from passthrough
+            # formula refs: only single-ref formulas are included so computed
+            # expressions (If([X]>0,[Y],0)) don't fabricate non-existent upstream
+            # column edges.  Confidence 0.1 (formula-derived, lower than SQL-parsed 0.2).
+            if len(aspect.upstreams) == 1:
+                col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
+                if col_mapping:
+                    upstream_urn = aspect.upstreams[0].dataset
+                    aspect.fineGrainedLineages = [
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            upstreams=[
+                                builder.make_schema_field_urn(upstream_urn, sql_col)
+                            ],
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            downstreams=[
+                                builder.make_schema_field_urn(entity_urn, sigma_col)
+                            ],
+                            confidenceScore=_FGL_CONFIDENCE_FORMULA_DERIVED,
+                        )
+                        for sql_col, sigma_col in col_mapping.items()
+                    ]
+                    self.reporter.dm_customsql_column_lineage_emitted += 1
+                    if extra_fgls:
+                        aspect.fineGrainedLineages = (
+                            list(aspect.fineGrainedLineages) + extra_fgls
+                        )
+                    return mcp
+            # No synthesis possible; still merge stashed non-customSQL FGL.
+            if extra_fgls:
+                aspect.fineGrainedLineages = extra_fgls
+            return mcp
+
+        rewritten_fgls = []
+        for fgl in aspect.fineGrainedLineages:
+            rewritten_downstreams = []
+            for ds_urn in fgl.downstreams or []:
+                try:
+                    sfu = SchemaFieldUrn.from_string(ds_urn)
+                except InvalidUrnError:
+                    self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+                    logger.warning(
+                        "Aggregator emitted malformed schemaField URN %r; dropping FGL entry.",
+                        ds_urn,
+                    )
+                    continue
+                ds_parent_urn, field_path = sfu.parent, sfu.field_path
+                col_mapping = self._customsql_col_mappings.get(ds_parent_urn)
+                if col_mapping is None:
+                    rewritten_downstreams.append(ds_urn)
+                    continue
+                sigma_col = col_mapping.get(field_path.lower())
+                if sigma_col:
+                    rewritten_downstreams.append(
+                        builder.make_schema_field_urn(ds_parent_urn, sigma_col)
+                    )
+                else:
+                    self.reporter.dm_customsql_fgl_downstream_unmapped += 1
+            if rewritten_downstreams:
+                rewritten_fgls.append(
+                    FineGrainedLineageClass(
+                        upstreamType=fgl.upstreamType,
+                        upstreams=fgl.upstreams,
+                        downstreamType=fgl.downstreamType,
+                        downstreams=rewritten_downstreams,
+                        confidenceScore=fgl.confidenceScore,
+                    )
+                )
+
+        # Append non-customSQL FGL after rewriting; they use Sigma display names
+        # already and must not be passed through the rewrite loop above.
+        all_fgls = rewritten_fgls + (extra_fgls or [])
+        aspect.fineGrainedLineages = all_fgls or None
+        if rewritten_fgls:
+            self.reporter.dm_customsql_column_lineage_emitted += 1
+        return mcp
+
+    def _drain_sql_aggregators(self) -> Iterable[MetadataWorkUnit]:
+        """Drain all per-platform aggregators and emit lineage workunits.
+
+        Intentionally deferred to the end of ``get_workunits_internal``: all DM
+        elements must be registered via ``add_view_definition`` before parsing
+        runs, so the aggregator sees the full view set in one pass.  The
+        consolidated ``UpstreamLineage`` MCP emitted here is the source of truth
+        for customSQL-backed element lineage; any earlier per-element
+        ``UpstreamLineage`` MCP (for non-customSQL upstreams) is superseded by
+        the merged aspect yielded below.  FGL downstream schemaField URNs are
+        rewritten to Sigma display names before yielding.  Each aggregator is
+        closed in a finally block so SQLite-backed tempfiles are released even
+        if gen_metadata raises.
+        """
+        for cache_key, aggregator in sorted(
+            self._sql_aggregators.items(),
+            key=lambda kv: tuple(x or "" for x in kv[0]),
+        ):
+            try:
+                for mcp in aggregator.gen_metadata():
+                    yield self._rewrite_fgl_downstreams(mcp).as_workunit()
+                agg_report = aggregator.report
+                self.reporter.dm_customsql_parse_failed += agg_report.num_views_failed
+            except Exception as e:
+                self.reporter.warning(
+                    title="Sigma DM customSQL aggregator drain failed",
+                    message="SqlParsingAggregator.gen_metadata raised; warehouse lineage for this platform's customSQL elements may be partial.",
+                    context=f"aggregator_key={cache_key!r}",
+                    exc=e,
+                )
+            finally:
+                aggregator.close()
+
     def _gen_data_model_element_upstream_lineage(
         self,
         element: SigmaDataModelElement,
         data_model: SigmaDataModel,
         element_dataset_urn: str,
+        *,
         elementId_to_dataset_urn: Dict[str, str],
         element_name_to_eids: Dict[str, List[str]],
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> Optional[UpstreamLineage]:
         # Success counters bump once per unique URN; diamond source_ids
         # resolving to the same URN should not inflate the signal.
@@ -684,6 +1295,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urns: List[str] = []
         seen: Set[str] = set()
         unresolved_seen: Set[str] = set()
+        # Separate dedup set for warehouse connection failures so the counter
+        # fires once per unique source_id regardless of whether the SD path
+        # resolves (which would leave the source_id out of unresolved_seen).
+        warehouse_failure_seen: Set[str] = set()
         for source_id in element.source_ids:
             upstream_urn: Optional[str] = None
             shape: str = ""
@@ -692,9 +1307,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_urn = elementId_to_dataset_urn[source_id]
                 shape = "intra"
             elif source_id.startswith("inode-"):
+                url_id_suffix = source_id[len("inode-") :]
+                # Check warehouse map (type=table nodes) and the existing SD
+                # resolver (type=dataset nodes) in parallel; both can fire for
+                # the same inode when a file is catalogued as both a Sigma
+                # Dataset and a warehouse table.  Emitting both as direct
+                # upstreams is intentional: the warehouse edge gives operators
+                # end-to-end lineage to the source table, while the SD edge
+                # preserves the Sigma-Dataset hop.  Downstream lineage queries
+                # may see the warehouse table as a direct upstream of the DM
+                # element — this is correct for the entity-level graph.
+                warehouse_urn = self._resolve_dm_element_warehouse_upstream(
+                    url_id_suffix=url_id_suffix,
+                    warehouse_map=warehouse_url_id_map,
+                )
                 upstream_urn = self._resolve_dm_element_external_upstream(source_id)
                 shape = "external"
-                if upstream_urn is None and source_id not in unresolved_seen:
+                # Both URN types use the same ``seen`` set so a warehouse URN
+                # and an SD URN that happen to collide are still deduped.
+                # warehouse_urn is appended here (inside the inode- branch) with
+                # its own seen-check; upstream_urn follows the standard gate at
+                # the bottom of the for-loop.
+                if warehouse_urn and warehouse_urn not in seen:
+                    upstream_urns.append(warehouse_urn)
+                    seen.add(warehouse_urn)
+                    self.reporter.dm_element_warehouse_upstream_emitted += 1
+                # Connection-failure counter: uses its own dedup set so a
+                # duplicate source_id fires at most once even when the SD path
+                # resolves (which would leave source_id out of unresolved_seen).
+                if (
+                    warehouse_urn is None
+                    and url_id_suffix in warehouse_url_id_map
+                    and source_id not in warehouse_failure_seen
+                ):
+                    warehouse_failure_seen.add(source_id)
+                    self.reporter.dm_element_warehouse_unknown_connection += 1
+                if (
+                    upstream_urn is None
+                    and warehouse_urn is None
+                    and source_id not in unresolved_seen
+                ):
                     unresolved_seen.add(source_id)
                     self.reporter.data_model_element_upstreams_unresolved_external += 1
                     self.reporter.data_model_element_upstreams_unresolved += 1
@@ -723,6 +1375,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         source_id,
                         cross_dm_outcome,
                     )
+            elif source_id in data_model.custom_sql_by_name:
+                # customSQL source: register with the aggregator for deferred
+                # SQL parsing.  The aggregator emits UpstreamLineage + FGL at
+                # drain time; no upstream_urn is added to the entity-level list
+                # here because the aggregator owns that emission.
+                self._process_dm_customsql_element(
+                    element_dataset_urn,
+                    data_model.custom_sql_by_name[source_id],
+                )
+                shape = "customSQL"
             else:
                 # Any other shape we don't parse (future Sigma vendor
                 # shape, or an existing shape we missed). Counted
@@ -863,8 +1525,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
-        the lexicographically-first URN is chosen (matching T2 PR1's collision policy
-        and Sigma's server-side coalescing behaviour).
+        the lexicographically-first URN is chosen (matching the collision policy
+        used elsewhere in this connector and Sigma's server-side coalescing behaviour).
         """
         by_name, _ = _dedup_dm_element_columns(element.columns)
 
@@ -1005,8 +1667,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
                 # Collision handling: multiple siblings passed /lineage filter.
-                # Pick sorted-first to match T2 PR1's _resolve_external_upstream
-                # policy and Sigma's server-side coalescing.
+                # Pick sorted-first to match the collision policy used elsewhere
+                # in this connector and Sigma's server-side coalescing.
                 if len(surviving_urns) > 1:
                     self.reporter.data_model_element_fgl_collision_pick_first += 1
                     self.reporter.warning(
@@ -1077,6 +1739,25 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         owner_username: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         dm_url_id = data_model.get_url_id()
+        # Resolve all type=table inodes for this DM once before the element loop.
+        # One /files call per unique inode (cached across DMs).
+        warehouse_url_id_map = self._build_dm_warehouse_url_id_map(data_model)
+        # Warn once per run if the registry is empty while warehouse inodes exist.
+        if (
+            not self._registry_empty_warned
+            and data_model.warehouse_inodes_by_inode_id
+            and not self.connection_registry.by_id
+        ):
+            self._registry_empty_warned = True
+            self.reporter.warning(
+                title="Sigma connection registry is empty — warehouse lineage unavailable",
+                message=(
+                    "The connection registry contains no records. All warehouse "
+                    "upstream edges for DM elements will be skipped for this run. "
+                    "Check whether the /v2/connections fetch succeeded and the "
+                    "connections_skipped_missing_id counter."
+                ),
+            )
         # ``data_model.path`` starts with the workspace name (e.g.
         # "Acryl Data/Marketing"); drop index 0 because the workspace is
         # already the enclosing Container. ``split`` on a path with no
@@ -1184,17 +1865,45 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 aspect=BrowsePathsV2Class(browse_entries),
             ).as_workunit()
 
+            has_customsql = any(
+                sid in data_model.custom_sql_by_name for sid in element.source_ids
+            )
+            # Build formula-based col mapping before processing lineage so
+            # _drain_sql_aggregators can rewrite FGL downstream field names.
+            if has_customsql:
+                self._build_customsql_col_mapping(element, element_dataset_urn)
+
             upstream_lineage = self._gen_data_model_element_upstream_lineage(
                 element,
                 data_model,
                 element_dataset_urn,
-                elementId_to_dataset_urn,
-                element_name_to_eids,
+                elementId_to_dataset_urn=elementId_to_dataset_urn,
+                element_name_to_eids=element_name_to_eids,
+                warehouse_url_id_map=warehouse_url_id_map,
             )
             if upstream_lineage is not None:
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=element_dataset_urn, aspect=upstream_lineage
-                ).as_workunit()
+                if (
+                    has_customsql
+                    and element_dataset_urn in self._customsql_registered_urns
+                ):
+                    # customSQL pre-flight succeeded: stash non-customSQL
+                    # upstreams/FGL and skip the immediate emit.  Drain will
+                    # merge them into the single consolidated UpstreamLineage
+                    # MCP, avoiding a redundant overwrite.
+                    if upstream_lineage.upstreams:
+                        self._customsql_extra_upstreams[element_dataset_urn] = list(
+                            upstream_lineage.upstreams
+                        )
+                    if upstream_lineage.fineGrainedLineages:
+                        self._customsql_extra_fgls[element_dataset_urn] = list(
+                            upstream_lineage.fineGrainedLineages
+                        )
+                else:
+                    # No customSQL registration (pre-flight failed or no
+                    # customSQL on this element): emit immediately.
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=element_dataset_urn, aspect=upstream_lineage
+                    ).as_workunit()
 
             self.reporter.data_model_elements_emitted += 1
             if data_model.workspaceId:
@@ -1862,7 +2571,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_sibling = False
 
             if formula is not None:
-                refs = list(extract_bracket_refs(formula))
+                refs = extract_bracket_refs(formula)
                 if refs:
                     param_count = 0
                     sibling_count = 0
@@ -2216,6 +2925,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         """DataHub Ingestion framework entry point."""
         logger.info("Sigma plugin execution is started")
+        # Reset per-run customSQL state so re-invoking this method on the same
+        # instance (e.g. in test harnesses) does not leak state from a prior run.
+        # Close existing aggregators before clearing so SQLite tempfiles are released.
+        for _agg in self._sql_aggregators.values():
+            _agg.close()
+        self._sql_aggregators.clear()
+        self._customsql_col_mappings.clear()
+        self._customsql_passthrough_mappings.clear()
+        self._customsql_registered_urns.clear()
+        self._customsql_extra_upstreams.clear()
+        self._customsql_extra_fgls.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
@@ -2449,6 +3169,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     f"{workspace.name} ({workspace.workspaceId})"
                 )
         yield from self._gen_sigma_dataset_upstream_lineage_workunit()
+        yield from self._drain_sql_aggregators()
 
     def get_report(self) -> SourceReport:
         return self.reporter

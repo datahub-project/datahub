@@ -96,7 +96,7 @@ class NotionSourceConfig(
 
     embedding: EmbeddingConfig = Field(
         default_factory=EmbeddingConfig,
-        description="Embedding generation configuration (LiteLLM with Cohere/Bedrock)",
+        description="Embedding generation configuration (Bedrock, Cohere, OpenAI, or Vertex AI)",
     )
 
     max_documents: int = Field(

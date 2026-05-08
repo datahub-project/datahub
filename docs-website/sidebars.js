@@ -321,6 +321,12 @@ module.exports = {
               className: "saasOnly",
             },
             {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Databricks Metadata Sync",
               type: "doc",
               id: "docs/automations/databricks-metadata-sync",

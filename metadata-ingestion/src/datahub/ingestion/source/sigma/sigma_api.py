@@ -15,7 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -28,6 +28,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     DataModelElementUpstream,
     DatasetUpstream,
     Element,
@@ -39,6 +40,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelColumn,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseInodeRaw,
     Workbook,
     Workspace,
 )
@@ -1059,6 +1061,8 @@ class SigmaAPI:
         # Reset before populating so repeated _assemble_data_model calls
         # (e.g. during alias discovery) cannot accumulate stale entries.
         data_model.source_dm_element_names = {}
+        data_model.warehouse_inodes_by_inode_id = {}
+        data_model.custom_sql_by_name = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1086,15 +1090,117 @@ class SigmaAPI:
                     data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
                         src_name.strip()
                     )
-            # ``type: dataset`` / ``type: table`` entries are resolved
-            # on the fly from their ``inode-<id>`` source_ids; no DM-side
-            # stash is needed.
+            elif entry_type == "table":
+                # Stash raw warehouse-table nodes keyed by inodeId so
+                # SigmaSource can call /files/{inodeId} for the urlId + path
+                # needed to construct fully-qualified warehouse Dataset URNs.
+                inode_id = str(entry.get("inodeId") or "")
+                conn_id = str(entry.get("connectionId") or "")
+                if not (inode_id and conn_id):
+                    self.report.dm_element_warehouse_table_entry_incomplete += 1
+                    missing = [
+                        f
+                        for f, v in (
+                            ("inodeId", inode_id),
+                            ("connectionId", conn_id),
+                        )
+                        if not v
+                    ]
+                    self.report.warning(
+                        title="Sigma type=table lineage entry is incomplete",
+                        message=(
+                            "A type=table lineage entry is missing inodeId or "
+                            "connectionId. Warehouse upstream skipped."
+                        ),
+                        context=(
+                            f"dm={data_model.dataModelId}, missing_fields={missing}"
+                        ),
+                    )
+                    continue
+                raw: WarehouseInodeRaw = {"connectionId": conn_id}
+                data_model.warehouse_inodes_by_inode_id[inode_id] = raw
+            elif entry_type in ("customSQL", "customSql"):
+                name = entry.get("name")
+                if isinstance(name, str) and name:
+                    # Sigma's API normally guarantees unique entry names within
+                    # a DM.  A collision here means a payload anomaly; last
+                    # entry wins so downstream elements still resolve (with a
+                    # warning so operators can investigate).
+                    if name in data_model.custom_sql_by_name:
+                        self.report.warning(
+                            title="Sigma DM customSQL duplicate entry name",
+                            message="Two customSQL lineage entries share the same name; later entry overwrites earlier — elements sourcing the earlier entry will get the wrong SQL.",
+                            context=f"dataModelId={data_model.dataModelId!r}, name={name!r}",
+                        )
+                    data_model.custom_sql_by_name[name] = CustomSqlEntry.model_validate(
+                        entry
+                    )
+                else:
+                    self.report.warning(
+                        title="Sigma DM customSQL entry missing name",
+                        message="A customSQL lineage entry has a missing or non-string name field; it will be skipped and any elements referencing it will have no warehouse lineage.",
+                        context=f"dataModelId={data_model.dataModelId!r}, entry_keys={sorted(entry.keys())!r}",
+                    )
+            # ``type: dataset`` entries (CSV uploads) are terminal.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} and return the raw JSON dict, or None on
+        non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``
+        (UUID) to its ``urlId`` (alphanumeric slug) and file-system ``path``
+        (``Connection Root/<DB>/<SCHEMA>`` for Snowflake; shape for other
+        platforms is unverified — see TODO in _build_dm_warehouse_url_id_map).
+
+        Callers are responsible for caching; this method always makes a live
+        HTTP call so the instance-level cache on ``SigmaSource`` can be shared
+        across multiple callers without duplicating retry/error logic here.
+
+        Error handling mirrors ``get_data_model_by_url_id``: 429 gets a
+        dedicated counter + warning; other non-200 statuses and exceptions
+        emit a rate-limited structured warning so operators can distinguish
+        rate-limiting from missing-scope (403/404) from server errors (5xx).
+        """
+        logger.debug("Fetching file metadata for inode '%s'.", inode_id)
+        url = f"{self.config.api_url}/files/{quote(inode_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 200:
+                return response.json()
+            status = response.status_code
+            if status == 429:
+                self.report.dm_element_warehouse_table_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /files lookup",
+                    message=(
+                        "Retry budget exhausted on a 429 response for a /files inode lookup. "
+                        "Warehouse upstream will be missing for this inode. "
+                        "Re-run the ingestion to recover."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
+                )
+            else:
+                self.report.warning(
+                    title="Sigma /files lookup returned non-200",
+                    message=(
+                        "Unable to resolve warehouse table metadata for an inode. "
+                        "Warehouse upstream will be missing."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
+                )
+            return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /files lookup failed",
+                message="Exception while fetching file metadata for an inode; warehouse upstream skipped.",
+                context=f"inode_id={inode_id}",
+                exc=e,
+            )
+            return None
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space

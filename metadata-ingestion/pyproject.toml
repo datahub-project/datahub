@@ -296,8 +296,8 @@ confluence = [
     "atlassian-python-api>=3.41.0,<5.0.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -357,8 +357,8 @@ datahub-debug = [
 datahub-documents = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -455,6 +455,10 @@ delta-lake = [
     "ujson>=5.12.0,<6.0.0",
     "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
+]
+
+dlt = [
+    "dlt>=1.0.0,<2.0.0",
 ]
 
 doris = [
@@ -562,9 +566,12 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
+    "patchy==2.8.0",
     "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
+    "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 feast = [
@@ -730,6 +737,11 @@ iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "urllib3>=1.26,<3.0",
+]
+
+informatica = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "requests<3.0.0",
 ]
 
 json-schema = [
@@ -911,8 +923,8 @@ nifi = [
 notion = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1157,6 +1169,7 @@ sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 slack = [
@@ -1408,8 +1421,8 @@ unity-catalog = [
 unstructured = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1463,8 +1476,10 @@ all = [
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "db-dtypes",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
@@ -1472,6 +1487,7 @@ all = [
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1494,7 +1510,6 @@ all = [
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1613,6 +1628,7 @@ dev = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -1625,6 +1641,7 @@ dev = [
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1648,7 +1665,6 @@ dev = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1806,6 +1822,7 @@ docs = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -1818,6 +1835,7 @@ docs = [
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1841,7 +1859,6 @@ docs = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -2145,6 +2162,7 @@ nifi = "datahub.ingestion.source.nifi:NifiSource"
 powerbi = "datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource"
 powerbi-report-server = "datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource"
 iceberg = "datahub.ingestion.source.iceberg.iceberg:IcebergSource"
+informatica = "datahub.ingestion.source.informatica.source:InformaticaSource"
 vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
@@ -2155,6 +2173,7 @@ unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
+dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
