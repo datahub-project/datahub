@@ -3163,6 +3163,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
+        # Step 3b fallback: self-exclusion may have emptied candidates when the
+        # chart's own name matches ref.source (BFS edge-only DM synthesis sets
+        # upstream.name = element.name). Resolve via the DM map directly so the
+        # formula still binds to the DM element URN.
+        dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
+        if dm_urn:
+            return (dm_urn, ref.column)
+
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
         if len(wh_candidates) == 1:
