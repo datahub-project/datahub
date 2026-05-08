@@ -57,37 +57,80 @@ Now proceed to [connect your Slack account](#connect-your-slack-account) so you 
 
 ### DataHub Slack Bot Permissions
 
-The DataHub Slack bot requires a certain set of Slack scopes to function properly.
+The DataHub Slack bot requires a certain set of Slack scopes to function properly. Some scopes are
+**optional** — the bot will install successfully without them, but specific features will be
+degraded. See [Optional scopes and trade-offs](#optional-scopes-and-trade-offs) below for what you
+lose if you decline them.
 
 <details>
-<summary>View all required Slack bot scopes</summary>
+<summary>View all Slack bot scopes</summary>
 
-| Scope                   | Purpose                                                                                         |
-| ----------------------- | ----------------------------------------------------------------------------------------------- |
-| `commands`              | Required for slash commands / shortcuts                                                         |
-| `app_mentions:read`     | Required to get @DataHub messages                                                               |
-| `chat:write`            | Required to send messages as @DataHub                                                           |
-| `chat:write.public`     | Required to post in public channels the bot hasn't joined                                       |
-| `chat:write.customize`  | Allows using a custom icon so messages display the DataHub Cloud logo                           |
-| `channels:history`      | Required to read message history in public channels                                             |
-| `channels:read`         | Required to see public channel details                                                          |
-| `groups:history`        | Required to read message history in private channels                                            |
-| `groups:read`           | Required to see private channel details                                                         |
-| `im:history`            | Required to read direct message history                                                         |
-| `im:read`               | Required to see direct message details                                                          |
-| `mpim:history`          | Required to read group DM history                                                               |
-| `mpim:read`             | Required to see group DM details                                                                |
-| `metadata.message:read` | Required to read message metadata                                                               |
-| `team:read`             | Required to get workspace ID and create links to user profiles                                  |
-| `channels:join`         | Allows the bot to join a public channel when someone configures notifications to be sent to one |
-| `links:read`            | Required to unfurl links                                                                        |
-| `links:write`           | Required to unfurl links                                                                        |
-| `users:read`            | Required to resolve user IDs to names/emails                                                    |
-| `users:read.email`      | Required to enable user lookup by email address                                                 |
-| `reactions:read`        | Future-proofing                                                                                 |
-| `reactions:write`       | Future-proofing                                                                                 |
+| Scope                   | Required?                                                 | Purpose                                                                                         |
+| ----------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `commands`              | Required                                                  | Required for slash commands / shortcuts                                                         |
+| `app_mentions:read`     | Required                                                  | Required to get @DataHub messages                                                               |
+| `chat:write`            | Required                                                  | Required to send messages as @DataHub                                                           |
+| `chat:write.public`     | Required                                                  | Required to post in public channels the bot hasn't joined                                       |
+| `chat:write.customize`  | Required                                                  | Allows using a custom icon so messages display the DataHub Cloud logo                           |
+| `channels:history`      | **Optional** ([details](#optional-scopes-and-trade-offs)) | Read message history in public channels (used as conversational context for **Ask DataHub**)    |
+| `channels:read`         | Required                                                  | Required to see public channel details                                                          |
+| `groups:history`        | **Optional** ([details](#optional-scopes-and-trade-offs)) | Read message history in private channels (used as conversational context for **Ask DataHub**)   |
+| `groups:read`           | Required                                                  | Required to see private channel details                                                         |
+| `im:history`            | **Optional** ([details](#optional-scopes-and-trade-offs)) | Read direct message history (used as conversational context for **Ask DataHub**)                |
+| `im:read`               | Required                                                  | Required to see direct message details                                                          |
+| `mpim:history`          | **Optional** ([details](#optional-scopes-and-trade-offs)) | Read group DM history (used as conversational context for **Ask DataHub**)                      |
+| `mpim:read`             | Required                                                  | Required to see group DM details                                                                |
+| `metadata.message:read` | Required                                                  | Required to read message metadata                                                               |
+| `team:read`             | Required                                                  | Required to get workspace ID and create links to user profiles                                  |
+| `channels:join`         | Required                                                  | Allows the bot to join a public channel when someone configures notifications to be sent to one |
+| `links:read`            | Required                                                  | Required to unfurl links                                                                        |
+| `links:write`           | Required                                                  | Required to unfurl links                                                                        |
+| `users:read`            | Required                                                  | Required to resolve user IDs to names/emails                                                    |
+| `users:read.email`      | Required                                                  | Required to enable user lookup by email address                                                 |
+| `reactions:read`        | Required                                                  | Future-proofing                                                                                 |
+| `reactions:write`       | Required                                                  | Future-proofing                                                                                 |
 
 </details>
+
+### Optional scopes and trade-offs
+
+DataHub uses Slack's [optional scopes](https://docs.slack.dev/changelog/2026/03/16/optional-scopes/)
+model so that workspaces with stricter security policies can install the DataHub Slack app without
+granting the bot broad message-read access. The following scopes are requested as **optional** by
+default:
+
+- `channels:history` — public channel history
+- `groups:history` — private channel history
+- `im:history` — direct message history
+- `mpim:history` — group DM history
+
+These scopes are only used to give **Ask DataHub** access to the surrounding conversation when
+someone @-mentions the bot, so that follow-up questions ("what about the staging table?") can be
+resolved against earlier messages in the thread or channel.
+
+#### What changes if you decline the optional scopes
+
+If your Slack admin declines (or removes) the four `*:history` scopes:
+
+- **Notifications, slash commands, subscriptions, and incident management continue to work as
+  normal.** None of these features need to read message history.
+- **Ask DataHub will only see the message that @-mentions the bot.** It cannot read prior messages
+  in the thread or channel, so it cannot use earlier discussion as context. Users should phrase
+  each question to @DataHub as a self-contained message.
+- **Bot-to-bot relays will lose context.** If you have a centralized bot in your workspace that
+  forwards a user's message to @DataHub (for example, an internal "ask" router that re-tags the
+  bot on the user's behalf), DataHub will only see the relay message — not the original user
+  question. To make this pattern work without history scopes, the relaying bot must include the
+  full original question in the message that @-mentions DataHub, instead of only quoting or
+  linking to it.
+
+#### Re-enabling history scopes
+
+If you want **Ask DataHub** to read thread and channel history again, ask your DataHub Cloud
+representative to enable the **"store conversations from Slack"** server-side history feature for
+your instance. When that feature is on, the four `*:history` scopes are requested as **required**
+during install, and you will need to re-authorize the Slack app so the workspace admin can grant
+them.
 
 ### Workspace Admin Approval
 
