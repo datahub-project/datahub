@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics from '@app/analytics';
 import { EventType } from '@app/analytics/event';
@@ -17,7 +17,6 @@ import { formatNumber } from '@app/shared/formatNumber';
 import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Card, Heading, Pill, Text } from '@src/alchemy-components';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
@@ -85,7 +84,7 @@ const EntityCountsContainer = styled(FlexContainer)`
 
 const VerticalDivider = styled.div`
     width: 2px;
-    background-color: ${colors.gray[1400]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     height: 80px;
     align-self: center;
 `;
@@ -128,35 +127,39 @@ type RenderIngestionContentsProps = {
     getLabel: (item: IngestionContentItem) => string;
 };
 
-const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => (
-    <IngestionBoxesContainer>
-        {items.map((item) => (
-            <Card
-                title={
-                    <IngestionBoxTopRow>
-                        <IngestionRowCount size="xl" weight="bold" color="gray" colorLevel={800}>
-                            {formatNumber(item.count)}
-                        </IngestionRowCount>
-                        <Pill
-                            size="sm"
-                            variant="filled"
-                            color="gray"
-                            label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
-                        />
-                    </IngestionBoxTopRow>
-                }
-                subTitle={
-                    <Text size="md" color="gray" colorLevel={600}>
-                        {getLabel(item)}
-                    </Text>
-                }
-                key={getKey(item)}
-            />
-        ))}
-    </IngestionBoxesContainer>
-);
+const IngestionContents: React.FC<RenderIngestionContentsProps> = ({ items, getKey, getLabel }) => {
+    const theme = useTheme();
+    return (
+        <IngestionBoxesContainer>
+            {items.map((item) => (
+                <Card
+                    title={
+                        <IngestionBoxTopRow>
+                            <IngestionRowCount size="xl" weight="bold" style={{ color: theme.colors.text }}>
+                                {formatNumber(item.count)}
+                            </IngestionRowCount>
+                            <Pill
+                                size="sm"
+                                variant="filled"
+                                color="gray"
+                                label={item.count === 0 ? 'Missing' : `${item.percent} of Total`}
+                            />
+                        </IngestionBoxTopRow>
+                    }
+                    subTitle={
+                        <Text size="md" style={{ color: theme.colors.text }}>
+                            {getLabel(item)}
+                        </Text>
+                    }
+                    key={getKey(item)}
+                />
+            ))}
+        </IngestionBoxesContainer>
+    );
+};
 
 export default function IngestedAssets({ id, executionResult, urn }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
 
     // First thing to do is to search for all assets with the id as the run id!
@@ -247,14 +250,8 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
             <Heading type="h4" size="lg" weight="bold">
                 Assets
             </Heading>
-            <Text color="gray" colorLevel={600}>
-                Types and counts for this ingestion run.
-            </Text>
-            {loading && (
-                <Text color="gray" colorLevel={600}>
-                    Loading...
-                </Text>
-            )}
+            <Text style={{ color: theme.colors.text }}>Types and counts for this ingestion run.</Text>
+            {loading && <Text style={{ color: theme.colors.text }}>Loading...</Text>}
             {!loading && total === 0 && <Text>No assets were ingested.</Text>}
             {!loading && total > 0 && (
                 <>
@@ -268,7 +265,7 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                                     </Button>
                                 }
                                 subTitle={
-                                    <Text size="md" color="gray" colorLevel={600} style={{ marginTop: 2 }}>
+                                    <Text size="md" style={{ marginTop: 2, color: theme.colors.text }}>
                                         Total Assets Ingested
                                     </Text>
                                 }
@@ -281,7 +278,7 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                                     <Card
                                         title={formatNumber(entityCount.count)}
                                         subTitle={
-                                            <Text size="md" color="gray" colorLevel={600}>
+                                            <Text size="md" style={{ color: theme.colors.text }}>
                                                 {capitalizeFirstLetterOnly(entityCount.displayName)}
                                             </Text>
                                         }
@@ -297,7 +294,7 @@ export default function IngestedAssets({ id, executionResult, urn }: Props) {
                                 Coverage
                             </Heading>
                             <SubTitleContainer>
-                                <Text color="gray" colorLevel={600} lineHeight="sm">
+                                <Text lineHeight="sm" style={{ color: theme.colors.text }}>
                                     Additional metadata collected during this ingestion run.
                                 </Text>
                             </SubTitleContainer>

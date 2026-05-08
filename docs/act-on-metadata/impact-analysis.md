@@ -1,3 +1,7 @@
+---
+description: "Use Lineage Impact Analysis in DataHub to discover upstream and downstream dependencies for datasets, dashboards, and other entities."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Lineage Impact Analysis

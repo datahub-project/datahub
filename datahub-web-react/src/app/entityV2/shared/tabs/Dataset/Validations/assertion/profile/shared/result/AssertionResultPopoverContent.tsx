@@ -3,7 +3,6 @@ import { Divider, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PrimaryButton } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/builder/details/PrimaryButton';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
@@ -63,7 +62,7 @@ const LastRunRow = styled.div`
     display: flex;
     align-items: center;
     font-weight: 500;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     .anticon-clock-circle {
         font-size: 10px;
     }
@@ -73,7 +72,7 @@ const ReasonRow = styled.div``;
 
 const SecondaryHeader = styled.div`
     font-size: 10px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const ReasonText = styled.div``;

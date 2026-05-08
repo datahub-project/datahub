@@ -173,6 +173,7 @@ export type EntityContextType = {
     entityType: EntityType;
     dataNotCombinedWithSiblings: any;
     entityData: GenericEntityProperties | null;
+    rootEntityData?: GenericEntityProperties | null;
     loading: boolean;
     baseEntity: any;
     updateEntity?: UpdateEntityType<any> | null;

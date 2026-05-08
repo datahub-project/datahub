@@ -170,6 +170,7 @@ shadowJar {
   relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
+  relocate 'org.jspecify', 'datahub.shaded.org.jspecify'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   // Below jars added for kafka emitter only
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'

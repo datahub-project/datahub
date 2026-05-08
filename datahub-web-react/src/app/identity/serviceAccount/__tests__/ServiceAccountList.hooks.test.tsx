@@ -5,15 +5,28 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    useServiceAccountDefaultView,
     useServiceAccountListData,
     useServiceAccountListState,
     useServiceAccountRoleAssignment,
+    useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 
 import { ListServiceAccountsDocument } from '@graphql/auth.generated';
 import { BatchAssignRoleDocument } from '@graphql/mutations.generated';
 import { ListRolesDocument } from '@graphql/role.generated';
-import { DataHubRole, EntityType } from '@types';
+import { ListGlobalViewsDocument } from '@graphql/view.generated';
+import { DataHubRole, DataHubViewType, EntityType } from '@types';
+
+// Mock the generated mutation that requires codegen
+const mockUpdateDefaultViewMutation = vi.fn();
+vi.mock('@graphql/auth.generated', async () => {
+    const actual = await vi.importActual('@graphql/auth.generated');
+    return {
+        ...actual,
+        useUpdateServiceAccountDefaultViewMutation: () => [mockUpdateDefaultViewMutation],
+    };
+});
 
 // Mock the user context
 const mockUserContext = {
@@ -54,6 +67,7 @@ const mockServiceAccounts = [
         createdBy: 'urn:li:corpuser:datahub',
         createdAt: Date.now(),
         updatedAt: null,
+        defaultView: null,
         roles: {
             __typename: 'EntityRelationshipsResult',
             start: 0,
@@ -377,5 +391,139 @@ describe('useServiceAccountRoleAssignment', () => {
 
         // Should not throw and not call any setters
         expect(mockSetOptimisticRoles).not.toHaveBeenCalled();
+    });
+});
+
+const mockGlobalViews = [
+    {
+        __typename: 'DataHubView',
+        urn: 'urn:li:dataHubView:global-1',
+        type: EntityType.DatahubView,
+        name: 'Global View 1',
+        viewType: DataHubViewType.Global,
+        description: 'A global view',
+        definition: null,
+    },
+    {
+        __typename: 'DataHubView',
+        urn: 'urn:li:dataHubView:global-2',
+        type: EntityType.DatahubView,
+        name: 'Global View 2',
+        viewType: DataHubViewType.Global,
+        description: null,
+        definition: null,
+    },
+];
+
+describe('useServiceAccountViewOptions', () => {
+    const viewMocks = [
+        {
+            request: {
+                query: ListGlobalViewsDocument,
+                variables: { start: 0, count: 1000 },
+            },
+            result: {
+                data: {
+                    listGlobalViews: {
+                        __typename: 'ListViewsResult',
+                        start: 0,
+                        count: 1000,
+                        total: 2,
+                        views: mockGlobalViews,
+                    },
+                },
+            },
+        },
+    ];
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <MockedProvider mocks={viewMocks} addTypename={false}>
+            {children}
+        </MockedProvider>
+    );
+
+    it('should return loading state initially', () => {
+        const { result } = renderHook(() => useServiceAccountViewOptions(), { wrapper });
+        expect(result.current.loading).toBe(true);
+        expect(result.current.viewOptions).toEqual([]);
+    });
+
+    it('should return view options after loading', async () => {
+        const { result } = renderHook(() => useServiceAccountViewOptions(), { wrapper });
+
+        await waitFor(() => expect(result.current.loading).toBe(false), { timeout: 5000 });
+
+        expect(result.current.viewOptions).toHaveLength(2);
+        expect(result.current.viewOptions[0].value).toBe('urn:li:dataHubView:global-1');
+        expect(result.current.viewOptions[0].label).toBe('Global View 1');
+        expect(result.current.viewOptions[1].value).toBe('urn:li:dataHubView:global-2');
+        expect(result.current.viewOptions[1].label).toBe('Global View 2');
+    });
+});
+
+describe('useServiceAccountDefaultView', () => {
+    const mockRefetch = vi.fn().mockResolvedValue(undefined);
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        mockUpdateDefaultViewMutation.mockReset();
+    });
+
+    it('should call mutation and show success message when setting a view', async () => {
+        const { message } = await import('antd');
+        mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
+
+        const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
+
+        await act(async () => {
+            await result.current.handleDefaultViewChange('urn:li:corpuser:service_test', 'urn:li:dataHubView:global-1');
+        });
+
+        expect(mockUpdateDefaultViewMutation).toHaveBeenCalledWith({
+            variables: {
+                input: {
+                    urn: 'urn:li:corpuser:service_test',
+                    defaultView: 'urn:li:dataHubView:global-1',
+                },
+            },
+        });
+        expect(message.success).toHaveBeenCalledWith('Default view updated');
+        expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    it('should call mutation and show success message when clearing a view', async () => {
+        const { message } = await import('antd');
+        mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
+
+        const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
+
+        await act(async () => {
+            await result.current.handleDefaultViewChange('urn:li:corpuser:service_test', null);
+        });
+
+        expect(mockUpdateDefaultViewMutation).toHaveBeenCalledWith({
+            variables: {
+                input: {
+                    urn: 'urn:li:corpuser:service_test',
+                    defaultView: null,
+                },
+            },
+        });
+        expect(message.success).toHaveBeenCalledWith('Default view removed');
+        expect(mockRefetch).toHaveBeenCalled();
+    });
+
+    it('should show error message when mutation fails', async () => {
+        const { message } = await import('antd');
+        mockUpdateDefaultViewMutation.mockRejectedValue(new Error('Unauthorized'));
+
+        const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
+
+        await act(async () => {
+            await result.current.handleDefaultViewChange('urn:li:corpuser:service_test', 'urn:li:dataHubView:global-1');
+        });
+
+        expect(message.error).toHaveBeenCalledWith(expect.stringContaining('Failed to update default view'));
+        expect(mockRefetch).not.toHaveBeenCalled();
     });
 });

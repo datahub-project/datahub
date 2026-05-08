@@ -320,7 +320,10 @@ public class ElasticSearchTimeseriesAspectService
             .docAsUpsert(true)
             .doc(document.toString(), XContentType.JSON)
             .retryOnConflict(numRetries);
-    bulkProcessor.add(updateRequest);
+    // Route by docId — see ESGraphWriteDAO#upsertDocument. Defensive here (timeseries
+    // docIds are per-messageId and rarely collide), but consistent with the rest of
+    // the bulk-write paths.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   @Override

@@ -293,6 +293,9 @@ class VertexAITrainingExtractor:
         external_input_edges = urns_and_edges.input_edges
         external_output_edges = urns_and_edges.output_edges
 
+        if dataset_urn and model_urn:
+            self.model_usage_tracker.track_model_training_data(model_urn, dataset_urn)
+
         result_type = get_job_result_status(job)
         ml_metrics = self._extract_hyperparams_and_metrics(job_meta)
         hyperparams = ml_metrics.hyperparams

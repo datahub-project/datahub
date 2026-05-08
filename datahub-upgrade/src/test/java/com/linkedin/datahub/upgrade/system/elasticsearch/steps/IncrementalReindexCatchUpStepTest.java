@@ -1,6 +1,9 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch.steps;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -12,12 +15,16 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
@@ -48,17 +55,26 @@ public class IncrementalReindexCatchUpStepTest {
   private IncrementalReindexCatchUpStep step;
 
   @BeforeMethod
-  public void setup() {
+  public void setup() throws Exception {
     MockitoAnnotations.openMocks(this);
     opContext = TestOperationContexts.systemContextNoValidate();
 
     when(upgradeContext.opContext()).thenReturn(opContext);
     when(upgradeContext.upgrade()).thenReturn(upgrade);
     when(upgrade.getUpgradeResult(any(), any(), any())).thenReturn(Optional.empty());
+    when(entityService.getLatestEnvelopedAspect(any(), any(), any(), any())).thenReturn(null);
+    when(entityService.ingestProposal(any(), any(), any(), anyBoolean()))
+        .thenReturn(mock(IngestResult.class));
 
     step =
         new IncrementalReindexCatchUpStep(
-            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(),
+            Set.of(),
+            UPGRADE_VERSION,
+            new BuildIndicesConfiguration());
   }
 
   @Test
@@ -82,6 +98,8 @@ public class IncrementalReindexCatchUpStepTest {
             "datasetindex_v2_0_14_0-0_100",
             null,
             1000L,
+            0L,
+            null,
             false, // requiresDataBackfill = false
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
@@ -114,6 +132,8 @@ public class IncrementalReindexCatchUpStepTest {
             "datasetindex_v2_0_14_0-0_100",
             null,
             100L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     // Set dual write start time equal to reindex start time (empty window)
@@ -181,6 +201,8 @@ public class IncrementalReindexCatchUpStepTest {
             "datasetindex_v2_0_14_0-0_100",
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
@@ -217,6 +239,8 @@ public class IncrementalReindexCatchUpStepTest {
             "datasetindex_v2_0_14_0-0_100",
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
@@ -227,6 +251,8 @@ public class IncrementalReindexCatchUpStepTest {
             "chartindex_v2_0_14_0-0_100",
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, index2, 2000L);
@@ -252,6 +278,84 @@ public class IncrementalReindexCatchUpStepTest {
         allArgs.stream().map(args -> args.urnLike).collect(java.util.stream.Collectors.toSet());
     assertTrue(urnLikes.contains("urn:li:dataset:%"));
     assertTrue(urnLikes.contains("urn:li:chart:%"));
+  }
+
+  @Test
+  public void testGlobalIndexCatchUpUsesUnscopedUrnLike() {
+    // Graph index is a "global" index — catch-up should emit MCLs for ALL entities (urnLike = "%")
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    String graphIndexName = indexConvention.getIndexName(ElasticSearchGraphService.INDEX_NAME);
+
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            graphIndexName,
+            graphIndexName + "_next",
+            graphIndexName + "_old",
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, graphIndexName, 2000L);
+
+    setupPhase1Result(phase1State);
+
+    when(aspectDao.streamAspectBatches(any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    ArgumentCaptor<RestoreIndicesArgs> argsCaptor =
+        ArgumentCaptor.forClass(RestoreIndicesArgs.class);
+    verify(aspectDao).streamAspectBatches(argsCaptor.capture());
+    RestoreIndicesArgs capturedArgs = argsCaptor.getValue();
+    assertEquals(capturedArgs.urnLike, "%");
+  }
+
+  @Test
+  public void testMarksDualWriteDisabledWhenRollbackNotEnabled() {
+    // When rollbackDualWriteEnabled=false, catch-up should mark completed indices as
+    // DUAL_WRITE_DISABLED
+    Map<String, String> phase1State =
+        IncrementalReindexState.setPhase1State(
+            null,
+            INDEX_NAME,
+            "datasetindex_v2_0_14_0-0_100",
+            null,
+            1000L,
+            0L,
+            null,
+            true,
+            IncrementalReindexState.Status.COMPLETED);
+    phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
+
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
+    when(phase1Result.getState()).thenReturn(DataHubUpgradeState.SUCCEEDED);
+
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object urnArg = invocation.getArgument(1);
+              if (urnArg.toString().contains("BuildIndicesIncremental")) {
+                return Optional.of(phase1Result);
+              }
+              return Optional.empty();
+            });
+
+    when(aspectDao.streamAspectBatches(any()))
+        .thenReturn(
+            PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build());
+
+    // rollbackDualWriteEnabled defaults to false in BuildIndicesConfiguration
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+
+    // Should have called ingestProposal to persist DUAL_WRITE_DISABLED on the Phase 1 URN
+    verify(entityService, atLeastOnce()).ingestProposal(eq(opContext), any(), any(), eq(false));
   }
 
   private void setupPhase1Result(Map<String, String> phase1State) {

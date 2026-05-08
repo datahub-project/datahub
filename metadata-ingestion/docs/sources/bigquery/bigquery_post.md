@@ -125,7 +125,7 @@ source:
 
 :::note Profiling Permission Requirement
 
-When profiling is enabled, the `bigquery.tables.getData` permission is **required**. This is needed to read actual table data for computing statistics such as row counts, null counts, and value distributions. See the permissions section above for details.
+When profiling is enabled, the `bigquery.tables.getData` permission is **required**. This is needed to access detailed table metadata including partition information. See the permissions section above for details.
 
 :::
 

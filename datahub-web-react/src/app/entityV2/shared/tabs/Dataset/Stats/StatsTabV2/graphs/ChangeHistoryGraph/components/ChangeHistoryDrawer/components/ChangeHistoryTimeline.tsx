@@ -46,7 +46,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
     const renderTimeline = () => {
         if (loading) return <TimelineSkeleton />;
 
-        if (operations.length === 0) return <Text color="gray">There are no operations for the selected day</Text>;
+        if (operations.length === 0) return <Text>There are no operations for the selected day</Text>;
 
         return (
             <TimelineWrapper>
@@ -66,7 +66,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
             {renderTimeline()}
 
             {numberOfOriginalOperations >= OPERATIONS_LIMIT && (
-                <Text color="gray">
+                <Text>
                     Truncated to show first {numberOfOperations} {pluralize(numberOfOperations, 'operation')}
                 </Text>
             )}

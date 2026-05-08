@@ -193,6 +193,22 @@ export default defineConfig(async ({ mode }) => {
             setupFiles: './src/setupTests.ts',
             css: true,
             // reporters: ['verbose'],
+            onConsoleLog(log) {
+                // Suppress noisy Apollo Client / GraphQL mock warnings that produce
+                // thousands of lines of output and make CI logs unreadable.
+                if (
+                    log.includes('No more mocked responses') ||
+                    log.includes('Missing field') ||
+                    log.includes('[GraphQL error]') ||
+                    log.includes('networkError') ||
+                    log.includes('Mocked provider') ||
+                    log.includes('query-manager') ||
+                    log.includes('ObservableQuery')
+                ) {
+                    return false;
+                }
+                return undefined;
+            },
             coverage: {
                 enabled: true,
                 provider: 'v8',
