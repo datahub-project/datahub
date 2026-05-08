@@ -117,6 +117,9 @@ runs:
             - "docker/kafka-setup/**"
           smoke-test:
             - "smoke-test/**"
+            - "e2e-test/**"
+            - ".github/workflows/docker-unified.yml"
+            - ".github/actions/ci-optimization/**"
           actions:
             - "datahub-actions/**"
             - "docker/datahub-actions/**"
