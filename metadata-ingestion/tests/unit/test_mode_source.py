@@ -664,13 +664,14 @@ class TestChartFetchGating:
         report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
 
         chart_calls: List[tuple] = []
+
+        def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
+            chart_calls.append((report_token, query_token))
+            return []
+
         with (
             patch.object(source, "_get_queries", return_value=[query]),
-            patch.object(
-                source,
-                "_get_charts",
-                side_effect=lambda r, q: chart_calls.append((r, q)) or [],
-            ),
+            patch.object(source, "_get_charts", side_effect=fake_get_charts),
             patch.object(source, "construct_query_or_dataset", return_value=iter([])),
             patch.object(source, "construct_dashboard", return_value=None),
         ):
