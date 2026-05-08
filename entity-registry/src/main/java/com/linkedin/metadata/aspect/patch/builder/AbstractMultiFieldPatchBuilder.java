@@ -9,17 +9,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import jakarta.json.Json;
-import jakarta.json.JsonArrayBuilder;
-import jakarta.json.JsonObjectBuilder;
-import jakarta.json.JsonPatch;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.tuple.ImmutableTriple;
@@ -145,23 +144,26 @@ public abstract class AbstractMultiFieldPatchBuilder<T extends AbstractMultiFiel
   }
 
   @VisibleForTesting
-  public JsonPatch getJsonPatch() {
-    JsonArrayBuilder arrayBuilder = Json.createArrayBuilder();
-    List<ImmutableTriple<String, String, JsonNode>> triples = getPathValues();
-    triples.forEach(
-        triple -> {
-          JsonObjectBuilder opBuilder =
-              Json.createObjectBuilder().add(OP_KEY, triple.left).add(PATH_KEY, triple.middle);
-          if (triple.right != null) {
-            opBuilder.add(
-                VALUE_KEY,
-                Json.createReader(new StringReader(triple.right.toString())).readValue());
-          } else {
-            opBuilder.addNull(VALUE_KEY);
-          }
-          arrayBuilder.add(opBuilder);
-        });
-    return Json.createPatch(arrayBuilder.build());
+  public GenericJsonPatch getJsonPatch() {
+    Map<String, List<String>> apk =
+        arrayPrimaryKeysOverride != null ? arrayPrimaryKeysOverride : getArrayPrimaryKeys();
+
+    List<GenericJsonPatch.PatchOp> patchOps =
+        getPathValues().stream()
+            .map(
+                triple -> {
+                  GenericJsonPatch.PatchOp op = new GenericJsonPatch.PatchOp();
+                  op.setOp(triple.left);
+                  op.setPath(triple.middle);
+                  if (triple.right != null) {
+                    op.setValue(
+                        Json.createReader(new StringReader(triple.right.toString())).readValue());
+                  }
+                  return op;
+                })
+            .collect(Collectors.toList());
+
+    return GenericJsonPatch.builder().arrayPrimaryKeys(apk).patch(patchOps).build();
   }
 
   /**

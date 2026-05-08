@@ -108,7 +108,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     const start = (page - 1) * pageSize;
 
     const [editSecret, setEditSecret] = useState<SecretBuilderState | undefined>(undefined);
-    const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
+    const [secretUrnToDelete, setSecretUrnToDelete] = useState<string | null>();
 
     const [deleteSecretMutation] = useDeleteSecretMutation();
     const [createSecretMutation] = useCreateSecretMutation();
@@ -141,7 +141,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                     message.error({ content: `Failed to remove secret: \n ${e.message || ''}`, duration: 3 });
                 }
             });
-        setShowConfirmDelete(false);
+        setSecretUrnToDelete(null);
         refetch();
     };
 
@@ -233,7 +233,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
     };
 
     const handleDeleteClose = () => {
-        setShowConfirmDelete(false);
+        setSecretUrnToDelete(null);
     };
 
     const onEditSecret = (urnData: any) => {
@@ -297,7 +297,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                         <button
                             type="button"
                             className="delete-action"
-                            onClick={() => setShowConfirmDelete(true)}
+                            onClick={() => setSecretUrnToDelete(record.urn)}
                             aria-label="Delete secret"
                             data-test-id="delete-secret-action"
                             data-icon="delete"
@@ -305,13 +305,6 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             <Icon icon={Trash} color="red" />
                         </button>
                     </ButtonsContainer>
-                    <ConfirmationModal
-                        isOpen={showConfirmDelete}
-                        modalTitle="Confirm Secret Removal"
-                        modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
-                        handleConfirm={() => deleteSecret(record.urn)}
-                        handleClose={handleDeleteClose}
-                    />
                 </>
             ),
             width: '100px',
@@ -357,7 +350,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             itemsPerPage={pageSize}
                             total={totalSecrets}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={false}
                             hideOnSinglePage
                         />
@@ -370,6 +363,17 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                 onUpdate={onUpdate}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
+            />
+            <ConfirmationModal
+                isOpen={!!secretUrnToDelete}
+                modalTitle="Confirm Secret Removal"
+                modalText="Are you sure you want to remove this secret? Sources that use it may no longer work as expected."
+                handleConfirm={() => {
+                    if (secretUrnToDelete) {
+                        deleteSecret(secretUrnToDelete);
+                    }
+                }}
+                handleClose={handleDeleteClose}
             />
         </>
     );

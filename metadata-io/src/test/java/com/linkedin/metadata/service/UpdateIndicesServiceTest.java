@@ -63,7 +63,8 @@ public class UpdateIndicesServiceTest {
             timeseriesAspectService,
             "MD5",
             null, // No semantic search config for this test
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false);
 
     UpdateIndicesV3Strategy v3Strategy =
         new UpdateIndicesV3Strategy(

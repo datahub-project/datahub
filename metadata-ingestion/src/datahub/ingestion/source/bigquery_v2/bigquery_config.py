@@ -402,9 +402,13 @@ class BigQueryV2Config(
     extract_policy_tags_from_catalog: bool = Field(
         default=False,
         description=(
-            "This flag enables the extraction of policy tags from the Google Data Catalog API. "
-            "When enabled, the extractor will fetch policy tags associated with BigQuery table columns. "
-            "For more information about policy tags and column-level security, refer to the documentation: "
+            "Extract policy tags from BigQuery tables using INFORMATION_SCHEMA and Data Catalog API. "
+            "Policy tag display names are resolved by listing all tags per taxonomy (one API call per "
+            "unique taxonomy, typically 3-10 calls per ingestion run). "
+            "If the Data Catalog API is blocked by VPC Service Controls, policy tag resource names will "
+            "be stored instead of display names (graceful degradation). "
+            "Requires BigQuery API v2 (available since ~2020) and Data Catalog API access. "
+            "For more information about policy tags and column-level security, refer to: "
             "https://cloud.google.com/bigquery/docs/column-level-security-intro"
         ),
     )

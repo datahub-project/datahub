@@ -4624,6 +4624,7 @@
                 "status": "COMPLETE",
                 "result": {
                     "type": "FAILURE",
+                    "severity": "HIGH",
                     "nativeResults": {
                         "status": "error",
                         "max_loaded_at": "2021-06-10T10:00:00+00:00",

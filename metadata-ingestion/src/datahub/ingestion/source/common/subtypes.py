@@ -12,6 +12,7 @@ class DatasetSubTypes(StrEnum):
     VIEW = "View"
     TOPIC = "Topic"
     SCHEMA = "Schema"
+    GRAPH = "Graph"
     # System-Specific SubTypes
     LOOKER_EXPLORE = "Explore"
     ELASTIC_INDEX_TEMPLATE = "Index Template"
@@ -25,6 +26,7 @@ class DatasetSubTypes(StrEnum):
     SHARDED_TABLE = "Sharded Table"
     EXTERNAL_TABLE = "External Table"
     SIGMA_DATASET = "Sigma Dataset"
+    SIGMA_DATA_MODEL_ELEMENT = "Sigma Data Model Element"
     SAC_MODEL = "Model"
     SAC_IMPORT_DATA_MODEL = "Import Data Model"
     SAC_LIVE_DATA_MODEL = "Live Data Model"
@@ -39,6 +41,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     SEMANTIC_MODEL = "Semantic Model"
+    SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -73,6 +76,7 @@ class DatasetContainerSubTypes(StrEnum):
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
     FABRIC_SCHEMA = "Fabric Schema"
+    SNOWFLAKE_STAGE = "Snowflake Stage"
     # Pinecone
     PINECONE_INDEX = "Pinecone Index"
     PINECONE_NAMESPACE = "Pinecone Namespace"
@@ -92,15 +96,19 @@ class BIContainerSubTypes(StrEnum):
     QLIK_APP = "Qlik App"
     SIGMA_WORKSPACE = "Sigma Workspace"
     SIGMA_WORKBOOK = "Sigma Workbook"
+    SIGMA_DATA_MODEL = "Sigma Data Model"
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
 
 
 class FlowContainerSubTypes(StrEnum):
+    GLUE_JOB = "Job"
     MSSQL_JOB = "Job"
     PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
+    SNOWFLAKE_TASK_GROUP = "Snowflake Task Group"
+    SNOWFLAKE_PIPE_GROUP = "Snowflake Pipe Group"
 
 
 class JobContainerSubTypes(StrEnum):
@@ -164,6 +172,11 @@ class MLAssetSubTypes(StrEnum):
     FOLDER = "Folder"
 
 
+class DataFlowSubTypes(StrEnum):
+    # dlt
+    DLT_PIPELINE = "dlt Pipeline"
+
+
 class DataJobSubTypes(StrEnum):
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
@@ -219,6 +232,13 @@ class DataJobSubTypes(StrEnum):
     FABRIC_DATA_LAKE_ANALYTICS = "Data Lake Analytics"
     FABRIC_AZURE_ML_EXECUTE_PIPELINE = "Azure ML Execute Pipeline"
 
+    # Snowflake
+    SNOWFLAKE_TASK = "Snowflake Task"
+    SNOWFLAKE_PIPE = "Snowflake Pipe"
+
+    # dlt
+    DLT_RESOURCE = "dlt Resource"
+
 
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
@@ -231,6 +251,7 @@ def create_source_capability_modifier_enum():
         JobContainerSubTypes,
         BIAssetSubTypes,
         MLAssetSubTypes,
+        DataFlowSubTypes,
         DataJobSubTypes,
     ]
 

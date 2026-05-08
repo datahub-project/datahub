@@ -39,12 +39,15 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
+    DBTTestResult,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
+    make_assertion_result_from_test,
     parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionTypeClass,
@@ -448,7 +451,7 @@ def test_default_convert_column_urns_to_lowercase():
 
 
 def test_default_convert_urns_to_lowercase():
-    """convert_urns_to_lowercase is opt-in only, never auto-enabled."""
+    """convert_urns_to_lowercase defaults to True to match historical dbt behavior."""
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
@@ -457,23 +460,23 @@ def test_default_convert_urns_to_lowercase():
     }
 
     config = DBTCoreConfig.model_validate({**config_dict})
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Snowflake should NOT auto-enable convert_urns_to_lowercase.
+    # Snowflake also defaults to True.
     config = DBTCoreConfig.model_validate(
         {**config_dict, "target_platform": "snowflake"}
     )
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Explicit opt-in should work.
+    # Explicit opt-out should work (e.g. for BigQuery with mixed-case identifiers).
     config = DBTCoreConfig.model_validate(
         {
             **config_dict,
-            "convert_urns_to_lowercase": True,
-            "target_platform": "snowflake",
+            "convert_urns_to_lowercase": False,
+            "target_platform": "bigquery",
         }
     )
-    assert config.convert_urns_to_lowercase is True
+    assert config.convert_urns_to_lowercase is False
 
 
 def test_convert_urns_to_lowercase_affects_dbt_urns():
@@ -521,14 +524,146 @@ def test_convert_urns_to_lowercase_affects_dbt_urns():
     )
     assert "my_db.app_sales.dim_industry" in dbt_urn_with_flag
 
-    # Target platform URNs are always lowercased regardless of the flag.
+    # Target platform URNs preserve casing when flag is off.
     node.convert_urns_to_lowercase = False
     target_urn = node.get_urn(
         target_platform="snowflake",
         env="PROD",
         data_platform_instance=None,
     )
+    assert "MY_DB.APP_SALES.dim_industry" in target_urn
+
+    # Target platform URNs are lowercased when flag is on.
+    node.convert_urns_to_lowercase = True
+    target_urn = node.get_urn(
+        target_platform="snowflake",
+        env="PROD",
+        data_platform_instance=None,
+    )
     assert "my_db.app_sales.dim_industry" in target_urn
+
+
+def test_bigquery_mixed_case_urn_preserved():
+    """Regression test for Zendesk #7397 / PR #16358.
+
+    BigQuery is case-sensitive for quoted identifiers. dbt must not unconditionally
+    lowercase BigQuery URNs, or lineage to the real BigQuery entity will break.
+    Uses the exact customer entity from the ticket (AM100 in table name).
+    """
+    node = DBTNode(
+        dbt_name="model.sales_index.int_sales_index__retailer_groups_with_AM100_position",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="at-dp-salesindex-prod",
+        schema="sales_index",
+        name="int_sales_index__retailer_groups_with_AM100_position",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/int_sales_index__retailer_groups_with_AM100_position.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Default: convert_urns_to_lowercase is False — casing must be preserved.
+    assert node.convert_urns_to_lowercase is False
+
+    bq_urn = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in bq_urn
+    assert "am100" not in bq_urn
+
+    dbt_urn = node.get_urn(
+        target_platform="dbt",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in dbt_urn
+
+    # Opt-in: when enabled, lowercasing should apply.
+    node.convert_urns_to_lowercase = True
+    bq_urn_lower = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "am100" in bq_urn_lower
+    assert "AM100" not in bq_urn_lower
+
+
+def test_convert_urns_to_lowercase_truth_table():
+    """Verify the full truth table from Zendesk #7397 — lowercasing must be opt-in only.
+
+    | target_platform | convert_urns_to_lowercase | URN lowercased? |
+    |-----------------|--------------------------|-----------------|
+    | "dbt"           | False                    | No              |
+    | "dbt"           | True                     | Yes             |
+    | "bigquery"      | False                    | No              |
+    | "bigquery"      | True                     | Yes             |
+    """
+    node = DBTNode(
+        dbt_name="model.project.MixedCaseTable",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="MyProject",
+        schema="MyDataset",
+        name="MixedCaseTable",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/MixedCaseTable.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Row 1: dbt + flag=False → NOT lowercased
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 2: dbt + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "myproject.mydataset.mixedcasetable" in urn
+
+    # Row 3: bigquery + flag=False → NOT lowercased (this was the bug)
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 4: bigquery + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "myproject.mydataset.mixedcasetable" in urn
 
 
 def test_dbt_entity_emission_configuration_helpers():
@@ -1913,16 +2048,30 @@ def test_make_assertion_from_freshness() -> None:
 
 
 @pytest.mark.parametrize(
-    ("status", "warnings_are_errors", "expected_success"),
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
-        ("pass", False, True),
-        ("warn", False, True),
-        ("warn", True, False),
-        ("error", False, False),
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "error",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
     ],
 )
 def test_make_assertion_result_from_freshness(
-    status: str, warnings_are_errors: bool, expected_success: bool
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
 ) -> None:
     node = DBTNode(
         database="raw_db",
@@ -1958,15 +2107,81 @@ def test_make_assertion_result_from_freshness(
         node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
     )
 
-    expected = (
-        AssertionResultTypeClass.SUCCESS
-        if expected_success
-        else AssertionResultTypeClass.FAILURE
-    )
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
-    assert mcp.aspect.result.type == expected
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
+    [
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("success", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "fail",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("error", False, AssertionResultTypeClass.ERROR, None),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
+    ],
+)
+def test_make_assertion_result_from_test(
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
+) -> None:
+    node = DBTNode(
+        database="analytics",
+        schema="dbt",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.some_test",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    test_result = DBTTestResult(
+        invocation_id="test-123",
+        status=status,
+        execution_time=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    mcp = make_assertion_result_from_test(
+        node,
+        test_result,
+        "urn:li:assertion:test",
+        "urn:li:dataset:test",
+        warnings_are_errors,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
 
 
 def test_parse_freshness_criteria_with_null_fields() -> None:

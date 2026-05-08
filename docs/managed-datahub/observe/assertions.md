@@ -1,3 +1,7 @@
+---
+title: Assertions Monitoring
+---
+
 # Assertions
 
 An assertion is **a data quality test that finds data that violates a specified rule.** Assertions serve as the building blocks of [Data Contracts](/docs/managed-datahub/observe/data-contract.md) – this is how we verify the contract is met.
@@ -96,6 +100,10 @@ If you opt for a 3rd party tool, it will be your responsibility to ensure the as
 ## Alerts
 
 Beyond the ability to see the results of the assertion checks (and history of the results) both on the physical asset's page in the DataHub UI and as the result of DataHub API calls, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion run event, or when an [incident](../../incidents/incidents.md) is raised or resolved. In the future, we'll also provide the ability to subscribe directly to contracts.
+
+<p align="center">
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/assertions/slack-assertions-rich-alert.png"/>
+</p>
 
 With DataHub Cloud Observe, you can react to the Assertion Run Event by listening to API events via [AWS EventBridge](/docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md) (the availability and simplicity of setup of each solution dependent on your current DataHub Cloud setup – chat with your DataHub Cloud representative to learn more).
 

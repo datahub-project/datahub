@@ -2,7 +2,7 @@
 
 Hana is a DataHub utility or metadata-focused integration. Learn more in the [official Hana documentation](https://github.com/SAP/sqlalchemy-hana).
 
-The DataHub integration for Hana covers metadata entities and operational objects relevant to this connector. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Hana covers metadata entities and operational objects relevant to this connector. It also captures table- and column-level lineage, data profiling, and stateful deletion detection.
 
 ## Concept Mapping
 
