@@ -277,11 +277,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # Refs where element-name matches the element's own warehouse-table name
-    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
-    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
-    # upstream is the warehouse inode.
+    # Warehouse-passthrough refs where columnId-based resolution failed.
+    # Fires for self-ref formulas (element name == formula source) AND for
+    # formulas where the source is the warehouse table name but resolution fails
+    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Note: semantics changed in this release — previously this counter fired on
+    # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
+    # Covers both the self-ref case and the case where the formula source is
+    # the warehouse table name rather than the element name.
+    data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
@@ -368,6 +374,17 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     to None — correct for single-env, single-instance deployments but
     produces dangling lineage for multi-env or multi-instance setups.
     """
+
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default database name for this connection. Required for platforms "
+            "where Sigma's /files path omits the database layer (e.g. Redshift: "
+            "'Connection Root/SCHEMA'). Set this to the database name the "
+            "warehouse connector uses so the emitted URNs match "
+            "(e.g. 'dev' to produce 'dev.public.table')."
+        ),
+    )
 
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=True,

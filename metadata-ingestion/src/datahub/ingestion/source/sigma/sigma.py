@@ -217,6 +217,17 @@ _WAREHOUSE_LOWERCASE_PLATFORMS: frozenset[str] = frozenset({"snowflake"})
 _FILES_PATH_ROOT = "Connection Root"
 
 
+def _normalize_warehouse_identifier(name: str, platform: str, lowercase: bool) -> str:
+    """Apply platform-appropriate casing to a warehouse identifier (table or column).
+
+    Mirrors _WarehouseTableRef.fq_name's casing logic so table and column
+    identifiers in schemaField URNs use the same convention.
+    """
+    if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
+        return name.lower()
+    return name
+
+
 @dataclass(frozen=True)
 class _WarehouseTableRef:
     """Resolved warehouse table coordinates derived from a /files response."""
@@ -227,7 +238,14 @@ class _WarehouseTableRef:
     table: str
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
-        name = f"{self.db}.{self.schema}.{self.table}"
+        # db is empty for platforms with a 2-segment /files path (e.g. Redshift:
+        # "Connection Root/<SCHEMA>"). In that case emit schema.table; otherwise
+        # emit the full db.schema.table used by Snowflake and similar platforms.
+        name = (
+            f"{self.schema}.{self.table}"
+            if not self.db
+            else f"{self.db}.{self.schema}.{self.table}"
+        )
         if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
             return name.lower()
         return name
@@ -361,6 +379,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Inodes whose /files path already produced an unparseable warning;
         # prevents N identical warnings when the same inode spans N DMs (H3).
         self._files_path_unparseable_seen: Set[str] = set()
+        # Connections for which a "default_database not configured" warning has
+        # been emitted; dedup so multi-DM tenants don't flood the report.
+        self._missing_default_db_warned: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -699,13 +720,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # name field, which may be a display label or absent.
             table_name = str(files_data.get("name") or "")
             parts = path.split("/")
-            # Validate: exactly 3 non-empty segments and a non-empty urlId.
-            # Rejects "Acryl Workspace" (CSV uploads), "Connection Root//PUBLIC"
-            # (empty DB segment -> malformed URN), and >3 segments.
-            # H4 TODO: confirm with Sigma whether API path strings are localised;
-            # if so, relax the literal "Connection Root" check.
-            path_invalid = (
-                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            # Accept 2–3 total segments after splitting on "/" (1–2 non-root parts,
+            # all non-empty) plus a non-empty urlId:
+            #   "Connection Root/<SCHEMA>"      — Redshift, MySQL (no DB layer)
+            #   "Connection Root/<DB>/<SCHEMA>" — Snowflake, Postgres
+            # Fewer total segments (e.g. "Acryl Workspace" = 1), empty segments,
+            # or 4+ total segments (not yet mapped) are all rejected.
+            path_invalid = not (
+                url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
             )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
@@ -721,8 +743,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             else "Sigma warehouse /files path unparseable"
                         ),
                         message=(
-                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
-                            "no empty segments and a non-empty urlId. "
+                            "Expected 'Connection Root/<SCHEMA>' or "
+                            "'Connection Root/<DB>/<SCHEMA>' with no empty "
+                            "segments and a non-empty urlId. "
                             "Warehouse upstream skipped for this inode."
                         ),
                         context=(
@@ -739,10 +762,40 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     data_model.dataModelId,
                     url_id,
                 )
+            # 3-segment path → DB + SCHEMA (e.g. Snowflake "Connection Root/<DB>/<SCHEMA>")
+            # 2-segment path → SCHEMA only; fall back to connection's default_database
+            # (e.g. Redshift "Connection Root/<SCHEMA>" where the DB lives in the connection)
+            if len(parts) == 3:
+                db, schema = parts[1], parts[2]
+            else:
+                # No DB in path — resolve from connection_to_platform_map override
+                # first, then fall back to the connection registry's default_database.
+                conn_override = self.config.connection_to_platform_map.get(conn_id)
+                conn_record = self.connection_registry.get(conn_id)
+                db = (
+                    (conn_override.default_database if conn_override else None)
+                    or (conn_record.default_database if conn_record else None)
+                    or ""
+                )
+                schema = parts[1]
+                if not db and conn_id not in self._missing_default_db_warned:
+                    self._missing_default_db_warned.add(conn_id)
+                    self.reporter.warning(
+                        title="Sigma warehouse default_database not configured",
+                        message=(
+                            "The /files path for this connection has no database layer "
+                            "(e.g. 'Connection Root/<SCHEMA>'). The emitted warehouse "
+                            "URN will use schema.table only, which will not match a "
+                            "connector that uses db.schema.table. Set "
+                            "connection_to_platform_map.<connectionId>.default_database "
+                            "in the recipe to fix the URN."
+                        ),
+                        context=f"connectionId={conn_id}, path={path!r}",
+                    )
             result[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
-                db=parts[1],
-                schema=parts[2],
+                db=db,
+                schema=schema,
                 table=table_name,
             )
         return result
@@ -1438,6 +1491,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             elementId_to_dataset_urn=elementId_to_dataset_urn,
             entity_level_upstream_urns=set(upstream_urns),
             data_model=data_model,
+            warehouse_url_id_map=warehouse_url_id_map,
         )
         return UpstreamLineage(
             upstreams=[
@@ -1505,7 +1559,78 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=element_dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
-    def _build_dm_element_fine_grained_lineages(
+    def _try_emit_warehouse_passthrough_fgl(
+        self,
+        *,
+        column: SigmaDataModelColumn,
+        element: SigmaDataModelElement,
+        downstream_field: str,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
+    ) -> Optional[FineGrainedLineageClass]:
+        """Attempt to build a warehouse-passthrough FineGrainedLineage entry.
+
+        Resolves the column's warehouse identity via the columnId field, which
+        Sigma encodes as ``inode-<url_id>/<WAREHOUSE_COLUMN_NAME>``.  This is
+        more reliable than the formula bracket ref, which carries the DM display
+        name (e.g. "Customer Id") rather than the warehouse identifier
+        ("CUSTOMER_ID" / "customer_id").
+
+        Returns a FineGrainedLineageClass on success; returns None and bumps a
+        failure counter on any resolution failure.  Dedup (emitted_pairs) is
+        the caller's responsibility so that None unambiguously means failure.
+        """
+        # Parse columnId → url_id + warehouse column name.
+        col_id = column.columnId or ""
+        if not col_id.startswith("inode-"):
+            return None
+        suffix = col_id[len("inode-") :]
+        url_id, sep, warehouse_col = suffix.partition("/")
+        if not sep or not warehouse_col:
+            return None
+
+        # Verify this url_id is one of the element's declared warehouse sources.
+        # Mismatches can occur if a column belongs to a different element's inode
+        # (shouldn't happen with well-formed API data, but guards against drift).
+        if f"inode-{url_id}" not in element.source_ids:
+            return None
+
+        # Guard: url_id must resolve in the warehouse map (i.e. /files succeeded).
+        wh_ref = warehouse_url_id_map.get(url_id)
+        if wh_ref is None:
+            return None
+
+        # Resolve the parent Dataset URN.  This is the only allowed path for
+        # URN construction — env, platform_instance, and casing all live here,
+        # so bypassing it risks orphan schemaFields on casing or instance drift.
+        parent_urn = self._resolve_dm_element_warehouse_upstream(
+            url_id_suffix=url_id,
+            warehouse_map=warehouse_url_id_map,
+        )
+        if parent_urn is None:
+            return None
+
+        # Normalize column casing to match the platform convention used by the
+        # warehouse connector.  _resolve_dm_element_warehouse_upstream already
+        # resolved the registry record and override, so these lookups are cheap
+        # dict hits on the same objects.
+        record = self.connection_registry.get(wh_ref.connection_id)
+        if record is None:
+            return None
+        conn_override = self.config.connection_to_platform_map.get(wh_ref.connection_id)
+        lowercase = conn_override.convert_urns_to_lowercase if conn_override else True
+        normalized_col = _normalize_warehouse_identifier(
+            warehouse_col, record.datahub_platform, lowercase
+        )
+        upstream_field = builder.make_schema_field_urn(parent_urn, normalized_col)
+        return FineGrainedLineageClass(
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[downstream_field],
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[upstream_field],
+            confidenceScore=1.0,
+        )
+
+    def _build_dm_element_fine_grained_lineages(  # noqa: C901
         self,
         *,
         element: SigmaDataModelElement,
@@ -1514,6 +1639,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_dataset_urn: Dict[str, str],
         entity_level_upstream_urns: Set[str],
         data_model: SigmaDataModel,
+        warehouse_url_id_map: Dict[str, _WarehouseTableRef],
     ) -> List[FineGrainedLineageClass]:
         """Build FineGrainedLineage entries for intra-DM [ElementName/col] refs.
 
@@ -1521,8 +1647,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Self-references are stripped before resolution: when a DM element is named
         after its warehouse source (e.g., element "data.csv" with formula
         "[data.csv/col]"), the formula ref matches the element's own name and must
-        be filtered out to avoid self-referential FGL.  These are counted under
-        fgl_warehouse_passthrough_deferred and left for warehouse-external resolution.
+        be filtered out to avoid self-referential FGL.  Warehouse-passthrough
+        refs are resolved via _try_emit_warehouse_passthrough_fgl; unresolved
+        remainder is counted under fgl_warehouse_passthrough_deferred.
 
         When multiple sibling elements share a name and both pass the /lineage filter,
         the lexicographically-first URN is chosen (matching the collision policy
@@ -1551,6 +1678,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
+            # Warehouse FGL is emitted at most once per column (based on columnId,
+            # which encodes a single warehouse column identity). Attempting it once
+            # per bracket ref would misfire for formulas with multiple refs —
+            # e.g. concat([T/a], [T/b]) would emit the same columnId-derived FGL
+            # for both refs, producing a spurious match on the second ref.
+            _warehouse_fgl_attempted = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
@@ -1570,9 +1703,56 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
                         # All candidates were self-references; actual upstream is a
-                        # warehouse table.
-                        self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                        # warehouse table — attempt FGL resolution via columnId.
+                        # Guard: attempt at most once per column so formulas with
+                        # multiple self-ref bracket refs don't emit duplicate FGLs.
+                        if not _warehouse_fgl_attempted:
+                            _warehouse_fgl_attempted = True
+                            warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                                column=column,
+                                element=element,
+                                downstream_field=downstream_field,
+                                warehouse_url_id_map=warehouse_url_id_map,
+                            )
+                            if warehouse_fgl is None:
+                                self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            else:
+                                assert warehouse_fgl.upstreams
+                                pair = (downstream_field, warehouse_fgl.upstreams[0])
+                                if pair not in emitted_pairs:
+                                    emitted_pairs.add(pair)
+                                    fgls.append(warehouse_fgl)
+                                    self.reporter.data_model_element_fgl_warehouse_resolved += 1
                         continue
+                    # No intra-DM candidate. Before cross-DM search, try the
+                    # warehouse path via columnId. Sigma elements sometimes use
+                    # the warehouse table name as the formula source (e.g.
+                    # "[CUSTOMERS/col]" on an element that isn't named "CUSTOMERS")
+                    # rather than the element name — columnId is authoritative.
+                    # H4: if columnId is warehouse-shaped but _try_emit fails,
+                    # count as warehouse-deferred rather than cross-DM-deferred.
+                    if not _warehouse_fgl_attempted:
+                        _warehouse_fgl_attempted = True
+                        warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                            column=column,
+                            element=element,
+                            downstream_field=downstream_field,
+                            warehouse_url_id_map=warehouse_url_id_map,
+                        )
+                        if warehouse_fgl is not None:
+                            assert warehouse_fgl.upstreams
+                            pair = (downstream_field, warehouse_fgl.upstreams[0])
+                            if pair not in emitted_pairs:
+                                emitted_pairs.add(pair)
+                                fgls.append(warehouse_fgl)
+                                self.reporter.data_model_element_fgl_warehouse_resolved += 1
+                            continue
+                        if (column.columnId or "").startswith("inode-"):
+                            # Warehouse-shaped columnId but resolution failed
+                            # (e.g. /files miss, unmappable connection).
+                            self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
+                            continue
+
                     # Source not in this DM — search only the DMs this element's
                     # source_ids explicitly reference. This prevents formula refs
                     # like [Orders/id] from linking to any ingested element named
@@ -1717,8 +1897,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         confidenceScore=1.0,
                     )
                 )
-        # fgl_emitted tracks intra-DM FGL only; cross-DM is tracked separately
-        # via fgl_cross_dm_resolved so operators can see both buckets independently.
+        # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
+        # FGL (both appended to `fgls`). Cross-DM is tracked separately via
+        # fgl_cross_dm_resolved. Warehouse-passthrough is also sub-counted in
+        # fgl_warehouse_resolved (overlap intentional for independent triage).
         self.reporter.data_model_element_fgl_emitted += len(fgls)
         all_fgls = fgls + cross_dm_fgls
         all_fgls.sort(
