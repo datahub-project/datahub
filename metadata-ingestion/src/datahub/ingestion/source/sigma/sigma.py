@@ -251,6 +251,16 @@ class _WarehouseTableRef:
         return name
 
 
+@dataclass
+class _CustomSqlRegistration:
+    """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
+
+    urn: str
+    registered_set: Set[str]
+    counter_prefix: str  # "dm_customsql" or "workbook_customsql"
+    label: str  # "DM element" or "workbook chart"
+
+
 @platform_name("Sigma")
 @config_class(SigmaSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -330,6 +340,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # MCP at drain so the final aspect is consolidated.
         self._customsql_extra_upstreams: Dict[str, List[Upstream]] = {}
         self._customsql_extra_fgls: Dict[str, List[FineGrainedLineageClass]] = {}
+        # Chart URNs registered with the aggregator via the workbook customSQL path.
+        # Separate from _customsql_registered_urns (DM Dataset URNs) to prevent
+        # counter bleed between the two namespaces.
+        self._workbook_customsql_registered_urns: Set[str] = set()
+        # chart_urn → formula-derived InputField list stashed at emit time.
+        # Merged at drain time so warehouse-resolved fields supplement
+        # (not replace) formula-derived column entries.
+        self._workbook_customsql_formula_fields: Dict[str, List[InputFieldClass]] = {}
         # DM urlId → DM dataModelId (UUID). Reverse of get_url_id(); used to
         # correlate ``data-model`` lineage entries (keyed by dataModelId) with
         # source_id prefixes (keyed by urlId) in cross-DM upstream resolution.
@@ -1066,6 +1084,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
         return self._sql_aggregators[cache_key]
 
+    def _inc_counter(self, prefix: str, suffix: str) -> None:
+        attr = f"{prefix}_{suffix}"
+        setattr(self.reporter, attr, getattr(self.reporter, attr) + 1)
+
+    @staticmethod
+    def _make_string_schema_field(field_path: str) -> SchemaFieldClass:
+        """Placeholder SchemaFieldClass for a chart column in lineage InputField entries."""
+        return SchemaFieldClass(
+            fieldPath=field_path,
+            type=SchemaFieldDataTypeClass(StringTypeClass()),
+            nativeDataType="String",
+        )
+
     def _build_customsql_col_mapping(
         self,
         element: SigmaDataModelElement,
@@ -1110,77 +1141,331 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if passthrough:
             self._customsql_passthrough_mappings[element_dataset_urn] = passthrough
 
+    def _build_workbook_customsql_registry(
+        self,
+        workbook: Workbook,
+    ) -> Tuple[Dict[str, CustomSqlEntry], Dict[str, List[str]]]:
+        """Parse /v2/workbooks/{id}/lineage entries into lookup maps.
+
+        Returns:
+            custom_sql_by_name: customSQL name → CustomSqlEntry
+            element_id_by_customsql_name: customSQL name → list of elementIds of charts
+              that source from it (one customSQL may feed multiple charts)
+        """
+        entries = self.sigma_api.get_workbook_lineage_entries(workbook.workbookId)
+        custom_sql_by_name: Dict[str, CustomSqlEntry] = {}
+        element_entries: List[Dict[str, Any]] = []
+        for entry in entries:
+            entry_type = entry.get("type", "")
+            if entry_type == "customSQL":
+                name = entry.get("name", "")
+                if not name:
+                    logger.debug("Skipping unnamed customSQL lineage entry: %r", entry)
+                    continue
+                try:
+                    custom_sql_by_name[name] = CustomSqlEntry.model_validate(entry)
+                except Exception as e:
+                    self.reporter.workbook_customsql_skipped += 1
+                    self.reporter.warning(
+                        title="Sigma workbook customSQL lineage entry invalid",
+                        message="Failed to parse customSQL lineage entry; it will be skipped.",
+                        context=f"customsql_name={name!r}",
+                        exc=e,
+                    )
+            elif entry_type == "element":
+                element_entries.append(entry)
+        # Resolve element → customSQL references after both have been collected,
+        # since either type can appear first in the API response.
+        # A single customSQL may be referenced by multiple chart elements.
+        element_id_by_customsql_name: Dict[str, List[str]] = {}
+        for entry in element_entries:
+            element_id = entry.get("elementId", "")
+            source_ids = entry.get("sourceIds") or []
+            if element_id and isinstance(source_ids, list):
+                for source_id in source_ids:
+                    if isinstance(source_id, str) and source_id in custom_sql_by_name:
+                        element_id_by_customsql_name.setdefault(source_id, []).append(
+                            element_id
+                        )
+        return custom_sql_by_name, element_id_by_customsql_name
+
+    def _build_workbook_customsql_col_mapping(
+        self,
+        element: Element,
+        chart_urn: str,
+    ) -> None:
+        """Populate ``_customsql_passthrough_mappings`` for a customSQL workbook chart.
+
+        Only single-ref formulas are registered so computed expressions
+        (``[Custom SQL/A] + [Custom SQL/B]``) do not fabricate upstream edges
+        for columns that have no direct pass-through from the SQL source.
+
+        Workbook charts source columns directly from the SQL SELECT list and Sigma
+        surfaces them in formula refs verbatim (e.g. ``[Custom SQL/customer_id]``),
+        so the SQL column name is the display name without any alias translation.
+        If Sigma ever allows renaming customSQL columns in the workbook UI (as DM
+        elements do), this assumption breaks and a ``_customsql_col_mappings`` pass
+        like the DM path would be needed.
+        """
+        passthrough: Dict[str, str] = {}
+        for sigma_col, formula in element.column_formulas.items():
+            if not formula:
+                continue
+            refs = extract_bracket_refs(formula)
+            if len(refs) != 1:
+                continue
+            ref = refs[0]
+            if ref.column is not None and ref.source.lower() == element.name.lower():
+                passthrough[ref.column.lower()] = sigma_col
+        if passthrough:
+            self._customsql_passthrough_mappings[chart_urn] = passthrough
+
+    def _parse_customsql_upstream_dataset_urns(
+        self, customsql_entry: CustomSqlEntry
+    ) -> List[str]:
+        """Synchronously parse customSQL definition to extract upstream dataset URNs.
+
+        Used to populate ChartInfo.inputs before the SQL aggregator drains.
+        Returns an empty list on any failure.
+
+        Note: this is a second, independent invocation of the SQL parser for the same
+        SQL that ``_process_workbook_customsql_element`` later registers with the
+        aggregator (which re-parses at drain time).  The duplication is intentional:
+        the aggregator's resolved in_tables are not available until after all
+        workunits have been emitted, but ``ChartInfo.inputs`` must be written before
+        the page workunits are yielded so that entity-level upstream lineage appears
+        in the UI immediately.  In practice both parses use identical inputs and
+        produce identical URN lists.
+        """
+        definition = (customsql_entry.definition or "").strip()
+        connection_id = customsql_entry.connectionId
+        if not definition or not connection_id:
+            return []
+        record = self.connection_registry.get(connection_id)
+        if record is None or not record.is_mappable:
+            return []
+        override = self.config.connection_to_platform_map.get(connection_id)
+        default_db = (
+            override.default_database if override else None
+        ) or record.default_database
+        default_schema = (
+            override.default_schema if override else None
+        ) or record.default_schema
+        target_env = override.env if override else self.config.env
+        target_platform_instance = (
+            override.platform_instance if override else self.config.platform_instance
+        )
+        try:
+            result = create_lineage_sql_parsed_result(
+                query=definition,
+                default_db=default_db,
+                default_schema=default_schema,
+                platform=record.datahub_platform,
+                env=target_env,
+                platform_instance=target_platform_instance,
+                generate_column_lineage=False,
+            )
+            return result.in_tables or []
+        except Exception as e:
+            self.reporter.workbook_customsql_parse_failed += 1
+            self.reporter.warning(
+                title="Sigma workbook customSQL inputs parse failed",
+                message="create_lineage_sql_parsed_result raised; ChartInfo.inputs will not include warehouse upstreams.",
+                context=f"customsql_name={customsql_entry.name!r}, connection_id={customsql_entry.connectionId!r}",
+                exc=e,
+            )
+            return []
+
+    def _register_customsql_with_aggregator(
+        self,
+        reg: _CustomSqlRegistration,
+        customsql_entry: CustomSqlEntry,
+    ) -> None:
+        """Register one customSQL view with the SQL aggregator.
+
+        Shared by the DM-element and workbook-chart paths.  Guard clauses are
+        identical; per-kind variation (counters, warning labels, registered set)
+        is carried in ``reg``.
+        """
+        if reg.urn in reg.registered_set:
+            self._inc_counter(reg.counter_prefix, "skipped")
+            self.reporter.warning(
+                title=f"Sigma {reg.label} has multiple customSQL source_ids",
+                message="Only the first customSQL source is used for warehouse lineage; subsequent sources are skipped.",
+                context=f"urn={reg.urn!r}, customsql_name={customsql_entry.name!r}",
+            )
+            return
+        definition = (customsql_entry.definition or "").strip()
+        if not definition:
+            self._inc_counter(reg.counter_prefix, "skipped")
+            return
+        connection_id = customsql_entry.connectionId
+        if not connection_id:
+            self._inc_counter(reg.counter_prefix, "skipped")
+            return
+        record = self.connection_registry.get(connection_id)
+        if record is None:
+            self._inc_counter(reg.counter_prefix, "skipped")
+            self.reporter.warning(
+                title=f"Sigma {reg.label} customSQL connection not found",
+                message="connectionId not found in connection registry; warehouse lineage will be absent. Check /v2/connections scope/permissions.",
+                context=f"urn={reg.urn!r}, connection_id={connection_id!r}",
+            )
+            return
+        if not record.is_mappable:
+            self._inc_counter(reg.counter_prefix, "skipped")
+            self.reporter.warning(
+                title=f"Sigma {reg.label} customSQL platform not mapped",
+                message="Sigma connection type is not mapped to a DataHub platform; warehouse lineage will be absent. Add it to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
+                context=f"urn={reg.urn!r}, sigma_type={record.sigma_type!r}",
+            )
+            return
+        override = self.config.connection_to_platform_map.get(connection_id)
+        default_db = (
+            override.default_database if override else None
+        ) or record.default_database
+        default_schema = (
+            override.default_schema if override else None
+        ) or record.default_schema
+        target_env = override.env if override else self.config.env
+        target_platform_instance = (
+            override.platform_instance if override else self.config.platform_instance
+        )
+        aggregator = self._get_sql_aggregator(
+            platform=record.datahub_platform,
+            env=target_env,
+            platform_instance=target_platform_instance,
+        )
+        try:
+            aggregator.add_view_definition(
+                view_urn=reg.urn,
+                view_definition=definition,
+                default_db=default_db,
+                default_schema=default_schema,
+            )
+            self._inc_counter(reg.counter_prefix, "aggregator_invocations")
+            reg.registered_set.add(reg.urn)
+        except Exception as e:
+            self._inc_counter(reg.counter_prefix, "aggregator_invocation_errors")
+            self.reporter.warning(
+                title=f"Sigma {reg.label} customSQL registration failed",
+                message="SqlParsingAggregator.add_view_definition raised; this entity will be emitted without warehouse lineage.",
+                context=f"urn={reg.urn!r}, customsql_name={customsql_entry.name!r}, connection_id={connection_id!r}, platform={record.datahub_platform}",
+                exc=e,
+            )
+
+    def _process_workbook_customsql_element(
+        self,
+        chart_urn: str,
+        customsql_entry: CustomSqlEntry,
+    ) -> None:
+        """Register one workbook customSQL chart with the per-platform aggregator."""
+        self._register_customsql_with_aggregator(
+            _CustomSqlRegistration(
+                urn=chart_urn,
+                registered_set=self._workbook_customsql_registered_urns,
+                counter_prefix="workbook_customsql",
+                label="workbook chart",
+            ),
+            customsql_entry,
+        )
+
     def _process_dm_customsql_element(
         self,
         element_dataset_urn: str,
         customsql_entry: CustomSqlEntry,
     ) -> None:
         """Register one customSQL DM element with the per-platform aggregator."""
-        if element_dataset_urn in self._customsql_registered_urns:
-            self.reporter.dm_customsql_skipped += 1
-            self.reporter.warning(
-                title="Sigma DM element has multiple customSQL source_ids",
-                message="Only the first customSQL source_id is used for warehouse lineage; subsequent ones are skipped. The first-seen ordering is determined by Sigma's /lineage API response.",
-                context=(
-                    f"element_urn={element_dataset_urn!r}, "
-                    f"skipped_name={customsql_entry.name!r}, "
-                    f"skipped_definition_prefix={(customsql_entry.definition)[:80]!r}"
-                ),
-            )
-            return
-
-        definition = (customsql_entry.definition or "").strip()
-        if not definition:
-            self.reporter.dm_customsql_skipped += 1
-            return
-
-        connection_id = customsql_entry.connectionId
-        if not connection_id:
-            self.reporter.dm_customsql_skipped += 1
-            return
-        record = self.connection_registry.get(connection_id)
-        if record is None:
-            self.reporter.dm_customsql_skipped += 1
-            logger.warning(
-                "DM customSQL element %r: connectionId=%r not found in connection registry; "
-                "warehouse lineage will be absent.  Check /v2/connections scope/permissions.",
-                element_dataset_urn,
-                connection_id,
-            )
-            return
-        if not record.is_mappable:
-            self.reporter.dm_customsql_skipped += 1
-            logger.warning(
-                "DM customSQL element %r: Sigma connection type %r is not mapped to a "
-                "DataHub platform; warehouse lineage will be absent.  "
-                "Add it to SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP if supported.",
-                element_dataset_urn,
-                record.sigma_type,
-            )
-            return
-
-        aggregator = self._get_sql_aggregator(
-            platform=record.datahub_platform,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
+        self._register_customsql_with_aggregator(
+            _CustomSqlRegistration(
+                urn=element_dataset_urn,
+                registered_set=self._customsql_registered_urns,
+                counter_prefix="dm_customsql",
+                label="DM element",
+            ),
+            customsql_entry,
         )
-        try:
-            aggregator.add_view_definition(
-                view_urn=element_dataset_urn,
-                view_definition=definition,
-                default_db=record.default_database,
-                default_schema=record.default_schema,
+
+    def _build_workbook_chart_input_fields_mcp(
+        self,
+        entity_urn: str,
+        aspect: UpstreamLineage,
+    ) -> MetadataChangeProposalWrapper:
+        """Convert an UpstreamLineage aspect for a workbook chart into InputFields.
+
+        Charts do not accept ``upstreamLineage``; this converts the aggregator
+        output into the ``inputFields`` aspect that DataHub's chart entity accepts.
+        """
+        self.reporter.workbook_customsql_upstream_emitted += 1
+        input_fields: List[InputFieldClass] = []
+        if aspect.fineGrainedLineages:
+            input_fields = self._fgl_to_input_fields(aspect.fineGrainedLineages)
+        elif len(aspect.upstreams) == 1:
+            col_mapping = self._customsql_passthrough_mappings.get(entity_urn)
+            if col_mapping:
+                upstream_urn = aspect.upstreams[0].dataset
+                input_fields = self._passthrough_to_input_fields(
+                    upstream_urn, col_mapping
+                )
+        if input_fields:
+            self.reporter.workbook_customsql_column_lineage_emitted += 1
+        fallback_fields = self._workbook_customsql_formula_fields.get(entity_urn, [])
+        if fallback_fields:
+            covered_paths = {
+                f.schemaField.fieldPath
+                for f in input_fields
+                if f.schemaField is not None
+            }
+            for fb in fallback_fields:
+                if (
+                    fb.schemaField is not None
+                    and fb.schemaField.fieldPath not in covered_paths
+                ):
+                    input_fields.append(fb)
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=InputFieldsClass(fields=input_fields),
+        )
+
+    def _fgl_to_input_fields(
+        self, fgls: List[FineGrainedLineageClass]
+    ) -> List[InputFieldClass]:
+        """Build InputField entries from named-column FGL entries."""
+        input_fields: List[InputFieldClass] = []
+        for fgl in fgls:
+            downstreams = fgl.downstreams or []
+            if not downstreams:
+                self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
+                continue
+            for ds_urn in downstreams:
+                try:
+                    chart_col = SchemaFieldUrn.from_string(ds_urn).field_path
+                except InvalidUrnError:
+                    self.reporter.workbook_customsql_fgl_downstream_unmapped += 1
+                    logger.debug(
+                        "Skipping FGL entry with invalid downstream URN %r", ds_urn
+                    )
+                    continue
+                for upstream_sf_urn in fgl.upstreams or []:
+                    input_fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=upstream_sf_urn,
+                            schemaField=self._make_string_schema_field(chart_col),
+                        )
+                    )
+        return input_fields
+
+    def _passthrough_to_input_fields(
+        self, upstream_urn: str, col_mapping: Dict[str, str]
+    ) -> List[InputFieldClass]:
+        """Build InputField entries from a SELECT * passthrough mapping."""
+        return [
+            InputFieldClass(
+                schemaFieldUrn=builder.make_schema_field_urn(upstream_urn, sql_col),
+                schemaField=self._make_string_schema_field(sigma_col),
             )
-            self.reporter.dm_customsql_aggregator_invocations += 1
-            self._customsql_registered_urns.add(element_dataset_urn)
-        except Exception as e:
-            self.reporter.dm_customsql_aggregator_invocation_errors += 1
-            self.reporter.warning(
-                title="Sigma DM customSQL element registration failed",
-                message="SqlParsingAggregator.add_view_definition raised; this element will be emitted without warehouse lineage.",
-                context=f"element_urn={element_dataset_urn}, customsql_name={customsql_entry.name!r}, connection_id={connection_id!r}, platform={record.datahub_platform}",
-                exc=e,
-            )
+            for sql_col, sigma_col in col_mapping.items()
+        ]
 
     def _rewrite_fgl_downstreams(
         self, mcp: MetadataChangeProposalWrapper
@@ -1200,6 +1485,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not isinstance(aspect, UpstreamLineage):
             return mcp
         entity_urn = str(mcp.entityUrn)
+
+        # Workbook chart URNs: convert UpstreamLineage to InputFields, since
+        # DataHub's chart entity does not accept the upstreamLineage aspect.
+        if entity_urn in self._workbook_customsql_registered_urns:
+            return self._build_workbook_chart_input_fields_mcp(entity_urn, aspect)
+
         # Only count MCPs for element URNs we registered — the aggregator
         # should only emit for those, but guard in case of future changes.
         if entity_urn in self._customsql_registered_urns:
@@ -1316,7 +1607,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 for mcp in aggregator.gen_metadata():
                     yield self._rewrite_fgl_downstreams(mcp).as_workunit()
                 agg_report = aggregator.report
-                self.reporter.dm_customsql_parse_failed += agg_report.num_views_failed
+                fail_urns: Dict[str, Any] = agg_report.views_parse_failures or {}
+                wb_failures = sum(
+                    u in self._workbook_customsql_registered_urns for u in fail_urns
+                )
+                dm_failures = sum(
+                    u in self._customsql_registered_urns for u in fail_urns
+                )
+                # views_parse_failures is lossy past 10 entries; use num_views_failed
+                # for the accurate total and attribute any residual (past-10 failures)
+                # to the DM counter as best-effort.
+                residual = max(
+                    0, agg_report.num_views_failed - wb_failures - dm_failures
+                )
+                self.reporter.workbook_customsql_parse_failed += wb_failures
+                self.reporter.dm_customsql_parse_failed += dm_failures + residual
             except Exception as e:
                 self.reporter.warning(
                     title="Sigma DM customSQL aggregator drain failed",
@@ -2988,11 +3293,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             fields.append(
                 InputFieldClass(
                     schemaFieldUrn=schema_field_urn,
-                    schemaField=SchemaFieldClass(
-                        fieldPath=column,
-                        type=SchemaFieldDataTypeClass(StringTypeClass()),
-                        nativeDataType="String",
-                    ),
+                    schemaField=self._make_string_schema_field(column),
                 )
             )
         return fields
@@ -3006,6 +3307,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_chart_urn: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
         wb_warehouse_table_index: Dict[str, List[str]],
+        customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
@@ -3027,6 +3329,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             dataset_inputs, chart_input_urns = self._get_element_input_details(
                 element, workbook, elementId_to_chart_urn
             )
+
+            # Add warehouse upstream URNs resolved by the workbook-level customSQL registry.
+            # These URNs are resolved before pages are emitted so ChartInfo.inputs is complete.
+            for warehouse_urn in (customsql_extra_inputs or {}).get(
+                element.elementId, []
+            ):
+                if warehouse_urn not in dataset_inputs:
+                    dataset_inputs[warehouse_urn] = []
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
@@ -3122,6 +3432,18 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 wb_only_warehouse_keys=wb_only_warehouse_keys,
             )
 
+            # Stash formula-derived fields for customSQL charts so we can merge at
+            # drain time, ensuring warehouse-resolved entries supplement rather than
+            # replace computed/unmapped column entries from the formula pass.
+            if chart_urn in self._workbook_customsql_registered_urns:
+                self._workbook_customsql_formula_fields[chart_urn] = (
+                    element_input_fields
+                )
+
+            # For customSQL charts a second InputFields MCP is emitted at drain time
+            # by _build_workbook_chart_input_fields_mcp; the drain MCP supersedes this
+            # one (later in the workunit stream).  The formula-derived fields stashed
+            # above are merged into the drain MCP so nothing is silently dropped.
             yield MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=InputFieldsClass(fields=element_input_fields),
@@ -3130,7 +3452,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             all_input_fields.extend(element_input_fields)
 
     def _gen_pages_workunit(
-        self, workbook: Workbook, paths: List[str]
+        self,
+        workbook: Workbook,
+        paths: List[str],
+        customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
@@ -3192,6 +3517,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn,
                 wb_element_index,
                 wb_warehouse_table_index,
+                customsql_extra_inputs or {},
             )
 
             yield MetadataChangeProposalWrapper(
@@ -3206,6 +3532,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 ),
             ).as_workunit()
+
+    def _process_workbook_customsql_lineage(
+        self, workbook: Workbook
+    ) -> Dict[str, List[str]]:
+        """Register all workbook customSQL charts with the aggregator.
+
+        Returns element_id → upstream dataset URNs for injection into
+        ChartInfo.inputs before page workunits are emitted.
+        """
+        custom_sql_by_name, element_ids_by_customsql_name = (
+            self._build_workbook_customsql_registry(workbook)
+        )
+        element_by_id: Dict[str, Element] = {
+            e.elementId: e for page in workbook.pages for e in page.elements
+        }
+        customsql_extra_inputs: Dict[str, List[str]] = {}
+        # Sorted so the "first wins" behaviour in _process_workbook_customsql_element
+        # is deterministic across runs regardless of API response order.
+        for csql_name, customsql_entry in sorted(custom_sql_by_name.items()):
+            element_ids = element_ids_by_customsql_name.get(csql_name) or []
+            if not element_ids:
+                self.reporter.workbook_customsql_skipped += 1
+                continue
+            for element_id in element_ids:
+                chart_urn = builder.make_chart_urn(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    name=element_id,
+                )
+                element = element_by_id.get(element_id)
+                if element is not None:
+                    self._build_workbook_customsql_col_mapping(element, chart_urn)
+                self._process_workbook_customsql_element(chart_urn, customsql_entry)
+                # The upstream_urns here come from a synchronous pre-drain parse;
+                # the aggregator produces the same list at drain time from the same SQL.
+                # See _parse_customsql_upstream_dataset_urns for details.
+                upstream_urns = self._parse_customsql_upstream_dataset_urns(
+                    customsql_entry
+                )
+                if upstream_urns:
+                    customsql_extra_inputs[element_id] = upstream_urns
+        return customsql_extra_inputs
 
     def _gen_workbook_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
         """
@@ -3296,7 +3664,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     entity_urn=dashboard_urn,
                 )
 
-        yield from self._gen_pages_workunit(workbook, paths)
+        # Build customSQL registry before emitting pages so the resolved upstream dataset
+        # URNs can be included in ChartInfo.inputs (entity-level lineage for the UI).
+        customsql_extra_inputs = (
+            self._process_workbook_customsql_lineage(workbook)
+            if self.config.extract_lineage
+            else {}
+        )
+        yield from self._gen_pages_workunit(workbook, paths, customsql_extra_inputs)
 
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,
@@ -3331,6 +3706,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._customsql_registered_urns.clear()
         self._customsql_extra_upstreams.clear()
         self._customsql_extra_fgls.clear()
+        self._workbook_customsql_registered_urns.clear()
+        self._workbook_customsql_formula_fields.clear()
         self.sigma_api.fill_workspaces()
 
         # Materialize the Sigma Dataset list once and populate the
