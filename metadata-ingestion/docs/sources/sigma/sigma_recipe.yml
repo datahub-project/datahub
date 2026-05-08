@@ -21,14 +21,14 @@ source:
 
     # Optional - per-connection overrides for env, platform_instance, and URN casing.
     # Required for warehouses (e.g. Redshift) whose Sigma connection record omits
-    # database/schema; set default_db/default_schema so customSQL SQL is fully qualified.
+    # database/schema; set default_database/default_schema so customSQL SQL is fully qualified.
     # connection_to_platform_map:
     #   "<sigma-connection-id>":
     #     env: PROD
     #     platform_instance: prod-snowflake
     #     convert_urns_to_lowercase: true
-    #     default_db: my_redshift_db   # omit for Snowflake/BigQuery (returned by Sigma API)
-    #     default_schema: public        # omit unless Sigma API omits the schema field
+    #     default_database: my_redshift_db   # omit for Snowflake/BigQuery (returned by Sigma API)
+    #     default_schema: public             # omit unless Sigma API omits the schema field
 
     # Optional - mapping of sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.
     # chart_sources_platform_mapping:

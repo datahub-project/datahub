@@ -72,13 +72,13 @@ If a Snowflake source recipe sets `convert_urns_to_lowercase: false`, the wareho
 Sigma's `/v2/connections` API does not return `database` or `schema` fields for all warehouse types.
 When those fields are absent, the SQL parser cannot fully qualify unqualified table names and produces
 under-qualified URNs that will not match what your warehouse connector emitted.
-Use `default_db` and `default_schema` in the `connection_to_platform_map` entry to supply the missing values:
+Use `default_database` and `default_schema` in the `connection_to_platform_map` entry to supply the missing values:
 
 ```yml
 connection_to_platform_map:
   "a1b2c3d4-0000-0000-0000-000000000001":
     env: PROD
-    default_db: my_redshift_db # expands `schema.table` → `my_redshift_db.schema.table`
+    default_database: my_redshift_db # expands `schema.table` → `my_redshift_db.schema.table`
     default_schema: public # expands `table` → `public.table`
 ```
 

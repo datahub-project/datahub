@@ -419,6 +419,15 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         ),
     )
 
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default schema name for this connection. Used as the SQL parser "
+            "fallback when customSQL definitions reference unqualified tables. "
+            "Required for warehouses where Sigma's connection record does not "
+            "include a schema field."
+        ),
+    )
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description=(
@@ -428,23 +437,6 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             "to True (matching the Snowflake connector default). Set to False "
             "if the warehouse source was ingested with "
             "convert_urns_to_lowercase: false."
-        ),
-    )
-    default_db: Optional[str] = pydantic.Field(
-        default=None,
-        description=(
-            "Default database for expanding unqualified table names in customSQL "
-            "definitions (e.g. 'mydb' expands 'schema.table' to 'mydb.schema.table'). "
-            "Required for warehouses like Redshift whose Sigma connection record "
-            "does not include a database field."
-        ),
-    )
-    default_schema: Optional[str] = pydantic.Field(
-        default=None,
-        description=(
-            "Default schema for expanding unqualified table names in customSQL "
-            "definitions (e.g. 'public' expands 'table' to 'public.table'). "
-            "Overrides the schema returned by the Sigma connection API."
         ),
     )
 
