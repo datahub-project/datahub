@@ -13,6 +13,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Set,
     Tuple,
 )
 from urllib.parse import urlparse
@@ -123,6 +124,9 @@ from datahub.metadata.schema_classes import (
     QueryLanguageClass,
     QueryStatementClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     TimeStampClass,
     UpstreamClass,
@@ -272,6 +276,15 @@ class GlueSourceConfig(
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
     )
 
+    extract_column_parameters: bool = Field(
+        default=False,
+        description=(
+            "When enabled, column-level Parameters from Glue are ingested as structured properties "
+            "on each schemaField entity. A StructuredPropertyDefinition is upserted once per unique "
+            "parameter key per recipe run; subsequent columns reuse the cached definition."
+        ),
+    )
+
     target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
         default_factory=dict,
         description=(
@@ -393,6 +406,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
         self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
+        # Tracks which structured property definitions have been emitted this run
+        # so each key's definition is only upserted once.
+        self._seen_column_param_urns: Set[str] = set()
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1777,6 +1793,9 @@ class GlueSource(StatefulIngestionSourceBase):
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(table_name, mce=metadata_record)
 
+        if self.source_config.extract_column_parameters:
+            yield from self._get_column_param_workunits(table, dataset_urn)
+
         # Add lineage if enabled
         lineage_wu = self.get_lineage_if_enabled(metadata_record)
         if lineage_wu:
@@ -1979,6 +1998,62 @@ class GlueSource(StatefulIngestionSourceBase):
             )
         ]
         return OwnershipClass(owners=owners)
+
+    @staticmethod
+    def _column_param_property_urn(key: str) -> str:
+        qualified_name = (
+            f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
+        )
+        return f"urn:li:structuredProperty:{qualified_name}"
+
+    def _get_column_param_workunits(
+        self, table: Dict, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        columns = table.get("StorageDescriptor", {}).get("Columns", [])
+        columns = columns + table.get("PartitionKeys", [])
+        for column in columns:
+            try:
+                params = column.get("Parameters")
+                if not params:
+                    continue
+                field_urn = mce_builder.make_schema_field_urn(
+                    dataset_urn, column["Name"]
+                )
+                assignments = []
+                for key, value in params.items():
+                    property_urn = self._column_param_property_urn(key)
+                    qualified_name = property_urn.removeprefix(
+                        "urn:li:structuredProperty:"
+                    )
+                    if property_urn not in self._seen_column_param_urns:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=property_urn,
+                            aspect=StructuredPropertyDefinitionClass(
+                                qualifiedName=qualified_name,
+                                displayName=key,
+                                valueType="urn:li:dataType:datahub.string",
+                                entityTypes=["urn:li:entityType:datahub.schemaField"],
+                            ),
+                        ).as_workunit()
+                        # Only cache after successful yield so a dropped MCP
+                        # (network blip, GMS rejection) doesn't prevent retry.
+                        self._seen_column_param_urns.add(property_urn)
+                    assignments.append(
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn,
+                            values=[value],
+                        )
+                    )
+                if assignments:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=field_urn,
+                        aspect=StructuredPropertiesClass(properties=assignments),
+                    ).as_workunit()
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to emit column parameters for column",
+                    context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
+                )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
         """Extract S3 tags if enabled."""
