@@ -8,7 +8,7 @@ import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
 import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
-import { AssertionSeverityLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionSeverityLabel';
+import { getAssertionResultSeverityDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionResultSeverityUtils';
 import {
     ResultStatusType,
     getDetailedErrorMessage,
@@ -136,7 +136,6 @@ const PopoverHeader = ({
             </TimestampContainer>
             <Actions>
                 <AssertionResultPill result={result} type={resultStatusType} />
-                <AssertionSeverityLabel result={result} />
                 {(showProfileButton && onClickProfileButton && (
                     <PrimaryButton title="Details" onClick={onClickProfileButton} />
                 )) ||
@@ -167,6 +166,21 @@ const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
             <ContextRow>
                 <SecondaryHeader>Expected</SecondaryHeader>
                 <ExpectedText>{expectedText}</ExpectedText>
+            </ContextRow>
+        </>
+    );
+};
+
+const SeveritySection = ({ result }: { result?: AssertionResult }) => {
+    const severityDisplay = getAssertionResultSeverityDisplay(result);
+    if (!severityDisplay) return null;
+
+    return (
+        <>
+            <ThinDivider />
+            <ContextRow>
+                <SecondaryHeader>Severity</SecondaryHeader>
+                <ExpectedText>{severityDisplay.label}</ExpectedText>
             </ContextRow>
         </>
     );
@@ -275,6 +289,7 @@ export const AssertionResultPopoverContent = ({
                 onClickProfileButton={onClickProfileButton}
             />
             {hasReason && <ReasonSection reasonText={reasonText} />}
+            <SeveritySection result={result} />
             <ExpectedSection expectedText={expectedText} />
             <MessageSection errorMessage={errorMessage} show={hasDetailedError} />
             <ExternalResultsSection assertion={assertion} result={result} />

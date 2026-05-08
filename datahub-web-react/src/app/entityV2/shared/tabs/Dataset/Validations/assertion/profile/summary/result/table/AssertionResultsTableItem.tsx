@@ -4,11 +4,10 @@ import styled, { useTheme } from 'styled-components';
 
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
-import { AssertionSeverityLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionSeverityLabel';
+import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
 import {
     ResultStatusType,
     getFormattedReasonText,
-    getFormattedResultText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 import { getResultColor } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { applyOpacityToHexColor } from '@app/shared/styleUtils';
@@ -67,7 +66,6 @@ export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
     const theme = useTheme();
     const assertionRunTime = run.timestampMillis;
     const absoluteRunTime = getFormattedTimeString(assertionRunTime);
-    const resultText = getFormattedResultText(run.result?.type);
     const resultTextColor = getResultColor(theme, run.result?.type) || undefined;
     const reasonText = getFormattedReasonText(assertion, run);
     const highlightColor = getResultColor(theme, run.result?.type);
@@ -90,8 +88,7 @@ export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
             >
                 <ResultColumn>
                     <ResultStatusRow>
-                        <PreHeaderText color={resultTextColor}>{resultText}</PreHeaderText>
-                        <AssertionSeverityLabel result={run.result || undefined} />
+                        <AssertionResultPill result={run.result || undefined} type={ResultStatusType.HISTORICAL} />
                     </ResultStatusRow>
                     <HeaderText>{reasonText}</HeaderText>
                 </ResultColumn>
