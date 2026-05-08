@@ -841,10 +841,10 @@ class TestWarehouseTableRefFqName:
         ref = _WarehouseTableRef(connection_id="c", db="DB", schema="SCH", table="TBL")
         assert ref.fq_name("snowflake", lowercase=False) == "DB.SCH.TBL"
 
-    def test_empty_db_omits_db_prefix(self):
-        # 2-segment /files path (e.g. Redshift "Connection Root/<SCHEMA>") sets
-        # db="" and fq_name must emit schema.table without the leading ".".
-        ref = _WarehouseTableRef(connection_id="c", db="", schema="public", table="t")
+    def test_none_db_omits_db_prefix(self):
+        # 2-segment /files path (e.g. Redshift "Connection Root/<SCHEMA>") leaves
+        # db=None and fq_name must emit schema.table without the leading ".".
+        ref = _WarehouseTableRef(connection_id="c", db=None, schema="public", table="t")
         assert ref.fq_name("redshift") == "public.t"
 
 
@@ -929,7 +929,7 @@ class TestTwoSegmentPathDefaultDatabase:
     def test_empty_db_emits_warning(self):
         source = _make_source_with_override()  # no default_database anywhere
         result = self._build_map(source)
-        assert result["rsUrlId001"].db == ""
+        assert result["rsUrlId001"].db is None
         assert any(
             "default_database" in (w.title or "") for w in source.reporter.warnings
         )

@@ -233,17 +233,17 @@ class _WarehouseTableRef:
     """Resolved warehouse table coordinates derived from a /files response."""
 
     connection_id: str
-    db: str
+    db: Optional[str]
     schema: str
     table: str
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
-        # db is empty for platforms with a 2-segment /files path (e.g. Redshift:
+        # db is None for platforms with a 2-segment /files path (e.g. Redshift:
         # "Connection Root/<SCHEMA>"). In that case emit schema.table; otherwise
         # emit the full db.schema.table used by Snowflake and similar platforms.
         name = (
             f"{self.schema}.{self.table}"
-            if not self.db
+            if self.db is None
             else f"{self.db}.{self.schema}.{self.table}"
         )
         if platform.lower() in _WAREHOUSE_LOWERCASE_PLATFORMS and lowercase:
@@ -772,13 +772,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 # first, then fall back to the connection registry's default_database.
                 conn_override = self.config.connection_to_platform_map.get(conn_id)
                 conn_record = self.connection_registry.get(conn_id)
-                db = (
-                    (conn_override.default_database if conn_override else None)
-                    or (conn_record.default_database if conn_record else None)
-                    or ""
+                db = (conn_override.default_database if conn_override else None) or (
+                    conn_record.default_database if conn_record else None
                 )
                 schema = parts[1]
-                if not db and conn_id not in self._missing_default_db_warned:
+                if db is None and conn_id not in self._missing_default_db_warned:
                     self._missing_default_db_warned.add(conn_id)
                     self.reporter.warning(
                         title="Sigma warehouse default_database not configured",
@@ -1575,8 +1573,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         name (e.g. "Customer Id") rather than the warehouse identifier
         ("CUSTOMER_ID" / "customer_id").
 
-        Returns a FineGrainedLineageClass on success; returns None and bumps a
-        failure counter on any resolution failure.  Dedup (emitted_pairs) is
+        Returns a FineGrainedLineageClass on success; returns None on any
+        resolution failure.  Counter bookkeeping and dedup (emitted_pairs) are
         the caller's responsibility so that None unambiguously means failure.
         """
         # Parse columnId → url_id + warehouse column name.
@@ -1630,7 +1628,162 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             confidenceScore=1.0,
         )
 
-    def _build_dm_element_fine_grained_lineages(  # noqa: C901
+    def _resolve_cross_dm_fgl(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        entity_level_upstream_urns: Set[str],
+        downstream_field: str,
+    ) -> Optional[FineGrainedLineageClass]:
+        """Resolve a formula ref against cross-DM sources and return an FGL.
+
+        Returns None (and bumps the appropriate deferred/dropped counter) when
+        resolution fails; counter bookkeeping for the success case is the
+        caller's responsibility.
+        """
+        # Cross-DM source_ids use the shape <dm-url-id>/<suffix>; intra-DM
+        # source_ids are bare elementIds (no "/"). Filter accordingly.
+        source_dm_url_ids = {
+            sid.partition("/")[0]
+            for sid in element.source_ids
+            if "/" in sid and not sid.startswith("inode-")
+        }
+        cross_dm_candidate_urns = sorted(
+            {
+                urn
+                for dm_url_id in source_dm_url_ids
+                for urn in self.dm_element_urn_by_name.get(dm_url_id, {}).get(
+                    ref.source.lower(), []
+                )
+                if urn != element_dataset_urn
+            }
+        )
+        if not cross_dm_candidate_urns:
+            self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            return None
+        if len(cross_dm_candidate_urns) > 1:
+            # Restrict to entity-level confirmed candidates whenever any exist.
+            confirmed = [
+                u for u in cross_dm_candidate_urns if u in entity_level_upstream_urns
+            ]
+            if confirmed:
+                cross_dm_candidate_urns = confirmed
+            if len(cross_dm_candidate_urns) > 1:
+                self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
+        chosen_upstream_urn = cross_dm_candidate_urns[0]
+        # dm_element_urn_to_cols is populated for every URN in
+        # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
+        # so this get() will only be None if a URN reaches this point
+        # without going through prepopulation — defensively handled.
+        upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
+        if upstream_cols is None:
+            self.reporter.data_model_element_fgl_cross_dm_deferred += 1
+            return None
+        canonical_col = upstream_cols.get(ref.column.lower())
+        if canonical_col is None:
+            self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
+            return None
+        return FineGrainedLineageClass(
+            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+            downstreams=[downstream_field],
+            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+            upstreams=[
+                builder.make_schema_field_urn(chosen_upstream_urn, canonical_col)
+            ],
+            confidenceScore=1.0,
+        )
+
+    def _resolve_intra_dm_fgl(
+        self,
+        *,
+        ref: "BracketRef",
+        candidate_eids_after_self_strip: List[str],
+        elementId_to_dataset_urn: Dict[str, str],
+        entity_level_upstream_urns: Set[str],
+        urn_to_cols: Dict[str, Dict[str, str]],
+        downstream_field: str,
+        element: SigmaDataModelElement,
+        data_model: SigmaDataModel,
+        fgls: List[FineGrainedLineageClass],
+        emitted_pairs: Set[Tuple[str, str]],
+    ) -> None:
+        """Resolve a formula ref against intra-DM sibling elements.
+
+        Appends to fgls and emitted_pairs on success; bumps the appropriate
+        counter on any resolution failure.  Counter bookkeeping and dedup are
+        handled here so the caller needs no conditional on the result.
+        """
+        candidate_urns = sorted(
+            elementId_to_dataset_urn[eid]
+            for eid in candidate_eids_after_self_strip
+            if eid in elementId_to_dataset_urn
+        )
+        surviving_urns = sorted(
+            u for u in candidate_urns if u in entity_level_upstream_urns
+        )
+
+        if not surviving_urns:
+            # Intra-DM candidate(s) exist but none appear in /lineage.
+            # Rare on tenants where /lineage correctly reports intra-DM edges;
+            # keep counter for observability on future tenants.
+            self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
+            return
+
+        # Collision handling: multiple siblings passed /lineage filter.
+        # Pick sorted-first to match the collision policy used elsewhere
+        # in this connector and Sigma's server-side coalescing.
+        if len(surviving_urns) > 1:
+            self.reporter.data_model_element_fgl_collision_pick_first += 1
+            self.reporter.warning(
+                title="Ambiguous DM element name in formula ref",
+                message=(
+                    f"Formula ref {ref.raw!r} in element {element.elementId} "
+                    f"resolves to {len(surviving_urns)} elements with the same "
+                    f"display name — picking the lexicographically-first URN "
+                    f"({surviving_urns[0]!r}). Rename duplicate elements in "
+                    f"Data Model {data_model.dataModelId} to remove ambiguity."
+                ),
+                context=f"ref={ref.raw!r}, candidates={surviving_urns}",
+            )
+        chosen_upstream_urn = surviving_urns[0]
+
+        # Validate and normalise ref.column against the chosen upstream
+        # element's schema winners to avoid a dangling schemaField URN.
+        source_cols = urn_to_cols.get(chosen_upstream_urn, {})
+        canonical_col = source_cols.get(ref.column.lower())
+        if canonical_col is None:
+            self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
+            logger.debug(
+                "DM %s element %s: ref %r column %r not found in upstream "
+                "element %s schema winners; dropping FGL entry",
+                data_model.dataModelId,
+                element.elementId,
+                ref.raw,
+                ref.column,
+                chosen_upstream_urn,
+            )
+            return
+
+        upstream_field = builder.make_schema_field_urn(
+            chosen_upstream_urn, canonical_col
+        )
+        pair = (downstream_field, upstream_field)
+        if pair in emitted_pairs:
+            return
+        emitted_pairs.add(pair)
+        fgls.append(
+            FineGrainedLineageClass(
+                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                downstreams=[downstream_field],
+                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                upstreams=[upstream_field],
+                confidenceScore=1.0,
+            )
+        )
+
+    def _build_dm_element_fine_grained_lineages(
         self,
         *,
         element: SigmaDataModelElement,
@@ -1678,12 +1831,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             downstream_field = builder.make_schema_field_urn(
                 element_dataset_urn, column.name
             )
-            # Warehouse FGL is emitted at most once per column (based on columnId,
-            # which encodes a single warehouse column identity). Attempting it once
-            # per bracket ref would misfire for formulas with multiple refs —
-            # e.g. concat([T/a], [T/b]) would emit the same columnId-derived FGL
-            # for both refs, producing a spurious match on the second ref.
-            _warehouse_fgl_attempted = False
+            # Compute warehouse FGL once per column. columnId encodes a single
+            # warehouse column identity regardless of how many bracket refs the
+            # formula contains, so calling _try_emit per-ref would emit duplicates
+            # for multi-ref formulas like concat([T/a], [T/b]).
+            warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
+                column=column,
+                element=element,
+                downstream_field=downstream_field,
+                warehouse_url_id_map=warehouse_url_id_map,
+            )
+            warehouse_consumed = False
             for ref in extract_bracket_refs(column.formula):
                 if ref.is_parameter or ref.column is None:
                     # [P_*] parameter refs and bare [col] intra-element refs
@@ -1702,18 +1860,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
-                        # All candidates were self-references; actual upstream is a
-                        # warehouse table — attempt FGL resolution via columnId.
-                        # Guard: attempt at most once per column so formulas with
-                        # multiple self-ref bracket refs don't emit duplicate FGLs.
-                        if not _warehouse_fgl_attempted:
-                            _warehouse_fgl_attempted = True
-                            warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
-                                column=column,
-                                element=element,
-                                downstream_field=downstream_field,
-                                warehouse_url_id_map=warehouse_url_id_map,
-                            )
+                        # All candidates were self-references; actual upstream is the
+                        # warehouse table — use the pre-computed warehouse FGL.
+                        if not warehouse_consumed:
+                            warehouse_consumed = True
                             if warehouse_fgl is None:
                                 self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                             else:
@@ -1729,16 +1879,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # the warehouse table name as the formula source (e.g.
                     # "[CUSTOMERS/col]" on an element that isn't named "CUSTOMERS")
                     # rather than the element name — columnId is authoritative.
-                    # H4: if columnId is warehouse-shaped but _try_emit fails,
+                    # If columnId is warehouse-shaped but resolution failed,
                     # count as warehouse-deferred rather than cross-DM-deferred.
-                    if not _warehouse_fgl_attempted:
-                        _warehouse_fgl_attempted = True
-                        warehouse_fgl = self._try_emit_warehouse_passthrough_fgl(
-                            column=column,
-                            element=element,
-                            downstream_field=downstream_field,
-                            warehouse_url_id_map=warehouse_url_id_map,
-                        )
+                    if not warehouse_consumed:
+                        warehouse_consumed = True
                         if warehouse_fgl is not None:
                             assert warehouse_fgl.upstreams
                             pair = (downstream_field, warehouse_fgl.upstreams[0])
@@ -1748,154 +1892,38 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 self.reporter.data_model_element_fgl_warehouse_resolved += 1
                             continue
                         if (column.columnId or "").startswith("inode-"):
-                            # Warehouse-shaped columnId but resolution failed
-                            # (e.g. /files miss, unmappable connection).
                             self.reporter.data_model_element_fgl_warehouse_passthrough_deferred += 1
                             continue
 
-                    # Source not in this DM — search only the DMs this element's
-                    # source_ids explicitly reference. This prevents formula refs
-                    # like [Orders/id] from linking to any ingested element named
-                    # "Orders" regardless of whether Sigma reported a lineage
-                    # relationship to that DM.
-                    # entity_level_upstream_urns is used as a collision tiebreaker
-                    # (not a hard gate) because Sigma's /lineage API does not always
-                    # surface cross-DM formula deps at the entity level.
-                    # Cross-DM source_ids use the shape <dm-url-id>/<suffix>;
-                    # intra-DM source_ids are bare elementIds (no "/").  So
-                    # source_dm_url_ids will never contain the consuming DM's
-                    # own url_id under normal Sigma API behaviour.
-                    source_dm_url_ids = {
-                        sid.partition("/")[0]
-                        for sid in element.source_ids
-                        if "/" in sid and not sid.startswith("inode-")
-                    }
-                    cross_dm_candidate_urns = sorted(
-                        {
-                            urn
-                            for dm_url_id in source_dm_url_ids
-                            for urn in self.dm_element_urn_by_name.get(
-                                dm_url_id, {}
-                            ).get(ref.source.lower(), [])
-                            if urn != element_dataset_urn
-                        }
+                    # Source not in this DM — resolve via cross-DM sources that
+                    # Sigma's /lineage explicitly reported for this element.
+                    cross_dm_fgl = self._resolve_cross_dm_fgl(
+                        ref=ref,
+                        element=element,
+                        element_dataset_urn=element_dataset_urn,
+                        entity_level_upstream_urns=entity_level_upstream_urns,
+                        downstream_field=downstream_field,
                     )
-                    if not cross_dm_candidate_urns:
-                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
-                        continue
-                    if len(cross_dm_candidate_urns) > 1:
-                        # Restrict to entity-level confirmed candidates whenever
-                        # any exist — even a subset of 2+ is better than
-                        # including unconfirmed URNs that sort earlier.
-                        confirmed = [
-                            u
-                            for u in cross_dm_candidate_urns
-                            if u in entity_level_upstream_urns
-                        ]
-                        if confirmed:
-                            cross_dm_candidate_urns = confirmed
-                        if len(cross_dm_candidate_urns) > 1:
-                            # Still ambiguous after filtering; pick sorted-first.
-                            self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
-                    chosen_upstream_urn = cross_dm_candidate_urns[0]
-                    # dm_element_urn_to_cols is populated for every URN in
-                    # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
-                    # so this get() will only be None if a URN reaches this point
-                    # without going through prepopulation — defensively handled.
-                    upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
-                    if upstream_cols is None:
-                        self.reporter.data_model_element_fgl_cross_dm_deferred += 1
-                        continue
-                    canonical_col = upstream_cols.get(ref.column.lower())
-                    if canonical_col is None:
-                        self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
-                        continue
-                    upstream_field = builder.make_schema_field_urn(
-                        chosen_upstream_urn, canonical_col
-                    )
-                    pair = (downstream_field, upstream_field)
-                    if pair not in emitted_pairs:
-                        emitted_pairs.add(pair)
-                        cross_dm_fgls.append(
-                            FineGrainedLineageClass(
-                                downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                                downstreams=[downstream_field],
-                                upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                                upstreams=[upstream_field],
-                                confidenceScore=1.0,
-                            )
-                        )
-                        self.reporter.data_model_element_fgl_cross_dm_resolved += 1
+                    if cross_dm_fgl is not None:
+                        assert cross_dm_fgl.upstreams
+                        pair = (downstream_field, cross_dm_fgl.upstreams[0])
+                        if pair not in emitted_pairs:
+                            emitted_pairs.add(pair)
+                            cross_dm_fgls.append(cross_dm_fgl)
+                            self.reporter.data_model_element_fgl_cross_dm_resolved += 1
                     continue
 
-                # Map surviving elementIds to Dataset URNs and filter against
-                # /lineage's reported entity-level upstreams.
-                candidate_urns = sorted(
-                    elementId_to_dataset_urn[eid]
-                    for eid in candidate_eids_after_self_strip
-                    if eid in elementId_to_dataset_urn
-                )
-                surviving_urns = sorted(
-                    u for u in candidate_urns if u in entity_level_upstream_urns
-                )
-
-                if not surviving_urns:
-                    # Intra-DM candidate(s) exist but none appear in /lineage.
-                    # Rare on tenants where /lineage correctly reports intra-DM edges;
-                    # keep counter for observability on future tenants.
-                    self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
-                    continue
-
-                # Collision handling: multiple siblings passed /lineage filter.
-                # Pick sorted-first to match the collision policy used elsewhere
-                # in this connector and Sigma's server-side coalescing.
-                if len(surviving_urns) > 1:
-                    self.reporter.data_model_element_fgl_collision_pick_first += 1
-                    self.reporter.warning(
-                        title="Ambiguous DM element name in formula ref",
-                        message=(
-                            f"Formula ref {ref.raw!r} in element {element.elementId} "
-                            f"resolves to {len(surviving_urns)} elements with the same "
-                            f"display name — picking the lexicographically-first URN "
-                            f"({surviving_urns[0]!r}). Rename duplicate elements in "
-                            f"Data Model {data_model.dataModelId} to remove ambiguity."
-                        ),
-                        context=f"ref={ref.raw!r}, candidates={surviving_urns}",
-                    )
-                chosen_upstream_urn = surviving_urns[0]
-
-                # Validate and normalise ref.column against the chosen upstream
-                # element's schema winners to avoid a dangling schemaField URN.
-                source_cols = urn_to_cols.get(chosen_upstream_urn, {})
-                canonical_col = source_cols.get(ref.column.lower())
-                if canonical_col is None:
-                    self.reporter.data_model_element_fgl_dropped_unknown_upstream_column += 1
-                    logger.debug(
-                        "DM %s element %s: ref %r column %r not found in upstream "
-                        "element %s schema winners; dropping FGL entry",
-                        data_model.dataModelId,
-                        element.elementId,
-                        ref.raw,
-                        ref.column,
-                        chosen_upstream_urn,
-                    )
-                    continue
-
-                upstream_field = builder.make_schema_field_urn(
-                    chosen_upstream_urn, canonical_col
-                )
-                pair = (downstream_field, upstream_field)
-                if pair in emitted_pairs:
-                    continue
-                emitted_pairs.add(pair)
-                fgls.append(
-                    FineGrainedLineageClass(
-                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[downstream_field],
-                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                        upstreams=[upstream_field],
-                        confidenceScore=1.0,
-                    )
+                self._resolve_intra_dm_fgl(
+                    ref=ref,
+                    candidate_eids_after_self_strip=candidate_eids_after_self_strip,
+                    elementId_to_dataset_urn=elementId_to_dataset_urn,
+                    entity_level_upstream_urns=entity_level_upstream_urns,
+                    urn_to_cols=urn_to_cols,
+                    downstream_field=downstream_field,
+                    element=element,
+                    data_model=data_model,
+                    fgls=fgls,
+                    emitted_pairs=emitted_pairs,
                 )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough
         # FGL (both appended to `fgls`). Cross-DM is tracked separately via
