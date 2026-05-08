@@ -516,6 +516,52 @@ class TestResolveChartFormulaUpstream:
             )
             assert result is None
 
+    def test_element_named_same_as_warehouse_table_falls_through_to_step4(
+        self,
+    ) -> None:
+        """When the chart element's own name matches ref.source, self is excluded
+        from wb_element_index candidates and step 4 (warehouse index) is tried.
+
+        Reproduces: chart o0fHrMkIfk named 'CUSTOMER_VISITS' referencing
+        [CUSTOMER_VISITS/col] — previously returned None because wb_element_index
+        absorbed the ref and failed steps 3a/3b without reaching step 4.
+        """
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "warehouse_coffee_company.public.customer_visits,PROD)"
+        )
+        # The chart element itself appears in wb_element_index under its own name.
+        chart_elem = _make_element("o0fHrMkIfk", "CUSTOMER_VISITS")
+        ref = _make_ref("CUSTOMER_VISITS", "Visit Id")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="o0fHrMkIfk",
+            chart_upstream_element_ids=set(),  # no sheet upstreams
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"CUSTOMER_VISITS": [chart_elem]},
+            element_warehouse_table_index={"CUSTOMER_VISITS": [warehouse_urn]},
+            elementId_to_chart_urn={},
+        )
+        assert result == (warehouse_urn, "Visit Id")
+
+    def test_element_name_collision_self_plus_other_resolves_other(self) -> None:
+        """If wb_element_index has both the current element and another element
+        under the same name, self is excluded but the other element is still tried."""
+        upstream_elem = _make_element("other-elem", "CUSTOMER_VISITS")
+        chart_elem = _make_element("chart-self", "CUSTOMER_VISITS")
+        chart_urn = "urn:li:chart:(sigma,other-elem)"
+        ref = _make_ref("CUSTOMER_VISITS", "col")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="chart-self",
+            chart_upstream_element_ids={"other-elem"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"CUSTOMER_VISITS": [chart_elem, upstream_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"other-elem": chart_urn},
+        )
+        assert result == (chart_urn, "col")
+
 
 class TestGenElementsWorkunitInputFields:
     def test_resolved_input_field_preserves_string_native_data_type(self) -> None:

@@ -3025,10 +3025,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Bare refs are same-element sibling references.
             return None
 
-        candidates = wb_element_index.get(ref.source, [])
+        candidates = [
+            c
+            for c in wb_element_index.get(ref.source, [])
+            if c.elementId != chart_element_id
+        ]
         if not candidates:
             case_mismatched_names = [
-                name for name in wb_element_index if name.lower() == ref.source.lower()
+                name
+                for name in wb_element_index
+                if name.lower() == ref.source.lower()
+                and any(c.elementId != chart_element_id for c in wb_element_index[name])
             ]
             if case_mismatched_names:
                 self.reporter.chart_input_fields_case_mismatch += 1
