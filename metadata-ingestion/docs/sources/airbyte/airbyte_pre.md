@@ -1,6 +1,8 @@
-### Prerequisites
+### Overview
 
 This integration extracts metadata from Airbyte's API to capture information about your connections, sources, destinations, and the lineage between them.
+
+### Prerequisites
 
 You'll need to have an Airbyte instance running with configured sources and destinations, and access to the Airbyte API.
 
