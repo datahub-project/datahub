@@ -355,6 +355,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Sigma display column (formula ref absent or element name mismatch).
     dm_customsql_fgl_downstream_unmapped: int = 0
 
+    # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
+    workbook_customsql_skipped: int = 0
+    workbook_customsql_aggregator_invocations: int = 0
+    workbook_customsql_aggregator_invocation_errors: int = 0
+    workbook_customsql_parse_failed: int = 0
+    workbook_customsql_upstream_emitted: int = 0
+    workbook_customsql_column_lineage_emitted: int = 0
+    workbook_customsql_fgl_downstream_unmapped: int = 0
+
     # Connection registry counters.
     # Records whose Sigma type mapped to a known DataHub platform.
     connections_resolved: int = 0
@@ -402,14 +411,24 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     default_database: Optional[str] = pydantic.Field(
         default=None,
         description=(
-            "Default database name for this connection. Required for platforms "
-            "where Sigma's /files path omits the database layer (e.g. Redshift: "
-            "'Connection Root/SCHEMA'). Set this to the database name the "
-            "warehouse connector uses so the emitted URNs match "
+            "Default database name for this connection. Used (a) to fill the "
+            "database layer when Sigma's /files path omits it (e.g. Redshift: "
+            "'Connection Root/SCHEMA') and (b) as the SQL parser fallback when "
+            "customSQL definitions reference unqualified tables. Set this to the "
+            "database name the warehouse connector uses so the emitted URNs match "
             "(e.g. 'dev' to produce 'dev.public.table')."
         ),
     )
 
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default schema name for this connection. Used as the SQL parser "
+            "fallback when customSQL definitions reference unqualified tables. "
+            "Required for warehouses where Sigma's connection record does not "
+            "include a schema field."
+        ),
+    )
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description=(

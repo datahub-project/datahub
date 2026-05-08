@@ -422,6 +422,8 @@ class SigmaAPI:
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
             pass  # terminal; warehouse lineage comes from SQL parsing
+        elif source_type == "customSQL":
+            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
@@ -1000,6 +1002,26 @@ class SigmaAPI:
                         seen_sources.add(s)
                 existing["sourceIds"] = merged
         return deduped
+
+    def get_workbook_lineage_entries(self, workbook_id: str) -> List[Dict[str, Any]]:
+        """Return raw entries from GET /v2/workbooks/{id}/lineage.
+
+        ``customSQL`` entries carry the SQL definition; ``element`` entries
+        carry ``elementId`` + ``sourceIds`` pointing at customSQL names.
+
+        Sigma returns 400 (not 404) for workbooks that have no lineage graph at
+        all (empirically observed — workbooks whose only sources are non-SQL
+        warehouse tables never have a /lineage endpoint and return 400).
+        403/404 cover permission-scoped views and deleted workbooks.  5xx is
+        intentionally *not* silenced: a degraded Sigma API would otherwise
+        produce zero lineage aspects with zero warnings.
+        """
+        logger.debug(f"Fetching lineage for workbook '{workbook_id}'.")
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/workbooks/{workbook_id}/lineage",
+            f"Unable to fetch lineage for workbook '{workbook_id}'.",
+            silent_statuses=(400, 403, 404),
+        )
 
     def _assemble_data_model(
         self,

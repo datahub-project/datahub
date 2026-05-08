@@ -7270,3 +7270,236 @@ def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
     )
+
+
+def _get_mock_workbook_customsql_api() -> Dict[str, Dict]:
+    """Mock a single workbook with one customSQL chart element (Snowflake, explicit SELECT)."""
+    wb_id = "wb-csql-test-0001"
+    ws_id = "cc000000-0000-0000-0000-000000000001"
+    element_id = "csql-chart-el-01"
+    csql_name = "AV5jCC4aQ3"
+    conn_id = "conn-sf-csql-wb"
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": conn_id,
+                        "name": "Test Snowflake",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "warehouse": "TEST_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": ws_id,
+                        "name": "Test Workspace",
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-01T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": wb_id,
+                        "urlId": "csql-wb-urlid",
+                        "name": "CustomSQL Workbook",
+                        "type": "workbook",
+                        "parentId": ws_id,
+                        "parentUrlId": "test-ws-urlid",
+                        "permission": "edit",
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/datasets": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": wb_id,
+                        "ownerId": "test-user",
+                        "name": "CustomSQL Workbook",
+                        "latestVersion": 1,
+                        "workspaceId": ws_id,
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/workbook/{wb_id}",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "pageId": "pg-csql-01",
+                        "name": "Page 1",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/pages/pg-csql-01/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": element_id,
+                        "type": "visualization",
+                        "name": "Custom SQL Chart",
+                        "columns": ["order_id", "amount"],
+                        "vizualizationType": "bar",
+                        "url": f"https://app.sigmacomputing.com/element/{element_id}",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-order-id",
+                        "elementId": element_id,
+                        "name": "order_id",
+                        "label": "order_id",
+                        "formula": "[Custom SQL Chart/order_id]",
+                    },
+                    {
+                        "columnId": "col-amount",
+                        "elementId": element_id,
+                        "name": "amount",
+                        "label": "amount",
+                        "formula": "[Custom SQL Chart/amount]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/lineage/elements/{element_id}": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/elements/{element_id}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "name": csql_name,
+                        "type": "customSQL",
+                        "connectionId": conn_id,
+                        "definition": (
+                            "SELECT ORDER_ID, AMOUNT FROM TEST_DB.TEST_SCHEMA.ORDERS"
+                        ),
+                    },
+                    {
+                        "elementId": element_id,
+                        "type": "element",
+                        "sourceIds": [csql_name],
+                        "dataSourceIds": [csql_name],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
+    """Workbook customSQL chart: UpstreamLineage + FGL emitted via SqlParsingAggregator."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data=_get_mock_workbook_customsql_api(),
+    )
+
+    output_path = f"{tmp_path}/sigma_workbook_customsql_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path, ingest_data_models=False, extract_lineage=True
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.workbook_customsql_aggregator_invocations >= 1
+    assert report.workbook_customsql_upstream_emitted >= 1
+    assert report.dm_customsql_aggregator_invocations == 0
+    assert report.dm_customsql_upstream_emitted == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
+    )
