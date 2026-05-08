@@ -2325,24 +2325,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         url_id_to_table_name: Dict[str, str] = {}
 
         for entry in entries:
-            entry_type = entry.get("type", "")
-            if entry_type != "table":
-                logger.debug(
-                    "Workbook %s: skipping workbook-lineage entry with type %r.",
-                    workbook.workbookId,
-                    entry_type,
-                )
-                continue
-
-            inode_id = entry.get("inodeId") or ""
-            conn_id = entry.get("connectionId") or ""
-            if not inode_id or not conn_id:
-                self.reporter.warning(
-                    title="Sigma workbook lineage type=table entry missing inodeId or connectionId",
-                    message="Warehouse table index entry skipped; entry may be malformed.",
-                    context=f"workbook={workbook.workbookId}, entry={entry}",
-                )
-                continue
+            inode_id = entry.inodeId
+            conn_id = entry.connectionId
 
             first_attempt = inode_id not in self._files_cache
             files_data = self._get_file_metadata_cached(inode_id)

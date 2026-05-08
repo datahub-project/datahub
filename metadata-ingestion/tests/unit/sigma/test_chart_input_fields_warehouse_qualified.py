@@ -31,6 +31,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Element,
     SigmaDataModel,
     Workbook,
+    WorkbookLineageTableEntry,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
@@ -77,12 +78,12 @@ _EXPECTED_WAREHOUSE_URN = (
     f"{_DB.lower()}.{_SCHEMA.lower()}.{_TABLE_NAME.lower()},PROD)"
 )
 
-_WB_LINEAGE_TYPE_TABLE_ENTRY: Dict[str, Any] = {
-    "connectionId": _SNOWFLAKE_CONN_ID,
-    "name": _TABLE_NAME,
-    "type": "table",
-    "inodeId": _INODE_ID,
-}
+_WB_LINEAGE_TYPE_TABLE_ENTRY = WorkbookLineageTableEntry(
+    type="table",
+    name=_TABLE_NAME,
+    connectionId=_SNOWFLAKE_CONN_ID,
+    inodeId=_INODE_ID,
+)
 
 
 def _make_source(
@@ -249,7 +250,9 @@ class TestBuildWorkbookWarehouseTableIndex:
     def test_unknown_connection_increments_counter(self):
         """Connection ID not in registry → warehouse_unknown_connection bumps."""
         source = _make_source()
-        entry = {**_WB_LINEAGE_TYPE_TABLE_ENTRY, "connectionId": "conn-unknown"}
+        entry = _WB_LINEAGE_TYPE_TABLE_ENTRY.model_copy(
+            update={"connectionId": "conn-unknown"}
+        )
         with (
             patch.object(
                 source.sigma_api, "get_workbook_lineage", return_value=[entry]
@@ -268,7 +271,9 @@ class TestBuildWorkbookWarehouseTableIndex:
     def test_is_mappable_false_increments_unknown_connection(self):
         """is_mappable=False → warehouse_unknown_connection bumps."""
         source = _make_source()
-        entry = {**_WB_LINEAGE_TYPE_TABLE_ENTRY, "connectionId": _UNMAPPABLE_CONN_ID}
+        entry = _WB_LINEAGE_TYPE_TABLE_ENTRY.model_copy(
+            update={"connectionId": _UNMAPPABLE_CONN_ID}
+        )
         with (
             patch.object(
                 source.sigma_api, "get_workbook_lineage", return_value=[entry]
@@ -297,7 +302,9 @@ class TestBuildWorkbookWarehouseTableIndex:
         }
         entries = [
             _WB_LINEAGE_TYPE_TABLE_ENTRY,
-            {**_WB_LINEAGE_TYPE_TABLE_ENTRY, "inodeId": inode2, "name": "OTHER_TABLE"},
+            _WB_LINEAGE_TYPE_TABLE_ENTRY.model_copy(
+                update={"inodeId": inode2, "name": "OTHER_TABLE"}
+            ),
         ]
         with (
             patch.object(

@@ -42,6 +42,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataset,
     WarehouseInodeRaw,
     Workbook,
+    WorkbookLineageTableEntry,
     Workspace,
 )
 
@@ -1202,15 +1203,15 @@ class SigmaAPI:
             )
             return None
 
-    def get_workbook_lineage(self, workbook_id: str) -> Optional[List[Dict[str, Any]]]:
-        """Fetch /v2/workbooks/{workbook_id}/lineage and return the entries list,
-        or None on non-200/exception.
+    def get_workbook_lineage(
+        self, workbook_id: str
+    ) -> Optional[List[WorkbookLineageTableEntry]]:
+        """Fetch /v2/workbooks/{workbook_id}/lineage and return parsed type=table
+        entries, or None on non-200/exception.
 
-        Returned entries each have at minimum ``type``, ``name``,
-        ``connectionId``, ``inodeId`` for table/dataset/customSQL entries.
-        Element entries do not have ``connectionId`` or ``inodeId`` and are
-        filtered out by the caller (only type=table entries are consumed;
-        type=dataset/customSQL/element are explicitly skipped).
+        Non-table entries (type=dataset/customSQL/element) are silently skipped.
+        Table entries missing required fields emit a structured warning and are
+        skipped; they do not cause the whole call to fail.
 
         Error handling: 404 is treated as a silent None (workbook deleted
         since listing). 429 and other non-200 statuses emit a structured
@@ -1222,14 +1223,35 @@ class SigmaAPI:
         base_url = (
             f"{self.config.api_url}/workbooks/{quote(workbook_id, safe='')}/lineage"
         )
-        all_entries: List[Dict[str, Any]] = []
+        all_entries: List[WorkbookLineageTableEntry] = []
         url = base_url
         try:
             while True:
                 response = self._get_api_call(url)
                 if response.status_code == 200:
                     data = response.json()
-                    all_entries.extend(data.get("entries") or [])
+                    for raw in data.get("entries") or []:
+                        if raw.get("type") != "table":
+                            logger.debug(
+                                "Workbook %s: skipping lineage entry with type %r.",
+                                workbook_id,
+                                raw.get("type"),
+                            )
+                            continue
+                        try:
+                            all_entries.append(
+                                WorkbookLineageTableEntry.model_validate(raw)
+                            )
+                        except ValidationError:
+                            self.report.warning(
+                                title="Sigma workbook lineage type=table entry missing required fields",
+                                message=(
+                                    "A type=table lineage entry is missing one or more "
+                                    "required fields (name, connectionId, inodeId). "
+                                    "Warehouse table index entry skipped."
+                                ),
+                                context=f"workbook_id={workbook_id}, entry={raw}",
+                            )
                     next_page = data.get("nextPage")
                     if not next_page:
                         return all_entries

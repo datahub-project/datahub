@@ -18,6 +18,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelElement,
     SigmaDataset,
     Workbook,
+    WorkbookLineageTableEntry,
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
@@ -2341,32 +2342,57 @@ class TestGetWorkbookLineageHttp:
         api = _create_sigma_api()
         ok = MagicMock(status_code=200)
         ok.json.return_value = {
-            "entries": [{"type": "table", "name": "T"}],
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "MY_TABLE",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-1",
+                }
+            ],
             "nextPage": None,
         }
         with patch.object(api, "_get_api_call", return_value=ok):
             result = api.get_workbook_lineage("wb-1")
-        assert result == [{"type": "table", "name": "T"}]
+        assert result == [
+            WorkbookLineageTableEntry(
+                type="table", name="MY_TABLE", connectionId="conn-1", inodeId="inode-1"
+            )
+        ]
         assert not api.report.warnings
 
     def test_200_paginates(self) -> None:
         api = _create_sigma_api()
         page1 = MagicMock(status_code=200)
         page1.json.return_value = {
-            "entries": [{"type": "table", "name": "T1"}],
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "T1",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-1",
+                }
+            ],
             "nextPage": "p2",
         }
         page2 = MagicMock(status_code=200)
         page2.json.return_value = {
-            "entries": [{"type": "table", "name": "T2"}],
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "T2",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-2",
+                }
+            ],
             "nextPage": None,
         }
         with patch.object(api, "_get_api_call", side_effect=[page1, page2]):
             result = api.get_workbook_lineage("wb-1")
         assert result is not None
         assert len(result) == 2
-        assert result[0]["name"] == "T1"
-        assert result[1]["name"] == "T2"
+        assert result[0].name == "T1"
+        assert result[1].name == "T2"
 
     def test_404_returns_none_silently(self) -> None:
         api = _create_sigma_api()
