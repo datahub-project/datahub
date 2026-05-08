@@ -171,13 +171,20 @@ def _search_projects_by_labels(
     return projects
 
 
-def _list_all_projects(
+def _search_all_projects(
     projects_client: Optional[ProjectsClient] = None,
 ) -> List[GcpProject]:
+    """
+    Return all GCP projects visible to the caller.
+
+    Uses Cloud Resource Manager `search_projects`, which (unlike `list_projects`)
+    does not require a `parent` argument and only requires `resourcemanager.projects.get`
+    on each candidate project — no folder/org-level grant is needed.
+    """
     if projects_client is None:
         projects_client = ProjectsClient()
     projects: List[GcpProject] = []
-    for project in projects_client.list_projects():
+    for project in projects_client.search_projects():
         if getattr(project, "project_id", None):
             display_name = getattr(project, "display_name", None)
             projects.append(
@@ -200,7 +207,7 @@ def resolve_gcp_projects(
     Precedence:
       1) project_ids (explicit)
       2) project_labels (via Cloud Resource Manager search)
-      3) list all projects, then apply project_id_pattern
+      3) search all visible projects, then apply project_id_pattern
     """
     try:
         if filter_config.project_ids:
@@ -218,7 +225,7 @@ def resolve_gcp_projects(
                 )
             return allowed
 
-        all_projects = _list_all_projects(projects_client)
+        all_projects = _search_all_projects(projects_client)
         allowed = [p for p in all_projects if is_project_allowed(filter_config, p.id)]
         if not allowed:
             report.failure(
