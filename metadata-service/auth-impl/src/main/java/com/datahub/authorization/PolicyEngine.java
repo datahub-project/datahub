@@ -254,6 +254,9 @@ public class PolicyEngine {
       return true;
     }
     if (requestResource.isEmpty()) {
+      if (policyResourceFilter.isAllResources()) {
+        return true;
+      }
       log.debug("Resource filter present in policy, but no resource spec provided.");
       return false;
     }
