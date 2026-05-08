@@ -10,7 +10,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275457,
+        "lastObserved": 1777173668269,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -40,7 +40,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275458,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -56,7 +56,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275459,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -70,7 +70,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275460,
+        "lastObserved": 1777173668270,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -100,7 +100,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275461,
+        "lastObserved": 1777173668271,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275462,
+        "lastObserved": 1777173668271,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275479,
+        "lastObserved": 1777173668279,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -169,7 +169,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275480,
+        "lastObserved": 1777173668279,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -185,7 +185,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275481,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -199,7 +199,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -211,7 +211,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275481,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -229,7 +229,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275482,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -249,7 +249,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275482,
+        "lastObserved": 1777173668280,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -273,43 +273,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275483,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "sigma",
-                "workbookId": "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b",
-                "path": "Acryl Data",
-                "latestVersion": "2"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
-            "name": "Acryl Workbook",
-            "created": {
-                "time": 1713188691477
-            },
-            "lastModified": {
-                "time": 1713189117302
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275484,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -318,30 +289,54 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275485,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
+    "aspectName": "dashboardInfo",
     "aspect": {
         "json": {
-            "platform": "urn:li:dataPlatform:sigma"
+            "customProperties": {
+                "path": "Acryl Data",
+                "latestVersion": "2"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
+            "title": "Acryl Workbook",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "dashboards": [
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,InputFieldsPage)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 1713188691477,
+                    "actor": "urn:li:corpuser:datahub"
+                },
+                "lastModified": {
+                    "time": 1713189117302,
+                    "actor": "urn:li:corpuser:datahub"
+                }
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275485,
+        "lastObserved": 1777173668281,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -352,21 +347,21 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275486,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "ownership",
     "aspect": {
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -378,14 +373,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275486,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "globalTags",
     "aspect": {
@@ -398,14 +393,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275487,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -414,14 +409,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275487,
+        "lastObserved": 1777173668282,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -430,19 +425,22 @@
                 {
                     "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275488,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -451,28 +449,32 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275489,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "dashboardInfo",
     "aspect": {
         "json": {
             "customProperties": {
-                "ElementsCount": "2"
+                "ElementsCount": "5"
             },
-            "title": "Page 1",
+            "title": "InputFields Page",
             "description": "",
             "charts": [
-                "urn:li:chart:(sigma,kH0MeihtGs)",
-                "urn:li:chart:(sigma,Ml9C5ezT5W)"
+                "urn:li:chart:(sigma,sourceElem01)",
+                "urn:li:chart:(sigma,downstreamElem01)",
+                "urn:li:chart:(sigma,warehouseElem01)",
+                "urn:li:chart:(sigma,noFormulaElem01)",
+                "urn:li:chart:(sigma,paramSiblingElem01)"
             ],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -486,30 +488,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275489,
+        "lastObserved": 1777173668283,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275490,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -520,21 +506,20 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275491,
+        "lastObserved": 1777173668284,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -543,14 +528,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275520,
+        "lastObserved": 1777173668284,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -559,8 +544,8 @@
                 "VizualizationType": "levelTable",
                 "type": "table"
             },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=kH0MeihtGs&:fullScreen=true",
-            "title": "ADOPTIONS",
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=sourceElem01&:fullScreen=true",
+            "title": "T Source",
             "description": "",
             "lastModified": {
                 "created": {
@@ -572,122 +557,27 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             },
-            "inputs": [
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.adoptions,PROD)"
-                }
-            ]
+            "inputs": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275521,
+        "lastObserved": 1777173668284,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275522,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pk)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
                     "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
+                        "fieldPath": "col",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -703,14 +593,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275522,
+        "lastObserved": 1777527961851,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
+    "entityUrn": "urn:li:chart:(sigma,sourceElem01)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -721,21 +611,20 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275525,
+        "lastObserved": 1777173668285,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -744,503 +633,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275582,
+        "lastObserved": 1777173668285,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "chartInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "VizualizationType": "bar",
-                "type": "visualization"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=Ml9C5ezT5W&:fullScreen=true",
-            "title": "Count of Profile Id by Status",
-            "description": "",
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            },
-            "inputs": [
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275583,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275584,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Count of Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Count of Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275584,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-                },
-                {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275586,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "inputFields",
-    "aspect": {
-        "json": {
-            "fields": [
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,kH0MeihtGs),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Pk)",
-                    "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,Ml9C5ezT5W),Count of Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Count of Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275587,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275592,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "dashboardInfo",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "ElementsCount": "1"
-            },
-            "title": "Page 2",
-            "description": "",
-            "charts": [
-                "urn:li:chart:(sigma,tQJu5N1l81)"
-            ],
-            "datasets": [],
-            "lastModified": {
-                "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                },
-                "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
-                }
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275593,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275594,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
-                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
-                },
-                {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275594,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275654,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
     "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
@@ -1249,8 +649,119 @@
                 "VizualizationType": "levelTable",
                 "type": "table"
             },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=tQJu5N1l81&:fullScreen=true",
-            "title": "PETS ADOPTIONS JOIN",
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=downstreamElem01&:fullScreen=true",
+            "title": "T Downstream",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": [],
+            "inputEdges": [
+                {
+                    "sourceUrn": "urn:li:chart:(sigma,downstreamElem01)",
+                    "destinationUrn": "urn:li:chart:(sigma,sourceElem01)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668285,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173957816,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,downstreamElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668286,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668302,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=warehouseElem01&:fullScreen=true",
+            "title": "T Warehouse",
             "description": "",
             "lastModified": {
                 "created": {
@@ -1264,198 +775,29 @@
             },
             "inputs": [
                 {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)"
-                },
-                {
-                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.adoptions,PROD)"
+                    "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD)"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275655,
+        "lastObserved": 1777173668303,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275656,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD),some_col)",
                     "schemaField": {
-                        "fieldPath": "Pk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Profile Id)",
-                    "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Pk (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Status (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Created At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Updated At (ADOPTIONS)",
+                        "fieldPath": "some_col",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -1471,14 +813,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275656,
+        "lastObserved": 1777173957819,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
+    "entityUrn": "urn:li:chart:(sigma,warehouseElem01)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1489,30 +831,78 @@
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
                 },
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275660,
+        "lastObserved": 1777173668303,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668303,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=noFormulaElem01&:fullScreen=true",
+            "title": "T No Formula",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
     "changeType": "UPSERT",
     "aspectName": "inputFields",
     "aspect": {
         "json": {
             "fields": [
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
                     "schemaField": {
-                        "fieldPath": "Pk",
+                        "fieldPath": "col_a",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -1525,144 +915,9 @@
                     }
                 },
                 {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Profile Id)",
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_b)",
                     "schemaField": {
-                        "fieldPath": "Profile Id",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status)",
-                    "schemaField": {
-                        "fieldPath": "Status",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At)",
-                    "schemaField": {
-                        "fieldPath": "Created At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At)",
-                    "schemaField": {
-                        "fieldPath": "Updated At",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pk %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Pk (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Pet Fk)",
-                    "schemaField": {
-                        "fieldPath": "Pet Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Human Fk)",
-                    "schemaField": {
-                        "fieldPath": "Human Fk",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Status %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Status (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Created At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Created At (ADOPTIONS)",
-                        "nullable": false,
-                        "type": {
-                            "type": {
-                                "com.linkedin.schema.StringType": {}
-                            }
-                        },
-                        "nativeDataType": "String",
-                        "recursive": false,
-                        "isPartOfKey": false
-                    }
-                },
-                {
-                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,tQJu5N1l81),Updated At %28ADOPTIONS%29)",
-                    "schemaField": {
-                        "fieldPath": "Updated At (ADOPTIONS)",
+                        "fieldPath": "col_b",
                         "nullable": false,
                         "type": {
                             "type": {
@@ -1678,7 +933,151 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275661,
+        "lastObserved": 1777527961867,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,noFormulaElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "chartInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "VizualizationType": "levelTable",
+                "type": "table"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7?:nodeId=paramSiblingElem01&:fullScreen=true",
+            "title": "T Param Sibling",
+            "description": "",
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            },
+            "inputs": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668304,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),monthly_target)",
+                    "schemaField": {
+                        "fieldPath": "monthly_target",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),derived)",
+                    "schemaField": {
+                        "fieldPath": "derived",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777527961868,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(sigma,paramSiblingElem01)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777173668305,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1704,7 +1103,114 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275665,
+        "lastObserved": 1777173668305,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,InputFieldsPage)",
+    "changeType": "UPSERT",
+    "aspectName": "inputFields",
+    "aspect": {
+        "json": {
+            "fields": [
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,sourceElem01),col)",
+                    "schemaField": {
+                        "fieldPath": "col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.fivetran.fivetran_log__sample,PROD),some_col)",
+                    "schemaField": {
+                        "fieldPath": "some_col",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_a)",
+                    "schemaField": {
+                        "fieldPath": "col_a",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,noFormulaElem01),col_b)",
+                    "schemaField": {
+                        "fieldPath": "col_b",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),monthly_target)",
+                    "schemaField": {
+                        "fieldPath": "monthly_target",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                },
+                {
+                    "schemaFieldUrn": "urn:li:schemaField:(urn:li:chart:(sigma,paramSiblingElem01),derived)",
+                    "schemaField": {
+                        "fieldPath": "derived",
+                        "nullable": false,
+                        "type": {
+                            "type": {
+                                "com.linkedin.schema.StringType": {}
+                            }
+                        },
+                        "nativeDataType": "String",
+                        "recursive": false,
+                        "isPartOfKey": false
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777527961869,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1720,7 +1226,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275666,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1736,7 +1242,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275666,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1754,7 +1260,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275667,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1768,7 +1274,7 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "owner": "urn:li:corpuser:john.doe@example.com",
                     "type": "DATAOWNER"
                 }
             ],
@@ -1780,7 +1286,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275667,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1796,32 +1302,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275668,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,49HFLTr6xytgrPly3PFsNC,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.adoption.pets,PROD)",
-                    "type": "COPY"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1718003275668,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1837,7 +1318,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275669,
+        "lastObserved": 1777173668306,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1853,7 +1334,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1718003275670,
+        "lastObserved": 1777173668307,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

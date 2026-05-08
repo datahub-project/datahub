@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import pydantic
-import pytest
 from pydantic import field_validator
 from vertica_sqlalchemy_dialect.base import VerticaInspector
 
@@ -57,7 +56,6 @@ from datahub.utilities import config_clean
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
 
-pytestmark = pytest.mark.integration_batch_4
 logger: logging.Logger = logging.getLogger(__name__)
 
 

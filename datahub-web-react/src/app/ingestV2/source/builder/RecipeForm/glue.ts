@@ -23,7 +23,7 @@ export const GLUE_AWS_REGION: RecipeField = {
 };
 
 // Constants for AWS Authorization
-export const awsAuthMethodFieldName = 'aws_auth_method';
+const awsAuthMethodFieldName = 'aws_auth_method';
 export const awsAuthAccessKeys = 'access_keys';
 export const awsAuthIamRole = 'iam_role';
 export const awsAuthDefaultCredentials = 'default_credentials';

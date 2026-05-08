@@ -5,7 +5,7 @@ import { FilterOptionType } from '@app/searchV2/filters/types';
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-export interface DisplayedFilterOption {
+interface DisplayedFilterOption {
     key: string;
     label: React.ReactNode;
     style: any;

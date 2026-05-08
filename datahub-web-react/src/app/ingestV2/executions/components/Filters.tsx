@@ -21,7 +21,7 @@ const Container = styled.div`
     padding: 1px; // prevent cutting of select's outline
 `;
 
-export type FiltersState = Map<string, string[]>;
+type FiltersState = Map<string, string[]>;
 
 interface Props {
     onFiltersApplied?: (filters: FiltersState) => void;

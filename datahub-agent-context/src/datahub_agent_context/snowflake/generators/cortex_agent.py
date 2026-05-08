@@ -9,6 +9,7 @@ def generate_cortex_agent_sql(
     sf_database: str | None,
     sf_schema: str | None,
     include_mutations: bool = True,
+    include_cloud: bool = False,
 ) -> str:
     """Generate Cortex Agent SQL that uses configuration variables with DataHub tools.
 
@@ -20,6 +21,7 @@ def generate_cortex_agent_sql(
         sf_database: Snowflake database name (uses placeholder if None)
         sf_schema: Snowflake schema name (uses placeholder if None)
         include_mutations: Whether to include mutation/write tools (default: True)
+        include_cloud: Whether to include Cloud-only tools like Ask DataHub (default: False)
     """
     # Use placeholders for None values - these will be set via SQL variables at runtime
     warehouse = sf_warehouse or "MY_WAREHOUSE"
@@ -336,6 +338,44 @@ def generate_cortex_agent_sql(
         else ""
     )
 
+    # Build cloud-only tools section (Ask DataHub)
+    cloud_tools = (
+        """
+    # Ask DataHub AI (Cloud-only)
+    - tool_spec:
+        type: "generic"
+        name: "ask_datahub_chat"
+        description: "Ask the DataHub AI assistant a question about your data catalog. Blocks until the agent responds. Returns the assistant's answer. Cloud-only."
+        input_schema:
+          type: "object"
+          properties:
+            message:
+              type: "string"
+              description: "The question to ask the AI agent"
+          required: [message]
+
+    - tool_spec:
+        type: "generic"
+        name: "get_datahub_chat"
+        description: "Retrieve messages and status from an Ask DataHub conversation. Use to read back conversation history."
+        input_schema:
+          type: "object"
+          properties:
+            conversation_urn:
+              type: "string"
+              description: "URN of the conversation (from ask_datahub_chat response)"
+            message_limit:
+              type: "number"
+              description: "Max messages to return. Default: 10"
+            offset:
+              type: "number"
+              description: "Messages to skip. Default: 0"
+          required: [conversation_urn, message_limit, offset]
+"""
+        if include_cloud
+        else ""
+    )
+
     # Build mutation tool resources section if enabled
     mutation_tool_resources = (
         f"""
@@ -426,9 +466,40 @@ def generate_cortex_agent_sql(
         else ""
     )
 
-    tool_count_note = (
-        "21 tools (read + write)" if include_mutations else "10 tools (read-only)"
+    # Build cloud tool resources section
+    cloud_tool_resources = (
+        f"""
+    # Ask DataHub AI (Cloud-only)
+    ask_datahub_chat:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.ASK_DATAHUB_CHAT
+
+    get_datahub_chat:
+      type: "function"
+      execution_environment:
+        type: "warehouse"
+        warehouse: {warehouse}
+      identifier: {database}.{schema}.GET_DATAHUB_CHAT
+"""
+        if include_cloud
+        else ""
     )
+
+    # Calculate tool counts
+    base_count = 10
+    mutation_count = 11 if include_mutations else 0
+    cloud_count = 2 if include_cloud else 0
+    total_tool_count = base_count + mutation_count + cloud_count
+
+    tool_parts = ["read"]
+    if include_mutations:
+        tool_parts.append("write")
+    if include_cloud:
+        tool_parts.append("cloud")
+    tool_count_note = f"{total_tool_count} tools ({' + '.join(tool_parts)})"
     query_description = " and manage metadata" if include_mutations else ""
     comment_suffix = " and metadata management" if include_mutations else ""
 
@@ -704,7 +775,7 @@ CREATE OR REPLACE AGENT {agent_name}
               type: "number"
               description: "Max matches per document. Default: 5"
           required: [urns, pattern, context_chars, max_matches_per_doc]
-{mutation_tools}
+{mutation_tools}{cloud_tools}
     # User Info
     - tool_spec:
         type: "generic"
@@ -795,7 +866,7 @@ CREATE OR REPLACE AGENT {agent_name}
         type: "warehouse"
         warehouse: {warehouse}
       identifier: {database}.{schema}.GREP_DOCUMENTS
-{mutation_tool_resources}
+{mutation_tool_resources}{cloud_tool_resources}
     # User Info
     get_me:
       type: "function"
@@ -820,7 +891,7 @@ GRANT USAGE ON AGENT {agent_name} TO ROLE IDENTIFIER($SF_ROLE);
 DESCRIBE AGENT {agent_name};
 
 SELECT
-    'Agent created successfully with {"21 DataHub tools (read + write)" if include_mutations else "10 DataHub tools (read-only)"}!' AS status,
+    'Agent created successfully with {total_tool_count} DataHub tools ({" + ".join(tool_parts)})!' AS status,
     '{agent_name}' AS agent_name,
     'You can now use this agent in Snowflake Intelligence UI for {"SQL generation and metadata management" if include_mutations else "SQL generation and metadata exploration"}' AS next_steps;
 """

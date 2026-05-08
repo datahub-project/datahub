@@ -1,11 +1,11 @@
 ---
 title: "SCIM Integration: MS Entra and DataHub"
-hide_title: true
+description: "Configure SCIM-based identity provisioning between Microsoft Entra ID and DataHub Cloud to automate user and group lifecycle."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-## SCIM Integration: MS Entra and DataHub
+# SCIM Integration: MS Entra and DataHub
 
 <FeatureAvailability saasOnly />
 
@@ -16,7 +16,7 @@ On completion of this setup the MS Entra will automatically manage the groups/us
 Consider following configuration in MS Entra
 
 - A group `governance-team` group
-- And it has two memeber `john` and `sid`
+- And it has two member `john` and `sid`
 - And the group has role `Reader`
 
 If you configure the `governance-team` for auto provisioning, MS Entra will creates the `governance-team` group and it's member automatically on DataHub and set the `Reader` roles on users.

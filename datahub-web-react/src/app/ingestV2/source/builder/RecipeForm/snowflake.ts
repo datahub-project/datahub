@@ -15,7 +15,7 @@ const privateKeyPasswordFieldPath = 'source.config.private_key_password';
  * @param recipe - The current recipe configuration
  * @returns Updated recipe with only relevant credentials for the selected auth type
  */
-export function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
+function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
     let updatedRecipe = { ...recipe };
     const authType = get(updatedRecipe, authTypeFieldPath);
 
@@ -45,7 +45,7 @@ export function setSnowflakeAuthTypeOnRecipe(recipe: any): any {
  * @param recipe - The recipe configuration to inspect
  * @returns The inferred authentication type
  */
-export function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
+function getSnowflakeAuthTypeFromRecipe(recipe: any): string {
     const hasPassword = !!get(recipe, passwordFieldPath);
     const hasPrivateKey = !!get(recipe, privateKeyFieldPath);
 

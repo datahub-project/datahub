@@ -20,6 +20,7 @@ jar -tvf $jarFile |\
       #grep -v "org/springframework" |\
       grep -v "org/aopalliance" |\
       grep -v "javax/" |\
+      grep -v "jakarta/" |\
       grep -v "io/swagger" |\
       grep -v "JavaSpring" |\
       grep -v "java-header-style.xml" |\

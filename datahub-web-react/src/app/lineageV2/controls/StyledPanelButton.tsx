@@ -7,6 +7,11 @@ export const StyledPanelButton = styled(Button)`
     display: flex;
     align-items: center;
     width: 100%;
+    color: ${(props) => props.theme.colors.text};
+
+    &:hover {
+        color: ${(props) => props.theme.colors.textBrand};
+    }
 
     .anticon {
         margin-bottom: -2px;

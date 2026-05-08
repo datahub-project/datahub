@@ -5,7 +5,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <!-- All Feature Guides should begin with `About DataHub ` to improve SEO -->
 
 <!--
-Update feature availability; by default, feature availabilty is Self-Hosted and DataHub Cloud
+Update feature availability; by default, feature availability is Self-Hosted and DataHub Cloud
 
 Add in `saasOnly` for DataHub Cloud-only features
  -->

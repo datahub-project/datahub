@@ -2,7 +2,7 @@ import { ExclamationCircleFilled, FilterOutlined } from '@ant-design/icons';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useContext, useState } from 'react';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { EntityAndType } from '@app/entity/shared/types';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
@@ -12,7 +12,7 @@ import { SearchBar } from '@app/search/SearchBar';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/search/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Button, colors } from '@src/alchemy-components';
+import { Button } from '@src/alchemy-components';
 import { useSearchContext } from '@src/app/search/context/SearchContext';
 import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 
@@ -41,7 +41,7 @@ const ImpactAnalysisWarning = styled.div`
     padding: 12px 20px;
     display: flex;
     align-items: center;
-    background-color: ${colors.yellow[0]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
     z-index: 1;
 `;
 
@@ -88,6 +88,7 @@ export default function EmbeddedListSearchHeader({
     searchBarStyle,
     searchBarInputStyle,
 }: Props) {
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { selectedSortOption, setSelectedSortOption } = useSearchContext();
     const { lineageSearchPath } = useContext(LineageTabContext);
@@ -156,7 +157,7 @@ export default function EmbeddedListSearchHeader({
             )}
             {showLightningWarning && lineageSearchPath === LineageSearchPath.Lightning && (
                 <ImpactAnalysisWarning data-testid="lightning-cache-warning">
-                    <ExclamationCircleFilled style={{ color: colors.yellow[1000], fontSize: 16 }} />
+                    <ExclamationCircleFilled style={{ color: theme.colors.iconWarning, fontSize: 16 }} />
                     Some results shown may not exist yet in DataHub
                     <StyledButton
                         onClick={() => setShowLightningWarning(false)}

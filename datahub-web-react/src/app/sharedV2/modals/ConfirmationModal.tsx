@@ -4,11 +4,11 @@ import styled from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
-export const StyledModal = styled(Modal)`
+const StyledModal = styled(Modal)`
     font-family: ${typography.fonts.body};
 
     &&& .ant-modal-content {
-        box-shadow: 0px 4px 12px 0px rgba(9, 1, 61, 0.12);
+        box-shadow: ${(props) => props.theme.colors.shadowLg};
         border-radius: 12px;
     }
 
@@ -71,7 +71,7 @@ export const ConfirmationModal = ({
             ]}
             title={modalTitle || 'Confirm'}
         >
-            <Text color="gray" size="lg">
+            <Text size="lg" color="gray">
                 {modalText || 'Are you sure?'}
             </Text>
         </StyledModal>

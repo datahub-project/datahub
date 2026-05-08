@@ -18,9 +18,7 @@ const COLUMN = "column";
 
 describe("models", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
-    cy.skipIntroducePage();
   });
 
   it("should allow to set columns description ", () => {

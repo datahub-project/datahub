@@ -1,16 +1,14 @@
 source:
   type: vertexai
   config:
-    project_id: "acryl-poc"
+    project_ids:
+      - "acryl-poc"
+    # project_id: "acryl-poc"  # [deprecated] Still works — auto-migrated to project_ids with a warning
     # region: "us-west2"  # [deprecated] Prefer 'regions' or 'discover_regions'
     # regions:
     #   - "us-west2"
     #   - "us-central1"
     # discover_regions: true  # Enumerate available regions and scan all
-    # Optional multi-project support
-    # project_ids:
-    #   - "project-a"
-    #   - "project-b"
     # project_labels:
     #   - "env:prod"
     # project_id_pattern:

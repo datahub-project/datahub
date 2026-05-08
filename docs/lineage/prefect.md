@@ -1,3 +1,7 @@
+---
+description: "Capture and emit dataset lineage and run metadata from Prefect flows and tasks into DataHub for end-to-end pipeline visibility."
+---
+
 # Prefect Integration with DataHub
 
 ## Overview

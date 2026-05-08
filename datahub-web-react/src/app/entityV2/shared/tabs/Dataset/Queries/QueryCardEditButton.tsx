@@ -10,7 +10,7 @@ const EditQueryActionButton = styled(Button)`
     }
 `;
 
-export type Props = {
+type Props = {
     onClickEdit?: () => void;
     index?: number;
 };

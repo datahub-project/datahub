@@ -126,9 +126,7 @@ function deletePolicy(policyEdited, deletePolicyTitle) {
 
 describe("create and manage platform and metadata policies", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.visit("/settings/permissions/policies");
   });
 

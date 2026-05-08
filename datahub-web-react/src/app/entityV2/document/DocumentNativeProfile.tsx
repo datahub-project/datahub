@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { LoadingOutlined } from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import React, { useContext, useState } from 'react';
@@ -10,6 +9,7 @@ import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import EntityProfileSidebar from '@app/entityV2/shared/containers/profile/sidebar/EntityProfileSidebar';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
 import { useFinalSidebarTabs } from '@app/entityV2/shared/containers/profile/utils';
@@ -56,8 +56,7 @@ const ContentCard = styled.div`
     display: flex;
     flex-direction: column;
     flex: 1;
-    // eslint-disable-next-line rulesdir/no-hardcoded-colors -- TODO: replace with semantic token once rgba(93, 102, 139, 0.2) is mapped
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     height: 100%;
     overflow: hidden;
 `;
@@ -109,6 +108,12 @@ const sidebarSections = [
     },
     {
         component: DataProductSection,
+        display: {
+            visible: () => true,
+        },
+    },
+    {
+        component: SidebarRelatedAssetsSection,
         display: {
             visible: () => true,
         },

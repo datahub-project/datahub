@@ -70,6 +70,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionArgs;
 import com.linkedin.metadata.entity.retention.BulkApplyRetentionResult;
 import com.linkedin.metadata.entity.validation.AspectDeletionRequest;
+import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
@@ -310,6 +311,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         latestSystemMetadata.setLastObserved(
             changeSystemMetadata.getLastObserved(), SetMode.IGNORE_NULL);
         latestSystemMetadata.setRunId(changeSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
+        latestSystemMetadata.setSchemaVersion(
+            changeSystemMetadata.getSchemaVersion(), SetMode.IGNORE_NULL);
 
         if (!DataTemplateUtil.areEqual(
             latestAspect.getRecordTemplate(), changeMCP.getRecordTemplate())) {
@@ -1013,25 +1016,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
-    Iterable<List<MCPItem>> iterable =
-        () ->
-            Iterators.partition(
-                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
-                    .iterator(),
-                MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
-    StreamSupport.stream(iterable.spliterator(), false)
-        .forEach(
-            sideEffects -> {
-              long count =
-                  ingestProposalAsync(
-                          opContext,
-                          AspectsBatchImpl.builder()
-                              .items(sideEffects)
-                              .retrieverContext(opContext.getRetrieverContext())
-                              .build(opContext))
-                      .count();
-              log.debug("Generated {} MCP SideEffects for async processing", count);
-            });
+    try (Stream<MCPItem> sideEffectStream =
+        AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())) {
+      Iterable<List<MCPItem>> iterable =
+          () -> Iterators.partition(sideEffectStream.iterator(), MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
+      StreamSupport.stream(iterable.spliterator(), false)
+          .forEach(
+              sideEffects -> {
+                long count =
+                    ingestProposalAsync(
+                            opContext,
+                            AspectsBatchImpl.builder()
+                                .items(sideEffects)
+                                .retrieverContext(opContext.getRetrieverContext())
+                                .build(opContext))
+                        .count();
+                log.debug("Generated {} MCP SideEffects for async processing", count);
+              });
+    }
   }
 
   /**
@@ -1676,6 +1678,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // Apply MCP observers (pre-transaction metrics collection, external actions).
+    // Only on sync path — async MCPs come back via MCE consumer with async=false.
+    if (!async) {
+      try {
+        aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      } catch (VirtualMachineError e) {
+        throw e;
+      } catch (Throwable t) {
+        // Outermost guard around the observer call site. Inner layers in MCPObserver.apply and
+        // AspectsBatch.applyMCPObservers already isolate per-observer failures; anything that
+        // leaks here is a non-observer bug (batch wiring, retriever context) — log it as such
+        // rather than as an observer failure so it doesn't get triaged to the wrong owner.
+        log.warn("MCP observer call site failed; ingest continuing", t);
+      }
+    }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -2515,7 +2532,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 mcl.getAspect().getValue(), mcl.getAspect().getContentType(), aspectSpec)
             : null;
     return SystemMetadataUtils.isNoOp(mcl.getSystemMetadata())
-        || Objects.equals(newAspect, oldAspect);
+        || ValidationApiUtils.normalizedEqual(oldAspect, newAspect);
   }
 
   public void produceFailedMCPs(
@@ -3067,7 +3084,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {
-                        // soft delete by setting status.removed=true (if applicable)
+                        // Soft delete: set removed=true.
                         final Status statusAspect = new Status();
                         statusAspect.setRemoved(true);
 

@@ -9,7 +9,7 @@ import { ENTITY_NAME_FIELD } from '@src/app/searchV2/context/constants';
 import { useGetAutoCompleteMultipleResultsQuery, useScrollAcrossEntitiesQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, SortOrder } from '@src/types.generated';
 
-export const GLOSSARY_CHILDREN_COUNT = 50;
+const GLOSSARY_CHILDREN_COUNT = 50;
 
 function getGlossaryChildrenScrollInput(urn: string, scrollId: string | null) {
     return {

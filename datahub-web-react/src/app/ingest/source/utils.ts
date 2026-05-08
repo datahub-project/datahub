@@ -1,13 +1,11 @@
-import { colors } from '@components';
-import {
-    ArrowCounterClockwise,
-    ArrowsCounterClockwise,
-    Checks,
-    ClockClockwise,
-    Prohibit,
-    Spinner,
-    X,
-} from 'phosphor-react';
+import { ArrowCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowCounterClockwise';
+import { ArrowsCounterClockwise } from '@phosphor-icons/react/dist/csr/ArrowsCounterClockwise';
+import { Checks } from '@phosphor-icons/react/dist/csr/Checks';
+import { ClockClockwise } from '@phosphor-icons/react/dist/csr/ClockClockwise';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
+import { Spinner } from '@phosphor-icons/react/dist/csr/Spinner';
+import { X } from '@phosphor-icons/react/dist/csr/X';
+import { DefaultTheme } from 'styled-components';
 import YAML from 'yamljs';
 
 import EntityRegistry from '@app/entity/EntityRegistry';
@@ -46,15 +44,13 @@ export function getPlaceholderRecipe(ingestionSources: SourceConfig[], type?: st
 export const RUNNING = 'RUNNING';
 export const SUCCESS = 'SUCCESS';
 export const SUCCEEDED_WITH_WARNINGS = 'SUCCEEDED_WITH_WARNINGS';
-export const WARNING = 'WARNING';
 export const FAILURE = 'FAILURE';
-export const CONNECTION_FAILURE = 'CONNECTION_FAILURE';
-export const CANCELLED = 'CANCELLED';
-export const ABORTED = 'ABORTED';
-export const UP_FOR_RETRY = 'UP_FOR_RETRY';
+const CANCELLED = 'CANCELLED';
+const ABORTED = 'ABORTED';
+const UP_FOR_RETRY = 'UP_FOR_RETRY';
 export const ROLLING_BACK = 'ROLLING_BACK';
-export const ROLLED_BACK = 'ROLLED_BACK';
-export const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
+const ROLLED_BACK = 'ROLLED_BACK';
+const ROLLBACK_FAILED = 'ROLLBACK_FAILED';
 
 export const CLI_EXECUTOR_ID = '__datahub_cli_';
 export const MANUAL_INGESTION_SOURCE = 'MANUAL_INGESTION_SOURCE';
@@ -118,19 +114,19 @@ export const getExecutionRequestSummaryText = (status: string) => {
     }
 };
 
-export const getExecutionRequestStatusDisplayColor = (status?: string) => {
+export const getExecutionRequestStatusDisplayColor = (theme: DefaultTheme, status?: string) => {
     return (
-        (status === RUNNING && colors.blue[1000]) ||
-        (status === SUCCESS && colors.green[500]) ||
-        (status === SUCCEEDED_WITH_WARNINGS && colors.yellow[500]) ||
-        (status === FAILURE && colors.red[500]) ||
-        (status === UP_FOR_RETRY && colors.violet[600]) ||
-        (status === CANCELLED && colors.gray[1700]) ||
-        (status === ROLLED_BACK && colors.yellow[500]) ||
-        (status === ROLLING_BACK && colors.yellow[500]) ||
-        (status === ROLLBACK_FAILED && colors.red[500]) ||
-        (status === ABORTED && colors.red[500]) ||
-        colors.gray[1700]
+        (status === RUNNING && theme.colors.chartsInformationHigh) ||
+        (status === SUCCESS && theme.colors.iconSuccess) ||
+        (status === SUCCEEDED_WITH_WARNINGS && theme.colors.iconWarning) ||
+        (status === FAILURE && theme.colors.iconError) ||
+        (status === UP_FOR_RETRY && theme.colors.chartsBrandHigh) ||
+        (status === CANCELLED && theme.colors.textTertiary) ||
+        (status === ROLLED_BACK && theme.colors.iconWarning) ||
+        (status === ROLLING_BACK && theme.colors.iconWarning) ||
+        (status === ROLLBACK_FAILED && theme.colors.iconError) ||
+        (status === ABORTED && theme.colors.iconError) ||
+        theme.colors.textTertiary
     );
 };
 
@@ -394,7 +390,7 @@ const ENTITIES_WITH_SUBTYPES = new Set([
     EntityType.Dashboard.toLowerCase(),
 ]);
 
-export type EntityTypeCount = {
+type EntityTypeCount = {
     count: number;
     displayName: string;
 };
