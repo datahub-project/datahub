@@ -110,6 +110,9 @@ class SnowflakeV2Report(
     tasks_scanned: int = 0
     pipes_scanned: int = 0
 
+    external_stage_lineage_resolved: int = 0
+    external_stage_lineage_unresolved: int = 0
+
     include_usage_stats: bool = False
     include_operational_stats: bool = False
     include_technical_schema: bool = False

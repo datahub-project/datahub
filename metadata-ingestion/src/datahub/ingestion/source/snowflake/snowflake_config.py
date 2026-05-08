@@ -471,6 +471,29 @@ class SnowflakeV2Config(
         description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
     )
 
+    resolve_external_stage_lineage_via_graph: bool = Field(
+        default=False,
+        description=(
+            "If enabled, resolve external stage lineage by looking up existing dataset "
+            "URNs in the DataHub graph that share the stage path as a prefix, instead "
+            "of generating a URN from the raw stage path. Requires the corresponding "
+            "data lake source (S3, GCS, or Azure) to have been ingested first; "
+            "otherwise stage lineage will be skipped on this run and resolved on a "
+            "subsequent run."
+        ),
+    )
+
+    external_stage_platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "Platform instance to use when looking up dataset URNs for external "
+            "stage lineage via the graph. Only relevant when "
+            "`resolve_external_stage_lineage_via_graph` is enabled and the "
+            "underlying data lake source (S3, GCS, or Azure) was ingested with "
+            "a platform_instance set."
+        ),
+    )
+
     structured_property_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
@@ -582,6 +605,35 @@ class SnowflakeV2Config(
                 "include_table_lineage must be True for include_column_lineage to be set."
             )
         return v
+
+    @field_validator("external_stage_platform_instance", mode="after")
+    @classmethod
+    def normalize_external_stage_platform_instance(
+        cls, v: Optional[str]
+    ) -> Optional[str]:
+        # Reject blank/whitespace strings: they would silently produce a malformed
+        # URN prefix like `urn:li:dataset:(urn:li:dataPlatform:s3,.<path>` and yield
+        # zero matches at lookup time. Treat them as if the field were unset.
+        if v is None:
+            return None
+        stripped = v.strip()
+        return stripped or None
+
+    @model_validator(mode="after")
+    def validate_external_stage_platform_instance_requires_resolve_flag(
+        self,
+    ) -> "SnowflakeV2Config":
+        if (
+            self.external_stage_platform_instance is not None
+            and not self.resolve_external_stage_lineage_via_graph
+        ):
+            add_global_warning(
+                "`external_stage_platform_instance` is set but "
+                "`resolve_external_stage_lineage_via_graph` is False. The platform "
+                "instance is only consulted when graph-based stage resolution is "
+                "enabled, so this setting will have no effect."
+            )
+        return self
 
     @field_validator("include_externally_managed_dmfs", mode="after")
     @classmethod

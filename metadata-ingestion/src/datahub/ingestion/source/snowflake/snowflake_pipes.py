@@ -353,14 +353,16 @@ class SnowflakePipesExtractor:
 
         stages_without_urn: List[str] = []
         for entry in stage_entries:
-            if entry.dataset_urn is None:
+            if not entry.dataset_urns:
                 stages_without_urn.append(
                     f"{entry.stage.database_name}."
                     f"{entry.stage.schema_name}."
                     f"{entry.stage.name}"
                 )
-            elif entry.dataset_urn not in input_datasets:
-                input_datasets.append(entry.dataset_urn)
+                continue
+            for urn in entry.dataset_urns:
+                if urn not in input_datasets:
+                    input_datasets.append(urn)
 
         if stages_without_urn:
             # Stage was found, but its underlying dataset URN couldn't be resolved

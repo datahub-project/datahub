@@ -502,7 +502,9 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.INT_STAGE": StageLookupEntry(
                 stage=internal_stage,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.int_stage,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.int_stage,PROD)"
+                ],
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -528,7 +530,9 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.EXT_STAGE": StageLookupEntry(
                 stage=ext_stage,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data/,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/data/,PROD)"
+                ],
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -544,6 +548,87 @@ class TestSnowflakePipesExtractor:
         assert len(io.inputDatasets) == 1
         assert "s3" in io.inputDatasets[0].lower()
         assert len(io.outputDatasets) == 1
+
+    def test_pipe_fans_out_to_all_resolved_stage_urns(self) -> None:
+        # Graph-resolved stages can map a single stage to multiple downstream datasets
+        # (one stage prefix → many `{table}` folders). The pipe consumer must include
+        # every URN in inputDatasets without duplicates.
+        pipe = _make_pipe(definition="COPY INTO target_table FROM @ext_stage")
+        ext_stage = _make_external_stage("ext_stage", "s3://my-bucket/folder/")
+        stage_lookup = {
+            "TEST_DB.PUBLIC.EXT_STAGE": StageLookupEntry(
+                stage=ext_stage,
+                container_key=MagicMock(),
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_a,PROD)",
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_b,PROD)",
+                ],
+            ),
+        }
+        wus = _collect_workunits([pipe], stage_lookup)
+
+        ios = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert len(ios) == 1
+        assert sorted(ios[0].inputDatasets) == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_a,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/folder/table_b,PROD)",
+        ]
+
+    def test_pipe_dedups_overlapping_urns_across_stages(self) -> None:
+        # When two stages in a UNION ALL pipe resolve to overlapping URN sets
+        # (same physical S3 location reached via different stages), the consumer
+        # must produce inputDatasets without duplicates.
+        pipe = _make_pipe(
+            definition=(
+                "COPY INTO target_table FROM ("
+                " SELECT $1 FROM @stage_a"
+                " UNION ALL"
+                " SELECT $1 FROM @stage_b"
+                ")"
+            ),
+        )
+        shared_urn = "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/shared,PROD)"
+        stage_a = _make_external_stage("stage_a", "s3://bucket/folder/a/")
+        stage_b = _make_external_stage("stage_b", "s3://bucket/folder/b/")
+        stage_lookup = {
+            "TEST_DB.PUBLIC.STAGE_A": StageLookupEntry(
+                stage=stage_a,
+                container_key=MagicMock(),
+                dataset_urns=[
+                    shared_urn,
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/a_only,PROD)",
+                ],
+            ),
+            "TEST_DB.PUBLIC.STAGE_B": StageLookupEntry(
+                stage=stage_b,
+                container_key=MagicMock(),
+                dataset_urns=[
+                    shared_urn,
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/b_only,PROD)",
+                ],
+            ),
+        }
+        wus = _collect_workunits([pipe], stage_lookup)
+
+        ios = [
+            wu.metadata.aspect
+            for wu in wus
+            if hasattr(wu.metadata, "aspect")
+            and isinstance(wu.metadata.aspect, DataJobInputOutputClass)
+        ]
+        assert len(ios) == 1
+        inputs = ios[0].inputDatasets
+        assert inputs.count(shared_urn) == 1
+        assert sorted(inputs) == [
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/a_only,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:s3,bucket/folder/b_only,PROD)",
+            shared_urn,
+        ]
 
     def test_pipe_with_union_all_stages_emits_lineage_for_each(self) -> None:
         """A pipe whose COPY unions two stages should yield two input datasets
@@ -563,12 +648,16 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.STAGE_US": StageLookupEntry(
                 stage=stage_us,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/data/,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/data/,PROD)"
+                ],
             ),
             "TEST_DB.PUBLIC.STAGE_EU": StageLookupEntry(
                 stage=stage_eu,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/data/,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/data/,PROD)"
+                ],
             ),
         }
         wus = _collect_workunits([pipe], stage_lookup)
@@ -620,12 +709,16 @@ class TestSnowflakePipesExtractor:
             "TEST_DB.PUBLIC.STAGE_US": StageLookupEntry(
                 stage=stage_us,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-us/,PROD)"
+                ],
             ),
             "TEST_DB.PUBLIC.STAGE_EU": StageLookupEntry(
                 stage=stage_eu,
                 container_key=MagicMock(),
-                dataset_urn="urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/,PROD)",
+                dataset_urns=[
+                    "urn:li:dataset:(urn:li:dataPlatform:s3,bucket-eu/,PROD)"
+                ],
             ),
         }
 
