@@ -562,6 +562,31 @@ class TestResolveChartFormulaUpstream:
         )
         assert result == (chart_urn, "col")
 
+    def test_dm_resolution_when_self_exclusion_empties_candidates(self) -> None:
+        """Step 3b fallback fires when self-exclusion empties candidates.
+
+        BFS edge-only DM synthesis sets upstream.name = element.name, so the
+        chart is the only wb_element_index entry under its own name. After
+        self-exclusion, candidates is empty and the if-block is skipped. The
+        fallback must still return the DM URN via dm_upstream_urn_by_element_name.
+        """
+        dm_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+            "147a4d09-a686-4eea-b183-9b82aa0f7beb.0ui59vLc38,PROD)"
+        )
+        chart_elem = _make_element("self_id", "random data model")
+        ref = _make_ref("random data model", "Calc")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="self_id",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={"random data model": dm_urn},
+            wb_element_index={"random data model": [chart_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result == (dm_urn, "Calc")
+
 
 class TestGenElementsWorkunitInputFields:
     def test_resolved_input_field_preserves_string_native_data_type(self) -> None:
