@@ -41,6 +41,7 @@ from datahub.ingestion.source.sigma.config import (
 )
 from datahub.ingestion.source.sigma.connection_registry import (
     SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP,
+    SigmaConnectionRecord,
     SigmaConnectionRegistry,
 )
 from datahub.ingestion.source.sigma.data_classes import (
@@ -1220,6 +1221,28 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if passthrough:
             self._customsql_passthrough_mappings[chart_urn] = passthrough
 
+    def _effective_sql_defaults(
+        self,
+        connection_id: str,
+        record: SigmaConnectionRecord,
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """Return (default_db, default_schema) with connection_to_platform_map overrides applied.
+
+        Sigma's connection API omits database/schema for some warehouse types (e.g. Redshift),
+        leaving record.default_database/default_schema as None and causing the SQL parser to
+        produce under-qualified URNs.  The connection_to_platform_map entry lets users supply
+        these values in the recipe so the parser can produce fully-qualified URNs.
+        """
+        conn_override = self.config.connection_to_platform_map.get(connection_id)
+        default_db = record.default_database
+        default_schema = record.default_schema
+        if conn_override:
+            if conn_override.default_db is not None:
+                default_db = conn_override.default_db
+            if conn_override.default_schema is not None:
+                default_schema = conn_override.default_schema
+        return default_db, default_schema
+
     def _parse_customsql_upstream_dataset_urns(
         self, customsql_entry: CustomSqlEntry
     ) -> List[str]:
@@ -1244,11 +1267,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         record = self.connection_registry.get(connection_id)
         if record is None or not record.is_mappable:
             return []
+        default_db, default_schema = self._effective_sql_defaults(connection_id, record)
         try:
             result = create_lineage_sql_parsed_result(
                 query=definition,
-                default_db=record.default_database,
-                default_schema=record.default_schema,
+                default_db=default_db,
+                default_schema=default_schema,
                 platform=record.datahub_platform,
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
@@ -1314,12 +1338,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        default_db, default_schema = self._effective_sql_defaults(connection_id, record)
         try:
             aggregator.add_view_definition(
                 view_urn=reg.urn,
                 view_definition=definition,
-                default_db=record.default_database,
-                default_schema=record.default_schema,
+                default_db=default_db,
+                default_schema=default_schema,
             )
             self._inc_counter(reg.counter_prefix, "aggregator_invocations")
             reg.registered_set.add(reg.urn)

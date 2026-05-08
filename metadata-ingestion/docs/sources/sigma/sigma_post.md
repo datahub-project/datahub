@@ -20,6 +20,28 @@ The following report counters are available for operational visibility:
 | `dm_customsql_column_lineage_emitted`       | Elements with at least one column lineage entry emitted                                        |
 | `dm_customsql_fgl_downstream_unmapped`      | Individual FGL downstream fields dropped (SQL column name not found in Sigma formula metadata) |
 
+#### Workbook customSQL chart lineage
+
+When `extract_lineage: true` (default), workbook chart elements whose data source is a customSQL definition
+emit warehouse `UpstreamLineage` and column-level `FineGrainedLineage` via the SQL parser — no additional
+configuration is required beyond a valid connection in the Sigma connection registry.
+
+The connector reads the workbook-level lineage graph (`/v2/workbooks/{id}/lineage`) to find `type=customSQL`
+entries, parses each SQL definition, and registers the results with the `SqlParsingAggregator`.
+Column-level lineage is emitted for chart columns whose formula resolves to a named SQL column
+(`[CustomSQLName/col]` pattern). Columns using `SELECT *` sources carry lower-confidence (0.1) inferred lineage.
+
+The following report counters are available for operational visibility:
+
+| Counter                                           | Meaning                                                                                       |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `workbook_customsql_aggregator_invocations`       | SQL definitions successfully registered for parsing                                           |
+| `workbook_customsql_aggregator_invocation_errors` | Registration failures (non-zero indicates an internal error)                                  |
+| `workbook_customsql_skipped`                      | Entries skipped before parsing (missing definition, unknown connection, unsupported platform) |
+| `workbook_customsql_parse_failed`                 | Definitions the SQL parser could not interpret                                                |
+| `workbook_customsql_upstream_emitted`             | Entity-level `UpstreamLineage` aspects emitted                                                |
+| `workbook_customsql_column_lineage_emitted`       | Charts with at least one column lineage entry emitted                                         |
+
 #### Data Model element -> warehouse table lineage
 
 When `ingest_data_models: true` and `extract_lineage: true` (both default), the connector also emits entity-level `UpstreamLineage` from each Sigma Data Model element to the warehouse table it is sourced from.
@@ -45,6 +67,23 @@ connection_to_platform_map:
 ```
 
 If a Snowflake source recipe sets `convert_urns_to_lowercase: false`, the warehouse connector emits upper-cased URNs and the edges produced here will dangle unless you set `convert_urns_to_lowercase: false` in the matching `connection_to_platform_map` entry.
+
+**Warehouses that omit database or schema from the Sigma connection record** (e.g. Redshift):
+Sigma's `/v2/connections` API does not return `database` or `schema` fields for all warehouse types.
+When those fields are absent, the SQL parser cannot fully qualify unqualified table names and produces
+under-qualified URNs that will not match what your warehouse connector emitted.
+Use `default_db` and `default_schema` in the `connection_to_platform_map` entry to supply the missing values:
+
+```yml
+connection_to_platform_map:
+  "a1b2c3d4-0000-0000-0000-000000000001":
+    env: PROD
+    default_db: my_redshift_db # expands `schema.table` → `my_redshift_db.schema.table`
+    default_schema: public # expands `table` → `public.table`
+```
+
+These overrides apply to both workbook customSQL chart lineage and Data Model customSQL element lineage
+for the matching connection.
 
 **Counters to monitor** (visible in the ingestion report):
 

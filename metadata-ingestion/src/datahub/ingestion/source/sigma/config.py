@@ -430,6 +430,23 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
             "convert_urns_to_lowercase: false."
         ),
     )
+    default_db: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default database for expanding unqualified table names in customSQL "
+            "definitions (e.g. 'mydb' expands 'schema.table' to 'mydb.schema.table'). "
+            "Required for warehouses like Redshift whose Sigma connection record "
+            "does not include a database field."
+        ),
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default schema for expanding unqualified table names in customSQL "
+            "definitions (e.g. 'public' expands 'table' to 'public.table'). "
+            "Overrides the schema returned by the Sigma connection API."
+        ),
+    )
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
