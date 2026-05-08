@@ -3124,6 +3124,16 @@ enum FabricType {
   Designates alternative spelling TEST
   """
   TST
+
+  """
+  System Integration Testing
+  """
+  SIT
+
+  """
+  Alternative spelling for sandbox
+  """
+  SBX
 }
 
 """
