@@ -122,6 +122,14 @@ source types vary by the platform, but generally fall into these categories:
   the `bigquery.tables.get` permission (included in the `roles/bigquery.metadataViewer` role).
   This method is only supported for Tables, not Views.
 
+  :::caution Quota considerations
+  The `tables.get` API is subject to BigQuery's [API request rate limits](https://cloud.google.com/bigquery/quotas#api_quotas_and_limits).
+  These limits are quite high, but should be considered when running this assertion against a very large number of tables on a frequent
+  schedule. DataHub Cloud automatically jitters and distributes the execution of Smart Assertions and assertions it manages on its end
+  to avoid bursts of API calls. If you are configuring your own custom schedules across many assertions, consider staggering them
+  (e.g., varying the minute offset across assertions) to avoid hitting per-minute API quotas.
+  :::
+
 - **Query**: A `COUNT(*)` query is used to retrieve the latest row count for a table, with optional SQL filters applied (depending on platform).
   This can be less efficient to check depending on the size of the table. This approach is more portable, as it does not involve
   system warehouse tables, it is also easily portable across Data Warehouse and Data Lake providers. This issues a query to the table, which can be more expensive than Information Schema.
