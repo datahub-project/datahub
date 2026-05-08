@@ -9,6 +9,10 @@ import requests
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
+from datahub.ingestion.source.sigma.connection_registry import (
+    SigmaConnectionRecord,
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     DatasetUpstream,
     Element,
@@ -17,11 +21,12 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModel,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseTableUpstream,
     Workbook,
     WorkbookLineageTableEntry,
     Workspace,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _WarehouseTableRef
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -248,7 +253,8 @@ class TestGetElementUpstreamSources:
         assert result["upstream_sheet"].element_id == "other_elem"
         assert len(api.report.warnings) == 0
 
-    def test_table_and_join_sources_are_silently_skipped(self) -> None:
+    def test_table_node_without_inode_prefix_increments_skip_counter(self) -> None:
+        """A type=table node whose nodeId lacks the 'inode-' prefix is skipped."""
         api = _create_sigma_api()
         element = _make_element()
         workbook = _make_workbook()
@@ -289,7 +295,85 @@ class TestGetElementUpstreamSources:
             result = api._get_element_upstream_sources(element, workbook)
 
         assert result == {}
+        assert api.report.chart_warehouse_table_node_skipped == 1
         assert len(api.report.warnings) == 0
+
+    def test_table_node_with_inode_prefix_creates_warehouse_table_upstream(
+        self,
+    ) -> None:
+        """A type=table node with 'inode-{urlId}' format is stored as WarehouseTableUpstream."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "inode-abc123": {
+                            "nodeId": "inode-abc123",
+                            "name": "ORDERS",
+                            "type": "table",
+                        },
+                    },
+                    "edges": [
+                        {
+                            "source": "inode-abc123",
+                            "target": "tgt_node",
+                            "type": "source",
+                        },
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert "inode-abc123" in result
+        upstream = result["inode-abc123"]
+        assert isinstance(upstream, WarehouseTableUpstream)
+        assert upstream.url_id == "abc123"
+        assert api.report.chart_warehouse_table_node_skipped == 0
+
+    def test_table_node_with_empty_url_id_increments_skip_counter(self) -> None:
+        """A type=table node 'inode-' with nothing after the prefix is skipped."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "inode-": {
+                            "nodeId": "inode-",
+                            "name": "ORDERS",
+                            "type": "table",
+                        },
+                    },
+                    "edges": [
+                        {"source": "inode-", "target": "tgt_node", "type": "source"},
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert api.report.chart_warehouse_table_node_skipped == 1
 
     def test_join_pass_through_exposes_sheet_upstream(self) -> None:
         api = _create_sigma_api()
@@ -691,6 +775,122 @@ class TestGetElementInputDetails:
 
         assert dataset_inputs == {}
         assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
+
+    # --- T4.C2: WarehouseTableUpstream entity-level edge ---
+
+    def _make_source_with_registry(
+        self, connection_id: str = "conn-1", platform: str = "snowflake"
+    ) -> SigmaSource:
+        source = self._make_source()
+        record = SigmaConnectionRecord(
+            connection_id=connection_id,
+            name="Test Connection",
+            sigma_type="Snowflake",
+            datahub_platform=platform,
+            is_mappable=True,
+        )
+        source.connection_registry = SigmaConnectionRegistry(
+            by_id={connection_id: record}
+        )
+        source._warned_unvalidated_platforms: set = set()  # type: ignore[assignment]
+        source._no_platform_map_conn_ids: set = set()  # type: ignore[assignment]
+        return source
+
+    def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
+        """WarehouseTableUpstream resolves to a Dataset URN in dataset_inputs."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        url_id = "abc123"
+        wb_warehouse_url_id_map: Dict[str, _WarehouseTableRef] = {
+            url_id: _WarehouseTableRef(
+                connection_id="conn-1", db="MYDB", schema="PUBLIC", table="ORDERS"
+            )
+        }
+        upstream_sources: Dict = {
+            f"inode-{url_id}": WarehouseTableUpstream(type="table", url_id=url_id),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_url_id_map
+        )
+
+        assert len(dataset_inputs) == 1
+        assert chart_urns == []
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+        assert source.reporter.chart_warehouse_unknown_connection == 0
+        urn = next(iter(dataset_inputs))
+        assert "snowflake" in urn
+        assert "mydb.public.orders" in urn
+
+    def test_warehouse_table_upstream_unresolvable_increments_counter(
+        self,
+    ) -> None:
+        """WarehouseTableUpstream url_id not resolvable bumps chart_warehouse_unknown_connection."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        # url_id "unknown" is absent from the map — resolve returns None.
+        wb_warehouse_url_id_map: Dict[str, _WarehouseTableRef] = {}
+        upstream_sources: Dict = {
+            "inode-unknown": WarehouseTableUpstream(type="table", url_id="unknown"),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_url_id_map
+        )
+
+        assert dataset_inputs == {}
+        assert source.reporter.chart_warehouse_unknown_connection == 1
+        assert source.reporter.chart_warehouse_upstream_emitted == 0
+
+    def test_warehouse_table_upstream_dedup_two_nodes_same_table(self) -> None:
+        """Two BFS table nodes resolving to the same URN produce one dataset_inputs entry."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        ref = _WarehouseTableRef(
+            connection_id="conn-1", db="MYDB", schema="PUBLIC", table="ORDERS"
+        )
+        wb_warehouse_url_id_map: Dict[str, _WarehouseTableRef] = {
+            "abc1": ref,
+            "abc2": ref,
+        }
+        upstream_sources: Dict = {
+            "inode-abc1": WarehouseTableUpstream(type="table", url_id="abc1"),
+            "inode-abc2": WarehouseTableUpstream(type="table", url_id="abc2"),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, _ = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_url_id_map
+        )
+
+        # Both resolve to the same URN — only one entry in dataset_inputs.
+        assert len(dataset_inputs) == 1
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+
+    def test_warehouse_table_upstream_none_map_skips_silently(self) -> None:
+        """When wb_warehouse_url_id_map is None the upstream is silently skipped."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(type="table", url_id="abc123"),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element,
+            workbook,
+            {},  # wb_warehouse_url_id_map defaults to None
+        )
+
+        assert dataset_inputs == {}
+        assert source.reporter.chart_warehouse_upstream_emitted == 0
+        assert source.reporter.chart_warehouse_unknown_connection == 0
 
 
 class TestAssembleDataModelFileMetaFallback:
@@ -1844,6 +2044,7 @@ class TestChartInputsInsertionOrder:
                     elementId_to_chart_urn={},
                     wb_element_index={},
                     wb_warehouse_table_index={},
+                    wb_warehouse_url_id_map={},
                 )
             )
 

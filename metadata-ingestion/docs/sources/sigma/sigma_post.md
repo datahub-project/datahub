@@ -86,6 +86,48 @@ The following report counters are available for operational visibility:
 | `workbook_customsql_column_lineage_emitted`       | Charts with at least one column lineage entry emitted                                          |
 | `workbook_customsql_fgl_downstream_unmapped`      | Individual FGL downstream fields dropped (SQL column name not found in Sigma formula metadata) |
 
+#### Workbook chart entity-level warehouse upstream
+
+When `extract_lineage: true` (default), workbook chart elements that pull **directly** from a
+warehouse table (no Data Model, no customSQL, no Sigma Dataset in between) emit an entity-level
+`chartInfo.inputs` edge to the warehouse Dataset. This path fires when the Sigma BFS lineage
+payload for the chart element contains a `type=table` upstream node — the connector strips the
+`inode-` prefix from the node ID and resolves the warehouse Dataset URN via the workbook-level
+lineage map (same `/v2/workbooks/{id}/lineage` call already made for the column-level path).
+
+Column-level lineage for these charts is handled separately by the
+[chart inputFields warehouse qualification](#workbook-chart-inputfields-warehouse-column-level-qualification)
+path; T4.C2 adds the missing entity-level edge.
+
+No additional configuration is required for most platforms. For Redshift connections where the
+Sigma connection record omits `database`/`schema`, set `default_database` in
+`connection_to_platform_map` — see
+[Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
+
+| Counter                              | Meaning                                                                                    |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `chart_warehouse_upstream_emitted`   | Entity-level chart→warehouse edges emitted (post-dedup)                                    |
+| `chart_warehouse_unknown_connection` | BFS table node's urlId not in the workbook-level warehouse map (connection not resolvable) |
+| `chart_warehouse_table_node_skipped` | BFS `type=table` nodeId missing or not in expected `inode-{urlId}` format; skipped         |
+
+#### Workbook chart inputFields warehouse column-level qualification
+
+When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to
+warehouse Dataset URNs. For each chart column whose formula references a warehouse table (e.g.,
+`[TABLE/col]`), the connector resolves the short table name to a fully-qualified warehouse Dataset
+URN via a two-level index: first the per-element SQL-parser index, then the workbook-level index
+from `/v2/workbooks/{id}/lineage`. The resolved URN is written into `schemaFieldUrn` on each
+`InputField` entry.
+
+| Counter                                                     | Meaning                                                              |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| `chart_input_fields_warehouse_qualified`                    | Individual column fields successfully qualified to a warehouse URN   |
+| `chart_input_fields_warehouse_qualified_via_workbook_index` | Subset qualified via the workbook-level index (not per-element SQL)  |
+| `chart_input_fields_warehouse_index_lookup_failed`          | Workbook-level lineage fetch failed; column qualification incomplete |
+| `chart_input_fields_warehouse_table_lookup_failed`          | `/files/{inodeId}` call failed for a workbook-level table entry      |
+| `chart_input_fields_warehouse_path_unparseable`             | `/files` path did not match expected format                          |
+| `chart_input_fields_warehouse_unknown_connection`           | ConnectionId not in registry or platform unmappable                  |
+
 #### Data Model element -> warehouse table lineage
 
 When `ingest_data_models: true` and `extract_lineage: true` (both default), the connector also emits entity-level `UpstreamLineage` from each Sigma Data Model element to the warehouse table it is sourced from.

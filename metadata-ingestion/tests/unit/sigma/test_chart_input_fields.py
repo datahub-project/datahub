@@ -98,6 +98,7 @@ def _collect_input_fields(
         elementId_to_chart_urn=elementId_to_chart_urn,
         wb_element_index=wb_element_index,
         wb_warehouse_table_index={},
+        wb_warehouse_url_id_map={},
     ):
         aspect = wu.get_aspect_of_type(InputFieldsClass)
         if aspect is not None:
