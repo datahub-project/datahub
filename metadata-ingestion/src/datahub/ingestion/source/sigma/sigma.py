@@ -2821,16 +2821,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _build_workbook_warehouse_table_index(
         self, workbook: Workbook
-    ) -> Tuple[Dict[str, List[str]], Dict[str, _WarehouseTableRef]]:
-        """Build {uppercase_table_name: [warehouse_dataset_urn, ...]} and the
-        underlying {urlId: _WarehouseTableRef} map for one workbook from
-        /v2/workbooks/{id}/lineage type=table entries.
+    ) -> Dict[str, List[str]]:
+        """Build {uppercase_table_name: [warehouse_dataset_urn, ...]} for one
+        workbook from /v2/workbooks/{id}/lineage type=table entries.
 
-        Returns a tuple of (name_index, url_id_map).  name_index has the same
-        key shape as _build_element_warehouse_table_index and is merged with the
+        Key shape matches _build_element_warehouse_table_index; merged with the
         per-element index in _gen_elements_workunit before passing to
-        _resolve_chart_formula_upstream.  url_id_map is used by T4.C2 to resolve
-        WarehouseTableUpstream BFS nodes to entity-level Dataset URNs.
+        _resolve_chart_formula_upstream.  Also serves as the T4.C2 name-based
+        lookup index for WarehouseTableUpstream BFS nodes.
 
         Accepts both 2-segment (Connection Root/<SCHEMA>, e.g. Redshift) and
         3-segment (Connection Root/<DB>/<SCHEMA>, e.g. Snowflake) /files paths,
@@ -2846,7 +2844,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
         if entries is None:
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
-            return result, transient_map
+            return result
 
         url_id_to_table_name: Dict[str, str] = {}
 
@@ -2957,7 +2955,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 continue
             result.setdefault(table_name.upper(), []).append(urn)
 
-        return result, transient_map
+        return result
 
     @staticmethod
     def _merge_warehouse_table_indices(
@@ -3103,12 +3101,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
+    def _handle_warehouse_table_upstream(
+        self,
+        upstream: WarehouseTableUpstream,
+        element: Element,
+        wb_warehouse_table_index: Dict[str, List[str]],
+        dataset_inputs: Dict[str, List[str]],
+    ) -> None:
+        # Resolve by short table name; urlId in BFS payload diverges from
+        # /files urlId for cross-workbook / pre-existing tables.
+        name_key = upstream.name.upper()
+        candidates = wb_warehouse_table_index.get(name_key, [])
+        if not candidates:
+            self.reporter.chart_warehouse_unknown_connection += 1
+            logger.debug(
+                "Sigma chart BFS table %r (url_id=%s) not found in workbook "
+                "warehouse table index for chart %s; treating as unresolved.",
+                upstream.name,
+                upstream.url_id,
+                element.elementId,
+            )
+            return
+        warehouse_urn = candidates[0]  # deterministic pick on collision
+        if warehouse_urn not in dataset_inputs:
+            dataset_inputs[warehouse_urn] = []
+            self.reporter.chart_warehouse_upstream_emitted += 1
+        if len(candidates) > 1:
+            logger.debug(
+                "Sigma chart BFS table %r matched multiple workbook warehouse "
+                "URNs (%s); picked %s deterministically.",
+                upstream.name,
+                candidates,
+                warehouse_urn,
+            )
+
     def _get_element_input_details(
         self,
         element: Element,
         workbook: Workbook,
         elementId_to_chart_urn: Dict[str, str],
-        wb_warehouse_url_id_map: Optional[Dict[str, _WarehouseTableRef]] = None,
+        wb_warehouse_table_index: Optional[Dict[str, List[str]]] = None,
     ) -> Tuple[Dict[str, List[str]], List[str]]:
         """
         Returns (dataset_inputs, chart_input_urns).
@@ -3228,20 +3260,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 dm_urn,
                             )
             elif isinstance(upstream, WarehouseTableUpstream):
-                # Direct warehouse table BFS upstream (T4.C2). Resolve via the
-                # workbook-level urlId map built from /workbooks/{id}/lineage.
-                if wb_warehouse_url_id_map is None:
+                if wb_warehouse_table_index is None:
                     continue
-                warehouse_urn = self._resolve_dm_element_warehouse_upstream(
-                    url_id_suffix=upstream.url_id,
-                    warehouse_map=wb_warehouse_url_id_map,
+                self._handle_warehouse_table_upstream(
+                    upstream, element, wb_warehouse_table_index, dataset_inputs
                 )
-                if warehouse_urn is None:
-                    self.reporter.chart_warehouse_unknown_connection += 1
-                    continue
-                if warehouse_urn not in dataset_inputs:
-                    dataset_inputs[warehouse_urn] = []
-                    self.reporter.chart_warehouse_upstream_emitted += 1
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
         for in_table_urn in sql_parser_in_tables:
@@ -3362,7 +3385,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_chart_urn: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
         wb_warehouse_table_index: Dict[str, List[str]],
-        wb_warehouse_url_id_map: Dict[str, _WarehouseTableRef],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -3383,7 +3405,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_entity_status_aspect(chart_urn)
 
             dataset_inputs, chart_input_urns = self._get_element_input_details(
-                element, workbook, elementId_to_chart_urn, wb_warehouse_url_id_map
+                element, workbook, elementId_to_chart_urn, wb_warehouse_table_index
             )
 
             # Add warehouse upstream URNs resolved by the workbook-level customSQL registry.
@@ -3536,12 +3558,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.extract_lineage and self.config.workbook_lineage_pattern.allowed(
             workbook.name
         ):
-            wb_warehouse_table_index, wb_warehouse_url_id_map = (
-                self._build_workbook_warehouse_table_index(workbook)
+            wb_warehouse_table_index = self._build_workbook_warehouse_table_index(
+                workbook
             )
         else:
-            wb_warehouse_table_index = {}
-            wb_warehouse_url_id_map: Dict[str, _WarehouseTableRef] = {}
+            wb_warehouse_table_index: Dict[str, List[str]] = {}
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
@@ -3574,7 +3595,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 elementId_to_chart_urn,
                 wb_element_index,
                 wb_warehouse_table_index,
-                wb_warehouse_url_id_map,
                 customsql_extra_inputs or {},
             )
 

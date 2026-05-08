@@ -164,7 +164,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 return_value=_GOOD_FILES_RESPONSE,
             ),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(wb)
+            result = source._build_workbook_warehouse_table_index(wb)
 
         assert _TABLE_NAME.upper() in result
         assert result[_TABLE_NAME.upper()] == [_EXPECTED_WAREHOUSE_URN]
@@ -176,7 +176,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         source = _make_source()
         wb = _make_workbook()
         with patch.object(source.sigma_api, "get_workbook_lineage", return_value=None):
-            result, _ = source._build_workbook_warehouse_table_index(wb)
+            result = source._build_workbook_warehouse_table_index(wb)
 
         assert result == {}
         assert source.reporter.chart_input_fields_warehouse_index_lookup_failed == 1
@@ -193,7 +193,7 @@ class TestBuildWorkbookWarehouseTableIndex:
             ),
             patch.object(source.sigma_api, "get_file_metadata", return_value=None),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(wb)
+            result = source._build_workbook_warehouse_table_index(wb)
 
         assert result == {}
         assert source.reporter.chart_input_fields_warehouse_table_lookup_failed == 1
@@ -225,7 +225,7 @@ class TestBuildWorkbookWarehouseTableIndex:
             ),
             patch.object(source.sigma_api, "get_file_metadata", return_value=bad_files),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(_make_workbook())
+            result = source._build_workbook_warehouse_table_index(_make_workbook())
 
         assert result == {}
         assert source.reporter.chart_input_fields_warehouse_path_unparseable == 1
@@ -263,7 +263,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 return_value=_GOOD_FILES_RESPONSE,
             ),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(_make_workbook())
+            result = source._build_workbook_warehouse_table_index(_make_workbook())
 
         assert result == {}
         assert source.reporter.chart_input_fields_warehouse_unknown_connection == 1
@@ -284,7 +284,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 return_value=_GOOD_FILES_RESPONSE,
             ),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(_make_workbook())
+            result = source._build_workbook_warehouse_table_index(_make_workbook())
 
         assert result == {}
         assert source.reporter.chart_input_fields_warehouse_unknown_connection == 1
@@ -316,7 +316,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 side_effect=[_GOOD_FILES_RESPONSE, files2],
             ),
         ):
-            result, _ = source._build_workbook_warehouse_table_index(_make_workbook())
+            result = source._build_workbook_warehouse_table_index(_make_workbook())
 
         # Last writer wins; "OTHER_TABLE" is the final name for that urlId
         assert "OTHER_TABLE" in result or _TABLE_NAME in result
@@ -346,9 +346,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 "get_workbook_lineage",
                 return_value=[_WB_LINEAGE_TYPE_TABLE_ENTRY],
             ):
-                result, _ = source._build_workbook_warehouse_table_index(
-                    _make_workbook()
-                )
+                result = source._build_workbook_warehouse_table_index(_make_workbook())
             mock_get.assert_called_once()
 
         assert _TABLE_NAME.upper() in result
@@ -507,7 +505,7 @@ class TestUrnIdentityWarehouseIndex:
                 "get_workbook_lineage",
                 return_value=[_WB_LINEAGE_TYPE_TABLE_ENTRY],
             ):
-                wb_index, _ = source._build_workbook_warehouse_table_index(
+                wb_index = source._build_workbook_warehouse_table_index(
                     _make_workbook()
                 )
 
@@ -572,7 +570,7 @@ class TestUrnIdentityWarehouseIndex:
                 "get_workbook_lineage",
                 return_value=[_WB_LINEAGE_TYPE_TABLE_ENTRY],
             ):
-                wb_index, _ = source._build_workbook_warehouse_table_index(
+                wb_index = source._build_workbook_warehouse_table_index(
                     _make_workbook()
                 )
 

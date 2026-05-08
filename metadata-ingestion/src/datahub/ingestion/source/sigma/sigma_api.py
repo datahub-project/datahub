@@ -422,8 +422,8 @@ class SigmaAPI:
         elif source_type == "join":
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
-            # nodeId format: "inode-{urlId}". Strip prefix; resolution
-            # happens in SigmaSource via the workbook-level warehouse map.
+            # nodeId format: "inode-{urlId}". Strip prefix; name is used for
+            # name-based resolution in SigmaSource via wb_warehouse_table_index.
             if not isinstance(source_node_id, str) or not source_node_id.startswith(
                 "inode-"
             ):
@@ -437,12 +437,22 @@ class SigmaAPI:
                 )
                 return
             url_id = source_node_id[len("inode-") :]
-            if not url_id:
+            name = source_node.get(Constant.NAME)
+            if not url_id or not isinstance(name, str) or not name:
                 self.report.chart_warehouse_table_node_skipped += 1
+                logger.debug(
+                    "Sigma chart BFS table node missing url_id or name: "
+                    "node=%s, name=%r, element=%s, workbook=%s",
+                    source_node_id,
+                    name,
+                    element.name,
+                    workbook.name,
+                )
                 return
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 type="table",
                 url_id=url_id,
+                name=name,
             )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint

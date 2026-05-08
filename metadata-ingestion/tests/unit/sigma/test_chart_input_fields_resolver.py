@@ -589,7 +589,6 @@ class TestGenElementsWorkunitInputFields:
                 elementId_to_chart_urn={},
                 wb_element_index={},
                 wb_warehouse_table_index={},
-                wb_warehouse_url_id_map={},
             )
         )
 
@@ -629,7 +628,6 @@ class TestGenElementsWorkunitInputFields:
                 elementId_to_chart_urn={},
                 wb_element_index={},
                 wb_warehouse_table_index={},
-                wb_warehouse_url_id_map={},
             )
         )
 

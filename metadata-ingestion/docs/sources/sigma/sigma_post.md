@@ -91,24 +91,26 @@ The following report counters are available for operational visibility:
 When `extract_lineage: true` (default), workbook chart elements that pull **directly** from a
 warehouse table (no Data Model, no customSQL, no Sigma Dataset in between) emit an entity-level
 `chartInfo.inputs` edge to the warehouse Dataset. This path fires when the Sigma BFS lineage
-payload for the chart element contains a `type=table` upstream node — the connector strips the
-`inode-` prefix from the node ID and resolves the warehouse Dataset URN via the workbook-level
-lineage map (same `/v2/workbooks/{id}/lineage` call already made for the column-level path).
+payload for the chart element contains a `type=table` upstream node. The connector resolves the
+warehouse Dataset URN by matching the BFS node's table **name** against the workbook-level
+warehouse table index (built from the same `/v2/workbooks/{id}/lineage` call used for the
+column-level path). Name-based matching is used because the BFS `inode-{urlId}` may diverge from
+the urlId returned by `/files/{inodeId}` for cross-workbook or pre-existing tables.
 
 Column-level lineage for these charts is handled separately by the
 [chart inputFields warehouse qualification](#workbook-chart-inputfields-warehouse-column-level-qualification)
-path; T4.C2 adds the missing entity-level edge.
+path; this feature adds the missing entity-level edge.
 
 No additional configuration is required for most platforms. For Redshift connections where the
 Sigma connection record omits `database`/`schema`, set `default_database` in
 `connection_to_platform_map` — see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
-| Counter                              | Meaning                                                                                    |
-| ------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `chart_warehouse_upstream_emitted`   | Entity-level chart→warehouse edges emitted (post-dedup)                                    |
-| `chart_warehouse_unknown_connection` | BFS table node's urlId not in the workbook-level warehouse map (connection not resolvable) |
-| `chart_warehouse_table_node_skipped` | BFS `type=table` nodeId missing or not in expected `inode-{urlId}` format; skipped         |
+| Counter                              | Meaning                                                                                       |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `chart_warehouse_upstream_emitted`   | Entity-level chart→warehouse edges emitted (post-dedup)                                       |
+| `chart_warehouse_unknown_connection` | BFS table node's name not found in the workbook-level warehouse table index; edge not emitted |
+| `chart_warehouse_table_node_skipped` | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                |
 
 #### Workbook chart inputFields warehouse column-level qualification
 
