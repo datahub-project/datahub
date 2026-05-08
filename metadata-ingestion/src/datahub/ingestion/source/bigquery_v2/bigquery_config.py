@@ -460,6 +460,26 @@ class BigQueryV2Config(
         description="This flag enables the data lineage extraction from Data Lineage API exposed by Google Data Catalog. NOTE: This extractor can't build views lineage. It's recommended to enable the view's DDL parsing. Read the docs to have more information about: https://cloud.google.com/data-catalog/docs/concepts/about-data-lineage",
     )
 
+    include_linked_datasets: bool = Field(
+        default=False,
+        description=(
+            "Detect BigQuery Sharing linked datasets in subscriber projects and emit them with subtype "
+            "'Linked Dataset' plus BigQuery Sharing governance metadata in custom properties. Requires "
+            "additional Analytics Hub IAM permissions on each subscriber project. See the connector "
+            "prerequisites for details."
+        ),
+    )
+
+    include_linked_dataset_lineage: bool = Field(
+        default=True,
+        description=(
+            "When `include_linked_datasets` is enabled, also emit `Siblings` and column-level "
+            "`UpstreamLineage` (type `COPY`) from each linked dataset's tables and views to the "
+            "publisher's source dataset. Requires `resourcemanager.projects.get` permission on each"
+            "publisher project."
+        ),
+    )
+
     extract_policy_tags_from_catalog: bool = Field(
         default=False,
         description=(
