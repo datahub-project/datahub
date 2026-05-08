@@ -73,6 +73,10 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    # T4.C: sigma_api is needed by _gen_pages_workunit →
+    # _build_workbook_warehouse_table_index → get_workbook_lineage.
+    source.sigma_api = MagicMock()
+    source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
     return source
 
 
@@ -536,6 +540,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
+                wb_warehouse_table_index={},
             )
         )
 
@@ -574,6 +579,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
+                wb_warehouse_table_index={},
             )
         )
 
