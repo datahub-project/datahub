@@ -4,6 +4,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { AssertionResultPopover } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopover';
 import { getFormattedTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
+import { AssertionSeverityLabel } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionSeverityLabel';
 import {
     ResultStatusType,
     getFormattedReasonText,
@@ -47,6 +48,12 @@ const PreHeaderText = styled.div<{ color?: string }>`
     color: ${(props) => props.color || props.theme.colors.textTertiary};
 `;
 
+const ResultStatusRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+`;
+
 const HeaderText = styled.div`
     font-size: 14px;
 `;
@@ -78,11 +85,14 @@ export const AssertionResultsTableItem = ({ assertion, run }: Props) => {
                 assertion={assertion}
                 run={run}
                 showProfileButton={false}
-                resultStatusType={ResultStatusType.LATEST}
+                resultStatusType={ResultStatusType.HISTORICAL}
                 placement="bottom"
             >
                 <ResultColumn>
-                    <PreHeaderText color={resultTextColor}>{resultText}</PreHeaderText>
+                    <ResultStatusRow>
+                        <PreHeaderText color={resultTextColor}>{resultText}</PreHeaderText>
+                        <AssertionSeverityLabel result={run.result || undefined} />
+                    </ResultStatusRow>
                     <HeaderText>{reasonText}</HeaderText>
                 </ResultColumn>
             </AssertionResultPopover>
