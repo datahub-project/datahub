@@ -7271,6 +7271,7 @@ def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
     )
 
+
 def _get_mock_workbook_customsql_api() -> Dict[str, Dict]:
     """Mock a single workbook with one customSQL chart element (Snowflake, explicit SELECT)."""
     wb_id = "wb-csql-test-0001"
