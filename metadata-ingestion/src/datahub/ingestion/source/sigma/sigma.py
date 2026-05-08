@@ -765,6 +765,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # 3-segment path → DB + SCHEMA (e.g. Snowflake "Connection Root/<DB>/<SCHEMA>")
             # 2-segment path → SCHEMA only; fall back to connection's default_database
             # (e.g. Redshift "Connection Root/<SCHEMA>" where the DB lives in the connection)
+            db: Optional[str]
             if len(parts) == 3:
                 db, schema = parts[1], parts[2]
             else:
@@ -1643,6 +1644,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         resolution fails; counter bookkeeping for the success case is the
         caller's responsibility.
         """
+        assert (
+            ref.column is not None
+        )  # callers guard on ref.column is None before dispatching
         # Cross-DM source_ids use the shape <dm-url-id>/<suffix>; intra-DM
         # source_ids are bare elementIds (no "/"). Filter accordingly.
         source_dm_url_ids = {
@@ -1715,6 +1719,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         counter on any resolution failure.  Counter bookkeeping and dedup are
         handled here so the caller needs no conditional on the result.
         """
+        assert (
+            ref.column is not None
+        )  # callers guard on ref.column is None before dispatching
         candidate_urns = sorted(
             elementId_to_dataset_urn[eid]
             for eid in candidate_eids_after_self_strip
