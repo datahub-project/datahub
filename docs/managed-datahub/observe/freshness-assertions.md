@@ -37,7 +37,7 @@ Let's get started!
 Freshness Assertions are supported in two modes:
 
 - **Active query** (low-latency, schedule-driven) — requires an ingestion source configured for Snowflake, Redshift, BigQuery, or Databricks. Uses Audit Log, Information Schema, Last Modified Column, High Watermark Column, or File Metadata (Databricks only) as the change source.
-- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, Synapse, …) — uses the DataHub `operation` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
+- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, …) — uses the DataHub `operation` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
 
 See the [capabilities matrix](./assertions.md) for the full comparison of active-query vs ingestion-driven modes across all assertion types.
 
@@ -136,7 +136,7 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 1. **Permissions**: To create or delete Freshness Assertions for a specific entity on DataHub, you'll need to be granted the
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
-2. (Required for active-query mode only) **Data Platform Connection**: To evaluate a Freshness Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Operation` change source, no warehouse connection is required — Operations can be reported for any ingested platform.
+2. (Recommended) **Data Platform Connection**: To evaluate a Freshness Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Operation` change source, no warehouse connection is required — Operations can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
@@ -237,9 +237,9 @@ To resume the assertion, simply click **Start**.
 
 ## Anomaly Detection ⚡
 
-Freshness Assertions support [Anomaly Detection](./anomaly-detection.md) (GA), which replaces a fixed freshness SLA with an AI-driven threshold that learns the table's normal change pattern. This is useful when a table's update cadence varies with the day of week, is seasonal, or is otherwise hard to express as a static rule.
+Freshness Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed freshness SLA with an AI-driven threshold that learns the table's normal change pattern. This is useful when a table's update cadence varies with the day of week, is seasonal, or is otherwise hard to express as a static rule.
 
-The ML model trains on the table's change history captured in the [`operation` aspect](../../api/tutorials/operations.md). Because this aspect is populated by ingestion (or by the `reportOperation` API), **Freshness Anomaly Detection is not limited to the four warehouses** — it works on any platform where Operations are reported to DataHub, including Postgres, MySQL, Athena, etc. Evaluation cadence in ingestion-driven mode is bounded by the cadence at which Operations are ingested.
+The ML model trains on the table's change history captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
 
 You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 

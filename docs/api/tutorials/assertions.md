@@ -249,13 +249,13 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
-    # Optional: partition data into daily/weekly time buckets (Public Beta)
+    # Optional: partition data into daily/weekly time buckets
     time_bucketing_strategy={
         "timestamp_field_path": "created_at",
         "bucket_interval": {"unit": "DAY", "multiple": 1},
         "timezone": "America/Los_Angeles",
     },
-    # Optional: backfill historical data for smarter predictions (Private Beta)
+    # Optional: backfill historical data for smarter predictions
     backfill_config={"backfill_start_date_ms": 1704067200000},  # 2024-01-01
     # Enable the assertion
     enabled=True
@@ -374,7 +374,7 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create a Column Metric assertion with Anomaly Detection (Public Beta).
+# Create a Column Metric assertion with Anomaly Detection.
 # Note: Anomaly Detection for Column Metrics currently only supports the
 # following metrics: null_count, unique_count, empty_count, zero_count,
 # negative_count. For other metrics (e.g. min, max, mean), use a fixed-threshold
@@ -515,7 +515,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 
 ---
 
-To create a new **Custom SQL assertion with Anomaly Detection** (Public Beta), use the same mutation with `inferWithAI: true`.
+To create a new **Custom SQL assertion with Anomaly Detection**, use the same mutation with `inferWithAI: true`.
 
 ```graphql
 mutation upsertDatasetSqlAssertionMonitor {
@@ -585,7 +585,7 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
 
 # -----------------------------------------------------------
-# Custom SQL assertion with Anomaly Detection (Public Beta)
+# Custom SQL assertion with Anomaly Detection
 # -----------------------------------------------------------
 
 smart_sql_assertion = client.assertions.sync_smart_sql_assertion(

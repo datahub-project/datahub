@@ -137,7 +137,7 @@ Volume Assertions also have an off switch: they can be started or stopped at any
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Required for active-query mode only) **Data Platform Connection**: To evaluate a Volume Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Dataset Profile` source, no warehouse connection is required — Dataset Profiles can be reported for any ingested platform.
+2. (Recommended) **Data Platform Connection**: To evaluate a Volume Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Dataset Profile` source, no warehouse connection is required — Dataset Profiles can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Volume Assertions!
 
@@ -207,12 +207,7 @@ Once your assertion has run, you will begin to see Success or Failure status for
 
 ## Anomaly Detection ⚡
 
-Volume Assertions support [Anomaly Detection](./anomaly-detection.md) (GA), which replaces a fixed row-count threshold with an AI-driven threshold that learns the table's normal volume pattern, including trend and seasonality (e.g. weekends are always smaller).
-
-Volume Anomaly Detection works against whichever signal the underlying assertion is configured to use:
-
-- With **Information Schema** or **`COUNT(*)` Query** sources, it runs on Snowflake / Redshift / BigQuery / Databricks.
-- With the **DataHub Dataset Profile** source, it runs on **any ingested platform** (Postgres, MySQL, Athena, etc.). Evaluation cadence in ingestion-driven mode is bounded by the cadence at which Dataset Profiles are ingested.
+Volume Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed row-count threshold with an AI-driven threshold that learns the table's normal volume pattern, including trend and seasonality (e.g. weekends are always smaller).
 
 You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 

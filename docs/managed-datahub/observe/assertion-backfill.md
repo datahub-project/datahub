@@ -8,7 +8,6 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly stage="private-beta" />
 
-
 <div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ## Introduction
@@ -21,13 +20,13 @@ Because Backfill works by issuing warehouse queries, it is only available on Sno
 
 Backfill is available for the following assertion types:
 
-| Assertion Type                                               | Backfill Support                                                                                                  |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| **Volume Assertion with Anomaly Detection**                  | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
-| **Column Metric Assertion with Anomaly Detection**           | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
-| **Freshness Assertion** | No                                                                                                                |
-| **Schema Assertion**                                         | No                                                                                                                |
-| **Custom SQL Assertion**| No                                                                                                                |
+| Assertion Type                                     | Backfill Support                                                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Volume Assertion with Anomaly Detection**        | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
+| **Column Metric Assertion with Anomaly Detection** | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
+| **Freshness Assertion**                            | No                                                                                                                |
+| **Schema Assertion**                               | No                                                                                                                |
+| **Custom SQL Assertion**                           | No                                                                                                                |
 
 ## How Backfill Works
 

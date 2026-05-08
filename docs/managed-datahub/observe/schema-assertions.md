@@ -34,10 +34,6 @@ Let's get started!
 
 Schema Assertions are supported for all data sources that provide a schema via the normal ingestion process. Evaluation is triggered by schema-change events against the ingested schema, so Schema Assertions work on any platform where DataHub ingests schemas — there is no separate active-query mode. See the [capabilities matrix](./assertions.md).
 
-:::note No Anomaly Detection for Schema
-Schema Assertions do **not** have an [Anomaly Detection](./anomaly-detection.md) mode. Schema changes are deterministic, discrete events — a column is either present and of the expected type, or it is not — so there is no statistical notion of "normal" for a Schema Assertion to learn. If you want to apply Schema Assertions at scale across many datasets, use [Monitoring Rules](./data-health-dashboard.md#monitoring-rules) on the Data Health Dashboard; matching Monitoring Rules automatically create standard Schema Assertions on qualifying datasets.
-:::
-
 ## What is a Schema Assertion?
 
 A **Schema Assertion** is a Data Quality rule used to monitor the columns in a particular table and their data types.
@@ -91,7 +87,6 @@ Each "expected column" is composed of a
 2. **Type**: The high-level data type of the column in the table. This type intentionally "high level" to allow for normal column widening practices
    without the risk of failing the assertion unnecessarily. For example a `varchar(64)` and a `varchar(256)` will both resolve to the same high-level
    "STRING" type. The currently supported set of data types include the following:
-
    - String
    - Number
    - Boolean

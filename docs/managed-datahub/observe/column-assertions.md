@@ -117,7 +117,7 @@ from the following options:
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Required for active-query mode only) **Data Platform Connection**: To evaluate a Column Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Ingestion** tab. **Column Value assertions always require an active warehouse connection.** **Column Metric assertions** can alternatively evaluate against the DataHub Dataset Profile (ingestion-driven mode), in which case no warehouse connection is required.
+2. (Recommended) **Data Platform Connection**: To evaluate a Column Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Ingestion** tab. **Column Value assertions always require an active warehouse connection.** **Column Metric assertions** can alternatively evaluate against the DataHub Dataset Profile (ingestion-driven mode), in which case no warehouse connection is required.
 
 Once these are in place, you're ready to create your Column Assertions!
 

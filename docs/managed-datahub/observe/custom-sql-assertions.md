@@ -35,7 +35,7 @@ Let's get started!
 ## Support
 
 :::caution Warehouse-only assertion type
-Custom SQL Assertions **require an active warehouse connection** — there is no ingestion-driven fallback, because an arbitrary SQL query can only be executed by the source system itself. Custom SQL Assertions are therefore **only available on Snowflake, Redshift, BigQuery, and Databricks**, and cannot be used on Postgres, MySQL, Athena, Synapse, or other ingestion-only platforms. If you need a warehouse-agnostic check, consider [Freshness](./freshness-assertions.md), [Volume](./volume-assertions.md), or [Column Metric](./column-assertions.md) assertions, which support ingestion-driven signals. See the [capabilities matrix](./assertions.md).
+Custom SQL Assertions **require an active warehouse connection** — there is no ingestion-driven fallback, because an arbitrary SQL query can only be executed by the source system itself. Custom SQL Assertions are therefore **only available on Snowflake, Redshift, BigQuery, and Databricks**.
 :::
 
 An Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion** tab.

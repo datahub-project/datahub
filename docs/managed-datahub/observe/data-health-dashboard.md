@@ -112,7 +112,7 @@ Monitoring Rules are currently in **Public Beta** — available to all DataHub C
 
 Monitoring Rules let you apply assertions across your data landscape using search-based predicates. Instead of manually creating assertions on individual tables, you define a rule that describes _which_ datasets should be monitored and _what_ to monitor, and DataHub takes care of the rest.
 
-For Freshness and Volume, Monitoring Rules create [Anomaly Detection](./anomaly-detection.md) monitors on matching datasets. For Schema, they create standard [Schema assertions](./schema-assertions.md) on matching datasets — Schema has no Anomaly Detection mode because schema changes are deterministic events, not statistical anomalies.
+For Freshness and Volume, Monitoring Rules create [Anomaly Detection](./anomaly-detection.md) monitors on matching datasets. For Schema, they create standard [Schema assertions](./schema-assertions.md) on matching datasets.
 
 ### Prerequisites
 
