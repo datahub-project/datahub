@@ -101,7 +101,7 @@ class DataModelElementUpstream(BaseModel):
 
 
 class WarehouseTableUpstream(BaseModel):
-    type: Literal["table"]
+    type: Literal["table"] = "table"
     url_id: str  # BFS nodeId with "inode-" prefix stripped
     name: str  # BFS node name; used for name-based lookup in wb_warehouse_table_index
 

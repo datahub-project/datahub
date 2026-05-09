@@ -815,7 +815,7 @@ class TestGetElementInputDetails:
         assert dataset_inputs == {}
         assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
 
-    # --- T4.C2: WarehouseTableUpstream entity-level edge ---
+    # --- WarehouseTableUpstream entity-level edge (direct BFS type=table nodes) ---
 
     def _make_source_with_registry(
         self, connection_id: str = "conn-1", platform: str = "snowflake"
@@ -949,15 +949,16 @@ class TestGetElementInputDetails:
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
     def test_warehouse_table_upstream_collision_picks_first(self) -> None:
-        """When multiple URNs map to the same table name, the first is picked deterministically."""
+        """When multiple URNs map to the same table name, lexicographically smallest is picked deterministically."""
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
 
         urn_a = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_a,PROD)"
         urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_b,PROD)"
-        # Two URNs share the same short name (collision).
+        # Two URNs share the same short name (collision); reverse insertion order
+        # to verify sorted() is used, not just list order.
         wb_warehouse_table_index: Dict[str, List[str]] = {
-            "ORDERS": [urn_a, urn_b],
+            "ORDERS": [urn_b, urn_a],
         }
         upstream_sources: Dict = {
             "inode-abc123": WarehouseTableUpstream(
@@ -971,7 +972,9 @@ class TestGetElementInputDetails:
         )
 
         assert len(dataset_inputs) == 1
-        assert next(iter(dataset_inputs)) == urn_a  # deterministic: first entry wins
+        assert (
+            next(iter(dataset_inputs)) == urn_a
+        )  # lexicographically smallest URN wins
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
     def test_warehouse_table_upstream_none_index_skips_silently(self) -> None:

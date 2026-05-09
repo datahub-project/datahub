@@ -2870,9 +2870,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             parts = path.split("/")
             # Accept 2–3 segments: "Connection Root/<SCHEMA>" (Redshift) or
             # "Connection Root/<DB>/<SCHEMA>" (Snowflake/Postgres).
-            num_parts_valid = 2 <= len(parts) <= 3
             path_invalid = not (
-                url_id and table_name and num_parts_valid and all(parts)
+                url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
             )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
@@ -3483,14 +3482,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Merge per-element (SQL-parser) index with per-workbook index.
             # Per-element entries take precedence on key conflict — the SQL parser
             # attributes tables specifically to this chart's own data path.
+            wb_idx = wb_warehouse_table_index or {}
             merged_warehouse_table_index = self._merge_warehouse_table_indices(
                 element_warehouse_table_index,
-                wb_warehouse_table_index or {},
+                wb_idx,
             )
             wb_only_warehouse_keys: FrozenSet[str] = frozenset(
-                k
-                for k in (wb_warehouse_table_index or {})
-                if k not in element_warehouse_table_index
+                k for k in wb_idx if k not in element_warehouse_table_index
             )
 
             element_input_fields = self._build_element_input_fields(

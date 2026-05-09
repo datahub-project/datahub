@@ -221,7 +221,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # Only incremented on first failure per inode — the /files cache is shared
     # with the DM element path.
     chart_input_fields_warehouse_table_lookup_failed: int = 0
-    # /files path didn't parse as Connection Root/<DB>/<SCHEMA>.
+    # /files path didn't parse as Connection Root/<SCHEMA> (Redshift) or Connection Root/<DB>/<SCHEMA> (Snowflake/Postgres).
     # Only incremented on first occurrence per inode — _files_path_unparseable_seen
     # is shared with the DM element path.
     chart_input_fields_warehouse_path_unparseable: int = 0
@@ -229,7 +229,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table entry.
     chart_input_fields_warehouse_unknown_connection: int = 0
 
-    # Chart entity-level warehouse upstream (T4.C2).
+    # Chart entity-level warehouse upstream — direct BFS type=table edges resolved to warehouse Dataset URNs via the workbook table index.
     chart_warehouse_upstream_emitted: int = 0
     chart_warehouse_table_name_unmatched: int = 0
     chart_warehouse_table_node_skipped: int = 0
