@@ -1652,6 +1652,68 @@ class TestPaginatedEntriesDedup:
         assert len(entries) == 3
         assert api.report.pagination_duplicate_entries_dropped == 0
 
+    def test_get_data_model_columns_keeps_all_elements_sharing_same_columnid(
+        self,
+    ) -> None:
+        """Regression: dedup key must be (elementId, columnId), not columnId alone.
+
+        Sigma reuses warehouse-native columnIds (e.g. CUSTOMER_ID) across
+        customSQL elements that share a warehouse passthrough column. The old
+        key dropped all but the first occurrence, removing columns from consumer
+        elements' schemaMetadata.
+        """
+        api = _create_sigma_api()
+        # Three elements all expose CUSTOMER_ID as a passthrough column.
+        # With the old dedup key (columnId alone), only elem1's row would survive.
+        page = _paginated_response(
+            [
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem1",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem2",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem3",
+                    "name": "Customer Id",
+                },
+                # Unique columnIds must be unaffected.
+                {
+                    "columnId": "LIFETIME_VALUE",
+                    "elementId": "elem3",
+                    "name": "Lifetime Value",
+                },
+            ],
+            next_page=None,
+        )
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        element_ids = [c.elementId for c in columns]
+        assert "elem1" in element_ids
+        assert "elem2" in element_ids
+        assert "elem3" in element_ids
+        assert len(columns) == 4
+        assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_get_data_model_columns_dedupes_cross_page_echo(self) -> None:
+        """Cross-page echo of the same (elementId, columnId) is still deduplicated."""
+        api = _create_sigma_api()
+        col_row = {
+            "columnId": "CUSTOMER_ID",
+            "elementId": "elem1",
+            "name": "Customer Id",
+        }
+        page = _paginated_response([col_row], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        assert len(columns) == 1
+        assert api.report.pagination_duplicate_entries_dropped == 1
+
     def test_get_data_models_workspace_fallback_to_payload(self) -> None:
         """C2 regression: when ``/files`` is missing the DM row (or has
         no workspaceId) but the ``/dataModels`` payload names an

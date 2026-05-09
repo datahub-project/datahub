@@ -950,7 +950,12 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
             f"Unable to fetch columns for data model '{data_model_id}'.",
-            dedup_key=lambda column: column.columnId,
+            # Dedup by (elementId, columnId): Sigma reuses warehouse-native
+            # columnIds (e.g. CUSTOMER_ID) across customSQL elements that share
+            # a warehouse passthrough column. Keying on columnId alone silently
+            # drops all but the first occurrence, removing real passthrough
+            # columns from consumer elements' schemaMetadata.
+            dedup_key=lambda column: (column.elementId, column.columnId),
         )
 
     def _get_data_model_lineage_entries(
