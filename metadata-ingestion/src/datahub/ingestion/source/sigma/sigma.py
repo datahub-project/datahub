@@ -2073,6 +2073,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             for sid in element.source_ids
             if "/" in sid and not sid.startswith("inode-")
         }
+        logger.debug(
+            "[DEBUG-REMOVED] cross-DM resolver entered: element=%s ref=%s/%s "
+            "source_dm_url_ids=%s",
+            element.elementId,
+            ref.source,
+            ref.column,
+            source_dm_url_ids,
+        )
         cross_dm_candidate_urns = sorted(
             {
                 urn
@@ -2084,6 +2092,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             }
         )
         if not cross_dm_candidate_urns:
+            logger.debug(
+                "[DEBUG-REMOVED] cross-DM no candidates: element=%s ref=%s/%s "
+                "source_dm_url_ids=%s — deferring",
+                element.elementId,
+                ref.source,
+                ref.column,
+                source_dm_url_ids,
+            )
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
             return None
         if len(cross_dm_candidate_urns) > 1:
@@ -2096,18 +2112,54 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if len(cross_dm_candidate_urns) > 1:
                 self.reporter.data_model_element_fgl_cross_dm_collision_pick_first += 1
         chosen_upstream_urn = cross_dm_candidate_urns[0]
+        logger.debug(
+            "[DEBUG-REMOVED] cross-DM candidates found: element=%s ref=%s/%s "
+            "candidates=%s chosen=%s",
+            element.elementId,
+            ref.source,
+            ref.column,
+            cross_dm_candidate_urns,
+            chosen_upstream_urn,
+        )
         # dm_element_urn_to_cols is populated for every URN in
         # dm_element_urn_by_name (same loop in _prepopulate_dm_bridge_maps),
         # so this get() will only be None if a URN reaches this point
         # without going through prepopulation — defensively handled.
         upstream_cols = self.dm_element_urn_to_cols.get(chosen_upstream_urn)
         if upstream_cols is None:
+            logger.debug(
+                "[DEBUG-REMOVED] cross-DM upstream_cols missing for %s "
+                "(element=%s ref=%s/%s) — deferring",
+                chosen_upstream_urn,
+                element.elementId,
+                ref.source,
+                ref.column,
+            )
             self.reporter.data_model_element_fgl_cross_dm_deferred += 1
             return None
         canonical_col = upstream_cols.get(ref.column.lower())
         if canonical_col is None:
+            logger.debug(
+                "[DEBUG-REMOVED] cross-DM column %r not found in upstream %s cols=%s "
+                "(element=%s ref=%s/%s) — dropping",
+                ref.column,
+                chosen_upstream_urn,
+                list(upstream_cols.keys())[:10],
+                element.elementId,
+                ref.source,
+                ref.column,
+            )
             self.reporter.data_model_element_fgl_cross_dm_dropped_unknown_upstream_column += 1
             return None
+        logger.debug(
+            "[DEBUG-REMOVED] cross-DM resolved: element=%s ref=%s/%s "
+            "upstream_urn=%s upstream_col=%s",
+            element.elementId,
+            ref.source,
+            ref.column,
+            chosen_upstream_urn,
+            canonical_col,
+        )
         return FineGrainedLineageClass(
             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
             downstreams=[downstream_field],
@@ -2143,6 +2195,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         assert (
             ref.column is not None
         )  # callers guard on ref.column is None before dispatching
+        logger.debug(
+            "[DEBUG-REMOVED] intra-DM resolver entered: element=%s(%s) ref=%s/%s "
+            "candidates=%s entity_level_upstreams=%s",
+            element.name,
+            element.elementId,
+            ref.source,
+            ref.column,
+            candidate_eids_after_self_strip,
+            list(entity_level_upstream_urns)[:5],
+        )
         candidate_urns = sorted(
             elementId_to_dataset_urn[eid]
             for eid in candidate_eids_after_self_strip
@@ -2160,6 +2222,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             #       DM where the consumer pulls from a cross-DM "Custom SQL")
             #   (b) genuine orphan: Sigma /lineage reporting gap
             # Try cross-DM first; falls through to orphan-drop for case (b).
+            logger.debug(
+                "[DEBUG-REMOVED] intra-DM no-surviving-urns: element=%s ref=%s/%s "
+                "candidate_urns=%s — trying cross-DM rescue",
+                element.elementId,
+                ref.source,
+                ref.column,
+                candidate_urns,
+            )
             if self._try_emit_self_named_cross_dm_fgl(
                 ref=ref,
                 element=element,
@@ -2169,7 +2239,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 emitted_pairs=emitted_pairs,
                 cross_dm_fgls=cross_dm_fgls,
             ):
+                logger.debug(
+                    "[DEBUG-REMOVED] intra-DM cross-DM rescue resolved: element=%s ref=%s/%s",
+                    element.elementId,
+                    ref.source,
+                    ref.column,
+                )
                 return
+            logger.debug(
+                "[DEBUG-REMOVED] intra-DM cross-DM rescue MISS, dropping orphan: "
+                "element=%s ref=%s/%s",
+                element.elementId,
+                ref.source,
+                ref.column,
+            )
             self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
             return
 
@@ -2299,6 +2382,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 candidate_eids_after_self_strip = [
                     eid for eid in candidate_eids if eid != element.elementId
                 ]
+                logger.debug(
+                    "[DEBUG-REMOVED] FGL ref dispatch: dm=%s element=%s(%s) ref=%s/%s "
+                    "candidate_eids=%s after_self_strip=%s",
+                    data_model.dataModelId,
+                    element.name,
+                    element.elementId,
+                    ref.source,
+                    ref.column,
+                    candidate_eids,
+                    candidate_eids_after_self_strip,
+                )
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
@@ -2317,6 +2411,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         ):
                             continue
                         # No cross-DM match; element is named after its warehouse source.
+                        logger.debug(
+                            "[DEBUG-REMOVED] warehouse-passthrough decision: element=%s ref=%s/%s "
+                            "warehouse_fgl=%s warehouse_consumed=%s",
+                            element.elementId,
+                            ref.source,
+                            ref.column,
+                            "set" if warehouse_fgl else "None",
+                            warehouse_consumed,
+                        )
                         if not warehouse_consumed:
                             warehouse_consumed = True
                             if warehouse_fgl is None:
