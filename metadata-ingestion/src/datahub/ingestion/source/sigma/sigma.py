@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, FrozenSet, Iterable, List, Literal, Optional, Set, Tuple
 
@@ -1114,6 +1115,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             nativeDataType="String",
         )
 
+    @staticmethod
+    def _extract_customsql_sql_col_name(column_id: Optional[str]) -> Optional[str]:
+        """Extract the SQL column name from a Sigma customSQL columnId.
+
+        Two valid formats:
+          - ``inode-{urlId}/{NATIVE_NAME}``: warehouse-backed passthrough; return NATIVE_NAME.
+          - ``{bare_sql_id}`` with no slash: pure UPPER_SNAKE or lower_snake identifier.
+
+        Returns None for opaque random hashes (composition formulas) — the formula
+        parsing path handles those when a formula exists.
+        """
+        if not column_id:
+            return None
+        if "/" in column_id:
+            prefix, _, native = column_id.partition("/")
+            if prefix.startswith("inode-") and native:
+                return native
+            return None
+        # Bare identifier heuristic: accept UPPER_SNAKE only (e.g. CUSTOMER_ID).
+        # Dev-tenant probe shows all valid bare SQL identifiers use uppercase;
+        # opaque Sigma hashes always contain mixed case, hyphens, or leading digits.
+        if re.match(r"^[A-Z][A-Z0-9_]*$", column_id):
+            return column_id
+        return None
+
     def _build_customsql_col_mapping(
         self,
         element: SigmaDataModelElement,
@@ -1121,16 +1147,47 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     ) -> None:
         """Populate ``_customsql_col_mappings`` for one customSQL-backed element.
 
-        Scans each column's formula for refs of the form ``[{element.name}/COL]``
-        and maps each SQL column name (lowercased) to the Sigma display column
-        name.  Only refs whose namespace matches the element's own name are
-        registered — cross-element refs (``[OtherElement/COL]``) are skipped so
-        they cannot pollute the rewrite map.  ``finditer`` is used so that
-        formulas referencing multiple SQL columns register all of them.
+        Two complementary paths populate the mapping:
+
+        1. **columnId path** (new): for each column, ``_extract_customsql_sql_col_name``
+           extracts the SQL identifier from the column's ``columnId`` field.  Handles
+           pure-passthrough columns and columns whose formula bracket-ref source name
+           does not match the element name (e.g. element "Custom SQL2" with formula
+           ``[Custom SQL/CUSTOMER_ID]``).
+
+        2. **formula-ref path** (existing): scans each column's formula for bracket refs
+           of the form ``[{element.name}/COL]`` and maps SQL name (lowercased) to the
+           Sigma display column name.  Only refs whose namespace matches the element's
+           own name are registered.
+
+        Both paths write to the same ``mapping`` dict with identical collision semantics.
+        When both paths produce an entry for the same SQL column, the formula-ref result
+        overwrites the columnId result; if both agree, no collision is logged.
         """
         mapping: Dict[str, str] = {}
         passthrough: Dict[str, str] = {}
+        via_columnid = False
+
         for col in element.columns:
+            # columnId path
+            sql_col = self._extract_customsql_sql_col_name(col.columnId)
+            if sql_col is not None:
+                sql_col_lower = sql_col.lower()
+                existing = mapping.get(sql_col_lower)
+                if existing is not None and existing != col.name:
+                    logger.warning(
+                        "DM element %r: SQL column %r (via columnId) referenced by "
+                        "multiple Sigma display columns (%r and %r); using the latter.",
+                        element_dataset_urn,
+                        sql_col,
+                        existing,
+                        col.name,
+                    )
+                mapping[sql_col_lower] = col.name
+                passthrough[sql_col_lower] = col.name
+                via_columnid = True
+
+            # formula-ref path
             refs = extract_bracket_refs(col.formula)
             for ref in refs:
                 if (
@@ -1153,8 +1210,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     # to avoid fabricating upstream edges for non-existent columns.
                     if len(refs) == 1:
                         passthrough[sql_col_lower] = col.name
+
         if mapping:
             self._customsql_col_mappings[element_dataset_urn] = mapping
+            if via_columnid:
+                self.reporter.dm_customsql_col_mapping_via_columnid += 1
         if passthrough:
             self._customsql_passthrough_mappings[element_dataset_urn] = passthrough
 

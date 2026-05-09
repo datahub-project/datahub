@@ -360,6 +360,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # FGL downstream fields dropped because the SQL column name had no matching
     # Sigma display column (formula ref absent or element name mismatch).
     dm_customsql_fgl_downstream_unmapped: int = 0
+    # Elements whose col mapping was populated (at least partially) via the
+    # columnId path rather than formula bracket refs alone.  Non-zero confirms
+    # the passthrough-column bridge is active.
+    dm_customsql_col_mapping_via_columnid: int = 0
 
     # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
     workbook_customsql_skipped: int = 0
