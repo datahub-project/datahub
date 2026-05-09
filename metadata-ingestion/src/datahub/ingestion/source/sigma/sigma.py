@@ -2009,6 +2009,45 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             confidenceScore=1.0,
         )
 
+    def _try_emit_self_named_cross_dm_fgl(
+        self,
+        *,
+        ref: "BracketRef",
+        element: SigmaDataModelElement,
+        element_dataset_urn: str,
+        entity_level_upstream_urns: Set[str],
+        downstream_field: str,
+        emitted_pairs: Set[Tuple[str, str]],
+        cross_dm_fgls: List[FineGrainedLineageClass],
+    ) -> bool:
+        """Try cross-DM FGL for a ref whose source name matches the element itself.
+
+        Called when all intra-DM candidates were self-references (element named
+        after a cross-DM source element rather than its warehouse table). Returns
+        True when a cross-DM FGL is resolved and appended; False otherwise.
+
+        The element.source_ids guard prevents false-positive data_model_element_fgl_cross_dm_deferred
+        increments for warehouse-only elements whose source_ids list is always empty.
+        """
+        if not element.source_ids:
+            return False
+        cross_dm_fgl = self._resolve_cross_dm_fgl(
+            ref=ref,
+            element=element,
+            element_dataset_urn=element_dataset_urn,
+            entity_level_upstream_urns=entity_level_upstream_urns,
+            downstream_field=downstream_field,
+        )
+        if cross_dm_fgl is None:
+            return False
+        assert cross_dm_fgl.upstreams
+        pair = (downstream_field, cross_dm_fgl.upstreams[0])
+        if pair not in emitted_pairs:
+            emitted_pairs.add(pair)
+            cross_dm_fgls.append(cross_dm_fgl)
+            self.reporter.data_model_element_fgl_cross_dm_resolved += 1
+        return True
+
     def _resolve_cross_dm_fgl(
         self,
         *,
@@ -2247,8 +2286,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
                 if not candidate_eids_after_self_strip:
                     if candidate_eids:
-                        # All candidates were self-references; actual upstream is the
-                        # warehouse table — use the pre-computed warehouse FGL.
+                        # All intra-DM candidates were self-references. Two scenarios:
+                        # (a) element named after its warehouse source → warehouse FGL
+                        # (b) element named after a cross-DM source element → cross-DM FGL
+                        # Try cross-DM first; returns True if a cross-DM FGL was emitted.
+                        if self._try_emit_self_named_cross_dm_fgl(
+                            ref=ref,
+                            element=element,
+                            element_dataset_urn=element_dataset_urn,
+                            entity_level_upstream_urns=entity_level_upstream_urns,
+                            downstream_field=downstream_field,
+                            emitted_pairs=emitted_pairs,
+                            cross_dm_fgls=cross_dm_fgls,
+                        ):
+                            continue
+                        # No cross-DM match; element is named after its warehouse source.
                         if not warehouse_consumed:
                             warehouse_consumed = True
                             if warehouse_fgl is None:
