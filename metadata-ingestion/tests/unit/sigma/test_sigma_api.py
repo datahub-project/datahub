@@ -1286,12 +1286,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {}
         assert "page=2" in mock_get.call_args_list[1].args[0]
 
     def test_collects_formulas_across_next_page_token(self) -> None:
@@ -1319,12 +1320,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {}
         assert "nextPageToken=tok%26%3D2" in mock_get.call_args_list[1].args[0]
 
     def test_404_returns_empty_without_warning(self) -> None:
@@ -1332,9 +1334,10 @@ class TestGetWorkbookColumnFormulas:
         empty_404 = MagicMock(status_code=404)
 
         with patch.object(api, "_get_api_call", return_value=empty_404):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {}
+        assert col_ids == {}
         assert not api.report.warnings
 
     def test_mid_pagination_failure_preserves_partial_results_and_warns(self) -> None:
@@ -1355,9 +1358,10 @@ class TestGetWorkbookColumnFormulas:
         page_2.raise_for_status.side_effect = http_error
 
         with patch.object(api, "_get_api_call", side_effect=[page_1, page_2]):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {"elem-1": {"col-a": "[Source/col-a]"}}
+        assert col_ids == {}
         assert any(
             warning.title == "Sigma paginated endpoint aborted"
             for warning in api.report.warnings
@@ -1422,6 +1426,7 @@ class TestGetWorkbookPages:
             api.get_workbook_pages(workbook)
 
         assert mock_elements.call_args.kwargs["column_formulas_by_element"] is None
+        assert mock_elements.call_args.kwargs["column_ids_by_element"] is None
 
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every

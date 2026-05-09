@@ -126,6 +126,12 @@ class Element(BaseModel):
     # name -> formula mapping populated when column entries carry formula data.
     # Populated by the model_validator below; defaults to {} for plain string columns.
     column_formulas: Dict[str, Optional[str]] = Field(default_factory=dict)
+    # name -> raw columnId from /workbooks/{id}/columns. For warehouse-backed columns
+    # the format is "inode-{tableUrlId}/{NATIVE_NAME}"; used to build column_native_names.
+    column_id_by_name: Dict[str, str] = Field(default_factory=dict)
+    # name -> warehouse-native column name (cased per connection's convert_urns_to_lowercase).
+    # Built in _gen_elements_workunit after connection config is resolved.
+    column_native_names: Dict[str, str] = Field(default_factory=dict)
     upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
 
     @model_validator(mode="before")
