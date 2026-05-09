@@ -831,8 +831,8 @@ class TestGetElementInputDetails:
         source.connection_registry = SigmaConnectionRegistry(
             by_id={connection_id: record}
         )
-        source._warned_unvalidated_platforms: set = set()  # type: ignore[assignment]
-        source._no_platform_map_conn_ids: set = set()  # type: ignore[assignment]
+        source._warned_unvalidated_platforms = set()  # type: ignore[misc]
+        source._no_platform_map_conn_ids = set()  # type: ignore[misc]
         return source
 
     def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
@@ -858,7 +858,7 @@ class TestGetElementInputDetails:
         assert len(dataset_inputs) == 1
         assert chart_urns == []
         assert source.reporter.chart_warehouse_upstream_emitted == 1
-        assert source.reporter.chart_warehouse_unknown_connection == 0
+        assert source.reporter.chart_warehouse_table_name_unmatched == 0
         assert next(iter(dataset_inputs)) == warehouse_urn
 
     def test_warehouse_table_upstream_url_id_diverges_name_resolves(self) -> None:
@@ -896,7 +896,7 @@ class TestGetElementInputDetails:
 
         assert next(iter(dataset_inputs)) == warehouse_urn
         assert source.reporter.chart_warehouse_upstream_emitted == 1
-        assert source.reporter.chart_warehouse_unknown_connection == 0
+        assert source.reporter.chart_warehouse_table_name_unmatched == 0
 
     def test_warehouse_table_upstream_unresolvable_increments_counter(
         self,
@@ -918,7 +918,7 @@ class TestGetElementInputDetails:
         )
 
         assert dataset_inputs == {}
-        assert source.reporter.chart_warehouse_unknown_connection == 1
+        assert source.reporter.chart_warehouse_table_name_unmatched == 1
         assert source.reporter.chart_warehouse_upstream_emitted == 0
 
     def test_warehouse_table_upstream_dedup_two_nodes_same_table(self) -> None:
@@ -994,7 +994,7 @@ class TestGetElementInputDetails:
 
         assert dataset_inputs == {}
         assert source.reporter.chart_warehouse_upstream_emitted == 0
-        assert source.reporter.chart_warehouse_unknown_connection == 0
+        assert source.reporter.chart_warehouse_table_name_unmatched == 0
 
 
 class TestAssembleDataModelFileMetaFallback:

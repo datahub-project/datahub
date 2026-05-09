@@ -2870,8 +2870,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             parts = path.split("/")
             # Accept 2–3 segments: "Connection Root/<SCHEMA>" (Redshift) or
             # "Connection Root/<DB>/<SCHEMA>" (Snowflake/Postgres).
+            num_parts_valid = 2 <= len(parts) <= 3
             path_invalid = not (
-                url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
+                url_id and table_name and num_parts_valid and all(parts)
             )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
@@ -3104,9 +3105,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Resolve by short table name; urlId in BFS payload diverges from
         # /files urlId for cross-workbook / pre-existing tables.
         name_key = upstream.name.upper()
-        candidates = wb_warehouse_table_index.get(name_key, [])
+        candidates = sorted(wb_warehouse_table_index.get(name_key, []))
         if not candidates:
-            self.reporter.chart_warehouse_unknown_connection += 1
+            self.reporter.chart_warehouse_table_name_unmatched += 1
             logger.debug(
                 "Sigma chart BFS table %r (url_id=%s) not found in workbook "
                 "warehouse table index for chart %s; treating as unresolved.",
@@ -3115,7 +3116,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element.elementId,
             )
             return
-        warehouse_urn = candidates[0]  # deterministic pick on collision
+        warehouse_urn = candidates[0]  # deterministic pick: lexicographically smallest
         if warehouse_urn not in dataset_inputs:
             dataset_inputs[warehouse_urn] = []
             self.reporter.chart_warehouse_upstream_emitted += 1
@@ -3548,6 +3549,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Build the workbook-level warehouse-table index once per workbook.
         # Gated on extract_lineage + workbook_lineage_pattern to match the
         # analogous gates for formula fetch and element upstream resolution.
+        wb_warehouse_table_index: Optional[Dict[str, List[str]]]
         if self.config.extract_lineage and self.config.workbook_lineage_pattern.allowed(
             workbook.name
         ):
@@ -3555,7 +3557,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook
             )
         else:
-            wb_warehouse_table_index: Dict[str, List[str]] = {}
+            wb_warehouse_table_index = None
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
