@@ -367,6 +367,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # columnId path rather than formula bracket refs alone.  Non-zero confirms
     # the passthrough-column bridge is active.
     dm_customsql_col_mapping_via_columnid: int = 0
+    # Bare (non-inode) columnIds rejected by the UPPER_SNAKE heuristic.  A
+    # non-zero value means the DM has passthrough columns whose columnIds are
+    # not UPPER_SNAKE (e.g. lowercase or mixed-case from a non-Snowflake
+    # warehouse).  Those columns fall back to the formula-ref path.
+    dm_customsql_col_mapping_columnid_rejected: int = 0
 
     # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
     workbook_customsql_skipped: int = 0

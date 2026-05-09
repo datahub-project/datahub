@@ -270,6 +270,8 @@ class TestCustomSqlColMapping:
         assert mapping.get("order_id") == "Conditional"
         # via_columnid not set because no valid columnId mapping was produced
         assert source.reporter.dm_customsql_col_mapping_via_columnid == 0
+        # Both opaque-hash columnIds incremented the rejected counter
+        assert source.reporter.dm_customsql_col_mapping_columnid_rejected == 2
 
     def test_columnid_and_formula_same_col_no_collision(self) -> None:
         # When both paths agree on the same SQL col → display name mapping,

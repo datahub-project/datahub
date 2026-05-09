@@ -241,8 +241,10 @@ class _WarehouseTableRef:
 
     def fq_name(self, platform: str, *, lowercase: bool = True) -> str:
         # db is None for platforms with a 2-segment /files path (e.g. Redshift:
-        # "Connection Root/<SCHEMA>"). In that case emit schema.table; otherwise
-        # emit the full db.schema.table used by Snowflake and similar platforms.
+        # "Connection Root/<SCHEMA>"). Emit schema.table (never "None.schema.table")
+        # so the URN matches what the warehouse connector produces for that platform.
+        # A warning is emitted at build-time (see _missing_default_db_warned) so
+        # the operator can configure default_database to get a 3-segment URN instead.
         name = (
             f"{self.schema}.{self.table}"
             if self.db is None
@@ -1103,16 +1105,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             nativeDataType="String",
         )
 
-    @staticmethod
-    def _extract_customsql_sql_col_name(column_id: Optional[str]) -> Optional[str]:
+    def _extract_customsql_sql_col_name(
+        self, column_id: Optional[str]
+    ) -> Optional[str]:
         """Extract the SQL column name from a Sigma customSQL columnId.
 
         Two valid formats:
           - ``inode-{urlId}/{NATIVE_NAME}``: warehouse-backed passthrough; return NATIVE_NAME.
-          - ``{bare_sql_id}`` with no slash: pure UPPER_SNAKE or lower_snake identifier.
+          - ``{bare_sql_id}`` with no slash: strict UPPER_SNAKE identifier only
+            (e.g. ``CUSTOMER_ID``).  Only uppercase is accepted — lowercase and
+            mixed-case identifiers are not yet confirmed safe for non-Snowflake
+            tenants and are left to a future probe.
 
-        Returns None for opaque random hashes (composition formulas) — the formula
-        parsing path handles those when a formula exists.
+        Returns None (and increments ``dm_customsql_col_mapping_columnid_rejected``)
+        for opaque random hashes (composition formulas) — the formula parsing path
+        handles those when a formula exists.
         """
         if not column_id:
             return None
@@ -1121,11 +1128,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if prefix.startswith("inode-") and native:
                 return native
             return None
-        # Bare identifier heuristic: accept UPPER_SNAKE only (e.g. CUSTOMER_ID).
-        # Dev-tenant probe shows all valid bare SQL identifiers use uppercase;
-        # opaque Sigma hashes always contain mixed case, hyphens, or leading digits.
+        # Bare identifier heuristic: UPPER_SNAKE only (e.g. CUSTOMER_ID, TOTAL_SPENT).
+        # Snowflake dev-tenant probe shows all valid passthrough columnIds are uppercase;
+        # opaque Sigma hashes always contain mixed case, hyphens, or leading digits and
+        # never match this pattern. Lowercase and mixed-case bare identifiers are
+        # counted but not bridged until confirmed safe on non-Snowflake tenants.
         if re.match(r"^[A-Z][A-Z0-9_]*$", column_id):
             return column_id
+        self.reporter.dm_customsql_col_mapping_columnid_rejected += 1
         return None
 
     def _build_customsql_col_mapping(
@@ -3198,16 +3208,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 element.elementId,
             )
             return
-        warehouse_urn = candidates[0]  # deterministic pick on collision
+        # Sort before picking so the result is independent of the order Sigma's
+        # /v2/workbooks/{id}/lineage API returns entries (which is not guaranteed
+        # stable across re-ingestions).
+        sorted_candidates = sorted(candidates)
+        warehouse_urn = sorted_candidates[0]
         if warehouse_urn not in dataset_inputs:
             dataset_inputs[warehouse_urn] = []
             self.reporter.chart_warehouse_upstream_emitted += 1
-        if len(candidates) > 1:
+        if len(sorted_candidates) > 1:
             logger.debug(
                 "Sigma chart BFS table %r matched multiple workbook warehouse "
                 "URNs (%s); picked %s deterministically.",
                 upstream.name,
-                candidates,
+                sorted_candidates,
                 warehouse_urn,
             )
 
@@ -3694,6 +3708,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Build the workbook-level warehouse-table index once per workbook.
         # Gated on extract_lineage + workbook_lineage_pattern to match the
         # analogous gates for formula fetch and element upstream resolution.
+        wb_warehouse_table_index: Dict[str, List[str]]
         if self.config.extract_lineage and self.config.workbook_lineage_pattern.allowed(
             workbook.name
         ):
@@ -3701,7 +3716,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook
             )
         else:
-            wb_warehouse_table_index: Dict[str, List[str]] = {}
+            wb_warehouse_table_index = {}
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())

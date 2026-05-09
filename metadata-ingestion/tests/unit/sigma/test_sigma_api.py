@@ -831,8 +831,8 @@ class TestGetElementInputDetails:
         source.connection_registry = SigmaConnectionRegistry(
             by_id={connection_id: record}
         )
-        source._warned_unvalidated_platforms: set = set()  # type: ignore[assignment]
-        source._no_platform_map_conn_ids: set = set()  # type: ignore[assignment]
+        source._warned_unvalidated_platforms = set()  # type: ignore[misc]
+        source._no_platform_map_conn_ids = set()  # type: ignore[misc]
         return source
 
     def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
@@ -949,15 +949,19 @@ class TestGetElementInputDetails:
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
     def test_warehouse_table_upstream_collision_picks_first(self) -> None:
-        """When multiple URNs map to the same table name, the first is picked deterministically."""
+        """When multiple URNs map to the same table name, the lexicographically smallest is picked."""
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
 
         urn_a = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_a,PROD)"
         urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_b,PROD)"
-        # Two URNs share the same short name (collision).
+        # Two URNs share the same short name (collision). Candidates are sorted before
+        # picking so the result is stable regardless of API response order.
         wb_warehouse_table_index: Dict[str, List[str]] = {
-            "ORDERS": [urn_a, urn_b],
+            "ORDERS": [
+                urn_b,
+                urn_a,
+            ],  # urn_b first to confirm sort, not insertion order
         }
         upstream_sources: Dict = {
             "inode-abc123": WarehouseTableUpstream(
@@ -971,7 +975,7 @@ class TestGetElementInputDetails:
         )
 
         assert len(dataset_inputs) == 1
-        assert next(iter(dataset_inputs)) == urn_a  # deterministic: first entry wins
+        assert next(iter(dataset_inputs)) == urn_a  # urn_a < urn_b lexicographically
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
     def test_warehouse_table_upstream_none_index_skips_silently(self) -> None:
