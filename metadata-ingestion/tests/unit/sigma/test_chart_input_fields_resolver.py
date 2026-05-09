@@ -73,6 +73,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source.reporter.chart_input_fields_warehouse_column_bridged = 0
+    source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
     # T4.C: sigma_api is needed by _gen_pages_workunit →
     # _build_workbook_warehouse_table_index → get_workbook_lineage.
     source.sigma_api = MagicMock()
@@ -631,3 +633,74 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 3
         dashboard_input_fields = input_fields_aspects[-1]
         assert len(dashboard_input_fields.fields) == 1
+
+
+class TestBridgeWarehouseColumnName:
+    """Unit tests for _bridge_warehouse_column_name."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+
+    WAREHOUSE_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customer_visits,PROD)"
+    )
+    SIGMA_DM_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "b584ddca-0000-0000-0000-000000000001.elem,PROD)"
+    )
+
+    def test_warehouse_urn_bridges_display_name_to_native(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "customer_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 1
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_sigma_urn_leaves_display_name_unchanged(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.SIGMA_DM_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_warehouse_urn_no_native_name_increments_unresolved(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Missing Col",
+            column_native_names={"Other Col": "other_col"},
+        )
+        assert result == "Missing Col"
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 1
+        )
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_empty_native_names_skips_bridge(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_already_native_name_does_not_double_count(self) -> None:
+        """When display name already equals native name, bridged counter stays 0."""
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="visit_id",
+            column_native_names={"visit_id": "visit_id"},
+        )
+        assert result == "visit_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0

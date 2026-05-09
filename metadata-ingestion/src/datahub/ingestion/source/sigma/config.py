@@ -234,6 +234,10 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_warehouse_table_name_unmatched: int = 0
     chart_warehouse_table_node_skipped: int = 0
     chart_warehouse_table_name_ambiguous: int = 0
+    # Column-name bridge: Sigma display name -> warehouse-native name.
+    chart_input_fields_warehouse_column_bridged: int = 0
+    # Warehouse upstream resolved but no native name found; fell back to display name.
+    chart_input_fields_warehouse_column_bridge_unresolved: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
