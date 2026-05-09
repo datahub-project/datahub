@@ -3378,7 +3378,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
-        wb_warehouse_table_index: Dict[str, List[str]],
+        wb_warehouse_table_index: Optional[Dict[str, List[str]]],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -3485,11 +3485,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # attributes tables specifically to this chart's own data path.
             merged_warehouse_table_index = self._merge_warehouse_table_indices(
                 element_warehouse_table_index,
-                wb_warehouse_table_index,
+                wb_warehouse_table_index or {},
             )
             wb_only_warehouse_keys: FrozenSet[str] = frozenset(
                 k
-                for k in wb_warehouse_table_index
+                for k in (wb_warehouse_table_index or {})
                 if k not in element_warehouse_table_index
             )
 
