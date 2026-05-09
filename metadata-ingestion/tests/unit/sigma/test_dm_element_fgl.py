@@ -699,3 +699,76 @@ def test_cross_dm_unknown_upstream_column_is_dropped() -> None:
     )
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_self_named_cross_dm_element_resolves_fgl() -> None:
+    """Element named 'Custom SQL' in DM A with formula [Custom SQL/col] and
+    source_ids pointing to DM B resolves FGL against DM B's 'Custom SQL' element.
+
+    Without the fix the self-name-only branch goes straight to warehouse passthrough
+    and emits 0 FGLs. With the fix, cross-DM is tried first and succeeds because
+    DM B has a matching element name and column. Mirrors dev-tenant element YqPcfY1MZm.
+    """
+    source = _source()
+    dm_b_url_id = "dm-b"
+    producer_urn = _urn("producer-custom-sql")
+    consumer_urn = _urn("consumer-custom-sql")
+
+    consumer = _element(
+        "consumer-eid",
+        "Custom SQL",
+        [_column("c1", "Visit Id", "[Custom SQL/Visit Id]")],
+        source_ids=[f"{dm_b_url_id}/s1qt_Ccng5"],
+    )
+
+    source.dm_element_urn_by_name = {dm_b_url_id: {"custom sql": [producer_urn]}}
+    source.dm_element_urn_to_cols = {producer_urn: {"visit id": "Visit Id"}}
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"custom sql": ["consumer-eid"]},
+        elementId_to_dataset_urn={"consumer-eid": consumer_urn},
+        entity_level_upstream_urns={producer_urn},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(producer_urn, "Visit Id")
+    ]
+    assert lineages[0].downstreams == [
+        builder.make_schema_field_urn(consumer_urn, "Visit Id")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_self_named_warehouse_element_unaffected_without_cross_dm_sources() -> None:
+    """Regression: self-named element with no cross-DM source_ids still defers
+    to warehouse passthrough. The cross-DM probe is guarded by source_ids so
+    warehouse-only elements are unaffected and cross_dm_deferred is not inflated.
+    """
+    source = _source()
+    self_urn = _urn("customers")
+    element = _element(
+        "elem-customers",
+        "CUSTOMERS",
+        [_column("c1", "id", "[CUSTOMERS/id]")],
+        # source_ids=[] — no cross-DM refs, warehouse-only element
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=self_urn,
+        element_name_to_eids={"customers": ["elem-customers"]},
+        elementId_to_dataset_urn={"elem-customers": self_urn},
+        entity_level_upstream_urns=set(),
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
