@@ -187,9 +187,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
     # returns a resolved (urn, field) pair or None; all counting happens in
     # _build_element_input_fields so every column lands in exactly one bucket.
-    # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
-    #            == total chart columns processed across the workbook.
+    # Invariant per element:
+    #   resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+    #   == len(element.columns)
+    # (multi_ref_extra is not part of this invariant; it counts additional
+    # resolved refs beyond the first per column.)
     chart_input_fields_resolved: int = 0
+    # Incremented by (n - 1) when n > 1 refs resolve for one column, capturing
+    # multi-ref formulas like "[A/x] + [B/y]" that emit two InputFields.
+    chart_input_fields_multi_ref_extra: int = 0
     # Column emitted with self-referential schemaFieldUrn because no formula ref
     # resolved (includes: no-formula column, unresolvable ref, mixed param+real
     # where the real refs fail). Keeps V2 column list visible unconditionally.

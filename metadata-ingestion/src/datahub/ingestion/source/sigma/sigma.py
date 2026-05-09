@@ -3581,15 +3581,19 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elementId_to_chart_urn: Dict[str, str],
         wb_only_warehouse_keys: FrozenSet[str] = frozenset(),
     ) -> List[InputFieldClass]:
-        """Emit exactly one InputField per chart column.
+        """Emit one InputField per resolved formula ref per chart column.
 
         schemaFieldUrn points to the resolved upstream when a formula ref can be
         matched; otherwise falls back to a self-referential URN so the column
         always appears in the V2 column list regardless of formula parseability.
+        Multi-ref formulas like "[A/x] + [B/y]" emit two InputFields for the
+        same column when both refs resolve.
 
         Counter invariant per element:
           resolved + self_ref_fallback + skipped_parameter + skipped_sibling
           == len(element.columns)
+        (multi_ref_extra is not part of this invariant; it counts additional
+        resolved refs beyond the first per column.)
 
         wb_only_warehouse_keys: uppercase table names that are present only in
           the workbook-level index (not in the per-element SQL-parser index).
@@ -3599,8 +3603,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fields: List[InputFieldClass] = []
         for column in element.columns:
             formula = element.column_formulas.get(column)
-            resolved: Optional[Tuple[str, str]] = None
-            resolving_ref = None
+            resolved_list: List[Tuple[Tuple[str, str], BracketRef]] = []
             all_param = False
             all_sibling = False
 
@@ -3616,7 +3619,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if ref.column is None:
                             sibling_count += 1
                             continue
-                        resolved = self._resolve_chart_formula_upstream(
+                        r = self._resolve_chart_formula_upstream(
                             ref,
                             chart_element_id=element.elementId,
                             chart_upstream_element_ids=chart_upstream_eids,
@@ -3625,57 +3628,63 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             element_warehouse_table_index=element_warehouse_table_index,
                             elementId_to_chart_urn=elementId_to_chart_urn,
                         )
-                        if resolved is not None:
-                            resolving_ref = ref
-                            break
-                    if resolved is None and refs:
+                        if r is not None:
+                            resolved_list.append((r, ref))
+                    if not resolved_list and refs:
                         total = len(refs)
                         if param_count == total:
                             all_param = True
                         elif sibling_count == total:
                             all_sibling = True
 
-            if resolved is not None:
-                upstream_urn, upstream_field = resolved
-                bridged_field = self._bridge_warehouse_column_name(
-                    upstream_urn=upstream_urn,
-                    sigma_display_name=upstream_field,
-                    column_native_names=element.column_native_names,
-                )
-                schema_field_urn = builder.make_schema_field_urn(
-                    upstream_urn, bridged_field
-                )
+            if resolved_list:
                 self.reporter.chart_input_fields_resolved += 1
-                # Sub-category: resolved via warehouse-table short-name index (Step 4).
-                # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
-                # so upstream_urn in wh_candidates implies a single-candidate match in
-                # practice, but the membership check is the semantically correct predicate.
-                # resolving_ref is always set when resolved is set (see loop above),
-                # but guard explicitly so -O optimisation doesn't hide the invariant.
-                if resolving_ref is not None:
-                    wh_candidates = element_warehouse_table_index.get(
-                        resolving_ref.source.upper(), []
+                if len(resolved_list) > 1:
+                    self.reporter.chart_input_fields_multi_ref_extra += (
+                        len(resolved_list) - 1
                     )
-                    if upstream_urn in wh_candidates:
-                        self.reporter.chart_input_fields_warehouse_qualified += 1
-                        if resolving_ref.source.upper() in wb_only_warehouse_keys:
-                            self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
-            elif all_param:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_skipped_parameter += 1
-            elif all_sibling:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_skipped_sibling += 1
-            else:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_self_ref_fallback += 1
-
-            fields.append(
-                InputFieldClass(
-                    schemaFieldUrn=schema_field_urn,
-                    schemaField=self._make_string_schema_field(column),
+                # Warehouse sub-counters use the first resolved ref only, matching
+                # pre-multi-ref behaviour and preserving counter semantics for
+                # columns where only one ref is warehouse-qualified.
+                first_upstream_urn, _ = resolved_list[0][0]
+                first_resolving_ref = resolved_list[0][1]
+                wh_candidates = element_warehouse_table_index.get(
+                    first_resolving_ref.source.upper(), []
                 )
-            )
+                if first_upstream_urn in wh_candidates:
+                    self.reporter.chart_input_fields_warehouse_qualified += 1
+                    if first_resolving_ref.source.upper() in wb_only_warehouse_keys:
+                        self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
+                for (upstream_urn, upstream_field), _ in resolved_list:
+                    bridged_field = self._bridge_warehouse_column_name(
+                        upstream_urn=upstream_urn,
+                        sigma_display_name=upstream_field,
+                        column_native_names=element.column_native_names,
+                    )
+                    fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=builder.make_schema_field_urn(
+                                upstream_urn, bridged_field
+                            ),
+                            schemaField=self._make_string_schema_field(column),
+                        )
+                    )
+            else:
+                if all_param:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_skipped_parameter += 1
+                elif all_sibling:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_skipped_sibling += 1
+                else:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_self_ref_fallback += 1
+                fields.append(
+                    InputFieldClass(
+                        schemaFieldUrn=schema_field_urn,
+                        schemaField=self._make_string_schema_field(column),
+                    )
+                )
         return fields
 
     def _gen_elements_workunit(
