@@ -229,6 +229,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # type=table entry.
     chart_input_fields_warehouse_unknown_connection: int = 0
 
+    # Chart entity-level warehouse upstream (T4.C2).
+    chart_warehouse_upstream_emitted: int = 0
+    chart_warehouse_unknown_connection: int = 0
+    chart_warehouse_table_node_skipped: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0

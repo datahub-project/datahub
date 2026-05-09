@@ -55,6 +55,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelColumn,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseTableUpstream,
     Workbook,
     WorkbookKey,
     Workspace,
@@ -2824,9 +2825,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         """Build {uppercase_table_name: [warehouse_dataset_urn, ...]} for one
         workbook from /v2/workbooks/{id}/lineage type=table entries.
 
-        Same key shape as _build_element_warehouse_table_index: uppercase short
-        table name → list of warehouse Dataset URNs.  Merged with the per-element
-        index in _gen_elements_workunit before passing to _resolve_chart_formula_upstream.
+        Key shape matches _build_element_warehouse_table_index; merged with the
+        per-element index in _gen_elements_workunit before passing to
+        _resolve_chart_formula_upstream.  Also serves as the T4.C2 name-based
+        lookup index for WarehouseTableUpstream BFS nodes.
+
+        Accepts both 2-segment (Connection Root/<SCHEMA>, e.g. Redshift) and
+        3-segment (Connection Root/<DB>/<SCHEMA>, e.g. Snowflake) /files paths,
+        consistent with _build_dm_warehouse_url_id_map.
 
         Reuses _files_cache, _files_path_unparseable_seen, and
         _resolve_dm_element_warehouse_upstream verbatim — URN identity with the
@@ -2834,16 +2840,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         construction path is used.
         """
         result: Dict[str, List[str]] = {}
+        transient_map: Dict[str, _WarehouseTableRef] = {}
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
         if entries is None:
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
             return result
 
-        # Build a transient urlId → _WarehouseTableRef map from type=table entries,
-        # then resolve each to a Dataset URN via _resolve_dm_element_warehouse_upstream
-        # so the URN is byte-equal to the entity-level warehouse Dataset URN for the
-        # same table.
-        transient_map: Dict[str, _WarehouseTableRef] = {}
         url_id_to_table_name: Dict[str, str] = {}
 
         for entry in entries:
@@ -2866,8 +2868,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             path = str(files_data.get("path") or "")
             table_name = str(files_data.get("name") or "")
             parts = path.split("/")
-            path_invalid = (
-                not url_id or not table_name or len(parts) != 3 or not all(parts)
+            # Accept 2–3 segments: "Connection Root/<SCHEMA>" (Redshift) or
+            # "Connection Root/<DB>/<SCHEMA>" (Snowflake/Postgres).
+            path_invalid = not (
+                url_id and table_name and 2 <= len(parts) <= 3 and all(parts)
             )
             root_unexpected = (not path_invalid) and parts[0] != _FILES_PATH_ROOT
             if path_invalid or root_unexpected:
@@ -2881,8 +2885,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             else "Sigma workbook lineage /files path unparseable"
                         ),
                         message=(
-                            "Expected exactly 'Connection Root/<DB>/<SCHEMA>' with "
-                            "no empty segments and a non-empty urlId. "
+                            "Expected 'Connection Root/<SCHEMA>' or "
+                            "'Connection Root/<DB>/<SCHEMA>' with no empty "
+                            "segments and a non-empty urlId. "
                             "Warehouse table index entry skipped for this inode."
                         ),
                         context=(
@@ -2893,6 +2898,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 continue
 
+            db: Optional[str]
+            if len(parts) == 3:
+                db, schema = parts[1], parts[2]
+            else:
+                conn_override = self.config.connection_to_platform_map.get(conn_id)
+                conn_record = self.connection_registry.get(conn_id)
+                db = (conn_override.default_database if conn_override else None) or (
+                    conn_record.default_database if conn_record else None
+                )
+                schema = parts[1]
+                if db is None and conn_id not in self._missing_default_db_warned:
+                    self._missing_default_db_warned.add(conn_id)
+                    self.reporter.warning(
+                        title="Sigma warehouse default_database not configured",
+                        message=(
+                            "The /files path for this connection has no database layer "
+                            "(e.g. 'Connection Root/<SCHEMA>'). The emitted warehouse "
+                            "URN will use schema.table only, which will not match a "
+                            "connector that uses db.schema.table. Set "
+                            "connection_to_platform_map.<connectionId>.default_database "
+                            "in the recipe to fix the URN."
+                        ),
+                        context=f"connectionId={conn_id}, path={path!r}",
+                    )
+
             if url_id in transient_map:
                 logger.warning(
                     "Workbook %s: two type=table lineage entries share the same "
@@ -2902,8 +2932,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
             transient_map[url_id] = _WarehouseTableRef(
                 connection_id=conn_id,
-                db=parts[1],
-                schema=parts[2],
+                db=db,
+                schema=schema,
                 table=table_name,
             )
             url_id_to_table_name[url_id] = table_name
@@ -3064,11 +3094,46 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         return None
 
+    def _handle_warehouse_table_upstream(
+        self,
+        upstream: WarehouseTableUpstream,
+        element: Element,
+        wb_warehouse_table_index: Dict[str, List[str]],
+        dataset_inputs: Dict[str, List[str]],
+    ) -> None:
+        # Resolve by short table name; urlId in BFS payload diverges from
+        # /files urlId for cross-workbook / pre-existing tables.
+        name_key = upstream.name.upper()
+        candidates = wb_warehouse_table_index.get(name_key, [])
+        if not candidates:
+            self.reporter.chart_warehouse_unknown_connection += 1
+            logger.debug(
+                "Sigma chart BFS table %r (url_id=%s) not found in workbook "
+                "warehouse table index for chart %s; treating as unresolved.",
+                upstream.name,
+                upstream.url_id,
+                element.elementId,
+            )
+            return
+        warehouse_urn = candidates[0]  # deterministic pick on collision
+        if warehouse_urn not in dataset_inputs:
+            dataset_inputs[warehouse_urn] = []
+            self.reporter.chart_warehouse_upstream_emitted += 1
+        if len(candidates) > 1:
+            logger.debug(
+                "Sigma chart BFS table %r matched multiple workbook warehouse "
+                "URNs (%s); picked %s deterministically.",
+                upstream.name,
+                candidates,
+                warehouse_urn,
+            )
+
     def _get_element_input_details(
         self,
         element: Element,
         workbook: Workbook,
         elementId_to_chart_urn: Dict[str, str],
+        wb_warehouse_table_index: Optional[Dict[str, List[str]]] = None,
     ) -> Tuple[Dict[str, List[str]], List[str]]:
         """
         Returns (dataset_inputs, chart_input_urns).
@@ -3187,6 +3252,12 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                                 ", ".join(sorted(candidates)),
                                 dm_urn,
                             )
+            elif isinstance(upstream, WarehouseTableUpstream):
+                if wb_warehouse_table_index is None:
+                    continue
+                self._handle_warehouse_table_upstream(
+                    upstream, element, wb_warehouse_table_index, dataset_inputs
+                )
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
         for in_table_urn in sql_parser_in_tables:
@@ -3327,7 +3398,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             yield self._gen_entity_status_aspect(chart_urn)
 
             dataset_inputs, chart_input_urns = self._get_element_input_details(
-                element, workbook, elementId_to_chart_urn
+                element, workbook, elementId_to_chart_urn, wb_warehouse_table_index
             )
 
             # Add warehouse upstream URNs resolved by the workbook-level customSQL registry.
@@ -3484,7 +3555,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 workbook
             )
         else:
-            wb_warehouse_table_index = {}
+            wb_warehouse_table_index: Dict[str, List[str]] = {}
 
         for page in workbook.pages:
             dashboard_urn = self._gen_dashboard_urn(page.get_urn_part())
