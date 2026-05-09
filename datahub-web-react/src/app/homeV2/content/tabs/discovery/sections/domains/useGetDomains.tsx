@@ -8,11 +8,6 @@ import { CorpUser, Domain, ScenarioType } from '@types';
 const DOMAINS_MODULE_ID = 'Domains';
 const MAX_DOMAINS = 5;
 
-// Uses an independent useListRecommendationsQuery so it can pass through `fetchPolicy`
-// (homeV3 passes 'cache-and-network' on module reload). Variables match
-// `useHomeRecommendations`, so Apollo dedupes the network request across consumers
-// and reads from the same shared cache entry. `nextFetchPolicy: 'cache-first'`
-// ensures no extra fetches on subsequent renders.
 export const useGetDomains = (
     user?: CorpUser | null,
     fetchPolicy?: WatchQueryFetchPolicy,
