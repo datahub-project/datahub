@@ -2128,15 +2128,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         urn_to_cols: Dict[str, Dict[str, str]],
         downstream_field: str,
         element: SigmaDataModelElement,
+        element_dataset_urn: str,
         data_model: SigmaDataModel,
         fgls: List[FineGrainedLineageClass],
+        cross_dm_fgls: List[FineGrainedLineageClass],
         emitted_pairs: Set[Tuple[str, str]],
     ) -> None:
         """Resolve a formula ref against intra-DM sibling elements.
 
-        Appends to fgls and emitted_pairs on success; bumps the appropriate
-        counter on any resolution failure.  Counter bookkeeping and dedup are
-        handled here so the caller needs no conditional on the result.
+        Appends to fgls / cross_dm_fgls and emitted_pairs on success; bumps
+        the appropriate counter on any resolution failure.  Counter bookkeeping
+        and dedup are handled here so the caller needs no conditional on the result.
         """
         assert (
             ref.column is not None
@@ -2151,9 +2153,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if not surviving_urns:
-            # Intra-DM candidate(s) exist but none appear in /lineage.
-            # Rare on tenants where /lineage correctly reports intra-DM edges;
-            # keep counter for observability on future tenants.
+            # Intra-DM candidate(s) exist but none appear in /lineage upstreams.
+            # Two distinct causes:
+            #   (a) name collision: a sibling shares the name but the actual
+            #       upstream is cross-DM (e.g. two "Custom SQL" elements in one
+            #       DM where the consumer pulls from a cross-DM "Custom SQL")
+            #   (b) genuine orphan: Sigma /lineage reporting gap
+            # Try cross-DM first; falls through to orphan-drop for case (b).
+            if self._try_emit_self_named_cross_dm_fgl(
+                ref=ref,
+                element=element,
+                element_dataset_urn=element_dataset_urn,
+                entity_level_upstream_urns=entity_level_upstream_urns,
+                downstream_field=downstream_field,
+                emitted_pairs=emitted_pairs,
+                cross_dm_fgls=cross_dm_fgls,
+            ):
+                return
             self.reporter.data_model_element_fgl_dropped_orphan_upstream += 1
             return
 
@@ -2360,8 +2376,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     urn_to_cols=urn_to_cols,
                     downstream_field=downstream_field,
                     element=element,
+                    element_dataset_urn=element_dataset_urn,
                     data_model=data_model,
                     fgls=fgls,
+                    cross_dm_fgls=cross_dm_fgls,
                     emitted_pairs=emitted_pairs,
                 )
         # fgl_emitted is the umbrella count for intra-DM AND warehouse-passthrough

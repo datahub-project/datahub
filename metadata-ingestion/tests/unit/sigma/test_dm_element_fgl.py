@@ -772,3 +772,94 @@ def test_self_named_warehouse_element_unaffected_without_cross_dm_sources() -> N
     assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_orphan_branch_rescued_by_cross_dm_on_name_collision() -> None:
+    """When a sibling shares the consumer's formula-ref name but isn't in /lineage
+    upstreams, the orphan branch tries cross-DM before dropping.
+
+    Mirrors dev-tenant: DM 'Test Data Model' has TWO elements named 'Custom SQL'
+    (sibling XpQ7V2hYt6 and consumer YqPcfY1MZm). YqPcfY1MZm's formula
+    [Custom SQL/<col>] finds XpQ7V2hYt6 as intra-DM candidate (after self-strip),
+    but XpQ7V2hYt6 is NOT in entity_level_upstream_urns. Old code: orphan drop.
+    New code: cross-DM rescue succeeds via source_ids → DM B's 'Custom SQL'.
+    """
+    source = _source()
+    dm_b_url_id = "dm-b"
+    producer_urn = _urn("producer-custom-sql")
+    sibling_urn = _urn("sibling-custom-sql")
+    consumer_urn = _urn("consumer-custom-sql")
+
+    consumer = _element(
+        "consumer-eid",
+        "Custom SQL",
+        [_column("c1", "Visit Id", "[Custom SQL/Visit Id]")],
+        source_ids=[f"{dm_b_url_id}/s1qt_Ccng5"],
+    )
+    sibling = _upstream_element("sibling-eid", "Custom SQL", ["Visit Id"])
+
+    source.dm_element_urn_by_name = {dm_b_url_id: {"custom sql": [producer_urn]}}
+    source.dm_element_urn_to_cols = {producer_urn: {"visit id": "Visit Id"}}
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        # Both sibling and consumer share the name "Custom SQL" in this DM.
+        element_name_to_eids={"custom sql": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        # Entity-level upstream is cross-DM producer, NOT sibling.
+        entity_level_upstream_urns={producer_urn},
+        upstream_elements=[sibling],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [
+        builder.make_schema_field_urn(producer_urn, "Visit Id")
+    ]
+    assert lineages[0].downstreams == [
+        builder.make_schema_field_urn(consumer_urn, "Visit Id")
+    ]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+
+
+def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
+    """Regression: name collision with no cross-DM source_ids still hits orphan drop.
+    The rescue guard (element.source_ids) prevents false-positive cross_dm_deferred
+    for genuine orphans.
+    """
+    source = _source()
+    sibling_urn = _urn("sibling")
+    consumer_urn = _urn("consumer")
+
+    consumer = _element(
+        "consumer-eid",
+        "Shared",
+        [_column("c1", "x", "[Shared/x]")],
+        # source_ids=[] — no cross-DM refs
+    )
+    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        # sibling not in entity_level_upstream_urns → genuine orphan
+        entity_level_upstream_urns=set(),
+        upstream_elements=[sibling],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
