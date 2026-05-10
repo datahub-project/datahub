@@ -12,7 +12,12 @@ from unittest.mock import MagicMock
 import pytest
 
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig
-from datahub.ingestion.source.sigma.data_classes import Element, Page, Workbook
+from datahub.ingestion.source.sigma.data_classes import (
+    Element,
+    Page,
+    WarehouseTableUpstream,
+    Workbook,
+)
 from datahub.ingestion.source.sigma.formula_parser import (
     BracketRef,
     extract_bracket_refs,
@@ -483,6 +488,21 @@ class TestResolveChartFormulaUpstream:
         )
         assert result is None
 
+    def test_dm_upstream_not_in_wb_element_index_resolved_via_step_3c(self) -> None:
+        """Step 3c: DM element is an upstream but not a page element -> dm_urn returned."""
+        dm_urn = "urn:li:dataset:(urn:li:dataPlatform:sigma,dm-x.elem-y,PROD)"
+        ref = _make_ref("Orders", "Order Id")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="chart-1",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={"Orders": dm_urn},
+            wb_element_index={},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result == (dm_urn, "Order Id")
+
     # --- sibling refs from M0 sample formulas ---
 
     def test_sibling_refs_from_failures_formula(self) -> None:
@@ -633,6 +653,50 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 3
         dashboard_input_fields = input_fields_aspects[-1]
         assert len(dashboard_input_fields.fields) == 1
+
+    def test_column_id_by_name_bridges_display_name_to_native(self) -> None:
+        """column_id_by_name drives column_native_names so the emitted URN uses the
+        warehouse-native column name (lowercased), not the Sigma display name."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        src._wb_url_id_to_conn_id = {}  # default lowercase=True
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        # Formula uses Sigma display name "Customer Id"; columnId maps it to native.
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Orders Chart",
+            {"Customer Id": "[ORDERS/Customer Id]"},
+        )
+        chart.column_id_by_name = {"Customer Id": "inode-tbl-abc/CUSTOMER_ID"}
+        upstream = WarehouseTableUpstream(url_id="tbl-abc", name="ORDERS")
+        chart.upstream_sources = {"inode-tbl-abc": upstream}
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({warehouse_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        field_urn = input_fields_aspects[0].fields[0].schemaFieldUrn
+        # Bridge must translate "Customer Id" → "customer_id" (inode-tbl-abc/CUSTOMER_ID, lowercase).
+        assert field_urn.endswith(",customer_id)")
 
 
 class TestBridgeWarehouseColumnName:

@@ -1344,6 +1344,7 @@ class TestGetWorkbookColumnFormulas:
                         "elementId": "elem-1",
                         "name": "col-a",
                         "formula": "[Source/col-a]",
+                        "columnId": "inode-abc/COL_A",
                     }
                 ],
                 next_page=2,
@@ -1366,7 +1367,7 @@ class TestGetWorkbookColumnFormulas:
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
-        assert col_ids == {}
+        assert col_ids == {"elem-1": {"col-a": "inode-abc/COL_A"}}
         assert "page=2" in mock_get.call_args_list[1].args[0]
 
     def test_collects_formulas_across_next_page_token(self) -> None:

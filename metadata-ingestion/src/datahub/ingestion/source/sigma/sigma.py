@@ -1133,9 +1133,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             mixed-case identifiers are not yet confirmed safe for non-Snowflake
             tenants and are left to a future probe.
 
-        Returns None (and increments ``dm_customsql_col_mapping_columnid_rejected``)
-        for opaque random hashes (composition formulas) — the formula parsing path
-        handles those when a formula exists.
+        Returns None and increments ``dm_customsql_col_mapping_columnid_rejected`` for
+        any columnId that cannot be used as a SQL column name — opaque hashes (composition
+        formulas), non-inode slash-shaped IDs, and inode entries with an empty native part.
+        Empty/None columnIds are silently ignored (no counter).
         """
         if not column_id:
             return None
@@ -1143,6 +1144,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             prefix, _, native = column_id.partition("/")
             if prefix.startswith("inode-") and native:
                 return native
+            # Non-inode slash-shaped ID or empty native part — unrecognised format.
+            self.reporter.dm_customsql_col_mapping_columnid_rejected += 1
             return None
         # Bare identifier heuristic: UPPER_SNAKE only (e.g. CUSTOMER_ID, TOTAL_SPENT).
         # Snowflake dev-tenant probe shows all valid passthrough columnIds are uppercase;
@@ -2932,6 +2935,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         route through _resolve_dm_element_warehouse_upstream.
         """
         by_name: Dict[str, List[str]] = {}
+        self._wb_url_id_to_conn_id = {}
         by_url_id: Dict[str, str] = {}
         transient_map: Dict[str, _WarehouseTableRef] = {}
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
@@ -3104,6 +3108,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
              - SheetUpstream: -> sibling chart URN + ref.column.
              - DM element: -> DM element Dataset URN + ref.column.
              - Ambiguous (>1 sheet match, none passing the filters) -> None.
+          3c. No workbook page element named ref.source, but dm_upstream_urn_by_element_name
+              has a match — covers DM elements that are formula upstreams of this chart
+              but are not exposed as page elements.
           4. element_warehouse_table_index match with exactly one candidate
              -> warehouse Dataset URN + ref.column.
              NOTE: this index is built from the current element's dataset_inputs
@@ -3173,10 +3180,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
 
-        # Step 3b fallback: self-exclusion may have emptied candidates when the
-        # chart's own name matches ref.source (BFS edge-only DM synthesis sets
-        # upstream.name = element.name). Resolve via the DM map directly so the
-        # formula still binds to the DM element URN.
+        # Step 3c: No workbook page element is named ref.source (candidates was
+        # empty above), but the formula ref may still point to a DM element that
+        # is an upstream of this chart without being exposed as a page element.
+        # Check dm_upstream_urn_by_element_name directly before falling through
+        # to the warehouse-table short-name index.
         dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
         if dm_urn:
             return (dm_urn, ref.column)
@@ -3414,8 +3422,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 .get_data_platform_urn()
                 .platform_name
             )
-        except Exception:
-            return sigma_display_name  # don't bridge on parse error
+        except InvalidUrnError:
+            logger.debug(
+                "Could not parse upstream URN %r for column bridge; "
+                "returning display name unchanged.",
+                upstream_urn,
+            )
+            return sigma_display_name
         if platform == "sigma":
             return sigma_display_name
         native = column_native_names.get(sigma_display_name)
@@ -3638,9 +3651,20 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     candidates = name_map.get(upstream.name.lower(), [])
                     if candidates:
-                        dm_upstream_urn_by_element_name[upstream.name] = sorted(
-                            candidates
-                        )[0]
+                        chosen = sorted(candidates)[0]
+                        existing = dm_upstream_urn_by_element_name.get(upstream.name)
+                        if existing is not None and existing != chosen:
+                            self.reporter.chart_input_fields_dm_upstream_name_collision += 1
+                            logger.debug(
+                                "DM upstream name collision for element %s: "
+                                "name %r maps to both %r and %r; keeping first.",
+                                element.elementId,
+                                upstream.name,
+                                existing,
+                                chosen,
+                            )
+                        else:
+                            dm_upstream_urn_by_element_name[upstream.name] = chosen
 
             element_warehouse_table_index = self._build_element_warehouse_table_index(
                 dataset_inputs
@@ -3679,9 +3703,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     for display_name, col_id in element.column_id_by_name.items():
                         if col_id.startswith(prefix):
                             native_upper = col_id[len(prefix) :]
-                            element.column_native_names[display_name] = (
-                                native_upper.lower() if lowercase else native_upper
-                            )
+                            native = native_upper.lower() if lowercase else native_upper
+                            existing = element.column_native_names.get(display_name)
+                            if existing is not None and existing != native:
+                                self.reporter.chart_input_fields_column_native_names_collision += 1
+                                logger.debug(
+                                    "column_native_names collision for element %s: "
+                                    "display name %r maps to both %r and %r across "
+                                    "warehouse upstreams; keeping first.",
+                                    element.elementId,
+                                    display_name,
+                                    existing,
+                                    native,
+                                )
+                            else:
+                                element.column_native_names[display_name] = native
 
             element_input_fields = self._build_element_input_fields(
                 element=element,
