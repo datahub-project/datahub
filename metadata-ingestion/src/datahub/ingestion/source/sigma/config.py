@@ -233,6 +233,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_warehouse_upstream_emitted: int = 0
     chart_warehouse_table_name_unmatched: int = 0
     chart_warehouse_table_node_skipped: int = 0
+    chart_warehouse_table_name_ambiguous: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0

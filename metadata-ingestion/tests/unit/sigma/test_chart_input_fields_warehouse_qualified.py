@@ -36,7 +36,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     Workbook,
     WorkbookLineageTableEntry,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 
 # ---------------------------------------------------------------------------
@@ -169,8 +169,8 @@ class TestBuildWorkbookWarehouseTableIndex:
         ):
             result = source._build_workbook_warehouse_table_index(wb)
 
-        assert _TABLE_NAME.upper() in result
-        assert result[_TABLE_NAME.upper()] == [_EXPECTED_WAREHOUSE_URN]
+        assert _TABLE_NAME.upper() in result.by_name
+        assert result.by_name[_TABLE_NAME.upper()] == [_EXPECTED_WAREHOUSE_URN]
         assert source.reporter.chart_input_fields_warehouse_index_lookup_failed == 0
         assert source.reporter.chart_input_fields_warehouse_unknown_connection == 0
 
@@ -181,7 +181,8 @@ class TestBuildWorkbookWarehouseTableIndex:
         with patch.object(source.sigma_api, "get_workbook_lineage", return_value=None):
             result = source._build_workbook_warehouse_table_index(wb)
 
-        assert result == {}
+        assert result.by_name == {}
+        assert result.by_url_id == {}
         assert source.reporter.chart_input_fields_warehouse_index_lookup_failed == 1
 
     def test_files_lookup_failure_increments_counter(self):
@@ -198,7 +199,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         ):
             result = source._build_workbook_warehouse_table_index(wb)
 
-        assert result == {}
+        assert result.by_name == {}
         assert source.reporter.chart_input_fields_warehouse_table_lookup_failed == 1
 
     def test_files_lookup_failure_not_double_counted_via_cache(self):
@@ -230,7 +231,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         ):
             result = source._build_workbook_warehouse_table_index(_make_workbook())
 
-        assert result == {}
+        assert result.by_name == {}
         assert source.reporter.chart_input_fields_warehouse_path_unparseable == 1
 
     def test_path_unparseable_deduped_across_workbooks(self):
@@ -268,7 +269,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         ):
             result = source._build_workbook_warehouse_table_index(_make_workbook())
 
-        assert result == {}
+        assert result.by_name == {}
         assert source.reporter.chart_input_fields_warehouse_unknown_connection == 1
 
     def test_is_mappable_false_increments_unknown_connection(self):
@@ -289,7 +290,7 @@ class TestBuildWorkbookWarehouseTableIndex:
         ):
             result = source._build_workbook_warehouse_table_index(_make_workbook())
 
-        assert result == {}
+        assert result.by_name == {}
         assert source.reporter.chart_input_fields_warehouse_unknown_connection == 1
 
     def test_duplicate_url_id_logs_warning(self):
@@ -322,7 +323,7 @@ class TestBuildWorkbookWarehouseTableIndex:
             result = source._build_workbook_warehouse_table_index(_make_workbook())
 
         # Last writer wins; "OTHER_TABLE" is the final name for that urlId
-        assert "OTHER_TABLE" in result or _TABLE_NAME in result
+        assert "OTHER_TABLE" in result.by_name or _TABLE_NAME in result.by_name
 
     def test_cache_reuse_with_dm_path(self):
         """An inode already populated by DM lineage processing is reused by
@@ -352,7 +353,7 @@ class TestBuildWorkbookWarehouseTableIndex:
                 result = source._build_workbook_warehouse_table_index(_make_workbook())
             mock_get.assert_called_once()
 
-        assert _TABLE_NAME.upper() in result
+        assert _TABLE_NAME.upper() in result.by_name
 
 
 # ---------------------------------------------------------------------------
@@ -513,7 +514,7 @@ class TestUrnIdentityWarehouseIndex:
                 )
 
         assert dm_urn is not None
-        wb_urns = wb_index.get(_TABLE_NAME.upper()) or []
+        wb_urns = wb_index.by_name.get(_TABLE_NAME.upper()) or []
         wb_urn = wb_urns[0] if wb_urns else None
         assert wb_urn is not None
         assert dm_urn == wb_urn, (
@@ -578,7 +579,7 @@ class TestUrnIdentityWarehouseIndex:
                 )
 
         assert dm_urn is not None
-        wb_urns = wb_index.get(_TABLE_NAME.upper()) or []
+        wb_urns = wb_index.by_name.get(_TABLE_NAME.upper()) or []
         wb_urn = wb_urns[0] if wb_urns else None
         assert wb_urn is not None
         assert dm_urn == wb_urn
@@ -647,7 +648,7 @@ def _make_source_with_workbook_override(
 
 
 class TestWorkbookTwoSegmentPathDefaultDatabase:
-    def _build_index(self, source: SigmaSource) -> Dict[str, List[str]]:
+    def _build_index(self, source: SigmaSource) -> _WorkbookWarehouseIndex:
         with (
             patch.object(
                 source.sigma_api,
@@ -667,21 +668,21 @@ class TestWorkbookTwoSegmentPathDefaultDatabase:
             override_default_db="staging", registry_default_db="dev"
         )
         index = self._build_index(source)
-        urns = index.get("ORDERS", [])
+        urns = index.by_name.get("ORDERS", [])
         assert len(urns) == 1
         assert "staging" in urns[0]
 
     def test_registry_default_database_fallback(self):
         source = _make_source_with_workbook_override(registry_default_db="dev")
         index = self._build_index(source)
-        urns = index.get("ORDERS", [])
+        urns = index.by_name.get("ORDERS", [])
         assert len(urns) == 1
         assert "dev" in urns[0]
 
     def test_empty_db_emits_warning(self):
         source = _make_source_with_workbook_override()  # no default_database anywhere
         index = self._build_index(source)
-        urns = index.get("ORDERS", [])
+        urns = index.by_name.get("ORDERS", [])
         assert len(urns) == 1
         assert any(
             "default_database" in (w.title or "") for w in source.reporter.warnings

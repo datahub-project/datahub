@@ -4,9 +4,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Connection record overrides (`connection_to_platform_map`)
 
-All three warehouse lineage paths — DM element → warehouse table, DM customSQL, and workbook
-customSQL — resolve the target DataHub platform and URN coordinates from the Sigma connection
-record. `connection_to_platform_map` lets you override those coordinates per connection.
+All four warehouse lineage paths — DM element → warehouse table, DM customSQL, workbook
+customSQL, and workbook chart entity-level BFS — resolve the target DataHub platform and URN
+coordinates from the Sigma connection record. `connection_to_platform_map` lets you override
+those coordinates per connection.
 
 **env / platform_instance / convert_urns_to_lowercase**
 
@@ -26,19 +27,22 @@ connection_to_platform_map:
 
 **Warehouses that omit database or schema from the Sigma connection record** (e.g. Redshift):
 Sigma's `/v2/connections` API does not return `database` or `schema` fields for all warehouse
-types. When those fields are absent, the SQL parser cannot fully qualify unqualified table names
-and produces under-qualified URNs that will not match what your warehouse connector emitted.
-Use `default_database` and `default_schema` to supply the missing values:
+types. When those fields are absent, lineage URNs may be under-qualified and will not match
+what your warehouse connector emitted. Use `default_database` and `default_schema` to supply
+the missing values:
 
 ```yml
 connection_to_platform_map:
   "a1b2c3d4-0000-0000-0000-000000000001":
     env: PROD
     default_database: my_redshift_db # expands `schema.table` → `my_redshift_db.schema.table`
-    default_schema: public # expands `table` → `public.table`
+    default_schema: public # expands bare `table` → `public.table` (SQL parser only)
 ```
 
-These overrides apply to all three lineage paths for the matching connection. The `env` and
+`default_database` applies to all four lineage paths (DM element, DM customSQL, workbook
+customSQL, and workbook chart entity-level BFS). `default_schema` is consumed only by the
+SQL parser (DM customSQL and workbook customSQL paths) — the entity-level BFS and DM element
+paths derive the schema from the `/files` path and do not use this field. The `env` and
 `platform_instance` fields are also consumed by the customSQL parsers, so URNs minted from
 customSQL definitions match the warehouse connector's env/instance for that connection.
 
@@ -92,10 +96,11 @@ When `extract_lineage: true` (default), workbook chart elements that pull **dire
 warehouse table (no Data Model, no customSQL, no Sigma Dataset in between) emit an entity-level
 `chartInfo.inputs` edge to the warehouse Dataset. This path fires when the Sigma BFS lineage
 payload for the chart element contains a `type=table` upstream node. The connector resolves the
-warehouse Dataset URN by matching the BFS node's table **name** against the workbook-level
-warehouse table index (built from the same `/v2/workbooks/{id}/lineage` call used for the
-column-level path). Name-based matching is used because the BFS `inode-{urlId}` may diverge from
-the urlId returned by `/files/{inodeId}` for cross-workbook or pre-existing tables.
+warehouse Dataset URN using a dual lookup index built from the same
+`/v2/workbooks/{id}/lineage` call used for the column-level path. The connector first tries
+to match the BFS node's `urlId` directly (confident 1:1 match); if that misses, it falls back
+to name-based matching. When the name-based fallback finds multiple candidates and no urlId
+match exists, the edge is skipped to avoid emitting an incorrect lineage edge.
 
 Column-level lineage for these charts is handled separately by the
 [chart inputFields warehouse qualification](#workbook-chart-inputfields-warehouse-column-level-qualification)
@@ -106,11 +111,12 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 `connection_to_platform_map` — see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
-| Counter                                | Meaning                                                                                       |
-| -------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                       |
-| `chart_warehouse_table_name_unmatched` | BFS table node's name not found in the workbook-level warehouse table index; edge not emitted |
-| `chart_warehouse_table_node_skipped`   | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                |
+| Counter                                | Meaning                                                                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                                |
+| `chart_warehouse_table_name_unmatched` | BFS table node not found in either the urlId or name index; edge not emitted                           |
+| `chart_warehouse_table_node_skipped`   | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                         |
+| `chart_warehouse_table_name_ambiguous` | BFS urlId not in index and name matched multiple URNs; edge skipped to avoid an incorrect lineage edge |
 
 #### Workbook chart inputFields warehouse column-level qualification
 

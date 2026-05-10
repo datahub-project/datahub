@@ -253,6 +253,18 @@ class _WarehouseTableRef:
 
 
 @dataclass
+class _WorkbookWarehouseIndex:
+    """Dual lookup index built from /v2/workbooks/{id}/lineage type=table entries.
+
+    by_url_id: urlId -> warehouse Dataset URN (confident 1:1 match).
+    by_name:   UPPER(table_name) -> [warehouse Dataset URN, ...] (collision-aware).
+    """
+
+    by_url_id: Dict[str, str]
+    by_name: Dict[str, List[str]]
+
+
+@dataclass
 class _CustomSqlRegistration:
     """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
 
@@ -2821,14 +2833,16 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
     def _build_workbook_warehouse_table_index(
         self, workbook: Workbook
-    ) -> Dict[str, List[str]]:
-        """Build {uppercase_table_name: [warehouse_dataset_urn, ...]} for one
-        workbook from /v2/workbooks/{id}/lineage type=table entries.
+    ) -> _WorkbookWarehouseIndex:
+        """Build a dual lookup index from /v2/workbooks/{id}/lineage type=table entries.
 
-        Key shape matches _build_element_warehouse_table_index; merged with the
+        Returns a _WorkbookWarehouseIndex with:
+          by_url_id: urlId -> warehouse Dataset URN (confident 1:1 match)
+          by_name:   UPPER(table_name) -> [URN, ...] (collision-aware name fallback)
+
+        by_name key shape matches _build_element_warehouse_table_index; merged with the
         per-element index in _gen_elements_workunit before passing to
-        _resolve_chart_formula_upstream.  Also serves as the T4.C2 name-based
-        lookup index for WarehouseTableUpstream BFS nodes.
+        _resolve_chart_formula_upstream.
 
         Accepts both 2-segment (Connection Root/<SCHEMA>, e.g. Redshift) and
         3-segment (Connection Root/<DB>/<SCHEMA>, e.g. Snowflake) /files paths,
@@ -2839,12 +2853,13 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         DM element warehouse upstream path is guaranteed because both builders
         route through _resolve_dm_element_warehouse_upstream.
         """
-        result: Dict[str, List[str]] = {}
+        by_name: Dict[str, List[str]] = {}
+        by_url_id: Dict[str, str] = {}
         transient_map: Dict[str, _WarehouseTableRef] = {}
         entries = self.sigma_api.get_workbook_lineage(workbook.workbookId)
         if entries is None:
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
-            return result
+            return _WorkbookWarehouseIndex(by_url_id={}, by_name={})
 
         url_id_to_table_name: Dict[str, str] = {}
 
@@ -2953,9 +2968,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     table_name,
                 )
                 continue
-            result.setdefault(table_name.upper(), []).append(urn)
+            by_url_id[url_id] = urn
+            by_name.setdefault(table_name.upper(), []).append(urn)
 
-        return result
+        return _WorkbookWarehouseIndex(by_url_id=by_url_id, by_name=by_name)
 
     @staticmethod
     def _merge_warehouse_table_indices(
@@ -3098,45 +3114,50 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self,
         upstream: WarehouseTableUpstream,
         element: Element,
-        wb_warehouse_table_index: Dict[str, List[str]],
+        wb_warehouse_table_index: _WorkbookWarehouseIndex,
         dataset_inputs: Dict[str, List[str]],
     ) -> None:
-        # Resolve by short table name; urlId in BFS payload diverges from
-        # /files urlId for cross-workbook / pre-existing tables.
-        name_key = upstream.name.upper()
-        candidates = sorted(wb_warehouse_table_index.get(name_key, []))
-        if not candidates:
-            self.reporter.chart_warehouse_table_name_unmatched += 1
-            logger.debug(
-                "Sigma chart BFS table %r (url_id=%s) not found in workbook "
-                "warehouse table index for chart %s; treating as unresolved.",
-                upstream.name,
-                upstream.url_id,
-                element.elementId,
-            )
-            return
-        warehouse_urn = candidates[0]  # deterministic pick: lexicographically smallest
+        # Prefer urlId-based lookup (confident 1:1 match from workbook lineage).
+        warehouse_urn = wb_warehouse_table_index.by_url_id.get(upstream.url_id)
+        if warehouse_urn is None:
+            # Fall back to name-based lookup; skip on ambiguity.
+            name_key = upstream.name.upper()
+            candidates = wb_warehouse_table_index.by_name.get(name_key, [])
+            if not candidates:
+                self.reporter.chart_warehouse_table_name_unmatched += 1
+                logger.debug(
+                    "Sigma chart BFS table %r (url_id=%s) not found in workbook "
+                    "warehouse table index for chart %s; treating as unresolved.",
+                    upstream.name,
+                    upstream.url_id,
+                    element.elementId,
+                )
+                return
+            if len(candidates) > 1:
+                self.reporter.chart_warehouse_table_name_ambiguous += 1
+                logger.debug(
+                    "Sigma chart BFS table %r matched multiple workbook warehouse "
+                    "URNs (%s) and url_id %r not in by_url_id index; skipping to "
+                    "avoid a wrong edge.",
+                    upstream.name,
+                    candidates,
+                    upstream.url_id,
+                )
+                return
+            warehouse_urn = candidates[0]
         if warehouse_urn not in dataset_inputs:
             # No deduped counter here (unlike element_dm_edge.deduped) — BFS
             # produces at most one type=table node per urlId per element, so
             # duplicates are not expected in practice.
             dataset_inputs[warehouse_urn] = []
             self.reporter.chart_warehouse_upstream_emitted += 1
-        if len(candidates) > 1:
-            logger.debug(
-                "Sigma chart BFS table %r matched multiple workbook warehouse "
-                "URNs (%s); picked %s deterministically.",
-                upstream.name,
-                candidates,
-                warehouse_urn,
-            )
 
     def _get_element_input_details(
         self,
         element: Element,
         workbook: Workbook,
         elementId_to_chart_urn: Dict[str, str],
-        wb_warehouse_table_index: Optional[Dict[str, List[str]]] = None,
+        wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex] = None,
     ) -> Tuple[Dict[str, List[str]], List[str]]:
         """
         Returns (dataset_inputs, chart_input_urns).
@@ -3147,8 +3168,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         chart_input_urns: sorted list of chart URNs from intra-workbook sheet upstreams.
 
         wb_warehouse_table_index=None means BFS warehouse-table resolution is
-        disabled (extract_lineage=False or pattern blocked); {} means enabled
-        but the index is empty (no type=table entries in workbook lineage).
+        disabled (extract_lineage=False or pattern blocked); an empty
+        _WorkbookWarehouseIndex means enabled but no type=table entries found.
         """
         dataset_inputs: Dict[str, List[str]] = {}
         chart_input_urns: Set[str] = set()
@@ -3387,7 +3408,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         paths: List[str],
         elementId_to_chart_urn: Dict[str, str],
         wb_element_index: Dict[str, List[Element]],
-        wb_warehouse_table_index: Optional[Dict[str, List[str]]],
+        wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex],
         customsql_extra_inputs: Optional[Dict[str, List[str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """
@@ -3492,7 +3513,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             # Merge per-element (SQL-parser) index with per-workbook index.
             # Per-element entries take precedence on key conflict — the SQL parser
             # attributes tables specifically to this chart's own data path.
-            wb_idx = wb_warehouse_table_index or {}
+            wb_idx = (
+                wb_warehouse_table_index.by_name if wb_warehouse_table_index else {}
+            )
             merged_warehouse_table_index = self._merge_warehouse_table_indices(
                 element_warehouse_table_index,
                 wb_idx,
@@ -3557,7 +3580,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Build the workbook-level warehouse-table index once per workbook.
         # Gated on extract_lineage + workbook_lineage_pattern to match the
         # analogous gates for formula fetch and element upstream resolution.
-        wb_warehouse_table_index: Optional[Dict[str, List[str]]]
+        wb_warehouse_table_index: Optional[_WorkbookWarehouseIndex]
         if self.config.extract_lineage and self.config.workbook_lineage_pattern.allowed(
             workbook.name
         ):

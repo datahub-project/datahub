@@ -26,7 +26,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     WorkbookLineageTableEntry,
     Workspace,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _WorkbookWarehouseIndex
 from datahub.ingestion.source.sigma.sigma_api import SigmaAPI
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -836,14 +836,17 @@ class TestGetElementInputDetails:
         return source
 
     def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
-        """WarehouseTableUpstream resolves to a Dataset URN via name-based lookup."""
+        """WarehouseTableUpstream resolves to a Dataset URN via urlId-based lookup."""
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
 
         warehouse_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
         )
-        wb_warehouse_table_index: Dict[str, List[str]] = {"ORDERS": [warehouse_urn]}
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={"abc123": warehouse_urn},
+            by_name={"ORDERS": [warehouse_urn]},
+        )
         upstream_sources: Dict = {
             "inode-abc123": WarehouseTableUpstream(
                 type="table", url_id="abc123", name="ORDERS"
@@ -862,11 +865,11 @@ class TestGetElementInputDetails:
         assert next(iter(dataset_inputs)) == warehouse_urn
 
     def test_warehouse_table_upstream_url_id_diverges_name_resolves(self) -> None:
-        """BFS url_id differs from workbook lineage urlId but name match resolves correctly.
+        """BFS url_id differs from workbook lineage urlId; name-based fallback resolves.
 
         This is the Fivetran case: BFS nodeId carries a urlId that diverges
         from the urlId returned by /files/{inodeId} for cross-workbook tables.
-        Name-based resolution succeeds regardless of the url_id mismatch.
+        by_url_id misses, so the resolver falls back to by_name (single candidate).
         """
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
@@ -875,12 +878,13 @@ class TestGetElementInputDetails:
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
             "db.schema.stg_fivetran_log__incremental_mar,PROD)"
         )
-        # Index uses the authoritative workbook-lineage name.
-        wb_warehouse_table_index: Dict[str, List[str]] = {
-            "STG_FIVETRAN_LOG__INCREMENTAL_MAR": [warehouse_urn]
-        }
+        # by_url_id uses the authoritative /files urlId; BFS urlId is different.
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={"54d35z7J": warehouse_urn},  # authoritative /files urlId
+            by_name={"STG_FIVETRAN_LOG__INCREMENTAL_MAR": [warehouse_urn]},
+        )
         # BFS urlId ("13asMaOM...") diverges from the /files urlId ("54d35z7J..."),
-        # but name is reliable and matches the index key.
+        # so by_url_id misses; by_name fallback resolves the single candidate.
         upstream_sources: Dict = {
             "inode-13asMaOMeP3ltn3QWZxUl7": WarehouseTableUpstream(
                 type="table",
@@ -901,11 +905,11 @@ class TestGetElementInputDetails:
     def test_warehouse_table_upstream_unresolvable_increments_counter(
         self,
     ) -> None:
-        """WarehouseTableUpstream name not in wb_warehouse_table_index bumps unknown counter."""
+        """WarehouseTableUpstream not in either index bumps unmatched counter."""
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
 
-        wb_warehouse_table_index: Dict[str, List[str]] = {}
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(by_url_id={}, by_name={})
         upstream_sources: Dict = {
             "inode-unknown": WarehouseTableUpstream(
                 type="table", url_id="unknown", name="MISSING_TABLE"
@@ -929,7 +933,10 @@ class TestGetElementInputDetails:
         warehouse_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
         )
-        wb_warehouse_table_index: Dict[str, List[str]] = {"ORDERS": [warehouse_urn]}
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={"abc1": warehouse_urn, "abc2": warehouse_urn},
+            by_name={"ORDERS": [warehouse_urn]},
+        )
         upstream_sources: Dict = {
             "inode-abc1": WarehouseTableUpstream(
                 type="table", url_id="abc1", name="ORDERS"
@@ -948,18 +955,45 @@ class TestGetElementInputDetails:
         assert len(dataset_inputs) == 1
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
-    def test_warehouse_table_upstream_collision_picks_first(self) -> None:
-        """When multiple URNs map to the same table name, lexicographically smallest is picked deterministically."""
+    def test_warehouse_table_upstream_name_ambiguous_skips(self) -> None:
+        """Multiple URNs share same table name and url_id misses by_url_id -> skip, bump ambiguous."""
         source = self._make_source_with_registry()
         workbook = self._make_workbook_obj()
 
         urn_a = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_a,PROD)"
         urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_b,PROD)"
-        # Two URNs share the same short name (collision); reverse insertion order
-        # to verify sorted() is used, not just list order.
-        wb_warehouse_table_index: Dict[str, List[str]] = {
-            "ORDERS": [urn_b, urn_a],
+        # Two tables share the same short name; BFS urlId not in by_url_id.
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={},  # BFS urlId absent -> falls back to name lookup
+            by_name={"ORDERS": [urn_a, urn_b]},
+        )
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(
+                type="table", url_id="abc123", name="ORDERS"
+            ),
         }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, _ = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        assert dataset_inputs == {}
+        assert source.reporter.chart_warehouse_upstream_emitted == 0
+        assert source.reporter.chart_warehouse_table_name_ambiguous == 1
+
+    def test_warehouse_table_upstream_url_id_wins_over_name_collision(self) -> None:
+        """urlId-based hit resolves even when by_name would be ambiguous."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        urn_a = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_a,PROD)"
+        urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_b,PROD)"
+        # by_url_id maps the BFS urlId to urn_a; by_name has two entries (ambiguous).
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={"abc123": urn_a},
+            by_name={"ORDERS": [urn_a, urn_b]},
+        )
         upstream_sources: Dict = {
             "inode-abc123": WarehouseTableUpstream(
                 type="table", url_id="abc123", name="ORDERS"
@@ -972,9 +1006,45 @@ class TestGetElementInputDetails:
         )
 
         assert len(dataset_inputs) == 1
-        assert (
-            next(iter(dataset_inputs)) == urn_a
-        )  # lexicographically smallest URN wins
+        assert next(iter(dataset_inputs)) == urn_a
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+        assert source.reporter.chart_warehouse_table_name_ambiguous == 0
+
+    def test_warehouse_table_upstream_overlap_guard(self) -> None:
+        """BFS and SQL-parser both resolve the same URN -> one dataset_inputs entry."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
+        )
+        wb_warehouse_table_index = _WorkbookWarehouseIndex(
+            by_url_id={"abc123": warehouse_urn},
+            by_name={"ORDERS": [warehouse_urn]},
+        )
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(
+                type="table", url_id="abc123", name="ORDERS"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+        # Simulate SQL parser also returning the same warehouse URN.
+        element.query = "SELECT id FROM orders"
+
+        # Patch create_lineage_sql_parsed_result to return warehouse_urn directly.
+        import unittest.mock as mock
+
+        with mock.patch(
+            "datahub.ingestion.source.sigma.sigma.create_lineage_sql_parsed_result",
+            return_value=[warehouse_urn],
+        ):
+            dataset_inputs, _ = source._get_element_input_details(
+                element, workbook, {}, wb_warehouse_table_index
+            )
+
+        # BFS and SQL parser both resolved to the same URN -> deduplicated to one entry.
+        assert len(dataset_inputs) == 1
+        assert warehouse_urn in dataset_inputs
         assert source.reporter.chart_warehouse_upstream_emitted == 1
 
     def test_warehouse_table_upstream_none_index_skips_silently(self) -> None:
@@ -2150,7 +2220,9 @@ class TestChartInputsInsertionOrder:
                     paths=[],
                     elementId_to_chart_urn={},
                     wb_element_index={},
-                    wb_warehouse_table_index={},
+                    wb_warehouse_table_index=_WorkbookWarehouseIndex(
+                        by_url_id={}, by_name={}
+                    ),
                 )
             )
 
