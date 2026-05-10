@@ -273,13 +273,7 @@ The connector extracts query usage statistics from each Lakehouse and Warehouse 
 - `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
 - `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
 
-##### Prerequisites
-
-Usage extraction reuses the SQL Analytics Endpoint connection used by [Schema Extraction](#schema-extraction). The same ODBC driver and permissions apply, plus:
-
-- `sql_endpoint.enabled` must be `true` — `queryinsights` views live on the SQL Analytics Endpoint, so the connector cannot read them otherwise. The configuration validator will reject `usage.include_usage_statistics=true` if the endpoint is not enabled.
-- The authenticated identity needs `SELECT` access on `queryinsights.exec_requests_history`. The view returns rows visible to the calling principal under Fabric's standard query-history visibility rules.
-- Microsoft Fabric retains query insights data for **30 days**. Older history cannot be backfilled, so configure `usage.start_time` accordingly.
+See [Query Usage Statistics](#query-usage-statistics) under Prerequisites for the required workspace role (Contributor or higher) and ODBC setup.
 
 ##### Configuration
 
