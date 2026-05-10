@@ -254,14 +254,10 @@ class StaleEntityRemovalHandler(
         cur_checkpoint_state: GenericCheckpointState,
     ) -> Dict[str, "EntityTypeDeletionSummary"]:
         previous_counts = Counter(
-            entity_type
-            for urn in last_checkpoint_state._urns_set
-            if (entity_type := guess_entity_type(urn))
+            guess_entity_type(urn) for urn in last_checkpoint_state.urns
         )
         current_counts = Counter(
-            entity_type
-            for urn in cur_checkpoint_state._urns_set
-            if (entity_type := guess_entity_type(urn))
+            guess_entity_type(urn) for urn in cur_checkpoint_state.urns
         )
 
         return {
@@ -357,9 +353,6 @@ stateful_ingestion:\
                 self.add_entity_to_state("", urn)
             return
 
-        report = self.source.get_report()
-        assert isinstance(report, StaleEntityRemovalSourceReport)
-
         # Everything looks good, emit the soft-deletion workunits
         for urn in last_checkpoint_state.get_urns_not_in(
             type="*", other_checkpoint_state=cur_checkpoint_state
@@ -378,9 +371,7 @@ stateful_ingestion:\
                     f"Not soft-deleting entity {urn} since it is in urns_to_skip"
                 )
                 continue
-            # Track actual soft-deletion per entity type
-            if entity_type in report.entity_type_deletion_summary:
-                report.entity_type_deletion_summary[entity_type].soft_deleted_count += 1
+            report.entity_type_deletion_summary[entity_type].soft_deleted_count += 1
             yield self._create_soft_delete_workunit(urn)
 
     def add_entity_to_state(self, type: str, urn: str) -> None:
