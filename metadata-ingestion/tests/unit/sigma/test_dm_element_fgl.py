@@ -863,3 +863,43 @@ def test_orphan_branch_not_rescued_without_cross_dm_sources() -> None:
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
+    """Regression: source_ids containing only bare intra-DM element IDs (no '/')
+    must not trigger a cross-DM probe and must not inflate cross_dm_deferred.
+
+    Covers both Case A (orphan-drop branch) and Case B (self-named strip branch):
+    here a sibling shares the name but isn't a lineage upstream, exercising the
+    orphan-drop path where the guard matters most.
+    """
+    source = _source()
+    sibling_urn = _urn("sibling")
+    consumer_urn = _urn("consumer")
+
+    consumer = _element(
+        "consumer-eid",
+        "Shared",
+        [_column("c1", "x", "[Shared/x]")],
+        # Intra-DM source IDs only — no "/" separator, not cross-DM shaped.
+        source_ids=["some-intra-dm-eid"],
+    )
+    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        entity_level_upstream_urns=set(),
+        upstream_elements=[sibling],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0

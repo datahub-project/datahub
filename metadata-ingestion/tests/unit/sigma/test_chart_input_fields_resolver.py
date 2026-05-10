@@ -80,6 +80,9 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_case_mismatch = 0
     source.reporter.chart_input_fields_warehouse_column_bridged = 0
     source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
+    source.reporter.chart_input_fields_multi_ref_extra = 0
+    source.reporter.chart_input_fields_warehouse_qualified = 0
+    source.reporter.chart_input_fields_warehouse_qualified_via_workbook_index = 0
     # T4.C: sigma_api is needed by _gen_pages_workunit →
     # _build_workbook_warehouse_table_index → get_workbook_lineage.
     source.sigma_api = MagicMock()
@@ -616,6 +619,86 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 1
         assert len(input_fields_aspects[0].fields) == 1
         assert len(all_input_fields) == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 0
+
+    def test_multi_ref_distinct_upstreams_emit_two_input_fields(self) -> None:
+        """[ORDERS/col] + [CUSTOMERS/id]: two distinct refs → 2 fields, multi_ref_extra=1."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        orders_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        customers_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.CUSTOMERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Multi Chart",
+            {"Calc": "[ORDERS/col] + [CUSTOMERS/id]"},
+        )
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({orders_urn: [], customers_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        assert len(input_fields_aspects[0].fields) == 2
+        assert src.reporter.chart_input_fields_resolved == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 1
+
+    def test_multi_ref_duplicate_upstream_emits_one_input_field(self) -> None:
+        """[ORDERS/col] + [ORDERS/col]: same ref twice → 1 field, multi_ref_extra=0."""
+        src = _make_source()
+        src.dataset_upstream_urn_mapping = {}
+        orders_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
+        )
+        chart = _make_element_with_formula(
+            "chart-1",
+            "Dup Ref Chart",
+            {"Calc": "[ORDERS/col] + [ORDERS/col]"},
+        )
+        src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({orders_urn: []}, [])
+        )
+
+        workunits = list(
+            src._gen_elements_workunit(
+                elements=[chart],
+                workbook=_make_workbook_with_elements([]),
+                all_input_fields=[],
+                paths=[],
+                elementId_to_chart_urn={},
+                wb_element_index={},
+                wb_warehouse_table_index=None,
+            )
+        )
+
+        input_fields_aspects = [
+            aspect
+            for wu in workunits
+            if (aspect := wu.get_aspect_of_type(InputFieldsClass)) is not None
+        ]
+        assert len(input_fields_aspects) == 1
+        assert len(input_fields_aspects[0].fields) == 1
+        assert src.reporter.chart_input_fields_resolved == 1
+        assert src.reporter.chart_input_fields_multi_ref_extra == 0
 
     def test_dashboard_input_fields_dedup_across_charts(self) -> None:
         src = _make_source()

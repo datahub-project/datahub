@@ -2059,10 +2059,21 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         after a cross-DM source element rather than its warehouse table). Returns
         True when a cross-DM FGL is resolved and appended; False otherwise.
 
-        The element.source_ids guard prevents false-positive data_model_element_fgl_cross_dm_deferred
-        increments for warehouse-only elements whose source_ids list is always empty.
+        The source_ids guard short-circuits for elements that have no cross-DM
+        source entries (format <dm-url-id>/<suffix>). This prevents a false
+        data_model_element_fgl_cross_dm_deferred increment when source_ids
+        contains only bare intra-DM element IDs or is empty entirely.
+
+        Note: when this returns False because _resolve_cross_dm_fgl deferred,
+        both data_model_element_fgl_cross_dm_deferred (from the callee) and
+        data_model_element_fgl_warehouse_passthrough_deferred (from the caller's
+        fall-through) are incremented for the same ref. This is intentional —
+        the two counters measure independent dimensions (cross-DM attempt outcome
+        vs. warehouse-passthrough gate), and operators should not sum them.
         """
-        if not element.source_ids:
+        if not any(
+            "/" in sid and not sid.startswith("inode-") for sid in element.source_ids
+        ):
             return False
         cross_dm_fgl = self._resolve_cross_dm_fgl(
             ref=ref,
@@ -2073,8 +2084,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         )
         if cross_dm_fgl is None:
             return False
-        assert cross_dm_fgl.upstreams
-        pair = (downstream_field, cross_dm_fgl.upstreams[0])
+        # _resolve_cross_dm_fgl always returns a single-upstream FGL or None.
+        pair = (downstream_field, cross_dm_fgl.upstreams[0])  # type: ignore[index]
         if pair not in emitted_pairs:
             emitted_pairs.add(pair)
             cross_dm_fgls.append(cross_dm_fgl)
