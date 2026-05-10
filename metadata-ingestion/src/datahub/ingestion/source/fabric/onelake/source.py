@@ -49,7 +49,7 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.constants import (
-    DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE,
+    FABRIC_SQL_DEFAULT_SCHEMA,
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -222,6 +222,9 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
         )
 
+        # Resolved at the start of get_workunits_internal(); see comment there.
+        self._skip_usage_run: bool = False
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
         config = FabricOneLakeSourceConfig.model_validate(config_dict)
@@ -253,6 +256,12 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Generate workunits for all Fabric OneLake resources."""
         logger.info("Starting Fabric OneLake ingestion")
+
+        # Resolve the skip-run decision once per ingestion.
+        self._skip_usage_run = (
+            self.config.usage.include_usage_statistics
+            and self.usage_extractor.should_skip_run()
+        )
 
         try:
             # List all workspaces
@@ -292,13 +301,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 exc=e,
             )
 
-        # aggregator can resolve cross-item view→table references. When
-        # usage extraction is on, this same drain emits datasetUsageStatistics
-        # and operation aspects from the parsed queryinsights rows.
+        # Drain the aggregator. Emits view lineage and (when usage is enabled)
+        # datasetUsageStatistics / operation aspects. Deferred to the end so
+        # cross-item view→table references resolve.
         aggregator_drain_succeeded = False
-        # Emit lineage / view-parsing workunits accumulated by the
-        # aggregator across all workspaces. Deferred to the end so the
-        # aggregator can resolve cross-item view→table references.
         emitted = 0
         try:
             for mcp in self.aggregator.gen_metadata():
@@ -529,9 +535,14 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         """
         if not self.config.usage.include_usage_statistics:
             return
-        if schema_client is None:
+        if self._skip_usage_run:
             return
-        if self.usage_extractor.should_skip_run():
+        if schema_client is None:
+            self.report.report_usage_query_skipped("no_sql_endpoint_for_item")
+            logger.info(
+                f"Skipping usage extraction for item {item_id} "
+                f"({item_display_name}): SQL Analytics Endpoint unavailable."
+            )
             return
         self.usage_extractor.extract(
             workspace_id=workspace_id,
@@ -565,7 +576,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 normalized_schema = (
                     table.schema_name
                     if table.schema_name
-                    else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+                    else FABRIC_SQL_DEFAULT_SCHEMA
                 )
 
                 # Filter tables
@@ -634,7 +645,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         Args:
             schema_map: Dictionary mapping (schema_name, table_name) to list of columns
-            schema_name: Schema name (always non-empty, defaults to DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE for schemas-disabled lakehouses)
+            schema_name: Schema name (always non-empty, defaults to FABRIC_SQL_DEFAULT_SCHEMA for schemas-disabled lakehouses)
             table_name: Table name
 
         Returns:
@@ -867,9 +878,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
         for view in views:
             normalized_schema = (
-                view.schema_name
-                if view.schema_name
-                else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+                view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
             )
 
             view_full_name = f"{normalized_schema}.{view.name}"

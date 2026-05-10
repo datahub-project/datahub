@@ -566,18 +566,12 @@ class SqlAnalyticsEndpointClient:
     ) -> Iterator[FabricQueryInsightsRow]:
         """Stream queryinsights.exec_requests_history rows for a single item.
 
-        Reuses the same engine cache (`_get_engine`) as schema and view extraction so
-        the SQLAlchemy connection pool is shared across all read paths for an item.
-
-        Filters `start_time` server-side so we never hold more than `batch_size` rows
-        in memory regardless of workspace size. The view itself is scoped to the
-        connected lakehouse / warehouse — cross-database queries appear in the
-        connecting context's view, so per-item querying is the correct unit.
+        Note: pyodbc / ODBC 18 buffer the full result set client-side, so peak
+        memory scales with total rows in the window, not `batch_size`. Narrow
+        the window if needed.
 
         Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
         """
-        engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
-
         sql = """
             SELECT
                 start_time,
@@ -601,28 +595,48 @@ class SqlAnalyticsEndpointClient:
         # coercion, which has varied across driver versions.
         sql_start = start_time.astimezone(timezone.utc).replace(tzinfo=None)
         sql_end = end_time.astimezone(timezone.utc).replace(tzinfo=None)
-        with engine.connect() as connection:
-            cursor = connection.execute(
-                query, {"start_time": sql_start, "end_time": sql_end}
+
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+            with engine.connect() as connection:
+                cursor = connection.execute(
+                    query, {"start_time": sql_start, "end_time": sql_end}
+                )
+                while True:
+                    batch = cursor.fetchmany(batch_size)
+                    if not batch:
+                        break
+                    for row in batch:
+                        row_mapping = row._mapping
+                        # query_hash surfaces from pyodbc as binary(8); coerce to str at the
+                        # boundary so consumers don't have to think about its wire type.
+                        raw_hash = row_mapping["query_hash"]
+                        yield FabricQueryInsightsRow(
+                            start_time=row_mapping["start_time"],
+                            statement_type=row_mapping["statement_type"],
+                            login_name=row_mapping["login_name"],
+                            row_count=row_mapping["row_count"],
+                            status=row_mapping["status"],
+                            query_hash=str(raw_hash) if raw_hash is not None else None,
+                            command=row_mapping["command"],
+                        )
+        except SQLAlchemyError as e:
+            error_msg = str(e)
+            logger.warning(
+                f"Failed to stream queryinsights.exec_requests_history "
+                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
             )
-            while True:
-                batch = cursor.fetchmany(batch_size)
-                if not batch:
-                    break
-                for row in batch:
-                    row_mapping = row._mapping
-                    # query_hash surfaces from pyodbc as binary(8); coerce to str at the
-                    # boundary so consumers don't have to think about its wire type.
-                    raw_hash = row_mapping["query_hash"]
-                    yield FabricQueryInsightsRow(
-                        start_time=row_mapping["start_time"],
-                        statement_type=row_mapping["statement_type"],
-                        login_name=row_mapping["login_name"],
-                        row_count=row_mapping["row_count"],
-                        status=row_mapping["status"],
-                        query_hash=str(raw_hash) if raw_hash is not None else None,
-                        command=row_mapping["command"],
-                    )
+            if self.report:
+                self.report.failures += 1
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error streaming usage history: {e}",
+                exc_info=True,
+            )
+            if self.report:
+                self.report.failures += 1
+            raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.

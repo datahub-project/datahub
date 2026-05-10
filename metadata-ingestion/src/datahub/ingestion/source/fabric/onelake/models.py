@@ -117,10 +117,10 @@ class FabricQueryInsightsRow:
     Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
     """
 
-    start_time: Optional[datetime]
-    statement_type: Optional[str]
+    start_time: datetime
+    statement_type: str
+    status: str
+    command: str
     login_name: Optional[str]
     row_count: Optional[int]
-    status: Optional[str]
     query_hash: Optional[str]
-    command: Optional[str]

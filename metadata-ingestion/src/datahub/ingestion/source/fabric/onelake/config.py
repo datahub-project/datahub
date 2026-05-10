@@ -239,8 +239,8 @@ class FabricOneLakeSourceConfig(
         default=FabricUsageConfig(),
         description=(
             "Usage tracking configuration. Reads `queryinsights.exec_requests_history` "
-            "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires "
-            "`extract_schema.enabled=True` and a configured `sql_endpoint`."
+            "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires a "
+            "configured and enabled `sql_endpoint`."
         ),
     )
 
@@ -248,37 +248,34 @@ class FabricOneLakeSourceConfig(
     def validate_sql_endpoint_dependencies(self):
         """sql_endpoint must be configured when any feature that uses it is enabled.
 
-        Both view discovery (INFORMATION_SCHEMA.VIEWS) and column-level schema
-        extraction (INFORMATION_SCHEMA.COLUMNS) go through the SQL Analytics
-        Endpoint, but they are otherwise independent — a user may enable either
-        one without the other.
+        View discovery (INFORMATION_SCHEMA.VIEWS), column-level schema extraction
+        (INFORMATION_SCHEMA.COLUMNS), and usage statistics
+        (queryinsights.exec_requests_history) all go through the SQL Analytics
+        Endpoint but are otherwise independent.
         """
-        needs_sql_endpoint = self.extract_views or (
+        sql_endpoint_enabled = (
+            self.sql_endpoint is not None and self.sql_endpoint.enabled
+        )
+        if sql_endpoint_enabled:
+            return self
+
+        requiring_features = []
+        if self.extract_views:
+            requiring_features.append("extract_views=True")
+        if (
             self.extract_schema.enabled
             and self.extract_schema.method == "sql_analytics_endpoint"
-        )
-        if needs_sql_endpoint and (
-            self.sql_endpoint is None or not self.sql_endpoint.enabled
         ):
-            raise ValueError(
-                "sql_endpoint.enabled must be True when extract_views=True or "
-                "when extract_schema.enabled=True with "
-                "method='sql_analytics_endpoint'. "
-                "Both features query the SQL Analytics Endpoint."
+            requiring_features.append(
+                "extract_schema with method='sql_analytics_endpoint'"
             )
-        return self
+        if self.usage.include_usage_statistics:
+            requiring_features.append("usage.include_usage_statistics=True")
 
-    @model_validator(mode="after")
-    def validate_usage_extraction_prerequisites(self):
-        """Usage requires the SQL Analytics Endpoint — queryinsights lives there."""
-        if self.usage.include_usage_statistics and (
-            self.sql_endpoint is None or not self.sql_endpoint.enabled
-        ):
+        if requiring_features:
             raise ValueError(
-                "usage.include_usage_statistics=True requires a configured and "
-                "enabled sql_endpoint, because usage is read from "
-                "queryinsights.exec_requests_history on the SQL Analytics Endpoint. "
-                "Either set usage.include_usage_statistics=False to disable usage "
-                "extraction, or configure sql_endpoint with enabled=True."
+                f"sql_endpoint must be configured with enabled=True when any of "
+                f"the following are set: {', '.join(requiring_features)}. "
+                f"These features all query the SQL Analytics Endpoint."
             )
         return self

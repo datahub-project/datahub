@@ -16,10 +16,11 @@ from __future__ import annotations
 import logging
 import time
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from datahub.emitter.mce_builder import make_user_urn
 from datahub.ingestion.source.fabric.onelake.config import FabricUsageConfig
+from datahub.ingestion.source.fabric.onelake.constants import FABRIC_SQL_DEFAULT_SCHEMA
 from datahub.ingestion.source.fabric.onelake.models import FabricQueryInsightsRow
 from datahub.ingestion.source.fabric.onelake.report import FabricOneLakeSourceReport
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -40,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class FabricUsageExtractor:
-    """Streams queryinsights rows for a single item into the shared aggregator."""
+    """Streams queryinsights rows into the shared SQL parsing aggregator."""
 
     def __init__(
         self,
@@ -146,7 +147,7 @@ class FabricUsageExtractor:
         item_id: str,
         item_display_name: str,
     ) -> None:
-        if not row.command or not row.command.strip():
+        if not row.command.strip():
             self.report.report_usage_query_skipped("empty_command")
             return
 
@@ -160,16 +161,15 @@ class FabricUsageExtractor:
             return
 
         timestamp = self._normalize_timestamp(row.start_time)
-        if timestamp is None:
-            self.report.report_usage_query_skipped("missing_start_time")
-            return
 
         # The view-lineage path uses default_db=f"{workspace_id}.{item_id}" so the
         # synthetic SQL parser identifier matches the URN we generate for tables.
         # Observed queries must use the same identifier so the parser resolves
         # `<schema>.<table>` references to the same dataset URNs.
         default_db = f"{workspace_id}.{item_id}"
-        default_schema: Optional[str] = None
+        # Unqualified table refs (e.g. `SELECT * FROM customers`) resolve to the
+        # T-SQL default schema on Fabric Warehouse / Lakehouse SQL endpoints.
+        default_schema = FABRIC_SQL_DEFAULT_SCHEMA
 
         user = (
             CorpUserUrn.from_string(make_user_urn(login_name)) if login_name else None
@@ -196,17 +196,13 @@ class FabricUsageExtractor:
         self.report.num_usage_queries_fetched += 1
 
     @staticmethod
-    def _normalize_timestamp(value: Any) -> Optional[datetime]:
+    def _normalize_timestamp(value: datetime) -> datetime:
         """Coerce queryinsights timestamps to timezone-aware UTC.
 
         `start_time` from queryinsights is `datetime2` and surfaces as a naive
         datetime via pyodbc. The aggregator expects timezone-aware timestamps
         for bucket boundary comparisons against the (UTC-aware) usage config.
         """
-        if value is None:
-            return None
-        if isinstance(value, datetime):
-            if value.tzinfo is None:
-                return value.replace(tzinfo=timezone.utc)
-            return value.astimezone(timezone.utc)
-        return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)

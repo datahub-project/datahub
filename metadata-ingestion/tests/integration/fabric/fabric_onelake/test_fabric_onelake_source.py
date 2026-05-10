@@ -376,6 +376,7 @@ def test_fabric_onelake_warehouse_with_views(pytestconfig: pytest.Config) -> Non
     finally:
         Path(output_file).unlink(missing_ok=True)
 
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_fabric_onelake_with_usage_statistics(pytestconfig: pytest.Config) -> None:
@@ -449,8 +450,13 @@ def test_fabric_onelake_with_usage_statistics(pytestconfig: pytest.Config) -> No
             ),
             patch.object(
                 FabricOneLakeSource,
-                "_create_schema_client_and_map",
-                return_value=(mock_schema_client, schema_map),
+                "_create_schema_client",
+                return_value=mock_schema_client,
+            ),
+            patch.object(
+                FabricOneLakeSource,
+                "_fetch_schema_map",
+                return_value=schema_map,
             ),
         ):
             pipeline = Pipeline.create(
