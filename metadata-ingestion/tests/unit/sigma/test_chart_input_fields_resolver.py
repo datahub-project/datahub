@@ -542,7 +542,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
-                wb_warehouse_table_index={},
+                wb_warehouse_table_index=None,
             )
         )
 
@@ -581,7 +581,7 @@ class TestGenElementsWorkunitInputFields:
                 paths=[],
                 elementId_to_chart_urn={},
                 wb_element_index={},
-                wb_warehouse_table_index={},
+                wb_warehouse_table_index=None,
             )
         )
 
