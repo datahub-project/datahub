@@ -450,7 +450,6 @@ class SigmaAPI:
                 )
                 return
             upstream_sources[source_node_id] = WarehouseTableUpstream(
-                type="table",
                 url_id=url_id,
                 name=name,
             )

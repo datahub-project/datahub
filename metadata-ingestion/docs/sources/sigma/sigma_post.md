@@ -106,11 +106,11 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 `connection_to_platform_map` — see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
-| Counter                              | Meaning                                                                                       |
-| ------------------------------------ | --------------------------------------------------------------------------------------------- |
-| `chart_warehouse_upstream_emitted`   | Entity-level chart→warehouse edges emitted (post-dedup)                                       |
-| `chart_warehouse_unknown_connection` | BFS table node's name not found in the workbook-level warehouse table index; edge not emitted |
-| `chart_warehouse_table_node_skipped` | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                |
+| Counter                                | Meaning                                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                       |
+| `chart_warehouse_table_name_unmatched` | BFS table node's name not found in the workbook-level warehouse table index; edge not emitted |
+| `chart_warehouse_table_node_skipped`   | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                |
 
 #### Workbook chart inputFields warehouse column-level qualification
 

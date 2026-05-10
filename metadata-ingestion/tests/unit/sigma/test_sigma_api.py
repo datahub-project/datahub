@@ -992,7 +992,7 @@ class TestGetElementInputDetails:
         dataset_inputs, chart_urns = source._get_element_input_details(
             element,
             workbook,
-            {},  # wb_warehouse_table_index defaults to None
+            {},  # elementId_to_chart_urn; wb_warehouse_table_index not passed -> defaults to None
         )
 
         assert dataset_inputs == {}

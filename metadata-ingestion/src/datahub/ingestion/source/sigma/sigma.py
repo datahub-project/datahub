@@ -2834,10 +2834,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         3-segment (Connection Root/<DB>/<SCHEMA>, e.g. Snowflake) /files paths,
         consistent with _build_dm_warehouse_url_id_map.
 
-        Reuses _files_cache, _files_path_unparseable_seen, and
-        _resolve_dm_element_warehouse_upstream verbatim — URN identity with the
-        DM element warehouse upstream path is guaranteed because the same
-        construction path is used.
+        Mirrors _build_dm_warehouse_url_id_map's path-handling (2-vs-3 segment
+        logic, default_database fallback, dedup sets) — URN identity with the
+        DM element warehouse upstream path is guaranteed because both builders
+        route through _resolve_dm_element_warehouse_upstream.
         """
         result: Dict[str, List[str]] = {}
         transient_map: Dict[str, _WarehouseTableRef] = {}
@@ -3117,6 +3117,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             return
         warehouse_urn = candidates[0]  # deterministic pick: lexicographically smallest
         if warehouse_urn not in dataset_inputs:
+            # No deduped counter here (unlike element_dm_edge.deduped) — BFS
+            # produces at most one type=table node per urlId per element, so
+            # duplicates are not expected in practice.
             dataset_inputs[warehouse_urn] = []
             self.reporter.chart_warehouse_upstream_emitted += 1
         if len(candidates) > 1:
@@ -3142,6 +3145,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             SQL-parsed warehouse URNs (non-empty only for Sigma Dataset
             upstreams matched against the SQL query; empty list otherwise).
         chart_input_urns: sorted list of chart URNs from intra-workbook sheet upstreams.
+
+        wb_warehouse_table_index=None means BFS warehouse-table resolution is
+        disabled (extract_lineage=False or pattern blocked); {} means enabled
+        but the index is empty (no type=table entries in workbook lineage).
         """
         dataset_inputs: Dict[str, List[str]] = {}
         chart_input_urns: Set[str] = set()
@@ -3260,8 +3267,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         # Unmatched SQL-parsed warehouse tables become direct dataset inputs.
+        # Guard against overlap with BFS-resolved warehouse URNs (same physical
+        # table reachable via both paths).
         for in_table_urn in sql_parser_in_tables:
-            dataset_inputs[in_table_urn] = []
+            if in_table_urn not in dataset_inputs:
+                dataset_inputs[in_table_urn] = []
 
         return dataset_inputs, sorted(chart_input_urns)
 

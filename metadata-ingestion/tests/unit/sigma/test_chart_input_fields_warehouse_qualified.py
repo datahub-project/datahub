@@ -22,7 +22,10 @@ from unittest.mock import patch
 
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.sigma.config import SigmaSourceConfig
+from datahub.ingestion.source.sigma.config import (
+    SigmaSourceConfig,
+    WarehouseConnectionConfig,
+)
 from datahub.ingestion.source.sigma.connection_registry import (
     SigmaConnectionRecord,
     SigmaConnectionRegistry,
@@ -579,3 +582,130 @@ class TestUrnIdentityWarehouseIndex:
         wb_urn = wb_urns[0] if wb_urns else None
         assert wb_urn is not None
         assert dm_urn == wb_urn
+
+
+# ---------------------------------------------------------------------------
+# Tests: 2-segment /files path + default_database resolution (workbook builder)
+# Mirror of TestTwoSegmentPathDefaultDatabase in test_dm_element_warehouse_upstream.py
+# ---------------------------------------------------------------------------
+
+_REDSHIFT_CONN_ID = "conn-rs-wb-001"
+_TWO_SEG_FILES_WB: Dict[str, Any] = {
+    "id": "inode-rs-wb-001",
+    "urlId": "rsWbUrlId001",
+    "name": "orders",
+    "type": "table",
+    "path": "Connection Root/public",
+}
+_TWO_SEG_WB_LINEAGE_ENTRY = WorkbookLineageTableEntry(
+    type="table",
+    name="orders",
+    connectionId=_REDSHIFT_CONN_ID,
+    inodeId="inode-rs-wb-001",
+)
+
+
+def _make_source_with_workbook_override(
+    override_default_db: Optional[str] = None,
+    registry_default_db: Optional[str] = None,
+) -> SigmaSource:
+    conn_override = (
+        WarehouseConnectionConfig.model_validate(
+            {"default_database": override_default_db}
+        )
+        if override_default_db is not None
+        else None
+    )
+    config = SigmaSourceConfig.model_validate(
+        {"client_id": "test", "client_secret": "test"}
+    )
+    if conn_override:
+        config.connection_to_platform_map = {_REDSHIFT_CONN_ID: conn_override}
+    ctx = PipelineContext(run_id="sigma-wb-2seg-unit")
+    with (
+        patch.object(SigmaAPI, "_generate_token"),
+        patch.object(
+            SigmaSource,
+            "_build_connection_registry",
+            return_value=SigmaConnectionRegistry(by_id={}),
+        ),
+    ):
+        source = SigmaSource(config=config, ctx=ctx)
+    record = SigmaConnectionRecord(
+        connection_id=_REDSHIFT_CONN_ID,
+        name="Prod Redshift",
+        sigma_type="redshift",
+        datahub_platform="redshift",
+        host="cluster.redshift.amazonaws.com",
+        default_database=registry_default_db,
+        is_mappable=True,
+    )
+    source.connection_registry = SigmaConnectionRegistry(
+        by_id={_REDSHIFT_CONN_ID: record}
+    )
+    return source
+
+
+class TestWorkbookTwoSegmentPathDefaultDatabase:
+    def _build_index(self, source: SigmaSource) -> Dict[str, List[str]]:
+        with (
+            patch.object(
+                source.sigma_api,
+                "get_workbook_lineage",
+                return_value=[_TWO_SEG_WB_LINEAGE_ENTRY],
+            ),
+            patch.object(
+                source.sigma_api,
+                "get_file_metadata",
+                return_value=_TWO_SEG_FILES_WB,
+            ),
+        ):
+            return source._build_workbook_warehouse_table_index(_make_workbook())
+
+    def test_override_default_database_wins(self):
+        source = _make_source_with_workbook_override(
+            override_default_db="staging", registry_default_db="dev"
+        )
+        index = self._build_index(source)
+        urns = index.get("ORDERS", [])
+        assert len(urns) == 1
+        assert "staging" in urns[0]
+
+    def test_registry_default_database_fallback(self):
+        source = _make_source_with_workbook_override(registry_default_db="dev")
+        index = self._build_index(source)
+        urns = index.get("ORDERS", [])
+        assert len(urns) == 1
+        assert "dev" in urns[0]
+
+    def test_empty_db_emits_warning(self):
+        source = _make_source_with_workbook_override()  # no default_database anywhere
+        index = self._build_index(source)
+        urns = index.get("ORDERS", [])
+        assert len(urns) == 1
+        assert any(
+            "default_database" in (w.title or "") for w in source.reporter.warnings
+        )
+
+    def test_empty_db_warning_deduped_across_workbooks(self):
+        source = _make_source_with_workbook_override()
+        wb1 = _make_workbook("wb-rs-001")
+        wb2 = _make_workbook("wb-rs-002")
+        with (
+            patch.object(
+                source.sigma_api,
+                "get_workbook_lineage",
+                return_value=[_TWO_SEG_WB_LINEAGE_ENTRY],
+            ),
+            patch.object(
+                source.sigma_api,
+                "get_file_metadata",
+                return_value=_TWO_SEG_FILES_WB,
+            ),
+        ):
+            source._build_workbook_warehouse_table_index(wb1)
+            source._build_workbook_warehouse_table_index(wb2)
+        warnings = [
+            w for w in source.reporter.warnings if "default_database" in (w.title or "")
+        ]
+        assert len(warnings) == 1
