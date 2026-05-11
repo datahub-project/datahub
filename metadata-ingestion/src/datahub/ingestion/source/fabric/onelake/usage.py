@@ -115,6 +115,11 @@ class FabricUsageExtractor:
         item_key = f"{workspace_id}/{item_id}"
         started_at = time.monotonic()
 
+        logger.info(
+            f"Starting usage extraction for item='{item_display_name}' "
+            f"workspace_id={workspace_id} item_id={item_id}"
+        )
+
         try:
             row_iter = schema_client.stream_usage_history(
                 workspace_id=workspace_id,
@@ -125,7 +130,12 @@ class FabricUsageExtractor:
             )
             for row in row_iter:
                 self._handle_row(row, workspace_id, item_id, item_display_name)
+            logger.info(f"Finished usage extraction for item='{item_display_name}'")
         except Exception as e:
+            logger.warning(
+                f"Failed usage extraction for item='{item_display_name}' "
+                f"workspace_id={workspace_id} item_id={item_id}: {e}"
+            )
             self.report.report_warning(
                 title="Failed to Extract Usage",
                 message=(

@@ -263,6 +263,19 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             and self.usage_extractor.should_skip_run()
         )
 
+        if self.config.usage.include_usage_statistics:
+            if self._skip_usage_run:
+                logger.info(
+                    "Usage extraction skipped: configured window already covered "
+                    "by a previous successful run."
+                )
+            else:
+                logger.info(
+                    f"Usage extraction enabled, window="
+                    f"[{self.usage_extractor.start_time.isoformat()} -> "
+                    f"{self.usage_extractor.end_time.isoformat()}]"
+                )
+
         try:
             # List all workspaces
             workspaces = list(self.client.list_workspaces())
@@ -304,6 +317,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Drain the aggregator. Emits view lineage and (when usage is enabled)
         # datasetUsageStatistics / operation aspects. Deferred to the end so
         # cross-item view→table references resolve.
+        logger.info(
+            "Draining SQL aggregator (view lineage"
+            f"{', usage' if self.config.usage.include_usage_statistics and not self._skip_usage_run else ''})"
+        )
         aggregator_drain_succeeded = False
         emitted = 0
         try:
@@ -311,6 +328,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 yield mcp.as_workunit()
                 emitted += 1
             aggregator_drain_succeeded = True
+            logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
         except Exception as e:
             self.report.report_warning(
                 title="Failed to Generate Lineage / Usage",
@@ -724,10 +742,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_type: Literal["Lakehouse", "Warehouse"],
         item_display_name: str,
     ) -> Optional["SchemaExtractionClient"]:
-        """Create a SQL Analytics Endpoint client, shared by column-schema and
-        view extraction. Returns None on failure; both features skip this item.
+        """Create a SQL Analytics Endpoint client, shared by column-schema,
+        view extraction, and usage statistics. Returns None on failure; all
+        three features skip this item.
         """
-        needs_endpoint = self.config.extract_schema.enabled or self.config.extract_views
+        needs_endpoint = (
+            self.config.extract_schema.enabled
+            or self.config.extract_views
+            or self.config.usage.include_usage_statistics
+        )
         if not (needs_endpoint and self.config.sql_endpoint):
             return None
 
@@ -753,16 +776,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             error_msg = str(e)
             logger.warning(
                 f"Failed to initialize SQL Analytics Endpoint for item {item_id}: "
-                f"{error_msg}. Both column-schema and view extraction will be "
-                "skipped for this item.",
+                f"{error_msg}. If enabled, column-schema, view extraction, and "
+                "usage statistics will be skipped for this item.",
                 exc_info=True,
             )
             self.report.report_warning(
                 title="SQL Analytics Endpoint Initialization Failed",
                 message=(
                     "Failed to initialize the SQL Analytics Endpoint client. "
-                    "Both column-schema and view extraction will be skipped for "
-                    "this item."
+                    "If enabled, column-schema, view extraction, and usage "
+                    "statistics will be skipped for this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
