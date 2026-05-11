@@ -58,6 +58,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleControl;
 import com.linkedin.metadata.dao.throttle.ThrottleEvent;
 import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
+import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.EbeanSystemAspect;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
@@ -588,7 +589,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames,
       boolean alwaysIncludeKeyAspect) {
-
     return getEnvelopedVersionedAspects(
         opContext,
         urns.stream()
@@ -1068,7 +1068,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           metricUtils.increment(
                               EntityServiceImpl.class, "batch_with_duplicate", 1));
             }
-
+            EbeanAspectDao.setCurrentOperationContext(opContext);
             IngestAspectsResult result =
                 aspectDao
                     .runInTransactionWithRetry(
@@ -2894,7 +2894,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             : aspectName,
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
-    final Map<EntityAspectIdentifier, EntityAspect> aspects = aspectDao.batchGet(dbKeys, forUpdate);
+    final Map<EntityAspectIdentifier, EntityAspect> aspects =
+        aspectDao.batchGet(opContext, dbKeys, forUpdate);
     final Set<String> existingUrnStrings =
         aspects.values().stream()
             .filter(Objects::nonNull)
@@ -2963,7 +2964,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .runInTransactionWithRetry(
                 (txContext) -> {
                   Integer additionalRowsDeleted = 0;
-
                   // 1. Fetch the latest existing version of the aspect.
                   SystemAspect latest = null;
                   try {
@@ -2994,7 +2994,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                   // 4. Fetch all preceding aspects, that match
                   List<SystemAspect> aspectsToDelete = new ArrayList<>();
-                  Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
+                  Pair<Long, Long> versionRange =
+                      aspectDao.getVersionRange(opContext, urn, aspectName);
                   long minVersion = Math.max(0, versionRange.getFirst());
                   long maxVersion = Math.max(0, versionRange.getSecond());
 
@@ -3211,7 +3212,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
         .forEachRemaining(
             batch ->
-                batchGetResults.putAll(aspectDao.batchGet(ImmutableSet.copyOf(batch), forUpdate)));
+                batchGetResults.putAll(
+                    aspectDao.batchGet(opContext, ImmutableSet.copyOf(batch), forUpdate)));
     return batchGetResults;
   }
 
@@ -3230,7 +3232,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private Map<EntityAspectIdentifier, EnvelopedAspect> getEnvelopedAspects(
       @Nonnull OperationContext opContext, final Set<EntityAspectIdentifier> dbKeys) {
-    final Map<EntityAspectIdentifier, EntityAspect> dbEntries = aspectDao.batchGet(dbKeys, false);
+    final Map<EntityAspectIdentifier, EntityAspect> dbEntries =
+        aspectDao.batchGet(opContext, dbKeys, false);
 
     List<SystemAspect> envelopedAspects =
         EntityUtils.toSystemAspects(opContext.getRetrieverContext(), dbEntries.values());

@@ -1,5 +1,6 @@
 package com.linkedin.gms;
 
+import com.linkedin.metadata.entity.ebean.EbeanOperationContextAspect;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
@@ -7,6 +8,8 @@ import org.springframework.boot.cassandra.autoconfigure.CassandraAutoConfigurati
 import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchClientAutoConfiguration;
 import org.springframework.boot.elasticsearch.autoconfigure.ElasticsearchRestClientAutoConfiguration;
 import org.springframework.boot.web.servlet.support.SpringBootServletInitializer;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.context.annotation.Import;
 
 @SpringBootApplication(
@@ -16,11 +19,18 @@ import org.springframework.context.annotation.Import;
       CassandraAutoConfiguration.class
     })
 @Import({CommonApplicationConfig.class, ServletConfig.class})
+@EnableAspectJAutoProxy(proxyTargetClass = true)
 public class GMSApplication extends SpringBootServletInitializer {
 
   @Override
   protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
     return application.sources(GMSApplication.class);
+  }
+
+  @Bean
+  public EbeanOperationContextAspect ebeanOperationContextAspect() {
+    System.out.println("🔥 Creating aspect bean");
+    return new EbeanOperationContextAspect();
   }
 
   public static void main(String[] args) {

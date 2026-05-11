@@ -1,7 +1,9 @@
 package com.linkedin.gms.factory.common;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import io.ebean.annotation.Platform;
 import io.ebean.config.DatabaseConfig;
+import io.ebean.config.TenantMode;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
@@ -131,7 +133,6 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
-
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {
       dataSourceConfig.setCustomProperties(crossCloudConfig.customProperties);
@@ -144,10 +145,15 @@ public class LocalEbeanConfigFactory {
   protected DatabaseConfig createInstance(
       @Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
     DatabaseConfig serverConfig = new DatabaseConfig();
-    serverConfig.setName("gmsEbeanDatabaseConfig");
+    config.setPlatform(Platform.MYSQL.name());
+    serverConfig = serverConfig.setName("gmsEbeanDatabaseConfig");
     serverConfig.setDataSourceConfig(config);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
+    serverConfig.setTenantMode(TenantMode.CATALOG);
+    serverConfig.setCurrentTenantProvider(new OperationContextTenantProvider());
+    serverConfig.setTenantCatalogProvider(new OperationContextCatalogProvider());
+    serverConfig.setDatabasePlatformName(Platform.MYSQL.name());
     return serverConfig;
   }
 }

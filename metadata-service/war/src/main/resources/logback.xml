@@ -6,7 +6,7 @@
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36}:%L - %msg%n</pattern>
         </encoder>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
+            <level>DEBUG</level>
         </filter>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
@@ -26,7 +26,7 @@
             <maxHistory>30</maxHistory>
         </rollingPolicy>
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
-            <level>INFO</level>
+            <level>DEBUG</level>
         </filter>
         <encoder>
             <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -91,6 +91,21 @@
     <logger name="org.apache.kafka.clients" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
+
+         <!-- Logs all SQL statements and their bind values -->
+  <logger name="io.ebean.SQL" level="DEBUG" >
+  <appender-ref ref="STDOUT" />
+  </logger>
+  
+  <!-- Logs transaction start, commit, and rollback events -->
+  <logger name="io.ebean.TXN" level="DEBUG">
+    <appender-ref ref="STDOUT" />
+  </logger>
+  
+  <!-- Optional: Summary level details for N+1 tuning -->
+  <logger name="io.ebean.SUM" level="DEBUG">
+  <appender-ref ref="STDOUT" />
+  </logger>
 
     <logger name="org.reflections.Reflections" level="ERROR">
         <appender-ref ref="STDOUT" />

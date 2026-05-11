@@ -344,7 +344,10 @@ visualConfig:
 
 # Only required if entityService.impl is ebean
 ebean:
-  username: ${EBEAN_DATASOURCE_USERNAME:datahub}
+  debug:
+    sql: true
+    lazyload: true
+  username: root
   password: ${EBEAN_DATASOURCE_PASSWORD:datahub}
   url: ${EBEAN_DATASOURCE_URL:jdbc:mysql://localhost:3306/datahub} # JDBC URL
   driver: ${EBEAN_DATASOURCE_DRIVER:com.mysql.jdbc.Driver} # JDBC Driver
@@ -1274,8 +1277,9 @@ graphQL:
     separateThreadPool: ${GRAPHQL_CONCURRENCY_SEPARATE_THREAD_POOL:false} # Enable the separate thread pool, the following configurations only apply if enabled
     stackSize: ${GRAPHQL_CONCURRENCY_STACK_SIZE:256000} # Default to JVM default of 256 KB
     corePoolSize: ${GRAPHQL_CONCURRENCY_CORE_POOL_SIZE:-1} # Base thread pool size for GraphQL executor service, default 5 * # of cores
-    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-1} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
+    maxPoolSize: ${GRAPHQL_CONCURRENCY_MAX_POOL_SIZE:-10000000} # Maximum thread pool size for GraphQL executor service, default 100 * # of cores
     keepAlive: ${GRAPHQL_CONCURRENCY_KEEP_ALIVE:60} # Number of seconds to keep inactive threads alive
+    virtualThreadEnabled: ${GRAPHQL_VIRTUAL_THREADS_ENABLED:true}
   query:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}

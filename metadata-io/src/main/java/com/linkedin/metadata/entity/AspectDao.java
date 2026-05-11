@@ -57,6 +57,14 @@ public interface AspectDao {
       @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
 
   @Nonnull
+  default Map<EntityAspectIdentifier, EntityAspect> batchGet(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EntityAspectIdentifier> keys,
+      boolean forUpdate) {
+    return batchGet(keys, forUpdate);
+  }
+
+  @Nonnull
   List<EntityAspect> getAspectsInRange(
       @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis);
 
@@ -297,6 +305,11 @@ public interface AspectDao {
    */
   @Nonnull
   Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
+
+  default Pair<Long, Long> getVersionRange(
+      OperationContext context, @Nonnull final String urn, @Nonnull final String aspectName) {
+    return getVersionRange(urn, aspectName);
+  }
 
   void setWritable(boolean canWrite);
 

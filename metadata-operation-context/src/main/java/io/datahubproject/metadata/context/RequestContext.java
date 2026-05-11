@@ -65,6 +65,7 @@ public class RequestContext implements ContextInterface {
   @Nonnull private final String agentName;
   @Nullable private final MetricUtils metricUtils;
   @Nullable private final String traceId;
+  @Nullable private final String tenantId;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -72,13 +73,15 @@ public class RequestContext implements ContextInterface {
       @Nonnull String sourceIP,
       @Nonnull RequestAPI requestAPI,
       @Nonnull String requestID,
-      @Nonnull String userAgent) {
+      @Nonnull String userAgent,
+      String tenantId) {
     this.actorUrn = actorUrn;
     this.sourceIP = sourceIP;
     this.requestAPI = requestAPI;
     this.requestID = requestID;
     this.userAgent = userAgent;
     this.metricUtils = metricUtils;
+    this.tenantId = tenantId;
 
     /*
      *         "Browser",
@@ -143,14 +146,32 @@ public class RequestContext implements ContextInterface {
           .ifPresent(eventSource -> eventSource.set(requestAPI.toString()));
       Optional.ofNullable(Context.current().get(SystemTelemetryContext.SOURCE_IP_CONTEXT_KEY))
           .ifPresent(eventSource -> eventSource.set(sourceIP));
-
       return new RequestContext(
           this.metricUtils,
           this.actorUrn,
           this.sourceIP,
           this.requestAPI,
           this.requestID,
-          this.userAgent);
+          this.userAgent,
+          this.tenantId);
+    }
+
+    private static String extractTenantId(@Nonnull HttpServletRequest request) {
+      // Primary: explicit header. Easiest to test (curl -H "X-DataHub-Tenant: foo")
+      String header = request.getHeader("X-DataHub-Tenant");
+      if (header != null && !header.isBlank()) return header;
+
+      // Fallback: derive from Host subdomain (cost-optimisation.acryl.io -> cost-optimisation)
+      String host = request.getServerName();
+      if (host != null && host.contains(".")) {
+        return host.substring(0, host.indexOf('.'));
+      }
+      return "datahub";
+    }
+
+    private static String extractTenantId(@Nonnull ResourceContext resourceContext) {
+      return Optional.ofNullable(resourceContext.getRequestHeaders().get("X-DataHub-Tenant"))
+          .orElse("datahub");
     }
 
     public RequestContextBuilder buildGraphql(
@@ -163,6 +184,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.GRAPHQL);
       requestID(buildRequestId(queryName, Set.of()));
       userAgent(extractUserAgent(request));
+      tenantId(extractTenantId(request));
       return this;
     }
 
@@ -202,6 +224,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.RESTLI);
       requestID(buildRequestId(action, entityNames));
       userAgent(resourceContext == null ? "" : extractUserAgent(resourceContext));
+      tenantId(extractTenantId(resourceContext));
       return this;
     }
 
@@ -224,6 +247,7 @@ public class RequestContext implements ContextInterface {
       requestAPI(RequestAPI.OPENAPI);
       requestID(buildRequestId(action, entityNames));
       userAgent(request == null ? "" : extractUserAgent(request));
+      tenantId(extractTenantId(request));
       return this;
     }
 

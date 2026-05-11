@@ -117,6 +117,7 @@ dependencies {
   api project(':metadata-service:services')
   api project(':metadata-operation-context')
 
+  implementation("org.springframework.boot:spring-boot-starter-aop:2.7.18")
   implementation spec.product.pegasus.restliServer
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator

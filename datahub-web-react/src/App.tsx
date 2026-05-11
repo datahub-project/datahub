@@ -22,10 +22,22 @@ import { GlobalCfg } from '@src/conf';
 import { useCustomTheme } from '@src/customThemeContext';
 import possibleTypesResult from '@src/possibleTypes.generated';
 import { getRuntimeBasePath, removeRuntimePath, resolveRuntimePath } from '@utils/runtimeBasePath';
-
+import { setContext } from '@apollo/client/link/context';
 /*
     Construct Apollo Client
 */
+
+const authLink = setContext((operation, { headers }) => {
+    console.log('authLink running, operation:',
+  operation.operationName);
+      return {
+          headers: {
+              ...headers,
+              'X-DataHub-Tenant': "multi_tenant_practice",
+          },
+      };
+  });
+
 const httpLink = createHttpLink({
     uri: resolveRuntimePath(`/api/v2/graphql`),
 });
@@ -65,7 +77,7 @@ const injectVariablesLink = new ApolloLink((operation, forward) => {
 
 const client = new ApolloClient({
     connectToDevTools: true,
-    link: ApolloLink.from([injectVariablesLink, errorLink, httpLink]),
+    link: ApolloLink.from([authLink, injectVariablesLink, errorLink, httpLink]),
     cache: new InMemoryCache({
         typePolicies: {
             Query: {

@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.entity;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import io.ebean.Database;
 import io.ebean.config.DatabaseConfig;
+import io.ebean.platform.mysql.MySqlPlatform;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -26,6 +27,8 @@ public class EbeanDatabaseFactory {
     }
     // TODO: Consider supporting SCSI
     try {
+      serverConfig.setDatabasePlatform(new MySqlPlatform());
+      System.out.println(serverConfig.getDatabasePlatform());
       return io.ebean.DatabaseFactory.create(serverConfig);
     } catch (NullPointerException ne) {
       log.error("Failed to connect to the server. Is it up?");
