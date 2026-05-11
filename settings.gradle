@@ -12,8 +12,7 @@ pluginManagement {
 def mavenCentralUrl = hasProperty('apacheMavenRepositoryUrl')          ? getProperty('apacheMavenRepositoryUrl')          : getProperty('datahub.dependencies.maven.central')
 def confluentUrl    = hasProperty('confluentMavenRepositoryUrl')        ? getProperty('confluentMavenRepositoryUrl')        : getProperty('datahub.dependencies.maven.confluent')
 def linkedinUrl     = hasProperty('linkedinOpenSourceRepositoryUrl')    ? getProperty('linkedinOpenSourceRepositoryUrl')    : getProperty('datahub.dependencies.maven.linkedinOpenSource')
-// node-gradle plugin resolves Node.js binaries from an Ivy repository; PREFER_SETTINGS suppresses
-// plugin-added repos, so we must declare it here. Legacy nodeDistBaseUrl takes precedence for
+// node-gradle plugin resolves Node.js binaries from an Ivy repository; Legacy nodeDistBaseUrl takes precedence for
 // backward compatibility, then the new namespaced property (default lives in gradle.properties).
 def nodeDistUrl     = hasProperty('nodeDistBaseUrl') ? getProperty('nodeDistBaseUrl') : getProperty('datahub.dependencies.node.distBaseUrl')
 
@@ -23,22 +22,13 @@ gradle.ext['datahub.dependencies.maven.linkedinOpenSource']   = linkedinUrl
 gradle.ext['datahub.dependencies.node.distBaseUrl']           = nodeDistUrl
 
 dependencyResolutionManagement {
-    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
     repositories {
         gradlePluginPortal()
         mavenLocal()
         maven { url mavenCentralUrl }
         maven { url confluentUrl }
         maven { url linkedinUrl }
-        ivy {
-            url nodeDistUrl
-            patternLayout {
-                artifact 'v[revision]/[artifact](-v[revision]-[classifier]).[ext]'
-            }
-            metadataSources {
-                artifact()
-            }
-        }
     }
 }
 
