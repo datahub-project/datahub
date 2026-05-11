@@ -328,10 +328,13 @@ class TestResolveChartFormulaUpstream:
         assert result is None
         assert self.src.reporter.chart_input_fields_case_mismatch == 1
 
-    def test_exact_workbook_name_without_lineage_match_does_not_fallback_to_warehouse(
+    def test_exact_workbook_name_without_lineage_match_falls_through_to_warehouse(
         self,
     ) -> None:
-        """An exact workbook name match must satisfy the lineage filter."""
+        """When a workbook element name matches but none satisfy the lineage filter,
+        fall through to warehouse-table resolution so the formula ref can still
+        resolve (e.g. a sibling element that shares its name with the warehouse
+        table it wraps)."""
         upstream_elem = _make_element("sourceElem", "Orders")
         wh_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,DB.SCHEMA.ORDERS,PROD)"
         ref = _make_ref("Orders", "id")
@@ -346,7 +349,7 @@ class TestResolveChartFormulaUpstream:
             elementId_to_chart_urn={"sourceElem": "urn:source"},
         )
 
-        assert result is None
+        assert result == (wh_urn, "id")
 
     def test_self_reference_is_excluded_from_workbook_element_matches(self) -> None:
         """A self-loop in Sigma lineage must not resolve to the chart itself."""

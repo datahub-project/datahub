@@ -3267,22 +3267,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             if dm_urn:
                 return (dm_urn, ref.column)
 
+            # If the element IS a registered upstream (sheet_matches==1) but was
+            # filtered from chart emission and has no DM match, stop here — do not
+            # fall through to warehouse because the formula ref explicitly targets
+            # a known (filtered) element, not a warehouse table.
+            if sheet_matches:
+                return None
+
+            # sheet_matches is empty: the workbook element is not a registered
+            # lineage upstream. The element may share its name with a warehouse table
+            # in the chart's data path (e.g. a sibling element whose SQL selects
+            # from the same table). Fall through to Step 4 so the ref can still
+            # resolve to the warehouse table URN.
             logger.debug(
                 "Formula ref source %r matched workbook element names but none were "
-                "lineage upstreams for chart element %s; treating as unresolved.",
+                "lineage upstreams for chart element %s; falling through to "
+                "warehouse-table resolution.",
                 ref.source,
                 chart_element_id,
             )
-            return None
-
-        # Step 3c: No workbook page element is named ref.source (candidates was
-        # empty above), but the formula ref may still point to a DM element that
-        # is an upstream of this chart without being exposed as a page element.
-        # Check dm_upstream_urn_by_element_name directly before falling through
-        # to the warehouse-table short-name index.
-        dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
-        if dm_urn:
-            return (dm_urn, ref.column)
+        else:
+            # Step 3c: No workbook page element is named ref.source (candidates was
+            # empty above), but the formula ref may still point to a DM element that
+            # is an upstream of this chart without being exposed as a page element.
+            # Check dm_upstream_urn_by_element_name directly before falling through
+            # to the warehouse-table short-name index.
+            dm_urn = dm_upstream_urn_by_element_name.get(ref.source)
+            if dm_urn:
+                return (dm_urn, ref.column)
 
         # Step 4: warehouse-table short-name fallback.
         wh_candidates = element_warehouse_table_index.get(ref.source.upper(), [])
