@@ -15,6 +15,7 @@ export class DatasetPage extends BasePage {
 
   // ── Glossary term sidebar ──────────────────────────────────────────────────
   readonly sidebarGlossarySection: Locator;
+  readonly addTermsButton: Locator;
   readonly tagTermModalInput: Locator;
   readonly tagTermOption: Locator;
   readonly addTagTermConfirmButton: Locator;
@@ -31,6 +32,7 @@ export class DatasetPage extends BasePage {
     this.propertiesTab = page.locator('[data-testid="properties-tab"]');
 
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
+    this.addTermsButton = this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]');
     // AntD Select renders a div wrapper; target the inner search input for typing.
     this.tagTermModalInput = page.locator('[data-testid="tag-term-modal-input"] input');
     this.tagTermOption = page.locator('[data-testid="tag-term-option"]').first();
@@ -52,7 +54,7 @@ export class DatasetPage extends BasePage {
 
   async addGlossaryTerm(termName: string): Promise<void> {
     this.logger?.step('addGlossaryTerm', { termName });
-    await this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]').click();
+    await this.addTermsButton.click();
     await expect(this.tagTermModalInput).toBeVisible();
     // AntD Select triggers search via keyboard events; pressSequentially (not fill) is required.
     await this.tagTermModalInput.pressSequentially(termName);

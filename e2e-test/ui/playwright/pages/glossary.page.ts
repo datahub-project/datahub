@@ -291,7 +291,7 @@ export class GlossaryPage extends BasePage {
     const option = this.getMoveDropdownOption(targetName);
     await expect(option).toBeVisible();
     await option.click();
-    await this.moveModalSubmitButton.click({ force: true });
+    await this.moveModalSubmitButton.click();
     await expect(this.movedEntityToast).toBeVisible();
   }
 
@@ -344,21 +344,21 @@ export class GlossaryPage extends BasePage {
   async searchInBatchAddModal(query: string): Promise<void> {
     this.logger?.step('searchInBatchAddModal', { query });
     // pressSequentially triggers AntD AutoComplete's onSearch callback; fill() does not.
-    await this.batchAddModalSearchInput.click({ clickCount: 3 });
+    await this.batchAddModalSearchInput.click();
     await this.batchAddModalSearchInput.pressSequentially(query);
   }
 
   async selectEntityInBatchAddModal(entityUrn: string): Promise<void> {
     this.logger?.step('selectEntityInBatchAddModal', { entityUrn });
     const checkbox = this.getBatchAddEntityCheckbox(entityUrn);
-    await expect(checkbox).toBeVisible({ timeout: 10000 });
-    await checkbox.click({ force: true });
+    await expect(checkbox).toBeVisible();
+    await checkbox.click();
   }
 
   async confirmBatchAdd(): Promise<void> {
     this.logger?.step('confirmBatchAdd');
     await this.batchAddConfirmButton.click();
-    await expect(this.batchAddedToast).toBeVisible({ timeout: 15000 });
+    await expect(this.batchAddedToast).toBeVisible();
   }
 
   // ── Assertions ───────────────────────────────────────────────────────────────

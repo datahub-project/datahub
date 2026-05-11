@@ -44,13 +44,10 @@ test.describe('glossary sidebar navigation', () => {
   });
 
   test('Properties tab persists when switching between terms', async () => {
-    // Uses pre-seeded PlaywrightNavPropsTest node with two child terms — no setup needed.
     await glossaryPage.navigateToGlossaryTermByUrn(PROPS_TEST_TERM1_URN);
     await glossaryPage.openPropertiesTab();
     await glossaryPage.expectPropertiesTabActive();
 
-    // Navigating to a child term auto-expands its parent node in the sidebar,
-    // making the sibling term visible and clickable without any additional navigation.
     await glossaryPage.clickSidebarTerm(PROPS_TEST_TERM2_URN);
     await glossaryPage.expectPropertiesTabActive();
   });
