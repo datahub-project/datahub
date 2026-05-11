@@ -111,9 +111,7 @@ docker {
     dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
   }
   dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
-  if (project.hasProperty('githubMirrorUrl')) {
-    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
-  }
+  dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
   dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
   if (dockerBuildArgs.size() > 0) {
     buildArgs(dockerBuildArgs)

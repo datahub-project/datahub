@@ -345,6 +345,46 @@ The default is defined in [`gradle.properties`](../../gradle.properties).
 
    :::
 
+#### GitHub Base URL
+
+Docker images download JVM tooling (jattach, OpenTelemetry Java agent) from GitHub at build time.
+Override this URL to point to an internal mirror for airgapped or corporate environments:
+
+| Property                              | Default              | Purpose                                             |
+| ------------------------------------- | -------------------- | --------------------------------------------------- |
+| `datahub.dependencies.github.baseURL` | `https://github.com` | GitHub base URL used in Docker builds for JVM tools |
+
+The default is defined in [`gradle.properties`](../../gradle.properties).
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.github.baseURL=https://github.internal.company.com
+   ```
+
+:::note Legacy property
+
+The `githubMirrorUrl` Gradle property is **deprecated** in favour of
+`datahub.dependencies.github.baseURL`. It is still honoured for backward compatibility but will be
+removed in a future release.
+
+:::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

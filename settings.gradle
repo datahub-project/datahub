@@ -18,12 +18,14 @@ def linkedinUrl     = hasProperty('linkedinOpenSourceRepositoryUrl')    ? getPro
 // backward compatibility, then the new namespaced property (default lives in gradle.properties).
 def nodeDistUrl     = hasProperty('nodeDistBaseUrl')         ? getProperty('nodeDistBaseUrl')         : getProperty('datahub.dependencies.node.distBaseUrl')
 def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
+def githubBaseUrl   = hasProperty('githubMirrorUrl') ? getProperty('githubMirrorUrl') : getProperty('datahub.dependencies.github.baseURL')
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
 gradle.ext['datahub.dependencies.maven.linkedinOpenSource']   = linkedinUrl
 gradle.ext['datahub.dependencies.node.distBaseUrl']           = nodeDistUrl
 gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
+gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
