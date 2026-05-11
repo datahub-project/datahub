@@ -312,6 +312,39 @@ The default is defined in [`gradle.properties`](../../gradle.properties).
 The legacy property `nodeDistBaseUrl` is deprecated but still honoured. It takes precedence over `datahub.dependencies.node.distBaseUrl` when set. Migrate to the new property at your earliest convenience.
 :::
 
+#### Alpine APK Repository
+
+Docker images are built on Alpine/Wolfi Linux. Override the APK package repository for airgapped environments or corporate mirrors:
+
+| Property                           | Default                          | Purpose                                  |
+| ---------------------------------- | -------------------------------- | ---------------------------------------- |
+| `datahub.dependencies.apkrepo.url` | `https://apk.cgr.dev/chainguard` | APK repository URL used in Docker builds |
+
+The default is defined in [`gradle.properties`](../../gradle.properties).
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.apkrepo.url=https://nexus.company.com/apk/
+   ```
+
+   :::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

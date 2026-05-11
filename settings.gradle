@@ -16,12 +16,14 @@ def confluentUrl    = hasProperty('confluentMavenRepositoryUrl')        ? getPro
 def linkedinUrl     = hasProperty('linkedinOpenSourceRepositoryUrl')    ? getProperty('linkedinOpenSourceRepositoryUrl')    : getProperty('datahub.dependencies.maven.linkedinOpenSource')
 // node-gradle plugin resolves Node.js binaries from an Ivy repository; Legacy nodeDistBaseUrl takes precedence for
 // backward compatibility, then the new namespaced property (default lives in gradle.properties).
-def nodeDistUrl     = hasProperty('nodeDistBaseUrl') ? getProperty('nodeDistBaseUrl') : getProperty('datahub.dependencies.node.distBaseUrl')
+def nodeDistUrl     = hasProperty('nodeDistBaseUrl')         ? getProperty('nodeDistBaseUrl')         : getProperty('datahub.dependencies.node.distBaseUrl')
+def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
 gradle.ext['datahub.dependencies.maven.linkedinOpenSource']   = linkedinUrl
 gradle.ext['datahub.dependencies.node.distBaseUrl']           = nodeDistUrl
+gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)

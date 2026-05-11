@@ -30,9 +30,6 @@ docker {
     def dockerBuildArgs = [APP_ENV: docker_target]
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
-    if (project.hasProperty('alpineApkRepositoryUrl')) {
-        dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
-    }
     if (project.hasProperty('githubMirrorUrl')) {
         dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
     }
