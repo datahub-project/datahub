@@ -1,37 +1,26 @@
+// Used for buildscript dependency resolution (applied in buildSrc and root build.gradle buildscript blocks).
+// Project dependency resolution is centralized via dependencyResolutionManagement in settings.gradle.
 repositories {
     gradlePluginPortal()
     mavenLocal()
 
-    if (project.hasProperty('apacheMavenRepositoryUrl')) {
-        maven { url project.getProperty('apacheMavenRepositoryUrl') }
-    } else {
-        mavenCentral()
+    // Legacy property takes precedence for backward compatibility; new namespaced property
+    // (datahub.dependencies.maven.central) is the preferred override going forward.
+    maven {
+        url project.hasProperty('apacheMavenRepositoryUrl')
+            ? project.getProperty('apacheMavenRepositoryUrl')
+            : gradle.ext['datahub.dependencies.maven.central']
     }
 
-    if (project.hasProperty('confluentMavenRepositoryUrl')) {
-        maven {
-            url project.getProperty('confluentMavenRepositoryUrl')
-        }
-    } else {
-        maven {
-            url "https://packages.confluent.io/maven/"
-        }
+    maven {
+        url project.hasProperty('confluentMavenRepositoryUrl')
+            ? project.getProperty('confluentMavenRepositoryUrl')
+            : gradle.ext['datahub.dependencies.maven.confluent']
     }
 
-    if (project.hasProperty('linkedinOpenSourceRepositoryUrl')) {
-        maven {
-            url project.getProperty('linkedinOpenSourceRepositoryUrl')
-        }
-    } else {
-        maven {
-            url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
-        }
+    maven {
+        url project.hasProperty('linkedinOpenSourceRepositoryUrl')
+            ? project.getProperty('linkedinOpenSourceRepositoryUrl')
+            : gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] // GMA, pegasus
     }
-}
-
-try {
-    subprojects {
-        project.repositories.addAll(rootProject.repositories)
-    }
-} catch (Throwable t) {
 }

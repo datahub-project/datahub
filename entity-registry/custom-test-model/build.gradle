@@ -2,10 +2,10 @@ import org.yaml.snakeyaml.Yaml
 
 buildscript {
     repositories{
-        if (project.hasProperty('apacheMavenRepositoryUrl')) {
-            maven { url project.getProperty('apacheMavenRepositoryUrl') }
-        } else {
-            mavenCentral()
+        maven {
+            url project.hasProperty('apacheMavenRepositoryUrl')
+                ? project.getProperty('apacheMavenRepositoryUrl')
+                : gradle.ext['datahub.dependencies.maven.central']
         }
     }
     dependencies {

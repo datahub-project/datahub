@@ -5,6 +5,28 @@ pluginManagement {
   }
 }
 
+// Read overrides from gradle.properties (or command-line -P / env vars), falling back to public defaults.
+// Stored in gradle.ext so they're available to buildSrc's buildscript phase, which runs before root
+// project properties propagate (buildSrc is a separate standalone build).
+def mavenCentralUrl = hasProperty('datahub.dependencies.maven.central') ? getProperty('datahub.dependencies.maven.central') : 'https://repo1.maven.org/maven2/'
+def confluentUrl    = hasProperty('datahub.dependencies.maven.confluent') ? getProperty('datahub.dependencies.maven.confluent') : 'https://packages.confluent.io/maven/'
+def linkedinUrl     = hasProperty('datahub.dependencies.maven.linkedinOpenSource') ? getProperty('datahub.dependencies.maven.linkedinOpenSource') : 'https://linkedin.jfrog.io/artifactory/open-source/'
+
+gradle.ext['datahub.dependencies.maven.central']             = mavenCentralUrl
+gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
+gradle.ext['datahub.dependencies.maven.linkedinOpenSource']   = linkedinUrl
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        gradlePluginPortal()
+        mavenLocal()
+        maven { url mavenCentralUrl }
+        maven { url confluentUrl }
+        maven { url linkedinUrl }
+    }
+}
+
 include 'datahub-web-react'
 include 'datahub-frontend'
 include 'datahub-graphql-core'
