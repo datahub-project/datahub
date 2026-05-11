@@ -35,7 +35,7 @@ def make_row(
 
 def make_extractor(
     config: FabricUsageConfig | None = None,
-    skip_handler=None,
+    skip_handler: MagicMock | None = None,
 ) -> tuple[FabricUsageExtractor, MagicMock, FabricOneLakeSourceReport]:
     """Build an extractor with a mock aggregator and real report."""
     config = config or FabricUsageConfig()
