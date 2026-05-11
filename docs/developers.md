@@ -231,6 +231,52 @@ If you see warnings about lock state, regenerate the locks:
 ./gradlew resolveAndLockAll --write-locks
 ```
 
+### Custom Repositories
+
+For airgapped environments or corporate networks that route artifact traffic through an internal proxy (Nexus, Artifactory, etc.), DataHub's Gradle build supports overriding every Maven repository URL through a standardised set of properties.
+
+#### Maven Repositories
+
+Three Maven repositories are used during the build:
+
+| Property                                        | Default                                              | Purpose                            |
+| ----------------------------------------------- | ---------------------------------------------------- | ---------------------------------- |
+| `datahub.dependencies.maven.central`            | `https://repo1.maven.org/maven2/`                    | Most Java dependencies             |
+| `datahub.dependencies.maven.confluent`          | `https://packages.confluent.io/maven/`               | Kafka and Schema Registry packages |
+| `datahub.dependencies.maven.linkedinOpenSource` | `https://linkedin.jfrog.io/artifactory/open-source/` | Pegasus and GMA artifacts          |
+
+The defaults are defined in the root [`gradle.properties`](../../gradle.properties) file, which is the canonical reference.
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag** — one-off or CI invocation:
+
+   ```bash
+   ./gradlew build \
+     -P'datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/ \
+     -P'datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   ```
+
+2. **Environment variable** — prefix each property name with `ORG_GRADLE_PROJECT_`:
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.linkedinOpenSource'=https://nexus.company.com/repository/open-source/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`** — not checked into git, suitable for shared workstations or CI agents:
+
+   ```properties
+   datahub.dependencies.maven.central=https://nexus.company.com/repository/maven-public/
+   datahub.dependencies.maven.confluent=https://nexus.company.com/repository/confluent/
+   datahub.dependencies.maven.linkedinOpenSource=https://nexus.company.com/repository/open-source/
+   ```
+
+:::note
+The legacy properties `apacheMavenRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
+:::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

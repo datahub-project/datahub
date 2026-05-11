@@ -1,26 +1,11 @@
 // Used for buildscript dependency resolution (applied in buildSrc and root build.gradle buildscript blocks).
 // Project dependency resolution is centralized via dependencyResolutionManagement in settings.gradle.
+// URLs are resolved (with legacy-property fallback) in settings.gradle / buildSrc/settings.gradle and
+// stored in gradle.ext before this script is ever evaluated.
 repositories {
     gradlePluginPortal()
     mavenLocal()
-
-    // Legacy property takes precedence for backward compatibility; new namespaced property
-    // (datahub.dependencies.maven.central) is the preferred override going forward.
-    maven {
-        url project.hasProperty('apacheMavenRepositoryUrl')
-            ? project.getProperty('apacheMavenRepositoryUrl')
-            : gradle.ext['datahub.dependencies.maven.central']
-    }
-
-    maven {
-        url project.hasProperty('confluentMavenRepositoryUrl')
-            ? project.getProperty('confluentMavenRepositoryUrl')
-            : gradle.ext['datahub.dependencies.maven.confluent']
-    }
-
-    maven {
-        url project.hasProperty('linkedinOpenSourceRepositoryUrl')
-            ? project.getProperty('linkedinOpenSourceRepositoryUrl')
-            : gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] // GMA, pegasus
-    }
+    maven { url gradle.ext['datahub.dependencies.maven.central'] }
+    maven { url gradle.ext['datahub.dependencies.maven.confluent'] }
+    maven { url gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] } // GMA, pegasus
 }

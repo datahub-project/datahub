@@ -78,6 +78,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Deprecations
 
+- **(Build / Gradle)** The Gradle properties `apacheMavenRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` for overriding Maven repository URLs are deprecated. Use the new `datahub.dependencies.maven.central`, `datahub.dependencies.maven.confluent`, and `datahub.dependencies.maven.linkedinOpenSource` properties instead. The old properties are still honoured for backward compatibility but will be removed in a future release. See [Custom Maven Repositories](../developers.md#maven-repositories) for configuration details.
 - **(Operations / Helm)** Per-workload monitoring configuration is deprecated in favor of cluster-wide settings (`global.datahub.monitoring`).
 - **(Operations / Helm)** Enable global.datahub.systemUpdate.consolidatedUpgrade so upgrades run through the consolidated system-update path and the chart no longer relies on separate one-off setup jobs (e.g. mysql/ES setup jobs) for that flow.
 - (Ingestion / dbt) The `test_warnings_are_errors` default will change from `false` to `true` in a future release. Once assertion result consumers can filter by severity, `warn` test statuses will always emit as `FAILURE` with `severity: LOW`, and the flag itself will be deprecated. To adopt the forthcoming behavior today, set `test_warnings_are_errors: true` in your dbt recipe.
