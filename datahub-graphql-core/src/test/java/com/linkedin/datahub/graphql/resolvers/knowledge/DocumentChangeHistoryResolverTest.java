@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
@@ -8,6 +9,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.DocumentChange;
 import com.linkedin.datahub.graphql.generated.DocumentChangeType;
@@ -17,7 +19,6 @@ import com.linkedin.metadata.timeline.data.ChangeEvent;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import graphql.schema.DataFetchingEnvironment;
-import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -41,17 +42,15 @@ public class DocumentChangeHistoryResolverTest {
   public void setupTest() {
     mockTimelineService = mock(TimelineService.class);
     mockEnv = mock(DataFetchingEnvironment.class);
-    mockContext = mock(QueryContext.class);
+    mockContext = com.linkedin.datahub.graphql.TestUtils.getMockAllowContext();
 
     resolver = new DocumentChangeHistoryResolver(mockTimelineService);
 
-    // Setup source document
     sourceDocument = new Document();
     sourceDocument.setUrn(TEST_DOCUMENT_URN.toString());
 
     when(mockEnv.getSource()).thenReturn(sourceDocument);
     when(mockEnv.getContext()).thenReturn(mockContext);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
   }
 
   @Test
@@ -402,5 +401,17 @@ public class DocumentChangeHistoryResolverTest {
 
     assertNotNull(result);
     assertEquals(result.size(), 10); // Should respect the limit
+  }
+
+  @Test
+  public void testGetUnauthorizedThrowsAndDoesNotQueryDb() throws Exception {
+    // Override the permissive default context with a deny context. canGetDocument
+    // routes through the authorizer chain and does not depend on
+    // viewAuthorizationConfiguration.enabled, so the basic deny context suffices.
+    QueryContext denyContext = getMockDenyContext();
+    when(mockEnv.getContext()).thenReturn(denyContext);
+
+    assertThrows(AuthorizationException.class, () -> resolver.get(mockEnv));
+    verifyNoInteractions(mockTimelineService);
   }
 }

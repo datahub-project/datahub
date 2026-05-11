@@ -1,4 +1,4 @@
-import { Button, Icon, Text, borders, colors, radius } from '@components';
+import { Button, Icon, Text, borders, radius } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import React from 'react';
 import styled from 'styled-components';
@@ -33,7 +33,7 @@ const IconWrapper = styled.div`
     width: 32px;
     height: 32px;
 
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     border-radius: ${radius.full};
     margin-bottom: 8px;
 `;

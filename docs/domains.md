@@ -1,3 +1,8 @@
+---
+title: Domains Overview
+description: "Use DataHub Domains to group related data assets into curated, top-level collections owned by business units or teams."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Domains

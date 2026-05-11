@@ -428,6 +428,72 @@ class TestSnowflakeSinkConnector:
         assert lineage.target_dataset == "ANALYTICS.RAW.APPLICATION_logs"
         assert lineage.target_platform == "snowflake"
 
+    def test_snowflake_sink_empty_runtime_topics_falls_back_to_config(self) -> None:
+        """When the runtime /topics API returns nothing, fall back to configured topics.
+
+        Regression test for CUS-8682: connectors that haven't processed messages yet
+        (or whose topic list was temporarily reset) returned an empty topic_names list,
+        causing zero DATA_JOBs to be emitted and breaking downstream lineage.
+        """
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+            "snowflake.database.name": "PROD",
+            "snowflake.schema.name": "RAW",
+            "topics": "betler.production_dw_jackpot_compliance_state",
+        }
+        manifest = ConnectorManifest(
+            name="snowflake-sink-no-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],  # runtime /topics API returned nothing
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector: SnowflakeSinkConnector = SnowflakeSinkConnector(
+            manifest, config, report
+        )
+        lineages: List = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert (
+            lineages[0].source_dataset
+            == "betler.production_dw_jackpot_compliance_state"
+        )
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].target_platform == "snowflake"
+
+    def test_snowflake_sink_stale_topic_excluded_when_runtime_topics_available(
+        self,
+    ) -> None:
+        """When runtime topics are available, intersect to exclude topics no longer subscribed."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+            "snowflake.database.name": "PROD",
+            "snowflake.schema.name": "RAW",
+            "topics": "topic_a,topic_b",
+        }
+        manifest = ConnectorManifest(
+            name="snowflake-sink-with-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["topic_a", "topic_b", "old_stale_topic"],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector: SnowflakeSinkConnector = SnowflakeSinkConnector(
+            manifest, config, report
+        )
+        lineages: List = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "topic_a" in source_datasets
+        assert "topic_b" in source_datasets
+        assert "old_stale_topic" not in source_datasets
+
 
 class TestClickHouseSinkConnector:
     """Test ClickHouse sink connector lineage extraction."""
@@ -584,6 +650,58 @@ class TestClickHouseSinkConnector:
 
         connector = ClickHouseSinkConnector(manifest, config, report)
         assert connector.get_platform() == "clickhouse"
+
+    def test_clickhouse_sink_empty_runtime_topics_falls_back_to_config(self) -> None:
+        """When the runtime /topics API returns nothing, fall back to configured topics.
+
+        Regression test for CUS-8682: mirrors the same fix applied to SnowflakeSinkConnector.
+        """
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "topics": "events,user_updates",
+        }
+        manifest = ConnectorManifest(
+            name="clickhouse-sink-no-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=[],  # runtime /topics API returned nothing
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "events" in source_datasets
+        assert "user_updates" in source_datasets
+
+    def test_clickhouse_sink_stale_topic_excluded_when_runtime_topics_available(
+        self,
+    ) -> None:
+        """When runtime topics are available, intersect to exclude stale topics."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+            "topics": "events,user_updates",
+        }
+        manifest = ConnectorManifest(
+            name="clickhouse-sink-with-runtime-topics",
+            type="sink",
+            config=connector_config,
+            tasks=[],
+            topic_names=["events", "user_updates", "deprecated_topic"],
+        )
+        config: Mock = create_mock_kafka_connect_config()
+        report: Mock = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ClickHouseSinkConnector(manifest, config, report)
+        lineages: List = connector.extract_lineages()
+
+        source_datasets = {lin.source_dataset for lin in lineages}
+        assert "events" in source_datasets
+        assert "user_updates" in source_datasets
+        assert "deprecated_topic" not in source_datasets
 
 
 class TestJDBCSourceConnector:

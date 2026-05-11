@@ -107,7 +107,7 @@ const LinkOutWrapper = styled(Link)`
     color: inherit;
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 
@@ -204,10 +204,10 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         numDownstreams,
     } = props;
 
+    const theme = useTheme();
     const history = useHistory();
     const location = useLocation();
     const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
     const isVertical = !!parentDataJob;

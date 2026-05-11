@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { useSearchQuery } from '@app/search/context/SearchContext';
 import { MatchesGroupedByFieldName } from '@app/searchV2/matches/constants';
@@ -12,7 +12,7 @@ const FieldWrapper = styled.div<{ $isClickable: boolean; $color?: string }>`
     border-radius: 50px;
     padding: 5px 8px;
     &:hover {
-        background: #c3b8ee;
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 
     ${(props) => props.$isClickable && `cursor: pointer;`}
@@ -48,6 +48,7 @@ interface Props {
 }
 
 export const GroupedMatch = ({ groupedMatch, limit, customFieldRenderer, onClick, isClickable }: Props) => {
+    const theme = useTheme();
     const [isShowingMore, setIsShowingMore] = useState(false);
     const count = groupedMatch.matchedFields.length;
     const moreCount = Math.max(count - limit, 0);
@@ -60,12 +61,12 @@ export const GroupedMatch = ({ groupedMatch, limit, customFieldRenderer, onClick
                 </FieldWrapper>
             ))}
             {!!moreCount && !isShowingMore && (
-                <FieldWrapper $isClickable onClick={() => setIsShowingMore(true)} $color="#5C3FD1">
+                <FieldWrapper $isClickable onClick={() => setIsShowingMore(true)} $color={theme.colors.textBrand}>
                     + {moreCount} more
                 </FieldWrapper>
             )}
             {isShowingMore && (
-                <FieldWrapper $isClickable onClick={() => setIsShowingMore(false)} $color="#5C3FD1">
+                <FieldWrapper $isClickable onClick={() => setIsShowingMore(false)} $color={theme.colors.textBrand}>
                     Show less
                 </FieldWrapper>
             )}

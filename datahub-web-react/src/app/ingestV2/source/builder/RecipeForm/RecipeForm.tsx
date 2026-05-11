@@ -52,7 +52,7 @@ const TestConnectionWrapper = styled.div`
 const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     cursor: help;
 `;
 

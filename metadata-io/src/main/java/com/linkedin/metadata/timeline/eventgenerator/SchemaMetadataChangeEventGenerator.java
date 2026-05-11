@@ -582,8 +582,9 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
       ChangeCategory changeCategory,
       JsonPatch rawDiff,
       boolean rawDiffRequested) {
-    if (!previousValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME)
-        || !currentValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME)) {
+    if (!currentValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME)
+        || (previousValue != null
+            && !previousValue.getAspect().equals(SCHEMA_METADATA_ASPECT_NAME))) {
       throw new IllegalArgumentException("Aspect is not " + SCHEMA_METADATA_ASPECT_NAME);
     }
 

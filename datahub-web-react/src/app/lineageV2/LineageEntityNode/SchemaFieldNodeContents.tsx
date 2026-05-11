@@ -33,7 +33,7 @@ const NodeWrapper = styled.div<{
     isSearchedEntity: boolean;
 }>`
     align-items: center;
-    background-color: ${(props) => props.theme.colors.bgSurface};
+    background-color: ${(props) => props.theme.colors.bg};
     border: 1px solid
         ${({ color, selected, isGhost, theme }) => {
             if (selected) return color;

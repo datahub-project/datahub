@@ -246,8 +246,15 @@ export const EntityProfile = <T, U>({
         skip: !entityRegistry.getSupportedEntityCapabilities(entityType).has(EntityCapabilityType.FORMS),
     });
 
-    const { entityData, dataPossiblyCombinedWithSiblings, dataNotCombinedWithSiblings, loading, error, refetch } =
-        useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
+    const {
+        entityData,
+        rootEntityData,
+        dataPossiblyCombinedWithSiblings,
+        dataNotCombinedWithSiblings,
+        loading,
+        error,
+        refetch,
+    } = useGetDataForProfile({ urn, entityType, useEntityQuery, getOverrideProperties, formsData });
 
     useUpdateGlossaryEntityDataOnChange(entityData, entityType);
     useUpdateDomainEntityDataOnChangeV2(entityData, entityType);
@@ -317,6 +324,7 @@ export const EntityProfile = <T, U>({
                     urn,
                     entityType,
                     entityData,
+                    rootEntityData,
                     loading,
                     baseEntity: dataPossiblyCombinedWithSiblings,
                     dataNotCombinedWithSiblings,
@@ -355,6 +363,7 @@ export const EntityProfile = <T, U>({
                 urn,
                 entityType,
                 entityData,
+                rootEntityData,
                 loading,
                 baseEntity: dataPossiblyCombinedWithSiblings,
                 dataNotCombinedWithSiblings,

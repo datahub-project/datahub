@@ -14,8 +14,8 @@ const EntityList = styled(List)`
         width: 100%;
         margin-top: 12px;
         padding: 16px 32px;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-        box-shadow: ${(props) => props.theme.styles['box-shadow']};
+        border-color: ${(props) => props.theme.colors.border};
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
     }
 `;
 

@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
@@ -9,8 +8,6 @@ import styled from 'styled-components';
 
 import Loading from '@app/shared/Loading';
 import { Button, Tooltip } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
-import { getColor } from '@src/alchemy-components/theme/utils';
 
 import { Document } from '@types';
 
@@ -36,17 +33,12 @@ const SearchResultItemContainer = styled.div<{ $isSelected: boolean; $level: num
     ${(props) =>
         props.$isSelected
             ? `
- background: linear-gradient(
- 180deg,
- rgba(83, 63, 209, 0.04) -3.99%,
- rgba(112, 94, 228, 0.04) 53.04%,
- rgba(112, 94, 228, 0.04) 100%
- );
- box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
  `
             : `
  &:hover {
- background-color: ${colors.gray[1500]};
+background-color: ${props.theme.colors.bg};
  }
  `}
 
@@ -74,7 +66,7 @@ const Actions = styled.div`
 
 const ActionButton = styled(Button)`
     &:hover {
-        background-color: ${colors.gray[100]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -91,12 +83,12 @@ const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
     white-space: nowrap;
     font-size: 14px;
     line-height: 20px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
 
     ${(props) =>
         props.$isSelected &&
         `
- background: linear-gradient(${getColor('primary', 300, props.theme)} 1%, ${getColor('primary', 500, props.theme)} 99%);
+background: ${props.theme.colors.brandGradientSelected};
  background-clip: text;
  -webkit-text-fill-color: transparent;
  font-weight: 600;
@@ -105,7 +97,7 @@ const SearchResultTitle = styled.span<{ $isSelected: boolean }>`
 
 const SearchResultBreadcrumb = styled.div`
     font-size: 12px;
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     line-height: 16px;
     margin-top: 2px;
 `;
@@ -119,8 +111,8 @@ const IconWrapper = styled.div<{ $isSelected: boolean }>`
     && svg {
         ${(props) =>
             props.$isSelected
-                ? `fill: url(#menu-item-selected-gradient) ${props.theme.styles?.['primary-color'] || '#6C47FF'};`
-                : 'color: #8088a3;'}
+                ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconBrand};`
+                : `color: ${props.theme.colors.textTertiary};`}
     }
 `;
 

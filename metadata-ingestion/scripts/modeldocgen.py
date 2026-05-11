@@ -1484,6 +1484,19 @@ def generate(  # noqa: C901
                     file_contents = doc_file.read()
                     entity_extra_docs[entity_name] = file_contents
 
+    # Load SEO meta descriptions for entity reference pages.
+    # Keyed by lowercase-first entity name matching entity-registry.yml.
+    entity_descriptions: Dict[str, str] = {}
+    if extra_docs:
+        import yaml
+
+        descriptions_path = os.path.join(extra_docs, "entity_descriptions.yaml")
+        if os.path.exists(descriptions_path):
+            with open(descriptions_path) as df:
+                loaded = yaml.safe_load(df) or {}
+            if isinstance(loaded, dict):
+                entity_descriptions = {k: str(v) for k, v in loaded.items() if v}
+
     # registry file
     load_registry_file(registry)
 
@@ -1566,6 +1579,10 @@ def generate(  # noqa: C901
             with open(f"{entity_dir}/{entity_name}.md", "w") as fp:
                 fp.write("---\n")
                 fp.write(f"sidebar_position: {index}\n")
+                description = entity_descriptions.get(entity_name)
+                if description:
+                    # json.dumps yields a YAML-compatible double-quoted string.
+                    fp.write(f"description: {json.dumps(description)}\n")
                 fp.write("---\n")
                 fp.write(generated_documentation[entity_name])
 

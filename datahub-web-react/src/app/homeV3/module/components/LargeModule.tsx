@@ -1,5 +1,5 @@
 /* eslint-disable rulesdir/no-hardcoded-colors */
-import { Button, Loader, borders, colors, radius, spacing } from '@components';
+import { Button, Loader, borders, radius, spacing } from '@components';
 import { useDraggable } from '@dnd-kit/core';
 import { DotsSixVertical } from '@phosphor-icons/react/dist/csr/DotsSixVertical';
 import React, { memo, useCallback, useMemo } from 'react';
@@ -21,7 +21,7 @@ const ModuleHeader = styled.div`
     gap: 2px;
     border-radius: ${radius.lg} ${radius.lg} 0 0;
     padding: ${spacing.sm} ${spacing.lg} ${spacing.sm} ${spacing.md};
-    border-bottom: ${borders['1px']} ${colors.white};
+    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.bg};
     user-select: none;
 
     /* Optimize for smooth dragging */
@@ -29,8 +29,8 @@ const ModuleHeader = styled.div`
     will-change: transform;
 
     :hover {
-        background: linear-gradient(180deg, #fff 0%, #fafafb 100%);
-        border-bottom: 1px solid ${colors.gray[100]};
+        background: ${(props) => props.theme.colors.bgSurface};
+        border-bottom: 1px solid ${(props) => props.theme.colors.border};
     }
 
     :hover ${DragIcon} {
@@ -116,13 +116,7 @@ function LargeModule({
                     data-testid="large-module-drag-handle"
                 >
                     {isTemplateEditable && (
-                        <DragIcon
-                            {...listeners}
-                            size="lg"
-                            color="gray"
-                            icon={DotsSixVertical}
-                            isDragging={isDragging}
-                        />
+                        <DragIcon {...listeners} size="lg" icon={DotsSixVertical} isDragging={isDragging} />
                     )}
                     <ModuleName text={name} />
                     {/* TODO: implement description for modules CH-548 */}

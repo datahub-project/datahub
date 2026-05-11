@@ -69,6 +69,7 @@ export const SearchSelectModal = ({
                     {
                         text: continueText || 'Done',
                         id: 'continueButton',
+                        buttonDataTestId: 'search-select-modal-continue-button',
                         onClick: () => onContinue(selectedEntities.map((entity) => entity.urn)),
                         variant: 'filled',
                         disabled: selectedEntities.length === 0,
