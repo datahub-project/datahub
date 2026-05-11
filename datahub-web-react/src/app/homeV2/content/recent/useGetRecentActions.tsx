@@ -5,7 +5,7 @@ import {
     RECOMMENDATION_MODULE_ID_RECENTLY_VIEWED_ENTITIES,
 } from '@src/app/entityV2/shared/constants';
 
-import { CorpUser, Entity, EntityType } from '@types';
+import { Entity, EntityType } from '@types';
 
 const SUPPORTED_ENTITY_TYPES = [
     ...ASSET_ENTITY_TYPES,
@@ -14,7 +14,7 @@ const SUPPORTED_ENTITY_TYPES = [
     EntityType.GlossaryTerm,
 ];
 
-export const useGetRecentActions = (_user?: CorpUser | null) => {
+export const useGetRecentActions = () => {
     const { modules, loading, refetch } = useHomeRecommendations();
 
     const viewedModule = modules?.find(
