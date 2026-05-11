@@ -218,6 +218,11 @@ class PowerBiAPI:
                 )
             }
         else:
+            self.reporter.info(
+                title="Report Scan Fallback Active",
+                message="Workspace scan returned no data; falling back to per-workspace reports endpoint.",
+                context=f"workspace={workspace.name}",
+            )
             try:
                 reports = {
                     report.id: report
@@ -227,10 +232,15 @@ class PowerBiAPI:
                 self.log_http_error(
                     message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
-            for report in reports.values():
-                report.users = self.get_report_users(workspace.id, report.id)
+                self.reporter.warning(
+                    title="Reports Not Fetched",
+                    message="Unable to fetch the bulk reports list for a workspace.",
+                    context=f"workspace={workspace.name}",
+                )
+            if self.__config.extract_ownership:
+                for report in reports.values():
+                    report.users = self.get_report_users(workspace.id, report.id)
 
-        # Fill Report dataset
         for report in reports.values():
             try:
                 report.pages = self._get_resolver().get_pages_by_report(
@@ -242,10 +252,10 @@ class PowerBiAPI:
                 )
                 self.reporter.warning(
                     title="Report Pages Not Fetched",
-                    message=f"Pages for report '{report.name}' could not be fetched; "
-                    f"the report will appear in DataHub without chart children.",
-                    context=f"workspace={workspace.name}, report_id={report.id}",
+                    message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
+                    context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
                 )
+                report.pages = []
             if report.dataset_id:
                 report.dataset = self.dataset_registry.get(report.dataset_id)
                 if report.dataset is None:

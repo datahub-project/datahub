@@ -448,10 +448,7 @@ def _make_source(
 
 
 def test_get_workunits_internal_skips_scan_excluded_workspaces_in_phase_2():
-    """When fill_metadata_from_scan_result reports that some workspaces were
-    excluded by the scan API, those workspaces must NOT receive
-    fill_regular_metadata_detail calls (the redundant API calls this PR
-    eliminates)."""
+    """Scan-excluded workspaces must skip Phase 2 metadata fetch."""
     ws_a = _make_workspace("WS-A", name="kept")
     ws_b = _make_workspace("WS-B", name="excluded")
     ws_c = _make_workspace("WS-C", name="kept-too")
@@ -957,8 +954,7 @@ def _raw_report(
 
 
 def test_new_powerbi_reports_skips_app_duplicate_entries():
-    """Reports carrying appId are duplicates added when a report is published to
-    an App; only the original entry (no appId) must appear in the result."""
+    """App-published reports come back twice; only the original (no appId) must reach the result."""
     workspace = _make_workspace("WS-R1")
     raw_instances = [
         _raw_report("R-1"),
@@ -972,8 +968,7 @@ def test_new_powerbi_reports_skips_app_duplicate_entries():
 
 
 def test_new_powerbi_reports_skips_entries_with_missing_required_fields():
-    """Malformed scan entries missing id, name, or reportType must be silently
-    skipped so one bad record does not abort the entire workspace."""
+    """Entries missing id/name/reportType are skipped, not fatal to the workspace."""
     workspace = _make_workspace("WS-R2")
     raw_instances = [
         _raw_report("R-valid"),
@@ -989,8 +984,7 @@ def test_new_powerbi_reports_skips_entries_with_missing_required_fields():
 
 
 def test_new_powerbi_reports_skips_unknown_report_type():
-    """An unrecognised reportType (e.g. a future PowerBI API addition) must be
-    silently skipped rather than raising KeyError."""
+    """Unknown reportType is skipped, not raised (forward-compat with new PowerBI types)."""
     workspace = _make_workspace("WS-R3")
     raw_instances = [
         _raw_report("R-known"),
@@ -1004,9 +998,7 @@ def test_new_powerbi_reports_skips_unknown_report_type():
 
 
 def test_new_powerbi_reports_uses_rdlreports_url_for_paginated_report():
-    """PaginatedReport must use /rdlreports/{id}; regular reports use /reports/{id}.
-    The original code compared an Enum instance to a string (always False),
-    silently sending all paginated reports to the wrong URL path."""
+    """PaginatedReport must use /rdlreports/{id}; other report types use /reports/{id}."""
     workspace = _make_workspace("WS-R4")
     raw_instances = [
         _raw_report("R-pag", report_type="PaginatedReport"),
@@ -1023,10 +1015,7 @@ def test_new_powerbi_reports_uses_rdlreports_url_for_paginated_report():
 
 
 def test_new_powerbi_reports_description_null_coerces_to_empty_string():
-    """Explicit description=null and a missing description key must both produce
-    '' because Report.description is typed as str (not Optional[str]).
-    dict.get(key, default) does not apply the default when the key is present
-    with value None; the `or ''` form is required to handle both cases."""
+    """description=null and missing description must both coerce to '' (Report.description: str)."""
     workspace = _make_workspace("WS-R5")
     raw_instances = [
         {**_raw_report("R-null-desc"), Constant.DESCRIPTION: None},
@@ -1048,8 +1037,7 @@ def test_new_powerbi_reports_description_null_coerces_to_empty_string():
 
 
 def test_new_powerbi_user_returns_none_for_missing_required_fields():
-    """new_powerbi_user must return None (not raise) when any required field is
-    absent so a single malformed users entry does not abort report ingestion."""
+    """Missing required fields yields None; a single bad user must not abort the report."""
     valid: Dict[str, Any] = {
         Constant.IDENTIFIER: "U-1",
         Constant.DISPLAY_NAME: "Alice",
@@ -1074,9 +1062,24 @@ def test_new_powerbi_user_returns_none_for_missing_required_fields():
         ), f"absent {required_key!r} must return None"
 
 
+def test_new_powerbi_user_accepts_app_principal_without_email():
+    """Service principals (principalType=App) have no emailAddress; the factory must yield User(emailAddress=None)."""
+    raw_app = {
+        Constant.IDENTIFIER: "SP-1",
+        Constant.DISPLAY_NAME: "MyServicePrincipal",
+        Constant.GRAPH_ID: "G-SP-1",
+        Constant.PRINCIPAL_TYPE: "App",
+    }
+
+    user = new_powerbi_user(raw_app)
+
+    assert user is not None
+    assert user.principalType == "App"
+    assert user.emailAddress is None
+
+
 def test_new_powerbi_reports_weburl_none_when_workspace_url_missing():
-    """Personal/legacy workspaces have webUrl=None; without a raw webUrl in the
-    scan entry either, report.webUrl must be None (not 'None/reports/...')."""
+    """Personal/legacy workspace + no raw webUrl: report.webUrl is None, not 'None/reports/...'."""
     workspace = Workspace(
         id="PG-1",
         name="personal",
@@ -1099,9 +1102,7 @@ def test_new_powerbi_reports_weburl_none_when_workspace_url_missing():
 
 
 def test_new_powerbi_reports_uses_raw_weburl_from_scan_entry():
-    """When the scan entry carries an explicit webUrl the factory must use it
-    directly — no imputation from the workspace URL — and must not append
-    any suffix (unlike new_powerbi_dataset which appends /details)."""
+    """Explicit webUrl in the scan entry passes through verbatim; no imputation, no /details suffix."""
     workspace = _make_workspace("WS-R7")
     raw_instances = [
         _raw_report(
@@ -1117,9 +1118,30 @@ def test_new_powerbi_reports_uses_raw_weburl_from_scan_entry():
     assert reports[0].webUrl == "https://app.powerbi.com/groups/WS-R7/reports/R-direct"
 
 
+def test_new_powerbi_reports_embed_url_optional():
+    """Report.embedUrl is Optional[str]: scan entry value passes through; absent → None."""
+    workspace = _make_workspace("WS-R8")
+    raw_instances = [
+        _raw_report(
+            "R-with-embed",
+            **{
+                Constant.EMBED_URL: "https://app.powerbi.com/reportEmbed?reportId=R-with-embed"
+            },
+        ),
+        _raw_report("R-no-embed"),
+    ]
+
+    by_id = {r.id: r for r in new_powerbi_reports(workspace, raw_instances)}
+
+    assert (
+        by_id["R-with-embed"].embedUrl
+        == "https://app.powerbi.com/reportEmbed?reportId=R-with-embed"
+    )
+    assert by_id["R-no-embed"].embedUrl is None
+
+
 def test_new_powerbi_reports_skips_users_when_extract_ownership_false():
-    """extract_ownership=False must produce users=[] without constructing User
-    objects; extract_ownership=True (default) must populate users normally."""
+    """extract_ownership=False: users=[] with no User construction; True: users populated."""
     workspace = _make_workspace("WS-R6")
     raw_user: Dict[str, Any] = {
         Constant.IDENTIFIER: "U-1",
@@ -1168,8 +1190,7 @@ def _make_dataset(dataset_id: str, name: str = "ds") -> PowerBIDataset:
 
 
 def test_get_reports_from_scan_result_skips_resolver_get_reports():
-    """When the workspace has a scan result, get_reports must build reports
-    directly from it and never call the resolver's reports/users endpoints."""
+    """A populated scan_result builds reports in-memory; the resolver's reports/users endpoints are not called."""
     api = _make_api()
     workspace = _make_workspace_with_scan_reports(
         raw_reports=[
@@ -1194,8 +1215,7 @@ def test_get_reports_from_scan_result_skips_resolver_get_reports():
 
 
 def test_get_reports_pages_fetch_failure_warns_and_keeps_report():
-    """A pages-fetch failure for one report must surface a 'Report Pages Not
-    Fetched' warning and still leave the report in the result with pages=[]."""
+    """Pages-fetch failure emits 'Report Pages Not Fetched' warning; the report stays with pages=[]."""
     api = _make_api()
     workspace = _make_workspace_with_scan_reports(
         raw_reports=[
@@ -1218,8 +1238,7 @@ def test_get_reports_pages_fetch_failure_warns_and_keeps_report():
 
 
 def test_get_reports_resolves_dataset_via_registry():
-    """When report.dataset_id is present and the registry has the dataset,
-    get_reports must wire up report.dataset (no missing-lineage info)."""
+    """dataset_id present in registry: report.dataset is wired, no 'Missing Lineage' info."""
     api = _make_api()
     dataset = _make_dataset("DS-1")
     api.dataset_registry["DS-1"] = dataset
@@ -1243,8 +1262,7 @@ def test_get_reports_resolves_dataset_via_registry():
 
 
 def test_get_reports_missing_dataset_in_registry_emits_info():
-    """When report.dataset_id is set but the registry has no entry, get_reports
-    must emit a 'Missing Lineage For Report' info on the reporter."""
+    """dataset_id set but absent from registry emits 'Missing Lineage For Report' info."""
     api = _make_api()
     workspace = _make_workspace_with_scan_reports(
         raw_reports=[
@@ -1266,9 +1284,8 @@ def test_get_reports_missing_dataset_in_registry_emits_info():
 
 
 def test_get_reports_falls_back_to_resolver_when_no_scan_result():
-    """An empty scan_result forces the fallback path: get_reports must call the
-    resolver's get_reports and populate users via get_report_users per report."""
-    api = _make_api()
+    """Empty scan_result + extract_ownership=True must populate users via get_report_users and emit a 'Report Scan Fallback Active' info entry."""
+    api = _make_api(extract_ownership=True)
     workspace = _make_workspace("WS-NO-SCAN")  # scan_result={} by default
 
     resolver_report = new_powerbi_reports(
@@ -1291,28 +1308,80 @@ def test_get_reports_falls_back_to_resolver_when_no_scan_result():
 
     assert set(reports) == {"R-1"}
     users_mock.assert_called_once_with("WS-NO-SCAN", "R-1")
+    assert any(i.title == "Report Scan Fallback Active" for i in api.reporter.infos)
 
 
-def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
-    """When the fallback (no scan_result) path's resolver.get_reports raises,
-    get_reports must swallow the exception via log_http_error and return an
-    empty dict rather than propagate."""
-    api = _make_api()
+def test_get_reports_fallback_with_extract_ownership_false_skips_users_api():
+    """Empty scan_result + extract_ownership=False must never invoke the per-report users endpoint."""
+    api = _make_api(extract_ownership=False)
     workspace = _make_workspace("WS-NO-SCAN")
+
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+        extract_ownership=False,
+    )
     resolver = api._get_resolver()
     with (
-        mock.patch.object(resolver, "get_reports", side_effect=RuntimeError("boom")),
-        mock.patch.object(api, "log_http_error") as log_mock,
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users") as users_mock,
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
     ):
         reports = api.get_reports(workspace)
 
+    assert set(reports) == {"R-1"}
+    users_mock.assert_not_called()
+
+
+def test_get_reports_pages_fetch_failure_on_fallback_warns_and_keeps_report():
+    """Pages-fetch failure on the fallback path must emit a 'Report Pages Not Fetched' warning and leave the report in the result with pages=[]."""
+    api = _make_api(extract_ownership=True)
+    workspace = _make_workspace("WS-NO-SCAN")
+
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]),
+        mock.patch.object(
+            resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+        ),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    assert any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
+
+
+def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
+    """Resolver get_reports exception must be swallowed and surface a 'Reports Not Fetched' warning."""
+    api = _make_api()
+    workspace = _make_workspace("WS-NO-SCAN")
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_reports", side_effect=RuntimeError("boom")):
+        reports = api.get_reports(workspace)
+
     assert reports == {}
-    log_mock.assert_called_once()
+    assert any(w.title == "Reports Not Fetched" for w in api.reporter.warnings)
 
 
 def test_get_reports_populates_tags_from_workspace_endorsements():
-    """When extract_endorsements_to_tags is on, report.tags must be filled from
-    workspace.report_endorsements; off, they must remain empty."""
+    """extract_endorsements_to_tags=True: tags filled from workspace.report_endorsements. False: tags stay empty."""
     api_on = _make_api(extract_endorsements_to_tags=True)
     api_off = _make_api(extract_endorsements_to_tags=False)
     raw = [

@@ -286,25 +286,19 @@ class DataResolverBase(ABC):
 
         return output
 
-    def get_reports(
-        self, workspace: Workspace, _filter: Optional[str] = None
-    ) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
-        # Hit PowerBi
         logger.debug(f"Request to report URL={reports_endpoint}")
-        params: Optional[dict] = None
-        if _filter is not None:
-            params = {"$filter": _filter}
 
         response = self._request_session.get(
             reports_endpoint,
             headers=self.get_authorization_header(),
-            params=params,
         )
         response.raise_for_status()
         response_dict = response.json()
         logger.debug(f"Report Request response = {response_dict}")
 
+        # The /reports endpoint omits users; ownership is populated separately.
         return new_powerbi_reports(
             workspace, response_dict.get(Constant.VALUE, []), extract_ownership=False
         )

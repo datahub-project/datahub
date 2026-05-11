@@ -274,7 +274,7 @@ class Page:
 class User:
     id: str
     displayName: str
-    # users with principalType = App do not have emailAddress
+    # Users with principalType=App do not have emailAddress.
     emailAddress: Optional[str]
     graphId: str
     principalType: str
@@ -427,8 +427,7 @@ def new_powerbi_reports(
 ) -> List[Report]:
     reports: List[Report] = []
     for raw_instance in raw_instances:
-        # As we add reports to the App, Power BI starts providing duplicate report information,
-        # where the duplicate includes an AppId, while the original report does not.
+        # App-published reports show up twice; the duplicate carries appId.
         if Constant.APP_ID in raw_instance:
             logger.debug(
                 "Skipping app-duplicate report entry '%s' (%s) in workspace '%s'",
