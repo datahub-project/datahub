@@ -9,7 +9,9 @@ pluginManagement {
 // compatibility, then the new namespaced properties (whose defaults live in gradle.properties).
 // Stored in gradle.ext so they're available to buildSrc's buildscript phase, which runs before root
 // project properties propagate (buildSrc is a separate standalone build).
-def mavenCentralUrl = hasProperty('apacheMavenRepositoryUrl')          ? getProperty('apacheMavenRepositoryUrl')          : getProperty('datahub.dependencies.maven.central')
+def mavenCentralUrl = hasProperty('apacheMavenRepositoryUrl')          ? getProperty('apacheMavenRepositoryUrl')          :
+                      hasProperty('mavenCentralRepositoryUrl')         ? getProperty('mavenCentralRepositoryUrl')         :
+                      getProperty('datahub.dependencies.maven.central')
 def confluentUrl    = hasProperty('confluentMavenRepositoryUrl')        ? getProperty('confluentMavenRepositoryUrl')        : getProperty('datahub.dependencies.maven.confluent')
 def linkedinUrl     = hasProperty('linkedinOpenSourceRepositoryUrl')    ? getProperty('linkedinOpenSourceRepositoryUrl')    : getProperty('datahub.dependencies.maven.linkedinOpenSource')
 // node-gradle plugin resolves Node.js binaries from an Ivy repository; Legacy nodeDistBaseUrl takes precedence for

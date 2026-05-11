@@ -274,7 +274,7 @@ The defaults are defined in the root [`gradle.properties`](../../gradle.properti
    ```
 
 :::note
-The legacy properties `apacheMavenRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
+The legacy properties `apacheMavenRepositoryUrl`, `mavenCentralRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
 :::
 
 #### Node.js Distribution

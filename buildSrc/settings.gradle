@@ -5,6 +5,8 @@
 def rootGradleProps = new Properties()
 new File(settingsDir.parent, 'gradle.properties').withInputStream { rootGradleProps.load(it) }
 
-gradle.ext['datahub.dependencies.maven.central']            = hasProperty('apacheMavenRepositoryUrl')       ? getProperty('apacheMavenRepositoryUrl')       : rootGradleProps.getProperty('datahub.dependencies.maven.central')
+gradle.ext['datahub.dependencies.maven.central']            = hasProperty('apacheMavenRepositoryUrl')       ? getProperty('apacheMavenRepositoryUrl')       :
+                                                              hasProperty('mavenCentralRepositoryUrl')        ? getProperty('mavenCentralRepositoryUrl')        :
+                                                              rootGradleProps.getProperty('datahub.dependencies.maven.central')
 gradle.ext['datahub.dependencies.maven.confluent']           = hasProperty('confluentMavenRepositoryUrl')     ? getProperty('confluentMavenRepositoryUrl')     : rootGradleProps.getProperty('datahub.dependencies.maven.confluent')
 gradle.ext['datahub.dependencies.maven.linkedinOpenSource']  = hasProperty('linkedinOpenSourceRepositoryUrl') ? getProperty('linkedinOpenSourceRepositoryUrl') : rootGradleProps.getProperty('datahub.dependencies.maven.linkedinOpenSource')

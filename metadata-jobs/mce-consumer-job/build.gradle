@@ -89,9 +89,7 @@ docker {
     if (project.hasProperty('githubMirrorUrl')) {
         dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
     }
-    if (project.hasProperty('mavenCentralRepositoryUrl')) {
-        dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
-    }
+    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
 
     if (dockerBuildArgs.size() > 0) {
         buildArgs(dockerBuildArgs)
