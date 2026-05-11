@@ -82,7 +82,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
@@ -129,7 +129,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
