@@ -42,6 +42,7 @@ class DatasetSubTypes(StrEnum):
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
+    METRIC_VIEW = "Metric View"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"

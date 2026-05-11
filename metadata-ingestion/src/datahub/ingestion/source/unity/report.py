@@ -34,6 +34,7 @@ class UnityCatalogReport(SQLSourceReport):
     ml_model_versions: EntityFilterReport = EntityFilterReport.field(
         type="ml_model_version"
     )
+    metric_views: EntityFilterReport = EntityFilterReport.field(type="metric_view")
 
     hive_metastore_catalog_found: Optional[bool] = None
 
@@ -70,6 +71,8 @@ class UnityCatalogReport(SQLSourceReport):
     num_ml_models_missing_name: int = 0
     num_columns_missing_name: int = 0
     num_queries_missing_info: int = 0
+    num_metric_views_yaml_parse_failures: int = 0
+    num_metric_views_no_parseable_sources: int = 0
 
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None

@@ -3,8 +3,10 @@ import json
 import logging
 import re
 import time
-from typing import Dict, Iterable, List, Optional, Set, Tuple, Union, cast
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urljoin
+
+import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -67,6 +69,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.ingestion.source.unity import proxy_types as unity_proxy_types
 from datahub.ingestion.source.unity.analyze_profiler import UnityCatalogAnalyzeProfiler
 from datahub.ingestion.source.unity.config import (
     UnityCatalogAnalyzeProfilerConfig,
@@ -263,6 +266,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_warning(
                 "Some features disabled because of configuration conflicts",
                 "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
+            )
+
+        # If the user opted into metric-view ingestion but the installed
+        # databricks-sdk lacks the enum, the feature degrades to a no-op.
+        # Surface it so they don't spend hours wondering why nothing changed.
+        if (
+            self.config.include_metric_views
+            and unity_proxy_types._TABLE_TYPE_METRIC_VIEW is None
+        ):
+            self.report.report_warning(
+                "include_metric_views has no effect with installed databricks-sdk",
+                "The installed databricks-sdk does not expose TableType.METRIC_VIEW. "
+                "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
+                "to enable metric-view ingestion.",
             )
 
         # Include platform resource repository in report for automatic cache statistics
@@ -575,6 +592,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
+            # When include_metric_views is enabled, apply metric_view_pattern as an
+            # additional filter on metric views. When the flag is off, metric views
+            # flow through the normal table path (preserves pre-flag behaviour where
+            # they were emitted as plain Tables).
+            if (
+                table.is_metric_view
+                and self.config.include_metric_views
+                and not self.config.metric_view_pattern.allowed(
+                    table.ref.qualified_table_name
+                )
+            ):
+                self.report.metric_views.dropped(table.id)
+                continue
+
             if (
                 self.config.is_profiling_enabled()
                 and self.config.is_ge_profiling()
@@ -588,9 +619,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.is_view:
                 self.view_refs.add(table.ref)
             else:
+                # Metric views have is_view=False today so they land here; we keep
+                # them in table_refs unconditionally so stateful soft-delete and any
+                # other downstream code that iterates table_refs continues to work.
                 self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
             self.report.tables.processed(table.id, f"table ({table.table_type})")
+            if table.is_metric_view and self.config.include_metric_views:
+                self.report.metric_views.processed(table.id)
 
     def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
@@ -637,7 +673,28 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ownership = self._create_table_ownership_aspect(table)
         data_platform_instance = self._create_data_platform_instance_aspect()
 
-        lineage = self.ingest_lineage(table)
+        if table.is_metric_view and self.config.include_metric_views:
+            # Prefer YAML-derived lineage when we can parse the metric view body,
+            # but fall back to the existing table-lineage REST API when the YAML
+            # yields no usable upstreams (parse failure, SQL-subquery source,
+            # 2-part identifiers, etc.) so we don't silently regress lineage
+            # users had before opting in.
+            lineage = self._extract_metric_view_lineage(table)
+            if lineage is None:
+                lineage = self.ingest_lineage(table)
+                if lineage is None:
+                    # Both paths produced nothing. Surface so users aren't left
+                    # wondering why a metric view shows no upstreams.
+                    self.report.info(
+                        title="Metric view has no upstream lineage",
+                        message=(
+                            "Neither YAML parsing nor the table-lineage REST "
+                            "API produced any upstreams."
+                        ),
+                        context=table.ref.qualified_table_name,
+                    )
+        else:
+            lineage = self.ingest_lineage(table)
 
         if self.config.include_notebooks:
             for notebook_id in table.downstream_notebooks:
@@ -654,7 +711,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )
-            if table.view_definition and self.sql_parsing_aggregator:
+            if (
+                table.view_definition
+                and self.sql_parsing_aggregator
+                and not (table.is_metric_view and self.config.include_metric_views)
+            ):
                 self.sql_parsing_aggregator.add_view_definition(
                     view_urn=dataset_urn,
                     view_definition=table.view_definition,
@@ -1243,14 +1304,135 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         return None
 
     def _create_table_sub_type_aspect(self, table: Table) -> SubTypesClass:
-        return SubTypesClass(
-            typeNames=[DatasetSubTypes.VIEW if table.is_view else DatasetSubTypes.TABLE]
-        )
+        if table.is_metric_view and self.config.include_metric_views:
+            type_name = DatasetSubTypes.METRIC_VIEW
+        elif table.is_view:
+            type_name = DatasetSubTypes.VIEW
+        else:
+            type_name = DatasetSubTypes.TABLE
+        return SubTypesClass(typeNames=[type_name])
 
     def _create_view_property_aspect(self, table: Table) -> ViewProperties:
         assert table.view_definition
+        if table.is_metric_view and self.config.include_metric_views:
+            view_language = "YAML"
+        else:
+            view_language = "SQL"
         return ViewProperties(
-            materialized=False, viewLanguage="SQL", viewLogic=table.view_definition
+            materialized=False,
+            viewLanguage=view_language,
+            viewLogic=table.view_definition,
+        )
+
+    def _extract_metric_view_lineage(
+        self, table: Table
+    ) -> Optional[UpstreamLineageClass]:
+        """Parse the YAML body of a Unity Catalog metric view and emit upstream lineage.
+
+        The metric-view YAML carries a top-level `source` and an optional `joins`
+        list; each may contain a fully qualified `catalog.schema.table` reference
+        or a SQL subquery. v1 only emits lineage for the qualified-name form.
+        Returns None to signal "no usable lineage from YAML"; the caller falls
+        back to the table-lineage REST API in that case.
+        """
+        if not table.view_definition:
+            return None
+
+        try:
+            spec: Any = yaml.safe_load(table.view_definition)
+        except yaml.YAMLError as e:
+            self.report.num_metric_views_yaml_parse_failures += 1
+            self.report.report_warning(
+                "Metric view YAML failed to parse",
+                f"{table.ref.qualified_table_name}: {e}",
+            )
+            return None
+        except (MemoryError, RecursionError) as e:
+            # Pathological YAML (huge anchors, deep nesting) must not abort the
+            # whole ingestion — record and continue with REST-API lineage.
+            self.report.num_metric_views_yaml_parse_failures += 1
+            self.report.report_warning(
+                "Metric view YAML exhausted resources during parse",
+                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}",
+            )
+            return None
+
+        if not isinstance(spec, dict):
+            return None
+
+        source_names: List[str] = []
+        top_source = spec.get("source")
+        if isinstance(top_source, str):
+            source_names.append(top_source)
+
+        joins = spec.get("joins")
+        if isinstance(joins, list):
+            for join in joins:
+                if isinstance(join, dict):
+                    js = join.get("source")
+                    if isinstance(js, str):
+                        source_names.append(js)
+
+        upstreams: List[UpstreamClass] = []
+        for raw in source_names:
+            ref = self._parse_metric_view_source(raw, table)
+            if ref is None:
+                logger.debug(
+                    f"Skipping non-qualified metric view source for {table.ref}: {raw!r}"
+                )
+                continue
+            upstreams.append(
+                self._create_upstream_class(
+                    self.gen_dataset_urn(ref),
+                    DatasetLineageTypeClass.TRANSFORMED,
+                    None,
+                )
+            )
+
+        if not upstreams:
+            if source_names:
+                # We saw `source`/`joins` entries but parsed none — typical when
+                # the YAML uses 2-part names (default-catalog session) or SQL
+                # subqueries. Surface so users know lineage extraction silently
+                # skipped these entries.
+                self.report.num_metric_views_no_parseable_sources += 1
+                self.report.report_warning(
+                    "Metric view has no parseable upstream sources",
+                    f"{table.ref.qualified_table_name}: sources={source_names!r}. "
+                    "Lineage extraction requires 3-part identifiers "
+                    "(catalog.schema.table); SQL subqueries, 2-part names, and "
+                    "backtick-quoted identifiers are not supported in v1.",
+                )
+            return None
+        return UpstreamLineageClass(upstreams=upstreams)
+
+    @staticmethod
+    def _parse_metric_view_source(raw: str, table: Table) -> Optional[TableReference]:
+        """Return a TableReference if `raw` is a `catalog.schema.table` identifier.
+
+        Anything else — SQL subqueries, two-part names, identifiers with whitespace
+        or backticks (which can quote dots and break a naive split) — is rejected
+        and lineage is skipped.
+        """
+        # Reject anything that looks like a SQL body or expression.
+        if any(ch in raw for ch in ("(", " ", "\n", "\t")):
+            return None
+        # Backtick-quoted Databricks identifiers may legitimately contain dots
+        # (e.g. `db.with.dots`.s.t). We don't tokenise those properly yet, so
+        # refuse rather than risk emitting a wrong URN.
+        if "`" in raw:
+            return None
+        parts = raw.split(".")
+        if len(parts) != 3:
+            return None
+        catalog, schema, name = (p.strip('"') for p in parts)
+        if not (catalog and schema and name):
+            return None
+        return TableReference(
+            metastore=table.ref.metastore,
+            catalog=catalog,
+            schema=schema,
+            table=name,
         )
 
     def get_or_create_from_unity_tag(

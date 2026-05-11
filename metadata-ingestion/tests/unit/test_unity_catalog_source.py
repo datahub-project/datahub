@@ -803,3 +803,544 @@ class TestUnityCatalogSource:
 
         # Verify the report was updated
         assert len(source.report.ml_model_versions.processed_entities) == 1
+
+
+class TestUnityCatalogMetricViews:
+    """Tests for the opt-in metric-view ingestion path.
+
+    The default behaviour (`include_metric_views=False`) must be byte-for-byte
+    identical to the pre-flag release: subtype `Table`, no metric-view-specific
+    aspects, but the dataset URN still tracked in `table_refs`.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _mock_workspace_client(self):
+        with patch("datahub.ingestion.source.unity.source.create_workspace_client"):
+            yield
+
+    @staticmethod
+    def _build_source(
+        include_metric_views: bool, **extra: object
+    ) -> UnityCatalogSource:
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "test_token",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "test_warehouse",
+                "include_hive_metastore": False,
+                "include_metric_views": include_metric_views,
+                **extra,
+            }
+        )
+        ctx = PipelineContext(run_id="test_run")
+        return UnityCatalogSource.create(config, ctx)
+
+    @staticmethod
+    def _build_metric_view_table(
+        view_definition: str = "version: 1.1\nsource: c.s.orders\n",
+    ) -> tuple:
+        from databricks.sdk.service.catalog import TableType
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+            Table,
+        )
+
+        metastore = Metastore(
+            id="metastore",
+            name="metastore",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+        table = Table(
+            id="c.s.revenue",
+            name="revenue",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=TableType.METRIC_VIEW,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition=view_definition,
+            properties={},
+        )
+        return table, schema
+
+    def test_metric_view_flag_default_is_false(self):
+        """Regression guard R6: default must keep current behaviour."""
+        config = UnityCatalogSourceConfig.model_validate(
+            {
+                "token": "t",
+                "workspace_url": "https://test.databricks.com",
+                "warehouse_id": "w",
+                "include_hive_metastore": False,
+            }
+        )
+        assert config.include_metric_views is False
+
+    def test_subtype_flag_off_emits_table(self):
+        """Regression guard R1: with flag off, metric view is labelled `Table`."""
+        from datahub.metadata.schema_classes import SubTypesClass
+
+        source = self._build_source(include_metric_views=False)
+        table, _ = self._build_metric_view_table()
+        aspect: SubTypesClass = source._create_table_sub_type_aspect(table)
+        assert aspect.typeNames == ["Table"]
+
+    def test_subtype_flag_on_emits_metric_view(self):
+        from datahub.metadata.schema_classes import SubTypesClass
+
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table()
+        aspect: SubTypesClass = source._create_table_sub_type_aspect(table)
+        assert aspect.typeNames == ["Metric View"]
+
+    def test_view_property_language_flag_off_is_sql(self):
+        """Regression guard R2: flag off keeps viewLanguage='SQL'."""
+        source = self._build_source(include_metric_views=False)
+        table, _ = self._build_metric_view_table()
+        view_props = source._create_view_property_aspect(table)
+        assert view_props.viewLanguage == "SQL"
+
+    def test_view_property_language_flag_on_is_yaml(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table()
+        view_props = source._create_view_property_aspect(table)
+        assert view_props.viewLanguage == "YAML"
+        assert view_props.materialized is False
+
+    def test_yaml_lineage_extracts_source_table(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: month\n"
+                "    expr: o_orderdate\n"
+            )
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is not None
+        assert len(lineage.upstreams) == 1
+        assert "cat.sch.orders" in lineage.upstreams[0].dataset
+
+    def test_yaml_lineage_extracts_joins(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: cat.sch.orders\n"
+                "joins:\n"
+                "  - name: customer\n"
+                "    source: cat.sch.customers\n"
+            )
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is not None
+        assert len(lineage.upstreams) == 2
+        upstream_names = [u.dataset for u in lineage.upstreams]
+        assert any("cat.sch.orders" in u for u in upstream_names)
+        assert any("cat.sch.customers" in u for u in upstream_names)
+
+    def test_yaml_lineage_skips_sql_subquery_source(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\n"
+                "source: |\n"
+                "  SELECT * FROM cat.sch.orders WHERE o_status = 'F'\n"
+            )
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is None
+
+    def test_yaml_lineage_malformed_increments_counter(self):
+        """Regression guard R7: bad YAML never raises, just bumps the counter."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition='version: 1.1\nsource: "unterminated\n'
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is None
+        assert source.report.num_metric_views_yaml_parse_failures == 1
+
+    def test_is_metric_view_false_when_sdk_lacks_enum(self):
+        """Regression guard R5: older SDKs without METRIC_VIEW enum stay safe."""
+        from datahub.ingestion.source.unity import proxy_types
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+            Table,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        with patch.object(proxy_types, "_TABLE_TYPE_METRIC_VIEW", None):
+            table = Table(
+                id="c.s.x",
+                name="x",
+                comment=None,
+                schema=schema,
+                columns=[],
+                storage_location=None,
+                data_source_format=None,
+                table_type=None,
+                owner=None,
+                generation=None,
+                created_at=None,
+                created_by=None,
+                updated_at=None,
+                updated_by=None,
+                table_id=None,
+                view_definition=None,
+                properties={},
+            )
+        assert table.is_metric_view is False
+
+    def test_is_metric_view_false_on_old_sdk_with_real_table_type(self):
+        """Realistic old-SDK case: shim is None, but the table still has a real type."""
+        from databricks.sdk.service.catalog import TableType
+
+        from datahub.ingestion.source.unity import proxy_types
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+            Table,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+
+        with patch.object(proxy_types, "_TABLE_TYPE_METRIC_VIEW", None):
+            view_table = Table(
+                id="c.s.v",
+                name="v",
+                comment=None,
+                schema=schema,
+                columns=[],
+                storage_location=None,
+                data_source_format=None,
+                table_type=TableType.VIEW,
+                owner=None,
+                generation=None,
+                created_at=None,
+                created_by=None,
+                updated_at=None,
+                updated_by=None,
+                table_id=None,
+                view_definition="SELECT 1",
+                properties={},
+            )
+        assert view_table.is_metric_view is False
+        assert view_table.is_view is True
+
+    def test_old_sdk_with_flag_on_emits_warning(self):
+        """Regression guard H1: silent SDK-incompat must surface in the report."""
+        from datahub.ingestion.source.unity import proxy_types
+
+        with patch.object(proxy_types, "_TABLE_TYPE_METRIC_VIEW", None):
+            source = self._build_source(include_metric_views=True)
+        warnings = source.report.warnings
+        # The warnings field is a LossyDict-like map; flatten title/message pairs
+        flat = str(warnings)
+        assert "include_metric_views" in flat
+        assert "databricks-sdk" in flat
+
+    @pytest.mark.parametrize(
+        "raw,expected_none",
+        [
+            ("cat.tab", True),  # 2-part
+            ("a.b.c.d", True),  # 4-part
+            ("cat.sch.tab(", True),  # contains paren
+            ("cat sch tab", True),  # contains space
+            ("cat\nsch\ntab", True),  # contains newline
+            ("`cat`.`sch`.`tab`", True),  # contains backtick — refused
+            ('"cat"."sch"."tab"', False),  # double-quoted parts ok
+            ("cat.sch.tab", False),  # plain qualified name ok
+        ],
+    )
+    def test_parse_metric_view_source_branches(
+        self, raw: str, expected_none: bool
+    ) -> None:
+        from datahub.ingestion.source.unity.source import UnityCatalogSource
+
+        table, _ = self._build_metric_view_table()
+        ref = UnityCatalogSource._parse_metric_view_source(raw, table)
+        if expected_none:
+            assert ref is None
+        else:
+            assert ref is not None
+            assert ref.catalog == "cat"
+            assert ref.schema == "sch"
+            assert ref.table == "tab"
+
+    def test_yaml_lineage_falls_back_when_yaml_yields_no_upstreams(self):
+        """C1: when YAML extraction returns None, ingest_lineage takes over."""
+        source = self._build_source(include_metric_views=True)
+        table, schema = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: |\n  SELECT * FROM cat.sch.orders\n"
+            )
+        )
+        with (
+            patch.object(
+                source, "_extract_metric_view_lineage", return_value=None
+            ) as yaml_path,
+            patch.object(source, "ingest_lineage", return_value=None) as rest_path,
+        ):
+            list(source.process_table(table, schema))
+        yaml_path.assert_called_once_with(table)
+        rest_path.assert_called_once_with(table)
+
+    def test_flag_off_uses_ingest_lineage_not_yaml(self):
+        """Regression guard: flag off must not touch the YAML extractor."""
+        source = self._build_source(include_metric_views=False)
+        table, schema = self._build_metric_view_table()
+        with (
+            patch.object(source, "_extract_metric_view_lineage") as yaml_path,
+            patch.object(source, "ingest_lineage", return_value=None) as rest_path,
+        ):
+            list(source.process_table(table, schema))
+        yaml_path.assert_not_called()
+        rest_path.assert_called_once_with(table)
+
+    def test_yaml_lineage_no_parseable_sources_increments_counter(self):
+        """H3: when YAML lists sources but none qualify, surface as a counter."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: schema_only.orders\n"  # 2-part — rejected
+            )
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is None
+        assert source.report.num_metric_views_no_parseable_sources == 1
+
+    def test_yaml_lineage_empty_body_no_counter_bump(self):
+        """Empty body is not a parse failure — distinct from H2/H3 paths."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(view_definition="")
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is None
+        assert source.report.num_metric_views_yaml_parse_failures == 0
+        assert source.report.num_metric_views_no_parseable_sources == 0
+
+    @pytest.mark.parametrize(
+        "yaml_body",
+        [
+            "just a string",  # scalar root
+            "version: 1.1\nsource: 42\n",  # non-string source
+            "version: 1.1\nsource: [a, b]\n",  # list source
+            "version: 1.1\nsource: cat.sch.x\njoins: null\n",  # null joins
+            "version: 1.1\nsource: cat.sch.x\njoins: bogus\n",  # non-list joins
+            "version: 1.1\nsource: cat.sch.x\njoins:\n  - just_a_string\n",  # join scalar
+        ],
+    )
+    def test_yaml_lineage_handles_unexpected_shapes_without_error(
+        self, yaml_body: str
+    ) -> None:
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(view_definition=yaml_body)
+        # Must not raise; empty `source: cat.sch.x` cases still emit one upstream
+        source._extract_metric_view_lineage(table)
+        # And no parse failure counter bump for these (they parsed cleanly)
+        assert source.report.num_metric_views_yaml_parse_failures == 0
+
+    def test_metric_view_skips_sql_parsing_aggregator(self):
+        """Regression guard: a metric-view YAML body must not be fed to the SQL aggregator."""
+        from unittest.mock import MagicMock
+
+        source = self._build_source(include_metric_views=True)
+        # Force the Hive-metastore-only branch to fire so we can observe whether
+        # the SQL aggregator gets called for a metric view.
+        from datahub.ingestion.source.unity.proxy_types import CustomCatalogType
+
+        source.sql_parser_schema_resolver = MagicMock()
+        source.sql_parsing_aggregator = MagicMock()
+        table, schema = self._build_metric_view_table()
+        # Force the schema's catalog to look like the Hive-metastore catalog
+        # so the SQL aggregator branch is reachable.
+        schema.catalog.type = CustomCatalogType.HIVE_METASTORE_CATALOG
+        list(source.process_table(table, schema))
+        source.sql_parsing_aggregator.add_view_definition.assert_not_called()
+
+    def test_ordinary_view_still_emits_sql_view_language(self):
+        """Regression guard: ordinary VIEW tables must still get viewLanguage='SQL'."""
+        from databricks.sdk.service.catalog import TableType
+
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            Metastore,
+            Schema,
+            Table,
+        )
+
+        source = self._build_source(include_metric_views=True)
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="c",
+            name="c",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=None,
+        )
+        schema = Schema(
+            id="c.s",
+            name="s",
+            catalog=catalog,
+            comment=None,
+            owner=None,
+        )
+        ordinary_view = Table(
+            id="c.s.v",
+            name="v",
+            comment=None,
+            schema=schema,
+            columns=[],
+            storage_location=None,
+            data_source_format=None,
+            table_type=TableType.VIEW,
+            owner=None,
+            generation=None,
+            created_at=None,
+            created_by=None,
+            updated_at=None,
+            updated_by=None,
+            table_id=None,
+            view_definition="SELECT 1",
+            properties={},
+        )
+        view_props = source._create_view_property_aspect(ordinary_view)
+        assert view_props.viewLanguage == "SQL"
+
+    def test_metric_view_pattern_deny_drops_view(self):
+        """Coverage of the pattern filter when flag is on (S2)."""
+        from databricks.sdk.service.catalog import TableType
+
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+        source = self._build_source(
+            include_metric_views=True,
+            metric_view_pattern={"deny": [".*revenue.*"]},
+        )
+        table, schema = self._build_metric_view_table()  # name is "revenue"
+
+        def _stub_tables(schema, _table=table):
+            return iter([_table])
+
+        source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+        workunits = list(source.process_tables(schema))
+        assert workunits == []
+        # LossyList does not implement __contains__; convert via list().
+        assert table.id in list(source.report.metric_views.dropped_entities)
+
+    def test_metric_view_in_table_refs_regardless_of_flag(self):
+        """Regression guard R4: stateful soft-delete relies on table_refs membership."""
+        from databricks.sdk.service.catalog import TableType
+
+        if not hasattr(TableType, "METRIC_VIEW"):
+            pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+        for flag in (False, True):
+            source = self._build_source(include_metric_views=flag)
+            table, schema = self._build_metric_view_table()
+
+            def _stub_tables(schema, _table=table):
+                return iter([_table])
+
+            source.unity_catalog_api_proxy.tables = _stub_tables  # type: ignore[assignment]
+            list(source.process_tables(schema))
+            assert table.ref in source.table_refs, (
+                f"Metric view dropped from table_refs with include_metric_views={flag}"
+            )

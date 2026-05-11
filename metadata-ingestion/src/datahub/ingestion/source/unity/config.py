@@ -219,6 +219,28 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Opt in to enrich Unity Catalog Metric Views with subtype 'Metric View',"
+            " their YAML body as a ViewProperties aspect, and upstream lineage parsed"
+            " from the YAML `source` and `joins`. When False (default), metric views"
+            " continue to be emitted as plain Tables with no view body — preserves"
+            " pre-upgrade behaviour for environments that already ingest Unity Catalog."
+            " Requires databricks-sdk new enough to expose TableType.METRIC_VIEW;"
+            " older SDKs silently fall through to the Table behaviour."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
