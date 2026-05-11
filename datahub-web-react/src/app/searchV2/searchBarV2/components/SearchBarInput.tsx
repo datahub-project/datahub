@@ -67,7 +67,7 @@ const SuffixWrapper = styled.div`
 `;
 
 interface Props {
-    value: string;
+    defaultValue?: string;
     onChange?: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onSearch?: () => void;
     onFocus?: () => void;
@@ -82,12 +82,14 @@ interface Props {
     isViewsSelectOpened?: boolean;
     setIsViewsSelectOpened?: (value: boolean) => void;
     width?: string;
+    onCompositionStart?: React.CompositionEventHandler<HTMLInputElement>;
+    onCompositionEnd?: React.CompositionEventHandler<HTMLInputElement>;
 }
 
 const SearchBarInput = forwardRef<InputRef, Props>(
     (
         {
-            value,
+            defaultValue,
             onChange,
             onSearch,
             onFocus,
@@ -102,6 +104,8 @@ const SearchBarInput = forwardRef<InputRef, Props>(
             width,
             isViewsSelectOpened,
             setIsViewsSelectOpened,
+            onCompositionStart,
+            onCompositionEnd,
         },
         ref,
     ) => {
@@ -142,10 +146,10 @@ const SearchBarInput = forwardRef<InputRef, Props>(
         return (
             <Wrapper $open={isDropdownOpened} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSearchBar
+                    defaultValue={defaultValue}
                     placeholder={placeholder}
                     onPressEnter={onSearch}
                     onKeyDown={onKeyDown}
-                    value={value}
                     onChange={(_, event) => onChange?.(event)}
                     data-testid="search-input"
                     onFocus={onFocusHandler}
@@ -153,6 +157,9 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     allowClear={isDropdownOpened || isFocused}
                     clearIcon={<Icon onClick={onClear} icon={XCircle} size="2xl" data-testid="button-clear" />}
                     ref={ref}
+                    onCompositionStart={onCompositionStart}
+                    onCompositionEnd={onCompositionEnd}
+                    forceUncontrolled
                     suffix={
                         <SuffixWrapper>
                             {(showCommandK && !isDropdownOpened && !isFocused && <CommandK />) || null}
@@ -175,7 +182,6 @@ const SearchBarInput = forwardRef<InputRef, Props>(
                     }
                     width={width ?? (isShowNavBarRedesign ? '664px' : '620px')}
                     height="44px"
-                    $isShowNavBarRedesign={isShowNavBarRedesign}
                 />
             </Wrapper>
         );

@@ -1,6 +1,7 @@
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button, Layout } from 'antd';
 import React, { useContext, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
 import { useNavBarContext } from '@app/homeV2/layout/navBarRedesign/NavBarContext';
@@ -14,6 +15,7 @@ import useSearchViewAll from '@app/searchV2/useSearchViewAll';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
+import { PageRoutes } from '@conf/Global';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AutoCompleteResultForEntity } from '@types';
@@ -155,6 +157,10 @@ export const SearchHeader = ({
     const showHomepageRedesign = useShowHomePageRedesign();
     const isHomePage = useIsHomePage();
     const hideNavToggler = showHomepageRedesign && isHomePage;
+    const location = useLocation();
+
+    // Hide recommendations on analytics page since they are not displayed
+    const isAnalyticsPage = location.pathname === PageRoutes.ANALYTICS;
     const themeConfig = useTheme();
     const styles = getStyles(isShowNavBarRedesign, themeConfig.colors);
 
@@ -163,7 +169,7 @@ export const SearchHeader = ({
 
     return (
         <>
-            <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
+            <HeaderBackground />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
                     {isShowNavBarRedesign && isCollapsed && !hideNavToggler && (
@@ -188,6 +194,7 @@ export const SearchHeader = ({
                                 setIsSearchBarFocused={setIsSearchBarFocused}
                                 viewsEnabled={viewsEnabled}
                                 isShowNavBarRedesign={isShowNavBarRedesign}
+                                hideRecommendations={isAnalyticsPage}
                                 combineSiblings
                                 fixAutoComplete
                                 showQuickFilters
