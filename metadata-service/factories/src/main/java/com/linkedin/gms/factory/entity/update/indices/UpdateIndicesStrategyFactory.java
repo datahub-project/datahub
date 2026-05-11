@@ -37,7 +37,7 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
-      @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:true}")
+      @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
           boolean coalesceBatchUpdates) {
 
     EntityIndexVersionConfiguration v2Config =

@@ -110,6 +110,30 @@ source:
 
 When this is configured, dataset URNs produced by the Glue connector will include the same `platform_instance` and `env` as the target platform's connector, ensuring entities merge correctly in DataHub. If the target platform connector does not use a `platform_instance`, no configuration is needed — URNs will match by default.
 
+#### Column Parameters as Structured Properties
+
+When `extract_column_parameters` is enabled, column-level `Parameters` from the Glue catalog are
+ingested as structured properties on each `schemaField` entity. This surfaces Glue metadata such as Iceberg field IDs directly in the
+DataHub Properties tab.
+
+```yaml
+source:
+  type: glue
+  config:
+    extract_column_parameters: true
+```
+
+**How it works:**
+
+- For each column that has a non-empty `Parameters` map, a `StructuredProperties` aspect is emitted
+  on the corresponding `schemaField` entity.
+- Each unique parameter key produces one `StructuredPropertyDefinition` per recipe run. Subsequent
+  columns reusing the same key share the existing definition (no duplicate upserts).
+- Property URNs follow the pattern
+  `urn:li:structuredProperty:io.datahubproject.glue.column.<sanitized-key>`, where non-alphanumeric
+  characters (except `.`) are replaced with `_`.
+- Partition key columns are also processed.
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.

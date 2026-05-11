@@ -806,7 +806,9 @@ plugins: Dict[str, Set[str]] = {
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
-    "sigma": sqlglot_lib | {"requests<3.0.0"},
+    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
+    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
+    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},

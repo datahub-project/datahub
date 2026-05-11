@@ -205,6 +205,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
 
+    # Workbook-lineage warehouse table index for chart formula resolution.
+    # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse
+    # table entry in the merged (per-element + per-workbook) index. Sub-category
+    # of chart_input_fields_resolved.
+    chart_input_fields_warehouse_qualified: int = 0
+    # Resolved specifically by an entry from the workbook-level index (not the
+    # per-element SQL-parser index) — quantifies the added coverage beyond what
+    # the SQL parser resolves per element.
+    chart_input_fields_warehouse_qualified_via_workbook_index: int = 0
+    # /v2/workbooks/{id}/lineage returned None (5xx / network error). 404 is
+    # handled silently (workbook deleted since listing).
+    chart_input_fields_warehouse_index_lookup_failed: int = 0
+    # /v2/files/{inodeId} returned None for a workbook-lineage type=table inode.
+    # Only incremented on first failure per inode — the /files cache is shared
+    # with the DM element path.
+    chart_input_fields_warehouse_table_lookup_failed: int = 0
+    # /files path didn't parse as Connection Root/<DB>/<SCHEMA>.
+    # Only incremented on first occurrence per inode — _files_path_unparseable_seen
+    # is shared with the DM element path.
+    chart_input_fields_warehouse_path_unparseable: int = 0
+    # connectionId not in registry, or is_mappable=False, for a workbook-lineage
+    # type=table entry.
+    chart_input_fields_warehouse_unknown_connection: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
@@ -277,11 +301,17 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # Refs where element-name matches the element's own warehouse-table name
-    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
-    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
-    # upstream is the warehouse inode.
+    # Warehouse-passthrough refs where columnId-based resolution failed.
+    # Fires for self-ref formulas (element name == formula source) AND for
+    # formulas where the source is the warehouse table name but resolution fails
+    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Note: semantics changed in this release — previously this counter fired on
+    # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
+    # Covers both the self-ref case and the case where the formula source is
+    # the warehouse table name rather than the element name.
+    data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
@@ -311,6 +341,28 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     pagination_malformed_entries_dropped: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
+
+    # DM customSQL element SQL parsing counters.
+    # Elements skipped before aggregator registration (no definition, missing /
+    # unknown connection, unsupported platform, duplicate source_id).
+    dm_customsql_skipped: int = 0
+    dm_customsql_aggregator_invocations: int = 0
+    dm_customsql_aggregator_invocation_errors: int = 0
+    dm_customsql_parse_failed: int = 0
+    dm_customsql_upstream_emitted: int = 0
+    dm_customsql_column_lineage_emitted: int = 0
+    # FGL downstream fields dropped because the SQL column name had no matching
+    # Sigma display column (formula ref absent or element name mismatch).
+    dm_customsql_fgl_downstream_unmapped: int = 0
+
+    # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
+    workbook_customsql_skipped: int = 0
+    workbook_customsql_aggregator_invocations: int = 0
+    workbook_customsql_aggregator_invocation_errors: int = 0
+    workbook_customsql_parse_failed: int = 0
+    workbook_customsql_upstream_emitted: int = 0
+    workbook_customsql_column_lineage_emitted: int = 0
+    workbook_customsql_fgl_downstream_unmapped: int = 0
 
     # Connection registry counters.
     # Records whose Sigma type mapped to a known DataHub platform.
@@ -356,6 +408,27 @@ class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     produces dangling lineage for multi-env or multi-instance setups.
     """
 
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default database name for this connection. Used (a) to fill the "
+            "database layer when Sigma's /files path omits it (e.g. Redshift: "
+            "'Connection Root/SCHEMA') and (b) as the SQL parser fallback when "
+            "customSQL definitions reference unqualified tables. Set this to the "
+            "database name the warehouse connector uses so the emitted URNs match "
+            "(e.g. 'dev' to produce 'dev.public.table')."
+        ),
+    )
+
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default schema name for this connection. Used as the SQL parser "
+            "fallback when customSQL definitions reference unqualified tables. "
+            "Required for warehouses where Sigma's connection record does not "
+            "include a schema field."
+        ),
+    )
     convert_urns_to_lowercase: bool = pydantic.Field(
         default=True,
         description=(

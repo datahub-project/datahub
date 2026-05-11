@@ -1169,6 +1169,7 @@ sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 slack = [
