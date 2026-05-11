@@ -84,6 +84,9 @@ class BigqueryProfiler(GenericProfiler):
                 env=self.config.env,
             )
         else:
+            # TODO: Remove this branch once Great Expectations is fully
+            # deprecated. The entire if/else then collapses to the
+            # SQLAlchemyProfiler return above.
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
