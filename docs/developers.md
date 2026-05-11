@@ -277,6 +277,41 @@ The defaults are defined in the root [`gradle.properties`](../../gradle.properti
 The legacy properties `apacheMavenRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
 :::
 
+#### Node.js Distribution
+
+The frontend build downloads a pinned Node.js binary from `https://nodejs.org/dist`. Override this for airgapped environments or corporate mirrors:
+
+| Property                                | Default                   | Purpose                               |
+| --------------------------------------- | ------------------------- | ------------------------------------- |
+| `datahub.dependencies.node.distBaseUrl` | `https://nodejs.org/dist` | Base URL for Node.js binary downloads |
+
+The default is defined in [`gradle.properties`](../../gradle.properties).
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :datahub-web-react:yarnBuild \
+     -P'datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.node.distBaseUrl=https://nexus.company.com/nodejs/
+   ```
+
+:::note
+The legacy property `nodeDistBaseUrl` is deprecated but still honoured. It takes precedence over `datahub.dependencies.node.distBaseUrl` when set. Migrate to the new property at your earliest convenience.
+:::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.
