@@ -1,7 +1,5 @@
-import atexit
 import functools
 import logging
-import os
 from typing import Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -66,12 +64,6 @@ from datahub.sql_parsing.schema_resolver_provider import provide_schema_resolver
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-# We can't use close as it is not called if the ingestion is not successful
-def cleanup(config: BigQueryV2Config) -> None:
-    if config._credentials_path is not None:
-        os.unlink(config._credentials_path)
 
 
 @platform_name("BigQuery", doc_order=1)
@@ -213,7 +205,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.add_config_to_report()
-        atexit.register(cleanup, config)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":
