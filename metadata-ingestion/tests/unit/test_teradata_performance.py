@@ -557,7 +557,14 @@ class TestQueryOptimizations:
 
         query = source._build_tables_and_views_query()
 
-        assert "AND DataBaseName IN ('DB_A','DB_B','DB_C')" in query
+        # (NOT CASESPECIFIC) on both sides keeps the IN-list matching even on
+        # installations whose session default is CASESPECIFIC.
+        assert (
+            "AND DataBaseName (NOT CASESPECIFIC) IN ("
+            "'DB_A' (NOT CASESPECIFIC),"
+            "'DB_B' (NOT CASESPECIFIC),"
+            "'DB_C' (NOT CASESPECIFIC))"
+        ) in query
         # System database exclusion still present
         assert "NOT IN" in query
 

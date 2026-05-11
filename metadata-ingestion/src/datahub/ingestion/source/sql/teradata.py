@@ -277,7 +277,7 @@ def optimized_get_columns(
     # Incremental extraction: skip column fetch for tables unchanged since the watermark
     if (
         tables_needing_extraction is not None
-        and (schema, table_name) not in tables_needing_extraction
+        and (schema.lower(), table_name) not in tables_needing_extraction
     ):
         logger.debug(
             f"Skipping column extraction for {schema}.{table_name} (unchanged since watermark)"
@@ -290,7 +290,7 @@ def optimized_get_columns(
 
     td_table: Optional[TeradataTable] = None
     # Check if the object is a view
-    for t in tables_cache[schema]:
+    for t in tables_cache.get(schema.lower(), []):
         if t.name == table_name:
             td_table = t
             break
@@ -473,10 +473,11 @@ def optimized_get_view_definition(
     if schema is None:
         schema = self.default_schema_name
 
-    if schema not in tables_cache:
+    schema_key = schema.lower()
+    if schema_key not in tables_cache:
         return None
 
-    for table in tables_cache[schema]:
+    for table in tables_cache[schema_key]:
         if table.name == view_name:
             return self.normalize_name(table.request_text)
 
@@ -865,8 +866,11 @@ ORDER by DataBaseName, TableName;
         if self.config.databases:
             # Teradata identifiers cannot contain single quotes; strip defensively.
             safe_names = [db.replace("'", "") for db in self.config.databases]
-            db_allowlist = "\nAND DataBaseName IN ({})".format(
-                ",".join(f"'{db}'" for db in safe_names)
+            # (NOT CASESPECIFIC) on both sides so the filter works even if the
+            # session collation is set to CASESPECIFIC (rare but seen in compliance-
+            # configured installations); the audit-log query below uses the same idiom.
+            db_allowlist = "\nAND DataBaseName (NOT CASESPECIFIC) IN ({})".format(
+                ",".join(f"'{db}' (NOT CASESPECIFIC)" for db in safe_names)
             )
 
         return self._TABLES_AND_VIEWS_QUERY_TEMPLATE.format(
@@ -1119,7 +1123,7 @@ ORDER by DataBaseName, TableName;
                 i.name
                 for i in filter(
                     lambda t: t.object_type != "View",
-                    self._tables_cache.get(schema, []),
+                    self._tables_cache.get(schema.lower(), []),
                 )
             ],
         )
@@ -1135,7 +1139,7 @@ ORDER by DataBaseName, TableName;
         # this method and provide a location.
         location: Optional[str] = None
 
-        cache_entries = self._tables_cache.get(schema, [])
+        cache_entries = self._tables_cache.get(schema.lower(), [])
         for entry in cache_entries:
             if entry.name == table:
                 description = entry.description
@@ -1147,7 +1151,7 @@ ORDER by DataBaseName, TableName;
     def _get_creator_for_entity(self, schema: str, entity_name: str) -> Optional[str]:
         """Get creator name for a table or view."""
         with self._tables_cache_lock:
-            return self._table_creator_cache.get((schema, entity_name))
+            return self._table_creator_cache.get((schema.lower(), entity_name))
 
     def _emit_ownership_if_available(
         self,
@@ -1215,7 +1219,8 @@ ORDER by DataBaseName, TableName;
         view_names = [
             i.name
             for i in filter(
-                lambda t: t.object_type == "View", self._tables_cache.get(schema, [])
+                lambda t: t.object_type == "View",
+                self._tables_cache.get(schema.lower(), []),
             )
         ]
         actual_view_count = len(view_names)
@@ -1600,12 +1605,15 @@ ORDER by DataBaseName, TableName;
                         database_counts[table.database]["tables"] += 1
 
                     with self._tables_cache_lock:
-                        self._tables_cache[table.database].append(table)
+                        # Cache key is lowercased so lookups by schema name from
+                        # config.databases (case as the user typed it) match entries
+                        # populated from dbc.TablesV (returned in Teradata's stored case).
+                        self._tables_cache[table.database.lower()].append(table)
                         creator_name = (entry.CreatorName or "").strip()
                         if creator_name:
-                            self._table_creator_cache[(table.database, table.name)] = (
-                                creator_name
-                            )
+                            self._table_creator_cache[
+                                (table.database.lower(), table.name)
+                            ] = creator_name
 
                     # Track which tables need column extraction under incremental mode
                     if (
@@ -1616,7 +1624,7 @@ ORDER by DataBaseName, TableName;
                         # Include when timestamp is missing (conservative) or at/after watermark
                         if last_alter is None or last_alter >= watermark:
                             self._tables_needing_column_extraction.add(
-                                (table.database, table.name)
+                                (table.database.lower(), table.name)
                             )
 
                 if self._tables_needing_column_extraction is not None:
