@@ -53,6 +53,7 @@ from datahub.configuration.env_vars import (
     get_rest_emitter_default_pool_connections,
     get_rest_emitter_default_pool_maxsize,
     get_rest_emitter_default_retry_max_times,
+    get_rest_sink_default_tcp_keepalive,
 )
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -99,6 +100,7 @@ _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TR
 _DEFAULT_RETRY_MAX_TIMES = int(get_rest_emitter_default_retry_max_times())
 _DEFAULT_POOL_CONNECTIONS = get_rest_emitter_default_pool_connections()
 _DEFAULT_POOL_MAXSIZE = get_rest_emitter_default_pool_maxsize()
+_DEFAULT_TCP_KEEPALIVE = get_rest_sink_default_tcp_keepalive()
 
 # Multiplier to increase number of retries on 429s
 _429_RETRY_MULTIPLIER = get_rest_emitter_429_retry_multiplier()
@@ -305,7 +307,7 @@ class RequestsSessionConfig(ConfigModel):
     client_mode: Optional[ClientMode] = _DEFAULT_CLIENT_MODE
     datahub_component: Optional[str] = None
 
-    tcp_keepalive: bool = False
+    tcp_keepalive: bool = _DEFAULT_TCP_KEEPALIVE
 
     def build_session(self) -> requests.Session:
         session = requests.Session()
@@ -482,7 +484,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         client_mode: Optional[ClientMode] = None,
         datahub_component: Optional[str] = None,
         server_config_refresh_interval: Optional[int] = None,
-        tcp_keepalive: bool = False,
+        tcp_keepalive: Optional[bool] = None,
     ):
         if not gms_server:
             raise ConfigurationError("gms server is required")
@@ -553,7 +555,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             disable_ssl_verification=disable_ssl_verification,
             client_mode=client_mode,
             datahub_component=datahub_component,
-            tcp_keepalive=tcp_keepalive,
+            tcp_keepalive=get_or_else(tcp_keepalive, _DEFAULT_TCP_KEEPALIVE),
         )
 
         self._session = self._session_config.build_session()

@@ -86,6 +86,7 @@ def _build(
         elementId_to_dataset_urn=elementId_to_dataset_urn or {},
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
         data_model=_data_model(all_elements),
+        warehouse_url_id_map={},
     )
 
 

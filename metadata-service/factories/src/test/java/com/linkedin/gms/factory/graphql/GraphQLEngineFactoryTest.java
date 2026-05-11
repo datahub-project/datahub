@@ -116,7 +116,7 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @Qualifier("graphClient")
   private GraphClient graphClient;
 
-  @Autowired
+  @MockitoBean
   @Qualifier("entityService")
   private EntityService<?> entityService;
 

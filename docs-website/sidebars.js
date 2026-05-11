@@ -241,9 +241,9 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              label: "Anomaly Detection ⚡",
               type: "doc",
-              id: "docs/managed-datahub/observe/smart-assertions",
+              id: "docs/managed-datahub/observe/anomaly-detection",
               className: "saasOnly",
             },
             {

@@ -203,6 +203,12 @@ task_pattern:
 
 Snowpipe objects are ingested as DataJob entities with lineage derived from parsing the `COPY INTO` statement. The pipe's source stage resolves to an upstream dataset (internal placeholder or external cloud URN) and the target table resolves to a downstream dataset. Enabling pipes automatically scans stages for lineage resolution, even if `include_stages` is false.
 
+The parser handles the following `COPY INTO` patterns:
+
+- Column-list targets — `COPY INTO t(a, b) FROM @stage` resolves the target table correctly
+- Subquery sources — `COPY INTO t FROM (SELECT ... FROM @s1 UNION ALL SELECT ... FROM @s2)` captures all referenced stages as upstream datasets
+- Non-`COPY` pipe bodies are silently skipped; stage refs that cannot be normalized to a three-part FQN emit a warning in the ingestion report
+
 ```yaml
 include_pipes: true
 pipe_pattern:

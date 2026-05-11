@@ -113,7 +113,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             null, // No semantic search config for basic tests
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            true);
   }
 
   @Test
@@ -419,7 +420,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Verify: Should not write to semantic index when not enabled
     assertFalse(
@@ -442,7 +444,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Verify: Should not write to semantic index for dataset (not in enabled list)
     assertFalse(
@@ -468,7 +471,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Verify: Should not write to semantic index when index doesn't exist
     assertFalse(strategyWithMissingIndex.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -493,7 +497,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Verify: Should write to semantic index when all conditions are met
     assertTrue(strategyWithAllConditions.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -518,7 +523,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Call shouldWriteToSemanticIndex multiple times
     assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -548,7 +554,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Setup mocks for document transformation
     when(searchDocumentTransformer.transformAspect(
@@ -640,7 +647,8 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false);
 
     // Execute with isKeyAspect = true (full delete)
     strategyWithSemantic.deleteSearchData(

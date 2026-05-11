@@ -445,6 +445,10 @@ module.exports = {
             from: '/docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor',
             to: '/docs/managed-datahub/remote-executor/about',
           },
+          {
+            from: '/docs/managed-datahub/observe/smart-assertions',
+            to: '/docs/managed-datahub/observe/anomaly-detection',
+          },
         ],
       },
     ],

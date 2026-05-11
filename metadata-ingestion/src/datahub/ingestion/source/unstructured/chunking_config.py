@@ -1,5 +1,6 @@
 """Configuration for Document Chunking and Embedding Source."""
 
+import re
 from typing import Any, Literal, Optional
 
 from pydantic import Field, field_validator
@@ -94,6 +95,11 @@ class EmbeddingConfig(ConfigModel):
     batch_size: int = Field(
         default=25, description="Batch size for embedding API calls"
     )
+    request_timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Per-call HTTP timeout in seconds for embedding providers.",
+    )
     input_type: Optional[str] = Field(
         default="search_document",
         description="Input type for Cohere embeddings",
@@ -122,11 +128,19 @@ class EmbeddingConfig(ConfigModel):
     @field_validator("model_embedding_key")
     @classmethod
     def validate_model_embedding_key(cls, v: Optional[str]) -> Optional[str]:
-        """Validate model_embedding_key is Elasticsearch-compatible (no dots)."""
-        if v is not None and "." in v:
+        """Validate model_embedding_key is Elasticsearch-compatible.
+
+        Elasticsearch rejects field names containing characters like ``.`` or
+        ``:`` — the latter shows up in Bedrock Titan model IDs
+        (``amazon.titan-embed-text-v2:0``). Restrict to alphanumerics and
+        underscore so anything that survives is safe to use as a field name.
+        """
+        if v is not None and not re.fullmatch(r"[A-Za-z0-9_]+", v):
             raise ValueError(
-                f"model_embedding_key '{v}' contains '.' which is not allowed in Elasticsearch field names. "
-                f"Use underscores instead (e.g., 'cohere_embed_v3' not 'cohere.embed.v3')"
+                f"model_embedding_key '{v}' contains characters other than letters, "
+                f"digits, or underscore. Elasticsearch field names disallow '.', ':', "
+                f"'-', and other punctuation — use underscores instead "
+                f"(e.g., 'cohere_embed_v3' not 'cohere.embed.v3')."
             )
         return v
 
