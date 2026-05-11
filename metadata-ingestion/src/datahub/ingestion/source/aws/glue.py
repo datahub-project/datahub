@@ -13,6 +13,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Set,
     Tuple,
 )
 from urllib.parse import urlparse
@@ -74,6 +75,7 @@ from datahub.ingestion.source.aws.tag_entities import (
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
+    FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.glue_profiling_config import GlueProfilingConfig
@@ -123,6 +125,9 @@ from datahub.metadata.schema_classes import (
     QueryLanguageClass,
     QueryStatementClass,
     SchemaMetadataClass,
+    StructuredPropertiesClass,
+    StructuredPropertyDefinitionClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
     TimeStampClass,
     UpstreamClass,
@@ -272,6 +277,15 @@ class GlueSourceConfig(
         description="When enabled, column-level lineage will be extracted between Glue table columns and storage location fields.",
     )
 
+    extract_column_parameters: bool = Field(
+        default=False,
+        description=(
+            "When enabled, column-level Parameters from Glue are ingested as structured properties "
+            "on each schemaField entity. A StructuredPropertyDefinition is upserted once per unique "
+            "parameter key per recipe run; subsequent columns reuse the cached definition."
+        ),
+    )
+
     target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
         default_factory=dict,
         description=(
@@ -357,6 +371,10 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Glue table created and last modified timestamps",
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[
@@ -393,6 +411,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self.extract_transforms = config.extract_transforms
         self.env = config.env
         self._glue_connection_cache: Dict[str, Optional[Tuple[str, str]]] = {}
+        # Tracks which structured property definitions have been emitted this run
+        # so each key's definition is only upserted once.
+        self._seen_column_param_urns: Set[str] = set()
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -997,7 +1018,9 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return nodes
 
-    def get_dataflow_wu(self, flow_urn: str, job: Dict[str, Any]) -> MetadataWorkUnit:
+    def get_dataflow_wus(
+        self, flow_urn: str, job: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate a DataFlow workunit for a Glue job.
 
@@ -1039,8 +1062,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 ],
             )
         )
+        yield MetadataWorkUnit(id=job["Name"], mce=mce)
 
-        return MetadataWorkUnit(id=job["Name"], mce=mce)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=flow_urn,
+            aspect=SubTypes(typeNames=[FlowContainerSubTypes.GLUE_JOB]),
+        ).as_workunit()
 
     def get_datajob_wus_for_dataflow(
         self, flow_urn: str, job_name: str, script: Optional[str]
@@ -1166,10 +1193,20 @@ class GlueSource(StatefulIngestionSourceBase):
             paginator_response = paginator.paginate(DatabaseName=database_name)
 
         for table in paginator_response.search("TableList"):
-            # if resource links are detected, re-use database names from the current catalog
-            # otherwise, external names are picked up instead of aliased ones when creating full table names later
-            # This will cause an incoherent situation when creating full table names later
-            # Note: use an explicit source_config check but it is useless actually (filtering has already been done)
+            # Lake Formation can share individual tables across accounts as table-level
+            # resource links (table has a TargetTable pointing at the shared table).
+            # Database-level filtering in get_all_databases() does not catch these,
+            # since they live inside non-resource-link databases.
+            if self.source_config.ignore_resource_links and "TargetTable" in table:
+                logger.debug(
+                    f"Skipping resource link table {database_name}.{table.get('Name')} "
+                    f"(TargetTable: {table.get('TargetTable')})"
+                )
+                continue
+
+            # When ingesting resource-link databases (ignore_resource_links=False),
+            # rewrite DatabaseName to the local alias so downstream URN construction
+            # uses the catalog-local name instead of the target catalog's name.
             if (
                 not self.source_config.ignore_resource_links
                 and "TargetDatabase" in database
@@ -1653,7 +1690,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.platform, job["Name"], self.env
             )
 
-            yield self.get_dataflow_wu(flow_urn, job)
+            yield from self.get_dataflow_wus(flow_urn, job)
 
             job_script_location = job.get("Command", {}).get("ScriptLocation")
 
@@ -1766,6 +1803,9 @@ class GlueSource(StatefulIngestionSourceBase):
         # Create and yield the main metadata work unit
         metadata_record = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
         yield MetadataWorkUnit(table_name, mce=metadata_record)
+
+        if self.source_config.extract_column_parameters:
+            yield from self._get_column_param_workunits(table, dataset_urn)
 
         # Add lineage if enabled
         lineage_wu = self.get_lineage_if_enabled(metadata_record)
@@ -1969,6 +2009,62 @@ class GlueSource(StatefulIngestionSourceBase):
             )
         ]
         return OwnershipClass(owners=owners)
+
+    @staticmethod
+    def _column_param_property_urn(key: str) -> str:
+        qualified_name = (
+            f"io.datahubproject.glue.column.{re.sub(r'[^a-zA-Z0-9._]', '_', key)}"
+        )
+        return f"urn:li:structuredProperty:{qualified_name}"
+
+    def _get_column_param_workunits(
+        self, table: Dict, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        columns = table.get("StorageDescriptor", {}).get("Columns", [])
+        columns = columns + table.get("PartitionKeys", [])
+        for column in columns:
+            try:
+                params = column.get("Parameters")
+                if not params:
+                    continue
+                field_urn = mce_builder.make_schema_field_urn(
+                    dataset_urn, column["Name"]
+                )
+                assignments = []
+                for key, value in params.items():
+                    property_urn = self._column_param_property_urn(key)
+                    qualified_name = property_urn.removeprefix(
+                        "urn:li:structuredProperty:"
+                    )
+                    if property_urn not in self._seen_column_param_urns:
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=property_urn,
+                            aspect=StructuredPropertyDefinitionClass(
+                                qualifiedName=qualified_name,
+                                displayName=key,
+                                valueType="urn:li:dataType:datahub.string",
+                                entityTypes=["urn:li:entityType:datahub.schemaField"],
+                            ),
+                        ).as_workunit()
+                        # Only cache after successful yield so a dropped MCP
+                        # (network blip, GMS rejection) doesn't prevent retry.
+                        self._seen_column_param_urns.add(property_urn)
+                    assignments.append(
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn=property_urn,
+                            values=[value],
+                        )
+                    )
+                if assignments:
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=field_urn,
+                        aspect=StructuredPropertiesClass(properties=assignments),
+                    ).as_workunit()
+            except Exception as e:
+                self.report.report_warning(
+                    message="Failed to emit column parameters for column",
+                    context=f"dataset={dataset_urn} column={column.get('Name', '?')!r}: {e}",
+                )
 
     def _get_s3_tags(self, table: Dict, dataset_urn: str) -> Optional[GlobalTagsClass]:
         """Extract S3 tags if enabled."""

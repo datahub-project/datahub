@@ -1,12 +1,13 @@
 ---
 title: "Local Development"
+description: "Local development guide for DataHub contributors, including system requirements, building from source, and running tests."
 ---
 
 # DataHub Developer's Guide
 
 ## Requirements
 
-- [Java 21 JDK](https://openjdk.org/projects/jdk/21/)
+- [Java 21 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
 - [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)

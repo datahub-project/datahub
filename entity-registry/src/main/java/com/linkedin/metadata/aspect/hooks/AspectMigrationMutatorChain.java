@@ -1,10 +1,13 @@
 package com.linkedin.metadata.aspect.hooks;
 
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
+
 import com.linkedin.metadata.aspect.ReadItem;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -17,6 +20,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
@@ -54,9 +58,10 @@ public class AspectMigrationMutatorChain extends MutationHook {
   /**
    * Create a chain from the supplied mutators.
    *
-   * <p>Validation that no version gap exists across registered mutators is left to the
-   * {@code @PostConstruct} startup check in the Spring configuration; this constructor only
-   * organises the mutators into per-aspect sorted lists.
+   * <p>Gaps between registered mutators (e.g. mutators for v2→v3 and v4→v5 but nothing for v1→v2 or
+   * v3→v4) are bridged at runtime by advancing the version marker without transforming the payload.
+   * Each gap is logged once at INFO level here, at construction time, since the set of registered
+   * mutators is fixed for the lifetime of the chain.
    */
   public AspectMigrationMutatorChain(@Nonnull List<AspectMigrationMutator> mutators) {
     Map<String, List<AspectMigrationMutator>> byAspect = new HashMap<>();
@@ -78,6 +83,22 @@ public class AspectMigrationMutatorChain extends MutationHook {
           "AspectMigrationMutatorChain initialised with {} aspect(s): {}",
           byAspect.size(),
           byAspect.keySet());
+      // Log any version gaps once at construction. Gaps are bridged at runtime by advancing the
+      // version marker without a transform, so data is never stranded on an unreachable version.
+      byAspect.forEach(
+          (aspect, list) -> {
+            long expected = DEFAULT_SCHEMA_VERSION;
+            for (AspectMigrationMutator m : list) {
+              if (m.getSourceVersion() > expected) {
+                log.info(
+                    "AspectMigrationMutatorChain: aspect '{}' has no mutator for v{} → v{} — gap will be bridged (version advanced, no transform applied).",
+                    aspect,
+                    expected,
+                    m.getSourceVersion());
+              }
+              expected = m.getTargetVersion();
+            }
+          });
     }
   }
 
@@ -104,6 +125,9 @@ public class AspectMigrationMutatorChain extends MutationHook {
                   boolean mutated = false;
                   ReadItem current = item;
                   for (AspectMigrationMutator mutator : chain) {
+                    if (bridgeGap(current.getSystemMetadata(), mutator.getSourceVersion())) {
+                      mutated = true;
+                    }
                     // Call readMutation directly — bypasses shouldApply() config filtering since
                     // the chain owns the routing logic.
                     List<Pair<ReadItem, Boolean>> result =
@@ -117,6 +141,16 @@ public class AspectMigrationMutatorChain extends MutationHook {
                         // Continue to next hop in case of multi-hop chain.
                       }
                     }
+                  }
+                  // Bridge trailing gap: advance to the aspect's current schema version if the
+                  // last registered mutator's target is still below it (no transforms needed
+                  // for those intermediate versions). Also fires when the per-aspect chain is
+                  // empty (no mutators registered for this aspect).
+                  if (current.getAspectSpec() != null
+                      && bridgeGap(
+                          current.getSystemMetadata(),
+                          current.getAspectSpec().getSchemaVersion())) {
+                    mutated = true;
                   }
                   return Pair.of(current, mutated);
                 })
@@ -142,6 +176,9 @@ public class AspectMigrationMutatorChain extends MutationHook {
                   boolean mutated = false;
                   ChangeMCP current = item;
                   for (AspectMigrationMutator mutator : chain) {
+                    if (bridgeGap(current.getSystemMetadata(), mutator.getSourceVersion())) {
+                      mutated = true;
+                    }
                     // Call writeMutation directly — bypasses shouldApply() config filtering.
                     List<Pair<ChangeMCP, Boolean>> result =
                         mutator
@@ -153,6 +190,19 @@ public class AspectMigrationMutatorChain extends MutationHook {
                         mutated = true;
                       }
                     }
+                  }
+                  // Bridge trailing gap: advance to the aspect's current schema version if the
+                  // last registered mutator's target is still below it (no transforms needed
+                  // for those intermediate versions). This prevents MigrateAspectsStep from
+                  // re-processing rows that are fully migrated but below the current schema
+                  // version.
+                  // Also fires when the per-aspect chain is empty (no mutators registered for this
+                  // aspect).
+                  if (current.getAspectSpec() != null
+                      && bridgeGap(
+                          current.getSystemMetadata(),
+                          current.getAspectSpec().getSchemaVersion())) {
+                    mutated = true;
                   }
                   return Pair.of(current, mutated);
                 })
@@ -173,6 +223,26 @@ public class AspectMigrationMutatorChain extends MutationHook {
     if (enabled.compareAndSet(true, false)) {
       log.info("AspectMigrationMutatorChain disabled — all migrations complete.");
     }
+  }
+
+  /**
+   * Advances the stored schema version to {@code targetVersion} when it is behind, bridging any gap
+   * where no mutator was registered. The mutator's own {@code isSourceVersion} check then fires
+   * correctly on the now-matching version.
+   *
+   * @return {@code true} if the version was advanced (i.e. a gap was bridged), {@code false} if the
+   *     stored version was already at or above {@code targetVersion}
+   */
+  private static boolean bridgeGap(@Nullable SystemMetadata sm, long targetVersion) {
+    if (sm == null) {
+      return false;
+    }
+    long stored = sm.hasSchemaVersion() ? sm.getSchemaVersion() : DEFAULT_SCHEMA_VERSION;
+    if (stored < targetVersion) {
+      sm.setSchemaVersion(targetVersion);
+      return true;
+    }
+    return false;
   }
 
   /**

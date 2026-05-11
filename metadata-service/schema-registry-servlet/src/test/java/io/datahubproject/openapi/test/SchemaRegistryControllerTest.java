@@ -11,13 +11,16 @@ import com.linkedin.data.template.JacksonDataTemplateCodec;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.EventUtils;
+import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
 import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -56,6 +59,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testcontainers.containers.KafkaContainer;
 import org.testcontainers.utility.DockerImageName;
@@ -74,6 +78,10 @@ import org.testng.annotations.Test;
 @EnableKafka
 @TestPropertySource(properties = {"kafka.consumer.stopOnDeserializationError=false"})
 public class SchemaRegistryControllerTest extends AbstractTestNGSpringContextTests {
+  @MockitoBean KafkaHealthChecker kafkaHealthChecker;
+  @MockitoBean EntityRegistry entityRegistry;
+  @MockitoBean MetricUtils metricUtils;
+
   private static final String CONFLUENT_PLATFORM_VERSION = "7.4.10";
 
   static KafkaContainer kafka =

@@ -1,5 +1,7 @@
 """Unit tests for embedding configuration validation."""
 
+from unittest.mock import MagicMock
+
 import pytest
 from pydantic import SecretStr
 
@@ -269,6 +271,103 @@ def test_normalize_provider_from_server_unsupported():
         EmbeddingConfig._normalize_provider_from_server("azure")
 
 
+def test_normalize_provider_handles_vertex_ai():
+    """_normalize_provider should preserve vertex_ai as-is."""
+    assert EmbeddingConfig._normalize_provider("vertex_ai") == "vertex_ai"
+    assert EmbeddingConfig._normalize_provider("VERTEX_AI") == "vertex_ai"
+    assert (
+        EmbeddingConfig._normalize_provider("vertex-ai") == "vertex_ai"
+    )  # tolerate hyphen
+
+
+def test_normalize_provider_from_server_handles_vertex_ai():
+    """from_server normalizer should accept vertex_ai server provider string."""
+    result = EmbeddingConfig._normalize_provider_from_server("vertex_ai")
+    assert result == "vertex_ai"
+
+
+def test_from_server_populates_vertex_fields():
+    """from_server should propagate vertex_project_id and vertex_location."""
+    server_config = ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-east1",
+    )
+    config = EmbeddingConfig.from_server(server_config)
+    assert config.provider == "vertex_ai"
+    assert config.vertex_project_id == "my-gcp-project"
+    assert config.vertex_location == "us-east1"
+
+
+def test_validate_against_server_success_vertex_ai():
+    """Test successful validation with matching Vertex AI config."""
+    server_config = ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-east1",
+    )
+
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-east1",
+    )
+
+    # Should not raise
+    config.validate_against_server(server_config)
+    assert config._server_config == server_config
+
+
+def test_validate_against_server_vertex_project_id_mismatch():
+    """Test validation fails when Vertex project_id differs."""
+    server_config = ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="server-project",
+        vertex_location="us-east1",
+    )
+
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="local-project",
+        vertex_location="us-east1",
+    )
+
+    with pytest.raises(ValueError, match="Vertex project_id mismatch"):
+        config.validate_against_server(server_config)
+
+
+def test_validate_against_server_vertex_location_mismatch():
+    """Test validation fails when Vertex location differs."""
+    server_config = ServerEmbeddingConfig(
+        provider="vertex_ai",
+        model_id="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-east1",
+    )
+
+    config = EmbeddingConfig(
+        provider="vertex_ai",
+        model="gemini-embedding-001",
+        model_embedding_key="gemini_embedding_001",
+        vertex_project_id="my-gcp-project",
+        vertex_location="us-central1",
+    )
+
+    with pytest.raises(ValueError, match="Vertex location mismatch"):
+        config.validate_against_server(server_config)
+
+
 def test_default_values():
     """Test default values for EmbeddingConfig."""
     config = EmbeddingConfig()
@@ -311,3 +410,78 @@ def test_get_default_config_has_local_config():
 
     # Default config should register as having local config
     assert config.has_local_config() is True
+
+
+def test_get_semantic_search_config_parses_vertex():
+    """get_semantic_search_config should parse vertexProviderConfig from server response."""
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "embeddingConfig": {
+                    "provider": "vertex_ai",
+                    "modelId": "gemini-embedding-001",
+                    "modelEmbeddingKey": "gemini_embedding_001",
+                    "awsProviderConfig": None,
+                    "vertexProviderConfig": {
+                        "projectId": "my-project",
+                        "location": "us-east1",
+                    },
+                },
+            }
+        }
+    }
+    result = get_semantic_search_config(fake_graph)
+    assert result.embedding_config.provider == "vertex_ai"
+    assert result.embedding_config.vertex_project_id == "my-project"
+    assert result.embedding_config.vertex_location == "us-east1"
+
+
+@pytest.mark.parametrize(
+    "vertex_provider_config",
+    [
+        # Whole config missing — server omitted it because of half-populated config
+        # (e.g. VERTEX_AI_LOCATION blank, AppConfigResolver guard skipped emission).
+        None,
+        # projectId missing
+        {"projectId": None, "location": "us-east1"},
+        # location missing
+        {"projectId": "my-project", "location": None},
+    ],
+    ids=["missing_config", "missing_project_id", "missing_location"],
+)
+def test_get_semantic_search_config_raises_on_incomplete_vertex_config(
+    vertex_provider_config,
+):
+    """Server returning vertex_ai provider with incomplete vertexProviderConfig
+    should raise a clear GraphError instead of silently producing a broken
+    ServerEmbeddingConfig that fails obscurely at embedding time."""
+    from datahub.configuration.common import GraphError
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        get_semantic_search_config,
+    )
+
+    fake_graph = MagicMock()
+    fake_graph.execute_graphql.return_value = {
+        "appConfig": {
+            "semanticSearchConfig": {
+                "enabled": True,
+                "enabledEntities": ["document"],
+                "embeddingConfig": {
+                    "provider": "vertex_ai",
+                    "modelId": "gemini-embedding-001",
+                    "modelEmbeddingKey": "gemini_embedding_001",
+                    "awsProviderConfig": None,
+                    "vertexProviderConfig": vertex_provider_config,
+                },
+            }
+        }
+    }
+    with pytest.raises(GraphError, match="incomplete vertexProviderConfig"):
+        get_semantic_search_config(fake_graph)

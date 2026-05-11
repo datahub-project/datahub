@@ -143,7 +143,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -260,7 +261,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -892,7 +894,8 @@ public class UpdateIndicesHookTest {
               mockTimeseriesAspectService,
               "MD5",
               null, // No semantic search config for this test
-              mock(IndexConvention.class));
+              mock(IndexConvention.class),
+              false);
       strategies.add(v2Strategy);
     }
 

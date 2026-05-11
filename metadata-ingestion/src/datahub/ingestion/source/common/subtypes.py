@@ -103,6 +103,7 @@ class BIContainerSubTypes(StrEnum):
 
 
 class FlowContainerSubTypes(StrEnum):
+    GLUE_JOB = "Job"
     MSSQL_JOB = "Job"
     PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
@@ -171,6 +172,11 @@ class MLAssetSubTypes(StrEnum):
     FOLDER = "Folder"
 
 
+class DataFlowSubTypes(StrEnum):
+    # dlt
+    DLT_PIPELINE = "dlt Pipeline"
+
+
 class DataJobSubTypes(StrEnum):
     # ADF Activity Types
     ADF_COPY_ACTIVITY = "Copy Activity"
@@ -230,6 +236,9 @@ class DataJobSubTypes(StrEnum):
     SNOWFLAKE_TASK = "Snowflake Task"
     SNOWFLAKE_PIPE = "Snowflake Pipe"
 
+    # dlt
+    DLT_RESOURCE = "dlt Resource"
+
 
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
@@ -242,6 +251,7 @@ def create_source_capability_modifier_enum():
         JobContainerSubTypes,
         BIAssetSubTypes,
         MLAssetSubTypes,
+        DataFlowSubTypes,
         DataJobSubTypes,
     ]
 

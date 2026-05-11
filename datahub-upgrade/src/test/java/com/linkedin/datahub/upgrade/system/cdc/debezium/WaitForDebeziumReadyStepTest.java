@@ -20,7 +20,7 @@ import java.net.http.HttpResponse;
 import java.util.function.Function;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 

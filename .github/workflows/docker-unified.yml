@@ -201,6 +201,7 @@ jobs:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
+    timeout-minutes: 60
     if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
@@ -572,6 +573,7 @@ jobs:
           docker system df -v
 
       - name: build images
+        timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
           ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}

@@ -1,3 +1,7 @@
+---
+description: "Overview of DataHub Telemetry, the anonymous usage data the project collects, and instructions for opting out."
+---
+
 # DataHub Telemetry
 
 ## Overview of DataHub Telemetry

@@ -98,7 +98,7 @@ export default function EmbeddedListSearchHeader({
         <>
             <TabToolbar>
                 <HeaderContainer>
-                    <AntButton type="text" onClick={onToggleFilters}>
+                    <AntButton type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                         <FilterOutlined />
                         <Typography.Text>Filters</Typography.Text>
                     </AntButton>

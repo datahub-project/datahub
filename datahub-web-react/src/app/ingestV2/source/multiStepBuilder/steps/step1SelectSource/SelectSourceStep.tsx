@@ -126,6 +126,7 @@ export function SelectSourceStep() {
     return (
         <StepContainer ref={containerRef}>
             <SearchBar
+                data-testid="source-type-search-input"
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}

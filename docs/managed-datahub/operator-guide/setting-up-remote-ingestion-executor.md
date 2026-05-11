@@ -87,6 +87,10 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
 
+### Custom images with additional connectors
+
+Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
+
 ### Deploy on Amazon ECS
 
 1. **AWS Account Configuration**

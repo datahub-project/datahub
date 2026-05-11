@@ -525,8 +525,7 @@ class TestQueryOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Test TABLES_AND_VIEWS_QUERY structure
-            query = source.TABLES_AND_VIEWS_QUERY
+            query = source._build_tables_and_views_query()
 
             # Should exclude system databases efficiently
             assert "NOT IN" in query
@@ -534,6 +533,33 @@ class TestQueryOptimizations:
 
             # Should only select necessary table types
             assert "t.TableKind in ('T', 'V', 'Q', 'O')" in query
+
+            # No allowlist clause when config.databases is not set
+            assert "AND DataBaseName IN" not in query
+
+    def test_tables_query_database_filter(self):
+        """When config.databases is set, the query must include an IN clause to avoid
+        loading the entire Teradata installation into memory (primary OOM driver)."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "databases": ["DB_A", "DB_B", "DB_C"]}
+        )
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator = MagicMock()
+            mock_aggregator_class.return_value = mock_aggregator
+
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        query = source._build_tables_and_views_query()
+
+        assert "AND DataBaseName IN ('DB_A','DB_B','DB_C')" in query
+        # System database exclusion still present
+        assert "NOT IN" in query
 
     def test_usexviews_optimization(self):
         """Test that usexviews configuration optimizes queries."""

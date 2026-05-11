@@ -10,6 +10,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collection;
@@ -24,15 +25,7 @@ public class V2SemanticSearchMappingsBuilderTest {
   private V2SemanticSearchMappingsBuilder semanticSearchMappingsBuilder;
   private OperationContext operationContext;
 
-  @BeforeMethod
-  public void setUp() {
-    EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
-    EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
-    when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
-
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
-
-    // Create semantic search configuration for testing - enable all entities with multiple models
+  private static SemanticSearchConfiguration buildTestSemanticConfig() {
     SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
     semanticConfig.setEnabled(true);
     semanticConfig.setEnabledEntities(
@@ -67,6 +60,18 @@ public class V2SemanticSearchMappingsBuilderTest {
 
     semanticConfig.setModels(
         Map.of("cohere_embed_v3", cohereModel, "openai_text_embedding_3_small", openaiModel));
+    return semanticConfig;
+  }
+
+  @BeforeMethod
+  public void setUp() {
+    EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
+    EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
+    when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
+
+    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+
+    SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
 
     // Use real IndexConventionImpl instead of mocking
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
@@ -75,8 +80,13 @@ public class V2SemanticSearchMappingsBuilderTest {
         com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl.noPrefix(
             "MD5", entityIndexConfig);
 
+    // Default: OS 2 engine (knn_vector)
+    SearchClientShim<?> osShim = mock(SearchClientShim.class);
+    when(osShim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
     semanticSearchMappingsBuilder =
-        new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, semanticConfig, indexConvention);
+        new V2SemanticSearchMappingsBuilder(
+            v2MappingsBuilder, semanticConfig, indexConvention, osShim);
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
@@ -175,8 +185,10 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertEquals(method.get("engine"), "faiss", "Should use FAISS engine");
       assertEquals(method.get("space_type"), "cosinesimil", "Should use cosine similarity");
 
-      // Verify metadata fields
-      assertTrue(cohereModelProperties.containsKey("totalChunks"), "Should have totalChunks field");
+      // Verify model entry only has chunks (metadata fields like totalChunks removed — not
+      // populated)
+      assertEquals(cohereModelProperties.keySet().size(), 1, "Model should only contain chunks");
+      assertTrue(cohereModelProperties.containsKey("chunks"), "Should have chunks field");
 
       // Verify OpenAI model has different dimension
       @SuppressWarnings("unchecked")
@@ -228,8 +240,12 @@ public class V2SemanticSearchMappingsBuilderTest {
         com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl.noPrefix(
             "MD5", entityIndexConfig);
 
+    SearchClientShim<?> osShim = mock(SearchClientShim.class);
+    when(osShim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
     V2SemanticSearchMappingsBuilder limitedBuilder =
-        new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, limitedConfig, indexConvention);
+        new V2SemanticSearchMappingsBuilder(
+            v2MappingsBuilder, limitedConfig, indexConvention, osShim);
 
     Collection<IndexMapping> result =
         limitedBuilder.getIndexMappings(operationContext, Collections.emptyList());
@@ -242,6 +258,325 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertTrue(
           indexMapping.getIndexName().contains("dataset"),
           "Only dataset indices should be created: " + indexMapping.getIndexName());
+    }
+  }
+
+  @Test
+  public void testEs8EngineUsesDenseVector() throws JsonProcessingException {
+    EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
+    EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
+    when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
+    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+
+    SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
+
+    com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
+        new com.linkedin.metadata.config.search.EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl.noPrefix(
+            "MD5", entityIndexConfig);
+
+    SearchClientShim<?> es8Shim = mock(SearchClientShim.class);
+    when(es8Shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+
+    V2SemanticSearchMappingsBuilder es8Builder =
+        new V2SemanticSearchMappingsBuilder(
+            v2MappingsBuilder, semanticConfig, indexConvention, es8Shim);
+
+    Collection<IndexMapping> result =
+        es8Builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    assertFalse(result.isEmpty(), "Should produce semantic index mappings for ES 8");
+
+    for (IndexMapping indexMapping : result) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties =
+          (Map<String, Object>) indexMapping.getMappings().get("properties");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> embeddingsProps =
+          (Map<String, Object>)
+              ((Map<String, Object>) properties.get("embeddings")).get("properties");
+
+      for (String modelKey : embeddingsProps.keySet()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelProps = (Map<String, Object>) modelEntry.get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> chunksProps =
+            (Map<String, Object>)
+                ((Map<String, Object>) modelProps.get("chunks")).get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vectorField = (Map<String, Object>) chunksProps.get("vector");
+
+        assertEquals(
+            vectorField.get("type"),
+            "dense_vector",
+            "ES 8 engine should use dense_vector, not knn_vector for model " + modelKey);
+
+        // ES8 uses "dims" (not "dimension") — verify the key name
+        assertNotNull(
+            vectorField.get("dims"), "ES8 dense_vector should use 'dims', not 'dimension'");
+        assertNull(
+            vectorField.get("dimension"),
+            "ES8 dense_vector must not use 'dimension' (that is the OS2 key)");
+
+        // Similarity should be translated from OpenSearch space type
+        assertNotNull(vectorField.get("similarity"), "ES8 dense_vector must have similarity field");
+        String similarity = (String) vectorField.get("similarity");
+        // cosinesimil -> cosine
+        assertEquals(
+            similarity,
+            "cosine",
+            "cosinesimil should be translated to 'cosine' for ES8 for model " + modelKey);
+
+        // index should be true
+        assertEquals(vectorField.get("index"), true, "ES8 dense_vector index must be true");
+
+        // Verify index_options structure
+        @SuppressWarnings("unchecked")
+        Map<String, Object> indexOptions = (Map<String, Object>) vectorField.get("index_options");
+        assertNotNull(indexOptions, "ES8 dense_vector must have index_options");
+        assertEquals(
+            indexOptions.get("type"), "hnsw", "index_options.type must be hnsw for " + modelKey);
+        assertNotNull(
+            indexOptions.get("m"), "index_options.m must be present for model " + modelKey);
+        assertNotNull(
+            indexOptions.get("ef_construction"),
+            "index_options.ef_construction must be present for model " + modelKey);
+      }
+    }
+  }
+
+  /**
+   * Verify that translateSpaceType correctly maps OpenSearch space types to ES8 similarity names.
+   */
+  @Test
+  public void testTranslateSpaceTypeCosinesimil() throws JsonProcessingException {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(128);
+    model.setKnnEngine("faiss");
+    model.setSpaceType("cosinesimil");
+    model.setEfConstruction(64);
+    model.setM(8);
+    config.setModels(Map.of("test_model", model));
+
+    assertSimilarityTranslation(config, "cosine");
+  }
+
+  @Test
+  public void testTranslateSpaceTypeL2() throws JsonProcessingException {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(128);
+    model.setKnnEngine("faiss");
+    model.setSpaceType("l2");
+    model.setEfConstruction(64);
+    model.setM(8);
+    config.setModels(Map.of("test_model", model));
+
+    assertSimilarityTranslation(config, "l2_norm");
+  }
+
+  @Test
+  public void testTranslateSpaceTypeInnerProduct() throws JsonProcessingException {
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(128);
+    model.setKnnEngine("faiss");
+    model.setSpaceType("innerproduct");
+    model.setEfConstruction(64);
+    model.setM(8);
+    config.setModels(Map.of("test_model", model));
+
+    assertSimilarityTranslation(config, "dot_product");
+  }
+
+  @Test
+  public void testTranslateSpaceTypePassthroughForEs8Vocabulary() throws JsonProcessingException {
+    // "cosine" is already in ES8 vocabulary — should pass through unchanged
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(128);
+    model.setKnnEngine("faiss");
+    model.setSpaceType("cosine");
+    model.setEfConstruction(64);
+    model.setM(8);
+    config.setModels(Map.of("test_model", model));
+
+    assertSimilarityTranslation(config, "cosine");
+  }
+
+  @SuppressWarnings("unchecked")
+  private void assertSimilarityTranslation(
+      SemanticSearchConfiguration config, String expectedSimilarity)
+      throws JsonProcessingException {
+    EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
+    EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
+    when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
+    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+
+    com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
+        new com.linkedin.metadata.config.search.EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl.noPrefix(
+            "MD5", entityIndexConfig);
+
+    SearchClientShim<?> es8Shim = mock(SearchClientShim.class);
+    when(es8Shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.ELASTICSEARCH_8);
+
+    V2SemanticSearchMappingsBuilder builder =
+        new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, config, indexConvention, es8Shim);
+
+    Collection<IndexMapping> result =
+        builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    assertFalse(result.isEmpty(), "Should produce at least one mapping");
+
+    for (IndexMapping indexMapping : result) {
+      Map<String, Object> properties =
+          (Map<String, Object>) indexMapping.getMappings().get("properties");
+      Map<String, Object> embeddingsProps =
+          (Map<String, Object>)
+              ((Map<String, Object>) properties.get("embeddings")).get("properties");
+
+      for (String modelKey : embeddingsProps.keySet()) {
+        Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
+        Map<String, Object> modelProps = (Map<String, Object>) modelEntry.get("properties");
+        Map<String, Object> chunksProps =
+            (Map<String, Object>)
+                ((Map<String, Object>) modelProps.get("chunks")).get("properties");
+        Map<String, Object> vectorField = (Map<String, Object>) chunksProps.get("vector");
+
+        assertEquals(
+            vectorField.get("similarity"),
+            expectedSimilarity,
+            "similarity should be '" + expectedSimilarity + "' for model " + modelKey);
+      }
+    }
+  }
+
+  @Test
+  public void testReverseTranslateEs8VocabToOpenSearch() throws JsonProcessingException {
+    // "cosine" is ES8 vocabulary — should become "cosinesimil" on OpenSearch 2
+    SemanticSearchConfiguration config = new SemanticSearchConfiguration();
+    config.setEnabled(true);
+    config.setEnabledEntities(Set.of("dataset"));
+
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig model =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    model.setVectorDimension(768);
+    model.setKnnEngine("lucene");
+    model.setSpaceType("cosine");
+    model.setEfConstruction(128);
+    model.setM(16);
+    config.setModels(Map.of("gemini_embedding_001", model));
+
+    assertSpaceTypeForOpenSearch(config, "cosinesimil");
+  }
+
+  @SuppressWarnings("unchecked")
+  private void assertSpaceTypeForOpenSearch(
+      SemanticSearchConfiguration config, String expectedSpaceType) throws JsonProcessingException {
+    EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
+    EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
+    when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
+    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+
+    com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
+        new com.linkedin.metadata.config.search.EntityIndexConfiguration();
+    IndexConvention indexConvention =
+        com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl.noPrefix(
+            "MD5", entityIndexConfig);
+
+    SearchClientShim<?> os2Shim = mock(SearchClientShim.class);
+    when(os2Shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+
+    V2SemanticSearchMappingsBuilder builder =
+        new V2SemanticSearchMappingsBuilder(v2MappingsBuilder, config, indexConvention, os2Shim);
+
+    Collection<IndexMapping> result =
+        builder.getIndexMappings(operationContext, Collections.emptyList());
+
+    assertFalse(result.isEmpty(), "Should produce at least one mapping");
+
+    for (IndexMapping indexMapping : result) {
+      Map<String, Object> properties =
+          (Map<String, Object>) indexMapping.getMappings().get("properties");
+      Map<String, Object> embeddingsProps =
+          (Map<String, Object>)
+              ((Map<String, Object>) properties.get("embeddings")).get("properties");
+
+      for (String modelKey : embeddingsProps.keySet()) {
+        Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
+        Map<String, Object> modelProps = (Map<String, Object>) modelEntry.get("properties");
+        Map<String, Object> chunksProps =
+            (Map<String, Object>)
+                ((Map<String, Object>) modelProps.get("chunks")).get("properties");
+        Map<String, Object> vectorField = (Map<String, Object>) chunksProps.get("vector");
+        Map<String, Object> method = (Map<String, Object>) vectorField.get("method");
+
+        assertEquals(
+            method.get("space_type"),
+            expectedSpaceType,
+            "space_type should be reverse-translated to '"
+                + expectedSpaceType
+                + "' for model "
+                + modelKey);
+      }
+    }
+  }
+
+  @Test
+  public void testOpenSearchEngineUsesKnnVector() throws JsonProcessingException {
+    Collection<IndexMapping> result =
+        semanticSearchMappingsBuilder.getIndexMappings(operationContext, Collections.emptyList());
+
+    assertFalse(result.isEmpty(), "Should produce semantic index mappings for OS");
+
+    for (IndexMapping indexMapping : result) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> properties =
+          (Map<String, Object>) indexMapping.getMappings().get("properties");
+      @SuppressWarnings("unchecked")
+      Map<String, Object> embeddingsProps =
+          (Map<String, Object>)
+              ((Map<String, Object>) properties.get("embeddings")).get("properties");
+
+      for (String modelKey : embeddingsProps.keySet()) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> modelProps = (Map<String, Object>) modelEntry.get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> chunksProps =
+            (Map<String, Object>)
+                ((Map<String, Object>) modelProps.get("chunks")).get("properties");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> vectorField = (Map<String, Object>) chunksProps.get("vector");
+
+        assertEquals(
+            vectorField.get("type"),
+            "knn_vector",
+            "OS engine should use knn_vector for model " + modelKey);
+      }
     }
   }
 }

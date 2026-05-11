@@ -1,5 +1,6 @@
 ---
 title: BigQuery Overview
+description: "Quick start guide for ingesting BigQuery datasets, lineage, usage, and profiling into DataHub via the UI ingestion workflow."
 ---
 
 # BigQuery Ingestion Guide: Overview

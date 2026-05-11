@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
 public class ElasticsearchConnectorFactory {
   @Autowired
   @Qualifier("elasticSearchBulkProcessor")
-  private ESBulkProcessor bulkProcessor;
+  private ESBulkProcessor elasticSearchBulkProcessor;
 
   @Value("${elasticsearch.bulkProcessor.numRetries}")
   private Integer numRetries;
@@ -23,6 +23,6 @@ public class ElasticsearchConnectorFactory {
   @Bean(name = "elasticsearchConnector")
   @Nonnull
   public ElasticsearchConnector createInstance() {
-    return new ElasticsearchConnector(bulkProcessor, numRetries);
+    return new ElasticsearchConnector(elasticSearchBulkProcessor, numRetries);
   }
 }
