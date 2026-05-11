@@ -1091,13 +1091,48 @@ ORDER by DataBaseName, TableName;
             else:
                 databases = inspector.get_schema_names()
 
+        # When the user supplied an explicit database list, validate each entry
+        # against dbc.TablesV (populated into _tables_cache during discovery).
+        # Without this, a typo in `databases` silently emits a container URN for
+        # a database that does not exist on the source. Only applies when
+        # discovery actually ran (include_tables or include_views).
+        user_supplied_databases = bool(
+            (self.config.database and self.config.database != "")
+            or self.config.databases
+        )
+        # Only validate when discovery actually produced an inventory we can
+        # check against. An empty cache means either discovery was disabled
+        # (include_tables/include_views both False) or it ran and genuinely
+        # found nothing — in both cases there is no oracle to validate against
+        # and we fall back to trusting the user's list.
+        have_db_inventory = (
+            self.config.include_tables or self.config.include_views
+        ) and bool(self._tables_cache)
+
         # Create separate connections for each database to avoid connection lifecycle issues
         for db in databases:
-            if self.config.database_pattern.allowed(db):
-                with engine.connect() as conn:
-                    db_inspector = inspect(conn)
-                    db_inspector._datahub_database = db
-                    yield db_inspector
+            if not self.config.database_pattern.allowed(db):
+                continue
+            if (
+                user_supplied_databases
+                and have_db_inventory
+                and db.lower() not in self._tables_cache
+            ):
+                self.report.warning(
+                    title="Configured database not found on source",
+                    message=(
+                        f"Database {db!r} is listed in the connector config but no "
+                        "tables or views were found for it in dbc.TablesV. Skipping "
+                        "to avoid emitting a container URN for a database that does "
+                        "not exist (or that exists but is empty). Check for typos or "
+                        "remove the entry."
+                    ),
+                )
+                continue
+            with engine.connect() as conn:
+                db_inspector = inspect(conn)
+                db_inspector._datahub_database = db
+                yield db_inspector
 
     def get_db_name(self, inspector: Inspector) -> str:
         if hasattr(inspector, "_datahub_database"):

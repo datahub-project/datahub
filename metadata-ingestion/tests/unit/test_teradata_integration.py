@@ -5,6 +5,7 @@ These tests focus on end-to-end workflows, complex interactions,
 and integration between different components.
 """
 
+from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
@@ -18,6 +19,17 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataTable,
 )
 from datahub.metadata.urns import CorpUserUrn
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Reset TeradataSource class-level caches before each test.
+
+    The caches are class attributes, so without isolation tests that populate
+    them via `source._tables_cache["schema"] = …` leak state into later tests.
+    """
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config() -> Dict[str, Any]:

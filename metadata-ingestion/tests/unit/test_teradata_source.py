@@ -2674,3 +2674,107 @@ class TestCacheCaseInsensitivity:
         query = source._build_tables_and_views_query()
         assert "DataBaseName (NOT CASESPECIFIC) IN" in query
         assert "'my_db' (NOT CASESPECIFIC)" in query
+
+
+class TestConfiguredDatabasesValidation:
+    """When the user supplies an explicit `databases` list, entries that don't
+    exist on the source must not produce a container URN. Pre-fix, every name
+    in the list was yielded by get_inspectors() and the base SQL source emitted
+    a container for it — so a typo polluted the platform with phantom entities.
+    """
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_nonexistent_database_skipped_with_warning(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        source = _create_source_patched({"databases": ["real_db", "typo_db"]})
+        # Discovery populates the cache for "real_db" only (uppercase from
+        # Teradata → lowercased by the cache fix).
+        source._tables_cache["real_db"] = [
+            TeradataTable(
+                database="REAL_DB",
+                name="T",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+                request_text=None,
+            )
+        ]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
+            mock_inspect.return_value = MagicMock()
+            inspectors = list(source.get_inspectors())
+
+        # Only the database that actually has entries in the cache gets an
+        # inspector yielded; the typo is dropped before a container is emitted.
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["real_db"]
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Configured database not found on source" in warning_titles
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_no_validation_when_discovery_disabled(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        """include_tables=False and include_views=False means the cache was
+        never populated, so we have no oracle to validate against. Fall back
+        to trusting the user's list.
+        """
+        source = _create_source_patched(
+            {
+                "databases": ["any_db"],
+                "include_tables": False,
+                "include_views": False,
+            }
+        )
+        # _tables_cache is empty in this scenario.
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
+            mock_inspect.return_value = MagicMock()
+            inspectors = list(source.get_inspectors())
+
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["any_db"]
+        assert source.report.warnings == []
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_no_validation_when_databases_not_user_supplied(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        """When the user did not supply config.database(s), the database list
+        comes from inspector.get_schema_names() which is already authoritative.
+        Validation against the cache would be redundant (and would wrongly
+        suppress empty-but-real databases).
+        """
+        source = _create_source_patched()  # no `databases` set
+
+        mock_inspector = MagicMock()
+        mock_inspector.get_schema_names.return_value = ["from_inspector"]
+        # _tables_cache is empty (no discovery in this minimal test setup),
+        # but we still expect "from_inspector" to be yielded because it came
+        # from the authoritative source.
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.inspect",
+            return_value=mock_inspector,
+        ):
+            inspectors = list(source.get_inspectors())
+
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["from_inspector"]
+        assert source.report.warnings == []
