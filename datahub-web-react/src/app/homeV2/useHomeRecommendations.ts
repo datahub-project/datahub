@@ -17,8 +17,7 @@ type UseHomeRecommendationsResult = {
  * Single source of truth for home-page recommendations.
  *
  * Fires one `listRecommendations` request per unique (userUrn, viewUrn) pair.
- * All home-page hooks that previously called `useListRecommendationsQuery`
- * independently should consume this hook instead so Apollo can deduplicate
+ * All home-page hooks should consume this hook so Apollo can deduplicate
  * the network request across the component tree.
  */
 export const useHomeRecommendations = (): UseHomeRecommendationsResult => {
