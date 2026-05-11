@@ -1557,3 +1557,174 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
     )
+
+
+# ── extract_column_parameters (structured properties) ─────────────────────────
+
+
+def _make_glue_source_with_column_params() -> GlueSource:
+    pipeline_context = PipelineContext(run_id="glue-col-params-test")
+    return GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+
+
+def _make_table_with_column_params() -> Dict[str, Any]:
+    return {
+        "Name": "test_table",
+        "DatabaseName": "test_db",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "col_a",
+                    "Type": "string",
+                    "Parameters": {
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "col_b",
+                    "Type": "int",
+                    "Parameters": {"iceberg.field.id": "2"},
+                },
+                {
+                    "Name": "col_no_params",
+                    "Type": "boolean",
+                },
+            ]
+        },
+        "PartitionKeys": [
+            {
+                "Name": "dt",
+                "Type": "string",
+                "Parameters": {"iceberg.field.id": "3"},
+            }
+        ],
+    }
+
+
+def test_column_param_property_urn_sanitizes_special_chars() -> None:
+    assert GlueSource._column_param_property_urn("iceberg.field.id") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert GlueSource._column_param_property_urn("some-key with spaces!") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.some_key_with_spaces_"
+    )
+
+
+def test_get_column_param_workunits_emits_definitions_once() -> None:
+    """Each unique key's StructuredPropertyDefinition should be emitted only once per run."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    definition_urns = [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    # iceberg.field.id appears on col_a, col_b, and dt — definition should be emitted once
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        )
+        == 1
+    )
+    # iceberg.field.optional only appears on col_a
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        )
+        == 1
+    )
+
+
+def test_get_column_param_workunits_skips_columns_without_params() -> None:
+    """Columns with no Parameters should produce no work units."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = {
+        "Name": "t",
+        "DatabaseName": "db",
+        "StorageDescriptor": {
+            "Columns": [{"Name": "col_no_params", "Type": "boolean"}]
+        },
+        "PartitionKeys": [],
+    }
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assert workunits == []
+
+
+def test_get_column_param_workunits_values_assigned_correctly() -> None:
+    """StructuredProperties aspect on each field should carry the correct values."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # Find the StructuredProperties workunit for col_a
+    col_a_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),col_a)"
+    col_a_props_wu = next(
+        (
+            wu
+            for wu in workunits
+            if wu.get_urn() == col_a_urn
+            and wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+        ),
+        None,
+    )
+    assert col_a_props_wu is not None
+    aspect = col_a_props_wu.get_aspect_of_type(models.StructuredPropertiesClass)
+    assert aspect is not None
+    assigned_urns = {a.propertyUrn for a in aspect.properties}
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        in assigned_urns
+    )
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        in assigned_urns
+    )
+    id_assignment = next(
+        a
+        for a in aspect.properties
+        if a.propertyUrn
+        == "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert id_assignment.values == ["1"]
+
+
+def test_seen_definitions_not_re_emitted_across_tables() -> None:
+    """Once a definition has been emitted for a key, it must not appear again for a second table."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = _make_table_with_column_params()
+
+    first_run = list(source._get_column_param_workunits(table, dataset_urn))
+    second_run = list(source._get_column_param_workunits(table, dataset_urn))
+
+    first_defs = [
+        wu
+        for wu in first_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    second_defs = [
+        wu
+        for wu in second_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert len(first_defs) > 0
+    assert second_defs == []

@@ -1009,6 +1009,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     # Create Lineage doc
     generate_lineage_doc(platforms)
 
+    # Generate the SQL/Data Profiling supported-sources table that gets
+    # inlined into metadata-ingestion/docs/dev_guides/sql_profiles.md.
+    generate_sql_profiling_support_table(platforms)
+
     # Generate filterTagIndexes.json for the integrations page
     if integrations_output and extra_docs:
         catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
@@ -1154,6 +1158,74 @@ Visit our [Official Roadmap](https://feature-requests.datahubproject.io/roadmap)
         )
 
     print("Lineage Documentation Generation Complete")
+
+
+def generate_sql_profiling_support_table(platforms: Dict[str, Platform]) -> None:
+    """Generate a markdown table of all sources that declare DATA_PROFILING support.
+
+    The output is a partial markdown file (just the table, no headings) intended to
+    be inlined into ``metadata-ingestion/docs/dev_guides/sql_profiles.md`` via the
+    ``{{ inline }}`` directive in ``docs-website/generateDocsDir.ts``.
+
+    The output extension is ``.md.snippet`` (not ``.md``) so that
+    ``generateDocsDir.ts`` does not pick it up as a standalone doc page in its
+    ``.md`` discovery glob — that would fail title-detection because a table
+    fragment has no ``# H1`` header.
+
+    Source links are written relative to the host doc's location
+    (``metadata-ingestion/docs/dev_guides/``) since ``markdown_rewrite_urls`` runs
+    before inline expansion in the docs-website build pipeline.
+    """
+    out_dir = "../docs/generated/ingestion"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = f"{out_dir}/sql_profiling_support_table.md.snippet"
+
+    rows: List[Dict[str, str]] = []
+    for platform_id, platform in platforms.items():
+        for plugin in platform.plugins.values():
+            if not plugin.capabilities:
+                continue
+            profiling_cap = next(
+                (
+                    cap
+                    for cap in plugin.capabilities
+                    if cap.capability == SourceCapability.DATA_PROFILING
+                    and cap.supported
+                ),
+                None,
+            )
+            if profiling_cap is None:
+                continue
+
+            if len(platform.plugins) > 1:
+                display_name = f"{platform.name} `{plugin.name}`"
+            else:
+                display_name = platform.name
+
+            notes = (profiling_cap.description or "").strip()
+            if notes and not notes.endswith("."):
+                notes += "."
+
+            rows.append(
+                {
+                    "name": display_name,
+                    "platform_id": platform_id,
+                    "notes": notes,
+                }
+            )
+
+    rows.sort(key=lambda r: r["name"].casefold())
+
+    with open(out_file, "w") as f:
+        f.write("| Source | Notes |\n")
+        f.write("| ------ | ----- |\n")
+        for row in rows:
+            link = f"../../../docs/generated/ingestion/sources/{row['platform_id']}.md"
+            f.write(f"| [{row['name']}]({link}) | {row['notes']} |\n")
+
+    print(
+        f"SQL Profiling Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
+    )
 
 
 if __name__ == "__main__":

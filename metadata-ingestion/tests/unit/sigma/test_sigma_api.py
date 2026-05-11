@@ -18,6 +18,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelElement,
     SigmaDataset,
     Workbook,
+    WorkbookLineageTableEntry,
     Workspace,
 )
 from datahub.ingestion.source.sigma.sigma import SigmaSource
@@ -1842,6 +1843,7 @@ class TestChartInputsInsertionOrder:
                     paths=[],
                     elementId_to_chart_urn={},
                     wb_element_index={},
+                    wb_warehouse_table_index={},
                 )
             )
 
@@ -2331,3 +2333,98 @@ class TestCustomSqlDuplicateNameOverwrite:
             or "duplicate" in (w.message or "").lower()
             for w in api.report.warnings
         )
+
+
+class TestGetWorkbookLineageHttp:
+    """HTTP-level dispatch for get_workbook_lineage: 200, 404, 429, 5xx, exception."""
+
+    def test_200_returns_entries(self) -> None:
+        api = _create_sigma_api()
+        ok = MagicMock(status_code=200)
+        ok.json.return_value = {
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "MY_TABLE",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-1",
+                }
+            ],
+            "nextPage": None,
+        }
+        with patch.object(api, "_get_api_call", return_value=ok):
+            result = api.get_workbook_lineage("wb-1")
+        assert result == [
+            WorkbookLineageTableEntry(
+                type="table", name="MY_TABLE", connectionId="conn-1", inodeId="inode-1"
+            )
+        ]
+        assert not api.report.warnings
+
+    def test_200_paginates(self) -> None:
+        api = _create_sigma_api()
+        page1 = MagicMock(status_code=200)
+        page1.json.return_value = {
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "T1",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-1",
+                }
+            ],
+            "nextPage": "p2",
+        }
+        page2 = MagicMock(status_code=200)
+        page2.json.return_value = {
+            "entries": [
+                {
+                    "type": "table",
+                    "name": "T2",
+                    "connectionId": "conn-1",
+                    "inodeId": "inode-2",
+                }
+            ],
+            "nextPage": None,
+        }
+        with patch.object(api, "_get_api_call", side_effect=[page1, page2]):
+            result = api.get_workbook_lineage("wb-1")
+        assert result is not None
+        assert len(result) == 2
+        assert result[0].name == "T1"
+        assert result[1].name == "T2"
+
+    def test_404_returns_none_silently(self) -> None:
+        api = _create_sigma_api()
+        not_found = MagicMock(status_code=404)
+        with patch.object(api, "_get_api_call", return_value=not_found):
+            result = api.get_workbook_lineage("wb-deleted")
+        assert result is None
+        assert not api.report.warnings
+
+    def test_429_returns_none_and_warns(self) -> None:
+        api = _create_sigma_api()
+        rate_limited = MagicMock(status_code=429)
+        with patch.object(api, "_get_api_call", return_value=rate_limited):
+            result = api.get_workbook_lineage("wb-1")
+        assert result is None
+        assert any(
+            "rate-limited" in (w.title or "").lower() for w in api.report.warnings
+        )
+
+    def test_5xx_returns_none_and_warns(self) -> None:
+        api = _create_sigma_api()
+        server_error = MagicMock(status_code=500)
+        with patch.object(api, "_get_api_call", return_value=server_error):
+            result = api.get_workbook_lineage("wb-1")
+        assert result is None
+        assert api.report.warnings
+
+    def test_exception_returns_none_and_warns(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", side_effect=Exception("network failure")
+        ):
+            result = api.get_workbook_lineage("wb-1")
+        assert result is None
+        assert api.report.warnings

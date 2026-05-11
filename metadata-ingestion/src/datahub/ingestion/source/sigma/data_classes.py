@@ -272,6 +272,15 @@ class SigmaDataModelElement(BaseModel):
         return values
 
 
+class WorkbookLineageTableEntry(BaseModel):
+    """A ``type=table`` entry from ``/v2/workbooks/{id}/lineage``."""
+
+    type: Literal["table"]
+    name: str
+    connectionId: str
+    inodeId: str
+
+
 class CustomSqlEntry(BaseModel):
     """Shape of a ``customSQL`` entry from ``/v2/dataModels/{id}/lineage``."""
 
