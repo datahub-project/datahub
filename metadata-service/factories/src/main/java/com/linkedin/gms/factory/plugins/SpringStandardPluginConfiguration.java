@@ -396,7 +396,6 @@ public class SpringStandardPluginConfiguration {
     return new UrlValidator()
         .setAllowHttp(urlConfig != null && urlConfig.isAllowHttp())
         .setExtraDenyHostsList(urlConfig != null ? urlConfig.getExtraDenyHosts() : null)
-        .buildSchemes()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(UrlValidator.class.getName())

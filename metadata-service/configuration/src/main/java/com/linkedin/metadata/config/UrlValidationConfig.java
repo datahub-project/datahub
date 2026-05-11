@@ -14,5 +14,4 @@ public class UrlValidationConfig {
   @Builder.Default private boolean enabled = true;
   @Builder.Default private boolean allowHttp = false;
   @Builder.Default private List<String> extraDenyHosts = List.of();
-  @Builder.Default private List<String> extraDenyCidrs = List.of();
 }

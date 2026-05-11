@@ -844,7 +844,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
           "metadataChangeProposal.validation.urlValidation.allowHttp",
           "metadataChangeProposal.validation.urlValidation.enabled",
-          "metadataChangeProposal.validation.urlValidation.extraDenyCidrs",
           "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
           "platformAnalytics.enabled",

@@ -387,7 +387,6 @@ public class UrlValidatorTest {
     UrlValidator httpValidator = new UrlValidator();
     httpValidator.setConfig(TEST_PLUGIN_CONFIG);
     httpValidator.setAllowHttp(true);
-    httpValidator.buildSchemes();
 
     CorpUserEditableInfo info = new CorpUserEditableInfo();
     info.setPictureLink(new Url("http://example.com/photo.png"));
@@ -418,7 +417,6 @@ public class UrlValidatorTest {
     UrlValidator customValidator = new UrlValidator();
     customValidator.setConfig(TEST_PLUGIN_CONFIG);
     customValidator.setExtraDenyHostsList(List.of("blocked.example.com", "evil.corp"));
-    customValidator.buildSchemes();
 
     CorpUserEditableInfo info = new CorpUserEditableInfo();
     info.setPictureLink(new Url("https://blocked.example.com/photo.png"));
@@ -449,7 +447,6 @@ public class UrlValidatorTest {
     UrlValidator customValidator = new UrlValidator();
     customValidator.setConfig(TEST_PLUGIN_CONFIG);
     customValidator.setExtraDenyHostsList(List.of("BLOCKED.Example.COM"));
-    customValidator.buildSchemes();
 
     CorpUserEditableInfo info = new CorpUserEditableInfo();
     info.setPictureLink(new Url("https://blocked.example.com/photo.png"));

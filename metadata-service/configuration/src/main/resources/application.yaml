@@ -1351,7 +1351,6 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_URL_ENABLED:true}
       allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
       extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
-      extraDenyCidrs: ${MCP_VALIDATION_URL_EXTRA_DENY_CIDRS:}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

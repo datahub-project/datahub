@@ -23,14 +23,12 @@ import javax.annotation.Nonnull;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * Validates URL fields (e.g. pictureLink) to prevent browser-side SSRF, credential harvesting, and
  * content injection attacks. Only HTTPS URLs (or optionally HTTP) pointing to public (non-internal)
  * hosts are accepted. Configurable via {@code metadataChangeProposal.validation.urlValidation.*}.
  */
-@Slf4j
 @Setter
 @Getter
 @Accessors(chain = true)
@@ -43,13 +41,15 @@ public class UrlValidator extends AspectPayloadValidator {
   /** Additional hostnames or IPs to deny, beyond the built-in blocklist. */
   private Set<String> extraDenyHosts = Set.of();
 
+  /** Allowed URL schemes (kept in sync with {@link #allowHttp} by {@link #setAllowHttp}). */
   private Set<String> allowedSchemes = Set.of("https");
 
   /**
-   * Recalculates the allowed schemes set based on the current {@link #allowHttp} setting. Must be
-   * called after setting {@link #allowHttp}.
+   * Sets whether HTTP URLs are allowed in addition to HTTPS. Keeps {@link #allowedSchemes} in sync
+   * so the scheme check uses a simple set lookup instead of inline boolean logic.
    */
-  public UrlValidator buildSchemes() {
+  public UrlValidator setAllowHttp(boolean allowHttp) {
+    this.allowHttp = allowHttp;
     this.allowedSchemes = allowHttp ? Set.of("https", "http") : Set.of("https");
     return this;
   }
@@ -105,7 +105,7 @@ public class UrlValidator extends AspectPayloadValidator {
     String rawUrl = url.toString();
 
     // Allow empty/blank values (user clearing their profile image)
-    if (rawUrl == null || rawUrl.isBlank()) {
+    if (rawUrl.isBlank()) {
       return;
     }
 
