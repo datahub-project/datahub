@@ -35,16 +35,12 @@ Let's get started!
 
 ## Support
 
-Volume Assertions are currently supported for:
+Volume Assertions are supported in two modes:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Dataset Profile (collected via ingestion)
+- **Active query** (low-latency, schedule-driven) — requires an ingestion source configured for Snowflake, Redshift, BigQuery, or Databricks. Uses Information Schema or a `COUNT(*)` Query.
+- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, Synapse, …) — uses the DataHub `DatasetProfile` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
-tab.
+See the [capabilities matrix](./assertions.md) for the full comparison of active-query vs ingestion-driven modes across all assertion types.
 
 > Note that Volume Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -141,12 +137,11 @@ Volume Assertions also have an off switch: they can be started or stopped at any
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Optional) **Data Platform Connection**: In order to create a Volume Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Volume Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Dataset Profile` source, no warehouse connection is required — Dataset Profiles can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Volume Assertions!
 
-You can also apply Smart Volume Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
+You can also apply Volume Assertions with Anomaly Detection at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
 
 ### Steps
 
@@ -210,19 +205,23 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/profile-passing-volume-assertions-expanded.png"/>
 </p>
 
-## Anomaly Detection with Smart Assertions ⚡
+## Anomaly Detection ⚡
 
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Volume Assertions that you can use to monitor the volume of important warehouse Tables, without
-requiring any manual setup.
+Volume Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed row-count threshold with an AI-driven threshold that learns the table's normal volume pattern, including trend and seasonality (e.g. weekends are always smaller).
 
-You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/volume/volume-smart-assertion.png"/>
 </p>
 
 ## Time-Series Bucketing
+
+:::info
+Time-series bucketing is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Bucketing always requires an active warehouse query against a supported warehouse (Snowflake / Redshift / BigQuery / Databricks). The Information Schema and DataHub Dataset Profile sources cannot be bucketed.
 
 By default, volume assertions evaluate the **total row count** of a table at a point in time. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate volume metrics within each bucket. This fundamentally changes what the assertion measures:
 
@@ -285,13 +284,15 @@ dataset_urn = DatasetUrn.from_string(
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
 )
 
-# Volume assertion with daily bucketing
+# Volume assertion with daily bucketing.
+# Bucketing always requires a query-based source; information_schema and DataHub
+# Dataset Profile cannot be bucketed.
 volume_assertion = client.assertions.sync_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Daily Row Count Check",
     criteria_condition="ROW_COUNT_IS_GREATER_THAN_OR_EQUAL_TO",
     criteria_parameters=100,
-    detection_mechanism="information_schema",
+    detection_mechanism="query",
     time_bucketing_strategy={
         "timestamp_field_path": "created_at",
         "bucket_interval": {"unit": "DAY", "multiple": 1},
@@ -302,11 +303,12 @@ volume_assertion = client.assertions.sync_volume_assertion(
     enabled=True,
 )
 
-# Smart volume assertion with weekly bucketing and backfill
+# Volume assertion with Anomaly Detection, weekly bucketing, and backfill.
+# Bucketing always requires a query-based source.
 smart_volume = client.assertions.sync_smart_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Weekly Volume Anomaly Monitor",
-    detection_mechanism="information_schema",
+    detection_mechanism="query",
     sensitivity="medium",
     time_bucketing_strategy={
         "timestamp_field_path": "event_date",
@@ -321,7 +323,7 @@ smart_volume = client.assertions.sync_smart_volume_assertion(
 See the [Assertions SDK tutorial](/docs/api/tutorials/assertions.md) for more examples.
 
 :::info
-For smart assertions with bucketing enabled, you can also configure **historical backfill** to populate the assertion's metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+For Volume Assertions with Anomaly Detection and bucketing enabled, you can also configure **historical backfill** to populate the assertion's metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
 :::
 
 ## Stopping a Volume Assertion
@@ -389,7 +391,7 @@ mutation upsertDatasetVolumeAssertionMonitor {
 }
 ```
 
-To create an AI Smart Freshness Assertion that runs every 8 hours:
+To create a Volume Assertion with Anomaly Detection that runs every 8 hours:
 
 ```graphql
 mutation upsertDatasetFreshnessAssertionMonitor {
