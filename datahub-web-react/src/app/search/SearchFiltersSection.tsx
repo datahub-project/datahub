@@ -110,6 +110,7 @@ export const SearchFiltersSection = ({
                         type="link"
                         onClick={() => setSeeAdvancedFilters(!seeAdvancedFilters)}
                         id={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
+                        data-testid={SEARCH_RESULTS_ADVANCED_SEARCH_ID}
                     >
                         {seeAdvancedFilters ? 'Basic' : 'Advanced'}
                     </Button>
