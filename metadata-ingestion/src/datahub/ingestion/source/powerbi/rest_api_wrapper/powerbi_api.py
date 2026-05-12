@@ -26,6 +26,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     User,
     Workspace,
     new_powerbi_dataset,
+    new_powerbi_reports,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -207,37 +208,62 @@ class PowerBiAPI:
         Fetch the report from PowerBi for the given Workspace
         """
         reports: Dict[str, Report] = {}
-        try:
+        if workspace.scan_result:
             reports = {
                 report.id: report
-                for report in self._get_resolver().get_reports(workspace)
+                for report in new_powerbi_reports(
+                    workspace,
+                    workspace.scan_result.get(Constant.REPORTS, []),
+                    extract_ownership=self.__config.extract_ownership,
+                )
             }
-            # Fill Report dataset
-            for report in reports.values():
-                if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
-                    if report.dataset is None:
-                        self.reporter.info(
-                            title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
-                        )
-        except Exception:
-            self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+        else:
+            self.reporter.info(
+                title="Report Scan Fallback Active",
+                message="Workspace scan returned no data; falling back to per-workspace reports endpoint.",
+                context=f"workspace={workspace.name}",
             )
-
-        def fill_ownership() -> None:
-            if self.__config.extract_ownership is False:
-                logger.info(
-                    "Skipping user retrieval for report as extract_ownership is set to false"
+            try:
+                reports = {
+                    report.id: report
+                    for report in self._get_resolver().get_reports(workspace)
+                }
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
-                return
-
-            for report in reports.values():
-                report.users = self.get_report_users(
-                    workspace_id=workspace.id, report_id=report.id
+                self.reporter.warning(
+                    title="Reports Not Fetched",
+                    message="Unable to fetch the bulk reports list for a workspace.",
+                    context=f"workspace={workspace.name}",
                 )
+            if self.__config.extract_ownership:
+                for report in reports.values():
+                    report.users = self.get_report_users(workspace.id, report.id)
+
+        for report in reports.values():
+            try:
+                report.pages = self._get_resolver().get_pages_by_report(
+                    workspace=workspace, report_id=report.id
+                )
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch pages for report {report.name} in workspace {workspace.name}"
+                )
+                self.reporter.warning(
+                    title="Report Pages Not Fetched",
+                    message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
+                    context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
+                )
+                report.pages = []
+            if report.dataset_id:
+                report.dataset = self.dataset_registry.get(report.dataset_id)
+                if report.dataset is None:
+                    self.reporter.info(
+                        title="Missing Lineage For Report",
+                        message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                        context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                    )
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
@@ -249,7 +275,6 @@ class PowerBiAPI:
             for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
-        fill_ownership()
         fill_tags()
         return reports
 

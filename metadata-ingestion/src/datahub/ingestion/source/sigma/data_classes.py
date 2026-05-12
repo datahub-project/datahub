@@ -100,10 +100,17 @@ class DataModelElementUpstream(BaseModel):
     data_model_url_id: str
 
 
-# "table" nodes are terminal (handled by SQL parsing); "join" nodes are
-# BFS pass-throughs and are not stored as upstreams.
+class WarehouseTableUpstream(BaseModel):
+    type: Literal["table"] = "table"
+    url_id: str  # BFS nodeId with "inode-" prefix stripped
+    name: str  # BFS node name; used for name-based lookup in wb_warehouse_table_index
+
+
+# "join" nodes are BFS pass-throughs and are not stored as upstreams.
 ElementUpstream = Annotated[
-    Union[DatasetUpstream, SheetUpstream, DataModelElementUpstream],
+    Union[
+        DatasetUpstream, SheetUpstream, DataModelElementUpstream, WarehouseTableUpstream
+    ],
     Field(discriminator="type"),
 ]
 

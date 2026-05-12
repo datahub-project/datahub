@@ -41,6 +41,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelElement,
     SigmaDataset,
     WarehouseInodeRaw,
+    WarehouseTableUpstream,
     Workbook,
     WorkbookLineageTableEntry,
     Workspace,
@@ -421,7 +422,37 @@ class SigmaAPI:
         elif source_type == "join":
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
-            pass  # terminal; warehouse lineage comes from SQL parsing
+            # nodeId format: "inode-{urlId}". Strip prefix; name is used for
+            # name-based resolution in SigmaSource via wb_warehouse_table_index.
+            if not isinstance(source_node_id, str) or not source_node_id.startswith(
+                "inode-"
+            ):
+                self.report.chart_warehouse_table_node_skipped += 1
+                logger.debug(
+                    "Sigma chart BFS table node has unexpected nodeId format: "
+                    "node=%s, element=%s, workbook=%s",
+                    source_node_id,
+                    element.name,
+                    workbook.name,
+                )
+                return
+            url_id = source_node_id[len("inode-") :]
+            name = source_node.get(Constant.NAME)
+            if not url_id or not isinstance(name, str) or not name:
+                self.report.chart_warehouse_table_node_skipped += 1
+                logger.debug(
+                    "Sigma chart BFS table node missing url_id or name: "
+                    "node=%s, name=%r, element=%s, workbook=%s",
+                    source_node_id,
+                    name,
+                    element.name,
+                    workbook.name,
+                )
+                return
+            upstream_sources[source_node_id] = WarehouseTableUpstream(
+                url_id=url_id,
+                name=name,
+            )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
@@ -443,9 +474,9 @@ class SigmaAPI:
         self, element: Element, workbook: Workbook
     ) -> Dict[str, ElementUpstream]:
         """Return upstream sources keyed by nodeId, admitting Sigma Dataset
-        (``dataset``) and intra-workbook element (``sheet``) nodes. Walks
-        through ``join`` pass-through nodes. Warehouse tables (``table``)
-        come from the SQL-parse path and are skipped here.
+        (``dataset``), intra-workbook element (``sheet``), data-model
+        (``data-model``), and direct warehouse table (``table``) nodes. Walks
+        through ``join`` pass-through nodes.
 
         BFS from the queried element's sheet node, following edges in
         reverse (target-to-source), so only reachable upstreams are

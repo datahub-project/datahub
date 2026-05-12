@@ -1111,16 +1111,12 @@ class Mapper:
     def to_datahub_users(
         self, users: List[powerbi_data_classes.User]
     ) -> List[MetadataChangeProposalWrapper]:
-        """
-        Return user MCPs if create_corp_user=True, empty list otherwise.
-        When True: Emits full user entities (Key + Info).
-        When False: Returns empty (ownership uses URNs only via to_datahub_user_urns).
-        """
-        # Check flag FIRST, return empty if False (soft reference mode)
-        if not self.__config.ownership.create_corp_user:
+        """Build user MCPs; gated by extract_ownership AND create_corp_user."""
+        if not (
+            self.__config.extract_ownership and self.__config.ownership.create_corp_user
+        ):
             return []
 
-        # Opt-in mode: Create full user entities
         user_mcps = []
         for user in self._get_qualified_owners(users):
             user_mcps.extend(self.to_datahub_user(user))
