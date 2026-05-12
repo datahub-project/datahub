@@ -45,6 +45,14 @@ record SearchFlags {
    includeSoftDeleted:optional boolean = false
 
   /**
+   * Include entities in lifecycle stages that have hideInSearch=true.
+   * By default, entities in hidden lifecycle stages are excluded from search results.
+   * Set to true for eval queries or admin tooling that needs to discover all entities
+   * regardless of lifecycle stage settings.
+   */
+   includeHiddenLifecycleStages:optional boolean = false
+
+  /**
    * include restricted entities in results (default is to filter)
    */
    includeRestricted:optional boolean = false

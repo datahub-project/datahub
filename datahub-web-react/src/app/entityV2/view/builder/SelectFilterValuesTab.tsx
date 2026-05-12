@@ -1,4 +1,4 @@
-import { Checkbox, Loader, SearchBar, Text, colors } from '@components';
+import { Checkbox, Loader, SearchBar, Text } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -34,7 +34,7 @@ const RightSection = styled.div`
 
 const VerticalDivider = styled.div`
     width: 1px;
-    background-color: ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceDarker};
 `;
 
 const SearchHeader = styled(Text)`

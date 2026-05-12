@@ -122,14 +122,12 @@ public class CreateIngestionExecutionRequestResolver
               recipe = injectRunId(recipe, executionRequestUrn.toString());
               recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
               arguments.put(RECIPE_ARG_NAME, recipe);
+              String version = ingestionSourceInfo.getConfig().getVersion();
               arguments.put(
                   VERSION_ARG_NAME,
-                  ingestionSourceInfo.getConfig().hasVersion()
-                      ? ingestionSourceInfo.getConfig().getVersion()
+                  version != null && !version.isEmpty()
+                      ? version
                       : _ingestionConfiguration.getDefaultCliVersion());
-              if (ingestionSourceInfo.getConfig().hasVersion()) {
-                arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
-              }
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

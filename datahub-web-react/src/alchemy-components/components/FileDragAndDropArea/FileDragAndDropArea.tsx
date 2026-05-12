@@ -1,4 +1,4 @@
-import { Button, Icon, Text, colors } from '@components';
+import { Button, Icon, Text } from '@components';
 import { UploadSimple } from '@phosphor-icons/react/dist/csr/UploadSimple';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
@@ -10,7 +10,7 @@ const Container = styled.div<{ $dragActive?: boolean }>`
     flex-direction: column;
     align-items: center;
 
-    border: 1px dashed ${({ $dragActive, theme }) => ($dragActive ? colors.primary[500] : theme.colors.border)};
+    border: 1px dashed ${({ $dragActive, theme }) => ($dragActive ? theme.colors.borderBrand : theme.colors.border)};
     border-radius: 12px;
 `;
 

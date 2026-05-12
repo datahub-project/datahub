@@ -10,12 +10,11 @@ import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/
 import useExtractFieldTagsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldTagsInfo';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '@types';
 
 const TagDisclaimer = styled(Typography.Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 400;
     line-height: 24px;

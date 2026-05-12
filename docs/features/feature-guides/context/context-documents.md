@@ -1,3 +1,7 @@
+---
+description: "Capture organizational tribal knowledge in DataHub with Context Documents — runbooks, FAQs, decision logs, and process guides."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Context Documents

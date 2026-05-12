@@ -5,7 +5,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
@@ -16,7 +15,7 @@ const Content = styled.div`
     gap: 8px;
     min-width: 180px;
 
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-size: 16px;
 `;
 
@@ -37,7 +36,7 @@ const StyledLink = styled(Link)`
     border-radius: 14px;
 
     :hover {
-        background-color: ${REDESIGN_COLORS.BACKGROUND_SECONDARY_GRAY};
+        background-color: ${(props) => props.theme.colors.bgHover};
 
         ${Message} {
             text-decoration: underline;
@@ -53,9 +52,9 @@ const Icon = styled.div`
     align-items: center;
     border-radius: 50%;
     padding: 5px;
-    background: #f7f7f7;
-    border: 1px solid #eeeeee;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    background: ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface Props {

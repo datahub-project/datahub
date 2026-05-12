@@ -1,0 +1,33 @@
+namespace com.linkedin.incident
+
+/**
+ * The source of an incident note, indicating whether it was created natively in DataHub
+ * or synced from an external system (e.g., Jira, ServiceNow).
+ */
+record IncidentNoteSource {
+
+  /**
+   * The type of system this note originated from. Optional — inferred from externalId presence
+   * when absent, but useful for explicit filtering and future third-party source types.
+   */
+  sourceType: optional IncidentNoteSourceType
+
+  /**
+   * URL to the note in the external system (e.g., a Jira comment permalink).
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  externalUrl: optional string
+
+  /**
+   * Unique identifier for the note in the external system, used for deduplication.
+   * For example, a Jira comment ID.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false
+  }
+  externalId: optional string
+}

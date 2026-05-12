@@ -405,7 +405,7 @@ const EntityDropdown = (props: Props) => {
 
         // Copy Name
         if (navigator.clipboard) {
-            const displayName = entityData?.name || urn;
+            const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
             shareChildren.push({
                 type: 'item' as const,
                 key: 'copy-name',
@@ -429,7 +429,7 @@ const EntityDropdown = (props: Props) => {
             title: 'Email',
             icon: Envelope,
             onClick: () => {
-                const displayName = entityData?.name || urn;
+                const displayName = entityData ? entityRegistryV2.getDisplayName(entityType, entityData) : urn;
                 const displayType =
                     getFirstSubType(entityData) || entityRegistryV2.getEntityName(entityType) || entityType;
                 const linkText = window.location.href;

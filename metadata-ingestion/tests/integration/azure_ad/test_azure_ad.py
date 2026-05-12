@@ -4,7 +4,7 @@ from functools import partial
 from typing import List
 from unittest.mock import patch
 
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.identity.azure_ad import AzureADConfig
@@ -51,6 +51,7 @@ def run_ingest(
     mock_datahub_graph,
     mocked_functions_reference,
     recipe,
+    raise_from_status=True,
 ):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -83,7 +84,8 @@ def run_ingest(
         # Run an azure usage ingestion run.
         pipeline = Pipeline.create(recipe)
         pipeline.run()
-        pipeline.raise_from_status()
+        if raise_from_status:
+            pipeline.raise_from_status()
         return pipeline
 
 
@@ -236,7 +238,7 @@ def test_azure_ad_config():
     assert config.ingest_group_membership
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -256,7 +258,7 @@ def test_azure_ad_source_default_configs(pytestconfig, mock_datahub_graph, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_empty_group_membership(
     pytestconfig, mock_datahub_graph, tmp_path
 ):
@@ -283,7 +285,7 @@ def test_azure_ad_source_empty_group_membership(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -310,7 +312,7 @@ def test_azure_ad_source_nested_groups(pytestconfig, mock_datahub_graph, tmp_pat
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_path):
     test_resources_dir: pathlib.Path = (
         pytestconfig.rootpath / "tests/integration/azure_ad"
@@ -337,7 +339,59 @@ def test_azure_source_ingestion_disabled(pytestconfig, mock_datahub_graph, tmp_p
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_azure_ad_group_regex_mismatch_is_filtered_not_failed(
+    pytestconfig, mock_datahub_graph, tmp_path
+):
+    """Groups that don't match azure_ad_response_to_groupname_regex should be
+    silently filtered, not reported as failures that mark the run as failed."""
+    output_file_name = "azure_ad_mces_regex_filter.json"
+    new_recipe = default_recipe(tmp_path, output_file_name)
+    # Only groups whose displayName ends with _OWNER or _MEMBER match this regex.
+    # The test fixture groups (groupDisplayName1/2/3) don't match, so all will be
+    # filtered out rather than erroring.
+    new_recipe["source"]["config"]["azure_ad_response_to_groupname_regex"] = (
+        "^.*_(OWNER|MEMBER)$"
+    )
+
+    pipeline = run_ingest(
+        pytestconfig=pytestconfig,
+        mock_datahub_graph=mock_datahub_graph,
+        recipe=new_recipe,
+        mocked_functions_reference=mocked_functions,
+    )
+
+    report = pipeline.source.get_report()
+    # Non-matching groups must be counted as filtered, not as failures.
+    assert len(report.failures) == 0, f"Expected no failures but got: {report.failures}"
+    assert len(report.filtered) > 0, "Expected some groups to be filtered by regex"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_azure_ad_group_missing_attr_is_failure(
+    pytestconfig, mock_datahub_graph, tmp_path
+):
+    """A missing azure_ad_response_to_groupname_attr key is a misconfiguration and
+    must surface as a failure, not be silently filtered."""
+    output_file_name = "azure_ad_mces_missing_attr.json"
+    new_recipe = default_recipe(tmp_path, output_file_name)
+    new_recipe["source"]["config"]["azure_ad_response_to_groupname_attr"] = (
+        "nonExistentAttr"
+    )
+
+    pipeline = run_ingest(
+        pytestconfig=pytestconfig,
+        mock_datahub_graph=mock_datahub_graph,
+        recipe=new_recipe,
+        mocked_functions_reference=mocked_functions,
+        raise_from_status=False,
+    )
+
+    report = pipeline.source.get_report()
+    assert len(report.failures) > 0, "Expected failures for missing attribute"
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_azure_ad_stateful_ingestion(
     pytestconfig, tmp_path, mock_time, mock_datahub_graph
 ):

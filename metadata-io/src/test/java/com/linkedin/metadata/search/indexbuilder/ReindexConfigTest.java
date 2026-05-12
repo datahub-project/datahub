@@ -367,6 +367,62 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testStructuredPropertyAdditionWithDynamicTrue() {
+    // Verify new SP detection works when structuredProperties has dynamic=true,
+    // matching real V2MappingsBuilder output. This was a bug where calculateMapDifference
+    // stripped structuredProperties from the diff because it was dynamic.
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "text")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of(
+                "prop1", ImmutableMap.of("type", "text"),
+                "prop2", ImmutableMap.of("type", "keyword")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertTrue(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.isPureStructuredPropertyAddition());
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+  }
+
+  @Test
+  void testStructuredPropertyRemovalWithDynamicTrue() {
+    Map<String, Object> currentMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of(
+                "prop1", ImmutableMap.of("type", "text"),
+                "prop2", ImmutableMap.of("type", "keyword")));
+    Map<String, Object> targetMappings =
+        createMappingsWithDynamicStructuredProperties(
+            ImmutableMap.of("prop1", ImmutableMap.of("type", "text")));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(currentMappings)
+            .targetMappings(targetMappings)
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertFalse(config.hasNewStructuredProperty());
+    Assert.assertTrue(config.hasRemovedStructuredProperty());
+  }
+
+  @Test
   void testStructuredPropertyRemoval() {
     // Arrange
     Map<String, Object> currentMappings =
@@ -725,6 +781,22 @@ public class ReindexConfigTest {
     Map<String, Object> properties = new HashMap<>();
 
     Map<String, Object> structuredPropertyMapping = new HashMap<>();
+    structuredPropertyMapping.put(PROPERTIES_KEY, structuredProps);
+
+    properties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, structuredPropertyMapping);
+    mappings.put(PROPERTIES_KEY, properties);
+
+    return mappings;
+  }
+
+  private Map<String, Object> createMappingsWithDynamicStructuredProperties(
+      Map<String, Object> structuredProps) {
+    Map<String, Object> mappings = new HashMap<>();
+    Map<String, Object> properties = new HashMap<>();
+
+    Map<String, Object> structuredPropertyMapping = new HashMap<>();
+    structuredPropertyMapping.put("type", "object");
+    structuredPropertyMapping.put("dynamic", true);
     structuredPropertyMapping.put(PROPERTIES_KEY, structuredProps);
 
     properties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, structuredPropertyMapping);

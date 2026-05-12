@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityContext } from '@src/app/entity/shared/EntityContext';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
@@ -9,7 +8,7 @@ import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { DataContract, EntityType } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;
@@ -20,7 +19,7 @@ const Container = styled.div`
 const PropertiesContainer = styled.div`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
 `;
 
 type Props = {
