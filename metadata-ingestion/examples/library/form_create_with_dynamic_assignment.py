@@ -60,17 +60,17 @@ dynamic_assignment = DynamicFormAssignmentClass(
         criteria=[
             CriterionClass(
                 field="platform",
-                value="urn:li:dataPlatform:snowflake",
+                values=["urn:li:dataPlatform:snowflake"],
                 condition="EQUAL",
             ),
             CriterionClass(
                 field="domains",
-                value="urn:li:domain:finance",
+                values=["urn:li:domain:finance"],
                 condition="EQUAL",
             ),
             CriterionClass(
                 field="_entityType",
-                value="urn:li:entityType:dataset",
+                values=["urn:li:entityType:dataset"],
                 condition="EQUAL",
             ),
         ]

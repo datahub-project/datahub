@@ -9,11 +9,11 @@ import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/
 import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
 import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
 import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { PageRoutes } from '@conf/Global';
 
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { RecommendationRenderType, ScenarioType } from '@types';
+import { RecommendationRenderType } from '@types';
 
 const Header = styled.div`
     display: flex;
@@ -52,22 +52,8 @@ export const PopularGlossaryTerms = () => {
     const [loaded, setLoaded] = useState(false);
     const { isUserInitializing } = useContext(OnboardingContext);
     const userContext = useUserContext();
-    const userUrn = userContext?.user?.urn;
 
-    const { loading, data } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: userUrn || '',
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: 10,
-            },
-        },
-        fetchPolicy: 'cache-first',
-        skip: !userUrn,
-    });
-    const recommendationModules = data?.listRecommendations?.modules;
+    const { modules: recommendationModules, loading } = useHomeRecommendations();
     const glossaryRecommendationModules = recommendationModules?.filter(
         (module) => module.renderType === RecommendationRenderType.GlossaryTermSearchList,
     );
