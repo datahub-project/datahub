@@ -413,6 +413,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # Connections for which a "default_database not configured" warning has
         # been emitted; dedup so multi-DM tenants don't flood the report.
         self._missing_default_db_warned: Set[str] = set()
+        # Table names for which an "ambiguous warehouse table name" warning has
+        # been emitted; dedup so many charts with the same ambiguous name don't
+        # flood the report.
+        self._ambiguous_table_name_warned: Set[str] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -2861,8 +2865,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.chart_input_fields_warehouse_index_lookup_failed += 1
             return _WorkbookWarehouseIndex(by_url_id={}, by_name={})
 
-        url_id_to_table_name: Dict[str, str] = {}
-
         for entry in entries:
             inode_id = entry.inodeId
             conn_id = entry.connectionId
@@ -2951,10 +2953,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 schema=schema,
                 table=table_name,
             )
-            url_id_to_table_name[url_id] = table_name
 
         for url_id in transient_map:
-            table_name = url_id_to_table_name[url_id]
+            table_name = transient_map[url_id].table
             urn = self._resolve_dm_element_warehouse_upstream(
                 url_id_suffix=url_id,
                 warehouse_map=transient_map,
@@ -3135,14 +3136,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return
             if len(candidates) > 1:
                 self.reporter.chart_warehouse_table_name_ambiguous += 1
-                logger.debug(
-                    "Sigma chart BFS table %r matched multiple workbook warehouse "
-                    "URNs (%s) and url_id %r not in by_url_id index; skipping to "
-                    "avoid a wrong edge.",
-                    upstream.name,
-                    candidates,
-                    upstream.url_id,
-                )
+                if upstream.name not in self._ambiguous_table_name_warned:
+                    self._ambiguous_table_name_warned.add(upstream.name)
+                    self.reporter.warning(
+                        title="Sigma chart warehouse table name is ambiguous",
+                        message=(
+                            "The table name matched multiple warehouse Dataset URNs "
+                            "and the ID-based lookup produced no match; the lineage "
+                            "edge was skipped. Set `default_database` in "
+                            "`connection_to_platform_map` for the affected connection "
+                            "to make table URNs unique."
+                        ),
+                        context=(
+                            f"element={element.elementId}, "
+                            f"table={upstream.name!r}, "
+                            f"candidates={candidates}"
+                        ),
+                    )
                 return
             warehouse_urn = candidates[0]
         if warehouse_urn not in dataset_inputs:

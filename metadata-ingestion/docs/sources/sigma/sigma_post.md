@@ -94,13 +94,7 @@ The following report counters are available for operational visibility:
 
 When `extract_lineage: true` (default), workbook chart elements that pull **directly** from a
 warehouse table (no Data Model, no customSQL, no Sigma Dataset in between) emit an entity-level
-`chartInfo.inputs` edge to the warehouse Dataset. This path fires when the Sigma BFS lineage
-payload for the chart element contains a `type=table` upstream node. The connector resolves the
-warehouse Dataset URN using a dual lookup index built from the same
-`/v2/workbooks/{id}/lineage` call used for the column-level path. The connector first tries
-to match the BFS node's `urlId` directly (confident 1:1 match); if that misses, it falls back
-to name-based matching. When the name-based fallback finds multiple candidates and no urlId
-match exists, the edge is skipped to avoid emitting an incorrect lineage edge.
+`chartInfo.inputs` edge to the warehouse Dataset.
 
 Column-level lineage for these charts is handled separately by the
 [chart inputFields warehouse qualification](#workbook-chart-inputfields-warehouse-column-level-qualification)
@@ -111,12 +105,12 @@ Sigma connection record omits `database`/`schema`, set `default_database` in
 `connection_to_platform_map` — see
 [Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
 
-| Counter                                | Meaning                                                                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                                |
-| `chart_warehouse_table_name_unmatched` | BFS table node not found in either the urlId or name index; edge not emitted                           |
-| `chart_warehouse_table_node_skipped`   | BFS `type=table` node missing `name` or not in `inode-{urlId}` format; skipped                         |
-| `chart_warehouse_table_name_ambiguous` | BFS urlId not in index and name matched multiple URNs; edge skipped to avoid an incorrect lineage edge |
+| Counter                                | Meaning                                                                                                           |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                                           |
+| `chart_warehouse_table_name_unmatched` | Table not found in workbook warehouse index; edge not emitted                                                     |
+| `chart_warehouse_table_node_skipped`   | Lineage node missing `name` field or has unexpected ID format; skipped                                            |
+| `chart_warehouse_table_name_ambiguous` | Table name matched multiple warehouse URNs; edge skipped — set `default_database` in `connection_to_platform_map` |
 
 #### Workbook chart inputFields warehouse column-level qualification
 
