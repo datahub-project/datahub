@@ -19,7 +19,11 @@ class GitClone:
         self.last_repo_cloned: Optional[git.Repo] = None
 
     def clone(
-        self, ssh_key: Optional[SecretStr], repo_url: str, branch: Optional[str] = None
+        self,
+        ssh_key: Optional[SecretStr],
+        repo_url: str,
+        branch: Optional[str] = None,
+        timeout: Optional[int] = None,
     ) -> Path:
         # Note: this does a shallow clone.
 
@@ -57,6 +61,11 @@ class GitClone:
             )
         logger.debug(f"ssh_command={git_ssh_cmd}")
 
+        clone_kwargs = dict(
+            env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
+            **({"kill_after_timeout": timeout} if timeout is not None else {}),
+        )
+
         if branch is None:
             logger.info(
                 f"⏳ Cloning repo '{self.sanitize_repo_url(repo_url)}' (default branch), this can take some time..."
@@ -64,8 +73,8 @@ class GitClone:
             self.last_repo_cloned = git.Repo.clone_from(
                 repo_url,
                 checkout_dir,
-                env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
                 depth=1,
+                **clone_kwargs,
             )
         else:
             # Because we accept branch names, tags, and commit hashes in the branch parameter,
@@ -77,8 +86,8 @@ class GitClone:
             self.last_repo_cloned = git.Repo.clone_from(
                 repo_url,
                 checkout_dir,
-                env=dict(GIT_SSH_COMMAND=git_ssh_cmd),
                 filter="blob:none",
+                **clone_kwargs,
             )
             logger.info(f"Checking out branch {branch}")
             self.last_repo_cloned.git.checkout(branch)
