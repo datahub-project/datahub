@@ -296,7 +296,7 @@ export const IntroduceYourselfMainContent = () => {
                 limit: 10,
             },
         },
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         skip: !currentUserUrn,
     });
 
