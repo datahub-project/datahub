@@ -1244,9 +1244,7 @@ def generate_stitched_record(
                         for rel_spec in relationship_specs:
                             assert "entityTypes" in rel_spec
 
-                            entity_types: List[str] = rel_spec.get(
-                                "entityTypes", []
-                            )
+                            entity_types: List[str] = rel_spec.get("entityTypes", [])
                             relnship_name = rel_spec.get("name", None)
                             for entity_type in entity_types:
                                 destination_entity_name = capitalize_first(entity_type)
@@ -1259,7 +1257,9 @@ def generate_stitched_record(
                                     name=relnship_name,
                                     foreignDataset=foreign_dataset_urn,
                                     foreignFields=[
-                                        make_schema_field_urn(foreign_dataset_urn, "urn")
+                                        make_schema_field_urn(
+                                            foreign_dataset_urn, "urn"
+                                        )
                                     ],
                                     sourceFields=[
                                         make_schema_field_urn(
