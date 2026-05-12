@@ -68,7 +68,22 @@ export class PageApiMocker implements ApiMocker {
         return;
       }
       const response = await route.fetch();
-      const json = await response.json();
+
+      // Guard against non-JSON responses before attempting to parse.
+      const contentType = response.headers()['content-type'] ?? '';
+      if (!contentType.includes('application/json')) {
+        await route.fulfill({ response });
+        return;
+      }
+
+      let json: unknown;
+      try {
+        json = await response.json();
+      } catch {
+        await route.fulfill({ response });
+        return;
+      }
+
       await route.fulfill({ response, json: transform(json) });
     });
   }
@@ -82,8 +97,32 @@ export class PageApiMocker implements ApiMocker {
       const postData = route.request().postDataJSON() as { operationName?: string } | null;
       const op = postData?.operationName;
 
+      // Only intercept the two operations that carry feature flags. All other
+      // GraphQL operations (mutations, etc.) are forwarded unchanged to avoid
+      // "SyntaxError: Unexpected end of JSON input" on responses with empty or
+      // non-JSON bodies (e.g. mutations that return 204 or a streaming response).
+      if (op !== 'appConfig' && op !== 'getMe') {
+        await route.fallback();
+        return;
+      }
+
       const response = await route.fetch();
-      const json = await response.json();
+
+      // Guard against non-JSON responses (e.g. 204 No Content, HTML error pages).
+      const contentType = response.headers()['content-type'] ?? '';
+      if (!contentType.includes('application/json')) {
+        await route.fulfill({ response });
+        return;
+      }
+
+      let json: unknown;
+      try {
+        json = await response.json();
+      } catch {
+        // Body was not valid JSON — forward as-is without modification.
+        await route.fulfill({ response });
+        return;
+      }
 
       if (op === 'appConfig') {
         const featureFlags = (json as { data?: { appConfig?: { featureFlags?: Record<string, boolean> } } }).data

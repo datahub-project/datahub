@@ -840,3 +840,120 @@ class TestWarehouseTableRefFqName:
         # operators match a Snowflake connector run with that flag disabled.
         ref = _WarehouseTableRef(connection_id="c", db="DB", schema="SCH", table="TBL")
         assert ref.fq_name("snowflake", lowercase=False) == "DB.SCH.TBL"
+
+    def test_none_db_omits_db_prefix(self):
+        # 2-segment /files path (e.g. Redshift "Connection Root/<SCHEMA>") leaves
+        # db=None and fq_name must emit schema.table without the leading ".".
+        ref = _WarehouseTableRef(connection_id="c", db=None, schema="public", table="t")
+        assert ref.fq_name("redshift") == "public.t"
+
+
+# ---------------------------------------------------------------------------
+# Tests: 2-segment /files path + default_database resolution
+# ---------------------------------------------------------------------------
+
+
+_REDSHIFT_CONN_ID = "conn-rs-001"
+_REDSHIFT_CONN_RECORD = SigmaConnectionRecord(
+    connection_id=_REDSHIFT_CONN_ID,
+    name="Prod Redshift",
+    sigma_type="redshift",
+    datahub_platform="redshift",
+    host="cluster.redshift.amazonaws.com",
+    default_database="dev",
+    is_mappable=True,
+)
+_TWO_SEG_FILES = {
+    "id": "inode-rs-001",
+    "urlId": "rsUrlId001",
+    "name": "base_table",
+    "type": "table",
+    "path": "Connection Root/public",
+}
+
+
+def _make_source_with_override(
+    override_default_db: Optional[str] = None,
+    registry_default_db: Optional[str] = None,
+) -> SigmaSource:
+    conn_override = (
+        WarehouseConnectionConfig.model_validate(
+            {"default_database": override_default_db}
+        )
+        if override_default_db is not None
+        else None
+    )
+    config = SigmaSourceConfig.model_validate(
+        {"client_id": "test", "client_secret": "test"}
+    )
+    if conn_override:
+        config.connection_to_platform_map = {_REDSHIFT_CONN_ID: conn_override}
+    ctx = PipelineContext(run_id="t4b-unit")
+    with patch.object(SigmaAPI, "_generate_token"):
+        source = SigmaSource(config=config, ctx=ctx)
+    record = SigmaConnectionRecord(
+        connection_id=_REDSHIFT_CONN_ID,
+        name="Prod Redshift",
+        sigma_type="redshift",
+        datahub_platform="redshift",
+        host="cluster.redshift.amazonaws.com",
+        default_database=registry_default_db,
+        is_mappable=True,
+    )
+    source.connection_registry = SigmaConnectionRegistry(
+        by_id={_REDSHIFT_CONN_ID: record}
+    )
+    return source
+
+
+class TestTwoSegmentPathDefaultDatabase:
+    def _build_map(self, source: SigmaSource) -> dict:
+        dm = _make_dm_with_inodes({"inode-rs-001": {"connectionId": _REDSHIFT_CONN_ID}})
+        with patch.object(
+            source.sigma_api, "get_file_metadata", return_value=_TWO_SEG_FILES
+        ):
+            return source._build_dm_warehouse_url_id_map(dm)
+
+    def test_override_default_database_wins(self):
+        source = _make_source_with_override(
+            override_default_db="staging", registry_default_db="dev"
+        )
+        result = self._build_map(source)
+        assert result["rsUrlId001"].db == "staging"
+
+    def test_registry_default_database_fallback(self):
+        source = _make_source_with_override(registry_default_db="dev")
+        result = self._build_map(source)
+        assert result["rsUrlId001"].db == "dev"
+
+    def test_empty_db_emits_warning(self):
+        source = _make_source_with_override()  # no default_database anywhere
+        result = self._build_map(source)
+        assert result["rsUrlId001"].db is None
+        assert any(
+            "default_database" in (w.title or "") for w in source.reporter.warnings
+        )
+
+    def test_empty_db_warning_deduped_across_dms(self):
+        source = _make_source_with_override()
+        dm1 = _make_dm_with_inodes(
+            {"inode-rs-001": {"connectionId": _REDSHIFT_CONN_ID}}
+        )
+        dm2 = _make_dm_with_inodes(
+            {"inode-rs-001": {"connectionId": _REDSHIFT_CONN_ID}}
+        )
+        with patch.object(
+            source.sigma_api, "get_file_metadata", return_value=_TWO_SEG_FILES
+        ):
+            source._build_dm_warehouse_url_id_map(dm1)
+            source._build_dm_warehouse_url_id_map(dm2)
+        warnings = [
+            w for w in source.reporter.warnings if "default_database" in (w.title or "")
+        ]
+        assert len(warnings) == 1
+
+    def test_fq_name_with_registry_db(self):
+        source = _make_source_with_override(registry_default_db="dev")
+        result = self._build_map(source)
+        ref = result["rsUrlId001"]
+        assert ref.fq_name("redshift") == "dev.public.base_table"

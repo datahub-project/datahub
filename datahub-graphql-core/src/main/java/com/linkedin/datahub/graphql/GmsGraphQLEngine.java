@@ -1875,7 +1875,8 @@ public class GmsGraphQLEngine {
                             entityClient,
                             graphClient,
                             timeseriesAspectService,
-                            new EntityHealthResolver.Config(true, true)))
+                            new EntityHealthResolver.Config(
+                                true, true, featureFlags.isShowTestsInHealthIcon())))
                     .dataFetcher("schemaMetadata", new AspectResolver())
                     .dataFetcher(
                         "assertions", new EntityAssertionsResolver(entityClient, graphClient))
@@ -2370,7 +2371,7 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                        new EntityHealthResolver.Config(false, true, false))));
     builder.type(
         "DashboardInfo",
         typeWiring ->
@@ -2504,7 +2505,7 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                        new EntityHealthResolver.Config(false, true, false))));
     builder.type(
         "ChartInfo",
         typeWiring ->
@@ -2733,7 +2734,7 @@ public class GmsGraphQLEngine {
                             entityClient,
                             graphClient,
                             timeseriesAspectService,
-                            new EntityHealthResolver.Config(false, true))))
+                            new EntityHealthResolver.Config(false, true, false))))
         .type(
             "DataJobInputOutput",
             typeWiring ->
@@ -2823,7 +2824,7 @@ public class GmsGraphQLEngine {
                         entityClient,
                         graphClient,
                         timeseriesAspectService,
-                        new EntityHealthResolver.Config(false, true))));
+                        new EntityHealthResolver.Config(false, true, false))));
   }
 
   /**

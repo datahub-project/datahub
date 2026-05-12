@@ -10,7 +10,7 @@
 set -eu
 
 # Must stay on its own line as JAVA_MAJOR=<digits> for datahub-actions Dockerfile parsing.
-JAVA_MAJOR=21
+JAVA_MAJOR=25
 
 mkdir -p /usr/local/bin
 

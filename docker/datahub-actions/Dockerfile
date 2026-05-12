@@ -448,7 +448,11 @@ RUN chmod 755 /tmp/strip_pip_uv_from_venvs.sh
 USER datahub
 RUN sh /tmp/strip_pip_uv_from_venvs.sh
 USER 0
-RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv
+# py3-pip-wheel pulls in a bootstrap pip wheel; it cannot be apk-removed while python-* is
+# installed. Locked images strip pip/uv and block network — delete the wheel file only here
+# (CVE-2026-3219: bundled pip wheel surface).
+RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv && \
+    rm -f /usr/share/python-wheels/pip-*.whl
 USER datahub
 
 # Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.
