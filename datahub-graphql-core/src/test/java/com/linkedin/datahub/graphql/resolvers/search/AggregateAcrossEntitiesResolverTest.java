@@ -137,7 +137,6 @@ public class AggregateAcrossEntitiesResolverTest {
                     ImmutableList.of(
                         new FacetFilterInput(
                             "baseField",
-                            "baseTest",
                             ImmutableList.of("baseTest"),
                             false,
                             FilterOperator.EQUAL)))),

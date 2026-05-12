@@ -27,16 +27,14 @@ Let's dive in!
 
 ## Support
 
-Column Assertions are currently supported for:
+Column Assertions come in two flavors with different platform availability:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Dataset Profile Metrics (collected via ingestion)
+- **Column Value Assertions** (constraint-per-row checks like regex match, in set, range) require an **active warehouse connection** to Snowflake, Redshift, BigQuery, or Databricks. They have no ingestion-driven fallback — DataHub needs to scan actual row values.
+- **Column Metric Assertions** (aggregate checks like null count, unique count, min, mean) support both modes:
+  - **Active query** on Snowflake, Redshift, BigQuery, or Databricks.
+  - **Ingestion-driven** via `DatasetProfile` / `SchemaFieldProfile` reported during ingestion on **any** ingested platform (Postgres, MySQL, Athena, Synapse, …). Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in
-DataHub Cloud's **Ingestion** tab.
+See the [capabilities matrix](./assertions.md) for the full comparison across all assertion types.
 
 > Note that Column Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -119,8 +117,7 @@ from the following options:
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
 
-2. (Optional) **Data Platform Connection**: In order to create a Column Assertion that queries the data source directly (instead of DataHub metadata), you'll need to have an **Ingestion Source**
-   configured to your Data Platform: Snowflake, BigQuery, or Redshift under the **Ingestion** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Column Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Ingestion** tab. **Column Value assertions always require an active warehouse connection.** **Column Metric assertions** can alternatively evaluate against the DataHub Dataset Profile (ingestion-driven mode), in which case no warehouse connection is required.
 
 Once these are in place, you're ready to create your Column Assertions!
 
@@ -173,7 +170,7 @@ You can choose from any of the columns from the table listed in the dropdown.
   can check that the column value is greater than a specific value. For string types, you can check that the column value
   matches a particular regex pattern. You will also be able to control the behavior of null values in the column. If the
   **Allow Nulls** option is _disabled_, any null values encountered will be reported as a failure when evaluating the
-  assertion. Note, Smart Assertions are not supported for Column Value Assertions today.
+  assertion. Note, [Anomaly Detection](./anomaly-detection.md) is not supported for Column Value Assertions — these checks are deterministic rather than statistical.
 
   In addition, for the In Set and Not In Set operators, you can now choose how to provide the set of allowed values:
 
@@ -199,7 +196,11 @@ You can choose from any of the columns from the table listed in the dropdown.
   and value to compare against. The list of metrics will vary based on the data type of the selected column. For example
   with numeric types, you can choose to compute the average value of the column, and then assert that it is greater than a
   specific number. For string types, you can choose to compute the max length of all column values, and then assert that it
-  is less than a specific number. You can also select the **Detect with AI** option to use Smart Assertions to detect anomalies in the column metric. Note that the **Detect with AI** option is currently only available for the following metrics: **null_count**, **unique_count**, **empty_count**, **zero_count**, and **negative_count**. For all other metrics (e.g. min, max, mean), use a fixed threshold instead.
+  is less than a specific number.
+
+  :::note Anomaly Detection — supported metrics (Public Beta)
+  [Anomaly Detection](./anomaly-detection.md) is currently in **Public Beta** for Column Metric assertions and is available only for these metrics: **`null_count`**, **`unique_count`**, **`empty_count`**, **`zero_count`**, and **`negative_count`**. Enable it by selecting the **Detect with AI** option. For other metrics (e.g. min, max, mean, median, stddev), use a fixed threshold instead.
+  :::
 
 #### 9. Configure the **row evaluation type**. This defines which rows in the table the Column Assertion should evaluate.
 
@@ -259,27 +260,37 @@ Once your assertion has run, you will begin to see Success or Failure status for
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/profile-passing-column-assertions-expanded.png"/>
 </p>
 
-## Anomaly Detection with Smart Assertions ⚡
+## Anomaly Detection ⚡
 
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides [Smart Assertions](./smart-assertions.md) out of the box. These are dynamic, AI-powered Column Metric Assertions that you can use to monitor anomalies on column metrics of important warehouse Tables, without requiring any manual setup.
-
-:::note Supported Metrics
-Smart Assertions for Column Metrics currently support only: **null_count**, **unique_count**, **empty_count**, **zero_count**, and **negative_count**. Other column metrics (e.g. min, max, mean, median, stddev) are available for standard Column Metric Assertions with fixed thresholds, but cannot be used with the **Detect with AI** option at this time. Any existing Smart Assertions using other metrics will continue to operate normally.
+:::info
+Anomaly Detection on Column Metric assertions is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
 :::
 
-You can create smart assertions by simply selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
+Column Metric Assertions support [Anomaly Detection](./anomaly-detection.md) — an AI-powered alternative to a fixed threshold that learns the normal distribution of a column metric on a given table, including seasonality, and flags statistical outliers.
+
+Anomaly Detection for Column Metrics is currently supported for the following metrics: **`null_count`**, **`unique_count`**, **`empty_count`**, **`zero_count`**, and **`negative_count`**. Other column metrics (e.g. min, max, mean, median, stddev) are available for standard Column Metric Assertions with fixed thresholds, but cannot be used with the **Detect with AI** option at this time. Any existing Anomaly Detection monitors using other metrics will continue to operate normally.
+
+Anomaly Detection for Column Metrics works with both active-query and ingestion-driven sources — it is **not** limited to the four warehouses. When using the DataHub Dataset Profile source, Anomaly Detection works on any ingested platform (evaluation cadence is bounded by ingestion cadence).
+
+You can enable Anomaly Detection by selecting the column and the metric you wish to monitor, and then clicking the `Detect with AI` option in the UI:
 
 <p align="left">
   <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/column/column-smart-assertion.png"/>
 </p>
 
-**Bulk Creating for Multiple Columns**
+**Bulk Creating Anomaly Monitors for Multiple Columns**
 
-To select several columns on a table to monitor at once, you can use the **Bulk-Create Smart Assertions** button below the column selector in the Column Metric Assertion authoring UI.
+To select several columns on a table to monitor at once, you can use the **Bulk-Create Anomaly Monitors** button below the column selector in the Column Metric Assertion authoring UI.
 
 <iframe width="560" height="343" src="https://www.loom.com/embed/e71598c4394c4d8dba0770b8fc67ff06?sid=25326338-8a72-4382-98b5-026486233ef9" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
 
 ## Time-Series Bucketing for Column Metric Assertions
+
+:::info
+Time-series bucketing for Column Metric Assertions is currently in **Public Beta** — available to all DataHub Cloud customers; we welcome feedback as we continue to iterate.
+:::
+
+Bucketing always requires an active warehouse query and is therefore only available on Snowflake, Redshift, BigQuery, and Databricks. It is also restricted to Column Metric (`FIELD_METRIC`) assertions — Column Value assertions do not support bucketing.
 
 By default, column metric assertions evaluate a metric (e.g., null count, min, max) across all rows or changed rows in your table. With **time-series bucketing**, you can partition your data into time-based buckets (e.g., daily or weekly) and evaluate column metrics within each bucket.
 
@@ -344,7 +355,7 @@ column_assertion = client.assertions.sync_column_metric_assertion(
     enabled=True,
 )
 
-# Smart column metric assertion with weekly bucketing and backfill
+# Column metric assertion with Anomaly Detection, weekly bucketing, and backfill
 smart_column = client.assertions.sync_smart_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="user_id",
@@ -362,7 +373,7 @@ smart_column = client.assertions.sync_smart_column_metric_assertion(
 ```
 
 :::info
-For smart column metric assertions with bucketing enabled, you can configure **historical backfill** to populate metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
+For Column Metric Assertions with Anomaly Detection and bucketing enabled, you can configure **historical backfill** (Private Beta) to populate metrics history. See [Backfill Assertion History](./assertion-backfill.md) for details.
 :::
 
 ## Stopping a Column Assertion
@@ -432,7 +443,7 @@ mutation upsertDatasetFieldAssertionMonitor {
 }
 ```
 
-To create an AI Smart Column Nullness Metric Assertion:
+To create a Column Nullness Metric Assertion with Anomaly Detection:
 
 ```graphql
 mutation upsertDatasetFreshnessAssertionMonitor {

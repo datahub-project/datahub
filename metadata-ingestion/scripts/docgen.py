@@ -69,6 +69,7 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         SourceCapability.DOMAINS: "../../../domains.md",
         SourceCapability.PLATFORM_INSTANCE: "../../../platform-instances.md",
         SourceCapability.DATA_PROFILING: "../../../../metadata-ingestion/docs/dev_guides/sql_profiles.md",
+        SourceCapability.OPERATION_CAPTURE: "../../../api/tutorials/operations.md",
         SourceCapability.CLASSIFICATION: "../../../../metadata-ingestion/docs/dev_guides/classification.md",
     }
 
@@ -389,6 +390,7 @@ CAPABILITY_FEATURE_MAP: Dict[str, str] = {
     "LINEAGE_FINE": "Column Level Lineage",
     "LINEAGE_COARSE": "Table-Level Lineage",
     "DATA_PROFILING": "Data Profiling",
+    "OPERATION_CAPTURE": "Operation Capture",
     "TEST_CONNECTION": "UI Ingestion",
 }
 
@@ -1013,6 +1015,10 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     # inlined into metadata-ingestion/docs/dev_guides/sql_profiles.md.
     generate_sql_profiling_support_table(platforms)
 
+    # Generate the Operation Capture supported-sources table that gets
+    # inlined into docs/api/tutorials/operations.md.
+    generate_operation_capture_support_table(platforms)
+
     # Generate filterTagIndexes.json for the integrations page
     if integrations_output and extra_docs:
         catalog_path = os.path.join(extra_docs, "integrations_catalog.json")
@@ -1225,6 +1231,68 @@ def generate_sql_profiling_support_table(platforms: Dict[str, Platform]) -> None
 
     print(
         f"SQL Profiling Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
+    )
+
+
+def generate_operation_capture_support_table(platforms: Dict[str, Platform]) -> None:
+    """Generate a markdown table of all sources that declare OPERATION_CAPTURE support.
+
+    The output is a partial markdown file that gets inlined into
+    ``docs/api/tutorials/operations.md`` via the docs build inline directive.
+
+    Source links are written relative to ``docs/api/tutorials/operations.md`` since
+    ``markdown_rewrite_urls`` runs before inline expansion in the docs-website
+    build pipeline.
+    """
+    out_dir = "../docs/generated/ingestion"
+    os.makedirs(out_dir, exist_ok=True)
+    out_file = f"{out_dir}/operation_capture_support_table.md.snippet"
+
+    rows: List[Dict[str, str]] = []
+    for platform_id, platform in platforms.items():
+        for plugin in platform.plugins.values():
+            if not plugin.capabilities:
+                continue
+            operation_cap = next(
+                (
+                    cap
+                    for cap in plugin.capabilities
+                    if cap.capability == SourceCapability.OPERATION_CAPTURE
+                    and cap.supported
+                ),
+                None,
+            )
+            if operation_cap is None:
+                continue
+
+            if len(platform.plugins) > 1:
+                display_name = f"{platform.name} `{plugin.name}`"
+            else:
+                display_name = platform.name
+
+            notes = (operation_cap.description or "").strip()
+            if notes and not notes.endswith("."):
+                notes += "."
+
+            rows.append(
+                {
+                    "name": display_name,
+                    "platform_id": platform_id,
+                    "notes": notes,
+                }
+            )
+
+    rows.sort(key=lambda r: r["name"].casefold())
+
+    with open(out_file, "w") as f:
+        f.write("| Source | Notes |\n")
+        f.write("| ------ | ----- |\n")
+        for row in rows:
+            link = f"../../generated/ingestion/sources/{row['platform_id']}.md"
+            f.write(f"| [{row['name']}]({link}) | {row['notes']} |\n")
+
+    print(
+        f"Operation Capture Support Table Generation Complete ({len(rows)} sources) -> {out_file}"
     )
 
 

@@ -154,9 +154,15 @@ class FivetranLogDbReader:
                     "bigquery_destination_config is required when "
                     "destination_platform is 'bigquery'."
                 )
-            engine = create_engine(
-                bigquery_destination_config.get_sql_alchemy_url(),
-            )
+            bq_url = bigquery_destination_config.get_sql_alchemy_url()
+            bq_connect_args: Dict[str, Any] = {}
+            if bigquery_destination_config.credential is not None:
+                separator = "&" if "?" in bq_url else "?"
+                bq_url = f"{bq_url}{separator}user_supplied_client=true"
+                bq_connect_args["client"] = (
+                    bigquery_destination_config.get_bigquery_client()
+                )
+            engine = create_engine(bq_url, connect_args=bq_connect_args)
             fivetran_log_query.set_schema(bigquery_destination_config.dataset)
 
             # The "database" should be the BigQuery project name.

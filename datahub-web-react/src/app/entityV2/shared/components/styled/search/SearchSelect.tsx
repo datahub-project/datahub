@@ -166,7 +166,7 @@ export const SearchSelect = ({
         <Container>
             {error && message.error(`Failed to complete search: ${error && error.message}`)}
             <SearchBarContainer>
-                <Button type="text" onClick={onToggleFilters}>
+                <Button type="text" onClick={onToggleFilters} data-testid="toggle-filters-button">
                     <FilterOutlined />
                     <Typography.Text>Filters</Typography.Text>
                 </Button>

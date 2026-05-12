@@ -4,9 +4,10 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Connection record overrides (`connection_to_platform_map`)
 
-All three warehouse lineage paths — DM element → warehouse table, DM customSQL, and workbook
-customSQL — resolve the target DataHub platform and URN coordinates from the Sigma connection
-record. `connection_to_platform_map` lets you override those coordinates per connection.
+All four warehouse lineage paths — DM element → warehouse table, DM customSQL, workbook
+customSQL, and workbook chart entity-level BFS — resolve the target DataHub platform and URN
+coordinates from the Sigma connection record. `connection_to_platform_map` lets you override
+those coordinates per connection.
 
 **env / platform_instance / convert_urns_to_lowercase**
 
@@ -26,19 +27,22 @@ connection_to_platform_map:
 
 **Warehouses that omit database or schema from the Sigma connection record** (e.g. Redshift):
 Sigma's `/v2/connections` API does not return `database` or `schema` fields for all warehouse
-types. When those fields are absent, the SQL parser cannot fully qualify unqualified table names
-and produces under-qualified URNs that will not match what your warehouse connector emitted.
-Use `default_database` and `default_schema` to supply the missing values:
+types. When those fields are absent, lineage URNs may be under-qualified and will not match
+what your warehouse connector emitted. Use `default_database` and `default_schema` to supply
+the missing values:
 
 ```yml
 connection_to_platform_map:
   "a1b2c3d4-0000-0000-0000-000000000001":
     env: PROD
     default_database: my_redshift_db # expands `schema.table` → `my_redshift_db.schema.table`
-    default_schema: public # expands `table` → `public.table`
+    default_schema: public # expands bare `table` → `public.table` (SQL parser only)
 ```
 
-These overrides apply to all three lineage paths for the matching connection. The `env` and
+`default_database` applies to all four lineage paths (DM element, DM customSQL, workbook
+customSQL, and workbook chart entity-level BFS). `default_schema` is consumed only by the
+SQL parser (DM customSQL and workbook customSQL paths) — the entity-level BFS and DM element
+paths derive the schema from the `/files` path and do not use this field. The `env` and
 `platform_instance` fields are also consumed by the customSQL parsers, so URNs minted from
 customSQL definitions match the warehouse connector's env/instance for that connection.
 
@@ -85,6 +89,46 @@ The following report counters are available for operational visibility:
 | `workbook_customsql_upstream_emitted`             | Entity-level `UpstreamLineage` aspects emitted                                                 |
 | `workbook_customsql_column_lineage_emitted`       | Charts with at least one column lineage entry emitted                                          |
 | `workbook_customsql_fgl_downstream_unmapped`      | Individual FGL downstream fields dropped (SQL column name not found in Sigma formula metadata) |
+
+#### Workbook chart entity-level warehouse upstream
+
+When `extract_lineage: true` (default), workbook chart elements that pull **directly** from a
+warehouse table (no Data Model, no customSQL, no Sigma Dataset in between) emit an entity-level
+`chartInfo.inputs` edge to the warehouse Dataset.
+
+Column-level lineage for these charts is handled separately by the
+[chart inputFields warehouse qualification](#workbook-chart-inputfields-warehouse-column-level-qualification)
+path; this feature adds the missing entity-level edge.
+
+No additional configuration is required for most platforms. For Redshift connections where the
+Sigma connection record omits `database`/`schema`, set `default_database` in
+`connection_to_platform_map` — see
+[Connection record overrides](#connection-record-overrides-connection_to_platform_map) above.
+
+| Counter                                | Meaning                                                                                                           |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `chart_warehouse_upstream_emitted`     | Entity-level chart→warehouse edges emitted (post-dedup)                                                           |
+| `chart_warehouse_table_name_unmatched` | Table not found in workbook warehouse index; edge not emitted                                                     |
+| `chart_warehouse_table_node_skipped`   | Lineage node missing `name` field or has unexpected ID format; skipped                                            |
+| `chart_warehouse_table_name_ambiguous` | Table name matched multiple warehouse URNs; edge skipped — set `default_database` in `connection_to_platform_map` |
+
+#### Workbook chart inputFields warehouse column-level qualification
+
+When `extract_lineage: true` (default), the connector qualifies chart column `InputFields` to
+warehouse Dataset URNs. For each chart column whose formula references a warehouse table (e.g.,
+`[TABLE/col]`), the connector resolves the short table name to a fully-qualified warehouse Dataset
+URN via a two-level index: first the per-element SQL-parser index, then the workbook-level index
+from `/v2/workbooks/{id}/lineage`. The resolved URN is written into `schemaFieldUrn` on each
+`InputField` entry.
+
+| Counter                                                     | Meaning                                                              |
+| ----------------------------------------------------------- | -------------------------------------------------------------------- |
+| `chart_input_fields_warehouse_qualified`                    | Individual column fields successfully qualified to a warehouse URN   |
+| `chart_input_fields_warehouse_qualified_via_workbook_index` | Subset qualified via the workbook-level index (not per-element SQL)  |
+| `chart_input_fields_warehouse_index_lookup_failed`          | Workbook-level lineage fetch failed; column qualification incomplete |
+| `chart_input_fields_warehouse_table_lookup_failed`          | `/files/{inodeId}` call failed for a workbook-level table entry      |
+| `chart_input_fields_warehouse_path_unparseable`             | `/files` path did not match expected format                          |
+| `chart_input_fields_warehouse_unknown_connection`           | ConnectionId not in registry or platform unmappable                  |
 
 #### Data Model element -> warehouse table lineage
 

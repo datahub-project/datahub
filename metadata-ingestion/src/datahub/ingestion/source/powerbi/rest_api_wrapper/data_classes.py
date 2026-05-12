@@ -1,4 +1,5 @@
 import dataclasses
+import logging
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
@@ -12,6 +13,8 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     StringTypeClass,
 )
+
+logger = logging.getLogger(__name__)
 
 FIELD_TYPE_MAPPING: Dict[
     str,
@@ -271,7 +274,8 @@ class Page:
 class User:
     id: str
     displayName: str
-    emailAddress: str
+    # Users with principalType=App do not have emailAddress.
+    emailAddress: Optional[str]
     graphId: str
     principalType: str
     datasetUserAccessRight: Optional[str] = None
@@ -308,7 +312,7 @@ class Report:
     name: str
     type: ReportType
     webUrl: Optional[str]
-    embedUrl: str
+    embedUrl: Optional[str]
     description: str
     dataset_id: Optional[str]  # dataset_id is coming from REST API response
     dataset: Optional[
@@ -415,4 +419,109 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
         tags=[],
         configuredBy=raw_instance.get("configuredBy"),
         dependent_on_artifact_id=dependent_on_artifact_id,
+    )
+
+
+def new_powerbi_reports(
+    workspace: Workspace, raw_instances: List[dict], extract_ownership: bool = True
+) -> List[Report]:
+    reports: List[Report] = []
+    for raw_instance in raw_instances:
+        # App-published reports show up twice; the duplicate carries appId.
+        if Constant.APP_ID in raw_instance:
+            logger.debug(
+                "Skipping app-duplicate report entry '%s' (%s) in workspace '%s'",
+                raw_instance.get(Constant.NAME),
+                raw_instance.get(Constant.ID),
+                workspace.name,
+            )
+            continue
+
+        report_id = raw_instance.get(Constant.ID)
+        name = raw_instance.get(Constant.NAME)
+        report_type_str = raw_instance.get(Constant.REPORT_TYPE)
+        if not report_id or not name or not report_type_str:
+            logger.warning(
+                "Skipping malformed report entry in workspace '%s': missing required field(s) "
+                "(id=%r, name=%r, reportType=%r)",
+                workspace.name,
+                report_id,
+                name,
+                report_type_str,
+            )
+            continue
+        try:
+            report_type = ReportType[report_type_str]
+        except KeyError:
+            logger.warning(
+                "Skipping report '%s' (%s) in workspace '%s': unrecognized reportType %r. "
+                "Known types: %s",
+                name,
+                report_id,
+                workspace.name,
+                report_type_str,
+                [t.name for t in ReportType],
+            )
+            continue
+
+        if raw_instance.get(Constant.WEB_URL):
+            web_url: Optional[str] = raw_instance[Constant.WEB_URL]
+        elif workspace.webUrl:
+            if report_type_str == ReportType.PaginatedReport.value:
+                web_url = f"{workspace.webUrl}/rdlreports/{report_id}"
+            else:
+                web_url = f"{workspace.webUrl}/reports/{report_id}"
+        else:
+            web_url = None
+
+        users: List[User] = []
+        if extract_ownership:
+            for user_instance in raw_instance.get(Constant.USERS, []):
+                user = new_powerbi_user(user_instance)
+                if user is not None:
+                    users.append(user)
+
+        reports.append(
+            Report(
+                id=report_id,
+                name=name,
+                type=report_type,
+                webUrl=web_url,
+                embedUrl=raw_instance.get(Constant.EMBED_URL),
+                description=raw_instance.get(Constant.DESCRIPTION) or "",
+                pages=[],
+                dataset_id=raw_instance.get(Constant.DATASET_ID),
+                users=users,
+                tags=[],
+                dataset=None,
+            )
+        )
+    return reports
+
+
+def new_powerbi_user(raw_instance: dict) -> Optional[User]:
+    user_id = raw_instance.get(Constant.IDENTIFIER)
+    display_name = raw_instance.get(Constant.DISPLAY_NAME)
+    graph_id = raw_instance.get(Constant.GRAPH_ID)
+    principal_type = raw_instance.get(Constant.PRINCIPAL_TYPE)
+    if not user_id or not display_name or not graph_id or not principal_type:
+        logger.warning(
+            "Skipping malformed user entry: missing required field(s) "
+            "(identifier=%r, displayName=%r, graphId=%r, principalType=%r)",
+            user_id,
+            display_name,
+            graph_id,
+            principal_type,
+        )
+        return None
+    return User(
+        id=user_id,
+        displayName=display_name,
+        emailAddress=raw_instance.get(Constant.EMAIL_ADDRESS),
+        graphId=graph_id,
+        principalType=principal_type,
+        datasetUserAccessRight=raw_instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
+        reportUserAccessRight=raw_instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
+        dashboardUserAccessRight=raw_instance.get(Constant.DASHBOARD_USER_ACCESS_RIGHT),
+        groupUserAccessRight=raw_instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
     )

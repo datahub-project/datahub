@@ -140,6 +140,10 @@ logger: logging.Logger = logging.getLogger(__name__)
     "Enabled by default, can be disabled via configuration `include_usage_stats`",
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default, can be disabled via configuration `include_operational_stats`",
+)
+@capability(
     SourceCapability.DELETION_DETECTION,
     "Enabled by default via stateful ingestion",
     supported=True,
@@ -432,6 +436,9 @@ class SnowflakeV2Source(
                         _report[SourceCapability.USAGE_STATS] = CapabilityReport(
                             capable=True
                         )
+                        _report[SourceCapability.OPERATION_CAPTURE] = CapabilityReport(
+                            capable=True
+                        )
                         _report[SourceCapability.TAGS] = CapabilityReport(capable=True)
 
                 # If all capabilities supported, no need to continue
@@ -458,6 +465,7 @@ class SnowflakeV2Source(
             SourceCapability.LINEAGE_COARSE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.LINEAGE_FINE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.USAGE_STATS: "Current role does not have permissions to snowflake account usage views",
+            SourceCapability.OPERATION_CAPTURE: "Current role does not have permissions to snowflake account usage views",
             SourceCapability.TAGS: "Either no tags have been applied to objects, or the current role does not have permission to access the objects or to snowflake account usage views ",
         }
 
@@ -471,6 +479,7 @@ class SnowflakeV2Source(
                 SourceCapability.LINEAGE_COARSE,
                 SourceCapability.LINEAGE_FINE,
                 SourceCapability.USAGE_STATS,
+                SourceCapability.OPERATION_CAPTURE,
                 SourceCapability.TAGS,
             ):
                 failure_message = (
