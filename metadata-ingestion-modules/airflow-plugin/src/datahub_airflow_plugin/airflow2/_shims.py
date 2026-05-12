@@ -3,7 +3,11 @@ Airflow 2.x specific shims and imports.
 Clean, simple imports without cross-version compatibility complexity.
 """
 
+import warnings
 from typing import List
+
+import airflow
+import packaging.version
 
 from airflow.models.baseoperator import BaseOperator
 
@@ -31,16 +35,61 @@ try:
 except ImportError:
     from airflow.sensors.external_task_sensor import ExternalTaskSensor  # type: ignore
 
-# OpenLineage imports for Airflow 2.x
-# Detect which OpenLineage package is available and load appropriate shims
-_USE_LEGACY_OPENLINEAGE = False
+# OpenLineage package selection for Airflow 2.x.
+#
+# Airflow 2.7 introduced the native apache-airflow-providers-openlineage package.
+# The older openlineage-airflow standalone package still works on Airflow 2.7+ but
+# emits a deprecation warning. On Airflow 2.7+ we therefore prefer the native
+# provider when it is available.
+#
+# Priority:
+#   Airflow >= 2.7 + native provider installed  → native provider (no warnings)
+#   Airflow >= 2.7 + only legacy installed       → legacy (emit our own deprecation)
+#   Airflow <  2.7 + legacy installed            → legacy (correct choice)
+#   neither installed                            → provider path (fails gracefully)
+
+_AIRFLOW_VERSION = packaging.version.parse(airflow.__version__)
+_IS_AIRFLOW_27_OR_HIGHER = _AIRFLOW_VERSION >= packaging.version.parse("2.7.0")
+
+_NATIVE_PROVIDER_AVAILABLE = False
 try:
-    # Check if legacy package (openlineage-airflow) is available
+    from airflow.providers.openlineage.plugins.openlineage import (  # noqa: F401
+        OpenLineageProviderPlugin as _,
+    )
+
+    _NATIVE_PROVIDER_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    pass
+
+_LEGACY_AVAILABLE = False
+try:
     import openlineage.airflow  # noqa: F401
 
-    _USE_LEGACY_OPENLINEAGE = True
+    _LEGACY_AVAILABLE = True
 except ImportError:
     pass
+
+# Determine which package to use.
+if _IS_AIRFLOW_27_OR_HIGHER and _NATIVE_PROVIDER_AVAILABLE:
+    # Preferred path for Airflow 2.7+: native provider, no deprecation warning.
+    _USE_LEGACY_OPENLINEAGE = False
+elif _LEGACY_AVAILABLE:
+    if _IS_AIRFLOW_27_OR_HIGHER:
+        # Legacy package emits its own warning; surface a more actionable one.
+        warnings.warn(
+            "The openlineage-airflow package is deprecated for Airflow 2.7 and later. "
+            "Install the native provider instead: "
+            "pip install 'acryl-datahub-airflow-plugin[airflow27]'. "
+            "See https://airflow.apache.org/docs/apache-airflow-providers-openlineage "
+            "for details.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+    _USE_LEGACY_OPENLINEAGE = True
+else:
+    # Neither package installed — fall through to provider shims (will fail at call-site
+    # if OpenLineage functionality is actually used, with a clear ImportError).
+    _USE_LEGACY_OPENLINEAGE = False
 
 if _USE_LEGACY_OPENLINEAGE:
     # Import from legacy openlineage-airflow package
