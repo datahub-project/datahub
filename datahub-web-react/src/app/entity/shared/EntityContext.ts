@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 
 import { shouldEntityBeTreatedAsPrimary, useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
-import { EntityContextType, UpdateEntityType } from '@app/entity/shared/types';
+import { EntityContextType, GenericEntityProperties, UpdateEntityType } from '@app/entity/shared/types';
 
 import { EntityType } from '@types';
 
@@ -33,6 +33,11 @@ export const useBaseEntity = <T>(): T => {
 export const useDataNotCombinedWithSiblings = <T>(): T => {
     const { dataNotCombinedWithSiblings } = useContext(EntityContext);
     return dataNotCombinedWithSiblings as T;
+};
+
+export const useRootEntityData = (): GenericEntityProperties | null | undefined => {
+    const { rootEntityData } = useContext(EntityContext);
+    return rootEntityData;
 };
 
 export const useEntityUpdate = <U>(): UpdateEntityType<U> | null | undefined => {

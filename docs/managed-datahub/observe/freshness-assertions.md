@@ -34,16 +34,12 @@ Let's get started!
 
 ## Support
 
-Freshness Assertions are currently supported for:
+Freshness Assertions are supported in two modes:
 
-1. Snowflake
-2. Redshift
-3. BigQuery
-4. Databricks
-5. DataHub Operations (collected via ingestion)
+- **Active query** (low-latency, schedule-driven) — requires an ingestion source configured for Snowflake, Redshift, BigQuery, or Databricks. Uses Audit Log, Information Schema, Last Modified Column, High Watermark Column, or File Metadata (Databricks only) as the change source.
+- **Ingestion-driven** (any ingested platform, including Postgres, MySQL, Athena, …) — uses the DataHub `operation` aspect that is reported during ingestion. Evaluation cadence is bounded by your ingestion cadence.
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
-tab.
+See the [capabilities matrix](./assertions.md) for the full comparison of active-query vs ingestion-driven modes across all assertion types.
 
 > Note that Freshness Assertions are not yet supported if you are connecting to your warehouse
 > using the DataHub CLI.
@@ -140,12 +136,11 @@ Freshness Assertions also have an off switch: they can be started or stopped at 
 1. **Permissions**: To create or delete Freshness Assertions for a specific entity on DataHub, you'll need to be granted the
    `Edit Assertions` and `Edit Monitors` privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
    by default.
-2. (Optional) **Data Platform Connection**: In order to create a Freshness Assertion that queries the source data platform directly (instead of DataHub metadata), you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+2. (Recommended) **Data Platform Connection**: To evaluate a Freshness Assertion by querying the source data platform directly, you'll need an **Ingestion Source** configured for Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab. If you rely on the ingestion-driven `DataHub Operation` change source, no warehouse connection is required — Operations can be reported for any ingested platform.
 
 Once these are in place, you're ready to create your Freshness Assertions!
 
-You can also apply Smart Freshness Assertions at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
+You can also apply Freshness Assertions with Anomaly Detection at scale using [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) on the Data Health page.
 
 ### Steps
 
@@ -240,13 +235,13 @@ To resume the assertion, simply click **Start**.
   <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
 
-## Anomaly Detection with Smart Assertions ⚡
+## Anomaly Detection ⚡
 
-As part of the **DataHub Cloud Observe** module, DataHub Cloud also provides **Smart Assertions** out of the box. These are
-dynamic, AI-powered Freshness Assertions that you can use to monitor the freshness of important warehouse Tables, without
-requiring any manual setup. The Smart Assertion's ML model will train based on the Table change history that is captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
+Freshness Assertions support [Anomaly Detection](./anomaly-detection.md), which replaces a fixed freshness SLA with an AI-driven threshold that learns the table's normal change pattern. This is useful when a table's update cadence varies with the day of week, is seasonal, or is otherwise hard to express as a static rule.
 
-You can create smart assertions by simply selecting the `Detect with AI` option in the UI:
+The ML model trains on the table's change history captured in the [`operation` aspect](../../api/tutorials/operations.md). Normally this is populated during ingestion run time.
+
+You can enable Anomaly Detection by selecting the `Detect with AI` option in the UI:
 
 <p align="left">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/freshness-smart-assertion.png"/>
@@ -294,7 +289,7 @@ mutation upsertDatasetFreshnessAssertionMonitor {
 }
 ```
 
-To create an AI Smart Freshness Assertion:
+To create a Freshness Assertion with Anomaly Detection:
 
 ```graphql
 mutation upsertDatasetFreshnessAssertionMonitor {

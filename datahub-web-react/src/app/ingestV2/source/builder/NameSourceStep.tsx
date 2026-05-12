@@ -213,7 +213,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     label={
                         <LabelContainer>
                             <Text>Name</Text>
-                            <Text color="red"> *</Text>
+                            <Text color="textError"> *</Text>
                         </LabelContainer>
                     }
                     style={{ marginBottom: 16 }}
@@ -339,6 +339,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
+                            data-testid="ingestion-source-save-and-run-button"
                         >
                             Save & Run
                         </Button>

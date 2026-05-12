@@ -2,7 +2,7 @@
 
 Microsoft Fabric Data Factory is a cloud-based data integration service within the Microsoft Fabric platform. Learn more in the [official Microsoft Fabric Data Factory documentation](https://learn.microsoft.com/fabric/data-factory/data-factory-overview).
 
-The DataHub integration for Fabric Data Factory covers pipeline and orchestration entities such as workspaces, data pipelines, and activities. Depending on module capabilities, it can also capture features such as lineage, execution history, platform instance mapping, and stateful deletion detection.
+The DataHub integration for Fabric Data Factory covers pipeline and orchestration entities such as workspaces, data pipelines, and activities. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

@@ -61,3 +61,23 @@ AS $$
         metadata_json
     )
 $$;
+
+-- ETL use case: tables and procedure for lineage testing
+CREATE TABLE raw_orders (
+    id SERIAL PRIMARY KEY,
+    customer_id INT NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL
+);
+
+CREATE TABLE processed_orders (
+    order_id INT,
+    customer_id INT,
+    total DECIMAL(10, 2)
+);
+
+CREATE PROCEDURE etl_process_orders()
+LANGUAGE SQL
+AS $$
+    INSERT INTO processed_orders (order_id, customer_id, total)
+    SELECT id AS order_id, customer_id, amount AS total FROM raw_orders;
+$$;

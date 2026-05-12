@@ -2,6 +2,7 @@ import itertools
 import logging
 from typing import IO, Dict, List, Type, Union
 
+import ijson
 import jsonlines as jsl
 import ujson
 
@@ -50,12 +51,30 @@ class JsonInferrer(SchemaInferenceBase):
             ]
         else:
             try:
-                datastore = ujson.load(file)
-            except ujson.JSONDecodeError as e:
-                logger.info(f"Got ValueError: {e}. Retry with jsonlines")
+                # Stream-parse to avoid loading the entire file into memory.
+                # ijson.items(file, 'item') lazily yields elements of a top-level JSON array.
+                file.seek(0)
+                datastore = list(
+                    itertools.islice(ijson.items(file, "item"), self.max_rows)
+                )
+                if not datastore:
+                    # Not a top-level array — likely a single JSON object.
+                    file.seek(0)
+                    datastore = [ujson.load(file)]
+            except (
+                ujson.JSONDecodeError,
+                ijson.common.JSONError,
+                UnicodeDecodeError,
+            ) as e:
+                logger.info(f"Failed to parse as JSON: {e}. Retry with jsonlines")
                 file.seek(0)
                 reader = jsl.Reader(file)
-                datastore = [obj for obj in reader.iter(type=dict, skip_invalid=True)]
+                datastore = [
+                    obj
+                    for obj in itertools.islice(
+                        reader.iter(type=dict, skip_invalid=True), self.max_rows
+                    )
+                ]
 
         if not isinstance(datastore, list):
             datastore = [datastore]

@@ -25,6 +25,11 @@ dependencies {
   implementation externalDependency.mustache
   implementation externalDependency.javaxInject
   implementation externalDependency.springActuator
+  // Jackson 2 bridge: keeps com.fasterxml.jackson on classpath until we migrate to Jackson 3
+  implementation(externalDependency.springBootJackson2)
+  // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+  implementation externalDependency.springBootKafka
+  implementation externalDependency.springBootMicrometerMetrics
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
@@ -37,7 +42,7 @@ dependencies {
 
   constraints {
     implementation(externalDependency.hadoopCommon3) {
-      because("previous versions are vulnerable to CVE-2021-37404")
+      because("previous versions are vulnerable to CVE-2021-37404 and CVE-2024-23454 (fixed in 3.4.0+)")
     }
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
@@ -431,6 +436,7 @@ docker {
   files fileTree(rootProject.projectDir) {
     include '.dockerignore'
     include 'docker/monitoring/*'
+    include 'docker/snippets/*'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
@@ -440,8 +446,11 @@ docker {
 
   // Add build args if they are defined (needed for some CI or enterprise environments)
   def dockerBuildArgs = [:]
-  if (project.hasProperty('alpineApkRepositoryUrl')) {
-    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  if (project.hasProperty('apkRepositoryUrl')) {
+    dockerBuildArgs.APK_REPOSITORY_URL = project.getProperty('apkRepositoryUrl')
   }
   if (project.hasProperty('githubMirrorUrl')) {
     dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')

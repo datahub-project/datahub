@@ -33,7 +33,7 @@ const StyledDrawer = styled(Drawer)`
     }
 
     &&& .ant-drawer-content-wrapper {
-        box-shadow: -20px 0px 44px 0px ${(props) => props.theme.colors.overlayMedium};
+        box-shadow: ${(props) => props.theme.colors.shadowXl};
     }
 `;
 
@@ -46,7 +46,7 @@ const FieldHeaderWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: ${(p) => p.theme.styles['primary-color']};
+    background: ${(props) => props.theme.colors.buttonFillBrand};
     color: ${(props) => props.theme.colors.textOnFillBrand};
     font-size: 14px;
     font-weight: 700;

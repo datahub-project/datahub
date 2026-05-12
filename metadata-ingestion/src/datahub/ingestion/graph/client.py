@@ -164,6 +164,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
             retry_max_times=self.config.retry_max_times,
+            pool_connections=self.config.pool_connections,
+            pool_maxsize=self.config.pool_maxsize,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
@@ -172,6 +174,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
@@ -249,6 +252,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
+                tcp_keepalive=session_config.tcp_keepalive,
             )
         )
 
@@ -1610,6 +1614,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1895,6 +1900,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
     ) -> bool:
         graph_query: str = """
             mutation reportAssertionResult(
@@ -1904,6 +1910,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
+                $severity: AssertionResultSeverity,
             ) {
                 reportAssertionResult(urn: $assertionUrn, result: {
                     timestampMillis: $timestampMillis
@@ -1911,6 +1918,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
+                    severity: $severity
                 })
             }
         """
@@ -1924,6 +1932,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
 
         res = self.execute_graphql(

@@ -1,5 +1,5 @@
 ---
-description: This page provides an overview of using Assertion Notes
+description: "Add Assertion Notes in DataHub Cloud Observe to document context, root causes, and resolutions for data quality assertion failures."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';

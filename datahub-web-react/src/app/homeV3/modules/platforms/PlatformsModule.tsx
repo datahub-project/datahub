@@ -17,7 +17,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const NUMBER_OF_PLATFORMS = 15;
 
 const PlatformsModule = (props: ModuleProps) => {
-    const { user, platformPrivileges } = useUserContext();
+    const { platformPrivileges } = useUserContext();
 
     const { config } = useAppConfig();
 
@@ -26,7 +26,8 @@ const PlatformsModule = (props: ModuleProps) => {
         return isIngestionEnabled && platformPrivileges?.manageIngestion;
     }, [config?.managedIngestionConfig?.enabled, platformPrivileges?.manageIngestion]);
 
-    const { platforms, loading } = useGetPlatforms(user, NUMBER_OF_PLATFORMS);
+    const { platforms: allPlatforms, loading } = useGetPlatforms();
+    const platforms = useMemo(() => allPlatforms.slice(0, NUMBER_OF_PLATFORMS), [allPlatforms]);
     const { navigateToDataSources, handleEntityClick } = usePlatformModuleUtils();
 
     const renderAssetCount = (entity: Entity) => {

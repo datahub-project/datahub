@@ -1,16 +1,16 @@
 package config;
 
-import akka.Done;
-import akka.actor.CoordinatedShutdown;
 import com.google.inject.AbstractModule;
-import com.google.inject.Inject;
 import com.typesafe.config.Config;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.pekko.Done;
+import org.apache.pekko.actor.CoordinatedShutdown;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

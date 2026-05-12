@@ -25,7 +25,7 @@ const propStyles = (props: ThemedTextProps, isText = false) => {
     const styles = {} as any;
     if (props.size) styles.fontSize = getFontSize(props.size);
     if (props.color) {
-        const semantic = props.theme.colors[props.color];
+        const semantic = props.color ? props.theme.colors?.[props.color as keyof typeof props.theme.colors] : undefined;
         styles.color =
             typeof semantic === 'string'
                 ? semantic

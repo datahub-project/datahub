@@ -33,7 +33,7 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { ChangeCategoryType } from '@types';
 
 const NoSchema = styled(Empty)`
-    color: ${(props) => props.theme.colors.textSecondary};
+    color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
 
