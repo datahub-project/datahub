@@ -72,7 +72,8 @@ buildscript {
   ext.openLineageVersion = '1.33.0'
   ext.awsSdk2Version = '2.30.33'
   ext.micrometerVersion = '1.16.4'
-  ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
+  // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
+  ext.vertxVersion = '4.5.27'
   // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
   ext.nettyVersion = '4.2.13.Final' // align all io.netty modules (excl. netty-tcnative line)
   // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
