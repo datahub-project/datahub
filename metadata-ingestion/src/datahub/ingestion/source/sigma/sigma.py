@@ -424,6 +424,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         # been emitted; dedup so many charts with the same ambiguous name don't
         # flood the report.
         self._ambiguous_table_name_warned: Set[str] = set()
+        # (upstream_urn, display_name) pairs for which a "column bridge unresolved"
+        # warning has been emitted; dedup so repeated charts with the same unresolved
+        # column don't flood the report.
+        self._bridge_unresolved_warned: Set[Tuple[str, str]] = set()
         # Once-per-run gate flags so noisy global conditions don't flood logs.
         self._registry_empty_warned: bool = False
         # Per-platform set: platforms for which we've emitted a "first emission"
@@ -1146,6 +1150,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 return native
             # Non-inode slash-shaped ID or empty native part — unrecognised format.
             self.reporter.dm_customsql_col_mapping_columnid_rejected += 1
+            logger.debug(
+                "customSQL columnId %r rejected: slash-shaped but not inode- prefix "
+                "or empty native part; skipping column bridge.",
+                column_id,
+            )
             return None
         # Bare identifier heuristic: UPPER_SNAKE only (e.g. CUSTOMER_ID, TOTAL_SPENT).
         # Snowflake dev-tenant probe shows all valid passthrough columnIds are uppercase;
@@ -1155,6 +1164,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if re.match(r"^[A-Z][A-Z0-9_]*$", column_id):
             return column_id
         self.reporter.dm_customsql_col_mapping_columnid_rejected += 1
+        logger.debug(
+            "customSQL columnId %r rejected: not UPPER_SNAKE bare identifier "
+            "(opaque hash or mixed-case); skipping column bridge.",
+            column_id,
+        )
         return None
 
     def _build_customsql_col_mapping(
@@ -3406,6 +3420,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         upstream_urn: str,
         sigma_display_name: str,
         column_native_names: Dict[str, str],
+        element_id: Optional[str] = None,
     ) -> str:
         """Translate Sigma display name to warehouse-native column name.
 
@@ -3437,6 +3452,30 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 self.reporter.chart_input_fields_warehouse_column_bridged += 1
             return native
         self.reporter.chart_input_fields_warehouse_column_bridge_unresolved += 1
+        logger.debug(
+            "Column bridge unresolved: display name %r not in native-name map "
+            "for upstream %r (element=%s); fieldPath will use display name.",
+            sigma_display_name,
+            upstream_urn,
+            element_id,
+        )
+        warn_key = (upstream_urn, sigma_display_name)
+        if warn_key not in self._bridge_unresolved_warned:
+            self._bridge_unresolved_warned.add(warn_key)
+            self.reporter.warning(
+                title="Sigma chart column bridge unresolved",
+                message=(
+                    "A chart column's Sigma display name could not be mapped to a "
+                    "warehouse-native column name. The emitted `fieldPath` will use "
+                    "the display name, which may not match the warehouse column and "
+                    "will silently break column-level lineage."
+                ),
+                context=(
+                    f"element={element_id}, "
+                    f"display_name={sigma_display_name!r}, "
+                    f"upstream={upstream_urn}"
+                ),
+            )
         return sigma_display_name
 
     def _build_element_input_fields(
@@ -3511,6 +3550,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream_urn=upstream_urn,
                     sigma_display_name=upstream_field,
                     column_native_names=element.column_native_names,
+                    element_id=element.elementId,
                 )
                 schema_field_urn = builder.make_schema_field_urn(
                     upstream_urn, bridged_field

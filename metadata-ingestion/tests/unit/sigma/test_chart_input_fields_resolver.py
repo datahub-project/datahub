@@ -86,6 +86,7 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.sigma_api.get_workbook_lineage = MagicMock(return_value=[])
     source._workbook_customsql_registered_urns = set()
     source._workbook_customsql_formula_fields = {}
+    source._bridge_unresolved_warned = set()
     return source
 
 
