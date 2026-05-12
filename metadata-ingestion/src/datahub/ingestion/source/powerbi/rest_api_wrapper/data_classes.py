@@ -339,8 +339,8 @@ class Tile:
         UNKNOWN = "UNKNOWN"
 
     id: str
-    title: str
-    embedUrl: str
+    title: Optional[str]
+    embedUrl: Optional[str]
     dataset_id: Optional[str]
     report_id: Optional[str]
     createdFrom: CreatedFrom
@@ -359,7 +359,7 @@ class Dashboard:
     id: str
     displayName: str
     description: str
-    embedUrl: str
+    embedUrl: Optional[str]
     isReadOnly: Any
     workspace_id: str
     workspace_name: str
@@ -422,104 +422,183 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
     )
 
 
-def new_powerbi_reports(
-    workspace: Workspace, raw_instances: List[dict], extract_ownership: bool = True
-) -> List[Report]:
-    reports: List[Report] = []
-    for raw_instance in raw_instances:
-        # App-published reports show up twice; the duplicate carries appId.
-        if Constant.APP_ID in raw_instance:
-            logger.debug(
-                "Skipping app-duplicate report entry '%s' (%s) in workspace '%s'",
-                raw_instance.get(Constant.NAME),
-                raw_instance.get(Constant.ID),
-                workspace.name,
-            )
-            continue
-
-        report_id = raw_instance.get(Constant.ID)
-        name = raw_instance.get(Constant.NAME)
-        report_type_str = raw_instance.get(Constant.REPORT_TYPE)
-        if not report_id or not name or not report_type_str:
+def new_powerbi_dashboards(
+    workspace: Workspace, raw_instances: List[Dict[str, Any]]
+) -> List[Dashboard]:
+    def build_dashboard(raw_instance: Dict[str, Any]) -> Optional[Dashboard]:
+        dashboard_id = raw_instance.get(Constant.ID)
+        display_name = raw_instance.get(Constant.DISPLAY_NAME)
+        if not dashboard_id or not display_name:
             logger.warning(
-                "Skipping malformed report entry in workspace '%s': missing required field(s) "
-                "(id=%r, name=%r, reportType=%r)",
-                workspace.name,
-                report_id,
-                name,
-                report_type_str,
+                "Skipping dashboard with missing id or displayName (id=%r)",
+                dashboard_id,
+            )
+            return None
+
+        web_url_val = raw_instance.get(Constant.WEB_URL)
+        if web_url_val:
+            web_url = web_url_val
+        elif workspace.webUrl:
+            web_url = f"{workspace.webUrl}/dashboards/{dashboard_id}"
+        else:
+            web_url = None
+
+        return Dashboard(
+            id=dashboard_id,
+            isReadOnly=raw_instance.get(Constant.IS_READ_ONLY),
+            displayName=display_name,
+            description=raw_instance.get(Constant.DESCRIPTION, ""),
+            embedUrl=raw_instance.get(Constant.EMBED_URL),
+            webUrl=web_url,
+            workspace_id=workspace.id,
+            workspace_name=workspace.name,
+            tiles=new_powerbi_tiles(raw_instance.get(Constant.TILES) or []),
+            users=[
+                user
+                for user_instance in (raw_instance.get(Constant.USERS) or [])
+                if (user := new_powerbi_user(user_instance)) is not None
+            ],
+            tags=[],  # filled from workspace.dashboard_endorsements in fill_regular_metadata_detail()
+        )
+
+    return [
+        dashboard
+        for raw_instance in raw_instances
+        if raw_instance is not None
+        # As we add dashboards to the App, Power BI starts providing duplicate dashboard information,
+        # where the duplicate includes an AppId, while the original dashboard does not.
+        and Constant.APP_ID not in raw_instance
+        if (dashboard := build_dashboard(raw_instance)) is not None
+    ]
+
+
+def new_powerbi_tiles(raw_instances: List[Dict[str, Any]]) -> List[Tile]:
+    result = []
+    for raw_instance in raw_instances:
+        if raw_instance is None:
+            continue
+        tile_id = raw_instance.get(Constant.ID)
+        if not tile_id:
+            logger.warning(
+                "Skipping tile with missing id: raw=%r",
+                {
+                    k: raw_instance.get(k)
+                    for k in (Constant.TITLE, Constant.DATASET_ID, Constant.REPORT_ID)
+                },
             )
             continue
+        result.append(
+            Tile(
+                id=tile_id,
+                title=raw_instance.get(Constant.TITLE),
+                embedUrl=raw_instance.get(Constant.EMBED_URL),
+                dataset_id=raw_instance.get(Constant.DATASET_ID),
+                report_id=raw_instance.get(Constant.REPORT_ID),
+                dataset=None,
+                report=None,
+                createdFrom=(
+                    # In the past we considered that only one of the two report_id or dataset_id would be present
+                    # but we have seen cases where both are present. If both are present, we prioritize the report.
+                    Tile.CreatedFrom.REPORT
+                    if raw_instance.get(Constant.REPORT_ID)
+                    else Tile.CreatedFrom.DATASET
+                    if raw_instance.get(Constant.DATASET_ID)
+                    else Tile.CreatedFrom.VISUALIZATION
+                ),
+            )
+        )
+    return result
+
+
+def new_powerbi_reports(
+    workspace: Workspace, raw_instances: List[Dict[str, Any]]
+) -> List[Report]:
+    def build_report(raw_instance: Dict[str, Any]) -> Optional[Report]:
+        report_id = raw_instance.get(Constant.ID)
+        report_name = raw_instance.get(Constant.NAME)
+        if not report_id or not report_name:
+            logger.warning("Skipping report with missing id or name (id=%r)", report_id)
+            return None
+
+        report_type_raw = raw_instance.get(Constant.REPORT_TYPE)
+        if not isinstance(report_type_raw, str):
+            logger.warning(
+                "Skipping report with missing or non-string reportType=%r (id=%s)",
+                report_type_raw,
+                report_id,
+            )
+            return None
         try:
-            report_type = ReportType[report_type_str]
+            report_type = ReportType[report_type_raw]
         except KeyError:
             logger.warning(
-                "Skipping report '%s' (%s) in workspace '%s': unrecognized reportType %r. "
-                "Known types: %s",
-                name,
+                "Skipping report with unknown reportType=%r (id=%s)",
+                report_type_raw,
                 report_id,
-                workspace.name,
-                report_type_str,
-                [t.name for t in ReportType],
             )
-            continue
+            return None
 
-        if raw_instance.get(Constant.WEB_URL):
-            web_url: Optional[str] = raw_instance[Constant.WEB_URL]
+        web_url_val = raw_instance.get(Constant.WEB_URL)
+        if web_url_val:
+            web_url = web_url_val
         elif workspace.webUrl:
-            if report_type_str == ReportType.PaginatedReport.value:
+            if report_type is ReportType.PaginatedReport:
                 web_url = f"{workspace.webUrl}/rdlreports/{report_id}"
             else:
                 web_url = f"{workspace.webUrl}/reports/{report_id}"
         else:
             web_url = None
 
-        users: List[User] = []
-        if extract_ownership:
-            for user_instance in raw_instance.get(Constant.USERS, []):
-                user = new_powerbi_user(user_instance)
-                if user is not None:
-                    users.append(user)
-
-        reports.append(
-            Report(
-                id=report_id,
-                name=name,
-                type=report_type,
-                webUrl=web_url,
-                embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION) or "",
-                pages=[],
-                dataset_id=raw_instance.get(Constant.DATASET_ID),
-                users=users,
-                tags=[],
-                dataset=None,
-            )
+        return Report(
+            id=report_id,
+            name=report_name,
+            type=report_type,
+            webUrl=web_url,
+            embedUrl=raw_instance.get(Constant.EMBED_URL),
+            description=raw_instance.get(Constant.DESCRIPTION) or "",
+            pages=[],  # populated in PowerBiAPI.get_reports() via get_pages_by_report()
+            dataset_id=raw_instance.get(Constant.DATASET_ID),
+            users=[
+                user
+                for user_instance in (raw_instance.get(Constant.USERS) or [])
+                if (user := new_powerbi_user(user_instance)) is not None
+            ],
+            tags=[],  # filled by fill_tags() in get_reports() from workspace.report_endorsements
+            dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
         )
-    return reports
+
+    return [
+        report
+        for raw_instance in raw_instances
+        # As we add reports to the App, Power BI starts providing duplicate report information,
+        # where the duplicate includes an AppId, while the original report does not.
+        if raw_instance is not None and Constant.APP_ID not in raw_instance
+        if (report := build_report(raw_instance)) is not None
+    ]
 
 
-def new_powerbi_user(raw_instance: dict) -> Optional[User]:
-    user_id = raw_instance.get(Constant.IDENTIFIER)
-    display_name = raw_instance.get(Constant.DISPLAY_NAME)
-    graph_id = raw_instance.get(Constant.GRAPH_ID)
-    principal_type = raw_instance.get(Constant.PRINCIPAL_TYPE)
-    if not user_id or not display_name or not graph_id or not principal_type:
+def new_powerbi_user(raw_instance: Dict[str, Any]) -> Optional[User]:
+    if not raw_instance:
+        return None
+    required = (
+        Constant.IDENTIFIER,
+        Constant.DISPLAY_NAME,
+        Constant.GRAPH_ID,
+        Constant.PRINCIPAL_TYPE,
+    )
+    # Reject fields that are absent, None, or empty string — all would produce malformed URNs.
+    missing = [k for k in required if raw_instance.get(k) in (None, "")]
+    if missing:
         logger.warning(
-            "Skipping malformed user entry: missing required field(s) "
-            "(identifier=%r, displayName=%r, graphId=%r, principalType=%r)",
-            user_id,
-            display_name,
-            graph_id,
-            principal_type,
+            "Skipping malformed user entry missing required fields: %s", missing
         )
         return None
     return User(
-        id=user_id,
-        displayName=display_name,
+        id=raw_instance[Constant.IDENTIFIER],
+        displayName=raw_instance[Constant.DISPLAY_NAME],
         emailAddress=raw_instance.get(Constant.EMAIL_ADDRESS),
-        graphId=graph_id,
-        principalType=principal_type,
+        graphId=raw_instance[Constant.GRAPH_ID],
+        principalType=raw_instance[Constant.PRINCIPAL_TYPE],
         datasetUserAccessRight=raw_instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
         reportUserAccessRight=raw_instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
         dashboardUserAccessRight=raw_instance.get(Constant.DASHBOARD_USER_ACCESS_RIGHT),
