@@ -9,6 +9,10 @@ import requests
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sigma.config import SigmaSourceConfig, SigmaSourceReport
+from datahub.ingestion.source.sigma.connection_registry import (
+    SigmaConnectionRecord,
+    SigmaConnectionRegistry,
+)
 from datahub.ingestion.source.sigma.data_classes import (
     DatasetUpstream,
     Element,
@@ -17,6 +21,7 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModel,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseTableUpstream,
     Workbook,
     WorkbookLineageTableEntry,
     Workspace,
@@ -248,7 +253,8 @@ class TestGetElementUpstreamSources:
         assert result["upstream_sheet"].element_id == "other_elem"
         assert len(api.report.warnings) == 0
 
-    def test_table_and_join_sources_are_silently_skipped(self) -> None:
+    def test_table_node_without_inode_prefix_increments_skip_counter(self) -> None:
+        """A type=table node whose nodeId lacks the 'inode-' prefix is skipped."""
         api = _create_sigma_api()
         element = _make_element()
         workbook = _make_workbook()
@@ -289,7 +295,124 @@ class TestGetElementUpstreamSources:
             result = api._get_element_upstream_sources(element, workbook)
 
         assert result == {}
+        assert api.report.chart_warehouse_table_node_skipped == 1
         assert len(api.report.warnings) == 0
+
+    def test_table_node_with_inode_prefix_creates_warehouse_table_upstream(
+        self,
+    ) -> None:
+        """A type=table node with 'inode-{urlId}' format is stored as WarehouseTableUpstream."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "inode-abc123": {
+                            "nodeId": "inode-abc123",
+                            "name": "ORDERS",
+                            "type": "table",
+                        },
+                    },
+                    "edges": [
+                        {
+                            "source": "inode-abc123",
+                            "target": "tgt_node",
+                            "type": "source",
+                        },
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert "inode-abc123" in result
+        upstream = result["inode-abc123"]
+        assert isinstance(upstream, WarehouseTableUpstream)
+        assert upstream.url_id == "abc123"
+        assert upstream.name == "ORDERS"
+        assert api.report.chart_warehouse_table_node_skipped == 0
+
+    def test_table_node_with_empty_url_id_increments_skip_counter(self) -> None:
+        """A type=table node 'inode-' with nothing after the prefix is skipped."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "inode-": {
+                            "nodeId": "inode-",
+                            "name": "ORDERS",
+                            "type": "table",
+                        },
+                    },
+                    "edges": [
+                        {"source": "inode-", "target": "tgt_node", "type": "source"},
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert api.report.chart_warehouse_table_node_skipped == 1
+
+    def test_table_node_missing_name_increments_skip_counter(self) -> None:
+        """A type=table node with no 'name' field is skipped with skip counter incremented."""
+        api = _create_sigma_api()
+        element = _make_element()
+        workbook = _make_workbook()
+
+        with patch.object(
+            api,
+            "_get_api_call",
+            return_value=_lineage_response(
+                {
+                    "dependencies": {
+                        "tgt_node": {
+                            "nodeId": "tgt_node",
+                            "elementId": "elem1",
+                            "type": "sheet",
+                        },
+                        "inode-abc999": {
+                            "nodeId": "inode-abc999",
+                            # no "name" key
+                            "type": "table",
+                        },
+                    },
+                    "edges": [
+                        {
+                            "source": "inode-abc999",
+                            "target": "tgt_node",
+                            "type": "source",
+                        },
+                    ],
+                }
+            ),
+        ):
+            result = api._get_element_upstream_sources(element, workbook)
+
+        assert result == {}
+        assert api.report.chart_warehouse_table_node_skipped == 1
 
     def test_join_pass_through_exposes_sheet_upstream(self) -> None:
         api = _create_sigma_api()
@@ -692,6 +815,191 @@ class TestGetElementInputDetails:
         assert dataset_inputs == {}
         assert chart_urns == ["urn:li:chart:(sigma,upstream_elem)"]
 
+    # --- T4.C2: WarehouseTableUpstream entity-level edge ---
+
+    def _make_source_with_registry(
+        self, connection_id: str = "conn-1", platform: str = "snowflake"
+    ) -> SigmaSource:
+        source = self._make_source()
+        record = SigmaConnectionRecord(
+            connection_id=connection_id,
+            name="Test Connection",
+            sigma_type="Snowflake",
+            datahub_platform=platform,
+            is_mappable=True,
+        )
+        source.connection_registry = SigmaConnectionRegistry(
+            by_id={connection_id: record}
+        )
+        source._warned_unvalidated_platforms = set()  # type: ignore[misc]
+        source._no_platform_map_conn_ids = set()  # type: ignore[misc]
+        return source
+
+    def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
+        """WarehouseTableUpstream resolves to a Dataset URN via name-based lookup."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
+        )
+        wb_warehouse_table_index: Dict[str, List[str]] = {"ORDERS": [warehouse_urn]}
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(
+                type="table", url_id="abc123", name="ORDERS"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        assert len(dataset_inputs) == 1
+        assert chart_urns == []
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+        assert source.reporter.chart_warehouse_unknown_connection == 0
+        assert next(iter(dataset_inputs)) == warehouse_urn
+
+    def test_warehouse_table_upstream_url_id_diverges_name_resolves(self) -> None:
+        """BFS url_id differs from workbook lineage urlId but name match resolves correctly.
+
+        This is the Fivetran case: BFS nodeId carries a urlId that diverges
+        from the urlId returned by /files/{inodeId} for cross-workbook tables.
+        Name-based resolution succeeds regardless of the url_id mismatch.
+        """
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "db.schema.stg_fivetran_log__incremental_mar,PROD)"
+        )
+        # Index uses the authoritative workbook-lineage name.
+        wb_warehouse_table_index: Dict[str, List[str]] = {
+            "STG_FIVETRAN_LOG__INCREMENTAL_MAR": [warehouse_urn]
+        }
+        # BFS urlId ("13asMaOM...") diverges from the /files urlId ("54d35z7J..."),
+        # but name is reliable and matches the index key.
+        upstream_sources: Dict = {
+            "inode-13asMaOMeP3ltn3QWZxUl7": WarehouseTableUpstream(
+                type="table",
+                url_id="13asMaOMeP3ltn3QWZxUl7",
+                name="STG_FIVETRAN_LOG__INCREMENTAL_MAR",
+            ),
+        }
+        element = self._make_element_obj("elem1", "Total MAR", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        assert next(iter(dataset_inputs)) == warehouse_urn
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+        assert source.reporter.chart_warehouse_unknown_connection == 0
+
+    def test_warehouse_table_upstream_unresolvable_increments_counter(
+        self,
+    ) -> None:
+        """WarehouseTableUpstream name not in wb_warehouse_table_index bumps unknown counter."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        wb_warehouse_table_index: Dict[str, List[str]] = {}
+        upstream_sources: Dict = {
+            "inode-unknown": WarehouseTableUpstream(
+                type="table", url_id="unknown", name="MISSING_TABLE"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        assert dataset_inputs == {}
+        assert source.reporter.chart_warehouse_unknown_connection == 1
+        assert source.reporter.chart_warehouse_upstream_emitted == 0
+
+    def test_warehouse_table_upstream_dedup_two_nodes_same_table(self) -> None:
+        """Two BFS table nodes with the same name produce one dataset_inputs entry."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.public.orders,PROD)"
+        )
+        wb_warehouse_table_index: Dict[str, List[str]] = {"ORDERS": [warehouse_urn]}
+        upstream_sources: Dict = {
+            "inode-abc1": WarehouseTableUpstream(
+                type="table", url_id="abc1", name="ORDERS"
+            ),
+            "inode-abc2": WarehouseTableUpstream(
+                type="table", url_id="abc2", name="ORDERS"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, _ = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        # Both nodes share the same name → same URN → one dataset_inputs entry.
+        assert len(dataset_inputs) == 1
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+
+    def test_warehouse_table_upstream_collision_picks_first(self) -> None:
+        """When multiple URNs map to the same table name, the lexicographically smallest is picked."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        urn_a = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_a,PROD)"
+        urn_b = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.orders_copy_b,PROD)"
+        # Two URNs share the same short name (collision). Candidates are sorted before
+        # picking so the result is stable regardless of API response order.
+        wb_warehouse_table_index: Dict[str, List[str]] = {
+            "ORDERS": [
+                urn_b,
+                urn_a,
+            ],  # urn_b first to confirm sort, not insertion order
+        }
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(
+                type="table", url_id="abc123", name="ORDERS"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, _ = source._get_element_input_details(
+            element, workbook, {}, wb_warehouse_table_index
+        )
+
+        assert len(dataset_inputs) == 1
+        assert next(iter(dataset_inputs)) == urn_a  # urn_a < urn_b lexicographically
+        assert source.reporter.chart_warehouse_upstream_emitted == 1
+
+    def test_warehouse_table_upstream_none_index_skips_silently(self) -> None:
+        """When wb_warehouse_table_index is None the upstream is silently skipped."""
+        source = self._make_source_with_registry()
+        workbook = self._make_workbook_obj()
+
+        upstream_sources: Dict = {
+            "inode-abc123": WarehouseTableUpstream(
+                type="table", url_id="abc123", name="ORDERS"
+            ),
+        }
+        element = self._make_element_obj("elem1", "My Chart", upstream_sources)
+
+        dataset_inputs, chart_urns = source._get_element_input_details(
+            element,
+            workbook,
+            {},  # wb_warehouse_table_index defaults to None
+        )
+
+        assert dataset_inputs == {}
+        assert source.reporter.chart_warehouse_upstream_emitted == 0
+        assert source.reporter.chart_warehouse_unknown_connection == 0
+
 
 class TestAssembleDataModelFileMetaFallback:
     """Exercise the ``_assemble_data_model`` fallback that fills
@@ -982,12 +1290,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {}
         assert "page=2" in mock_get.call_args_list[1].args[0]
 
     def test_collects_formulas_across_next_page_token(self) -> None:
@@ -1015,12 +1324,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {}
         assert "nextPageToken=tok%26%3D2" in mock_get.call_args_list[1].args[0]
 
     def test_404_returns_empty_without_warning(self) -> None:
@@ -1028,9 +1338,10 @@ class TestGetWorkbookColumnFormulas:
         empty_404 = MagicMock(status_code=404)
 
         with patch.object(api, "_get_api_call", return_value=empty_404):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {}
+        assert col_ids == {}
         assert not api.report.warnings
 
     def test_mid_pagination_failure_preserves_partial_results_and_warns(self) -> None:
@@ -1051,9 +1362,10 @@ class TestGetWorkbookColumnFormulas:
         page_2.raise_for_status.side_effect = http_error
 
         with patch.object(api, "_get_api_call", side_effect=[page_1, page_2]):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {"elem-1": {"col-a": "[Source/col-a]"}}
+        assert col_ids == {}
         assert any(
             warning.title == "Sigma paginated endpoint aborted"
             for warning in api.report.warnings
@@ -1118,6 +1430,7 @@ class TestGetWorkbookPages:
             api.get_workbook_pages(workbook)
 
         assert mock_elements.call_args.kwargs["column_formulas_by_element"] is None
+        assert mock_elements.call_args.kwargs["column_ids_by_element"] is None
 
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
@@ -1342,6 +1655,68 @@ class TestPaginatedEntriesDedup:
         # All three preserved -- none count as dedup drops.
         assert len(entries) == 3
         assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_get_data_model_columns_keeps_all_elements_sharing_same_columnid(
+        self,
+    ) -> None:
+        """Regression: dedup key must be (elementId, columnId), not columnId alone.
+
+        Sigma reuses warehouse-native columnIds (e.g. CUSTOMER_ID) across
+        customSQL elements that share a warehouse passthrough column. The old
+        key dropped all but the first occurrence, removing columns from consumer
+        elements' schemaMetadata.
+        """
+        api = _create_sigma_api()
+        # Three elements all expose CUSTOMER_ID as a passthrough column.
+        # With the old dedup key (columnId alone), only elem1's row would survive.
+        page = _paginated_response(
+            [
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem1",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem2",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem3",
+                    "name": "Customer Id",
+                },
+                # Unique columnIds must be unaffected.
+                {
+                    "columnId": "LIFETIME_VALUE",
+                    "elementId": "elem3",
+                    "name": "Lifetime Value",
+                },
+            ],
+            next_page=None,
+        )
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        element_ids = [c.elementId for c in columns]
+        assert "elem1" in element_ids
+        assert "elem2" in element_ids
+        assert "elem3" in element_ids
+        assert len(columns) == 4
+        assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_get_data_model_columns_dedupes_cross_page_echo(self) -> None:
+        """Cross-page echo of the same (elementId, columnId) is still deduplicated."""
+        api = _create_sigma_api()
+        col_row = {
+            "columnId": "CUSTOMER_ID",
+            "elementId": "elem1",
+            "name": "Customer Id",
+        }
+        page = _paginated_response([col_row], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        assert len(columns) == 1
+        assert api.report.pagination_duplicate_entries_dropped == 1
 
     def test_get_data_models_workspace_fallback_to_payload(self) -> None:
         """C2 regression: when ``/files`` is missing the DM row (or has

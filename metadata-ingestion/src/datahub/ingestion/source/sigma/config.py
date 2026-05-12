@@ -187,9 +187,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # The resolver (_resolve_chart_formula_upstream) is a pure predicate: it
     # returns a resolved (urn, field) pair or None; all counting happens in
     # _build_element_input_fields so every column lands in exactly one bucket.
-    # Invariant: resolved + self_ref_fallback + skipped_parameter + skipped_sibling
-    #            == total chart columns processed across the workbook.
+    # Invariant per element:
+    #   resolved + self_ref_fallback + skipped_parameter + skipped_sibling
+    #   == len(element.columns)
+    # (multi_ref_extra is not part of this invariant; it counts additional
+    # resolved refs beyond the first per column.)
     chart_input_fields_resolved: int = 0
+    # Incremented by (n - 1) when n > 1 refs resolve for one column, capturing
+    # multi-ref formulas like "[A/x] + [B/y]" that emit two InputFields.
+    chart_input_fields_multi_ref_extra: int = 0
     # Column emitted with self-referential schemaFieldUrn because no formula ref
     # resolved (includes: no-formula column, unresolvable ref, mixed param+real
     # where the real refs fail). Keeps V2 column list visible unconditionally.
@@ -228,6 +234,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # connectionId not in registry, or is_mappable=False, for a workbook-lineage
     # type=table entry.
     chart_input_fields_warehouse_unknown_connection: int = 0
+
+    # Chart entity-level warehouse upstream (T4.C2).
+    chart_warehouse_upstream_emitted: int = 0
+    chart_warehouse_unknown_connection: int = 0
+    chart_warehouse_table_node_skipped: int = 0
+    # Column-name bridge: Sigma display name -> warehouse-native name.
+    chart_input_fields_warehouse_column_bridged: int = 0
+    # Warehouse upstream resolved but no native name found; fell back to display name.
+    chart_input_fields_warehouse_column_bridge_unresolved: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
@@ -354,6 +369,15 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # FGL downstream fields dropped because the SQL column name had no matching
     # Sigma display column (formula ref absent or element name mismatch).
     dm_customsql_fgl_downstream_unmapped: int = 0
+    # Elements whose col mapping was populated (at least partially) via the
+    # columnId path rather than formula bracket refs alone.  Non-zero confirms
+    # the passthrough-column bridge is active.
+    dm_customsql_col_mapping_via_columnid: int = 0
+    # Bare (non-inode) columnIds rejected by the UPPER_SNAKE heuristic.  A
+    # non-zero value means the DM has passthrough columns whose columnIds are
+    # not UPPER_SNAKE (e.g. lowercase or mixed-case from a non-Snowflake
+    # warehouse).  Those columns fall back to the formula-ref path.
+    dm_customsql_col_mapping_columnid_rejected: int = 0
 
     # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
     workbook_customsql_skipped: int = 0

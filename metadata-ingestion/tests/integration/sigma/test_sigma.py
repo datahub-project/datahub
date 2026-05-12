@@ -1524,8 +1524,25 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "columns": ["monthly_target", "derived"],
                         "vizualizationType": "levelTable",
                     },
+                    {
+                        # Upstream of multiRefElem01 via intra-workbook lineage.
+                        "elementId": "siblingElem01",
+                        "type": "table",
+                        "name": "T Sibling",
+                        "columns": ["count"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Multi-ref formula: [T Source/col] + [T Sibling/count]
+                        # -> two InputFields for column "Calc".
+                        "elementId": "multiRefElem01",
+                        "type": "table",
+                        "name": "T Multi",
+                        "columns": ["Calc"],
+                        "vizualizationType": "levelTable",
+                    },
                 ],
-                "total": 5,
+                "total": 7,
                 "nextPage": None,
             },
         },
@@ -1560,8 +1577,18 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                         "name": "derived",
                         "formula": "[monthly_target]",
                     },
+                    {
+                        "elementId": "siblingElem01",
+                        "name": "count",
+                        "formula": None,
+                    },
+                    {
+                        "elementId": "multiRefElem01",
+                        "name": "Calc",
+                        "formula": "[T Source/col] + [T Sibling/count]",
+                    },
                 ],
-                "total": 5,
+                "total": 7,
                 "nextPage": None,
             },
         },
@@ -1708,6 +1735,71 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
             "status_code": 404,
             "json": {},
         },
+        # siblingElem01: standalone table, no sheet upstreams.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/siblingElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_sibling": {
+                        "nodeId": "tgt_sibling",
+                        "elementId": "siblingElem01",
+                        "name": "T Sibling",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/siblingElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # multiRefElem01: two sheet upstreams -> sourceElem01 + siblingElem01.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/multiRefElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_multi": {
+                        "nodeId": "tgt_multi",
+                        "elementId": "multiRefElem01",
+                        "name": "T Multi",
+                        "type": "sheet",
+                    },
+                    "src_source_for_multi": {
+                        "nodeId": "src_source_for_multi",
+                        "elementId": "sourceElem01",
+                        "name": "T Source",
+                        "type": "sheet",
+                    },
+                    "src_sibling_for_multi": {
+                        "nodeId": "src_sibling_for_multi",
+                        "elementId": "siblingElem01",
+                        "name": "T Sibling",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_source_for_multi",
+                        "target": "tgt_multi",
+                        "type": "source",
+                    },
+                    {
+                        "source": "src_sibling_for_multi",
+                        "target": "tgt_multi",
+                        "type": "source",
+                    },
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/multiRefElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
     }
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
@@ -1749,9 +1841,12 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
     )
 
     report = _sigma_report(pipeline)
-    assert report.chart_input_fields_resolved == 2
-    # 3 self-ref fallbacks: sourceElem01.col (formula=None), noFormulaElem01.col_a, .col_b
-    assert report.chart_input_fields_self_ref_fallback == 3
+    # downstreamElem01.col, warehouseElem01.some_col, multiRefElem01.Calc
+    assert report.chart_input_fields_resolved == 3
+    # multiRefElem01.Calc resolves two refs ([T Source/col] + [T Sibling/count])
+    assert report.chart_input_fields_multi_ref_extra == 1
+    # sourceElem01.col (formula=None), noFormulaElem01.col_a/.col_b, siblingElem01.count
+    assert report.chart_input_fields_self_ref_fallback == 4
     assert report.chart_input_fields_skipped_parameter == 1
     assert report.chart_input_fields_skipped_sibling == 1
 

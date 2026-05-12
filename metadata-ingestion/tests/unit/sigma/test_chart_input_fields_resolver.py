@@ -73,6 +73,8 @@ def _make_source(config_overrides: Optional[dict] = None) -> SigmaSource:
     source.reporter.chart_input_fields_skipped_parameter = 0
     source.reporter.chart_input_fields_skipped_sibling = 0
     source.reporter.chart_input_fields_case_mismatch = 0
+    source.reporter.chart_input_fields_warehouse_column_bridged = 0
+    source.reporter.chart_input_fields_warehouse_column_bridge_unresolved = 0
     # T4.C: sigma_api is needed by _gen_pages_workunit →
     # _build_workbook_warehouse_table_index → get_workbook_lineage.
     source.sigma_api = MagicMock()
@@ -516,6 +518,77 @@ class TestResolveChartFormulaUpstream:
             )
             assert result is None
 
+    def test_element_named_same_as_warehouse_table_falls_through_to_step4(
+        self,
+    ) -> None:
+        """When the chart element's own name matches ref.source, self is excluded
+        from wb_element_index candidates and step 4 (warehouse index) is tried.
+
+        Reproduces: chart o0fHrMkIfk named 'CUSTOMER_VISITS' referencing
+        [CUSTOMER_VISITS/col] — previously returned None because wb_element_index
+        absorbed the ref and failed steps 3a/3b without reaching step 4.
+        """
+        warehouse_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+            "warehouse_coffee_company.public.customer_visits,PROD)"
+        )
+        # The chart element itself appears in wb_element_index under its own name.
+        chart_elem = _make_element("o0fHrMkIfk", "CUSTOMER_VISITS")
+        ref = _make_ref("CUSTOMER_VISITS", "Visit Id")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="o0fHrMkIfk",
+            chart_upstream_element_ids=set(),  # no sheet upstreams
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"CUSTOMER_VISITS": [chart_elem]},
+            element_warehouse_table_index={"CUSTOMER_VISITS": [warehouse_urn]},
+            elementId_to_chart_urn={},
+        )
+        assert result == (warehouse_urn, "Visit Id")
+
+    def test_element_name_collision_self_plus_other_resolves_other(self) -> None:
+        """If wb_element_index has both the current element and another element
+        under the same name, self is excluded but the other element is still tried."""
+        upstream_elem = _make_element("other-elem", "CUSTOMER_VISITS")
+        chart_elem = _make_element("chart-self", "CUSTOMER_VISITS")
+        chart_urn = "urn:li:chart:(sigma,other-elem)"
+        ref = _make_ref("CUSTOMER_VISITS", "col")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="chart-self",
+            chart_upstream_element_ids={"other-elem"},
+            dm_upstream_urn_by_element_name={},
+            wb_element_index={"CUSTOMER_VISITS": [chart_elem, upstream_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={"other-elem": chart_urn},
+        )
+        assert result == (chart_urn, "col")
+
+    def test_dm_resolution_when_self_exclusion_empties_candidates(self) -> None:
+        """Step 3b fallback fires when self-exclusion empties candidates.
+
+        BFS edge-only DM synthesis sets upstream.name = element.name, so the
+        chart is the only wb_element_index entry under its own name. After
+        self-exclusion, candidates is empty and the if-block is skipped. The
+        fallback must still return the DM URN via dm_upstream_urn_by_element_name.
+        """
+        dm_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+            "147a4d09-a686-4eea-b183-9b82aa0f7beb.0ui59vLc38,PROD)"
+        )
+        chart_elem = _make_element("self_id", "random data model")
+        ref = _make_ref("random data model", "Calc")
+        result = self.src._resolve_chart_formula_upstream(
+            ref,
+            chart_element_id="self_id",
+            chart_upstream_element_ids=set(),
+            dm_upstream_urn_by_element_name={"random data model": dm_urn},
+            wb_element_index={"random data model": [chart_elem]},
+            element_warehouse_table_index={},
+            elementId_to_chart_urn={},
+        )
+        assert result == (dm_urn, "Calc")
+
 
 class TestGenElementsWorkunitInputFields:
     def test_resolved_input_field_preserves_string_native_data_type(self) -> None:
@@ -631,3 +704,74 @@ class TestGenElementsWorkunitInputFields:
         assert len(input_fields_aspects) == 3
         dashboard_input_fields = input_fields_aspects[-1]
         assert len(dashboard_input_fields.fields) == 1
+
+
+class TestBridgeWarehouseColumnName:
+    """Unit tests for _bridge_warehouse_column_name."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source()
+
+    WAREHOUSE_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customer_visits,PROD)"
+    )
+    SIGMA_DM_URN = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        "b584ddca-0000-0000-0000-000000000001.elem,PROD)"
+    )
+
+    def test_warehouse_urn_bridges_display_name_to_native(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "customer_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 1
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_sigma_urn_leaves_display_name_unchanged(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.SIGMA_DM_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={"Customer Id": "customer_id"},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_warehouse_urn_no_native_name_increments_unresolved(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Missing Col",
+            column_native_names={"Other Col": "other_col"},
+        )
+        assert result == "Missing Col"
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 1
+        )
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+
+    def test_empty_native_names_skips_bridge(self) -> None:
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="Customer Id",
+            column_native_names={},
+        )
+        assert result == "Customer Id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
+        assert (
+            self.src.reporter.chart_input_fields_warehouse_column_bridge_unresolved == 0
+        )
+
+    def test_already_native_name_does_not_double_count(self) -> None:
+        """When display name already equals native name, bridged counter stays 0."""
+        result = self.src._bridge_warehouse_column_name(
+            upstream_urn=self.WAREHOUSE_URN,
+            sigma_display_name="visit_id",
+            column_native_names={"visit_id": "visit_id"},
+        )
+        assert result == "visit_id"
+        assert self.src.reporter.chart_input_fields_warehouse_column_bridged == 0
