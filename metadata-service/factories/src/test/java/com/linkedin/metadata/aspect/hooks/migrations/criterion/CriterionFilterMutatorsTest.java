@@ -98,6 +98,18 @@ public class CriterionFilterMutatorsTest {
   }
 
   @Test
+  public void mutatorsReportV1ToV2SchemaMigration() {
+    // The migration contract requires every concrete mutator to advertise v1 → v2.
+    ViewInfoCriterionMutator view = new ViewInfoCriterionMutator();
+    DynamicFormCriterionMutator form = new DynamicFormCriterionMutator();
+
+    org.testng.Assert.assertEquals(view.getSourceVersion(), 1L);
+    org.testng.Assert.assertEquals(view.getTargetVersion(), 2L);
+    org.testng.Assert.assertEquals(form.getSourceVersion(), 1L);
+    org.testng.Assert.assertEquals(form.getTargetVersion(), 2L);
+  }
+
+  @Test
   public void dynamicFormAssignmentTransform_stripsValueUnderFilter() throws Exception {
     DataMap criterion = new DataMap();
     criterion.put("field", "platform");

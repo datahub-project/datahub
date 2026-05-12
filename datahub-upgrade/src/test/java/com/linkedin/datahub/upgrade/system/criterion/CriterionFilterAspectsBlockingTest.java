@@ -44,4 +44,19 @@ public class CriterionFilterAspectsBlockingTest {
     assertEquals(steps.size(), 1);
     assertEquals(steps.get(0).id(), CriterionFilterAspectsBlockingStep.stepId("test-version"));
   }
+
+  @Test
+  public void idIsFullyQualifiedClassName() {
+    CriterionFilterAspectsBlocking up =
+        new CriterionFilterAspectsBlocking(
+            Mockito.mock(OperationContext.class),
+            Mockito.mock(EntityService.class),
+            Mockito.mock(AspectDao.class),
+            "test-version",
+            true,
+            500,
+            1000,
+            0);
+    assertEquals(up.id(), CriterionFilterAspectsBlocking.class.getName());
+  }
 }
