@@ -665,10 +665,15 @@ class SigmaAPI:
 
     def get_workbook_column_formulas(
         self, workbook_id: str
-    ) -> Dict[str, Dict[str, Optional[str]]]:
+    ) -> Tuple[Dict[str, Dict[str, Optional[str]]], Dict[str, Dict[str, str]]]:
         """Fetch per-element column formulas from GET /workbooks/{id}/columns.
 
-        Returns: elementId -> {column_name: formula_or_None}
+        Returns a tuple:
+          - elementId -> {column_name: formula_or_None}
+          - elementId -> {column_name: raw_columnId}
+
+        The raw_columnId for warehouse-backed columns is "inode-{tableUrlId}/{NATIVE_NAME}";
+        for DM-backed columns it is an opaque hash with no slash.
 
         The /columns endpoint is the authoritative source for column formulas
         in production; the page-elements endpoint returns columns as plain strings.
@@ -679,6 +684,7 @@ class SigmaAPI:
         error_ctx = f"Unable to fetch column formulas for workbook {workbook_id}."
         warnings_before = self.report.warnings.total_elements
         result: Dict[str, Dict[str, Optional[str]]] = {}
+        col_ids: Dict[str, Dict[str, str]] = {}
         for col in self._paginated_raw_entries(
             f"{self.config.api_url}/workbooks/{workbook_id}/columns",
             error_ctx,
@@ -687,11 +693,14 @@ class SigmaAPI:
             elem_id = col.get(Constant.ELEMENTID)
             name = col.get(Constant.NAME)
             formula: Optional[str] = col.get("formula") or None
+            column_id: str = col.get("columnId") or ""
             if elem_id and name:
                 result.setdefault(elem_id, {})[name] = formula
+                if column_id:
+                    col_ids.setdefault(elem_id, {})[name] = column_id
         if self.report.warnings.total_elements > warnings_before:
             self.report.column_formulas_fetch_partial += 1
-        return result
+        return result, col_ids
 
     def get_page_elements(
         self,
@@ -700,6 +709,7 @@ class SigmaAPI:
         column_formulas_by_element: Optional[
             Dict[str, Dict[str, Optional[str]]]
         ] = None,
+        column_ids_by_element: Optional[Dict[str, Dict[str, str]]] = None,
     ) -> List[Element]:
         try:
             elements: List[Element] = []
@@ -727,6 +737,10 @@ class SigmaAPI:
                     element.column_formulas = column_formulas_by_element.get(
                         element.elementId, {}
                     )
+                if column_ids_by_element is not None:
+                    element.column_id_by_name = column_ids_by_element.get(
+                        element.elementId, {}
+                    )
                 if (
                     self.config.extract_lineage
                     and self.config.workbook_lineage_pattern.allowed(workbook.name)
@@ -749,12 +763,13 @@ class SigmaAPI:
             column_formulas_by_element: Optional[
                 Dict[str, Dict[str, Optional[str]]]
             ] = None
+            column_ids_by_element: Optional[Dict[str, Dict[str, str]]] = None
             if (
                 self.config.extract_lineage
                 and self.config.workbook_lineage_pattern.allowed(workbook.name)
             ):
-                column_formulas_by_element = self.get_workbook_column_formulas(
-                    workbook.workbookId
+                column_formulas_by_element, column_ids_by_element = (
+                    self.get_workbook_column_formulas(workbook.workbookId)
                 )
             response = self._get_api_call(
                 f"{self.config.api_url}/workbooks/{workbook.workbookId}/pages"
@@ -766,6 +781,7 @@ class SigmaAPI:
                     workbook,
                     page,
                     column_formulas_by_element=column_formulas_by_element,
+                    column_ids_by_element=column_ids_by_element,
                 )
                 pages.append(page)
             return pages
@@ -933,7 +949,12 @@ class SigmaAPI:
             f"{self.config.api_url}/dataModels/{data_model_id}/columns",
             SigmaDataModelColumn,
             f"Unable to fetch columns for data model '{data_model_id}'.",
-            dedup_key=lambda column: column.columnId,
+            # Dedup by (elementId, columnId): Sigma reuses warehouse-native
+            # columnIds (e.g. CUSTOMER_ID) across customSQL elements that share
+            # a warehouse passthrough column. Keying on columnId alone silently
+            # drops all but the first occurrence, removing real passthrough
+            # columns from consumer elements' schemaMetadata.
+            dedup_key=lambda column: (column.elementId, column.columnId),
         )
 
     def _get_data_model_lineage_entries(

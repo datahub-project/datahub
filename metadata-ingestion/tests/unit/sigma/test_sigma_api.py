@@ -1344,6 +1344,7 @@ class TestGetWorkbookColumnFormulas:
                         "elementId": "elem-1",
                         "name": "col-a",
                         "formula": "[Source/col-a]",
+                        "columnId": "inode-abc/COL_A",
                     }
                 ],
                 next_page=2,
@@ -1360,12 +1361,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {"elem-1": {"col-a": "inode-abc/COL_A"}}
         assert "page=2" in mock_get.call_args_list[1].args[0]
 
     def test_collects_formulas_across_next_page_token(self) -> None:
@@ -1393,12 +1395,13 @@ class TestGetWorkbookColumnFormulas:
         ]
 
         with patch.object(api, "_get_api_call", side_effect=responses) as mock_get:
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {
             "elem-1": {"col-a": "[Source/col-a]"},
             "elem-2": {"col-b": "[Source/col-b]"},
         }
+        assert col_ids == {}
         assert "nextPageToken=tok%26%3D2" in mock_get.call_args_list[1].args[0]
 
     def test_404_returns_empty_without_warning(self) -> None:
@@ -1406,9 +1409,10 @@ class TestGetWorkbookColumnFormulas:
         empty_404 = MagicMock(status_code=404)
 
         with patch.object(api, "_get_api_call", return_value=empty_404):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {}
+        assert col_ids == {}
         assert not api.report.warnings
 
     def test_mid_pagination_failure_preserves_partial_results_and_warns(self) -> None:
@@ -1429,9 +1433,10 @@ class TestGetWorkbookColumnFormulas:
         page_2.raise_for_status.side_effect = http_error
 
         with patch.object(api, "_get_api_call", side_effect=[page_1, page_2]):
-            formulas = api.get_workbook_column_formulas("wb-1")
+            formulas, col_ids = api.get_workbook_column_formulas("wb-1")
 
         assert formulas == {"elem-1": {"col-a": "[Source/col-a]"}}
+        assert col_ids == {}
         assert any(
             warning.title == "Sigma paginated endpoint aborted"
             for warning in api.report.warnings
@@ -1496,6 +1501,7 @@ class TestGetWorkbookPages:
             api.get_workbook_pages(workbook)
 
         assert mock_elements.call_args.kwargs["column_formulas_by_element"] is None
+        assert mock_elements.call_args.kwargs["column_ids_by_element"] is None
 
     def test_lineage_paginated_across_pages(self) -> None:
         """End-to-end: ``_get_data_model_lineage_entries`` returns every
@@ -1720,6 +1726,68 @@ class TestPaginatedEntriesDedup:
         # All three preserved -- none count as dedup drops.
         assert len(entries) == 3
         assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_get_data_model_columns_keeps_all_elements_sharing_same_columnid(
+        self,
+    ) -> None:
+        """Regression: dedup key must be (elementId, columnId), not columnId alone.
+
+        Sigma reuses warehouse-native columnIds (e.g. CUSTOMER_ID) across
+        customSQL elements that share a warehouse passthrough column. The old
+        key dropped all but the first occurrence, removing columns from consumer
+        elements' schemaMetadata.
+        """
+        api = _create_sigma_api()
+        # Three elements all expose CUSTOMER_ID as a passthrough column.
+        # With the old dedup key (columnId alone), only elem1's row would survive.
+        page = _paginated_response(
+            [
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem1",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem2",
+                    "name": "Customer Id",
+                },
+                {
+                    "columnId": "CUSTOMER_ID",
+                    "elementId": "elem3",
+                    "name": "Customer Id",
+                },
+                # Unique columnIds must be unaffected.
+                {
+                    "columnId": "LIFETIME_VALUE",
+                    "elementId": "elem3",
+                    "name": "Lifetime Value",
+                },
+            ],
+            next_page=None,
+        )
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        element_ids = [c.elementId for c in columns]
+        assert "elem1" in element_ids
+        assert "elem2" in element_ids
+        assert "elem3" in element_ids
+        assert len(columns) == 4
+        assert api.report.pagination_duplicate_entries_dropped == 0
+
+    def test_get_data_model_columns_dedupes_cross_page_echo(self) -> None:
+        """Cross-page echo of the same (elementId, columnId) is still deduplicated."""
+        api = _create_sigma_api()
+        col_row = {
+            "columnId": "CUSTOMER_ID",
+            "elementId": "elem1",
+            "name": "Customer Id",
+        }
+        page = _paginated_response([col_row], next_page_token="same-tok")
+        with patch.object(api, "_get_api_call", return_value=page):
+            columns = api._get_data_model_columns("dm-1")
+        assert len(columns) == 1
+        assert api.report.pagination_duplicate_entries_dropped == 1
 
     def test_get_data_models_workspace_fallback_to_payload(self) -> None:
         """C2 regression: when ``/files`` is missing the DM row (or has
