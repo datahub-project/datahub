@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Power BI Configuration
 ---
 
 # Configuring Your Power BI Connector to DataHub

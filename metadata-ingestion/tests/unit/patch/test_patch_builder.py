@@ -3,7 +3,7 @@ import pathlib
 from typing import Any, Dict, Union
 
 import pytest
-from freezegun.api import freeze_time
+import time_machine
 
 from datahub.emitter.mce_builder import (
     make_chart_urn,
@@ -33,13 +33,16 @@ from datahub.specific.datajob import DataJobPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.testing import mce_helpers
 
-TAG_PATCH_VALUE = [
-    {
-        "op": "add",
-        "path": "/tags/urn:li:tag:test_tag/",
-        "value": {"tag": "urn:li:tag:test_tag"},
-    }
-]
+TAG_PATCH_VALUE = {
+    "arrayPrimaryKeys": {"tags": ["tag", "attribution\u241fsource"]},
+    "patch": [
+        {
+            "op": "add",
+            "path": "/tags/urn:li:tag:test_tag/",
+            "value": {"tag": "urn:li:tag:test_tag"},
+        }
+    ],
+}
 
 
 def test_basic_dataset_patch_builder():
@@ -144,9 +147,7 @@ def test_complex_dataset_patch(
         )
     )
     patcher.for_field("field1").add_tag(TagAssociationClass(tag=make_tag_urn("tag1")))
-    patcher.for_field("field1").remove_term(
-        "urn:li:glossaryTerm:term1", "urn:li:dataHubAction:myAction"
-    )
+    patcher.for_field("field1").remove_term("urn:li:glossaryTerm:term1")
 
     out_path = tmp_path / "patch.json"
     write_metadata_file(out_path, patcher.build())
@@ -206,7 +207,7 @@ def test_basic_dashboard_patch_builder():
     ],
     ids=["both_timestamps", "no_timestamps", "only_created", "only_modified"],
 )
-@freeze_time("2020-04-14 07:00:00")
+@time_machine.travel("2020-04-14 07:00:00", tick=False)
 def test_datajob_patch_builder(created_on, last_modified, expected_actor):
     def make_edge_or_urn(urn: str) -> Union[EdgeClass, str]:
         if created_on or last_modified:

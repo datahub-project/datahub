@@ -1,7 +1,7 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { getAssertionResultSeverityDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionResultSeverityUtils';
 import {
     ResultStatusType,
     getResultStatusText,
@@ -15,12 +15,22 @@ const Pill = styled.div<{ color: string; highlightColor: string }>`
     display: flex;
     justify-content: center;
     align-items: center;
+    gap: 6px;
     border-radius: 20px;
     padding: 4px 12px;
-    background-color: ${(props) => props.highlightColor || ANTD_GRAY[3]};
-    color: ${(props) => props.color || ANTD_GRAY[3]};
+    background-color: ${(props) => props.highlightColor || props.theme.colors.bgSurface};
+    color: ${(props) => props.color || props.theme.colors.bgSurface};
     :hover {
         opacity: 0.8;
+    }
+`;
+
+const SeverityIcon = styled.svg`
+    width: 16px;
+    height: 16px;
+
+    path {
+        fill: currentColor;
     }
 `;
 
@@ -30,13 +40,16 @@ type Props = {
 };
 
 export const AssertionResultPill = ({ result, type = ResultStatusType.LATEST }: Props) => {
+    const theme = useTheme();
     const resultType = result?.type;
-    const resultColor = getResultColor(resultType);
+    const resultColor = getResultColor(theme, resultType);
     const highlightColor = applyOpacityToHexColor(resultColor, 0.15);
     const text = (resultType && getResultStatusText(resultType, type)) || 'No results yet';
+    const severityDisplay = getAssertionResultSeverityDisplay(result);
     return (
         <Pill color={resultColor} highlightColor={highlightColor}>
             {text}
+            {severityDisplay && <SeverityIcon as={severityDisplay.icon} aria-label={severityDisplay.label} />}
         </Pill>
     );
 };

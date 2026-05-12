@@ -2548,6 +2548,11 @@ type GlossaryTerm implements Entity {
   glossaryTermInfo: GlossaryTermInfo
 
   """
+  The lifecycle status of the Glossary Term (removed flag and lifecycle stage).
+  """
+  status: Status
+
+  """
   The deprecation status of the Glossary Term
   """
   deprecation: Deprecation
@@ -4093,6 +4098,20 @@ type Status {
   Whether the entity is removed or not
   """
   removed: Boolean!
+
+  """
+  The resolved lifecycle stage of this entity.
+  When null, the entity is in its default active state (visible in search).
+  When set, provides the full stage definition (name, description, settings)
+  without an additional client round-trip.
+  """
+  lifecycleStage: LifecycleStageType
+
+  """
+  Attribution for the lifecycle stage transition — who moved the entity
+  into its current stage and when.
+  """
+  lifecycleLastUpdated: AuditStamp
 }
 
 """
@@ -8302,6 +8321,32 @@ type AssertionResult {
   Error details, if type is ERROR
   """
   error: AssertionResultError
+
+  """
+  The severity of a failure result. Only meaningful when type is FAILURE.
+  Indicates how far the observed value deviated from the expected bounds.
+  """
+  severity: AssertionResultSeverity
+}
+
+"""
+The severity of an assertion failure. Only meaningful when the result type is FAILURE.
+"""
+enum AssertionResultSeverity {
+  """
+  Low severity - minor deviation from expected bounds.
+  """
+  LOW
+
+  """
+  Medium severity - moderate deviation from expected bounds. This is the default.
+  """
+  MEDIUM
+
+  """
+  High severity - significant deviation from expected bounds.
+  """
+  HIGH
 }
 
 """
@@ -13674,6 +13719,11 @@ input CreateApplicationInput {
   An optional id for the new application
   """
   id: String
+
+  """
+  Whether to add the creator as an owner of the application. Defaults to true if not specified.
+  """
+  shouldAddCreatorAsOwner: Boolean
 }
 
 """

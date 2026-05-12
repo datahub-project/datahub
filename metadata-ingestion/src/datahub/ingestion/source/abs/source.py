@@ -128,6 +128,10 @@ class TableData:
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default as UPDATE operations from blob timestamps",
+)
 @capability(SourceCapability.TAGS, "Can extract ABS object/container tags if enabled")
 @capability(
     SourceCapability.CONTAINERS,

@@ -1,4 +1,4 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
@@ -18,7 +18,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;

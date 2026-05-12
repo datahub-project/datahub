@@ -55,6 +55,7 @@ import org.testng.annotations.Test;
       "entityClient.impl=java",
       "authentication.tokenService.signingKey=test-signing-key-for-tests",
       "authentication.tokenService.salt=test-salt-for-tests",
+      "spring.main.allow-bean-definition-overriding=true",
     })
 public class ExecutionIngestionAuthSystemUserTest extends AbstractTestNGSpringContextTests {
 

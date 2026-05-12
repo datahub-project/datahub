@@ -601,6 +601,8 @@ entities:
     keyAspect: incidentKey
     aspects:
       - incidentInfo
+      - incidentExternalLinks
+      - incidentNotes
       - globalTags
   - name: dataHubRole
     category: core
@@ -686,6 +688,13 @@ entities:
     keyAspect: ownershipTypeKey
     aspects:
       - ownershipTypeInfo
+      - status
+  - name: lifecycleStageType
+    doc: Defines a lifecycle stage that entities can be placed in (e.g., Proposed, Certified, Archived). Controls search visibility and transition policies.
+    category: core
+    keyAspect: lifecycleStageTypeKey
+    aspects:
+      - lifecycleStageTypeInfo
       - status
   - name: businessAttribute
     category: core
@@ -796,6 +805,13 @@ plugins:
         - com.linkedin.gms.factory.plugins
   mcpSideEffects:
     - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
+  mcpObservers:
+    - className: 'com.linkedin.metadata.aspect.plugins.hooks.MCPObserver'
       enabled: true
       spring:
         enabled: true

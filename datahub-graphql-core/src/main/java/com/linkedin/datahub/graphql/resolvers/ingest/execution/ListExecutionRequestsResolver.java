@@ -138,7 +138,6 @@ public class ListExecutionRequestsResolver
     filters.add(
         new FacetFilterInput(
             EXECUTION_REQUEST_INGESTION_SOURCE_FIELD,
-            null,
             sourceUrns.stream().map(Urn::toString).toList(),
             false,
             FilterOperator.EQUAL));
@@ -151,7 +150,6 @@ public class ListExecutionRequestsResolver
             ? List.of(
                 new FacetFilterInput(
                     INGESTION_SOURCE_SOURCE_TYPE_FIELD,
-                    null,
                     ImmutableList.of(INGESTION_SOURCE_SOURCE_TYPE_SYSTEM),
                     !systemSources,
                     FilterOperator.EQUAL))

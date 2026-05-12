@@ -216,12 +216,6 @@ repos:
         files: ^metadata-integration/java/openlineage-converter/.*\.java$
         pass_filenames: false
 
-      - id: metadata-integration-java-spark-lineage-legacy-spotless
-        name: metadata-integration/java/spark-lineage-legacy Spotless Apply
-        entry: ./gradlew :metadata-integration:java:spark-lineage-legacy:spotlessApply
-          -x generateGitPropertiesGlobal
-        language: system
-        files: ^metadata-integration/java/spark-lineage-legacy/.*\.java$
         pass_filenames: false
 
       - id: metadata-io-spotless

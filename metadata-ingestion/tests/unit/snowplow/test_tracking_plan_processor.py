@@ -23,6 +23,8 @@ class TestTrackingPlanProcessorIsEnabled:
         """Create mock dependencies."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_tracking_plans = True
         deps.bdp_client = Mock()
         deps.report = Mock()
@@ -63,6 +65,8 @@ class TestTrackingPlanProcessorExtract:
         """Create mock dependencies with full configuration."""
         deps = Mock()
         deps.config = Mock()
+        deps.config.deployment_environment = None
+        deps.config.event_spec_statuses = None
         deps.config.extract_tracking_plans = True
         deps.config.bdp_connection = Mock()
         deps.config.bdp_connection.organization_id = "test-org"

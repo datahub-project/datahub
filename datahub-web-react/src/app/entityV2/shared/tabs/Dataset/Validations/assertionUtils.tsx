@@ -1,11 +1,7 @@
 import { Location } from 'history';
 import QueryString from 'query-string';
 import React from 'react';
-
-import { ERROR_COLOR_HEX, FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@components/theme/foundations/colors';
-
-// TODO
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { DefaultTheme } from 'styled-components';
 
 import {
     AssertionResult,
@@ -38,22 +34,22 @@ export const sortAssertions = (a, b) => {
 /**
  * Returns the display color associated with an AssertionResultType
  */
-const INIT_COLOR_HEX = '#2F54EB';
-const NO_RESULTS_COLOR_HEX = ANTD_GRAY[8];
+export const getResultColor = (theme: DefaultTheme, result?: AssertionResultType) => {
+    const initColor = theme?.colors?.textInformation;
+    const noResultsColor = theme?.colors?.textTertiary;
 
-export const getResultColor = (result?: AssertionResultType) => {
     if (!result) {
-        return NO_RESULTS_COLOR_HEX;
+        return noResultsColor;
     }
     switch (result) {
         case AssertionResultType.Success:
-            return SUCCESS_COLOR_HEX;
+            return theme?.colors?.iconSuccess;
         case AssertionResultType.Failure:
-            return FAILURE_COLOR_HEX;
+            return theme?.colors?.iconError;
         case AssertionResultType.Error:
-            return ERROR_COLOR_HEX;
+            return theme?.colors?.iconWarning;
         case AssertionResultType.Init:
-            return INIT_COLOR_HEX;
+            return initColor;
         default:
             throw new Error(`Unsupported Assertion Result Type ${result} provided.`);
     }

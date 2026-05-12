@@ -1,8 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-
 type Props = {
     stats: Array<React.ReactNode>;
 };
@@ -15,7 +13,7 @@ const StatsContainer = styled.div<{ shouldWrap?: boolean }>`
 const StatDivider = styled.div`
     padding-left: 10px;
     margin-right: 10px;
-    border-right: 1px solid ${ANTD_GRAY[4]};
+    border-right: 1px solid ${(props) => props.theme.colors.bgSurface};
     height: 21px;
 `;
 
