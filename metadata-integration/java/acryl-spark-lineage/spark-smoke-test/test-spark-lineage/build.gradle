@@ -11,12 +11,6 @@ plugins {
     id 'java-library'
 }
 
-repositories {
-    // Use jcenter for resolving dependencies.
-    // You can declare any Maven/Ivy/file repository here.
-    jcenter()
-}
-
 dependencies {
     implementation 'org.apache.spark:spark-sql_2.11:2.4.8'
     implementation('commons-beanutils:commons-beanutils:1.11.0') {
