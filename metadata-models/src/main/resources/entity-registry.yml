@@ -712,8 +712,20 @@ entities:
     aspects:
       - dataContractProperties
       - dataContractStatus
+      - ownership
       - status
       - structuredProperties
+  - name: dataContractConsumer
+    doc: A Data Contract Consumer represents a single party's acceptance of a published dataContract under specific terms. Multiple consumer agreements can reference the same contract, supporting native 1:N producer-to-consumers modeling.
+    category: core
+    keyAspect: dataContractConsumerKey
+    aspects:
+      - dataContractConsumerProperties
+      - dataContractConsumerStatus
+      - ownership
+      - status
+      - globalTags
+      - glossaryTerms
   - name: dataHubPersona
     category: internal
     keyAspect: dataHubPersonaKey

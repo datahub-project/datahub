@@ -1,0 +1,23 @@
+namespace com.linkedin.datacontract
+
+/**
+ * Lifecycle state of a Data Contract Consumer agreement.
+ */
+enum DataContractConsumerState {
+  /**
+   * Agreement drafted; awaiting consumer sign-off (Phase 2) or manual activation.
+   */
+  PENDING
+  /**
+   * Consumer has accepted and the agreement is within its effective window.
+   */
+  ACTIVE
+  /**
+   * Past `effectivePeriod.endTimeMillis`. Set lazy-on-read.
+   */
+  EXPIRED
+  /**
+   * Consumer or admin terminated the agreement before its effective window ended.
+   */
+  TERMINATED
+}

@@ -1,0 +1,29 @@
+namespace com.linkedin.datacontract
+
+/**
+ * A user-defined section within a data contract. Each section groups related
+ * items - structured property fields (qualitative terms) and/or validation
+ * dimensions (quantitative checks).
+ */
+record DataContractSection {
+  /**
+   * Stable identifier for this section, unique within the contract.
+   * May be a UUID or a slug (e.g. "sla").
+   */
+  id: string
+
+  /**
+   * Display title, e.g. "SLA Terms", "Data Quality".
+   */
+  title: string
+
+  /**
+   * Optional descriptive body for the section.
+   */
+  description: optional string
+
+  /**
+   * Ordered items within the section.
+   */
+  items: array[DataContractItem] = []
+}
