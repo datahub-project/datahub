@@ -703,6 +703,10 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 @capability(SourceCapability.LINEAGE_COARSE, "Optionally enabled via configuration")
 @capability(SourceCapability.LINEAGE_FINE, "Optionally enabled via configuration")
 @capability(SourceCapability.USAGE_STATS, "Optionally enabled via configuration")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
+)
 class TeradataSource(TwoTierSQLAlchemySource):
     """
     This plugin extracts the following:

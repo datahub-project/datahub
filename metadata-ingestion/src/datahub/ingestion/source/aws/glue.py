@@ -371,6 +371,10 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     SourceCapability.LINEAGE_FINE, "Support via the `emit_storage_lineage` config field"
 )
 @capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default from Glue table created and last modified timestamps",
+)
+@capability(
     SourceCapability.CONTAINERS,
     "Enabled by default",
     subtype_modifier=[

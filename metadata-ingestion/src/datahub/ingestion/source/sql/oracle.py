@@ -1332,6 +1332,10 @@ def _parse_oracle_procedure_dependencies(
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_query_usage` to extract from V$SQL, or via `include_usage_stats` for view/procedure lineage",
 )
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_usage` and `include_operational_stats`",
+)
 class OracleSource(SQLAlchemySource):
     """
     This plugin extracts the following:
