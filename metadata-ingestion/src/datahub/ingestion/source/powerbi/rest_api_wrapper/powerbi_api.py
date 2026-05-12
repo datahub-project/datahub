@@ -864,6 +864,11 @@ class PowerBiAPI:
                     )
                 workspace.dashboards = {d.id: d for d in dashboards_list}
             else:
+                self.__reporter.info(
+                    title="Dashboard Scan Fallback Active",
+                    message="Workspace scan returned no data; falling back to per-dashboard get_dashboards/get_tiles/get_dashboard_users calls.",
+                    context=f"workspace={workspace.name}",
+                )
                 workspace.dashboards = {
                     dashboard.id: dashboard
                     for dashboard in self._get_resolver().get_dashboards(workspace)
