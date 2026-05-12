@@ -158,9 +158,9 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
-            'quickstartDebugSemantic': [
+            'quickstartDebugBuiltinEmbedding': [
                     // In-process ONNX embedding — no external server needed.
-                    // Run `./gradlew prepareOnnxModel` first to download the model.
+                    // Model is auto-downloaded on first run via prepareOnnxModel task.
                     profile: 'debug',
                     composeFiles: [compose_base, 'profiles/docker-compose.onnx-override.yml'],
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -533,7 +533,7 @@ task generateQuickstartComposeConfig {
 
 task prepareOnnxModel(type: Exec) {
     group = 'quickstart'
-    description = 'Downloads the default ONNX embedding model for quickstartDebugSemantic'
+    description = 'Downloads the default ONNX embedding model for quickstartDebugBuiltinEmbedding'
     def modelDir = file("${project.projectDir}/datahub-gms-onnx/models/snowflake_arctic_embed_s")
     def modelFile = file("${modelDir}/model.onnx")
     onlyIf { !modelFile.exists() }
@@ -613,6 +613,9 @@ quickstart_configs.each { taskName, config ->
         )
     }
 }
+
+// quickstartDebugBuiltinEmbedding auto-downloads the ONNX model if not present
+tasks.getByName("quickstartDebugBuiltinEmbeddingComposeUp").dependsOn(tasks.getByName("prepareOnnxModel"))
 
 
 tasks.register('minDockerCompose2.20', Exec) {

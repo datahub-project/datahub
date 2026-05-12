@@ -493,7 +493,7 @@ elasticsearch:
 
         # In-process ONNX Runtime configuration (used when type is "onnx")
         # No external server needed — runs inference in the GMS JVM.
-        # Requires the datahub-gms-onnx Docker image with a baked-in model.
+        # Mount a model directory into the container and set env vars to enable.
         # WARNING: Switching models requires recreating semantic indices and re-embedding all documents.
         onnx:
           modelName: ${ONNX_EMBEDDING_MODEL_NAME:}

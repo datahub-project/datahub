@@ -3,9 +3,9 @@
 # Mounts the host-side model directory into the GMS debug container so that
 # OnnxEmbeddingProvider can load the model at startup.
 #
-# Used automatically by the quickstartDebugSemantic Gradle target.
+# Used automatically by the quickstartDebugBuiltinEmbedding Gradle target.
 # Not meant to be activated manually — use:
-#   ./gradlew quickstartDebugSemantic
+#   ./gradlew quickstartDebugBuiltinEmbedding
 
 services:
   datahub-gms-debug:

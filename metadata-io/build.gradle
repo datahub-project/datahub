@@ -142,8 +142,7 @@ dependencies {
   implementation 'software.amazon.awssdk:bedrockruntime'
 
   // ONNX Runtime for in-process embedding inference (semantic search)
-  // TODO: Move to compileOnly in base build and re-add as implementation in
-  // datahub-gms-onnx Docker image to avoid shipping ~80MB of native libs in all images.
+  // TODO: Consider moving to compileOnly to avoid shipping ~80MB of native libs in all images.
   implementation externalDependency.onnxRuntime
   implementation externalDependency.djlApi
   implementation externalDependency.djlHuggingFaceTokenizers
