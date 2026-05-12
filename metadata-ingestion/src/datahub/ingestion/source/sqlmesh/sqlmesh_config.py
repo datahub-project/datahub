@@ -4,7 +4,7 @@ from typing import Dict, List, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -62,12 +62,12 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
         )
 
 
-class SqlmeshProjectConfig(ConfigModel):
-    """Configuration for a single SQLMesh project.
-
-    Per-project fields override the global values in SqlmeshSourceConfig when set.
-    """
-
+class SqlmeshSourceConfig(
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+):
     project_path: str = Field(
         description="Path to the SQLMesh project directory.",
     )
@@ -78,53 +78,6 @@ class SqlmeshProjectConfig(ConfigModel):
     environment: str = Field(
         default="prod",
         description="SQLMesh environment to ingest from (e.g. prod, dev).",
-    )
-    # Per-project overrides — each falls back to the global config when None.
-    target_platform: Optional[str] = Field(
-        default=None,
-        description=(
-            "Override the warehouse platform for this project "
-            "(e.g. snowflake, bigquery, databricks). "
-            "When set, takes precedence over the global target_platform. "
-            "If neither is set, the platform is auto-detected from the gateway connection."
-        ),
-    )
-    target_platform_instance: Optional[str] = Field(
-        default=None,
-        description=(
-            "Override the platform instance for this project. "
-            "When set, takes precedence over the global target_platform_instance."
-        ),
-    )
-    sqlmesh_platform_instance: Optional[str] = Field(
-        default=None,
-        description=(
-            "Override the sqlmesh platform instance for this project. "
-            "When set, takes precedence over the global sqlmesh_platform_instance."
-        ),
-    )
-    default_catalog: Optional[str] = Field(
-        default=None,
-        description=(
-            "Override the default catalog/database for this project. "
-            "When set, takes precedence over the global default_catalog."
-        ),
-    )
-
-
-class SqlmeshSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
-    PlatformInstanceConfigMixin,
-    EnvConfigMixin,
-    LowerCaseDatasetUrnConfigMixin,
-):
-    projects: List[SqlmeshProjectConfig] = Field(
-        description=(
-            "List of SQLMesh projects to ingest. Multiple entries allow ingesting "
-            "from different gateways or environments in a single recipe run. "
-            "Each project can override target_platform, target_platform_instance, "
-            "sqlmesh_platform_instance, and default_catalog."
-        ),
     )
     target_platform: Optional[str] = Field(
         default=None,
@@ -147,9 +100,9 @@ class SqlmeshSourceConfig(
     sqlmesh_platform_instance: Optional[str] = Field(
         default=None,
         description=(
-            "Platform instance for the sqlmesh entities themselves. Use this when "
-            "ingesting multiple SQLMesh projects that write to the same warehouse, "
-            "to namespace the urn:li:dataPlatform:sqlmesh entities and avoid collisions."
+            "Platform instance for the sqlmesh entities themselves. Use this to "
+            "namespace the urn:li:dataPlatform:sqlmesh entities and avoid collisions "
+            "when multiple SQLMesh projects write to the same warehouse."
         ),
     )
     default_catalog: Optional[str] = Field(

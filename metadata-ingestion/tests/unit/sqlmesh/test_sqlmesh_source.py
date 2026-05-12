@@ -13,7 +13,7 @@ WAREHOUSE_PLATFORM = "snowflake"
 
 def _make_source(extra_config: dict | None = None) -> SqlmeshSource:
     config_dict = {
-        "projects": [{"project_path": "/fake/project"}],
+        "project_path": "/fake/project",
         "target_platform": WAREHOUSE_PLATFORM,
         "env": "PROD",
         **(extra_config or {}),
@@ -106,7 +106,7 @@ def _run_project(
         "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
         return_value=mock_ctx,
     ):
-        return list(source._ingest_project(source.config.projects[0]))
+        return list(source._ingest_project())
 
 
 class TestSiblingEmission:
@@ -508,49 +508,20 @@ class TestPlatformDetection:
         assert not any("databricks" in u for u in sibling_urns)
 
 
-class TestMultiProject:
-    def test_multiple_projects_ingested(self):
-        config = SqlmeshSourceConfig.model_validate(
-            {
-                "projects": [
-                    {"project_path": "/project/a", "gateway": "snowflake"},
-                    {"project_path": "/project/b", "gateway": "bigquery"},
-                ],
-                "target_platform": "snowflake",
-                "env": "PROD",
-            }
-        )
-        source = SqlmeshSource(config, PipelineContext(run_id="test"))
-
-        model_a = _make_mock_model("schema_a.model_a")
-        model_b = _make_mock_model("schema_b.model_b")
-
-        call_count = 0
-
-        def fake_context(**kwargs):
-            nonlocal call_count
-            mock_ctx = MagicMock()
-            if call_count == 0:
-                mock_ctx.models = {"schema_a.model_a": model_a}
-            else:
-                mock_ctx.models = {"schema_b.model_b": model_b}
-            mock_ctx.snapshots = {}
-            mock_ctx.connection_config.type_ = "snowflake"
-            call_count += 1
-            return mock_ctx
-
-        with patch(
-            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
-            side_effect=fake_context,
-        ):
-            list(source.get_workunits_internal())
-
-        assert source.report.models_scanned == 2
-
-
 def _effective(source: SqlmeshSource) -> object:
-    """Return the resolved effective config for the first project."""
-    return source._resolve_project_config(source.config.projects[0])
+    """Return the resolved effective config."""
+    from datahub.ingestion.source.sqlmesh.sqlmesh_source import _EffectiveProjectConfig
+
+    return _EffectiveProjectConfig(
+        project_path=source.config.project_path,
+        gateway=source.config.gateway,
+        environment=source.config.environment,
+        target_platform=source.config.target_platform,
+        target_platform_instance=source.config.target_platform_instance,
+        sqlmesh_platform_instance=source.config.sqlmesh_platform_instance,
+        default_catalog=source.config.default_catalog,
+        convert_urns_to_lowercase=source.config.convert_urns_to_lowercase,
+    )
 
 
 class TestNormalization:
@@ -630,51 +601,23 @@ class TestNormalization:
             == "analytics.star.dim_developer"
         )
 
-    def test_per_project_platform_override(self):
-        config = SqlmeshSourceConfig.model_validate(
-            {
-                "projects": [
-                    {
-                        "project_path": "/proj",
-                        "target_platform": "bigquery",
-                        "default_catalog": "my-gcp-project",
-                    }
-                ],
-                "target_platform": "snowflake",
-                "env": "PROD",
-            }
+    def test_target_platform_flows_to_effective_config(self):
+        source = _make_source(
+            {"target_platform": "bigquery", "default_catalog": "my-gcp-project"}
         )
-        source = SqlmeshSource(config, PipelineContext(run_id="test"))
-        eff = source._resolve_project_config(config.projects[0])
+        eff = _effective(source)
         assert eff.target_platform == "bigquery"
         assert eff.default_catalog == "my-gcp-project"
 
-    def test_global_platform_used_when_no_project_override(self):
-        config = SqlmeshSourceConfig.model_validate(
-            {
-                "projects": [{"project_path": "/proj"}],
-                "target_platform": "snowflake",
-                "default_catalog": "analytics",
-                "env": "PROD",
-            }
-        )
-        source = SqlmeshSource(config, PipelineContext(run_id="test"))
-        eff = source._resolve_project_config(config.projects[0])
-        assert eff.target_platform == "snowflake"
+    def test_default_catalog_flows_to_effective_config(self):
+        source = _make_source({"default_catalog": "analytics"})
+        eff = _effective(source)
+        assert eff.target_platform == WAREHOUSE_PLATFORM
         assert eff.default_catalog == "analytics"
 
-    def test_sqlmesh_platform_instance_resolved(self):
-        config = SqlmeshSourceConfig.model_validate(
-            {
-                "projects": [
-                    {"project_path": "/proj", "sqlmesh_platform_instance": "project_a"}
-                ],
-                "target_platform": "snowflake",
-                "env": "PROD",
-            }
-        )
-        source = SqlmeshSource(config, PipelineContext(run_id="test"))
-        eff = source._resolve_project_config(config.projects[0])
+    def test_sqlmesh_platform_instance_flows_to_effective_config(self):
+        source = _make_source({"sqlmesh_platform_instance": "project_a"})
+        eff = _effective(source)
         assert eff.sqlmesh_platform_instance == "project_a"
 
 
@@ -727,7 +670,7 @@ class TestErrorHandling:
                 side_effect=[RuntimeError("boom"), iter([])],
             ),
         ):
-            list(source._ingest_project(source.config.projects[0]))
+            list(source._ingest_project())
 
         assert source.report.models_scanned == 2
         assert any(m == "star.bad_model" for m in source.report.models_failed)
@@ -738,7 +681,7 @@ class TestErrorHandling:
             "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
             side_effect=Exception("connection refused"),
         ):
-            workunits = list(source._ingest_project(source.config.projects[0]))
+            workunits = list(source._ingest_project())
 
         assert workunits == []
         assert len(source.report.failures) > 0
@@ -812,9 +755,8 @@ class TestEnvironmentSuffix:
 
         config = SqlmeshSourceConfig.model_validate(
             {
-                "projects": [
-                    {"project_path": "/proj", "gateway": None, "environment": "dev"}
-                ],
+                "project_path": "/proj",
+                "environment": "dev",
                 "target_platform": "snowflake",
                 "env": "DEV",
             }
@@ -825,7 +767,7 @@ class TestEnvironmentSuffix:
             "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
             return_value=mock_ctx,
         ):
-            workunits = list(source2._ingest_project(config.projects[0]))
+            workunits = list(source2._ingest_project())
 
         sibling_urns = [
             wu.metadata.entityUrn

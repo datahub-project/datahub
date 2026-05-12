@@ -170,13 +170,9 @@ def test_sqlmesh_ingestion_golden_file(
             "source": {
                 "type": "sqlmesh",
                 "config": {
-                    "projects": [
-                        {
-                            "project_path": "/fake/sqlmesh_project",
-                            "gateway": "my_warehouse",
-                            "environment": "prod",
-                        }
-                    ],
+                    "project_path": "/fake/sqlmesh_project",
+                    "gateway": "my_warehouse",
+                    "environment": "prod",
                     "target_platform": "snowflake",
                     "env": "PROD",
                     "convert_urns_to_lowercase": True,
@@ -221,7 +217,7 @@ def test_sqlmesh_event_count_and_coverage() -> None:
 
     config = SqlmeshSourceConfig.model_validate(
         {
-            "projects": [{"project_path": "/fake/proj"}],
+            "project_path": "/fake/proj",
             "target_platform": "snowflake",
             "env": "PROD",
             "convert_urns_to_lowercase": True,

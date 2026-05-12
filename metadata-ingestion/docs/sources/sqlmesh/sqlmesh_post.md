@@ -7,27 +7,6 @@ All SQLMesh model kinds are supported: `FULL`, `INCREMENTAL_BY_TIME_RANGE`,
 `EXTERNAL`, and `EMBEDDED`. Each maps to a DataHub dataset subtype (`Model`, `Seed`,
 `Source`, or `Embedded`).
 
-#### Multi-project recipes
-
-A single recipe can ingest multiple SQLMesh projects. Each entry in `projects` can
-override `target_platform`, `target_platform_instance`, `sqlmesh_platform_instance`,
-and `default_catalog` independently:
-
-```yaml
-source:
-  type: sqlmesh
-  config:
-    projects:
-      - project_path: /projects/snowflake
-        gateway: snowflake_prod
-        default_catalog: analytics
-      - project_path: /projects/bigquery
-        gateway: bigquery_prod
-        default_catalog: my-gcp-project
-        sqlmesh_platform_instance: bq_project
-    env: PROD
-```
-
 #### Stateful ingestion
 
 When `stateful_ingestion.enabled: true`, the connector tracks emitted URNs across runs

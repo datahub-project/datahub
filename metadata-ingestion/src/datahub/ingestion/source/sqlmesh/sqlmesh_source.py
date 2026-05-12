@@ -57,7 +57,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SQLMESH_TO_DATAHUB_PLATFORM,
-    SqlmeshProjectConfig,
     SqlmeshSourceConfig,
     SqlmeshSourceReport,
 )
@@ -109,10 +108,8 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 # SQLMesh uses ProcessPoolExecutor internally to parse SQL models. Serialise
-# context initialisation so concurrent projects in a multi-project recipe do
-# not race over spawning worker processes. The lock is held only for the
-# duration of SqlmeshContext.__init__ (~sub-second); metadata emission is
-# fully concurrent after the lock is released.
+# context initialisation to avoid racing over worker process spawning.
+# The lock is held only for SqlmeshContext.__init__ (~sub-second).
 _sqlmesh_context_load_lock = threading.Lock()
 
 SQLMESH_PLATFORM = "sqlmesh"
@@ -253,26 +250,10 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         source:
           type: sqlmesh
           config:
-            projects:
-              - project_path: .            # checked-out repo root
-                gateway: snowflake_prod
+            project_path: .              # checked-out repo root
+            gateway: snowflake_prod
             target_platform_instance: prod_snowflake  # must match Snowflake connector
             default_catalog: analytics                 # if model names are 2-part
-            env: PROD
-
-    Example recipe (multi-project, mixed platforms)::
-
-        source:
-          type: sqlmesh
-          config:
-            projects:
-              - project_path: /projects/snowflake
-                gateway: snowflake_prod
-                default_catalog: analytics
-              - project_path: /projects/bigquery
-                gateway: bigquery_prod
-                default_catalog: my-gcp-project
-                sqlmesh_platform_instance: bq_project
             env: PROD
     """
 
@@ -310,8 +291,7 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._emit_platform_registration()
-        for project_config in self.config.projects:
-            yield from self._ingest_project(project_config)
+        yield from self._ingest_project()
         if self.config.audit_results_path:
             yield from self._emit_audit_run_events(self.config.audit_results_path)
 
@@ -331,39 +311,6 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 datasetNameDelimiter=".",
             ),
         ).as_workunit()
-
-    # -------------------------------------------------------------------------
-    # Per-project config resolution
-    # -------------------------------------------------------------------------
-
-    def _resolve_project_config(
-        self, project_config: SqlmeshProjectConfig
-    ) -> _EffectiveProjectConfig:
-        """Merge project-level overrides with global config defaults."""
-        return _EffectiveProjectConfig(
-            project_path=project_config.project_path,
-            gateway=project_config.gateway,
-            environment=project_config.environment,
-            target_platform=(
-                project_config.target_platform or self.config.target_platform
-            ),
-            target_platform_instance=(
-                project_config.target_platform_instance
-                if project_config.target_platform_instance is not None
-                else self.config.target_platform_instance
-            ),
-            sqlmesh_platform_instance=(
-                project_config.sqlmesh_platform_instance
-                if project_config.sqlmesh_platform_instance is not None
-                else self.config.sqlmesh_platform_instance
-            ),
-            default_catalog=(
-                project_config.default_catalog
-                if project_config.default_catalog is not None
-                else self.config.default_catalog
-            ),
-            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-        )
 
     def _detect_target_platform(
         self, sqlmesh_ctx: "SqlmeshContextType", effective: _EffectiveProjectConfig
@@ -396,16 +343,23 @@ class SqlmeshSource(StatefulIngestionSourceBase):
     # Project ingestion
     # -------------------------------------------------------------------------
 
-    def _ingest_project(
-        self, project_config: SqlmeshProjectConfig
-    ) -> Iterable[MetadataWorkUnit]:
+    def _ingest_project(self) -> Iterable[MetadataWorkUnit]:
         if SqlmeshContext is None:
             raise ImportError(
                 "sqlmesh package is required for this source. "
                 "Install it with: pip install 'acryl-datahub[sqlmesh]'"
             )
 
-        effective = self._resolve_project_config(project_config)
+        effective = _EffectiveProjectConfig(
+            project_path=self.config.project_path,
+            gateway=self.config.gateway,
+            environment=self.config.environment,
+            target_platform=self.config.target_platform,
+            target_platform_instance=self.config.target_platform_instance,
+            sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
+            default_catalog=self.config.default_catalog,
+            convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+        )
 
         init_kwargs: Dict[str, Any] = {"paths": [effective.project_path]}
         if effective.gateway:
