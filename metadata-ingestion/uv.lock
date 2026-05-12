@@ -217,6 +217,7 @@ all = [
     { name = "tableschema" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "traitlets" },
     { name = "trino", extra = ["sqlalchemy"] },
     { name = "ujson" },
@@ -709,6 +710,7 @@ dev = [
     { name = "tabulate" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "time-machine" },
     { name = "toml" },
     { name = "traitlets" },
@@ -906,6 +908,7 @@ docs = [
     { name = "tabulate" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "time-machine" },
     { name = "toml" },
     { name = "traitlets" },
@@ -1889,6 +1892,9 @@ testing-utils = [
     { name = "pytest-docker" },
     { name = "pytest-timeout" },
     { name = "pyyaml" },
+]
+thoughtspot = [
+    { name = "thoughtspot-rest-api" },
 ]
 trino = [
     { name = "acryl-datahub-classify" },
@@ -3445,6 +3451,10 @@ requires-dist = [
     { name = "teradatasqlalchemy", marker = "extra == 'dev'", specifier = ">=17.20.0.0,<=20.0.0.2" },
     { name = "teradatasqlalchemy", marker = "extra == 'docs'", specifier = ">=17.20.0.0,<=20.0.0.2" },
     { name = "teradatasqlalchemy", marker = "extra == 'teradata'", specifier = ">=17.20.0.0,<=20.0.0.2" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'thoughtspot'", specifier = ">=2.0.0,<3.0.0" },
     { name = "time-machine", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "time-machine", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "toml", specifier = ">=0.10.0,<=0.10.2" },
@@ -3626,7 +3636,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -12800,6 +12810,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/82/ce/aaff1f39bcc1e9a97bec5f3d20aa771c005a9faff3944fc56c7492c24466/thinc-8.2.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e8a8f2f249f2be9a5ce2a81a6efe7503b68be7b57e47ad54ab28204e1f0c723b", size = 818820, upload-time = "2024-06-19T16:41:56.868Z" },
     { url = "https://files.pythonhosted.org/packages/d7/fa/c96b01e46e5962d02de1206e497fda2902aef2b8ffb2926d66d5f0159040/thinc-8.2.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:87e729f33c76ec6df9b375989743252ab880d79f3a2b4175169b21dece90f102", size = 865047, upload-time = "2024-06-19T16:42:06.181Z" },
     { url = "https://files.pythonhosted.org/packages/cd/26/306b8bedb678c52464ed00e576edf9d365fce0bcae597a333bdad9fb5d67/thinc-8.2.5-cp312-cp312-win_amd64.whl", hash = "sha256:c5f750ea2dd32ca6d46947025dacfc0f6037340c4e5f7adb9af84c75f65aa7d8", size = 1447893, upload-time = "2024-06-19T16:42:12.145Z" },
+]
+
+[[package]]
+name = "thoughtspot-rest-api"
+version = "2.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "requests-toolbelt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/83/ce/2f3602548e38473f780cf157437da134fd54b083350e73ba49ec2577fea2/thoughtspot_rest_api-2.0.3.tar.gz", hash = "sha256:f4bbc98d67cb7d9b7851e6def50c19cda7c901252cd73cf8396a6261fb728f1d", size = 43210, upload-time = "2025-12-10T12:49:37.304Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/d0/a1343f0842b48b2b966ab59566d6e3e68dbac583c935de6374f5d9c284d6/thoughtspot_rest_api-2.0.3-py3-none-any.whl", hash = "sha256:39f73510579020c3d57ef8e443c0c0520f47f1c98e82165b2e8f96d8a2c0f48d", size = 33849, upload-time = "2025-12-10T12:49:36.467Z" },
 ]
 
 [[package]]

@@ -4267,6 +4267,74 @@
       "platform_name": "Teradata",
       "support_status": "TESTING"
     },
+    "thoughtspot": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Workspaces (Orgs) emit as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage from TML's column `sources` field (TS-internal) and from `physicalColumnName` (cross-platform external)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Per-entity cumulative view counts via `metadata_search` `include_stats`; enabled by `include_usage_stats: true`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default, configured via `include_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Resolved from `/tags/search` and emitted as GlobalTags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Worksheet\u2192Table, Chart\u2192Worksheet, Dashboard\u2192Worksheet, plus cross-platform Worksheet\u2192external warehouse (Databricks / Snowflake / BigQuery / ...) configured via `external_connections`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.thoughtspot.source.ThoughtSpotSource",
+      "platform_id": "thoughtspot",
+      "platform_name": "ThoughtSpot",
+      "support_status": "INCUBATING"
+    },
     "trino": {
       "capabilities": [
         {

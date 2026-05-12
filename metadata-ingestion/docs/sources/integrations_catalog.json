@@ -913,7 +913,6 @@
     "img_path": "img/logos/platforms/talend.svg"
   },
   "thoughtspot": {
-    "api_connector": true,
     "platform_type": "BI Tool",
     "title": "ThoughtSpot",
     "description": "AI-powered analytics platform with natural language search for self-service business intelligence.",
