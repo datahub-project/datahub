@@ -869,9 +869,10 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
     """Regression: source_ids containing only bare intra-DM element IDs (no '/')
     must not trigger a cross-DM probe and must not inflate cross_dm_deferred.
 
-    Covers both Case A (orphan-drop branch) and Case B (self-named strip branch):
-    here a sibling shares the name but isn't a lineage upstream, exercising the
-    orphan-drop path where the guard matters most.
+    Covers Case A (orphan-drop branch): a sibling shares the name but isn't a
+    lineage upstream, so surviving_urns is empty and the orphan-drop path fires.
+    Case B (self-named strip branch) is covered in
+    test_self_named_intra_dm_source_ids_not_treated_as_cross_dm below.
     """
     source = _source()
     sibling_urn = _urn("sibling")
@@ -899,6 +900,79 @@ def test_intra_dm_only_source_ids_not_treated_as_cross_dm() -> None:
         upstream_elements=[sibling],
     )
 
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+def test_self_named_intra_dm_source_ids_not_treated_as_cross_dm() -> None:
+    """Case B: element is the sole intra-DM candidate for its own name (self-named
+    strip branch). After stripping itself, candidate_eids_after_self_strip is empty
+    and _try_emit_self_named_cross_dm_fgl is called. When source_ids contains only
+    bare intra-DM IDs, the guard must short-circuit without a cross-DM probe.
+    Falls through to warehouse passthrough (deferred here — no warehouse FGL).
+    """
+    source = _source()
+    consumer_urn = _urn("consumer")
+
+    consumer = _element(
+        "consumer-eid",
+        "Orders",
+        [_column("c1", "x", "[Orders/x]")],
+        source_ids=["some-intra-dm-eid"],  # bare ID, no "/" — not cross-DM shaped
+    )
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        # Only the element itself under "orders"; after self-strip the list is empty.
+        element_name_to_eids={"orders": ["consumer-eid"]},
+        elementId_to_dataset_urn={"consumer-eid": consumer_urn},
+        entity_level_upstream_urns=set(),
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 1
+
+
+def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
+    """inode-<urlId>/<suffix> shaped source_ids must not pass the cross-DM guard
+    even though they contain '/'. Only <dm-url-id>/<suffix> entries (without the
+    'inode-' prefix) qualify as cross-DM sources.
+    """
+    source = _source()
+    consumer_urn = _urn("consumer")
+    sibling_urn = _urn("sibling")
+
+    consumer = _element(
+        "consumer-eid",
+        "Shared",
+        [_column("c1", "x", "[Shared/x]")],
+        # inode-shaped entry has '/' but is NOT a cross-DM source ID.
+        source_ids=["inode-abc123/some-suffix"],
+    )
+    sibling = _upstream_element("sibling-eid", "Shared", ["x"])
+
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"shared": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        entity_level_upstream_urns=set(),
+        upstream_elements=[sibling],
+    )
+
+    # Sibling is not a lineage upstream and inode source_ids are not cross-DM;
+    # orphan-drop fires without touching cross-DM counters.
     assert lineages == []
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0

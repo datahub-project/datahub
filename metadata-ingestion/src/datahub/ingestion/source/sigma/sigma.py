@@ -268,6 +268,15 @@ class _WorkbookWarehouseIndex:
 
 
 @dataclass
+class _ResolvedRef:
+    """A single formula ref resolved to an upstream dataset field."""
+
+    upstream_urn: str
+    upstream_field: str
+    ref: BracketRef
+
+
+@dataclass
 class _CustomSqlRegistration:
     """Carries the per-kind variant parameters for _register_customsql_with_aggregator."""
 
@@ -2074,18 +2083,34 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         if not any(
             "/" in sid and not sid.startswith("inode-") for sid in element.source_ids
         ):
+            logger.debug(
+                "element %s: no cross-DM source_ids — skipping self-named cross-DM FGL",
+                element.elementId,
+            )
             return False
-        cross_dm_fgl = self._resolve_cross_dm_fgl(
-            ref=ref,
-            element=element,
-            element_dataset_urn=element_dataset_urn,
-            entity_level_upstream_urns=entity_level_upstream_urns,
-            downstream_field=downstream_field,
-        )
+        try:
+            cross_dm_fgl = self._resolve_cross_dm_fgl(
+                ref=ref,
+                element=element,
+                element_dataset_urn=element_dataset_urn,
+                entity_level_upstream_urns=entity_level_upstream_urns,
+                downstream_field=downstream_field,
+            )
+        except Exception as e:
+            self.reporter.warning(
+                title="Cross-DM FGL resolution failed",
+                message=(
+                    f"Unexpected error resolving cross-DM FGL for element "
+                    f"{element.elementId} ref {ref.raw!r}: {e}"
+                ),
+                context=f"ref={ref.raw!r}, element={element.elementId}",
+            )
+            return False
         if cross_dm_fgl is None:
             return False
         # _resolve_cross_dm_fgl always returns a single-upstream FGL or None.
-        pair = (downstream_field, cross_dm_fgl.upstreams[0])  # type: ignore[index]
+        assert cross_dm_fgl.upstreams
+        pair = (downstream_field, cross_dm_fgl.upstreams[0])
         if pair not in emitted_pairs:
             emitted_pairs.add(pair)
             cross_dm_fgls.append(cross_dm_fgl)
@@ -3601,8 +3626,8 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         fields: List[InputFieldClass] = []
         for column in element.columns:
             formula = element.column_formulas.get(column)
-            resolved: Optional[Tuple[str, str]] = None
-            resolving_ref = None
+            resolved_refs: List[_ResolvedRef] = []
+            seen: Set[Tuple[str, str]] = set()
             all_param = False
             all_sibling = False
 
@@ -3618,7 +3643,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                         if ref.column is None:
                             sibling_count += 1
                             continue
-                        resolved = self._resolve_chart_formula_upstream(
+                        result = self._resolve_chart_formula_upstream(
                             ref,
                             chart_element_id=element.elementId,
                             chart_upstream_element_ids=chart_upstream_eids,
@@ -3627,58 +3652,73 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                             element_warehouse_table_index=element_warehouse_table_index,
                             elementId_to_chart_urn=elementId_to_chart_urn,
                         )
-                        if resolved is not None:
-                            resolving_ref = ref
-                            break
-                    if resolved is None and refs:
+                        if result is not None:
+                            upstream_urn, upstream_field = result
+                            key = (upstream_urn, upstream_field)
+                            if key not in seen:
+                                seen.add(key)
+                                resolved_refs.append(
+                                    _ResolvedRef(
+                                        upstream_urn=upstream_urn,
+                                        upstream_field=upstream_field,
+                                        ref=ref,
+                                    )
+                                )
+                    if not resolved_refs and refs:
                         total = len(refs)
                         if param_count == total:
                             all_param = True
                         elif sibling_count == total:
                             all_sibling = True
 
-            if resolved is not None:
-                upstream_urn, upstream_field = resolved
-                bridged_field = self._bridge_warehouse_column_name(
-                    upstream_urn=upstream_urn,
-                    sigma_display_name=upstream_field,
-                    column_native_names=element.column_native_names,
-                    element_id=element.elementId,
-                )
-                schema_field_urn = builder.make_schema_field_urn(
-                    upstream_urn, bridged_field
-                )
+            if resolved_refs:
                 self.reporter.chart_input_fields_resolved += 1
-                # Sub-category: resolved via warehouse-table short-name index (Step 4).
-                # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
-                # so upstream_urn in wh_candidates implies a single-candidate match in
-                # practice, but the membership check is the semantically correct predicate.
-                # resolving_ref is always set when resolved is set (see loop above),
-                # but guard explicitly so -O optimisation doesn't hide the invariant.
-                if resolving_ref is not None:
-                    wh_candidates = element_warehouse_table_index.get(
-                        resolving_ref.source.upper(), []
-                    )
-                    if upstream_urn in wh_candidates:
-                        self.reporter.chart_input_fields_warehouse_qualified += 1
-                        if resolving_ref.source.upper() in wb_only_warehouse_keys:
-                            self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
-            elif all_param:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_skipped_parameter += 1
-            elif all_sibling:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_skipped_sibling += 1
-            else:
-                schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
-                self.reporter.chart_input_fields_self_ref_fallback += 1
-
-            fields.append(
-                InputFieldClass(
-                    schemaFieldUrn=schema_field_urn,
-                    schemaField=self._make_string_schema_field(column),
+                self.reporter.chart_input_fields_multi_ref_extra += (
+                    len(resolved_refs) - 1
                 )
-            )
+                for rr in resolved_refs:
+                    bridged_field = self._bridge_warehouse_column_name(
+                        upstream_urn=rr.upstream_urn,
+                        sigma_display_name=rr.upstream_field,
+                        column_native_names=element.column_native_names,
+                        element_id=element.elementId,
+                    )
+                    schema_field_urn = builder.make_schema_field_urn(
+                        rr.upstream_urn, bridged_field
+                    )
+                    # Sub-category: resolved via warehouse-table short-name index (Step 4).
+                    # The resolver (Step 4) returns None for ambiguous (>1 candidate) keys,
+                    # so upstream_urn in wh_candidates implies a single-candidate match in
+                    # practice, but the membership check is the semantically correct predicate.
+                    wh_candidates = element_warehouse_table_index.get(
+                        rr.ref.source.upper(), []
+                    )
+                    if rr.upstream_urn in wh_candidates:
+                        self.reporter.chart_input_fields_warehouse_qualified += 1
+                        if rr.ref.source.upper() in wb_only_warehouse_keys:
+                            self.reporter.chart_input_fields_warehouse_qualified_via_workbook_index += 1
+                    fields.append(
+                        InputFieldClass(
+                            schemaFieldUrn=schema_field_urn,
+                            schemaField=self._make_string_schema_field(column),
+                        )
+                    )
+            else:
+                if all_param:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_skipped_parameter += 1
+                elif all_sibling:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_skipped_sibling += 1
+                else:
+                    schema_field_urn = builder.make_schema_field_urn(chart_urn, column)
+                    self.reporter.chart_input_fields_self_ref_fallback += 1
+                fields.append(
+                    InputFieldClass(
+                        schemaFieldUrn=schema_field_urn,
+                        schemaField=self._make_string_schema_field(column),
+                    )
+                )
         return fields
 
     def _gen_elements_workunit(

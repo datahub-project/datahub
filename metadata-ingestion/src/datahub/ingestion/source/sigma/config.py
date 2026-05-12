@@ -198,6 +198,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
     chart_input_fields_skipped_sibling: int = 0
+    # Extra InputFields emitted for columns whose formula resolves to more than
+    # one distinct (upstream_urn, upstream_field) pair. The first resolved pair
+    # is counted in chart_input_fields_resolved; each additional pair increments
+    # this counter. Non-zero means some chart columns have multi-upstream lineage.
+    chart_input_fields_multi_ref_extra: int = 0
     # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
     # against a workbook element name (warehouse fallback intentionally skipped).
     chart_input_fields_case_mismatch: int = 0
@@ -329,7 +334,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
+    # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
+    # also found no match; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
