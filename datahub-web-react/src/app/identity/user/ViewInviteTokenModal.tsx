@@ -164,7 +164,7 @@ export default function ViewInviteTokenModal({ open, onClose }: Props) {
                             {roleSelectOptions()}
                         </RoleSelect>
                         <CopyText>
-                            <pre data-meticulous-mask>{inviteLink}</pre>
+                            <pre className="meticulous-ignore">{inviteLink}</pre>
                         </CopyText>
                     </InfoContainer>
                     <ActionsContainer>
