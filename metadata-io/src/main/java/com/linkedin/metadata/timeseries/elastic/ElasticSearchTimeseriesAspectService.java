@@ -134,28 +134,39 @@ public class ElasticSearchTimeseriesAspectService
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
 
-  private static EnvelopedAspect parseDocument(
-      @Nonnull OperationContext opContext, @Nonnull SearchHit doc) {
-    Map<String, Object> docFields = doc.getSourceAsMap();
+  /**
+   * Builds an {@link EnvelopedAspect} from raw {@code event} and {@code systemMetadata} sources
+   * extracted from a timeseries index document. Both arguments are passed through {@code
+   * ObjectMapper.writeValueAsString(...)}, so any Jackson-serializable shape works — {@code
+   * Map<String, Object>} from an Elasticsearch hit, {@link JsonNode} from an in-flight upsert
+   * document, etc.
+   *
+   * <p>Public so the caching layer can reuse this construction without duplicating logic. Throws
+   * {@link RuntimeException} on serialization failure; callers that treat caching as best-effort
+   * should wrap calls in their own try/catch.
+   */
+  public static EnvelopedAspect buildEnvelopedAspect(
+      @Nonnull OperationContext opContext,
+      @Nullable Object event,
+      @Nullable Object systemMetadata) {
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
-    Object event = docFields.get(MappingsBuilder.EVENT_FIELD);
-    GenericAspect genericAspect;
-    try {
-      genericAspect =
-          new GenericAspect()
-              .setValue(
-                  ByteString.unsafeWrap(
-                      opContext
-                          .getObjectMapper()
-                          .writeValueAsString(event)
-                          .getBytes(StandardCharsets.UTF_8)));
-    } catch (JsonProcessingException e) {
-      throw new RuntimeException(
-          "Failed to deserialize event from the timeseries aspect index: " + e);
+    if (event != null) {
+      try {
+        GenericAspect genericAspect =
+            new GenericAspect()
+                .setValue(
+                    ByteString.unsafeWrap(
+                        opContext
+                            .getObjectMapper()
+                            .writeValueAsString(event)
+                            .getBytes(StandardCharsets.UTF_8)));
+        genericAspect.setContentType("application/json");
+        envelopedAspect.setAspect(genericAspect);
+      } catch (JsonProcessingException e) {
+        throw new RuntimeException(
+            "Failed to deserialize event from the timeseries aspect index: " + e);
+      }
     }
-    genericAspect.setContentType("application/json");
-    envelopedAspect.setAspect(genericAspect);
-    Object systemMetadata = docFields.get("systemMetadata");
     if (systemMetadata != null) {
       try {
         envelopedAspect.setSystemMetadata(
@@ -167,8 +178,14 @@ public class ElasticSearchTimeseriesAspectService
             "Failed to deserialize system metadata from the timeseries aspect index: " + e);
       }
     }
-
     return envelopedAspect;
+  }
+
+  private static EnvelopedAspect parseDocument(
+      @Nonnull OperationContext opContext, @Nonnull SearchHit doc) {
+    Map<String, Object> docFields = doc.getSourceAsMap();
+    return buildEnvelopedAspect(
+        opContext, docFields.get(MappingsBuilder.EVENT_FIELD), docFields.get("systemMetadata"));
   }
 
   private static Set<String> commonFields =

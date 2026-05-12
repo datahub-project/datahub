@@ -13,8 +13,11 @@ import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.spi.merge.LatestUpdateMergePolicy;
 import com.hazelcast.spring.cache.HazelcastCacheManager;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -33,6 +36,13 @@ public class CacheConfig {
   @Value("${cache.primary.maxSize:10000}")
   private int cacheMaxSize;
 
+  // Single source of truth for the timeseries cache settings. The typed config object
+  // ({@link TimeseriesAspectServiceConfig}) already binds TIMESERIES_CACHE_MAX_SIZE,
+  // TIMESERIES_CACHE_TTL_HOURS, and friends — read from here rather than re-injecting via
+  // @Value so the cache backend wiring and the rest of the system can never disagree about
+  // the intended values.
+  @Autowired private ConfigurationProvider configurationProvider;
+
   @Value("${searchService.cache.hazelcast.serviceName:hazelcast-service}")
   private String hazelcastServiceName;
 
@@ -50,6 +60,18 @@ public class CacheConfig {
   public CacheManager caffeineCacheManager() {
     CaffeineCacheManager cacheManager = new CaffeineCacheManager();
     cacheManager.setCaffeine(caffeineCacheBuilder());
+    // The latest-timeseries cache has its own size budget (TIMESERIES_CACHE_MAX_SIZE); register
+    // it as a custom cache so it doesn't inherit the smaller cache.primary.maxSize default
+    // shared by every other Caffeine-backed cache in this manager. Two separate caches —
+    // one for CachedLatestAspect data values, one for the Set<String> reverse index — keep
+    // value types disjoint so the caching service can hold strongly-typed handles instead of
+    // Object-erased ones.
+    if (configurationProvider.getTimeseriesAspectService().getCache().isEnabled()) {
+      cacheManager.registerCustomCache(
+          "latestTimeseriesAspect", latestTimeseriesCaffeineBuilder().build());
+      cacheManager.registerCustomCache(
+          "latestTimeseriesAspectIndex", latestTimeseriesCaffeineBuilder().build());
+    }
     return cacheManager;
   }
 
@@ -58,6 +80,16 @@ public class CacheConfig {
         .initialCapacity(100)
         .maximumSize(cacheMaxSize)
         .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
+        .recordStats();
+  }
+
+  private Caffeine<Object, Object> latestTimeseriesCaffeineBuilder() {
+    TimeseriesAspectServiceConfig.CacheConfig tsCache =
+        configurationProvider.getTimeseriesAspectService().getCache();
+    return Caffeine.newBuilder()
+        .initialCapacity(100)
+        .maximumSize(tsCache.getMaxSize())
+        .expireAfterWrite(tsCache.getTtlHours(), TimeUnit.HOURS)
         .recordStats();
   }
 
@@ -134,6 +166,44 @@ public class CacheConfig {
         .setMergePolicyConfig(
             new MergePolicyConfig().setPolicy(LatestUpdateMergePolicy.class.getName()));
 
+    return mapConfig;
+  }
+
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig latestTimeseriesCacheConfig() {
+    int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
+    MapConfig mapConfig =
+        new MapConfig().setName("latestTimeseriesAspect").setTimeToLiveSeconds(cacheTtlSeconds);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(tsMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
+    return mapConfig;
+  }
+
+  /**
+   * Companion map to {@link #latestTimeseriesCacheConfig()} that stores the (entity, aspect) →
+   * Set&lt;URN&gt; reverse index used to evict all data keys for an aspect on
+   * delete/reindex/rollback. Sized off the same TIMESERIES_CACHE_MAX_SIZE budget — there is one
+   * index entry per (entity, aspect) pair, so this is a small fraction of the data map.
+   */
+  @Bean
+  @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
+  public MapConfig latestTimeseriesAspectIndexCacheConfig() {
+    int tsMaxSize = configurationProvider.getTimeseriesAspectService().getCache().getMaxSize();
+    MapConfig mapConfig =
+        new MapConfig()
+            .setName("latestTimeseriesAspectIndex")
+            .setTimeToLiveSeconds(cacheTtlSeconds);
+    EvictionConfig evictionConfig =
+        new EvictionConfig()
+            .setMaxSizePolicy(MaxSizePolicy.PER_NODE)
+            .setSize(tsMaxSize)
+            .setEvictionPolicy(EvictionPolicy.LFU);
+    mapConfig.setEvictionConfig(evictionConfig);
     return mapConfig;
   }
 }
