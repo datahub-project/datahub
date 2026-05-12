@@ -566,11 +566,16 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return report
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
+        # Keep a reference so the light path can register URNs via
+        # add_entity_to_state without re-emitting full aspects. Otherwise
+        # unchanged projects vanish from this run's tracked URNs
+        # and incorrectly removed by the stale-entity removal handler.
+        self._stale_handler = StaleEntityRemovalHandler.create(
+            self, self.source_config, self.ctx
+        )
         return [
             *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.source_config, self.ctx
-            ).workunit_processor,
+            self._stale_handler.workunit_processor,
         ]
 
     def get_report(self) -> HexReport:
@@ -710,22 +715,18 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         lineage_builder = self._make_lineage_builder(connections_by_id)
 
-        # Seed light-stub projects from the previous checkpoint so run-history
-        # checks fire for projects skipped by early-terminated listing.
-        self._seed_light_projects_from_checkpoint(last_ingested_at_ms)
-
         # Emit workspace container once before streaming projects
         yield from self.mapper.map_workspace()
 
         # Single streaming pass: process and emit each item as it arrives.
-        # Components are fetched on-demand if a project imports one that hasn't
-        # appeared in the listing yet — cached in component_registry so each
-        # component is only processed once.
+        # The listing is paginated fully (no early termination) so every project
+        # is seen each run. Unchanged projects take the "light" path inside
+        # _stream_project — they skip cells/lineage/context fetches and only
+        # check run history.
         projects_processed = 0
         with self.report.new_stage("Stream projects and components"):
             for item in self.hex_api.fetch_projects(
                 include_components=self.source_config.include_components,
-                stop_before_ms=last_ingested_at_ms,
             ):
                 if self._is_filtered(item):
                     continue
@@ -736,11 +737,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                             item, lineage_builder, connections_by_id
                         )
                 elif isinstance(item, Project):
-                    if item.id in self._light_project_ids:
-                        # Already a stub from checkpoint — only check run history
-                        self.project_registry[item.id] = item
-                        yield from self._emit_run_history_patch(item)
-                    elif self.source_config.project_title_pattern.allowed(item.title):
+                    if self.source_config.project_title_pattern.allowed(item.title):
                         yield from self._stream_project(
                             item,
                             lineage_builder,
@@ -760,16 +757,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 else:
                     assert_never(item)
 
-        # Run-history patches for light stubs that never appeared in the listing
-        # (they were early-terminated; the stub was seeded from the checkpoint).
-        with self.report.new_stage("Run history for unchanged projects"):
-            for project in self.project_registry.values():
-                if project.id in self._light_project_ids and not project.latest_run:
-                    run = self.hex_api.fetch_latest_run(project.id)
-                    if run:
-                        project.latest_run = run
-                    yield from self._emit_run_history_patch(project)
-
         # Commit incremental checkpoint.
         cur_checkpoint = self.state_provider.get_current_checkpoint(
             HEX_INCREMENTAL_JOB_ID
@@ -782,7 +769,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def _populate_registries(self, last_ingested_at_ms: Optional[int] = None) -> None:
         for item in self.hex_api.fetch_projects(
             include_components=self.source_config.include_components,
-            stop_before_ms=last_ingested_at_ms,
         ):
             if item.categories and (
                 any(
@@ -1017,14 +1003,26 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self.project_registry[project.id] = project
         self.report.projects_full_refresh += 1
 
-        # Tag as light if unchanged since last checkpoint
+        # Light path: project hasn't been edited since the last checkpoint, so
+        # cells/lineage/context haven't changed. Skip the expensive fetches and
+        # only refresh run history for published projects.
         if (
             last_ingested_at_ms
             and project.last_edited_at
             and int(project.last_edited_at.timestamp() * 1000) <= last_ingested_at_ms
         ):
             self._light_project_ids.add(project.id)
-            # Light: check run history only
+            # Register URNs we won't re-emit so stale-entity-removal keeps them.
+            dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
+            self._stale_handler.add_entity_to_state("dashboard", dashboard_urn)
+            if self.source_config.include_context_documents:
+                self._stale_handler.add_entity_to_state(
+                    "document", f"urn:li:document:hex-{project.id}"
+                )
+            if self.source_config.include_run_history and project.last_published_at:
+                run = self.hex_api.fetch_latest_run(project.id)
+                if run:
+                    project.latest_run = run
             yield from self._emit_run_history_patch(project)
             return
 
@@ -1054,8 +1052,8 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 project, all_cells, lineage_builder, self._queried_tables_available
             )
 
-        # Run history
-        if self.source_config.include_run_history:
+        # Run history — only published projects have runs queryable via the API
+        if self.source_config.include_run_history and project.last_published_at:
             run = self.hex_api.fetch_latest_run(project.id)
             if run:
                 project.latest_run = run
@@ -1092,41 +1090,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         if new_run_ms is not None:
             yield from self.mapper.map_project_last_refreshed(
                 project=project, last_refreshed_ms=new_run_ms
-            )
-
-    def _seed_light_projects_from_checkpoint(
-        self, last_ingested_at_ms: Optional[int]
-    ) -> None:
-        """Seed light-stub projects from the stale-entity-removal checkpoint."""
-        if not last_ingested_at_ms:
-            return
-        stale_checkpoint = self.state_provider.get_last_checkpoint(
-            JobId(f"{HEX_PLATFORM_NAME}_stale_entity_removal"),
-            GenericCheckpointState,
-        )
-        if not stale_checkpoint:
-            return
-        prefix = (
-            f"{self.source_config.platform_instance}."
-            if self.source_config.platform_instance
-            else ""
-        )
-        count = 0
-        for urn in stale_checkpoint.state.urns:
-            if not urn.startswith("urn:li:dashboard:(hex,"):
-                continue
-            inner = urn[len("urn:li:dashboard:(hex,") : -1]
-            project_id = inner[len(prefix) :] if inner.startswith(prefix) else inner
-            if project_id not in self.project_registry:
-                self.project_registry[project_id] = Project(
-                    id=project_id, title="", description=None
-                )
-                self._light_project_ids.add(project_id)
-                count += 1
-        if count:
-            logger.info(
-                "Seeded %d light-stub projects from checkpoint (skipped by early termination).",
-                count,
             )
 
     def _enrich_lineage(self, connections_by_id: Dict[str, Any]) -> None:

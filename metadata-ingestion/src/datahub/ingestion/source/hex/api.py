@@ -361,19 +361,12 @@ class HexApi:
         include_components: bool = True,
         include_archived: bool = False,
         include_trashed: bool = False,
-        stop_before_ms: Optional[int] = None,
     ) -> Generator[Union[Project, Component], None, None]:
-        """Fetch all projects and components, sorted newest-first.
-
-        Sorting by LAST_EDITED_AT DESC enables early termination on incremental
-        runs: once a page's last item is older than stop_before_ms (the previous
-        checkpoint timestamp) everything after it is guaranteed unchanged and
-        pagination stops. This reduces listing from O(total) to O(changed) per
-        incremental run.
+        """Fetch all projects and components.
 
         https://learn.hex.tech/docs/api/api-reference#operation/ListProjects
         """
-        params = {
+        params: Dict[str, Any] = {
             "includeComponents": include_components,
             "includeArchived": include_archived,
             "includeTrashed": include_trashed,
@@ -384,15 +377,15 @@ class HexApi:
             "sortBy": "LAST_EDITED_AT",
             "sortDirection": "DESC",
         }
-        yield from self._fetch_projects_page(params, stop_before_ms)
+        yield from self._fetch_projects_page(params)
         while params["after"]:
-            yield from self._fetch_projects_page(params, stop_before_ms)
+            yield from self._fetch_projects_page(params)
 
     @_api_call("list_projects.pages")
     def _fetch_projects_page(
-        self, params: Dict[str, Any], stop_before_ms: Optional[int] = None
+        self, params: Dict[str, Any]
     ) -> Generator[Union[Project, Component], None, None]:
-        """Yields items from one page. Sets params["after"]=None on early termination."""
+        """Yields items from one page."""
         logger.debug(f"Fetching projects page with params: {params}")
         try:
             response = self.session.get(
@@ -413,19 +406,7 @@ class HexApi:
 
             for item in api_response.values:
                 try:
-                    ret = self._map_data_from_model(item)
-                    yield ret
-                    # Early termination: results are sorted LAST_EDITED_AT DESC so
-                    # once we see an item older than the checkpoint everything after
-                    # it is also older — stop paginating.
-                    if stop_before_ms and item.last_edited_at:
-                        if int(item.last_edited_at.timestamp() * 1000) < stop_before_ms:
-                            logger.info(
-                                "Incremental: reached projects older than checkpoint "
-                                "— stopping pagination early."
-                            )
-                            params["after"] = None  # prevent outer loop continuing
-                            return
+                    yield self._map_data_from_model(item)
                 except Exception as e:
                     self.report.warning(
                         title="Incomplete metadata",
