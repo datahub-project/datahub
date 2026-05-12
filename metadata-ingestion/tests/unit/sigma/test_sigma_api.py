@@ -833,6 +833,7 @@ class TestGetElementInputDetails:
         )
         source._warned_unvalidated_platforms = set()  # type: ignore[misc]
         source._no_platform_map_conn_ids = set()  # type: ignore[misc]
+        source._ambiguous_table_name_warned = set()  # type: ignore[misc]
         return source
 
     def test_warehouse_table_upstream_emits_entity_level_input(self) -> None:
