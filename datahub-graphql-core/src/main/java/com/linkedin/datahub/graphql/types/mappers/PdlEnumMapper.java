@@ -25,7 +25,7 @@ public final class PdlEnumMapper {
   public static <T extends Enum<T>> T map(
       @Nonnull Class<T> graphqlEnum, @Nonnull Enum<?> pdlValue, @Nonnull T defaultValue) {
     try {
-      return Enum.valueOf(graphqlEnum, pdlValue.toString());
+      return Enum.valueOf(graphqlEnum, pdlValue.name());
     } catch (IllegalArgumentException e) {
       log.warn(
           "Unmapped PDL enum value '{}' for {}; falling back to {}",
@@ -41,7 +41,7 @@ public final class PdlEnumMapper {
   public static <T extends Enum<T>> T mapDefaultNull(
       @Nonnull Class<T> graphqlEnum, @Nonnull Enum<?> pdlValue) {
     try {
-      return Enum.valueOf(graphqlEnum, pdlValue.toString());
+      return Enum.valueOf(graphqlEnum, pdlValue.name());
     } catch (IllegalArgumentException e) {
       log.warn(
           "Unmapped PDL enum value '{}' for {}; falling back to null",

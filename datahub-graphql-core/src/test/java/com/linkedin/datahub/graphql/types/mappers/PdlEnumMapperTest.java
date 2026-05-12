@@ -16,7 +16,13 @@ public class PdlEnumMapperTest {
 
   private enum FakePdlEnum {
     KNOWN_VALUE,
-    $UNKNOWN
+    UNKNOWN_WITH_CUSTOM_TO_STRING,
+    $UNKNOWN;
+
+    @Override
+    public String toString() {
+      return this == UNKNOWN_WITH_CUSTOM_TO_STRING ? "UNKNOWN" : name();
+    }
   }
 
   @Test
@@ -31,6 +37,14 @@ public class PdlEnumMapperTest {
     OriginType result =
         PdlEnumMapper.map(OriginType.class, FakePdlEnum.KNOWN_VALUE, OriginType.UNKNOWN);
     assertEquals(result, OriginType.UNKNOWN);
+  }
+
+  @Test
+  public void testMapUsesEnumNameNotToString() {
+    OriginType result =
+        PdlEnumMapper.map(
+            OriginType.class, FakePdlEnum.UNKNOWN_WITH_CUSTOM_TO_STRING, OriginType.NATIVE);
+    assertEquals(result, OriginType.NATIVE);
   }
 
   @Test
