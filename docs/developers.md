@@ -245,7 +245,7 @@ Three Maven repositories are used during the build:
 | `datahub.dependencies.maven.confluent`          | `https://packages.confluent.io/maven/`               | Kafka and Schema Registry packages |
 | `datahub.dependencies.maven.linkedinOpenSource` | `https://linkedin.jfrog.io/artifactory/open-source/` | Pegasus and GMA artifacts          |
 
-The defaults are defined in the root [`gradle.properties`](../../gradle.properties) file, which is the canonical reference.
+The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
 
 **Override options (in order of precedence):**
 
