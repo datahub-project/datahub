@@ -285,7 +285,7 @@ The frontend build downloads a pinned Node.js binary from `https://nodejs.org/di
 | --------------------------------------- | ------------------------- | ------------------------------------- |
 | `datahub.dependencies.node.distBaseUrl` | `https://nodejs.org/dist` | Base URL for Node.js binary downloads |
 
-The default is defined in [`gradle.properties`](../../gradle.properties).
+The default is defined in `gradle.properties`
 
 **Override options (in order of precedence):**
 
@@ -320,7 +320,7 @@ Docker images are built on Alpine/Wolfi Linux. Override the APK package reposito
 | ---------------------------------- | -------------------------------- | ---------------------------------------- |
 | `datahub.dependencies.apkrepo.url` | `https://apk.cgr.dev/chainguard` | APK repository URL used in Docker builds |
 
-The default is defined in [`gradle.properties`](../../gradle.properties).
+The default is defined in `gradle.properties`
 
 **Override options (in order of precedence):**
 
@@ -354,7 +354,7 @@ Override this URL to point to an internal mirror for airgapped or corporate envi
 | ------------------------------------- | -------------------- | --------------------------------------------------- |
 | `datahub.dependencies.github.baseURL` | `https://github.com` | GitHub base URL used in Docker builds for JVM tools |
 
-The default is defined in [`gradle.properties`](../../gradle.properties).
+The default is defined in `gradle.properties`
 
 **Override options (in order of precedence):**
 
