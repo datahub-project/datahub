@@ -30,7 +30,7 @@ Read on if you are interested in ingesting Snowflake metadata using the **datahu
 
 ## Concept Mapping
 
-| Snowflake Concept               | DataHub Concept                                              | Notes                                                                                                                               |
+| Snowflake Concept               | DataHub Entity (Subtype)                                     | Notes                                                                                                                               |
 | ------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
 | Account                         | Platform Instance                                            | Top-level scope; all URNs include the configured platform instance.                                                                 |
 | Database                        | Container (DATABASE)                                         | Top-level namespace. Ingested with description, tags, and Snowsight URL.                                                            |
