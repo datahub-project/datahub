@@ -457,8 +457,18 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
     for (SearchHit hit : searchHits) {
-      // Build base SearchEntity
-      SearchEntity entity = getResult(hit);
+      // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
+      SearchEntity entity;
+      try {
+        entity = getResult(hit);
+      } catch (Exception e) {
+        log.warn(
+            "Skipping scroll hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
+            hit.getIndex(),
+            hit.getId(),
+            e.getMessage());
+        continue;
+      }
       // Compute per-hit scrollId using this hit's sort values
       Object[] sort = hit.getSortValues();
       String perHitScrollId =
@@ -607,7 +617,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   /**
-   * Gets list of entities returned in the search response
+   * Gets list of entities returned in the search response, skipping any hits with missing or
+   * invalid URN fields (e.g. documents created by older bootstrap code) instead of crashing the
+   * entire search operation.
    *
    * @param searchResponse the raw search response from search engine
    * @return List of search entities
@@ -615,11 +627,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
   @Nonnull
   private Collection<SearchEntity> getRestrictedResults(
       @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
-    return ESAccessControlUtil.restrictSearchResult(
-        opContext,
+    List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
-            .map(this::getResult)
-            .collect(Collectors.toList()));
+            .flatMap(
+                hit -> {
+                  try {
+                    return Stream.of(getResult(hit));
+                  } catch (Exception e) {
+                    log.warn(
+                        "Skipping search hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
+                        hit.getIndex(),
+                        hit.getId(),
+                        e.getMessage());
+                    return Stream.empty();
+                  }
+                })
+            .collect(Collectors.toList());
+    return ESAccessControlUtil.restrictSearchResult(opContext, results);
   }
 
   @Nonnull
