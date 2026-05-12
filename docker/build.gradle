@@ -149,6 +149,15 @@ ext {
                             DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
                     ]
             ],
+            'quickstartDebugAi': [
+                    // Activate both 'debug' (core services) and 'debug-ai' (Ollama) profiles.
+                    profiles: ['debug', 'debug-ai'],
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
             'quickstartDebugAws': [
                     profile: 'debug-aws',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
@@ -307,7 +316,7 @@ ext {
     // Returns a map with 'taskName' and 'config' keys
     findTaskNameByProfile = { profile ->
         def matchingTask = quickstart_configs.find { taskName, config ->
-            config.isDebug && config.profile == profile
+            config.isDebug && (config.profile == profile || (config.profiles && config.profiles.contains(profile)))
         }
 
         if (matchingTask) {
@@ -385,7 +394,9 @@ dockerCompose {
     quickstart_configs.each { taskName, config ->
         "${taskName}" {
             isRequiredBy(tasks.named(taskName))
-            if (config.profile) {
+            if (config.profiles) {
+                composeAdditionalArgs = config.profiles.collectMany { ['--profile', it] }
+            } else if (config.profile) {
                 composeAdditionalArgs = ['--profile', config.profile]
             }
 
@@ -679,7 +690,8 @@ tasks.withType(ComposeUp).configureEach {
         def taskBaseName = name.replaceAll('ComposeUp$', '')
         def config = quickstart_configs[taskBaseName]
 
-        if (config?.profile) {
+        def primaryProfile = config?.profiles ? config.profiles[0] : config?.profile
+        if (primaryProfile) {
             // Get the compose file name and derive the profile tracking filename
             def composeFileName = new File(compose_base).getName()
             def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
@@ -689,9 +701,9 @@ tasks.withType(ComposeUp).configureEach {
             profileFile.getParentFile().mkdirs()
 
             // Write the profile name
-            profileFile.text = config.profile
+            profileFile.text = primaryProfile
 
-            logger.lifecycle("Captured profile '${config.profile}' to ${profileFile.absolutePath}")
+            logger.lifecycle("Captured profile '${primaryProfile}' to ${profileFile.absolutePath}")
         }
     }
 }

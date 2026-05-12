@@ -75,7 +75,6 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
     endpoint: RestSinkEndpoint = DEFAULT_REST_EMITTER_ENDPOINT
     server_config_refresh_interval: Optional[int] = None
-    tcp_keepalive: bool = False
 
     # These only apply in async modes.
     max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS

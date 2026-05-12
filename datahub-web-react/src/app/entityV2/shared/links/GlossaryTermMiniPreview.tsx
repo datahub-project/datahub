@@ -1,4 +1,4 @@
-import * as Muicon from '@mui/icons-material';
+import Book from '@mui/icons-material/Book';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -57,14 +57,12 @@ export const GlossaryTermMiniPreview = ({ glossaryTerm }: { glossaryTerm: Glossa
     const termColor = lastParentNode
         ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
         : generateColor(urn);
-    const MaterialIcon = Muicon.Book;
-
     return (
         <Link to={url}>
             <HoverEntityTooltip entity={glossaryTerm} showArrow={false} placement="bottom">
                 <GlossaryTermMiniPreviewContainer color={termColor}>
                     <span>
-                        <MaterialIcon
+                        <Book
                             style={{ verticalAlign: 'bottom', fontSize: 22, paddingRight: 6 }}
                             fontSize="large"
                             // sx={{ px: 1 }}

@@ -241,9 +241,9 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Smart Assertions ⚡ (Anomaly Detection)",
+              label: "Anomaly Detection ⚡",
               type: "doc",
-              id: "docs/managed-datahub/observe/smart-assertions",
+              id: "docs/managed-datahub/observe/anomaly-detection",
               className: "saasOnly",
             },
             {
@@ -318,6 +318,12 @@ module.exports = {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
+            },
+            {
+              label: "Knowledge Catalog Metadata Sync",
+              type: "doc",
+              id: "docs/automations/knowledge-catalog-metadata-sync",
               className: "saasOnly",
             },
             {
@@ -1365,6 +1371,8 @@ module.exports = {
         "datahub-web-react/src/app/analytics/README",
         // "smoke-test/test_resources/analytics_backfill/README",
         "docker/datahub-upgrade/README",
+        "docs/docker/bundled-ingestion-venvs",
+        "docs/docker/ingestion-executor-security",
         "metadata-ingestion/adding-source",
         "docs/how/add-custom-ingestion-source",
         "docs/how/add-custom-data-platform",

@@ -15,7 +15,7 @@ from typing import (
     Type,
     TypeVar,
 )
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import requests
 from pydantic import BaseModel, ValidationError
@@ -28,6 +28,7 @@ from datahub.ingestion.source.sigma.config import (
     SigmaSourceReport,
 )
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     DataModelElementUpstream,
     DatasetUpstream,
     Element,
@@ -39,7 +40,9 @@ from datahub.ingestion.source.sigma.data_classes import (
     SigmaDataModelColumn,
     SigmaDataModelElement,
     SigmaDataset,
+    WarehouseInodeRaw,
     Workbook,
+    WorkbookLineageTableEntry,
     Workspace,
 )
 
@@ -261,6 +264,17 @@ class SigmaAPI:
             )
             return {}
 
+    def get_connections(self) -> List[Dict[str, Any]]:
+        """Fetch all Sigma Connections (paginated). Returns raw API payloads.
+
+        Mapping to SigmaConnectionRecord happens in
+        connection_registry.SigmaConnectionRegistry.build().
+        """
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/connections",
+            "Unable to fetch Sigma connections.",
+        )
+
     def get_sigma_datasets(self) -> List[SigmaDataset]:
         logger.debug("Fetching all accessible datasets metadata.")
         dataset_url = url = f"{self.config.api_url}/datasets"
@@ -408,6 +422,8 @@ class SigmaAPI:
             queue.append(source_node_id)  # pass-through
         elif source_type == "table":
             pass  # terminal; warehouse lineage comes from SQL parsing
+        elif source_type == "customSQL":
+            pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
         else:
             # Warn once per unknown source_type to avoid log spam.
             warn_key = source_type if isinstance(source_type, str) else "<non-str>"
@@ -987,6 +1003,26 @@ class SigmaAPI:
                 existing["sourceIds"] = merged
         return deduped
 
+    def get_workbook_lineage_entries(self, workbook_id: str) -> List[Dict[str, Any]]:
+        """Return raw entries from GET /v2/workbooks/{id}/lineage.
+
+        ``customSQL`` entries carry the SQL definition; ``element`` entries
+        carry ``elementId`` + ``sourceIds`` pointing at customSQL names.
+
+        Sigma returns 400 (not 404) for workbooks that have no lineage graph at
+        all (empirically observed — workbooks whose only sources are non-SQL
+        warehouse tables never have a /lineage endpoint and return 400).
+        403/404 cover permission-scoped views and deleted workbooks.  5xx is
+        intentionally *not* silenced: a degraded Sigma API would otherwise
+        produce zero lineage aspects with zero warnings.
+        """
+        logger.debug(f"Fetching lineage for workbook '{workbook_id}'.")
+        return self._paginated_raw_entries(
+            f"{self.config.api_url}/workbooks/{workbook_id}/lineage",
+            f"Unable to fetch lineage for workbook '{workbook_id}'.",
+            silent_statuses=(400, 403, 404),
+        )
+
     def _assemble_data_model(
         self,
         data_model: SigmaDataModel,
@@ -1045,6 +1081,11 @@ class SigmaAPI:
                 continue
             columns_by_element.setdefault(column.elementId, []).append(column)
 
+        # Reset before populating so repeated _assemble_data_model calls
+        # (e.g. during alias discovery) cannot accumulate stale entries.
+        data_model.source_dm_element_names = {}
+        data_model.warehouse_inodes_by_inode_id = {}
+        data_model.custom_sql_by_name = {}
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -1055,15 +1096,227 @@ class SigmaAPI:
                     source_ids_by_element[element_id] = [
                         s for s in source_ids if isinstance(s, str)
                     ]
-            # ``type: dataset`` / ``type: table`` entries are resolved
-            # on the fly from their ``inode-<id>`` source_ids; no DM-side
-            # stash is needed.
+            elif entry_type == "data-model":
+                # Each ``data-model`` entry names the specific element consumed
+                # from a source DM.  Stash by source dataModelId so
+                # ``_resolve_dm_element_cross_dm_upstream`` can look up the
+                # correct source element name without relying on the consuming
+                # element sharing that name.
+                src_dm_id = entry.get("dataModelId")
+                src_name = entry.get("name")
+                if (
+                    isinstance(src_dm_id, str)
+                    and src_dm_id
+                    and isinstance(src_name, str)
+                    and src_name.strip()
+                ):
+                    data_model.source_dm_element_names.setdefault(src_dm_id, []).append(
+                        src_name.strip()
+                    )
+            elif entry_type == "table":
+                # Stash raw warehouse-table nodes keyed by inodeId so
+                # SigmaSource can call /files/{inodeId} for the urlId + path
+                # needed to construct fully-qualified warehouse Dataset URNs.
+                inode_id = str(entry.get("inodeId") or "")
+                conn_id = str(entry.get("connectionId") or "")
+                if not (inode_id and conn_id):
+                    self.report.dm_element_warehouse_table_entry_incomplete += 1
+                    missing = [
+                        f
+                        for f, v in (
+                            ("inodeId", inode_id),
+                            ("connectionId", conn_id),
+                        )
+                        if not v
+                    ]
+                    self.report.warning(
+                        title="Sigma type=table lineage entry is incomplete",
+                        message=(
+                            "A type=table lineage entry is missing inodeId or "
+                            "connectionId. Warehouse upstream skipped."
+                        ),
+                        context=(
+                            f"dm={data_model.dataModelId}, missing_fields={missing}"
+                        ),
+                    )
+                    continue
+                raw: WarehouseInodeRaw = {"connectionId": conn_id}
+                data_model.warehouse_inodes_by_inode_id[inode_id] = raw
+            elif entry_type in ("customSQL", "customSql"):
+                name = entry.get("name")
+                if isinstance(name, str) and name:
+                    # Sigma's API normally guarantees unique entry names within
+                    # a DM.  A collision here means a payload anomaly; last
+                    # entry wins so downstream elements still resolve (with a
+                    # warning so operators can investigate).
+                    if name in data_model.custom_sql_by_name:
+                        self.report.warning(
+                            title="Sigma DM customSQL duplicate entry name",
+                            message="Two customSQL lineage entries share the same name; later entry overwrites earlier — elements sourcing the earlier entry will get the wrong SQL.",
+                            context=f"dataModelId={data_model.dataModelId!r}, name={name!r}",
+                        )
+                    data_model.custom_sql_by_name[name] = CustomSqlEntry.model_validate(
+                        entry
+                    )
+                else:
+                    self.report.warning(
+                        title="Sigma DM customSQL entry missing name",
+                        message="A customSQL lineage entry has a missing or non-string name field; it will be skipped and any elements referencing it will have no warehouse lineage.",
+                        context=f"dataModelId={data_model.dataModelId!r}, entry_keys={sorted(entry.keys())!r}",
+                    )
+            # ``type: dataset`` entries (CSV uploads) are terminal.
 
         for element in elements:
             element.columns = columns_by_element.get(element.elementId, [])
             element.source_ids = source_ids_by_element.get(element.elementId, [])
 
         data_model.elements = elements
+
+    def get_file_metadata(self, inode_id: str) -> Optional[Dict[str, Any]]:
+        """Fetch /files/{inodeId} and return the raw JSON dict, or None on
+        non-200 or exception.  Resolves a warehouse-table lineage ``inodeId``
+        (UUID) to its ``urlId`` (alphanumeric slug) and file-system ``path``
+        (``Connection Root/<DB>/<SCHEMA>`` for Snowflake; shape for other
+        platforms is unverified — see TODO in _build_dm_warehouse_url_id_map).
+
+        Callers are responsible for caching; this method always makes a live
+        HTTP call so the instance-level cache on ``SigmaSource`` can be shared
+        across multiple callers without duplicating retry/error logic here.
+
+        Error handling mirrors ``get_data_model_by_url_id``: 429 gets a
+        dedicated counter + warning; other non-200 statuses and exceptions
+        emit a rate-limited structured warning so operators can distinguish
+        rate-limiting from missing-scope (403/404) from server errors (5xx).
+        """
+        logger.debug("Fetching file metadata for inode '%s'.", inode_id)
+        url = f"{self.config.api_url}/files/{quote(inode_id, safe='')}"
+        try:
+            response = self._get_api_call(url)
+            if response.status_code == 200:
+                return response.json()
+            status = response.status_code
+            if status == 429:
+                self.report.dm_element_warehouse_table_lookup_rate_limited += 1
+                self.report.warning(
+                    title="Sigma API rate-limited on /files lookup",
+                    message=(
+                        "Retry budget exhausted on a 429 response for a /files inode lookup. "
+                        "Warehouse upstream will be missing for this inode. "
+                        "Re-run the ingestion to recover."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
+                )
+            else:
+                self.report.warning(
+                    title="Sigma /files lookup returned non-200",
+                    message=(
+                        "Unable to resolve warehouse table metadata for an inode. "
+                        "Warehouse upstream will be missing."
+                    ),
+                    context=f"inode_id={inode_id}, http_status={status}",
+                )
+            return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /files lookup failed",
+                message="Exception while fetching file metadata for an inode; warehouse upstream skipped.",
+                context=f"inode_id={inode_id}",
+                exc=e,
+            )
+            return None
+
+    def get_workbook_lineage(
+        self, workbook_id: str
+    ) -> Optional[List[WorkbookLineageTableEntry]]:
+        """Fetch /v2/workbooks/{workbook_id}/lineage and return parsed type=table
+        entries, or None on non-200/exception.
+
+        Non-table entries (type=dataset/customSQL/element) are silently skipped.
+        Table entries missing required fields emit a structured warning and are
+        skipped; they do not cause the whole call to fail.
+
+        Error handling: 404 is treated as a silent None (workbook deleted
+        since listing). 429 and other non-200 statuses emit a structured
+        warning; failures return None so the caller can increment
+        chart_input_fields_warehouse_index_lookup_failed. Paginated to
+        handle workbooks with large lineage graphs.
+        """
+        logger.debug("Fetching workbook lineage for workbook '%s'.", workbook_id)
+        base_url = (
+            f"{self.config.api_url}/workbooks/{quote(workbook_id, safe='')}/lineage"
+        )
+        all_entries: List[WorkbookLineageTableEntry] = []
+        url = base_url
+        try:
+            while True:
+                response = self._get_api_call(url)
+                if response.status_code == 200:
+                    data = response.json()
+                    for raw in data.get("entries") or []:
+                        if raw.get("type") != "table":
+                            logger.debug(
+                                "Workbook %s: skipping lineage entry with type %r.",
+                                workbook_id,
+                                raw.get("type"),
+                            )
+                            continue
+                        try:
+                            all_entries.append(
+                                WorkbookLineageTableEntry.model_validate(raw)
+                            )
+                        except ValidationError:
+                            self.report.warning(
+                                title="Sigma workbook lineage type=table entry missing required fields",
+                                message=(
+                                    "A type=table lineage entry is missing one or more "
+                                    "required fields (name, connectionId, inodeId). "
+                                    "Warehouse table index entry skipped."
+                                ),
+                                context=f"workbook_id={workbook_id}, entry={raw}",
+                            )
+                    next_page = data.get("nextPage")
+                    if not next_page:
+                        return all_entries
+                    sep = "&" if "?" in base_url else "?"
+                    url = f"{base_url}{sep}page={next_page}"
+                    continue
+                status = response.status_code
+                if status == 404:
+                    # Workbook may have been deleted between listing and lineage fetch.
+                    return None
+                if status == 429:
+                    self.report.warning(
+                        title="Sigma API rate-limited on /workbooks/{id}/lineage",
+                        message=(
+                            "Retry budget exhausted on a 429 response for workbook "
+                            "lineage lookup. Chart formula warehouse resolution will "
+                            "be incomplete for this workbook. Re-run the ingestion "
+                            "to recover."
+                        ),
+                        context=f"workbook_id={workbook_id}, http_status={status}",
+                    )
+                else:
+                    self.report.warning(
+                        title="Sigma /workbooks/{id}/lineage returned non-200",
+                        message=(
+                            "Unable to fetch workbook lineage for warehouse table "
+                            "index. Chart formula warehouse resolution may be "
+                            "incomplete."
+                        ),
+                        context=f"workbook_id={workbook_id}, http_status={status}",
+                    )
+                return None
+        except Exception as e:
+            self.report.warning(
+                title="Sigma /workbooks/{id}/lineage lookup failed",
+                message=(
+                    "Exception while fetching workbook lineage; warehouse table "
+                    "index skipped for this workbook."
+                ),
+                context=f"workbook_id={workbook_id}",
+                exc=e,
+            )
+            return None
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space

@@ -255,7 +255,7 @@ bigquery_common = {
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     *path_spec_common,
 }
 
@@ -491,10 +491,13 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI); pin >=1.83.0 for CVE-2026-35030
-    "litellm==1.83.0",
-    # AWS SDK for Bedrock embedding support
+    # AWS SDK for Bedrock embedding support (SigV4 + AWS credential chain).
+    # OpenAI, Cohere, and the local provider all hit raw HTTP endpoints via
+    # `requests` (already required by acryl-datahub) — no SDKs needed.
     *aws_common,
+    # google-auth handles ADC / OAuth refresh for Vertex AI; the Vertex
+    # :predict call itself goes over plain HTTP.
+    "google-auth>=2.0.0,<3.0.0",
 }
 
 unstructured_lib = {
@@ -563,7 +566,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/jd/tenacity/issues/471
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-        "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+        "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
@@ -580,7 +583,9 @@ plugins: Dict[str, Set[str]] = {
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
-    },
+    }
+    | sqlglot_lib
+    | usage_common,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -671,6 +676,12 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
+    "informatica": {
+        "requests<3.0.0",
+        # Safe XML parsing for IDMC v3 Export .TASKFLOW.xml payloads
+        # (blocks billion-laughs / external-entity attacks).
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -788,9 +799,16 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
+    # dlt is the backing client lib used to read pipeline state. The connector
+    # falls back to direct YAML parsing when dlt is not importable, but in
+    # normal use we expect users opting into the dlt extra to want the SDK
+    # path (richer metadata, run history support).
+    "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
-    "sigma": sqlglot_lib | {"requests<3.0.0"},
+    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
+    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
+    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -925,6 +943,7 @@ base_dev_requirements = {
             "datahub-documents",
             "dataplex",
             "delta-lake",
+            "dlt",
             "dremio",
             "druid",
             "elasticsearch",
@@ -1125,6 +1144,7 @@ entry_points = {
         "powerbi = datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource",
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
+        "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
@@ -1136,6 +1156,7 @@ entry_points = {
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
+        "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",

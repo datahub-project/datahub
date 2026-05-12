@@ -387,6 +387,10 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 | `ELASTIC_ID_HASH_ALGO`                     | `MD5`           | ID hash algorithm                                            | GMS, MAE Consumer, MCE Consumer, System Update |
 | `ELASTICSEARCH_DATA_NODE_COUNT`            | `1`             | Number of Elasticsearch data nodes                           | GMS, MAE Consumer, MCE Consumer, System Update |
 
+#### MAE consumer (`metadata-jobs/mae-consumer-job`)
+
+The MAE consumer runs in **its own** process and shares the same `ESBulkProcessor` / `searchClientShim` wiring as GMS. **By-query** `RequestOptions` use **`ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS`** for both GMS and MAE (not separate MAE overrides). **MAE-only** tuning is RestClient-oriented: **`MAE_ELASTICSEARCH_SOCKET_TIMEOUT`**, **`MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT`**, etc. **`ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`** applies only to **system-update / build-indices** (`elasticsearch.buildIndices`). [`docker/datahub-mae-consumer/env/docker.env`](../../docker/datahub-mae-consumer/env/docker.env) sets longer values than generic quickstart defaults where appropriate.
+
 #### SSL Context Configuration
 
 | Environment Variable                    | Default | Description                      | Components                                     |
@@ -403,22 +407,23 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 #### Bulk Operations Configuration
 
-| Environment Variable           | Default   | Description                   | Components        |
-| ------------------------------ | --------- | ----------------------------- | ----------------- |
-| `ES_BULK_DELETE_BATCH_SIZE`    | `5000`    | Bulk delete batch size        | GMS, MAE Consumer |
-| `ES_BULK_DELETE_SLICES`        | `auto`    | Bulk delete slices            | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_INTERVAL` | `30`      | Bulk delete poll interval     | GMS, MAE Consumer |
-| `ES_BULK_DELETE_POLL_UNIT`     | `SECONDS` | Bulk delete poll unit         | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT`       | `30`      | Bulk delete timeout           | GMS, MAE Consumer |
-| `ES_BULK_DELETE_TIMEOUT_UNIT`  | `MINUTES` | Bulk delete timeout unit      | GMS, MAE Consumer |
-| `ES_BULK_DELETE_NUM_RETRIES`   | `3`       | Bulk delete number of retries | GMS, MAE Consumer |
-| `ES_BULK_ASYNC`                | `true`    | Enable async bulk operations  | GMS, MAE Consumer |
-| `ES_BULK_REQUESTS_LIMIT`       | `1000`    | Bulk requests limit           | GMS, MAE Consumer |
-| `ES_BULK_FLUSH_PERIOD`         | `1`       | Bulk flush period             | GMS, MAE Consumer |
-| `ES_BULK_NUM_RETRIES`          | `3`       | Bulk number of retries        | GMS, MAE Consumer |
-| `ES_BULK_RETRY_INTERVAL`       | `1`       | Bulk retry interval           | GMS, MAE Consumer |
-| `ES_BULK_REFRESH_POLICY`       | `NONE`    | Bulk refresh policy           | GMS, MAE Consumer |
-| `ES_BULK_ENABLE_BATCH_DELETE`  | `false`   | Enable batch delete           | GMS, MAE Consumer |
+| Environment Variable                                         | Default   | Description                                                                                                                                                                           | Components        |
+| ------------------------------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `ES_BULK_DELETE_BATCH_SIZE`                                  | `5000`    | Bulk delete batch size                                                                                                                                                                | GMS, MAE Consumer |
+| `ES_BULK_DELETE_SLICES`                                      | `auto`    | Bulk delete slices                                                                                                                                                                    | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_INTERVAL`                               | `30`      | Bulk delete poll interval                                                                                                                                                             | GMS, MAE Consumer |
+| `ES_BULK_DELETE_POLL_UNIT`                                   | `SECONDS` | Bulk delete poll unit                                                                                                                                                                 | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT`                                     | `30`      | Bulk delete timeout                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_DELETE_TIMEOUT_UNIT`                                | `MINUTES` | Bulk delete timeout unit                                                                                                                                                              | GMS, MAE Consumer |
+| `ES_BULK_DELETE_NUM_RETRIES`                                 | `3`       | Bulk delete number of retries                                                                                                                                                         | GMS, MAE Consumer |
+| `ES_BULK_ASYNC`                                              | `true`    | Enable async bulk operations                                                                                                                                                          | GMS, MAE Consumer |
+| `ES_BULK_REQUESTS_LIMIT`                                     | `1000`    | Bulk requests limit                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_FLUSH_PERIOD`                                       | `1`       | Bulk flush period                                                                                                                                                                     | GMS, MAE Consumer |
+| `ES_BULK_NUM_RETRIES`                                        | `3`       | Bulk number of retries                                                                                                                                                                | GMS, MAE Consumer |
+| `ES_BULK_RETRY_INTERVAL`                                     | `1`       | Bulk retry interval                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_REFRESH_POLICY`                                     | `NONE`    | Bulk refresh policy                                                                                                                                                                   | GMS, MAE Consumer |
+| `ES_BULK_ENABLE_BATCH_DELETE`                                | `false`   | Enable batch delete                                                                                                                                                                   | GMS, MAE Consumer |
+| `ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS` | `180`     | Seconds; shared by-query `RequestOptions` on `ESBulkProcessor` (delete/update-by-query) for **GMS and MAE**; maps to `elasticsearch.bulkProcessor.slowByQueryOperationTimeoutSeconds` | GMS, MAE Consumer |
 
 #### Index Configuration
 
@@ -429,30 +434,31 @@ When using traditional username/password authentication, both `CREATE_USER_USERN
 
 #### Build Indices Configuration
 
-| Environment Variable                                            | Default                          | Description                                                          | Components    |
-| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------- | ------------- |
-| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                        | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                           | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                            | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)          | System Update |
-| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex | System Update |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                | System Update |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                         | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                      | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                       | System Update |
-| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                             | System Update |
-| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                              | System Update |
-| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                             | System Update |
-| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                       | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                              | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                               | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                     | System Update |
-| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                         | System Update |
-| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                            | System Update |
+| Environment Variable                                            | Default                          | Description                                                                                                                                                          | Components         |
+| --------------------------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
+| `ELASTICSEARCH_BUILD_INDICES_ALLOW_DOC_COUNT_MISMATCH`          | `false`                          | Allow document count mismatch when clone indices is enabled                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_CLONE_INDICES`                     | `true`                           | Clone indices                                                                                                                                                        | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`                    | `DAYS`                           | Retention unit for indices                                                                                                                                           | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`                   | `60`                             | Retention value for indices                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED`      | `true`                           | Enable reindex optimization                                                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE`                | `5000`                           | Documents per scroll batch during reindex                                                                                                                            | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES`                | `256`                            | Maximum parallel reindex slices (capped from target shards)                                                                                                          | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES` | `5`                              | Minutes without document-count progress before re-triggering reindex                                                                                                 | System Update      |
+| `ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS`    | `180`                            | Seconds; HTTP socket timeout for slow **build-indices** / system-update operations (`ESIndexBuilder`, reindex, count, tasks—not `ESBulkProcessor` by-query defaults) | GMS, System Update |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                            | `${elasticsearch.dataNodeCount}` | Number of shards per index, defaults to dataNodeCount                                                                                                                | System Update      |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`                          | `1`                              | Number of replicas per index                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_NUM_RETRIES`                       | `3`                              | Index builder number of retries                                                                                                                                      | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS`          | `3`                              | Index builder refresh interval                                                                                                                                       | System Update      |
+| `SEARCH_DOCUMENT_MAX_ARRAY_LENGTH`                              | `1000`                           | Maximum array length in search documents                                                                                                                             | System Update      |
+| `SEARCH_DOCUMENT_MAX_OBJECT_KEYS`                               | `1000`                           | Maximum object keys in search documents                                                                                                                              | System Update      |
+| `SEARCH_DOCUMENT_MAX_VALUE_LENGTH`                              | `4096`                           | Maximum value length in search documents                                                                                                                             | System Update      |
+| `ELASTICSEARCH_MAIN_TOKENIZER`                                  | `null`                           | Main tokenizer                                                                                                                                                       | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`                  | `false`                          | Enable mappings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_REINDEX`                  | `false`                          | Enable settings reindex                                                                                                                                              | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS`                 | `0`                              | Maximum reindex hours (0 = no timeout)                                                                                                                               | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_SETTINGS_OVERRIDES`                | `null`                           | Index builder settings overrides                                                                                                                                     | System Update      |
+| `ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH`                        | `3`                              | Minimum search filter length                                                                                                                                         | System Update      |
+| `ELASTICSEARCH_INDEX_BUILDER_ENTITY_SETTINGS_OVERRIDES`         | `null`                           | Entity settings overrides                                                                                                                                            | System Update      |
 
 #### Search Configuration
 

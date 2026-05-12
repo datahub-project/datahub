@@ -117,6 +117,7 @@ ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -131,6 +132,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -159,6 +161,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -173,6 +176,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -201,6 +205,7 @@ ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -215,6 +220,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -242,7 +248,24 @@ FROM ingestion-base-full AS final-full
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="false"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
@@ -298,7 +321,24 @@ FROM ingestion-base-slim AS final-slim
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
+
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
@@ -353,6 +393,13 @@ FROM ingestion-base-slim AS final-locked
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
@@ -401,7 +448,11 @@ RUN chmod 755 /tmp/strip_pip_uv_from_venvs.sh
 USER datahub
 RUN sh /tmp/strip_pip_uv_from_venvs.sh
 USER 0
-RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv
+# py3-pip-wheel pulls in a bootstrap pip wheel; it cannot be apk-removed while python-* is
+# installed. Locked images strip pip/uv and block network — delete the wheel file only here
+# (CVE-2026-3219: bundled pip wheel surface).
+RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv && \
+    rm -f /usr/share/python-wheels/pip-*.whl
 USER datahub
 
 # Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.

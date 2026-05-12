@@ -205,6 +205,30 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # for those workbooks may be missing columns that appear after the failure.
     column_formulas_fetch_partial: int = 0
 
+    # Workbook-lineage warehouse table index for chart formula resolution.
+    # A chart's inputFields[].schemaFieldUrn was resolved against a warehouse
+    # table entry in the merged (per-element + per-workbook) index. Sub-category
+    # of chart_input_fields_resolved.
+    chart_input_fields_warehouse_qualified: int = 0
+    # Resolved specifically by an entry from the workbook-level index (not the
+    # per-element SQL-parser index) — quantifies the added coverage beyond what
+    # the SQL parser resolves per element.
+    chart_input_fields_warehouse_qualified_via_workbook_index: int = 0
+    # /v2/workbooks/{id}/lineage returned None (5xx / network error). 404 is
+    # handled silently (workbook deleted since listing).
+    chart_input_fields_warehouse_index_lookup_failed: int = 0
+    # /v2/files/{inodeId} returned None for a workbook-lineage type=table inode.
+    # Only incremented on first failure per inode — the /files cache is shared
+    # with the DM element path.
+    chart_input_fields_warehouse_table_lookup_failed: int = 0
+    # /files path didn't parse as Connection Root/<DB>/<SCHEMA>.
+    # Only incremented on first occurrence per inode — _files_path_unparseable_seen
+    # is shared with the DM element path.
+    chart_input_fields_warehouse_path_unparseable: int = 0
+    # connectionId not in registry, or is_mappable=False, for a workbook-lineage
+    # type=table entry.
+    chart_input_fields_warehouse_unknown_connection: int = 0
+
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
@@ -269,24 +293,40 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     data_model_element_columns_duplicate_fieldpath_dropped: int = 0
 
     # DM element column-level lineage (FGL) counters.
-    # How many FGL entries were emitted across all elements.
+    # Throughout: "DM" / "dm" = data model.
+    # Intra-DM FGL only; total FGL = fgl_emitted + fgl_cross_dm_resolved.
     data_model_element_fgl_emitted: int = 0
     # Refs where multiple sibling candidates passed the /lineage filter;
-    # sorted-first URN was chosen (matches T2 PR1's collision precedent).
+    # sorted-first URN was chosen (matches collision precedent).
     data_model_element_fgl_collision_pick_first: int = 0
     # Refs whose source element is outside this DM; deferred to cross-DM resolution.
     data_model_element_fgl_cross_dm_deferred: int = 0
-    # Refs where element-name matches the element's own warehouse-table name
-    # (e.g., element "data.csv" with formula "[data.csv/col]"). These are
-    # warehouse-passthrough passthroughs, not intra-DM self-edges; the actual
-    # upstream is the warehouse inode — out of RESOLVE-A scope.
+    # Warehouse-passthrough refs where columnId-based resolution failed.
+    # Fires for self-ref formulas (element name == formula source) AND for
+    # formulas where the source is the warehouse table name but resolution fails
+    # (e.g. inode-shaped columnId with /files miss or unmappable connection).
+    # Note: semantics changed in this release — previously this counter fired on
+    # every self-ref (a throughput signal); now it fires only on failure.
     data_model_element_fgl_warehouse_passthrough_deferred: int = 0
+    # Warehouse-passthrough FGL emitted via columnId (inode-<url_id>/<COL>).
+    # Covers both the self-ref case and the case where the formula source is
+    # the warehouse table name rather than the element name.
+    data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
     # /lineage; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Cross-DM FGL counters (DM = data model throughout).
+    # Refs resolved via global bridge index and emitted as cross-DM FGL.
+    # Resolution uses entity-level upstreams as a soft collision tiebreaker,
+    # not a hard gate — a resolved entry does not imply entity-level confirmation.
+    data_model_element_fgl_cross_dm_resolved: int = 0
+    # Refs where multiple cross-DM candidates share a name; sorted-first URN chosen.
+    data_model_element_fgl_cross_dm_collision_pick_first: int = 0
+    # Cross-DM refs whose column is absent from the resolved upstream element's schema.
+    data_model_element_fgl_cross_dm_dropped_unknown_upstream_column: int = 0
 
     # Entries dropped as duplicates by the pagination-level natural-key
     # dedup in ``_paginated_entries`` / lineage raw dedup. Normally 0;
@@ -301,6 +341,105 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     pagination_malformed_entries_dropped: int = 0
 
     element_dm_edge: ElementDmEdgeReport = field(default_factory=ElementDmEdgeReport)
+
+    # DM customSQL element SQL parsing counters.
+    # Elements skipped before aggregator registration (no definition, missing /
+    # unknown connection, unsupported platform, duplicate source_id).
+    dm_customsql_skipped: int = 0
+    dm_customsql_aggregator_invocations: int = 0
+    dm_customsql_aggregator_invocation_errors: int = 0
+    dm_customsql_parse_failed: int = 0
+    dm_customsql_upstream_emitted: int = 0
+    dm_customsql_column_lineage_emitted: int = 0
+    # FGL downstream fields dropped because the SQL column name had no matching
+    # Sigma display column (formula ref absent or element name mismatch).
+    dm_customsql_fgl_downstream_unmapped: int = 0
+
+    # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
+    workbook_customsql_skipped: int = 0
+    workbook_customsql_aggregator_invocations: int = 0
+    workbook_customsql_aggregator_invocation_errors: int = 0
+    workbook_customsql_parse_failed: int = 0
+    workbook_customsql_upstream_emitted: int = 0
+    workbook_customsql_column_lineage_emitted: int = 0
+    workbook_customsql_fgl_downstream_unmapped: int = 0
+
+    # Connection registry counters.
+    # Records whose Sigma type mapped to a known DataHub platform.
+    connections_resolved: int = 0
+    # Records whose Sigma type is not in the platform map -- non-zero is a
+    # signal to extend SIGMA_TYPE_TO_DATAHUB_PLATFORM_MAP.
+    connections_unmappable_type: int = 0
+    # Records dropped because they had no connectionId / id field.
+    connections_skipped_missing_id: int = 0
+    # Records whose connectionId collided with one already seen; later
+    # records overwrite earlier ones in by_id.
+    connections_duplicate_id: int = 0
+
+    # DM element -> warehouse table UpstreamLineage counters.
+    # Success: one per unique warehouse upstream URN emitted (post-dedup).
+    dm_element_warehouse_upstream_emitted: int = 0
+    # connectionId not in registry, or registry record has is_mappable=False.
+    # Note: this counter overlaps with data_model_element_upstreams_unresolved_external
+    # when both warehouse and SD resolution fail for the same source_id — the
+    # same edge is tallied in both buckets (warehouse failure sub-category +
+    # aggregate unresolved). This is intentional: the new counter sub-categorizes
+    # rather than replaces the existing one.
+    dm_element_warehouse_unknown_connection: int = 0
+    # /files/{inodeId} returned non-200 or raised an exception (first attempt
+    # per inode only; cache hits of a prior failure are not double-counted).
+    dm_element_warehouse_table_lookup_failed: int = 0
+    # Sub-bucket of table_lookup_failed: /files returned 429 after retries.
+    dm_element_warehouse_table_lookup_rate_limited: int = 0
+    # /files path could not be parsed as Connection Root/<DB>/<SCHEMA>.
+    dm_element_warehouse_path_unparseable: int = 0
+    # type=table lineage entry missing inodeId or name; skipped to avoid
+    # emitting a malformed URN.
+    dm_element_warehouse_table_entry_incomplete: int = 0
+
+
+class WarehouseConnectionConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
+    """Per-connection env / platform_instance overrides for warehouse URN construction.
+
+    Maps a Sigma connectionId to the env and platform_instance of the
+    corresponding DataHub warehouse connector run.  When a connection is not
+    listed, the Sigma source's own env is used and platform_instance defaults
+    to None — correct for single-env, single-instance deployments but
+    produces dangling lineage for multi-env or multi-instance setups.
+    """
+
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default database name for this connection. Used (a) to fill the "
+            "database layer when Sigma's /files path omits it (e.g. Redshift: "
+            "'Connection Root/SCHEMA') and (b) as the SQL parser fallback when "
+            "customSQL definitions reference unqualified tables. Set this to the "
+            "database name the warehouse connector uses so the emitted URNs match "
+            "(e.g. 'dev' to produce 'dev.public.table')."
+        ),
+    )
+
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description=(
+            "Default schema name for this connection. Used as the SQL parser "
+            "fallback when customSQL definitions reference unqualified tables. "
+            "Required for warehouses where Sigma's connection record does not "
+            "include a schema field."
+        ),
+    )
+    convert_urns_to_lowercase: bool = pydantic.Field(
+        default=True,
+        description=(
+            "Whether to lower-case warehouse identifiers when constructing "
+            "Dataset URNs. Must match the convert_urns_to_lowercase setting "
+            "used by the corresponding warehouse connector recipe. Defaults "
+            "to True (matching the Snowflake connector default). Set to False "
+            "if the warehouse source was ingested with "
+            "convert_urns_to_lowercase: false."
+        ),
+    )
 
 
 class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -356,6 +495,20 @@ class SigmaSourceConfig(
         default={},
         description="A mapping of the sigma workspace/workbook/chart folder path to all chart's data sources platform details present inside that folder path.",
     )
+    connection_to_platform_map: Dict[str, WarehouseConnectionConfig] = pydantic.Field(
+        default_factory=dict,
+        description=(
+            "Per-connection env / platform_instance overrides for warehouse URN "
+            "construction from DM element lineage. Keys are Sigma connectionIds "
+            "(visible in the Sigma admin UI or /v2/connections response). "
+            "When a connection is not listed, the Sigma source's own env is used "
+            "and platform_instance defaults to None, which is correct for "
+            "single-env, single-instance deployments. For multi-env or "
+            "multi-instance warehouse setups, add an entry here so the emitted "
+            "UpstreamLineage edge points at the URN the warehouse connector "
+            "actually produced."
+        ),
+    )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Sigma Stateful Ingestion Config."
     )
@@ -364,18 +517,15 @@ class SigmaSourceConfig(
         description="Regex patterns to filter Sigma workbook names in ingestion.",
     )
     ingest_data_models: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to ingest Sigma Data Models. Each Data Model is emitted "
         "as a Container with one Dataset per element inside it (plus per-element "
         "``SchemaMetadata`` and, when ``extract_lineage`` is also enabled, "
-        "``UpstreamLineage``). Default is ``False`` because "
-        "enabling this introduces a new entity class to the graph — existing tenants "
-        "will see new Containers and Datasets appear on first ingest and will need "
-        "to factor those into any soft-delete policy if they later disable this flag. "
-        "Enabling this issues ``/dataModels/{id}/elements`` and ``/columns`` calls "
-        "per Data Model unconditionally; the ``/lineage`` call is only issued when "
-        "``extract_lineage`` is also ``True`` (so users who opt out of lineage at "
-        "the workbook surface don't get a lineage endpoint hit under a different flag).",
+        "``UpstreamLineage``). Enabling this issues ``/dataModels/{id}/elements`` and "
+        "``/columns`` calls per Data Model unconditionally; the ``/lineage`` call is "
+        "only issued when ``extract_lineage`` is also ``True`` (so users who opt out "
+        "of lineage at the workbook surface don't get a lineage endpoint hit under a "
+        "different flag).",
     )
     data_model_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),

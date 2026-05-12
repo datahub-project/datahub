@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.search;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.gms.factory.common.ElasticsearchSSLContextFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.MaeConsumerConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.ShimConfigurationBuilder;
@@ -43,14 +44,74 @@ public class SearchClientShimFactory {
   private SSLContext elasticSearchSSLContext;
 
   /**
-   * Create the SearchClientShim bean. This can be configured to either: 1. Auto-detect the search
-   * engine type by connecting to the cluster 2. Use a specific engine type as configured in
-   * properties
+   * Create the SearchClientShim bean. This can be configured to either: (1) auto-detect the search
+   * engine type by connecting to the cluster, or (2) use a specific engine type from properties.
+   *
+   * <p>Single process-wide shim: uses {@code elasticsearch.*} timeouts, merged with {@code
+   * maeConsumer.elasticsearch.*} via {@code Math.max(global, mae)} when {@code
+   * maeConsumer.enabled=true} so MAE indexing and GMS share one client.
    */
   @Bean(name = "searchClientShim")
   @Nonnull
   public SearchClientShim<?> createSearchClientShim(ObjectMapper objectMapper) throws IOException {
     ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
+    MaeConsumerConfiguration mae = configurationProvider.getMaeConsumer();
+    int socketMs = mergeRestClientSocketTimeoutMs(esConfig.getSocketTimeout(), mae);
+    int connMs =
+        mergeRestClientConnectionRequestTimeoutMs(esConfig.getConnectionRequestTimeout(), mae);
+    if (Boolean.TRUE.equals(mae != null ? mae.getEnabled() : null)
+        && mae.getElasticsearch() != null) {
+      log.info(
+          "searchClientShim: merged MAE RestClient timeouts socketTimeoutMs={} connectionRequestTimeoutMs={}",
+          socketMs,
+          connMs);
+    }
+    return buildSearchClientShim(objectMapper, esConfig, socketMs, connMs);
+  }
+
+  /**
+   * Combines {@code elasticsearch.socketTimeout} with optional MAE {@code socketTimeoutMs} when
+   * {@code maeConsumer.enabled=true}. Package-private for unit tests.
+   */
+  static int mergeRestClientSocketTimeoutMs(
+      int elasticsearchSocketMs, MaeConsumerConfiguration mae) {
+    int result = elasticsearchSocketMs;
+    if (Boolean.TRUE.equals(mae != null ? mae.getEnabled() : null)
+        && mae != null
+        && mae.getElasticsearch() != null) {
+      Integer so = mae.getElasticsearch().getSocketTimeoutMs();
+      if (so != null && so >= 0) {
+        result = Math.max(result, so);
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Combines {@code elasticsearch.connectionRequestTimeout} with optional MAE {@code
+   * connectionRequestTimeoutMs} when {@code maeConsumer.enabled=true}. Package-private for unit
+   * tests.
+   */
+  static int mergeRestClientConnectionRequestTimeoutMs(
+      int elasticsearchConnectionRequestTimeoutMs, MaeConsumerConfiguration mae) {
+    int result = elasticsearchConnectionRequestTimeoutMs;
+    if (Boolean.TRUE.equals(mae != null ? mae.getEnabled() : null)
+        && mae != null
+        && mae.getElasticsearch() != null) {
+      Integer cr = mae.getElasticsearch().getConnectionRequestTimeoutMs();
+      if (cr != null && cr >= 0) {
+        result = Math.max(result, cr);
+      }
+    }
+    return result;
+  }
+
+  private SearchClientShim<?> buildSearchClientShim(
+      ObjectMapper objectMapper,
+      ElasticSearchConfiguration esConfig,
+      int socketTimeoutMs,
+      int connectionRequestTimeoutMs)
+      throws IOException {
 
     // Build the shim configuration from DataHub configuration
     ShimConfigurationBuilder configBuilder =
@@ -63,8 +124,8 @@ public class SearchClientShimFactory {
             .withPathPrefix(esConfig.getPathPrefix())
             .withAwsIamAuth(esConfig.isOpensearchUseAwsIamAuth(), esConfig.getRegion())
             .withThreadCount(esConfig.getThreadCount())
-            .withConnectionRequestTimeout(esConfig.getConnectionRequestTimeout())
-            .withSocketTimeout(esConfig.getSocketTimeout());
+            .withConnectionRequestTimeout(connectionRequestTimeoutMs)
+            .withSocketTimeout(socketTimeoutMs);
 
     // Determine how to create the shim
     SearchClientShim<?> shim;

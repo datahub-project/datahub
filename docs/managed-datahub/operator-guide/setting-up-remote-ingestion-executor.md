@@ -50,7 +50,7 @@ Before deploying a Remote Executor, ensure you have the following:
 
    - `https://<your-company>.acryl.io/*` — DataHub GMS API
    - `https://sqs.*.amazonaws.com/*` — AWS SQS, used for remote execution task dispatch
-   - A Python package index (e.g., `https://pypi.org`) or an alternate internal mirror, to download pip packages required by ingestion sources
+   - A Python package index—for production, prefer an **internal mirror** (with egress or firewall rules that enforce your supply-chain policy rather than open access to arbitrary public indexes). Details: [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
    - A container registry hosting the DataHub Remote Executor image (e.g., AWS ECR or `docker.datahub.com`)
 
 4. **Registry Access**
@@ -86,6 +86,10 @@ Once you have created an Executor Pool in DataHub Cloud, you are now ready to de
 :::note
 Work with DataHub team to receive deployment templates specific to your environment (Helm charts, CloudFormation, or Terraform) for deploying Remote Executors in this Pool.
 :::
+
+### Custom images with additional connectors
+
+Remote Executor (`datahub-executor`) images use the same **bundled venv** mechanism as DataHub Core **`datahub-actions`**: connector installs are baked under `/opt/datahub/venvs` at **image build** time via variables such as `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`. To run sources that need extra dependencies, work with DataHub Cloud for an image built with your plugin list. Details: [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
 
 ### Deploy on Amazon ECS
 
