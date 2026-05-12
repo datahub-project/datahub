@@ -8,7 +8,6 @@ from typing import List
 
 import airflow
 import packaging.version
-
 from airflow.models.baseoperator import BaseOperator
 
 # MappedOperator type alias - try airflow.models.mappedoperator first
