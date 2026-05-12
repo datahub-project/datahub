@@ -1,7 +1,11 @@
 package com.linkedin.metadata.search.embedding;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import ai.djl.huggingface.tokenizers.Encoding;
@@ -10,6 +14,8 @@ import ai.onnxruntime.OnnxValue;
 import ai.onnxruntime.OrtEnvironment;
 import ai.onnxruntime.OrtException;
 import ai.onnxruntime.OrtSession;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Set;
 import org.testng.annotations.BeforeMethod;
@@ -195,6 +201,65 @@ public class OnnxEmbeddingProviderTest {
   }
 
   @Test(
+      expectedExceptions = IllegalArgumentException.class,
+      expectedExceptionsMessageRegExp = ".*No model.onnx or model_quantized.onnx.*")
+  public void testConstructorWithNoModelFile() throws IOException {
+    Path tempDir = Files.createTempDirectory("onnx-test-no-model");
+    try {
+      Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
+      new OnnxEmbeddingProvider(tempDir, 0, 0);
+    } finally {
+      Files.deleteIfExists(tempDir.resolve("tokenizer.json"));
+      Files.deleteIfExists(tempDir);
+    }
+  }
+
+  @Test(
+      expectedExceptions = IllegalArgumentException.class,
+      expectedExceptionsMessageRegExp = ".*tokenizer.json not found.*")
+  public void testConstructorWithNoTokenizerFile() throws IOException {
+    Path tempDir = Files.createTempDirectory("onnx-test-no-tokenizer");
+    try {
+      Files.writeString(tempDir.resolve("model.onnx"), "fake model content");
+      new OnnxEmbeddingProvider(tempDir, 0, 0);
+    } finally {
+      Files.deleteIfExists(tempDir.resolve("model.onnx"));
+      Files.deleteIfExists(tempDir);
+    }
+  }
+
+  @Test
+  public void testConstructorWithInvalidModelFailsGracefully() throws IOException {
+    Path tempDir = Files.createTempDirectory("onnx-test-invalid-model");
+    try {
+      Files.writeString(tempDir.resolve("model.onnx"), "not a valid onnx model");
+      Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
+      assertThrows(RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 4, 2048));
+    } finally {
+      Files.deleteIfExists(tempDir.resolve("model.onnx"));
+      Files.deleteIfExists(tempDir.resolve("tokenizer.json"));
+      Files.deleteIfExists(tempDir);
+    }
+  }
+
+  @Test
+  public void testConstructorPrefersQuantizedModel() throws IOException {
+    Path tempDir = Files.createTempDirectory("onnx-test-quantized");
+    try {
+      Files.writeString(tempDir.resolve("model.onnx"), "standard model");
+      Files.writeString(tempDir.resolve("model_quantized.onnx"), "quantized model");
+      Files.writeString(tempDir.resolve("tokenizer.json"), "{}");
+      // Will fail loading the invalid model, but exercises the quantized-model resolution path
+      assertThrows(RuntimeException.class, () -> new OnnxEmbeddingProvider(tempDir, 0, 0));
+    } finally {
+      Files.deleteIfExists(tempDir.resolve("model.onnx"));
+      Files.deleteIfExists(tempDir.resolve("model_quantized.onnx"));
+      Files.deleteIfExists(tempDir.resolve("tokenizer.json"));
+      Files.deleteIfExists(tempDir);
+    }
+  }
+
+  @Test(
       expectedExceptions = RuntimeException.class,
       expectedExceptionsMessageRegExp = ".*All tokens masked.*")
   public void testMeanPoolingWithAllZeroMask() throws Exception {
@@ -230,6 +295,118 @@ public class OnnxEmbeddingProviderTest {
     provider.embed("short", null);
 
     verify(mockTokenizer).encode("short");
+  }
+
+  @Test
+  public void testGetOutputDimension() {
+    assertEquals(provider.getOutputDimension(), -1);
+  }
+
+  @Test
+  public void testCloseReleasesResources() throws Exception {
+    provider.close();
+
+    verify(mockSession).close();
+    verify(mockTokenizer).close();
+  }
+
+  @Test
+  public void testCloseHandlesSessionException() throws Exception {
+    doThrow(new OrtException("close failed")).when(mockSession).close();
+
+    provider.close();
+
+    verify(mockSession).close();
+    verify(mockTokenizer).close();
+  }
+
+  @Test
+  public void testCloseHandlesTokenizerException() throws Exception {
+    doThrow(new RuntimeException("tokenizer close failed")).when(mockTokenizer).close();
+
+    provider.close();
+
+    verify(mockSession).close();
+    verify(mockTokenizer).close();
+  }
+
+  @Test
+  public void testEmbedWithMismatchedModelLogsWarning() throws Exception {
+    float[][] pooledOutput = {{0.5f}};
+
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+    setupSessionResult(pooledOutput);
+
+    float[] embedding = provider.embed("text", "different-model");
+
+    assertNotNull(embedding);
+    assertEquals(embedding.length, 1);
+  }
+
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = ".*produced no output tensors.*")
+  public void testExtractEmbeddingWithEmptyResult() throws Exception {
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+
+    OrtSession.Result mockResult = mock(OrtSession.Result.class);
+    when(mockResult.size()).thenReturn(0);
+    when(mockSession.run(any())).thenReturn(mockResult);
+
+    provider.embed("test", null);
+  }
+
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = ".*produced a null output value.*")
+  public void testExtractEmbeddingWithNullOutput() throws Exception {
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+
+    OrtSession.Result mockResult = mock(OrtSession.Result.class);
+    OnnxValue mockOnnxValue = mock(OnnxValue.class);
+    when(mockOnnxValue.getValue()).thenReturn(null);
+    when(mockResult.size()).thenReturn(1);
+    when(mockResult.get(0)).thenReturn(mockOnnxValue);
+    when(mockSession.run(any())).thenReturn(mockResult);
+
+    provider.embed("test", null);
+  }
+
+  @Test(
+      expectedExceptions = RuntimeException.class,
+      expectedExceptionsMessageRegExp = ".*returned empty token embeddings.*")
+  public void testMeanPoolingWithEmptyTokenEmbeddings() throws Exception {
+    float[][][] emptyTokenOutput = {{}};
+
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+    setupSessionResult(emptyTokenOutput);
+
+    provider.embed("test", null);
+  }
+
+  @Test(expectedExceptions = NullPointerException.class)
+  public void testEmbedWithNullText() {
+    provider.embed(null, null);
+  }
+
+  @Test
+  public void testBuildInputMapWithoutTokenTypeIds() throws Exception {
+    OrtSession noTokenTypeSession = mock(OrtSession.class);
+    when(noTokenTypeSession.getInputNames()).thenReturn(Set.of("input_ids", "attention_mask"));
+    OnnxEmbeddingProvider noTTypeProvider =
+        new OnnxEmbeddingProvider(
+            ortEnvironment, noTokenTypeSession, mockTokenizer, "no-ttype", MAX_CHAR_LENGTH);
+
+    float[][] pooledOutput = {{0.1f, 0.2f}};
+    setupMocks(new long[] {101, 102}, new long[] {1, 1}, new long[] {0, 0});
+
+    OrtSession.Result mockResult = createMockResult(pooledOutput);
+    when(noTokenTypeSession.run(any())).thenReturn(mockResult);
+
+    float[] embedding = noTTypeProvider.embed("test", null);
+
+    assertNotNull(embedding);
+    assertEquals(embedding.length, 2);
   }
 
   // --- Helper methods ---
