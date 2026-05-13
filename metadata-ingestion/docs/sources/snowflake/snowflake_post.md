@@ -140,10 +140,14 @@ For organizations that **publish/share** internal marketplace listings:
    ```yaml
    marketplace:
      enabled: true
-     marketplace_mode: "provider" # NEW!
+     marketplace_mode: "provider"
      # Assign owners to your Data Products
      internal_marketplace_owner_patterns:
        "^Your Listing.*": ["data-team"]
+     # Optional: restrict the database fallback to specific schemas per listing.
+     # Required when DESC SHARE is not permitted (see troubleshooting below).
+     listing_to_schemas_overrides:
+       YOUR_LISTING_GLOBAL_NAME: [YOUR_SCHEMA]
 
    # Include your source databases being shared
    database_pattern:
@@ -196,8 +200,18 @@ If marketplace ingestion fails or produces incomplete data, check for these comm
 
 2. **"Failed to describe provider share - insufficient permissions"**
 
-   - **Cause**: Role cannot run `DESC SHARE` (provider mode only)
-   - **Solution**: Ensure the role owns the share or has been granted appropriate privileges
+   - **Cause**: `DESC SHARE` requires ownership of the share. Snowflake Marketplace creates shares
+     under `ACCOUNTADMIN`, and Snowflake does not allow transferring share ownership.
+   - **Automatic fallback**: The connector falls back to enumerating tables from the share's source
+     database (visible in `SHOW SHARES`). By default this includes all schemas in that database;
+     use `listing_to_schemas_overrides` to restrict to the specific schemas the share exposes:
+     ```yaml
+     marketplace:
+       listing_to_schemas_overrides:
+         YOUR_LISTING_GLOBAL_NAME: [YOUR_SCHEMA]
+     ```
+   - **For precise `DESC SHARE` output**: Set `role: ACCOUNTADMIN` in your recipe (broader
+     permissions, not recommended for production).
 
 3. **"Failed to query imported database tables - insufficient permissions"**
 

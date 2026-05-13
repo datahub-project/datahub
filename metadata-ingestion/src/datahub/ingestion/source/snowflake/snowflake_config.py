@@ -340,6 +340,18 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
+    listing_to_schemas_overrides: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> list of schema names to enumerate "
+            "when falling back to database-level asset discovery. Used in provider "
+            "mode when `DESC SHARE` is not permitted (Snowflake requires share "
+            "ownership for that command). Without this override the fallback enumerates "
+            "all schemas in the source database, which may include schemas not exposed "
+            "by the share. Example: `{GZSTZGQTPEW: [TPCH]}`."
+        ),
+    )
+
     internal_marketplace_listing_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for INTERNAL marketplace listings to include in ingestion",

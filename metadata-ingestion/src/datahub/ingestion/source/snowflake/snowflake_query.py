@@ -1523,20 +1523,32 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         return f"DESC SHARE {share_name}"
 
     @staticmethod
-    def marketplace_imported_database_tables(db_name: str) -> str:
+    def marketplace_imported_database_tables(
+        db_name: str,
+        schemas: Optional[List[str]] = None,
+    ) -> str:
         if not SNOWFLAKE_OBJECT_NAME_RE.match(db_name):
             raise ValueError(
                 f"Refusing to build INFORMATION_SCHEMA query for database "
                 f"name {db_name!r}: outside the expected Snowflake "
                 "identifier shape."
             )
+        schema_filter = ""
+        if schemas:
+            safe_schemas = [
+                s.upper() for s in schemas if SNOWFLAKE_OBJECT_NAME_RE.match(s)
+            ]
+            if safe_schemas:
+                quoted = ", ".join(f"'{s}'" for s in safe_schemas)
+                schema_filter = f"AND TABLE_SCHEMA IN ({quoted})"
         return f"""
-            SELECT 
+            SELECT
                 TABLE_SCHEMA AS "SCHEMA_NAME",
                 TABLE_NAME AS "TABLE_NAME",
                 TABLE_TYPE AS "TABLE_TYPE"
             FROM {db_name}.INFORMATION_SCHEMA.TABLES
             WHERE TABLE_SCHEMA != 'INFORMATION_SCHEMA'
+            {schema_filter}
             ORDER BY TABLE_SCHEMA, TABLE_NAME
             """
 

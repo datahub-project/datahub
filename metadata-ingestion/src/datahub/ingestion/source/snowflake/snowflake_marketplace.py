@@ -611,6 +611,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         share_name: str,
         listing_global_name: str,
         source_database: Optional[str] = None,
+        source_database_schemas: Optional[List[str]] = None,
     ) -> List[str]:
         asset_urns: List[str] = []
         try:
@@ -654,17 +655,25 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     # DESC SHARE requires share ownership (ACCOUNTADMIN or owner
                     # role). Snowflake does not allow transferring share ownership,
                     # so fall back to enumerating the source database directly.
+                    schema_hint = (
+                        f" (schemas: {source_database_schemas})"
+                        if source_database_schemas
+                        else " (all schemas — set marketplace.listing_to_schemas_overrides to restrict)"
+                    )
                     self.structured_reporter.info(
                         title="DESC SHARE permission denied — falling back to database enumeration",
                         message=(
                             f"Role cannot run DESC SHARE on {share_name}. "
-                            f"Falling back to enumerating tables in {source_database}. "
+                            f"Falling back to enumerating tables in {source_database}"
+                            f"{schema_hint}. "
                             "Grant ACCOUNTADMIN role or use `role: ACCOUNTADMIN` in the recipe "
                             "to use DESC SHARE instead."
                         ),
                     )
                     return self._collect_assets_from_database(
-                        source_database, listing_global_name
+                        source_database,
+                        listing_global_name,
+                        schemas=source_database_schemas,
                     )
                 self.structured_reporter.warning(
                     title="Failed to describe provider share",
@@ -683,7 +692,10 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         return asset_urns
 
     def _collect_assets_from_database(
-        self, db_name: str, listing_global_name: str
+        self,
+        db_name: str,
+        listing_global_name: str,
+        schemas: Optional[List[str]] = None,
     ) -> List[str]:
         asset_urns: List[str] = []
 
@@ -691,7 +703,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             return asset_urns
 
         try:
-            query = SnowflakeQuery.marketplace_imported_database_tables(db_name)
+            query = SnowflakeQuery.marketplace_imported_database_tables(
+                db_name, schemas=schemas
+            )
         except ValueError as e:
             self.structured_reporter.warning(
                 title="Skipping database with malformed name",
@@ -794,11 +808,17 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         ):
             provider_share = self._provider_shares.get(listing.listing_global_name)
             if provider_share and provider_share.share_name:
+                schema_overrides = (
+                    self.config.marketplace.listing_to_schemas_overrides.get(
+                        listing.listing_global_name
+                    )
+                )
                 asset_urns.extend(
                     self._collect_assets_from_share(
                         provider_share.share_name,
                         listing.listing_global_name,
                         source_database=provider_share.source_database or None,
+                        source_database_schemas=schema_overrides,
                     )
                 )
 
