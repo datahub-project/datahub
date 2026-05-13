@@ -114,8 +114,8 @@ def _aspect_as(wu: MetadataWorkUnit, cls: Type[_AspectT]) -> _AspectT:
 
 
 def _make_tml_stubbed_client(
-    items: List[Dict[str, Any]], monkeypatch: Any
-) -> "ThoughtSpotClient":
+    items: List[Dict[str, Any]], monkeypatch: pytest.MonkeyPatch
+) -> ThoughtSpotClient:
     """Build a ThoughtSpotClient with ``_iter_tml_export_items`` returning
     the given items and ``_check_tml_item_status`` stubbed to ``True``.
 
