@@ -541,9 +541,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                     self.reporter.git_clone_latency = datetime.now() - start_time
                     self.source_config.base_folder = checkout_dir.resolve()
                 except Exception as e:
-                    self.reporter.report_failure(
-                        "git-clone",
-                        f"Failed to clone git repository '{self.source_config.git_info.repo}': {e}",
+                    self.reporter.failure(
+                        title="Failed to clone LookML repository",
+                        message="Unable to clone the git repository. Check network connectivity, SSH/deploy key configuration, and repository access.",
+                        context=self.source_config.git_info.repo,
+                        exc=e,
                     )
                     return
 
