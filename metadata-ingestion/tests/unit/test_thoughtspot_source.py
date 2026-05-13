@@ -58,7 +58,7 @@ from datahub.ingestion.source.thoughtspot.models import (
     VisualizationResponse,
     WorkspaceResponse,
 )
-from datahub.ingestion.source.thoughtspot.source import ThoughtSpotSource
+from datahub.ingestion.source.thoughtspot.source import ExternalRef, ThoughtSpotSource
 from datahub.ingestion.source.thoughtspot.thoughtspot_report import ThoughtSpotReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -6842,7 +6842,7 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT FROM ???",
-                platform=None,
+                platform="snowflake",
                 env="PROD",
                 platform_instance=None,
                 default_db=None,
@@ -6970,7 +6970,7 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT 1",
-                platform=None,
+                platform="snowflake",
                 env="PROD",
                 platform_instance=None,
                 default_db=None,
@@ -7031,6 +7031,16 @@ class TestProcessDatasetSqlViewIntegration:
             }
         )
         source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        # Inject a resolved warehouse identity for sv-1 so the SQL
+        # parser path actually runs (the platform=None guard skips
+        # parsing without a known dialect, but viewLogic still emits).
+        source._resolve_external_upstream = lambda table: ExternalRef(  # type: ignore[assignment]
+            platform="snowflake",
+            urn=upstream_urn,
+            env="PROD",
+            platform_instance=None,
+            preserve_column_case=False,
+        )
         wus = list(source.get_workunits_internal())
 
         view_props = [

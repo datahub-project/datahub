@@ -1520,12 +1520,17 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         all parsed edges emit verbatim.
 
         ``platform``/``env``/``platform_instance`` are the resolved
-        warehouse identifiers from ``_resolve_external_upstream``;
+        warehouse identifiers from ``_resolve_external_upstream``.
         ``None`` for ``platform`` means we couldn't identify the
-        warehouse (connection unreadable) — the parser still runs
-        but produces lower-fidelity table-level lineage only.
+        warehouse (connection unreadable, deleted upstream) — the
+        parser is skipped in that case because ``sqlglot_lineage``
+        requires a known dialect to map upstream tables to URNs.
+        The sibling ``_apply_sql_view_logic`` still emits viewLogic
+        so the SQL is documented regardless.
         """
         if not sql:
+            return
+        if not platform:
             return
 
         start = time.perf_counter()
@@ -1533,7 +1538,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
 
         try:
             schema_resolver = create_and_cache_schema_resolver(
-                platform=platform or "unknown",
+                platform=platform,
                 env=env,
                 graph=self.ctx.graph,
                 platform_instance=platform_instance,

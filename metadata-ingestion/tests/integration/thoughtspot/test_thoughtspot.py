@@ -298,6 +298,25 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "type": "WORKSHEET",
             },
         },
+        {
+            "metadata_id": "sql-view-1",
+            "metadata_header": {
+                "id": "sql-view-1",
+                "name": "Top_Revenue_View",
+                "description": "SQL view aggregating revenue by region",
+                "author": {
+                    "id": "user-1",
+                    "name": "John Doe",
+                    "email": "john.doe@company.com",
+                },
+                "author_name": "john.doe",
+                "owner_id": "workspace-1",
+                "created": 1640900000000,
+                "modified": 1700900000000,
+                "metadata_type": "LOGICAL_TABLE",
+                "type": "SQL_VIEW",
+            },
+        },
     ]
 
     # Mock metadata/tml/export endpoint for TML (ThoughtSpot Modeling Language) export
@@ -455,7 +474,34 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
 
             # Return details for requested IDs in TML YAML format
             results = []
+            # SQL_VIEW objects get a separate TML shape: sql_view.sql_query
+            # carries the raw SQL string (matches the live TS Cloud
+            # response shape — see _extract_sql_view_statement).
+            if "sql-view-1" in metadata_ids:
+                import yaml
+
+                sv_edoc = yaml.dump(
+                    {
+                        "sql_view": {
+                            "name": "Top_Revenue_View",
+                            "sql_query": "SELECT region, SUM(revenue) AS total FROM mock_warehouse.public.sales GROUP BY region",
+                        }
+                    }
+                )
+                results.append(
+                    {
+                        "info": {
+                            "id": "sql-view-1",
+                            "name": "Top_Revenue_View",
+                            "type": "SQL_VIEW",
+                            "status": {"status_code": "OK"},
+                        },
+                        "edoc": sv_edoc,
+                    }
+                )
             for id_str in metadata_ids:
+                if id_str == "sql-view-1":
+                    continue  # handled above
                 if id_str in details_map:
                     detail = details_map[id_str]
 
