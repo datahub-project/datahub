@@ -316,7 +316,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         self.processed_workspace_urns: Set[str] = set()
         self.processed_liveboard_urns: Set[str] = set()
         self.processed_answer_urns: Set[str] = set()
-        self.processed_dataset_urns: Set[str] = set()
 
         # Lazy cache of {worksheet_id -> {column_name -> ColumnResponse}}.
         # Built on first access by ``_get_worksheet_columns_lookup`` and
@@ -1545,9 +1544,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             self._apply_dataset_upstreams(dataset, table.columns, table=table)
 
             # Emit workunit
-            for wu in dataset.as_workunits():
-                self.processed_dataset_urns.add(wu.get_urn())
-                yield wu
+            yield from dataset.as_workunits()
 
             # SQL_VIEW datasets: emit viewLogic + augment lineage with
             # sqlglot-parsed edges. No-op for other LOGICAL_TABLE types.
