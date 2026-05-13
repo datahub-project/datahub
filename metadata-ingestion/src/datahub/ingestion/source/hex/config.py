@@ -50,6 +50,7 @@ class HexSourceConfig(
     )
     page_size: int = Field(
         default=HEX_API_PAGE_SIZE_DEFAULT,
+        ge=1,
         description="Number of items to fetch per Hex API call.",
     )
     patch_metadata: bool = Field(
@@ -109,6 +110,7 @@ class HexSourceConfig(
     )
     max_projects: Optional[int] = Field(
         default=None,
+        ge=1,
         description="Maximum number of projects to process. Useful for testing or staged rollouts. "
         "Components discovered during project processing are not counted. "
         "Defaults to None (process all projects).",

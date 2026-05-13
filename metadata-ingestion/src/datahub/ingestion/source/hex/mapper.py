@@ -2,9 +2,6 @@ import logging
 from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
 
-from datahub._codegen.aspect import (
-    _Aspect,  # TODO: is there a better import than this one?
-)
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_container_urn,
@@ -61,6 +58,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     TagAssociationClass,
     TimeWindowSizeClass,
+    _Aspect,
 )
 from datahub.metadata.urns import (
     ChartUrn,
