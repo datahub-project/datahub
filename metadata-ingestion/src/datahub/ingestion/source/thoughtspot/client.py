@@ -59,6 +59,28 @@ _MAX_REAUTH_ATTEMPTS = 3
 _SEARCH_QUERY_COLUMN_RE = re.compile(r"\[([^\[\]]+)\]")
 
 
+def _extract_search_query_columns(search_query: Any) -> List[str]:
+    """Parse ``[bracketed]`` column tokens from a TML ``answer.search_query``.
+
+    Used by both the Liveboard visualization and Answer TML paths to
+    populate ``source_columns`` for Chart→Dataset column-level lineage
+    (the ``InputFields`` aspect). Order-preserving de-dup so a chart
+    that references the same column twice doesn't emit duplicate
+    edges. Non-string inputs (TML schema drift) return ``[]`` so the
+    caller can no-op without a type check.
+    """
+    if not isinstance(search_query, str) or not search_query:
+        return []
+    seen: set = set()
+    columns: List[str] = []
+    for match in _SEARCH_QUERY_COLUMN_RE.findall(search_query):
+        col_name = match.strip()
+        if col_name and col_name not in seen:
+            seen.add(col_name)
+            columns.append(col_name)
+    return columns
+
+
 # ThoughtSpot's ``dataSourceTypeEnum`` → DataHub platform name. Driving
 # table for cross-platform lineage: a TS Logical Table backed by a
 # connection of type "DATABRICKS" emits its upstream as a Databricks
@@ -1541,6 +1563,7 @@ class ThoughtSpotClient:
                     self._source_table_drop_count += len(raw_st) - kept
                 answer.chart_type = detail.get("chart_type")
                 answer.question_text = detail.get("question_text")
+                answer.source_columns = detail.get("source_columns")
         except Exception as e:
             self.report.warning(
                 title="Answer Dependency Fetch Failed",
@@ -1681,20 +1704,12 @@ class ThoughtSpotClient:
                     if isinstance(fqn, str) and fqn:
                         source_table_ids.append(fqn)
 
-                # Parse ``[col]`` tokens from the search query to capture the
-                # worksheet columns this visualization reads, used downstream
-                # for Chart→Dataset column-level lineage. Order-preserving
-                # de-dup so visualisations with multiple references to the
-                # same column don't emit duplicates.
-                source_columns: List[str] = []
-                seen_cols: set = set()
+                # Parse ``[col]`` tokens from the search query so this
+                # visualization can emit Chart→Dataset column-level lineage
+                # downstream. Shared with the Answer TML path via the
+                # module-level helper.
                 search_query = answer.get("search_query") or ""
-                if isinstance(search_query, str):
-                    for match in _SEARCH_QUERY_COLUMN_RE.findall(search_query):
-                        col_name = match.strip()
-                        if col_name and col_name not in seen_cols:
-                            seen_cols.add(col_name)
-                            source_columns.append(col_name)
+                source_columns = _extract_search_query_columns(search_query)
 
                 chart_type = answer.get("chart_type")
                 visualizations.append(
@@ -1830,6 +1845,10 @@ class ThoughtSpotClient:
 
             chart_type = answer_tml.get("chart_type")
             search_query = answer_tml.get("search_query")
+            # Same ``[col]`` parsing the Liveboard viz path runs, so
+            # standalone Answers emit Chart→Dataset column-level lineage
+            # symmetrically with the Visualization path.
+            source_columns = _extract_search_query_columns(search_query)
             dependencies.append(
                 {
                     "id": answer_id,
@@ -1840,6 +1859,7 @@ class ThoughtSpotClient:
                         if isinstance(search_query, str) and search_query
                         else None
                     ),
+                    "source_columns": source_columns or None,
                 }
             )
 

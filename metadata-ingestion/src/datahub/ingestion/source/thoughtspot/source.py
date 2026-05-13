@@ -1160,6 +1160,16 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 self.processed_answer_urns.add(wu.get_urn())
                 yield wu
 
+            # Column-level lineage from TML's ``answer.search_query``
+            # ``[bracket]`` tokens, mirroring the Visualization path. The
+            # source-table ids are the same set that fed the chart's
+            # input_datasets above.
+            yield from self._emit_chart_input_fields(
+                viz_id=answer_id,
+                source_table_ids=[t.id for t in (answer.source_tables or []) if t.id],
+                source_columns=answer.source_columns,
+            )
+
         except Exception as e:
             self.report.warning(
                 title="Failed to Process Answer",

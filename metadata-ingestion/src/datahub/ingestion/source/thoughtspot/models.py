@@ -443,6 +443,16 @@ class AnswerResponse(ThoughtSpotMetadataHeader):
         description="Source tables/worksheets referenced by this Answer (for lineage tracking)",
     )
 
+    source_columns: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Worksheet column names this answer reads, parsed from "
+            "TML's ``answer.search_query`` ``[bracketed]`` tokens. Used to "
+            "emit Chart→Dataset column-level lineage via the InputFields "
+            "aspect — mirrors ``VisualizationResponse.source_columns``."
+        ),
+    )
+
     @field_validator("source_tables", mode="before")
     @classmethod
     def _coerce_source_tables(

@@ -18,7 +18,7 @@ ThoughtSpot Workspaces (Orgs) emit as Container entities and parent the Liveboar
 - **Worksheet → Connection tables** — table-level and column-level lineage from TS's pre-resolved `columns[*].sources` field on `metadata/search`. Each source reference becomes a `FineGrainedLineage` edge linking the Worksheet column to the underlying physical table column.
 - **Worksheet → External warehouse (cross-platform)** — federated Worksheets emit upstream lineage past ThoughtSpot to the underlying Databricks / Snowflake / BigQuery / Redshift / etc. table at both table and column level. The URN is built from TS's `physicalDatabaseName` / `physicalSchemaName` / `physicalTableName` and routed via `external_connections` (see below).
 - **Visualization → Worksheet** — table-level lineage from TML's `liveboard.visualizations[].answer.tables[].fqn`, plus column-level lineage from the bracketed `[col]` tokens in `answer.search_query` (rendered via the chart `inputFields` aspect).
-- **Answer → Worksheet** — same shape as the Visualization path, sourced from each Answer's TML export.
+- **Answer → Worksheet** — table-level lineage from TML's `answer.tables[].fqn`, plus column-level lineage from the bracketed `[col]` tokens in `answer.search_query` (rendered via the chart `inputFields` aspect). Same shape as the Visualization path, sourced from each Answer's TML export.
 - **Liveboard → Worksheet (fallback)** — used when per-viz TML export is forbidden. The connector falls back to `reportContent...pinboardFilterDetails` for dashboard-level dataset lineage; the chart layer is lost but dashboard-to-dataset edges remain intact.
 
 #### Cross-Platform Lineage

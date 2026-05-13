@@ -864,6 +864,72 @@ class TestThoughtSpotSourceLineageExtraction:
         assert any("tbl2" in urn for urn in chart_info.inputs or [])
 
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_answer_column_lineage_extracted_from_search_query(self, mock_client_class):
+        """Answer → Worksheet column-level lineage emits an
+        ``InputFields`` aspect on the Chart URN, mirroring the
+        existing Visualization path. Asymmetry between the two paths
+        was a real gap until ``AnswerResponse.source_columns`` was
+        added and ``_process_answer`` was wired to call
+        ``_emit_chart_input_fields``.
+        """
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+
+        config = ThoughtSpotConfig.parse_obj(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+        mock_client.get_workspaces.return_value = []
+        # The worksheet whose columns the bracket tokens resolve to.
+        # _emit_chart_input_fields needs the column lookup primed so
+        # the embedded SchemaField has the right type — without this
+        # the helper skips the unknown column silently.
+        ws = LogicalTableResponse(
+            id="ws-1",
+            name="orders",
+            type="WORKSHEET",
+            columns=[
+                ColumnResponse(id="c1", name="revenue", data_type="FLOAT"),
+                ColumnResponse(id="c2", name="region", data_type="VARCHAR"),
+            ],
+        )
+        mock_client.get_logical_tables.return_value = [ws]
+
+        answer = AnswerResponse(
+            id="ans-1",
+            name="Q1 revenue by region",
+            source_tables=[SourceTableRef(id="ws-1")],
+        )
+        answer.source_columns = ["revenue", "region"]
+        mock_client.iter_answers.return_value = [answer]
+
+        workunits = list(source.get_workunits_internal())
+
+        input_fields_wus = [
+            wu for wu in workunits if _mcp(wu).aspectName == "inputFields"
+        ]
+        answer_input_fields = [wu for wu in input_fields_wus if "ans-1" in wu.get_urn()]
+        assert len(answer_input_fields) == 1
+        aspect = _aspect_as(answer_input_fields[0], InputFieldsClass)
+        field_urns = {f.schemaFieldUrn for f in aspect.fields}
+        assert any("revenue" in urn for urn in field_urns)
+        assert any("region" in urn for urn in field_urns)
+        # Every emitted InputField must carry an embedded SchemaField
+        # whose type matches the worksheet — otherwise DataHub's
+        # column-lineage visualizer drops the edge silently.
+        assert all(f.schemaField is not None for f in aspect.fields)
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_answer_with_no_source_tables_has_no_lineage(self, mock_client_class):
         """Test that Answers without source_tables don't emit lineage."""
         # Mock the client instance
