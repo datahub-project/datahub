@@ -17,21 +17,37 @@ source:
       # deployments or to use the principal's primary org.
       # org_identifier: "production"
 
+      # (Optional) HTTP request tuning.
+      # timeout_seconds: 30        # default 30
+      # max_retries: 3             # default 3; 429 / 5xx retried with exponential backoff
+
     # (Optional) Filter entities by name. Defaults allow everything.
     # liveboard_pattern:
     #   allow:
     #     - "^Customer.*"
     #   deny:
     #     - "^Draft.*"
+    # answer_pattern:
+    #   allow:
+    #     - ".*"
     # worksheet_pattern:
     #   allow:
     #     - ".*"
 
+    # (Optional) Server-side tag filters. Only ingest Liveboards / Answers
+    # tagged with at least one of the listed tags. Cheaper than client-side
+    # name filtering at scale; tag names are case-sensitive.
+    # liveboard_tag_filter:
+    #   - "Production"
+    # answer_tag_filter:
+    #   - "Curated"
+
     include_ownership: true
 
     # Per-entity view counts via metadata_search include_stats (same counter as
-    # the TS UI "Views" column). No BI-Server-worksheet permission required.
-    include_usage_stats: false
+    # the TS UI "Views" column). Enabled by default; set to ``false`` to skip
+    # emitting the usage aspects entirely.
+    include_usage_stats: true
 
     # Cross-platform upstream lineage from TS Worksheets to the underlying
     # Databricks / Snowflake / BigQuery / etc. tables. On by default.

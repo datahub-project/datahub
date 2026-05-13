@@ -51,7 +51,7 @@ ThoughtSpot supports multi-org tenancy where a single cluster hosts multiple iso
 
 #### Usage Statistics
 
-Set `include_usage_stats: true` to emit per-Liveboard / per-Chart view counts as `DashboardUsageStatistics` / `ChartUsageStatistics` aspects. The count comes from `metadata_search`'s `include_stats` response — the same global counter that the TS UI's "Views" column displays. No extra permission is required; the ingestion principal needs only ordinary read access on the entity.
+Per-Liveboard / per-Chart view counts emit by default as `DashboardUsageStatistics` / `ChartUsageStatistics` aspects. The count comes from `metadata_search`'s `include_stats` response — the same global counter the TS UI's "Views" column displays. No extra permission or API round-trip is required; the data piggybacks on the `metadata_search` calls that build each entity. Set `include_usage_stats: false` to skip emitting the aspects.
 
 The connector also emits two custom properties when available:
 
@@ -67,6 +67,20 @@ Each Liveboard contains one or more Visualizations (chart tiles), emitted as Cha
 #### Tags
 
 The connector pulls the full tag list once per run via `/api/rest/2.0/tags/search` and emits a `GlobalTags` aspect on each entity whose `metadata_header.tags` references a known tag id. If the principal can't enumerate tags (the endpoint returns 403 or 404), the connector logs an INFO and continues — entities are emitted without tag aspects rather than failing the pipeline.
+
+#### Tag-Based Filtering
+
+To restrict ingestion to a subset of tagged entities, set `liveboard_tag_filter` and/or `answer_tag_filter` to a list of TS tag names. The filter is applied server-side on `metadata_search` — cheaper than fetching everything and discarding client-side, and useful for tenants where the ingestion principal can see far more entities than the desired subset.
+
+```yaml
+liveboard_tag_filter:
+  - "Production"
+  - "Curated"
+answer_tag_filter:
+  - "KPI"
+```
+
+Both filters are optional and independent — set one, the other, or both. Tag names are **case-sensitive** (`"Production"` and `"production"` are different tags); a typo'd filter that matches zero entities surfaces a `Tag filter matched 0 ...` warning in the run report so it doesn't silently produce an empty catalog. Tag-based filtering only narrows Liveboards / Answers; Worksheets and Tables are unaffected and stay subject to `worksheet_pattern`.
 
 #### Stateful Ingestion
 
@@ -108,8 +122,9 @@ Set `connection.org_identifier` to the numeric org id (e.g. `"615000845"`) or th
 
 #### Usage statistics are missing
 
-Set `include_usage_stats: true`. If view counts are still absent on emitted Liveboards/Charts:
+Usage statistics are emitted by default. If view counts are absent on emitted Liveboards/Charts:
 
+- The recipe may have `include_usage_stats: false`. Remove that line or set it to `true`.
 - The entity may have zero views. The connector deliberately skips emitting `viewsCount: 0` to avoid clobbering a non-zero count from a prior run.
 - The principal may lack read access to the entity. Without read access the entity itself wouldn't be ingested — check the run report for parse failures or skipped entities.
 

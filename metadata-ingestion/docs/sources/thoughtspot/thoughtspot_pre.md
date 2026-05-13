@@ -1,6 +1,6 @@
 ### Overview
 
-The `thoughtspot` module ingests ThoughtSpot Liveboards, Answers, Worksheets, and Tables into DataHub via the REST API v2.0. It also extracts ownership, tags, optional view counts, and table- and column-level lineage from charts back to worksheets and out to your warehouse.
+The `thoughtspot` module ingests ThoughtSpot Liveboards, Answers, Worksheets, and Tables into DataHub via the REST API v2.0. It also extracts ownership, tags, per-entity view counts, and table- and column-level lineage from charts back to worksheets and out to your warehouse.
 
 ### Prerequisites
 
@@ -43,5 +43,3 @@ source:
 ```
 
 Password authentication is also supported — set `type: password` and provide `password:` instead of `secret_key:`. Both methods mint a short-lived bearer token per run via `auth_token_full`, so the credential on disk stays stable across token expiry. Pre-generated bearer tokens are not accepted (see [Limitations](#bearer-token-auth-is-not-supported)).
-
-For backwards compatibility, the legacy flat shape (`username` / `secret_key` / `password` directly under `connection:` without an `auth:` wrapper) still works — existing recipes do not need to be updated.
