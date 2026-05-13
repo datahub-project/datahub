@@ -1,7 +1,5 @@
-import atexit
 import functools
 import logging
-import os
 from typing import Iterable, List, Optional
 
 from datahub.configuration.common import AllowDenyPattern
@@ -68,12 +66,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-# We can't use close as it is not called if the ingestion is not successful
-def cleanup(config: BigQueryV2Config) -> None:
-    if config._credentials_path is not None:
-        os.unlink(config._credentials_path)
-
-
 @platform_name("BigQuery", doc_order=1)
 @config_class(BigQueryV2Config)
 @support_status(SupportStatus.CERTIFIED)
@@ -102,6 +94,10 @@ def cleanup(config: BigQueryV2Config) -> None:
 @capability(
     SourceCapability.USAGE_STATS,
     "Enabled by default, can be disabled via configuration `include_usage_statistics`",
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
 )
 @capability(
     SourceCapability.CLASSIFICATION,
@@ -213,7 +209,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         )
 
         self.add_config_to_report()
-        atexit.register(cleanup, config)
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "BigqueryV2Source":

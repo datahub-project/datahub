@@ -255,7 +255,7 @@ bigquery_common = {
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     *path_spec_common,
 }
 
@@ -566,7 +566,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/jd/tenacity/issues/471
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-        "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+        "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),

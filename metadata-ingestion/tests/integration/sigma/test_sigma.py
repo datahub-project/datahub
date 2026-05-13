@@ -6791,6 +6791,16 @@ _WH_CHART_PAGE_ID = "chart-wh-page-01"
 _WH_CHART_DM_FED_ELEM_ID = "dmFedElem01"
 _WH_CHART_LEGACY_SD_ELEM_ID = "legacySdElem01"
 
+# BFS entity-level test (C2) — independent from _WH_* fixtures above.
+_BFS_CONN_ID = "bfs-conn-0000-0000-000000000001"
+_BFS_INODE_ID = "bfs-inode-000-0000-000000000001"
+_BFS_URL_ID = "bfsUrlId001"
+_BFS_WORKSPACE_ID = "bfs-ws-0000-0000-000000000001"
+_BFS_WORKBOOK_ID = "bfs-wb-0000-0000-000000000001"
+_BFS_PAGE_ID = "bfs-page-01"
+_BFS_ELEM_ID = "bfsDirectElem01"
+_BFS_TABLE_NODE_ID = f"inode-{_BFS_URL_ID}"
+
 
 def _get_chart_warehouse_qualified_overrides() -> Dict[str, Dict]:
     """Fixture overrides for the chart warehouse-qualified InputFields test.
@@ -7114,6 +7124,10 @@ def test_sigma_chart_input_fields_warehouse_qualified(
     assert report.chart_input_fields_warehouse_table_lookup_failed == 0
     assert report.chart_input_fields_warehouse_path_unparseable == 0
     assert report.chart_input_fields_warehouse_unknown_connection == 0
+    # No BFS type=table nodes in element lineage -> entity-level path not exercised here
+    assert report.chart_warehouse_upstream_emitted == 0
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
 
     # Verify the actual schemaFieldUrn for dmFedElem01.customer_id
     expected_warehouse_schema_field_urn = (
@@ -7143,6 +7157,273 @@ def test_sigma_chart_input_fields_warehouse_qualified(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_chart_warehouse_qualified.json",
+    )
+
+
+def _get_chart_bfs_warehouse_upstream_overrides() -> Dict[str, Dict]:
+    """Fixture for entity-level ChartInfo.inputs via BFS type=table node.
+
+    Topology:
+      Workbook _BFS_WORKBOOK_ID / page _BFS_PAGE_ID
+        bfsDirectElem01: per-element lineage BFS has a direct type=table upstream
+                         node inode-<_BFS_URL_ID> named "ORDERS". No SQL query.
+
+      Per-element lineage /lineage/elements/bfsDirectElem01:
+        type=table  inode-<_BFS_URL_ID>  name="ORDERS"
+
+      Workbook-level lineage /v2/workbooks/{id}/lineage:
+        type=table  ORDERS  inodeId=_BFS_INODE_ID  /files -> path="Connection Root/TESTDB/PUBLIC"
+
+      Expected:
+        chart_warehouse_upstream_emitted == 1
+        ChartInfo.inputs for bfsDirectElem01 contains snowflake dataset URN for testdb.public.orders
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                        "name": "Test Org",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "Test Snowflake",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "host": "test-account.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": _BFS_WORKBOOK_ID,
+                        "workbookUrlId": "bfs-wb-url-id",
+                        "ownerId": "owner-bfs",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                        "name": "BFS Test Workbook",
+                        "url": "https://app.sigmacomputing.com/test-org/workbook/bfs-wb-url-id",
+                        "path": "Test Org",
+                        "latestVersion": 1,
+                        "isArchived": False,
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _BFS_WORKBOOK_ID,
+                        "urlId": "bfs-wb-url-id",
+                        "name": "BFS Test Workbook",
+                        "type": "workbook",
+                        "parentId": _BFS_WORKSPACE_ID,
+                        "parentUrlId": "bfs-ws-url-id",
+                        "permission": "edit",
+                        "path": "Test Org",
+                        "badge": None,
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [{"pageId": _BFS_PAGE_ID, "name": "BFS Page"}],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages/{_BFS_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _BFS_ELEM_ID,
+                        "type": "table",
+                        "name": "Direct BFS Element",
+                        "columns": [],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Per-element lineage: direct type=table upstream node.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage/elements/{_BFS_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_bfs": {
+                        "nodeId": "tgt_bfs",
+                        "elementId": _BFS_ELEM_ID,
+                        "name": "Direct BFS Element",
+                        "type": "sheet",
+                    },
+                    _BFS_TABLE_NODE_ID: {
+                        "nodeId": _BFS_TABLE_NODE_ID,
+                        "type": "table",
+                        "name": "ORDERS",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": _BFS_TABLE_NODE_ID,
+                        "target": "tgt_bfs",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/elements/{_BFS_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # Workbook-level lineage: type=table ORDERS.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "ORDERS",
+                        "type": "table",
+                        "inodeId": _BFS_INODE_ID,
+                    },
+                ]
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/files/{_BFS_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _BFS_INODE_ID,
+                "urlId": _BFS_URL_ID,
+                "name": "ORDERS",
+                "type": "table",
+                "path": "Connection Root/TESTDB/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_chart_bfs_warehouse_entity_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Entity-level ChartInfo.inputs contains a warehouse Dataset URN when an
+    element's BFS graph has a direct type=table upstream node.
+
+    Assertions:
+      - chart_warehouse_upstream_emitted == 1
+      - ChartInfo.inputs for bfsDirectElem01 contains the snowflake Dataset URN
+    """
+    override_data = _get_chart_bfs_warehouse_upstream_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_chart_bfs_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_data_models=False,
+            chart_sources_platform_mapping={},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.chart_warehouse_upstream_emitted == 1, (
+        f"expected 1 BFS warehouse upstream emitted; got {report.chart_warehouse_upstream_emitted}"
+    )
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
+
+    expected_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,testdb.public.orders,PROD)"
+    )
+    bfs_chart_urn = f"urn:li:chart:(sigma,{_BFS_ELEM_ID})"
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    chart_info_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == bfs_chart_urn
+        and mce.get("aspectName") == "chartInfo"
+    ]
+    assert len(chart_info_aspects) == 1, (
+        f"expected 1 chartInfo aspect for {bfs_chart_urn}"
+    )
+    inputs = chart_info_aspects[0]["aspect"]["json"].get("inputs", [])
+    input_urns = [inp.get("string") for inp in inputs]
+    assert expected_dataset_urn in input_urns, (
+        f"warehouse Dataset URN not in ChartInfo.inputs. Got: {input_urns}"
     )
 
 

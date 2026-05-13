@@ -1,7 +1,6 @@
 import * as React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { AdvancedFilterSelectValueModal } from '@app/search/AdvancedFilterSelectValueModal';
 import { AdvancedSearchAddFilterSelect } from '@app/search/AdvancedSearchAddFilterSelect';
 import { AdvancedSearchFilter } from '@app/search/AdvancedSearchFilter';
@@ -13,12 +12,12 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 
 const AnyAllSection = styled.div`
     padding: 6px;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const EmptyStateSection = styled.div`
     border-radius: 5px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 22px;
     margin-top: 10px;
 `;
@@ -69,7 +68,7 @@ export const AdvancedSearchFilters = ({
             <AdvancedSearchFiltersGroup>
                 {selectedFilters.map((filter) => (
                     <AdvancedSearchFilter
-                        key={`${filter.field}-${filter.condition}-${filter.negated}-${filter.values}-${filter.value}`}
+                        key={`${filter.field}-${filter.condition}-${filter.negated}-${filter.values?.join(',') ?? ''}`}
                         facet={facets.find((facet) => facet.field === filter.field) || facets[0]}
                         loading={loading}
                         filter={filter}

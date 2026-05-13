@@ -211,6 +211,7 @@ function NodeItem(props: Props) {
                         $isSelected={entityData?.urn === node.urn}
                         $areChildrenVisible={areChildrenVisible}
                         $isChildNode
+                        data-testid={`glossary-sidebar-node-${node.urn}`}
                     >
                         {entityRegistry.getDisplayName(node.type, node)}
                     </NodeLink>

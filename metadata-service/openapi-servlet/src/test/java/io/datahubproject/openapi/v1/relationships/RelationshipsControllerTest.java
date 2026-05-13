@@ -117,7 +117,7 @@ public class RelationshipsControllerTest {
     when(graphService.findRelatedEntities(
             any(OperationContext.class),
             isNull(),
-            argThat(filter -> filter.getCriteria().get(0).getValue().toString().equals(decodedUrn)),
+            argThat(filter -> filter.getCriteria().get(0).getValues().get(0).equals(decodedUrn)),
             isNull(),
             any(Filter.class),
             any(Set.class),

@@ -1,24 +1,99 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
+import { ConfirmationModalComponent } from './common/confirmation-modal-component';
+import { ModalComponent } from './common/modal-component';
 
 export class DatasetPage extends BasePage {
+  readonly modalComponent: ModalComponent;
+  readonly confirmationComponent: ConfirmationModalComponent;
+
   readonly datasetName: Locator;
   readonly schemaTab: Locator;
   readonly lineageTab: Locator;
   readonly propertiesTab: Locator;
 
+  // ── Glossary term sidebar ──────────────────────────────────────────────────
+  readonly sidebarGlossarySection: Locator;
+  readonly addTermsButton: Locator;
+  readonly tagTermModalInput: Locator;
+  readonly tagTermOption: Locator;
+  readonly addTagTermConfirmButton: Locator;
+
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
+
+    this.modalComponent = new ModalComponent(page);
+    this.confirmationComponent = new ConfirmationModalComponent(page);
+
     this.datasetName = page.locator('[data-testid="dataset-name"]');
     this.schemaTab = page.locator('[data-testid="schema-tab"]');
     this.lineageTab = page.locator('[data-testid="lineage-tab"]');
     this.propertiesTab = page.locator('[data-testid="properties-tab"]');
+
+    this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
+    this.addTermsButton = this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]');
+    // AntD Select renders a div wrapper; target the inner search input for typing.
+    this.tagTermModalInput = page.locator('[data-testid="tag-term-modal-input"] input');
+    this.tagTermOption = page.locator('[data-testid="tag-term-option"]').first();
+    this.addTagTermConfirmButton = page.locator('[data-testid="add-tag-term-from-modal-btn"]');
   }
 
   async navigateToDataset(urn: string): Promise<void> {
     await this.navigate(`/dataset/${encodeURIComponent(urn)}`);
     await this.page.waitForLoadState('networkidle');
+  }
+
+  getGlossaryTermLocator(termName: string): Locator {
+    return this.page.locator(`[data-testid="term-${termName}"]`);
+  }
+
+  getGlossaryTermRemoveButtonLocator(glossaryTermLocator: Locator): Locator {
+    return glossaryTermLocator.locator('[data-testid="remove-icon"]');
+  }
+
+  async addGlossaryTerm(termName: string): Promise<void> {
+    this.logger?.step('addGlossaryTerm', { termName });
+    await this.addTermsButton.click();
+    await expect(this.tagTermModalInput).toBeVisible();
+    // AntD Select triggers search via keyboard events; pressSequentially (not fill) is required.
+    await this.tagTermModalInput.pressSequentially(termName);
+    await this.tagTermOption.click();
+    // Click the header to close the terms select dropdown if it stayed open.
+    await this.modalComponent.title.click();
+    await this.addTagTermConfirmButton.click();
+    await expect(this.addTagTermConfirmButton).toBeHidden();
+
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async removeGlossaryTerm(termName: string): Promise<void> {
+    this.logger?.step('removeGlossaryTerm', { termName });
+
+    // Click remove button on glossary terms pill
+    const glossaryTerm = this.getGlossaryTermLocator(termName);
+    await glossaryTerm.scrollIntoViewIfNeeded();
+    await glossaryTerm.hover();
+    const termRemoveButton = this.getGlossaryTermRemoveButtonLocator(glossaryTerm);
+    await expect(termRemoveButton).toBeVisible();
+    await termRemoveButton.click();
+
+    // Confirm deletion
+    await this.confirmationComponent.waitForOpening();
+    await this.confirmationComponent.expectTitleContainText(termName);
+    await this.confirmationComponent.confirm();
+
+    await this.page.waitForLoadState('networkidle');
+  }
+
+  async expectGlossaryTermVisible(termName: string): Promise<void> {
+    const glossaryTerm = this.getGlossaryTermLocator(termName);
+    await expect(glossaryTerm).toBeVisible();
+  }
+
+  async expectGlossaryTermNotVisible(termName: string): Promise<void> {
+    const glossaryTerm = this.getGlossaryTermLocator(termName);
+    await expect(glossaryTerm).toBeHidden();
   }
 
   async viewSchema(): Promise<void> {

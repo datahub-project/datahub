@@ -76,6 +76,7 @@ class SourceCapability(Enum):
     DOMAINS = "Domains"
     DATA_PROFILING = "Data Profiling"
     USAGE_STATS = "Dataset Usage"
+    OPERATION_CAPTURE = "Operation Capture"
     PARTITION_SUPPORT = "Partition Support"
     DESCRIPTIONS = "Descriptions"
     LINEAGE_COARSE = "Table-Level Lineage"

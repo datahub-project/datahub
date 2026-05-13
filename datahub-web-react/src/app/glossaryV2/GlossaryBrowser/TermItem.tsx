@@ -111,6 +111,7 @@ function TermItem(props: Props) {
                     $isSelected={entityData?.urn === term.urn}
                     $areChildrenVisible={areChildrenVisible}
                     $entityType={term.type}
+                    data-testid={`glossary-sidebar-term-${term.urn}`}
                 >
                     {entityRegistry.getDisplayName(term.type, isOnEntityPage ? entityData : term)}
                 </TermLink>
