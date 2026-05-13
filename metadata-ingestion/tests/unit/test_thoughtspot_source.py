@@ -1136,6 +1136,32 @@ class TestLogicalTablesCacheReuse:
         )
 
 
+class TestExternalConnectionOverridesSharedEmpty:
+    """When no overrides are configured for a connection, repeated
+    lookups should return the SAME ``ExternalConnectionConfig`` instance
+    — allocating a fresh empty pydantic model per call wastes ~10K
+    objects on a 10K-table tenant.
+    """
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_repeated_miss_returns_same_object(self, mock_client_cls):
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+        a = source._external_connection_overrides_by_id("conn-1")
+        b = source._external_connection_overrides_by_id("conn-2")
+        c = source._external_connection_overrides_by_id(None)
+        assert a is b, "empty-config miss should return a shared instance"
+        assert a is c, "None conn_id should also return the shared instance"
+
+
 class TestMakeSchemaFieldMemoisation:
     """The chart-InputFields path builds a ``SchemaFieldClass`` per
     referenced upstream column. A worksheet column referenced by many

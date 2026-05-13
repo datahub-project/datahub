@@ -243,6 +243,15 @@ class SqlViewWarehouseRef:
     default_db: Optional[str] = None
 
 
+# Shared empty-override sentinel returned by
+# ``_external_connection_overrides[_by_id]`` when no override is
+# configured for a connection. ``ExternalConnectionConfig`` is treated
+# as immutable by every downstream consumer (``_resolve_external_upstream``,
+# ``_resolve_sql_view_warehouse``), so sharing one instance per process
+# saves ~N pydantic-model allocations at N-table scale.
+_EMPTY_EXTERNAL_CONNECTION_OVERRIDES = ExternalConnectionConfig()
+
+
 class WorkspaceKey(ContainerKey):
     """Container key for ThoughtSpot workspaces.
 
@@ -2009,7 +2018,9 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         fields without branching on ``None``.
         """
         m = self.config.external_connections
-        return m.get(conn.id) or m.get(conn.name) or ExternalConnectionConfig()
+        return (
+            m.get(conn.id) or m.get(conn.name) or _EMPTY_EXTERNAL_CONNECTION_OVERRIDES
+        )
 
     def _external_connection_overrides_by_id(
         self, conn_id: Optional[str]
@@ -2020,12 +2031,16 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         connection-lookup (and therefore no ``ConnectionResponse.name``)
         but we do have the data_source_id from the LogicalTableResponse.
         Same fallback shape as ``_external_connection_overrides`` —
-        returns a defaults-only config when no override is configured.
+        returns the shared ``_EMPTY_EXTERNAL_CONNECTION_OVERRIDES``
+        sentinel when no override is configured so the common
+        no-overrides path doesn't allocate a fresh pydantic model
+        per call.
         """
         if not conn_id:
-            return ExternalConnectionConfig()
+            return _EMPTY_EXTERNAL_CONNECTION_OVERRIDES
         return (
-            self.config.external_connections.get(conn_id) or ExternalConnectionConfig()
+            self.config.external_connections.get(conn_id)
+            or _EMPTY_EXTERNAL_CONNECTION_OVERRIDES
         )
 
     def _resolve_sql_view_warehouse(
