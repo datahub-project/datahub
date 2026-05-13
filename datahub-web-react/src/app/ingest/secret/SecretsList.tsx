@@ -33,27 +33,27 @@ const DeleteButtonContainer = styled.div`
     gap: 8px;
 
     button {
-        border: 1px solid #d9d9d9;
+        border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 20px;
         width: 28px;
         height: 28px;
         padding: 4px;
-        color: #595959;
+        color: ${(props) => props.theme.colors.icon};
         display: flex;
         align-items: center;
         justify-content: center;
         background: none;
         cursor: pointer;
         :hover {
-            color: #262626;
-            border-color: #262626;
+            color: ${(props) => props.theme.colors.iconHover};
+            border-color: ${(props) => props.theme.colors.borderHover};
         }
 
         &.delete-action {
-            color: #ff4d4f;
+            color: ${(props) => props.theme.colors.iconError};
             :hover {
-                color: #cf1322;
-                border-color: #262626;
+                color: ${(props) => props.theme.colors.iconError};
+                border-color: ${(props) => props.theme.colors.borderHover};
             }
         }
     }
