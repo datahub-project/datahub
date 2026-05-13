@@ -301,4 +301,4 @@ def test_git_clone_failure_reports_failure_not_pipeline_crash() -> None:
 
     assert workunits == []
     assert source.reporter.failures, "Expected a failure entry in the reporter"
-    assert any("clone" in f.title.lower() for f in source.reporter.failures)
+    assert any("clone" in (f.title or "").lower() for f in source.reporter.failures)
