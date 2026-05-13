@@ -63,6 +63,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.thoughtspot.client import (
+    _TS_TO_DATAHUB_PLATFORM,
     ThoughtSpotAPIError,
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
@@ -1939,13 +1940,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         ``include_external_lineage`` is disabled — caller skips SQL
         parsing (viewLogic still emits via ``_apply_sql_view_logic``).
         """
-        # Avoid the top-level circular import by importing the
-        # platform map lazily, matching the pattern in
-        # ``_resolve_external_upstream``.
-        from datahub.ingestion.source.thoughtspot.client import (
-            _TS_TO_DATAHUB_PLATFORM,
-        )
-
         if not self.config.include_external_lineage:
             return None
 

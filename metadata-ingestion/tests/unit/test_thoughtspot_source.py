@@ -7191,11 +7191,8 @@ class TestProcessDatasetSqlViewIntegration:
         # parsing without a known dialect, but viewLogic still emits).
         # The SQL view code path now goes through _resolve_sql_view_warehouse,
         # so inject there rather than _resolve_external_upstream.
-        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(  # type: ignore[assignment]
-            platform="snowflake",
-            env="PROD",
-            platform_instance=None,
-            default_db=None,
+        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(
+            platform="snowflake", env="PROD", platform_instance=None, default_db=None
         )
         wus = list(source.get_workunits_internal())
 
@@ -7562,8 +7559,8 @@ class TestSqlViewDefinitionFetch:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client._iter_tml_export_items = lambda *a, **kw: iter(items)  # type: ignore[assignment]
-        client._check_tml_item_status = lambda item, _kind: True  # type: ignore[assignment]
+        client._iter_tml_export_items = lambda *a, **kw: iter(items)
+        client._check_tml_item_status = lambda item, _kind: True
         return client
 
     def test_returns_id_to_sql_map(self):
@@ -7608,7 +7605,7 @@ class TestSqlViewDefinitionFetch:
         client = self._make_client_with_tml(items)
         # Use the real _check_tml_item_status (not the stubbed True-return
         # from the helper) to exercise the real ERROR-status path.
-        client._check_tml_item_status = (  # type: ignore[assignment]
+        client._check_tml_item_status = (
             ThoughtSpotClient._check_tml_item_status.__get__(client)
         )
         result = client.get_sql_view_definitions(["sv-bad"])
