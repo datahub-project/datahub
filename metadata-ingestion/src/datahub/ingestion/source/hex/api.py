@@ -421,7 +421,7 @@ class HexApi:
                 context=str(response.json()),
                 exc=e,
             )
-        except (requests.RequestException, Exception) as e:
+        except requests.RequestException as e:
             self.report.failure(
                 title="Listing Projects and Components API request error",
                 message="Error fetching Projects and Components and halting metadata ingestion",
@@ -504,10 +504,6 @@ class HexApi:
         else:
             assert_never(hex_item.type)
 
-    # ------------------------------------------------------------------
-    # Data connections  (/v1/data-connections)
-    # ------------------------------------------------------------------
-
     @_api_call("list_connections")
     def fetch_connections(self) -> Dict[str, Any]:
         """
@@ -535,10 +531,6 @@ class HexApi:
             )
             return {}
 
-    # ------------------------------------------------------------------
-    # Single project/component  (/v1/projects/{id})
-    # ------------------------------------------------------------------
-
     @_api_call("get_project")
     def fetch_single_project(
         self, project_id: str
@@ -560,14 +552,11 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch single project",
-                message=f"Could not fetch project {project_id}",
+                message="Could not fetch project by ID",
+                context=f"project_id={project_id}",
                 exc=e,
             )
             return None
-
-    # ------------------------------------------------------------------
-    # Cells  (all tiers — /v1/cells?projectId=)
-    # ------------------------------------------------------------------
 
     @_api_call("list_cells", paginated=True)
     def fetch_cells(self, project_id: str) -> List[dict]:
@@ -601,7 +590,8 @@ class HexApi:
             except Exception as e:
                 self.report.warning(
                     title="Failed to fetch cells",
-                    message=f"Cells API call failed for project {project_id}",
+                    message="Cells API call failed",
+                    context=f"project_id={project_id}",
                     exc=e,
                 )
                 break
@@ -610,10 +600,6 @@ class HexApi:
             if not after:
                 break
         return cells
-
-    # ------------------------------------------------------------------
-    # Project export  (/v1/projects/export — reveals COMPONENT_IMPORT ids)
-    # ------------------------------------------------------------------
 
     @staticmethod
     def _normalize_export_cells(
@@ -705,7 +691,7 @@ class HexApi:
                     }
                 )
             elif ct == "COMPONENT_IMPORT":
-                comp_id = cfg.get("component", {}).get("id")
+                comp_id = (cfg.get("component") or {}).get("id")
                 if comp_id:
                     component_ids.append(comp_id)
                 result.append(
@@ -756,16 +742,13 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch project export",
-                message=f"Export API call failed for project {project_id}",
+                message="Export API call failed",
+                context=f"project_id={project_id}",
                 exc=e,
             )
             return [], []
 
         return HexApi._normalize_export_cells(content.get("cells", []))
-
-    # ------------------------------------------------------------------
-    # Queried tables  (ENTERPRISE tier — /v1/projects/{id}/queriedTables)
-    # ------------------------------------------------------------------
 
     @_api_call("queried_tables")
     def fetch_queried_tables(self, project_id: str) -> Optional[List[dict]]:
@@ -789,14 +772,11 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch queriedTables",
-                message=f"queriedTables call failed for {project_id}; falling back to cell-based lineage",
+                message="queriedTables call failed; falling back to cell-based lineage",
+                context=f"project_id={project_id}",
                 exc=e,
             )
             return None
-
-    # ------------------------------------------------------------------
-    # Run history  (/v1/projects/{id}/runs)
-    # ------------------------------------------------------------------
 
     @_api_call("run_list")
     def fetch_latest_run(self, project_id: str) -> Optional[RunRecord]:
@@ -827,7 +807,8 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch run history",
-                message=f"Run history call failed for {project_id}",
+                message="Run history call failed",
+                context=f"project_id={project_id}",
                 exc=e,
             )
             return None

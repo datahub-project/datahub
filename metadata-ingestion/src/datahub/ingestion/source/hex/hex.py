@@ -273,6 +273,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # Timestamp of the last successful checkpoint (millis). Used to guard
         # against re-emitting run history that was already captured.
         self._last_ingested_at_ms: Optional[int] = None
+        self._queried_tables_available: Optional[bool] = None
         # Register the incremental ingestion use-case handler.
         _HexIncrementalHandler(self)
 
@@ -891,9 +892,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 markdown_content=markdown,
                 dashboard_urn=chart_urn,
             )
-
-    # Shared queried_tables state across streaming project calls
-    _queried_tables_available: Optional[bool] = None
 
     def _stream_project(
         self,
