@@ -1560,7 +1560,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         table_id: str,
         sql: str,
         sv_ref: Optional[SqlViewWarehouseRef],
-        existing_fgl_edges: Optional[Set[tuple]] = None,
+        existing_fgl_edges: Optional[Set[Tuple[str, str]]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Augment the SQL view dataset's UpstreamLineage with
         sqlglot-parsed edges. Mirrors Mode's pattern at
@@ -1573,10 +1573,10 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         ``columns[*].sources`` edges on this dataset are unaffected
         by any failure here.
 
-        ``existing_fgl_edges`` (optional) carries ``(downstream_col,
-        upstream_urn, upstream_col)`` triples already on the dataset
-        so we can drop duplicate column-level edges. When ``None``,
-        all parsed edges emit verbatim.
+        ``existing_fgl_edges`` (optional) carries ``(downstream_col_urn,
+        upstream_col_urn)`` pairs already on the dataset so we can drop
+        duplicate column-level edges. When ``None``, all parsed edges
+        emit verbatim.
 
         ``sv_ref`` is the resolved warehouse context from
         ``_resolve_sql_view_warehouse``. ``None`` means we couldn't
