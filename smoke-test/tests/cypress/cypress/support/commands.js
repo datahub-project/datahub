@@ -535,8 +535,6 @@ Cypress.Commands.add("createUser", (name, password, email) => {
 });
 
 Cypress.Commands.add("createGroup", (name, description, group_id) => {
-  // The "Create Group" button only exists in V2 mode
-  cy.setIsThemeV2Enabled(true);
   cy.visit("/settings/identities/groups");
   cy.clickOptionWithText("Create Group");
   cy.waitTextVisible("Create new group");
@@ -651,7 +649,7 @@ Cypress.on("uncaught:exception", (err) => {
   const resizeObserverLoopErrMessage =
     "ResizeObserver loop completed with undelivered notifications.";
 
-  /* returning false here prevents Cypress from failing the test */
+  /* returning false here prevents Cypress from failing the test. */
   if (
     err.message.includes(resizeObserverLoopLimitErrMessage) ||
     err.message.includes(resizeObserverLoopErrMessage)

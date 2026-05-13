@@ -45,6 +45,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.UpdateGraphIndicesService;
 import com.linkedin.metadata.service.UpdateIndicesService;
@@ -143,7 +144,9 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class));
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -260,7 +263,9 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false,
+            mock(V2MappingsBuilder.class));
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -892,7 +897,9 @@ public class UpdateIndicesHookTest {
               mockTimeseriesAspectService,
               "MD5",
               null, // No semantic search config for this test
-              mock(IndexConvention.class));
+              mock(IndexConvention.class),
+              false,
+              mock(V2MappingsBuilder.class));
       strategies.add(v2Strategy);
     }
 

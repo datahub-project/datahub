@@ -391,8 +391,12 @@ class QueryProjector:
             logger.error(f"Failed to visit GraphQL AST: {e}")
             raise
 
-        # Convert the modified AST back to a query string
-        adapted_query = print_ast(modified_ast)
+        # Convert the modified AST back to a query string.
+        # Minify by collapsing all whitespace to single spaces — fragment inlining
+        # can expand a ~1,700-line query to 18,000+ lines with deeply-nested indentation,
+        # easily exceeding graphql-java's 200,000-whitespace-token DoS protection limit
+        # used by older GMS versions (e.g. v1.1.0).
+        adapted_query = " ".join(print_ast(modified_ast).split())
 
         removed_paths = visitor.removed_structural_paths
         result = (adapted_query, visitor.removed_fields, removed_paths)

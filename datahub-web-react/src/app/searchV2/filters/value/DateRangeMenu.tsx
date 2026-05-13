@@ -1,5 +1,3 @@
-import { DatePicker } from 'antd';
-import moment from 'moment';
 import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,16 +7,14 @@ import useDateRangeFilterValues from '@app/searchV2/filters/value/useDateRangeFi
 import { Text } from '@src/alchemy-components';
 import { Datetime } from '@src/app/lineageV2/LineageTimeSelector';
 import { FacetFilterInput, FacetMetadata, FilterOperator } from '@src/types.generated';
+import DatePicker from '@utils/DayjsDatePicker';
 
 const { RangePicker } = DatePicker;
 
 const Container = styled.div`
     padding: 16px;
-    background-color: #ffffff;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08),
-        0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     border-radius: 8px;
     min-width: 225px;
 `;
@@ -30,7 +26,6 @@ interface Props {
 
 export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const displayName = useFilterDisplayName(field);
-    moment.tz.setDefault('GMT');
 
     const [startDate, setStartDate] = useState<Datetime>(null);
     const [endDate, setEndDate] = useState<Datetime>(null);
@@ -66,11 +61,8 @@ export default function DateRangeMenu({ field, manuallyUpdateFilters }: Props) {
     const handleRangeChange = useCallback((dates: [Datetime, Datetime] | null) => {
         const [start, end] = dates || [null, null];
 
-        start?.set({ hour: 0, minute: 0, second: 0, millisecond: 0 });
-        end?.set({ hour: 23, minute: 59, second: 59, millisecond: 999 });
-
-        setStartDate(start);
-        setEndDate(end);
+        setStartDate(start?.startOf('day') ?? null);
+        setEndDate(end?.endOf('day') ?? null);
     }, []);
 
     return (

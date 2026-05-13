@@ -95,11 +95,16 @@ const lightTheme: ColorTheme = {
     shadowFocusBrand: '0px 0px 0px 1px rgba(108, 71, 255, 0.08)',
     shadowInset: 'inset 0px 1px 3px rgba(0, 0, 0, 0.08)',
     shadowNavbar: '0px 2px 10px rgba(0, 0, 0, 0.08)',
+    shadowDropBrandColor: 'rgba(33, 23, 95, 0.3)',
+    shadowViewSelect: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
+
     // Overlays
     overlayLight: 'rgba(0, 0, 0, 0.05)',
     overlayMedium: 'rgba(0, 0, 0, 0.15)',
     overlayHeavy: 'rgba(0, 0, 0, 0.45)',
     overlayOnBrand: 'rgba(255, 255, 255, 0.2)',
+    overlayMask: 'rgba(0, 0, 0, 0.5)',
+    overlayDropShadow: 'rgba(0, 0, 0, 0.25)',
     // Inputs / Forms
     bgInput: colors.gray0,
     bgInputDisabled: colors.gray400,
@@ -115,6 +120,7 @@ const lightTheme: ColorTheme = {
     bgCode: colors.gray200,
     bgCodeBlock: colors.gray200,
     // Highlight
+    bgHighlight: '#ffe58f',
     // Tooltip
     bgTooltip: colors.gray1000,
     // Brand gradients
@@ -160,11 +166,17 @@ const lightTheme: ColorTheme = {
     chartsHeatmapMedium: colors.violet500,
     chartsHeatmapLow: colors.violet200,
     chartsHeatmapBase: colors.gray100,
+    chartsRedHigh: colors.red400,
+    chartsRedMedium: colors.red200,
+    chartsRedLow: colors.wine300,
+    chartsRedBase: colors.wine100,
     chartsBrandHighAlpha: '#2200F999',
     chartsBrandMediumAlpha: '#917FFF99',
     chartsBrandLowAlpha: '#B0A7EA99',
     chartsBrandBaseAlpha: '#CAC3F166',
     chartsInformationHigh: colors.blue700,
+    chartsGradientStart: colors.cyan200,
+    chartsGradientEnd: colors.lavender200,
     navBgGradientTop: '#705EE40A',
     navBgGradientBottom: '#533FD100',
     chartsInformationMedium: colors.blue600,
@@ -210,6 +222,30 @@ const lightTheme: ColorTheme = {
     tagsTrueYellowBorder: colors.trueyellow100,
     tagsTrueYellowIcon: colors.trueyellow200,
     tagsTrueYellowText: colors.trueyellow300,
+    colorPickerOrange: colors.orange500,
+    colorPickerBlue: colors.trueblue100,
+    colorPickerCobalt: colors.cobalt200,
+    colorPickerTangerine: colors.tangerine300,
+    colorPickerBrown: colors.brown300,
+    colorPickerDarkGreen: colors.darkgreen300,
+    colorPickerOlive: colors.olive300,
+    colorPickerDefault: colors.gray1200,
+
+    // Glossary Color Palette
+    glossaryPaletteViolet: colors.violet400,
+    glossaryPalettePurple: colors.violet500,
+    glossaryPaletteLightBlue: colors.trueblue100,
+    glossaryPaletteBlue: colors.trueblue300,
+    glossaryPaletteTeal: colors.cyan200,
+    glossaryPaletteGreen: colors.mudgreen500,
+    glossaryPaletteLime: colors.olive200,
+    glossaryPaletteLightOrange: colors.trueyellow200,
+    glossaryPaletteMustard: colors.yellow600,
+    glossaryPaletteOrange: colors.orange400,
+    glossaryPalettePeach: colors.orange300,
+    glossaryPaletteRed: colors.wine600,
+    glossaryPaletteMagenta: colors.pink300,
+    glossaryPaletteColdGrey: colors.gray600,
 };
 
 export default lightTheme;

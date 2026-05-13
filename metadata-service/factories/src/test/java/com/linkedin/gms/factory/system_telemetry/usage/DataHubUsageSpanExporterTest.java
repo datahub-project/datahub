@@ -53,6 +53,45 @@ public class DataHubUsageSpanExporterTest {
   }
 
   @Test
+  public void testExportFailedLoginEventIncludesLoginDenialReason() {
+    String userId = "urn:li:corpuser:testUser";
+    String denialReason = "SUSPENDED";
+    EventData failedLoginEvent =
+        createGenericEvent(
+            LOGIN_EVENT,
+            userId,
+            DataHubUsageEventType.FAILED_LOGIN_EVENT.getType(),
+            null,
+            null,
+            null,
+            "PASSWORD_LOGIN",
+            null,
+            "192.168.1.2",
+            null,
+            null,
+            denialReason);
+
+    SpanData spanData = mock(SpanData.class);
+    when(spanData.getEvents()).thenReturn(Collections.singletonList(failedLoginEvent));
+
+    CompletableResultCode result = exporter.export(Collections.singletonList(spanData));
+    assertTrue(result.isSuccess());
+
+    ArgumentCaptor<ProducerRecord<String, String>> recordCaptor =
+        ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(mockProducer).send(recordCaptor.capture(), nullable(Callback.class));
+
+    try {
+      JsonNode eventJson = OBJECT_MAPPER.readTree(recordCaptor.getValue().value());
+      assertEquals(denialReason, eventJson.get(LOGIN_DENIAL_REASON).asText());
+      assertEquals(
+          DataHubUsageEventType.FAILED_LOGIN_EVENT.getType(), eventJson.get(TYPE).asText());
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to parse JSON", e);
+    }
+  }
+
+  @Test
   public void testExportLoginEvent() {
     // Prepare test data
     String userId = "urn:li:corpuser:testUser";
@@ -357,7 +396,8 @@ public class DataHubUsageSpanExporterTest {
         userAgent,
         sourceIp,
         null,
-        eventSource);
+        eventSource,
+        null);
   }
 
   private EventData createGenericEvent(
@@ -405,6 +445,7 @@ public class DataHubUsageSpanExporterTest {
         userAgent,
         sourceIp,
         traceId,
+        null,
         null);
   }
 
@@ -419,7 +460,8 @@ public class DataHubUsageSpanExporterTest {
       String userAgent,
       String sourceIp,
       String traceId,
-      String eventSource) {
+      String eventSource,
+      String loginDenialReason) {
 
     AttributesBuilder attributesBuilder = Attributes.builder();
 
@@ -462,6 +504,10 @@ public class DataHubUsageSpanExporterTest {
     if (eventSource != null) {
       attributesBuilder.put(
           AttributeKey.stringKey(OpenTelemetryKeyConstants.EVENT_SOURCE), eventSource);
+    }
+
+    if (loginDenialReason != null) {
+      attributesBuilder.put(AttributeKey.stringKey(LOGIN_DENIAL_REASON_ATTR), loginDenialReason);
     }
 
     // Create event with attributes and timestamp

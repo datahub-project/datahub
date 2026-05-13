@@ -26,10 +26,6 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
     `}
 `;
 
-const CustomButton = styled(Button)`
-    padding: 8px 0px;
-`;
-
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`
     display: block;
     overflow-wrap: break-word;
@@ -147,8 +143,9 @@ export default function CompactMarkdownViewer({
             {!hideShowMore &&
                 (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
                     <ShowMoreWrapper>
-                        <CustomButton
+                        <Button
                             variant="text"
+                            color="gray"
                             size={lineLimit && lineLimit <= 1 ? 'sm' : undefined}
                             onClick={(e) => {
                                 if (handleShowMore) {
@@ -159,8 +156,8 @@ export default function CompactMarkdownViewer({
                                 e.stopPropagation();
                             }}
                         >
-                            {isShowingMore ? 'show less' : 'show more'}
-                        </CustomButton>
+                            {isShowingMore ? 'Show less' : 'Show more'}
+                        </Button>
                     </ShowMoreWrapper>
                 )}
         </MarkdownContainer>

@@ -78,6 +78,7 @@ export function setTagToOpenedEntity(tagName) {
   openSummaryTabOnSidebar();
 
   cy.get('[id="entity-profile-tags"]').within(() => {
+    cy.get('[data-testid="add-tags-button"]').should("not.be.disabled");
     cy.clickOptionWithTestId("add-tags-button");
   });
 

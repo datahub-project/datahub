@@ -1,5 +1,4 @@
 import { FolderFilled } from '@ant-design/icons';
-import moment from 'moment-timezone';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -52,6 +51,7 @@ import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMa
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { EntityRegistry } from '@src/entityRegistryContext';
+import dayjs from '@utils/dayjs';
 
 import { GetAutoCompleteMultipleResultsQuery } from '@graphql/search.generated';
 import {
@@ -531,7 +531,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
 
     // check for structured prop date values
     if (entity && (entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN) {
-        return moment(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
+        return dayjs(parseInt(value, 10)).tz('GMT').format('MM/DD/YYYY').toString();
     }
 
     // check for structured prop number values

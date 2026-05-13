@@ -1,81 +1,63 @@
-import { colors } from '@components';
+import { Icon } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { Collapse, Typography } from 'antd';
-import React from 'react';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { CountStyle } from '@app/entityV2/shared/SidebarStyledComponents';
 
-const Container = styled.div`
-    margin-left: 7px;
-    width: 100%;
+const Wrapper = styled.div`
+    border: none;
+    background: transparent;
 `;
 
-const StyledCollapse = styled(Collapse)`
-    .ant-collapse-header {
-        padding: 0px 0px !important;
-        align-items: center;
-    }
-
-    .ant-collapse-content-box {
-        padding-top: 4px !important;
-        padding-bottom: 0px !important;
-    }
-
-    .ant-collapse-arrow {
-        margin-right: 5px !important;
-        line-height: 32px;
-    }
-
-    .ant-collapse-expand-icon {
-        height: 22px;
-    }
-
-    .ant-collapse-item-disabled > .ant-collapse-header {
-        cursor: default;
-
-        > .ant-collapse-extra {
-            cursor: pointer;
-        }
-    }
-
-    .ant-collapse-header-text {
-        max-width: calc(100% - 50px);
-    }
-
-    &.ant-collapse {
-        border-radius: 0 !important;
-    }
-
-    .ant-collapse-item {
-        border-radius: 0 !important;
-    }
-`;
-
-const SectionHeader = styled.span<{ collapsible?: boolean }>`
+const Header = styled.div<{ $collapsible?: boolean }>`
     display: flex;
     align-items: center;
-    ${(props) => !props.collapsible && 'margin-left: 8px;'}
+    justify-content: space-between;
+    padding: 0 20px;
+    cursor: ${(props) => (props.$collapsible ? 'pointer' : 'default')};
+    user-select: none;
 `;
 
-const Title = styled(Typography.Text)`
+const HeaderLeft = styled.div`
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    gap: 4px;
+`;
+
+const HeaderRight = styled.div`
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    gap: 4px;
+`;
+
+const CaretIcon = styled.div`
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: ${(props) => props.theme.colors.icon};
+`;
+
+const Title = styled.span`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
     font-size: 14px;
     display: flex;
     align-items: center;
 `;
 
-const StyledIcon = styled.div`
-    svg {
-        height: 16px;
-        width: 16px;
-        color: ${colors.gray[1800]};
-    }
+const Extra = styled.div`
+    cursor: pointer;
+`;
+
+const ContentBody = styled.div`
+    padding: 4px 20px 0 20px;
 `;
 
 type Props = {
@@ -99,33 +81,32 @@ export const SidebarSection = ({
     expandedByDefault = true,
     showFullCount,
 }: Props) => {
+    const [isExpanded, setIsExpanded] = useState(expandedByDefault);
+
+    const toggle = () => {
+        if (collapsible) setIsExpanded((prev) => !prev);
+    };
+
     return (
-        <StyledCollapse
-            ghost
-            expandIcon={({ isActive }) => <StyledIcon>{isActive ? <CaretDown /> : <CaretRight />} </StyledIcon>}
-            defaultActiveKey={expandedByDefault ? title : ''}
-        >
-            <Collapse.Panel
-                header={
-                    <>
-                        <SectionHeader collapsible={collapsible}>
-                            <Title ellipsis={{ tooltip: true }}>{title}</Title>
-                            {count > 0 && (
-                                <CountStyle>
-                                    {showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}
-                                </CountStyle>
-                            )}
-                        </SectionHeader>
-                        {collapsedContent}
-                    </>
-                }
-                key={title}
-                extra={extra}
-                collapsible={!collapsible ? 'disabled' : undefined}
-                showArrow={collapsible}
-            >
-                <Container data-testid={`sidebar-section-content-${title}`}>{content}</Container>
-            </Collapse.Panel>
-        </StyledCollapse>
+        <Wrapper>
+            <Header $collapsible={collapsible} onClick={toggle}>
+                <HeaderLeft>
+                    <Title>{title}</Title>
+                    {count > 0 && (
+                        <CountStyle>{showFullCount ? <>{count}</> : <>{count > 10 ? '10+' : count}</>}</CountStyle>
+                    )}
+                    {collapsedContent}
+                </HeaderLeft>
+                <HeaderRight>
+                    {extra && <Extra onClick={(e) => e.stopPropagation()}>{extra}</Extra>}
+                    {collapsible && (
+                        <CaretIcon>
+                            <Icon icon={isExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
+                        </CaretIcon>
+                    )}
+                </HeaderRight>
+            </Header>
+            {isExpanded && <ContentBody data-testid={`sidebar-section-content-${title}`}>{content}</ContentBody>}
+        </Wrapper>
     );
 };

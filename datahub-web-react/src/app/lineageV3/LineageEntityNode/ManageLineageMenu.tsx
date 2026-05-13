@@ -1,4 +1,4 @@
-import { Icon, Popover, colors } from '@components';
+import { Icon, Popover } from '@components';
 import { ArrowLeft } from '@phosphor-icons/react/dist/csr/ArrowLeft';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
@@ -9,7 +9,7 @@ import { ItemType } from 'antd/lib/menu/hooks/useItems';
 import * as QueryString from 'query-string';
 import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants';
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
@@ -30,7 +30,7 @@ const Wrapper = styled.div`
     margin: 0 -4px;
 
     :hover {
-        color: ${(p) => p.theme.styles['primary-color']};
+        color: ${(p) => p.theme.colors.textHover};
     }
 `;
 
@@ -73,6 +73,7 @@ interface Props {
 }
 
 export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, isOpen, setDisplayedMenuNode }: Props) {
+    const theme = useTheme();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(LineageDirection.Upstream);
     const location = useLocation();
@@ -204,7 +205,7 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
                     open={isOpen}
                     overlayStyle={{ zIndex: DROPDOWN_Z_INDEX }}
                     placement="topRight"
-                    menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${colors.gray[100]}` } }}
+                    menu={{ items, style: { boxShadow: 'initial', border: `1px solid ${theme.colors.border}` } }}
                 >
                     <Icon icon={DotsThreeVertical} color="gray" />
                 </Dropdown>

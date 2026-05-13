@@ -1,3 +1,8 @@
+---
+title: Search Client SDK Tutorial
+description: "Use DataHub's Python SDK search client to filter, query, and discover datasets, dashboards, and other metadata entities programmatically."
+---
+
 # Search
 
 DataHub's Python SDK makes it easy to search and discover metadata across your data ecosystem. Whether you're exploring unknown datasets, filtering by environment, or building advanced search tools, this guide walks you through how to do it all programmatically.

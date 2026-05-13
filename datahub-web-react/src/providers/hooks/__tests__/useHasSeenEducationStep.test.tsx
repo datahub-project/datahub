@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
+import useShouldSkipOnboardingTour from '@app/onboarding/useShouldSkipOnboardingTour';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 import useHasSeenEducationStep from '@providers/hooks/useHasSeenEducationStep';
 
@@ -16,7 +17,12 @@ vi.mock('@app/onboarding/utils', () => ({
     convertStepId: vi.fn((stepId: string, userUrn: string) => `${userUrn}-${stepId}`),
 }));
 
+vi.mock('@app/onboarding/useShouldSkipOnboardingTour', () => ({
+    default: vi.fn(),
+}));
+
 const mockUseUserContext = useUserContext as ReturnType<typeof vi.fn>;
+const mockUseShouldSkipOnboardingTour = useShouldSkipOnboardingTour as ReturnType<typeof vi.fn>;
 
 describe('useHasSeenEducationStep', () => {
     const mockSetEducationSteps = vi.fn();
@@ -26,6 +32,55 @@ describe('useHasSeenEducationStep', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        mockUseShouldSkipOnboardingTour.mockReturnValue(false);
+    });
+
+    describe('when shouldSkip is true', () => {
+        beforeEach(() => {
+            mockUseShouldSkipOnboardingTour.mockReturnValue(true);
+        });
+
+        it('should return true even when step has not been seen', () => {
+            mockUseUserContext.mockReturnValue({ user: { urn: testUserUrn } });
+            const educationSteps: StepStateResult[] = [{ id: `${testUserUrn}-other-step`, properties: [] }];
+            const wrapper = ({ children }: { children: React.ReactNode }) => (
+                <EducationStepsContext.Provider
+                    value={{
+                        educationSteps,
+                        setEducationSteps: mockSetEducationSteps,
+                        educationStepIdsAllowlist: new Set(),
+                        setEducationStepIdsAllowlist: mockSetEducationStepIdsAllowlist,
+                    }}
+                >
+                    {children}
+                </EducationStepsContext.Provider>
+            );
+
+            const { result } = renderHook(() => useHasSeenEducationStep(testStepId), { wrapper });
+
+            expect(result.current).toBe(true);
+        });
+
+        it('should return true even when educationSteps is empty', () => {
+            mockUseUserContext.mockReturnValue({ user: { urn: testUserUrn } });
+            const educationSteps: StepStateResult[] = [];
+            const wrapper = ({ children }: { children: React.ReactNode }) => (
+                <EducationStepsContext.Provider
+                    value={{
+                        educationSteps,
+                        setEducationSteps: mockSetEducationSteps,
+                        educationStepIdsAllowlist: new Set(),
+                        setEducationStepIdsAllowlist: mockSetEducationStepIdsAllowlist,
+                    }}
+                >
+                    {children}
+                </EducationStepsContext.Provider>
+            );
+
+            const { result } = renderHook(() => useHasSeenEducationStep(testStepId), { wrapper });
+
+            expect(result.current).toBe(true);
+        });
     });
 
     describe('when user is not loaded', () => {

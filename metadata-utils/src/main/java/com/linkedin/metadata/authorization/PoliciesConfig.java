@@ -160,6 +160,12 @@ public class PoliciesConfig {
           "Manage Ownership Types",
           "Create, update and delete Ownership Types.");
 
+  public static final Privilege MANAGE_GLOBAL_SETTINGS =
+      Privilege.of(
+          "MANAGE_GLOBAL_SETTINGS",
+          "Manage Platform Settings",
+          "View and change platform-level settings, like integrations & notifications.");
+
   public static final Privilege MANAGE_SERVICE_ACCOUNTS_PRIVILEGE =
       Privilege.of(
           "MANAGE_SERVICE_ACCOUNTS",
@@ -269,6 +275,7 @@ public class PoliciesConfig {
           CREATE_GLOBAL_ANNOUNCEMENTS_PRIVILEGE,
           MANAGE_GLOBAL_VIEWS,
           MANAGE_GLOBAL_OWNERSHIP_TYPES,
+          MANAGE_GLOBAL_SETTINGS,
           CREATE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
@@ -1266,6 +1273,33 @@ public class PoliciesConfig {
                       .put(
                           ApiOperation.EXISTS,
                           API_PRIVILEGE_MAP.get(ApiGroup.ENTITY).get(ApiOperation.EXISTS))
+                      .build())
+              .put(
+                  Constants.GLOBAL_SETTINGS_ENTITY_NAME,
+                  ImmutableMap.<ApiOperation, Disjunctive<Conjunctive<Privilege>>>builder()
+                      .put(ApiOperation.CREATE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(
+                          ApiOperation.READ,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.READ)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_GLOBAL_SETTINGS)))
+                                  .collect(Collectors.toList())))
+                      .put(ApiOperation.UPDATE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(ApiOperation.DELETE, Disjunctive.disjoint(MANAGE_GLOBAL_SETTINGS))
+                      .put(
+                          ApiOperation.EXISTS,
+                          new Disjunctive<>(
+                              Stream.concat(
+                                      API_PRIVILEGE_MAP
+                                          .get(ApiGroup.ENTITY)
+                                          .get(ApiOperation.EXISTS)
+                                          .stream(),
+                                      Stream.of(Conjunctive.of(MANAGE_GLOBAL_SETTINGS)))
+                                  .collect(Collectors.toList())))
                       .build())
               .put(
                   // regular entity level permissions + MANAGE_ACCESS_TOKENS

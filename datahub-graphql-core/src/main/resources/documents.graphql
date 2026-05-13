@@ -130,6 +130,12 @@ type Document implements Entity {
   tags: GlobalTags
 
   """
+  Deprecated, use tags field instead.
+  The structured tags associated with the Document.
+  """
+  globalTags: GlobalTags @deprecated(reason: "Use tags field instead")
+
+  """
   Glossary terms associated with the Document
   """
   glossaryTerms: GlossaryTerms

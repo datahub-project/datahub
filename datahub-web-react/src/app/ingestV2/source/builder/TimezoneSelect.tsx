@@ -1,5 +1,4 @@
 import { SimpleSelect } from '@components';
-import moment from 'moment-timezone';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -13,7 +12,7 @@ type Props = {
 };
 
 export const TimezoneSelect = ({ value, onChange }: Props) => {
-    const timezones = moment.tz.names();
+    const timezones = (Intl as any).supportedValuesOf('timeZone') as string[];
     const options = timezones.map((timezone) => {
         return {
             value: timezone,

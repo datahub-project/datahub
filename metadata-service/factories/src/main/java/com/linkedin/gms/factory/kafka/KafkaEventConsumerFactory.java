@@ -19,7 +19,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -34,6 +34,7 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 @Configuration
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
+  private int authExceptionRetryIntervalSeconds;
 
   @Bean(name = "kafkaConsumerFactory")
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
@@ -42,6 +43,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -58,6 +61,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -138,7 +143,7 @@ public class KafkaEventConsumerFactory {
       consumerProps.getSecurity().setProtocol(securityProtocol);
     }
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 
@@ -242,6 +247,16 @@ public class KafkaEventConsumerFactory {
     factory.setConcurrency(kafkaEventConsumerConcurrency);
     factory.setAutoStartup(false);
 
+    // Allow consumer containers to survive transient authentication failures (e.g.,
+    // MSK IAM credential rotation with EKS Pod Identity) instead of stopping fatally.
+    // The Kafka client's NetworkClient automatically reconnects with fresh credentials
+    // on the next poll — the same self-healing that the producer side already has.
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
+
     /*
      * Sets up a delegating error handler for Deserialization errors, if disabled
      * will
@@ -276,6 +291,11 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
     factory.setAutoStartup(false);
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

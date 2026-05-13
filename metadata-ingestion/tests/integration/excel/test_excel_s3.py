@@ -4,7 +4,7 @@ from datetime import datetime
 import moto
 import pytest
 from boto3.session import Session
-from moto import mock_s3
+from moto import mock_aws
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
@@ -16,7 +16,7 @@ S3_PREFIX = "data/test/"
 
 @pytest.fixture(scope="module")
 def s3_setup():
-    with mock_s3():
+    with mock_aws():
         session = Session(
             aws_access_key_id="test",
             aws_secret_access_key="test",

@@ -445,7 +445,7 @@ the code has not been released yet. We will update version once a new release is
 ### IAM policies for UI-based ingestion
 
 This section details how to attach policies to the acryl-datahub-actions pod that powers UI-based ingestion. For some of
-the ingestion recipes, you sepecify login creds in the recipe itself, making it easy to set up auth to grab metadata
+the ingestion recipes, you specify login creds in the recipe itself, making it easy to set up auth to grab metadata
 from the data source. However, for AWS resources, the recommendation is to use IAM roles and policies to gate requests
 to access metadata on these resources.
 

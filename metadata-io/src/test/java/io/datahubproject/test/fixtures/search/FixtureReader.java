@@ -56,7 +56,13 @@ public class FixtureReader {
                                   .id(doc.urn)
                                   .source(line.getBytes(), XContentType.JSON);
 
-                          bulkProcessor.add(request);
+                          // Some fixtures (e.g. graph edge docs in graph_service_v1) have
+                          // no top-level `urn` field. Fall back to the line's hash so each
+                          // unique fixture line still spreads evenly across bulk-processor
+                          // threads (using a constant fallback would hotspot one thread).
+                          String routingKey =
+                              doc.urn != null ? doc.urn : String.valueOf(line.hashCode());
+                          bulkProcessor.add(routingKey, request);
                         } catch (JsonProcessingException e) {
                           throw new RuntimeException(e);
                         }

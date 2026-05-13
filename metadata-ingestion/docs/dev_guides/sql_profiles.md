@@ -1,3 +1,7 @@
+---
+description: "SQL Profiling in DataHub collects table-level and column-level statistics for relational sources during ingestion."
+---
+
 # SQL Profiling
 
 SQL Profiling collects table level and column level statistics.
@@ -26,7 +30,7 @@ Extracts:
 
 ## Supported Sources
 
-SQL profiling is supported for all SQL sources. Check the individual source page to verify if it supports profiling.
+{{ inline /docs/generated/ingestion/sql_profiling_support_table.md.snippet }}
 
 ## Profiler Implementation
 

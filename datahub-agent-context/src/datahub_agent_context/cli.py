@@ -90,6 +90,11 @@ def create() -> None:
     default=True,
     help="Include mutation/write tools (tags, descriptions, owners, etc.). Default: enabled",
 )
+@click.option(
+    "--enable-cloud/--no-enable-cloud",
+    default=False,
+    help="Include Cloud-only tools (Ask DataHub AI chat). Requires DataHub Cloud. Default: disabled",
+)
 def create_snowflake(
     sf_account: str | None,
     sf_user: str | None,
@@ -107,6 +112,7 @@ def create_snowflake(
     sf_password: str | None,
     sf_authenticator: str,
     enable_mutations: bool,
+    enable_cloud: bool,
 ) -> None:
     """Create a Snowflake agent on DataHub.
 
@@ -149,4 +155,5 @@ def create_snowflake(
         sf_password=sf_password,
         sf_authenticator=sf_authenticator,
         enable_mutations=enable_mutations,
+        enable_cloud=enable_cloud,
     )

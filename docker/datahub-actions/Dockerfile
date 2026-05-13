@@ -1,138 +1,102 @@
-# This image has two variants: full and slim.
+# full / slim / locked variants (see APP_ENV). Base OS: Wolfi (Chainguard); override via BASE_IMAGE.
 # The full variant has additional deps preinstalled, like a JRE and Oracle client.
 ARG APP_ENV=full
 ARG PYTHON_VERSION=3.11
+ARG BASE_IMAGE=cgr.dev/chainguard/wolfi-base:latest
 
-# INLINE-BEGIN @/docker/snippets/ingestion_base
-# This is the "base" image workflow.
-# While it has a bunch of intermediate stages, it "exports" a couple
-# stages for consumption.
-# - python-base: A basic stage, with basic deps, Python, and a venv.
-# - ingestion-base-slim: Currently the same as base-empty.
-# - ingestion-base-full: Adds a JRE and Oracle client.
+# INLINE-BEGIN @/docker/snippets/ingestion_base (Wolfi)
+# Stages:
+# - python-base: python, uv, venv, user datahub (UID 1000)
+# - ingestion-base-slim: LDAP/SASL/Kerberos, librdkafka, ODBC, etc.
+# - ingestion-base-full: JRE, build toolchain, Oracle Instant Client
 
-FROM ubuntu:24.04 AS python-base
-
-# TODO: This may not work on Ubuntu 24.04 due to the new deb822 package format.
-ARG UBUNTU_REPO_URL=http://ports.ubuntu.com/ubuntu-ports
-RUN if [ "${UBUNTU_REPO_URL}" != "http://ports.ubuntu.com/ubuntu-ports" ] ; then sed -i "s#http.*://ports.ubuntu.com/ubuntu-ports#${UBUNTU_REPO_URL}#g" /etc/apt/sources.list ; fi
+FROM ${BASE_IMAGE} AS python-base
 
 ENV HOME=/home/datahub
-RUN existing_group=$(getent group 1000 | cut -d: -f1) && \
-    if [ -n "$existing_group" ] && [ "$existing_group" != "datahub" ]; then \
-        echo "Renaming existing group $existing_group to datahub"; \
-        groupmod -n datahub "$existing_group"; \
-    elif [ -z "$existing_group" ]; then \
-        echo "Creating new group datahub with GID 1000"; \
-        addgroup --gid 1000 datahub; \
-    fi && \
-    existing_user=$(id -nu 1000 2>/dev/null || echo "") && \
-    if [ -n "$existing_user" ] && [ "$existing_user" != "datahub" ]; then \
-        echo "Renaming existing user $existing_user to datahub"; \
-        usermod -l datahub -d $HOME "$existing_user"; \
-        usermod -g datahub datahub; \
-    elif [ -z "$existing_user" ]; then \
-        echo "Creating new user datahub with UID 1000"; \
-        adduser --disabled-password --uid 1000 --gid 1000 --home $HOME datahub; \
-    fi && \
-    # Create and set proper permissions for datahub directories
+USER root
+
+RUN addgroup -g 1000 datahub && \
+    adduser -D -u 1000 -G datahub -h /home/datahub -s /bin/sh datahub && \
     mkdir -p $HOME && \
     chown -R datahub:datahub $HOME && \
     chmod g-s $HOME
 
-# Setup the PPA for alternative Python versions.
-# TODO: Eventually we should switch to using uv's support for python-build-standalone.
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
-    software-properties-common \
-    lsb-release \
-    gnupg \
-    ca-certificates \
-    && add-apt-repository --no-update ppa:deadsnakes/ppa
-
 ARG PYTHON_VERSION
 RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
-    python${PYTHON_VERSION} \
-    python${PYTHON_VERSION}-venv \
-    python${PYTHON_VERSION}-dev \
-    python${PYTHON_VERSION}-distutils \
-    python-is-python3 \
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache --update-cache \
+    ca-certificates \
+    python-${PYTHON_VERSION} \
+    python-${PYTHON_VERSION}-dev \
+    uv \
     git \
     wget \
     curl \
     zip \
     unzip \
-    nano
+    bash
 
-# Set the default python version.
-RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1 \
-    && update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+# PAM's unix_chkpwd is setuid/setgid in many images for interactive logins. This container does
+# not rely on PAM password checks; clearing bits avoids ABC/DoD-style SUID-SGID file findings
+# (e.g. suid_or_guid_set on /usr/bin/unix_chkpwd) without affecting the DataHub app runtime.
+RUN for f in /usr/bin/unix_chkpwd /usr/sbin/unix_chkpwd; do \
+    if [ -f "$f" ]; then chmod u-s,g-s "$f"; fi; \
+  done
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+RUN ln -sf /usr/bin/python${PYTHON_VERSION} /usr/bin/python3 && \
+    ln -sf /usr/bin/python3 /usr/bin/python
 
 ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 ARG PIP_EXTRA_INDEX_URL=""
-# Persist settings for subsequent build layers and for optional venv builds
 ENV PIP_INDEX_URL=${PIP_MIRROR_URL}
 ENV PIP_EXTRA_INDEX_URL=${PIP_EXTRA_INDEX_URL}
 ENV UV_INDEX_URL=${PIP_MIRROR_URL}
-# Also configure pip globally inside the image so tools without env still use the mirror
 RUN if [ "${PIP_MIRROR_URL}" != "https://pypi.python.org/simple" ] ; then uvx --no-cache pip config set global.index-url ${PIP_MIRROR_URL} ; fi && \
     if [ -n "${PIP_EXTRA_INDEX_URL}" ] ; then uvx --no-cache pip config set global.extra-index-url ${PIP_EXTRA_INDEX_URL} ; fi
 
 USER datahub
 WORKDIR $HOME
-RUN uv venv --python "$PYTHON_VERSION"
+RUN uv venv --python "${PYTHON_VERSION}"
 ENV VIRTUAL_ENV=$HOME/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
-# We always want to use the system CA bundle.
-# Requests comes with it's own CA bundle, which we need to override.
+# Use the system CA bundle. uv: https://github.com/astral-sh/uv/issues/1474
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-# uv uses a different mechanism. See https://github.com/astral-sh/uv/issues/1474.
 ENV SSL_CERT_FILE="/etc/ssl/certs/ca-certificates.crt"
-
 
 FROM python-base AS ingestion-base-slim
 
 USER 0
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
-    python3-ldap \
-    libldap2-dev \
-    libsasl2-dev \
-    libsasl2-modules \
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    apk add --no-cache --update-cache \
+    openldap-2.6-dev \
+    cyrus-sasl-dev \
+    cyrus-sasl-libs \
+    krb5-dev \
+    krb5-libs \
     libaio-dev \
-    libaio1t64 \
-    libsasl2-modules-gssapi-mit \
-    krb5-user \
-    krb5-config \
-    libkrb5-dev \
+    libaio \
     librdkafka-dev \
-    ldap-utils \
+    openldap-2.6-clients \
     unixodbc \
-    libodbc2
+    unixodbc-dev
 USER datahub
 
 FROM ingestion-base-slim AS ingestion-base-full
 
 USER 0
-# We need to install build-essential in order to build some Python packages (e.g. python-ldap, kerberos)
-# gcc and g++ are explicitly listed to ensure compilers are available on all architectures
-RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
-    apt-get update && apt-get install -y \
-    default-jre-headless \
-    build-essential \
-    gcc \
-    g++ \
-    make
+COPY docker/snippets/setup_java_runtime.sh /tmp/setup_java_runtime_major.sh
+# JRE on PATH for layertools/builds; JAVA_MAJOR is read from setup_java_runtime.sh (same source as service images).
+# build-base pulls gcc (includes g++ driver), make, binutils, glibc-dev on Wolfi; there is no separate g++ apk.
+RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
+    JAVA_MAJOR=$(grep -E '^JAVA_MAJOR=[0-9]+$' /tmp/setup_java_runtime_major.sh | head -1 | cut -d= -f2) \
+    && test -n "${JAVA_MAJOR}" \
+    && apk add --no-cache --update-cache \
+    "openjdk-${JAVA_MAJOR}-jre" \
+    build-base \
+    && ln -sf "/usr/lib/jvm/java-${JAVA_MAJOR}-openjdk/bin/java" /usr/bin/java \
+    && rm -f /tmp/setup_java_runtime_major.sh
 
 RUN --mount=type=bind,source=./docker/snippets/oracle_instantclient.sh,target=/oracle_instantclient.sh \
     /oracle_instantclient.sh
@@ -148,11 +112,12 @@ FROM ingestion-base-slim AS bundled-venvs-full
 USER 0
 
 # Set up bundled venv configuration for FULL variant (with PySpark)
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="false"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -167,6 +132,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -190,11 +156,12 @@ USER 0
 
 # Set up bundled venv configuration for SLIM variant (without PySpark)
 # Venv named s3-bundled but uses s3-slim package internally
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -209,6 +176,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -232,11 +200,12 @@ USER 0
 
 # Set up bundled venv configuration for LOCKED variant (without PySpark, network blocked)
 # Same as slim but will have network access disabled in final stage
-ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file"
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
 ARG BUNDLED_VENV_SLIM_MODE="true"
 ARG BUNDLED_CLI_VERSION
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
 ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
 ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
 RUN test -n "$BUNDLED_CLI_VERSION"
@@ -251,6 +220,7 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 # Copy the self-contained venv build scripts
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/build_bundled_venvs_unified.sh /tmp/
+COPY --chown=datahub:datahub ./docker/snippets/ingestion/bundled_venv_config.py /tmp/
 COPY --chown=datahub:datahub ./docker/snippets/ingestion/constraints.txt ${DATAHUB_BUNDLED_VENV_PATH}/
 
 # Make scripts executable
@@ -278,9 +248,25 @@ FROM ingestion-base-full AS final-full
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="false"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-full $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
+
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -324,7 +310,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # FINAL STAGE - SLIM VARIANT (no PySpark, network enabled)
@@ -335,9 +321,25 @@ FROM ingestion-base-slim AS final-slim
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-slim $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
+# Shipped for downstream Dockerfiles that extend the published image without cloning the repo (see docs/docker/bundled-ingestion-venvs.md).
+COPY --chown=datahub:datahub \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.py \
+    ./docker/snippets/ingestion/build_bundled_venvs_unified.sh \
+    ./docker/snippets/ingestion/bundled_venv_config.py \
+    ./docker/snippets/ingestion/constraints.txt \
+    /opt/datahub/bundled-venv-build/
+RUN chmod 755 /opt/datahub/bundled-venv-build/build_bundled_venvs_unified.sh && \
+    chown -R datahub:datahub /opt/datahub/bundled-venv-build
+
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -380,7 +382,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
   uv pip install -e '/datahub-actions/[all]'
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # FINAL STAGE - LOCKED VARIANT (no PySpark, network BLOCKED, bundled venvs only)
@@ -391,9 +393,15 @@ FROM ingestion-base-slim AS final-locked
 USER root
 
 ENV DATAHUB_BUNDLED_VENV_PATH=/opt/datahub/venvs
+ARG BUNDLED_CLI_VERSION
+ENV BUNDLED_CLI_VERSION=${BUNDLED_CLI_VERSION}
+ARG BUNDLED_VENV_PLUGINS="s3,demo-data,file,datahub-gc,datahub-documents"
+ENV BUNDLED_VENV_PLUGINS=${BUNDLED_VENV_PLUGINS}
+ENV BUNDLED_VENV_PLUGINS_COMMON=${BUNDLED_VENV_PLUGINS}
+ARG BUNDLED_VENV_SLIM_MODE="true"
+ENV BUNDLED_VENV_SLIM_MODE=${BUNDLED_VENV_SLIM_MODE}
 COPY --from=bundled-venvs-locked $DATAHUB_BUNDLED_VENV_PATH $DATAHUB_BUNDLED_VENV_PATH
 
-COPY --from=powerman/dockerize:0.24 /usr/local/bin/dockerize /usr/local/bin
 COPY --chown=datahub:datahub ./docker/datahub-actions/start.sh /start_datahub_actions.sh
 COPY --chown=datahub:datahub ./docker/datahub-actions/readiness-check.sh /readiness-check.sh
 
@@ -402,10 +410,12 @@ RUN chmod a+x /start_datahub_actions.sh && \
     mkdir -p /tmp/datahub/logs/actions/system && \
     chown -R datahub:datahub /etc/datahub /tmp/datahub
 
-# NO metadata-ingestion install in locked variant - only bundled venvs available
-# This ensures complete isolation and prevents any package installations
+# Bundled venvs under /opt/datahub/venvs are built with editable installs against
+# /metadata-ingestion. Ship that tree so subprocess ingestion can import datahub;
+# the default app venv still does not pip-install metadata-ingestion (PyPI blocked below).
+COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
-# Copy only datahub-actions code (not metadata-ingestion)
+# Copy only datahub-actions code for the actions framework venv (not a pip install of metadata-ingestion)
 COPY --chown=datahub:datahub ./datahub-actions/setup.py /datahub-actions/
 COPY --chown=datahub:datahub ./datahub-actions/src/datahub_actions/_version.py /datahub-actions/src/datahub_actions/
 COPY --chown=datahub:datahub ./datahub-actions/README.md /datahub-actions/
@@ -423,18 +433,34 @@ USER datahub
 ARG RELEASE_VERSION
 RUN test -n "$RELEASE_VERSION"
 RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_updater.py \
+    python /version_updater.py --directory /metadata-ingestion/ --version "$RELEASE_VERSION" --expected-update-count 1 && \
     python /version_updater.py --directory /datahub-actions/ --version "$RELEASE_VERSION" --expected-update-count 1
 
-# Install ONLY datahub-actions (not metadata-ingestion)
+# Install ONLY datahub-actions into the default venv (not metadata-ingestion)
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
   uv pip install -e '/datahub-actions/[all]'
 
-# Block network access to PyPI - locked variant only uses bundled venvs
+# No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
+# Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).
+USER root
+COPY ./docker/snippets/strip_pip_uv_from_venvs.sh /tmp/strip_pip_uv_from_venvs.sh
+RUN chmod 755 /tmp/strip_pip_uv_from_venvs.sh
+USER datahub
+RUN sh /tmp/strip_pip_uv_from_venvs.sh
+USER 0
+# py3-pip-wheel pulls in a bootstrap pip wheel; it cannot be apk-removed while python-* is
+# installed. Locked images strip pip/uv and block network — delete the wheel file only here
+# (CVE-2026-3219: bundled pip wheel surface).
+RUN rm -f /tmp/strip_pip_uv_from_venvs.sh && apk del --no-cache uv && \
+    rm -f /usr/share/python-wheels/pip-*.whl
+USER datahub
+
+# Defense in depth: if any pip/uv-style tool is reintroduced, default index URL is unusable.
 ENV UV_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 
 ENTRYPOINT [ ]
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_actions.sh
+CMD ["/bin/bash", "/start_datahub_actions.sh"]
 
 # =============================================================================
 # DEFAULT EXPORT - Use APP_ENV to select variant (defaults to full)

@@ -14,7 +14,6 @@ import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/st
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/sections/syncScheduleSection/constants';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -59,11 +58,7 @@ export function IngestionSourceCreatePage() {
 
     const { defaultOwnershipType } = useOwnershipTypes();
 
-    const initialState = {
-        schedule: {
-            interval: DAILY_MIDNIGHT_CRON_INTERVAL,
-        },
-    };
+    const initialState = {};
 
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {

@@ -587,6 +587,119 @@ class TestSchemaInvalidation:
         assert len(introspection_calls) == 1
 
 
+# ---------------------------------------------------------------------------
+# Regression: graphql-java whitespace-token DoS limit (DataHub GMS ≤v1.1.0)
+# ---------------------------------------------------------------------------
+# When datahub-agent-context calls execute_graphql with entity_details.gql,
+# the SDK's QueryProjector.adapt_query() inlines all named fragments via
+# _inline_fragments() and re-serialises with print_ast().
+#
+# entity_details.gql has ~30 named fragments (entityPreview, ownershipFields,
+# globalTagsFields, …) referenced across 205 spread sites.  After full
+# recursive inlining the 1,735-line file expands to ~18,500 lines.  The
+# deeply-nested indentation produced by print_ast() yields ~438 000 whitespace
+# characters — 2.2× the 200 000-token DoS protection limit enforced by the
+# graphql-java version shipped with DataHub GMS ≤v1.1.0, resulting in:
+#
+#   "More than 200,000 'whitespace' tokens have been presented.
+#    To prevent Denial Of Service attacks, parsing has been cancelled."
+#
+# Reported by Ayush Sharma (datahub-agent-context==1.4.0.9, DataHub v1.1.0).
+# Nick Adams confirmed v1.3.0 is unaffected.
+#
+# Fix: replace `print_ast(modified_ast)` with
+#   " ".join(print_ast(modified_ast).split())
+# in QueryProjector.adapt_query().  This collapses whitespace from ~438 K to
+# ~28 K tokens with no semantic change (all string literals in the GQL are
+# single words with no internal whitespace).
+
+_ENTITY_DETAILS_GQL_PATH = (
+    Path(__file__).resolve().parents[4]
+    / "datahub-agent-context"
+    / "src"
+    / "datahub_agent_context"
+    / "mcp_tools"
+    / "gql"
+    / "entity_details.gql"
+)
+
+# graphql-java enforces this limit to prevent DoS via excessively large queries.
+_GMS_WHITESPACE_TOKEN_LIMIT = 200_000
+
+
+def _disable_version_tags(query: str) -> str:
+    """Mirror base.py _disable_cloud_fields + _disable_newer_gms_fields for a
+    non-cloud DataHub ≤v1.1.0 instance (both tag types commented out)."""
+    return "\n".join(
+        ("# " + line) if ("#[CLOUD]" in line or "#[NEWER_GMS]" in line) else line
+        for line in query.split("\n")
+    )
+
+
+@pytest.fixture
+def entity_details_gql() -> str:
+    if not _ENTITY_DETAILS_GQL_PATH.exists():
+        pytest.skip(
+            f"entity_details.gql not found at {_ENTITY_DETAILS_GQL_PATH}. "
+            "Run tests from within the datahub monorepo."
+        )
+    return _ENTITY_DETAILS_GQL_PATH.read_text()
+
+
+class TestGraphqlWhitespaceTokenOverflow:
+    """Regression: fragment inlining + print_ast overflows graphql-java's 200 K
+    whitespace-token limit when entity_details.gql is sent to GMS ≤v1.1.0."""
+
+    def test_adapted_query_fits_within_gms_whitespace_token_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """entity_details.gql adapted for GMS ≤v1.1.0 must stay under 200 K whitespace tokens.
+
+        Mirrors the production pipeline in adapt_query(): inline fragments, then
+        minify with ' '.join(print_ast(...).split()).  Without the minification step
+        the inlined query has ~438 K tokens, triggering the graphql-java DoS protection
+        and causing the customer-visible error:
+          'More than 200,000 whitespace tokens have been presented …'
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        inlined_doc = _inline_fragments(parse(modified))
+        # Mirror what adapt_query() now does: minify whitespace after print_ast.
+        adapted_query = " ".join(print_ast(inlined_doc).split())
+
+        ws_tokens = sum(1 for c in adapted_query if c in " \t\n\r")
+        assert ws_tokens < _GMS_WHITESPACE_TOKEN_LIMIT, (
+            f"Adapted query has {ws_tokens:,} whitespace tokens "
+            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}). "
+            "The minification step in adapt_query() may have been removed or changed."
+        )
+
+    def test_without_minification_print_ast_exceeds_gms_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """Documents why the fix is necessary: raw print_ast output far exceeds the limit.
+
+        ' '.join(query.split()) reduces ~438 K tokens to ~28 K — well within the
+        200 K graphql-java limit — with no semantic change (all string literals in
+        entity_details.gql are single words containing no internal whitespace).
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        inlined_doc = _inline_fragments(parse(modified))
+        raw_query = print_ast(inlined_doc)
+
+        ws_before = sum(1 for c in raw_query if c in " \t\n\r")
+        assert ws_before > _GMS_WHITESPACE_TOKEN_LIMIT, (
+            "Pre-condition failed: unminified print_ast() output should exceed the "
+            "server limit — the fragment expansion may have changed significantly."
+        )
+
+        minified = " ".join(raw_query.split())
+        ws_after = sum(1 for c in minified if c in " \t\n\r")
+        assert ws_after < _GMS_WHITESPACE_TOKEN_LIMIT, (
+            f"Minified query still has {ws_after:,} whitespace tokens "
+            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}) — minification is no longer sufficient."
+        )
+
+
 class TestQueryResultCache:
     """Tests for the per-query result cache."""
 

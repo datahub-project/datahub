@@ -180,10 +180,12 @@ class UnityCatalogSourceConfig(
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
-        "only_ingest_assigned_metastore"
+        "only_ingest_assigned_metastore", month="June", year=2023
     )
 
-    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+    _metastore_id_pattern_removed = pydantic_removed_field(
+        "metastore_id_pattern", month="June", year=2023
+    )
 
     catalogs: Optional[List[str]] = pydantic.Field(
         default=None,

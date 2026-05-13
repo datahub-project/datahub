@@ -1,4 +1,4 @@
-import { CaretRight } from 'phosphor-react';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
 
 import { RotatingButton } from '@app/shared/components';

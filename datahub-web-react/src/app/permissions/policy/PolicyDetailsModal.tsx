@@ -11,6 +11,7 @@ import {
     getFieldValues,
     mapResourceTypeToDisplayName,
 } from '@app/permissions/policy/policyUtils';
+import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -70,6 +71,7 @@ const Privileges = styled.div`
  */
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
+    const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
@@ -82,6 +84,7 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
         getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
     const containers = getFieldValues(resources?.filter, 'CONTAINER') || [];
+    const glossaryEntities = getFieldValues(resources?.filter, 'GLOSSARY') || [];
 
     const {
         config: { policiesConfig },
@@ -225,6 +228,21 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
+                        {isGlossaryBasedPoliciesEnabled && (
+                            <div>
+                                <Typography.Title level={5}>Glossary Terms & Term Groups</Typography.Title>
+                                <ThinDivider />
+                                {(glossaryEntities?.length &&
+                                    glossaryEntities.map((value, key) => {
+                                        return (
+                                            // eslint-disable-next-line react/no-array-index-key
+                                            <PoliciesTag key={`glossary-${value.value}-${key}`}>
+                                                {getEntityTag(value)}
+                                            </PoliciesTag>
+                                        );
+                                    })) || <PoliciesTag>None</PoliciesTag>}
+                            </div>
+                        )}
                     </>
                 )}
                 <Privileges>

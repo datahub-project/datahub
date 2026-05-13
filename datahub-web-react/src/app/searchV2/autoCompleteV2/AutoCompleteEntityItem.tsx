@@ -1,8 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled, { useTheme } from 'styled-components';
-
-import { getColor } from '@components/theme/utils';
+import styled from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import DisplayName from '@app/searchV2/autoCompleteV2/components/DisplayName';
@@ -40,24 +38,31 @@ const Container = styled.div<{
 // so we have this separated version with hover
 
 // On container hover
-const DisplayNameHoverFromContainer = styled(DisplayName)<{ $decorationColor?: string }>`
+const DisplayNameHoverFromContainer = styled(DisplayName)`
     ${Container}:hover & {
         text-decoration: underline;
-        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
 
 // On self (name) hover only
-const DisplayNameHoverFromSelf = styled(DisplayName)<{ $decorationColor?: string }>`
+const DisplayNameHoverFromSelf = styled(DisplayName)`
     &:hover {
         text-decoration: underline;
         cursor: pointer;
-        ${(props) => props.$decorationColor && `text-decoration-color: ${props.$decorationColor};`}
     }
 `;
 
 const DisplayNameWrapper = styled.div`
     white-space: nowrap;
+    color: ${(props) => props.theme.colors.text};
+
+    a {
+        color: inherit;
+    }
+`;
+
+const SubtitleAndMatchesWrapper = styled.div`
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const ContentContainer = styled.div`
@@ -139,7 +144,6 @@ export default function AutoCompleteEntityItem({
     customOnEntityClick,
     dataTestId,
 }: EntityAutocompleteItemProps) {
-    const theme = useTheme();
     const entityRegistry = useEntityRegistryV2();
     const linkProps = useGetModalLinkProps();
 
@@ -171,7 +175,6 @@ export default function AutoCompleteEntityItem({
                     color={variantProps?.nameColor}
                     colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
-                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
                 />
             </div>
         );
@@ -184,7 +187,6 @@ export default function AutoCompleteEntityItem({
                     color={variantProps?.nameColor}
                     colorLevel={variantProps?.nameColorLevel}
                     weight={variantProps?.nameWeight}
-                    $decorationColor={getColor(variantProps?.nameColor, variantProps?.nameColorLevel, theme)}
                 />
             </Link>
         );
@@ -236,24 +238,18 @@ export default function AutoCompleteEntityItem({
                         </HoverEntityTooltip>
                     )}
 
-                    {!hideSubtitle && (
-                        <EntitySubtitle
-                            entity={entity}
-                            color={variantProps?.subtitleColor}
-                            colorLevel={variantProps?.subtitleColorLevel}
-                        />
-                    )}
+                    <SubtitleAndMatchesWrapper>
+                        {!hideSubtitle && <EntitySubtitle entity={entity} />}
 
-                    {!hideMatches && (
-                        <Matches
-                            matchedFields={matchedFields}
-                            entity={entity}
-                            query={query}
-                            displayName={displayName}
-                            color={variantProps?.matchColor}
-                            colorLevel={variantProps?.matchColorLevel}
-                        />
-                    )}
+                        {!hideMatches && (
+                            <Matches
+                                matchedFields={matchedFields}
+                                entity={entity}
+                                query={query}
+                                displayName={displayName}
+                            />
+                        )}
+                    </SubtitleAndMatchesWrapper>
                 </DescriptionContainer>
             </ContentContainer>
 

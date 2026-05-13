@@ -1,10 +1,10 @@
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
-import { Collapse, Typography } from 'antd';
-import React from 'react';
+import { Icon } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import EntityProperty from '@app/entityV2/shared/containers/profile/sidebar/shared/EntityProperty';
 import SyncedOrShared from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrShared';
@@ -20,41 +20,25 @@ const SyncedAssetContainer = styled.div`
     flex-direction: column;
 `;
 
-const StyledCollapse = styled(Collapse)`
-    text-wrap: wrap;
-    .ant-collapse-header {
-        padding: 0px 0px !important;
-        align-items: center !important;
-    }
-
-    .ant-collapse-content-box {
-        padding: 0 0 6px 20px !important;
-    }
-
-    .ant-collapse-arrow {
-        margin-right: 0 !important;
-        height: 20px;
-        width: 20px;
-    }
+const DeprecatedHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
 `;
 
-const StyledIcon = styled.div`
-    svg {
-        height: 18px;
-        width: 18px;
-        color: ${REDESIGN_COLORS.DARK_DIVIDER};
-        stroke: ${REDESIGN_COLORS.DARK_DIVIDER};
-        stroke-width: 1px;
-    }
+const DeprecatedContent = styled.div`
+    padding: 0 0 6px 20px;
 `;
 
-const EmptyText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.COLD_GREY_TEXT};
+const EmptyText = styled.span`
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StatusSection = () => {
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const [isDeprecationExpanded, setIsDeprecationExpanded] = useState(false);
 
     const dataset = entityData as any;
     const entityType = entityData?.type;
@@ -116,36 +100,31 @@ const StatusSection = () => {
                         />
                     )}
                     {isDeprecated && (
-                        <StyledCollapse
-                            defaultActiveKey=""
-                            ghost
-                            expandIcon={({ isActive }) => (
-                                <StyledIcon>{isActive ? <KeyboardArrowDown /> : <KeyboardArrowRight />} </StyledIcon>
+                        <div>
+                            <DeprecatedHeader onClick={() => setIsDeprecationExpanded((prev) => !prev)}>
+                                <Icon icon={isDeprecationExpanded ? CaretDown : CaretRight} size="md" color="inherit" />
+                                <TimeProperty
+                                    labelText={`Deprecated${
+                                        !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`
+                                    }`}
+                                />
+                            </DeprecatedHeader>
+                            {isDeprecationExpanded && (
+                                <DeprecatedContent>
+                                    {deprecationReplacement && (
+                                        <EntityProperty labelText="Replacement:" entity={deprecationReplacement} />
+                                    )}
+                                    {decommissionTime ? (
+                                        <TimeProperty
+                                            labelText="Scheduled Decommission:"
+                                            time={entityData.deprecation?.decommissionTime}
+                                        />
+                                    ) : (
+                                        <EmptyText>No additional information</EmptyText>
+                                    )}
+                                </DeprecatedContent>
                             )}
-                        >
-                            <Collapse.Panel
-                                header={
-                                    <TimeProperty
-                                        labelText={`Deprecated${
-                                            !!deprecatedByEntityName && `: by ${deprecatedByEntityName}`
-                                        }`}
-                                    />
-                                }
-                                key={1}
-                            >
-                                {deprecationReplacement && (
-                                    <EntityProperty labelText="Replacement:" entity={deprecationReplacement} />
-                                )}
-                                {decommissionTime ? (
-                                    <TimeProperty
-                                        labelText="Scheduled Decommission:"
-                                        time={entityData.deprecation?.decommissionTime}
-                                    />
-                                ) : (
-                                    <EmptyText>No additional information</EmptyText>
-                                )}
-                            </Collapse.Panel>
-                        </StyledCollapse>
+                        </div>
                     )}
                     {!!lastIngested && (
                         <SyncedOrShared

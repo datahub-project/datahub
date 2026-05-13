@@ -80,11 +80,9 @@ describe("siblings", () => {
     cy.clickOptionWithTestId(
       "compact-entity-link-urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)",
     );
-    cy.contains(".ant-collapse-header-text", "Terms")
-      .parent()
-      .find('[data-testid="AddRoundedIcon"]')
-      .scrollIntoView()
-      .click();
+    cy.get('[id="entity-profile-glossary-terms"]').within(() => {
+      cy.clickOptionWithTestId("add-terms-button");
+    });
     cy.selectOptionInTagTermModal("CypressTerm");
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",

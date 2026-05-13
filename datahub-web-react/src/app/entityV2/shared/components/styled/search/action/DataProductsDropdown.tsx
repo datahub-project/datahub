@@ -78,7 +78,6 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
                     onModalClose={() => {
                         setIsEditModalVisible(false);
                     }}
-                    refetch={refetch}
                 />
             )}
             <ConfirmationModal

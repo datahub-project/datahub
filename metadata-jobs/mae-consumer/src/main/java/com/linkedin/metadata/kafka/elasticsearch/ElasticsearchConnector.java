@@ -26,12 +26,15 @@ public class ElasticsearchConnector {
   */
   public void feedElasticEvent(@Nonnull ElasticEvent event) {
     if (event.getActionType().equals(ChangeType.DELETE)) {
-      _bulkProcessor.add(createDeleteRequest(event));
+      // Route by event.getId() (the OpenSearch doc id) — same rationale as
+      // ESWriteDAO / ESGraphWriteDAO. Protects against future callers that emit
+      // UPDATE/DELETE for the same docId in a bulk window.
+      _bulkProcessor.add(event.getId(), createDeleteRequest(event));
     } else if (event.getActionType().equals(ChangeType.CREATE)
         || event.getActionType().equals(ChangeType.CREATE_ENTITY)) {
-      _bulkProcessor.add(createIndexRequest(event));
+      _bulkProcessor.add(event.getId(), createIndexRequest(event));
     } else if (event.getActionType().equals(ChangeType.UPDATE)) {
-      _bulkProcessor.add(createUpsertRequest(event));
+      _bulkProcessor.add(event.getId(), createUpsertRequest(event));
     }
   }
 

@@ -2,7 +2,7 @@
 
 Ldap is an identity and access management platform. Learn more in the [official Ldap documentation](https://ldap.com/).
 
-The DataHub integration for Ldap covers identity entities such as users, groups, and memberships. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Ldap covers identity entities such as users, groups, and memberships. It also captures stateful deletion detection.
 
 ## Concept Mapping
 

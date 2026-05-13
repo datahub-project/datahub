@@ -12,7 +12,7 @@ import logging
 import pytest
 import requests
 
-from tests.utils import get_gms_url
+from tests.utils import get_gms_prometheus_base_url
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +20,7 @@ logger = logging.getLogger(__name__)
 @pytest.mark.read_only
 def test_datahub_request_count_metric_present():
     """Test that the new datahub_request_count metric is present in Prometheus output."""
-    gms_url = get_gms_url()
-    prometheus_url = f"{gms_url}/actuator/prometheus"
+    prometheus_url = f"{get_gms_prometheus_base_url()}/actuator/prometheus"
 
     # Service initialization should already induce requests that will generate
     # metrics. So we don't need to trigger any requests as part of test setup.

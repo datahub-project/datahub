@@ -192,32 +192,32 @@ def list_folders(
     abs_blob_service_client = azure_config.get_blob_service_client()
     container_client = abs_blob_service_client.get_container_client(container_name)
 
-    current_level = prefix.count("/")
+    normalized_prefix = prefix.strip("/")
+    prefix_with_separator = f"{normalized_prefix}/" if normalized_prefix else ""
     blob_list = container_client.list_blobs(name_starts_with=prefix)
 
-    this_dict = {}
+    seen: set[str] = set()
     for blob in blob_list:
-        blob_name = blob.name[: blob.name.rfind("/") + 1]
-        folder_structure_arr = blob_name.split("/")
+        blob_name = blob.name.strip("/")
+        if not blob_name:
+            continue
 
-        folder_name = ""
-        if len(folder_structure_arr) > current_level:
-            folder_name = f"{folder_name}/{folder_structure_arr[current_level]}"
+        if prefix_with_separator:
+            if not blob_name.startswith(prefix_with_separator):
+                continue
+            relative_name = blob_name[len(prefix_with_separator) :]
         else:
+            relative_name = blob_name
+
+        if "/" not in relative_name:
             continue
+        child_folder = relative_name.split("/", 1)[0]
+        folder_name = (
+            f"{normalized_prefix}/{child_folder}" if normalized_prefix else child_folder
+        )
 
-        folder_name = folder_name[1 : len(folder_name)]
-
-        if folder_name.endswith("/"):
-            folder_name = folder_name[:-1]
-
-        if folder_name == "":
+        if folder_name in seen:
             continue
-
-        folder_name = f"{prefix}{folder_name}"
-        if folder_name in this_dict:
-            continue
-        else:
-            this_dict[folder_name] = folder_name
+        seen.add(folder_name)
 
         yield f"{folder_name}"
