@@ -1,5 +1,6 @@
 import os
 import pathlib
+from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import SecretStr
@@ -108,6 +109,36 @@ def test_url_subdir() -> None:
         git_ref.get_url_for_file_path("model.sql")
         == "https://github.com/org/repo/blob/main/dbt/models/model.sql"
     )
+
+
+def test_clone_timeout_field() -> None:
+    config = GitInfo(
+        repo="https://github.com/org/repo", branch="main", clone_timeout=60
+    )
+    assert config.clone_timeout == 60
+
+    config_default = GitInfo(repo="https://github.com/org/repo", branch="main")
+    assert config_default.clone_timeout == 300
+
+
+def test_clone_passes_timeout_to_git(tmp_path: pathlib.Path) -> None:
+    mock_repo = MagicMock()
+    with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
+        git_clone = GitClone(str(tmp_path))
+        git_clone.clone(
+            ssh_key=None,
+            repo_url="https://github.com/org/repo",
+            timeout=30,
+        )
+        assert mock_clone.call_args.kwargs.get("kill_after_timeout") == 30
+
+    with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
+        git_clone = GitClone(str(tmp_path))
+        git_clone.clone(
+            ssh_key=None,
+            repo_url="https://github.com/org/repo",
+        )
+        assert mock_clone.call_args.kwargs.get("kill_after_timeout") is None
 
 
 def test_sanitize_repo_url() -> None:
