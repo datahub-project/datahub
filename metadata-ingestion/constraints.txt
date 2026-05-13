@@ -850,7 +850,7 @@ memray==1.19.1
     # via acryl-datahub
 mini-racer==0.14.1
     # via acryl-datahub
-mistune==3.2.0
+mistune==3.2.1
     # via
     #   acryl-great-expectations
     #   nbconvert
