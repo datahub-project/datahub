@@ -3164,6 +3164,64 @@ class TestReauthCounterResetsOnSuccess:
         assert client._reauth_attempts == 0
 
 
+class TestMaxRetriesWiredToSession:
+    """``ThoughtSpotConnectionConfig.max_retries`` was declared but never
+    threaded into any retry mechanism — the field was config theater.
+    Verify it's now wired to the SDK's ``requests_session`` via an
+    ``HTTPAdapter`` mounted at session-construction time.
+    """
+
+    def test_max_retries_installs_retry_adapter(self):
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.retry import Retry
+
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+            max_retries=5,
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            mock_sdk.return_value.requests_session = MagicMock()
+            ThoughtSpotClient(config, report=ThoughtSpotReport())
+            # The session must have ``mount`` called twice (http:// and
+            # https://) with an HTTPAdapter whose ``max_retries`` exposes
+            # the configured count.
+            mount = mock_sdk.return_value.requests_session.mount
+            assert mount.call_count == 2
+            adapters = [c.args[1] for c in mount.call_args_list]
+            assert all(isinstance(a, HTTPAdapter) for a in adapters)
+            retry: Retry = adapters[0].max_retries
+            assert retry.total == 5
+            # Retry on 429 + 5xx is the documented exponential-backoff
+            # contract.
+            assert 429 in retry.status_forcelist
+            assert 500 in retry.status_forcelist
+
+    def test_max_retries_zero_means_no_retries(self):
+        from urllib3.util.retry import Retry
+
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+            max_retries=0,
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            mock_sdk.return_value.requests_session = MagicMock()
+            ThoughtSpotClient(config, report=ThoughtSpotReport())
+            adapters = [
+                c.args[1]
+                for c in mock_sdk.return_value.requests_session.mount.call_args_list
+            ]
+            retry: Retry = adapters[0].max_retries
+            assert retry.total == 0
+
+
 class TestThoughtSpotSourceTestConnection:
     """Test the static test_connection() method error handling paths."""
 

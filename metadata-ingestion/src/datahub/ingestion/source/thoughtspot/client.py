@@ -20,7 +20,9 @@ from typing import (
 )
 
 import yaml
+from requests.adapters import HTTPAdapter
 from thoughtspot_rest_api import TSRestApiV2
+from urllib3.util.retry import Retry
 
 from datahub.ingestion.source.thoughtspot.config import (
     PasswordAuth,
@@ -372,6 +374,25 @@ class ThoughtSpotClient:
 
         # Initialize SDK client
         self.ts_client = TSRestApiV2(server_url=config.base_url)
+
+        # Wire ``max_retries`` to the SDK's ``requests_session`` so the
+        # configured retry budget actually applies. The SDK's own
+        # constructor doesn't accept a retry argument; mounting an
+        # ``HTTPAdapter`` with a ``Retry`` policy is the canonical way
+        # to inject session-level retries into a third-party library
+        # that exposes its ``requests.Session``. We retry on 429 (rate
+        # limit), 5xx (transient server), and use exponential backoff —
+        # matching the field's documented contract.
+        retry_policy = Retry(
+            total=config.max_retries,
+            backoff_factor=0.5,
+            status_forcelist=(429, 500, 502, 503, 504),
+            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE"]),
+            raise_on_status=False,
+        )
+        retry_adapter = HTTPAdapter(max_retries=retry_policy)
+        self.ts_client.requests_session.mount("http://", retry_adapter)
+        self.ts_client.requests_session.mount("https://", retry_adapter)
 
         # Authenticate using configured method
         self._authenticate()
