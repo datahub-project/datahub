@@ -1136,6 +1136,43 @@ class TestLogicalTablesCacheReuse:
         )
 
 
+class TestMakeSelfDatasetUrnCaching:
+    """``_make_self_dataset_urn`` is called many times per run with the
+    same ``table_id`` from different references (column sources, chart
+    input fields, dashboard inputs, lineage upstreams). The pure
+    URN-construction work should be memoised so the second-and-later
+    calls are dict lookups, not full URN rebuilds.
+    """
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_repeated_table_id_hits_lru_cache(self, mock_client_cls):
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+        # First call: cache miss, second: cache hit. Both must produce
+        # the same URN string.
+        urn_a = source._make_self_dataset_urn("tbl-1")
+        urn_b = source._make_self_dataset_urn("tbl-1")
+        assert urn_a == urn_b
+
+        # The per-instance cache should hold the URN keyed by name —
+        # confirms memoisation is wired (a future change that removes
+        # the cache would either drop the attribute or never populate it).
+        assert source._self_dataset_urn_cache.get("tbl-1") == urn_a
+
+        # Different name → distinct cache entry.
+        urn_c = source._make_self_dataset_urn("tbl-2")
+        assert urn_c != urn_a
+        assert len(source._self_dataset_urn_cache) == 2
+
+
 class TestThoughtSpotSourceSchemaExtraction:
     """Test schema metadata extraction from datasets."""
 

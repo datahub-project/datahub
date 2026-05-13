@@ -322,6 +322,13 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         self._connection_lookup: Optional[Dict[str, ConnectionResponse]] = None
         self._unresolvable_external_lineage_count: int = 0
 
+        # Per-run memo for ``_make_self_dataset_urn``. At 10K-table scale
+        # the URN-builder is hit ~25× per distinct ``table_id`` (column
+        # sources, chart inputs, dashboard inputs, lineage upstreams).
+        # The three resolution inputs (platform / env / platform_instance)
+        # are run-invariant so a simple ``Dict[str, str]`` cache is safe.
+        self._self_dataset_urn_cache: Dict[str, str] = {}
+
         # Per-run ``(entity_id, views)`` accumulators populated during
         # ``_process_liveboard`` / ``_process_answer``; consumed by
         # ``_process_usage_stats`` to emit usage aspects from
@@ -759,13 +766,25 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         call that otherwise repeats with the same three self-references
         at six sites (Liveboard inputs, Chart inputs, Answer URN, Dataset
         URN, internal-lineage upstreams, external-lineage downstream).
+
+        Memoised per-instance via ``_self_dataset_urn_cache``: each
+        distinct ``name`` is converted exactly once per ingestion run
+        regardless of how many internal references hit it. Safe because
+        the three resolution inputs (``platform``, ``env``,
+        ``platform_instance``) are run-invariant — set in ``__init__``
+        and never reassigned.
         """
-        return make_dataset_urn_with_platform_instance(
+        cached = self._self_dataset_urn_cache.get(name)
+        if cached is not None:
+            return cached
+        urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
             name=name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
+        self._self_dataset_urn_cache[name] = urn
+        return urn
 
     def _resolve_workspace_container(
         self,
