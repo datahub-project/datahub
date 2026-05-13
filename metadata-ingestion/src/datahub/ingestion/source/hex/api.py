@@ -395,32 +395,6 @@ class HexApi:
                 timeout=30,
             )
             response.raise_for_status()
-
-            api_response = HexApiProjectsListResponse.model_validate(response.json())
-            logger.info(f"Fetched {len(api_response.values)} items")
-            params["after"] = (
-                api_response.pagination.after if api_response.pagination else None
-            )
-
-            self.report.api_projects_items += len(api_response.values)
-
-            for item in api_response.values:
-                try:
-                    yield self._map_data_from_model(item)
-                except Exception as e:
-                    self.report.warning(
-                        title="Incomplete metadata",
-                        message="Incomplete metadata because of error mapping item",
-                        context=str(item),
-                        exc=e,
-                    )
-        except ValidationError as e:
-            self.report.failure(
-                title="Listing Projects and Components API response parsing error",
-                message="Error parsing API response and halting metadata ingestion",
-                context=str(response.json()),
-                exc=e,
-            )
         except requests.RequestException as e:
             self.report.failure(
                 title="Listing Projects and Components API request error",
@@ -428,6 +402,36 @@ class HexApi:
                 context=str(params),
                 exc=e,
             )
+            return
+
+        try:
+            api_response = HexApiProjectsListResponse.model_validate(response.json())
+        except ValidationError as e:
+            self.report.failure(
+                title="Listing Projects and Components API response parsing error",
+                message="Error parsing API response and halting metadata ingestion",
+                context=str(response.json()),
+                exc=e,
+            )
+            return
+
+        logger.info(f"Fetched {len(api_response.values)} items")
+        params["after"] = (
+            api_response.pagination.after if api_response.pagination else None
+        )
+
+        self.report.api_projects_items += len(api_response.values)
+
+        for item in api_response.values:
+            try:
+                yield self._map_data_from_model(item)
+            except Exception as e:
+                self.report.warning(
+                    title="Incomplete metadata",
+                    message="Incomplete metadata because of error mapping item",
+                    context=str(item),
+                    exc=e,
+                )
 
     def _map_data_from_model(
         self, hex_item: HexApiProjectApiResource
