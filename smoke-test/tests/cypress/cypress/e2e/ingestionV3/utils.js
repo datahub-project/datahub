@@ -51,11 +51,12 @@ export const fillSourceDetails = (source) => {
 
   // Select authentication type if provided, otherwise default to Username & Password
   if (source.authentication_type) {
+    const authOptionTestId =
+      source.authentication_type === "Private Key"
+        ? "option-KEY_PAIR_AUTHENTICATOR"
+        : "option-DEFAULT_AUTHENTICATOR";
     cy.get("#authentication_type").click({ force: true });
-    cy.clickOptionWithTestId("option-DEFAULT_AUTHENTICATOR").click({
-      force: true,
-      multiple: true,
-    });
+    cy.clickOptionWithTestId(authOptionTestId);
   }
 
   // Fill in credentials based on authentication type
