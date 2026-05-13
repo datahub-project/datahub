@@ -316,6 +316,77 @@ class TestThoughtSpotSourceEntityFiltering:
         assert "Development Dashboard" not in names
 
 
+class TestTagFilterWiredToClient:
+    """``liveboard_tag_filter`` / ``answer_tag_filter`` config flow to
+    the underlying ``client.iter_liveboards(tag_names=...)`` /
+    ``client.iter_answers(tag_names=...)`` calls, enabling server-side
+    pre-filtering (cheaper than fetching everything and filtering by
+    name).
+    """
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_liveboard_tag_filter_passed_to_client(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+        mock_client.get_tags.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                },
+                "liveboard_tag_filter": ["Production", "Curated"],
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        list(source.get_workunits_internal())
+
+        mock_client.iter_liveboards.assert_called_once()
+        kwargs = mock_client.iter_liveboards.call_args.kwargs
+        assert kwargs.get("tag_names") == ["Production", "Curated"]
+        # Answer iterator gets no tag filter when unset.
+        mock_client.iter_answers.assert_called_once()
+        ans_kwargs = mock_client.iter_answers.call_args.kwargs
+        assert ans_kwargs.get("tag_names") is None
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_answer_tag_filter_passed_to_client(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+        mock_client.get_tags.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                },
+                "answer_tag_filter": ["KPI"],
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        list(source.get_workunits_internal())
+
+        mock_client.iter_answers.assert_called_once()
+        ans_kwargs = mock_client.iter_answers.call_args.kwargs
+        assert ans_kwargs.get("tag_names") == ["KPI"]
+        # Liveboard iterator gets no tag filter.
+        mock_client.iter_liveboards.assert_called_once()
+        lb_kwargs = mock_client.iter_liveboards.call_args.kwargs
+        assert lb_kwargs.get("tag_names") is None
+
+
 class TestThoughtSpotSourceErrorRecovery:
     """Test error handling and graceful degradation during ingestion."""
 

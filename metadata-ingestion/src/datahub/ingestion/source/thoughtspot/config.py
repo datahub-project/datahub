@@ -1,6 +1,6 @@
 """Configuration classes for ThoughtSpot DataHub connector."""
 
-from typing import Annotated, Dict, Literal, Optional, Union
+from typing import Annotated, Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import Field, SecretStr, field_validator
@@ -286,6 +286,29 @@ class ThoughtSpotConfig(
         description=(
             "Regex patterns to filter Worksheets (logical datasets) by name. "
             "Example: {'allow': ['.*'], 'deny': ['^Legacy.*']}"
+        ),
+    )
+
+    liveboard_tag_filter: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Optional list of TS tag names to filter Liveboards on the "
+            "server side. When set, only Liveboards tagged with at least "
+            "one of these tags are returned by ``metadata_search``. More "
+            "efficient than client-side name filtering for tenants where "
+            "the ingestion principal can see far more Liveboards than "
+            'the desired subset. Example: ``["Production", "Curated"]``. '
+            "Leave unset to ingest all Liveboards (subject to "
+            "``liveboard_pattern``)."
+        ),
+    )
+
+    answer_tag_filter: Optional[List[str]] = Field(
+        default=None,
+        description=(
+            "Optional list of TS tag names to filter Answers on the "
+            "server side. Same shape as ``liveboard_tag_filter``. Leave "
+            "unset to ingest all Answers (subject to ``answer_pattern``)."
         ),
     )
 

@@ -672,16 +672,18 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
 
     def _get_liveboards(self) -> Iterator[LiveboardResponse]:
         """Stream Liveboards from ThoughtSpot API."""
+        tag_filter = self.config.liveboard_tag_filter
         return self._fetch_and_filter_entities(
-            self.client.iter_liveboards,
+            lambda: self.client.iter_liveboards(tag_names=tag_filter),
             self.config.liveboard_pattern,
             "Liveboards",
         )
 
     def _get_answers(self) -> Iterator[AnswerResponse]:
         """Stream Answers from ThoughtSpot API."""
+        tag_filter = self.config.answer_tag_filter
         return self._fetch_and_filter_entities(
-            self.client.iter_answers,
+            lambda: self.client.iter_answers(tag_names=tag_filter),
             self.config.answer_pattern,
             "Answers",
         )
