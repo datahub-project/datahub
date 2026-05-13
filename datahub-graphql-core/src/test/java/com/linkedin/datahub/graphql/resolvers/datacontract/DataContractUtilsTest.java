@@ -66,6 +66,11 @@ public class DataContractUtilsTest {
               public DataHubAppConfiguration getDataHubAppConfig() {
                 return new DataHubAppConfiguration();
               }
+
+              @Override
+              public int getMaxParentDepth() {
+                return 50;
+              }
             },
             testUrn);
     Assert.assertTrue(result);

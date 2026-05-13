@@ -13,8 +13,6 @@ ext {
     project_name = "datahub"
 
     backend_profile_modules = [
-            ':docker:elasticsearch-setup',
-            ':docker:mysql-setup',
             ':datahub-upgrade',
             ':metadata-service:war',
     ]
@@ -47,7 +45,68 @@ ext {
             }
         }
 
+        // Play 3 (datahub-frontend): play.http.secret.key must meet HS256 entropy; legacy short
+        // values (e.g. "YouKnowNothing") break startup. Compose ${DATAHUB_SECRET:-...} uses this map
+        // for interpolation, so a short host/env-file secret would override the YAML default.
+        def playSecretMinLength = 32
+        def devPlaySecret =
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        def secret = envVars["DATAHUB_SECRET"]
+        if (secret != null && secret.length() < playSecretMinLength) {
+            logger.lifecycle(
+                "DATAHUB_SECRET is too short for Play 3 (length ${secret.length()} < ${playSecretMinLength}); " +
+                "using a development default for Docker Compose. Unset DATAHUB_SECRET or use e.g. openssl rand -base64 32."
+            )
+            envVars["DATAHUB_SECRET"] = devPlaySecret
+        }
+
         return envVars
+    }
+
+    // Persisted secrets file — matches *.env so it is covered by the root .gitignore.
+    tokenSecretsFile = project.file("${project.projectDir}/.local-secrets.env")
+
+    // Resolves DATAHUB_TOKEN_SERVICE_SIGNING_KEY and DATAHUB_TOKEN_SERVICE_SALT using this priority:
+    //   1. Shell environment variables (highest priority — lets CI/prod override)
+    //   2. .local-secrets.env file (persists generated values across quickstartDown/up cycles)
+    //   3. Generate random values and save them to .local-secrets.env for future runs
+    resolveTokenServiceSecrets = {
+        // Load persisted values from file if present
+        def persisted = [:]
+        if (tokenSecretsFile.exists()) {
+            tokenSecretsFile.eachLine { line ->
+                line = line.trim()
+                if (line && !line.startsWith("#") && line.contains("=")) {
+                    def parts = line.split("=", 2)
+                    persisted[parts[0].trim()] = parts[1].trim()
+                }
+            }
+        }
+
+        def signingKey = System.getenv("DATAHUB_TOKEN_SERVICE_SIGNING_KEY") ?: persisted["DATAHUB_TOKEN_SERVICE_SIGNING_KEY"]
+        def salt = System.getenv("DATAHUB_TOKEN_SERVICE_SALT") ?: persisted["DATAHUB_TOKEN_SERVICE_SALT"]
+
+        def generated = false
+        if (!signingKey) {
+            def bytes = new byte[32]
+            new java.security.SecureRandom().nextBytes(bytes)
+            signingKey = Base64.encoder.encodeToString(bytes)
+            generated = true
+        }
+        if (!salt) {
+            def bytes = new byte[32]
+            new java.security.SecureRandom().nextBytes(bytes)
+            salt = Base64.encoder.encodeToString(bytes)
+            generated = true
+        }
+
+        // Persist to file so the same values survive quickstartDown / reloadEnv cycles
+        if (generated) {
+            tokenSecretsFile.text = "# Auto-generated local dev secrets — do not commit\nDATAHUB_TOKEN_SERVICE_SIGNING_KEY=${signingKey}\nDATAHUB_TOKEN_SERVICE_SALT=${salt}\n"
+            logger.lifecycle("Generated token service secrets saved to ${tokenSecretsFile.path} for reuse across restarts")
+        }
+
+        return [DATAHUB_TOKEN_SERVICE_SIGNING_KEY: signingKey, DATAHUB_TOKEN_SERVICE_SALT: salt]
     }
 
     // Common configuration for all tasks
@@ -76,6 +135,23 @@ ext {
             ],
             'quickstartDebug': [
                     profile: 'debug',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugElasticsearch': [
+                    profile: 'debug-elasticsearch',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
+                    isDebug: true,
+                    additionalEnv: [
+                            DATAHUB_LOCAL_ACTIONS_ENV: "${rootProject.project(':smoke-test').projectDir}/test_resources/actions/actions.env"
+                    ]
+            ],
+            'quickstartDebugAi': [
+                    // Activate both 'debug' (core services) and 'debug-ai' (Ollama) profiles.
+                    profiles: ['debug', 'debug-ai'],
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend', ':datahub-actions'],
                     isDebug: true,
                     additionalEnv: [
@@ -139,32 +215,28 @@ ext {
             ],
             'quickstartPg': [
                     profile: 'quickstart-postgres',
-                    modules: (backend_profile_modules - [':docker:mysql-setup']) + [
-                            ':docker:postgres-setup',
+                    modules: backend_profile_modules + [
                             ':datahub-frontend',
                             ':datahub-actions',
                     ]
             ],
             'quickstartPgCdc': [
                 profile: 'quickstart-postgres-cdc',
-                modules: (backend_profile_modules - [':docker:mysql-setup']) + [
-                    ':docker:postgres-setup',
+                modules: backend_profile_modules + [
                     ':datahub-frontend',
                     ':datahub-actions',
                 ]
             ],
             'quickstartPgDebug': [
                     profile: 'debug-postgres',
-                    modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
-                            ':docker:postgres-setup',
+                    modules: python_services_modules + backend_profile_modules + [
                             ':datahub-frontend'
                     ],
                     isDebug: true
             ],
             'quickstartPgCdcDebug': [
                 profile: 'debug-postgres-cdc',
-                modules: python_services_modules + (backend_profile_modules - [':docker:mysql-setup']) + [
-                    ':docker:postgres-setup',
+                modules: python_services_modules + backend_profile_modules + [
                     ':datahub-frontend'
                 ],
                 isDebug: true
@@ -182,7 +254,7 @@ ext {
                             ':datahub-actions',
                     ],
                     additionalEnv: [
-                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:spark-lineage-legacy').projectDir}/spark-smoke-test/smoke-gms.env",
+                            'DATAHUB_LOCAL_COMMON_ENV': "${rootProject.project(':metadata-integration:java:acryl-spark-lineage').projectDir}/spark-smoke-test/smoke-gms.env",
                             'METADATA_SERVICE_AUTH_ENABLED': 'false'
                     ]
             ],
@@ -206,7 +278,6 @@ ext {
                         ':metadata-jobs:mae-consumer-job',
                         ':datahub-actions',
                         ':docker:datahub-ingestion',
-                        ':docker:postgres-setup'
                     ]
             ]
     ]
@@ -245,7 +316,7 @@ ext {
     // Returns a map with 'taskName' and 'config' keys
     findTaskNameByProfile = { profile ->
         def matchingTask = quickstart_configs.find { taskName, config ->
-            config.isDebug && config.profile == profile
+            config.isDebug && (config.profile == profile || (config.profiles && config.profiles.contains(profile)))
         }
 
         if (matchingTask) {
@@ -323,7 +394,9 @@ dockerCompose {
     quickstart_configs.each { taskName, config ->
         "${taskName}" {
             isRequiredBy(tasks.named(taskName))
-            if (config.profile) {
+            if (config.profiles) {
+                composeAdditionalArgs = config.profiles.collectMany { ['--profile', it] }
+            } else if (config.profile) {
                 composeAdditionalArgs = ['--profile', config.profile]
             }
 
@@ -338,7 +411,11 @@ dockerCompose {
             environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
+            if (config.isDebug) {
+                environment.put "DEV_TOOLING_ENABLED", "true"
+            }
             environment.put "DATAHUB_REPO", "${docker_registry}"
+            resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
 
             // Additional environment variables if specified
@@ -386,6 +463,8 @@ task generateQuickstartComposeConfig {
         composeExecutor.parameters.environment.put("DATAHUB_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("DATAHUB_APP_VERSION", '__VERSION__')
         composeExecutor.parameters.environment.put("METADATA_SERVICE_AUTH_ENABLED", 'false')
+        composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SIGNING_KEY", '__SIGNING_KEY__')
+        composeExecutor.parameters.environment.put("DATAHUB_TOKEN_SERVICE_SALT", '__SALT__')
 
         // Set placeholder port values that should remain configurable at runtime
         // Use unique high port numbers as placeholders that will be replaced later
@@ -395,8 +474,12 @@ task generateQuickstartComposeConfig {
         def configOutput = composeExecutor.execute('config')
 
         // The `config` returns a fully resolved compose file. We need to replace the DATAHUB_VERSION and HOME with values not available at build time
+        // DATAHUB_TOKEN_SERVICE_SIGNING_KEY and DATAHUB_TOKEN_SERVICE_SALT are also read from the environment when available.
+        // Scripts that run docker compose up have been updated to provide generated values at runtime if the variable is not already set.
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_VERSION}')
         configOutput = configOutput.replace('__VERSION__', '${DATAHUB_APP_VERSION}')
+        configOutput = configOutput.replace('__SIGNING_KEY__', '${DATAHUB_TOKEN_SERVICE_SIGNING_KEY}')
+        configOutput = configOutput.replace('__SALT__', '${DATAHUB_TOKEN_SERVICE_SALT}')
         configOutput = configOutput.replace(System.getenv('HOME'), '${HOME}')
 
         // Parse configOutput as yaml and add UI_INGESTION_DEFAULT_CLI_VERSION as an env var under datahub-gms-quickstart.environment key
@@ -416,6 +499,9 @@ task generateQuickstartComposeConfig {
         // Replace port placeholders with environment variable syntax (after YAML processing)
         configOutput = configOutput.replace("published: '58080'", 'published: ${DATAHUB_MAPPED_GMS_PORT:-8080}')
         configOutput = configOutput.replace("published: '59002'", 'published: ${DATAHUB_MAPPED_FRONTEND_PORT:-9002}')
+
+        // Preserve create_host_path so host dirs (e.g. ~/.datahub/plugins) are created on first run
+        configOutput = configOutput.replace("bind: {}", "bind:\n        create_host_path: true")
 
         configOutput = "# This file is generated as part of build process. If any build changes cause this file to be modified, please check in the generated file\n" + configOutput
 
@@ -604,7 +690,8 @@ tasks.withType(ComposeUp).configureEach {
         def taskBaseName = name.replaceAll('ComposeUp$', '')
         def config = quickstart_configs[taskBaseName]
 
-        if (config?.profile) {
+        def primaryProfile = config?.profiles ? config.profiles[0] : config?.profile
+        if (primaryProfile) {
             // Get the compose file name and derive the profile tracking filename
             def composeFileName = new File(compose_base).getName()
             def profileStatusFileName = composeFileName.replace('.yml', '-profile.txt')
@@ -614,9 +701,9 @@ tasks.withType(ComposeUp).configureEach {
             profileFile.getParentFile().mkdirs()
 
             // Write the profile name
-            profileFile.text = config.profile
+            profileFile.text = primaryProfile
 
-            logger.lifecycle("Captured profile '${config.profile}' to ${profileFile.absolutePath}")
+            logger.lifecycle("Captured profile '${primaryProfile}' to ${profileFile.absolutePath}")
         }
     }
 }
@@ -725,7 +812,11 @@ tasks.register("reloadEnv", Exec) {
         environment.put 'DATAHUB_APP_VERSION', System.getenv("DATAHUB_APP_VERSION") ?: "v${version}"
         environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
         environment.put "METADATA_TESTS_ENABLED", "true"
+        if (matchingConfig?.isDebug) {
+            environment.put "DEV_TOOLING_ENABLED", "true"
+        }
         environment.put "DATAHUB_REPO", "${docker_registry}"
+        resolveTokenServiceSecrets.call().each { key, value -> environment.put key, value }
 
         // Additional environment variables if specified
         if (matchingConfig.additionalEnv) {
@@ -760,6 +851,10 @@ quickstart_configs.each { taskName, config ->
       }
     }
   }
+}
+
+clean {
+    delete tokenSecretsFile
 }
 
 // :docker:build builds all docker images.

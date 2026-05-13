@@ -22,6 +22,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.Assert;
@@ -71,6 +72,7 @@ public class TestUtils {
 
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
@@ -108,9 +110,43 @@ public class TestUtils {
 
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
 
     OperationContext operationContext =
         TestOperationContexts.userContextNoSearchAuthorization(mockAuthorizer, authentication);
+    when(mockContext.getOperationContext()).thenReturn(operationContext);
+
+    return mockContext;
+  }
+
+  /**
+   * Returns a deny {@link QueryContext} backed by a real {@link OperationContext} so authorization
+   * checks that route through {@code OperationContext.authorize(...)} (e.g. {@code
+   * AuthUtil.canViewEntity}) actually enforce the deny decision.
+   *
+   * <p>The plain {@link #getMockDenyContext()} only mocks {@code QueryContext.getAuthorizer()} and
+   * leaves {@code getOperationContext()} unset; that works for checks that resolve via {@code
+   * QueryContext.getAuthorizer()} but NPEs for checks that go through {@code OperationContext}.
+   */
+  public static QueryContext getMockDenyContextWithOperationContext() {
+    return getMockDenyContextWithOperationContext("urn:li:corpuser:test");
+  }
+
+  public static QueryContext getMockDenyContextWithOperationContext(
+      @Nonnull final String actorUrn) {
+    Authorizer denyAuthorizer = mock(Authorizer.class);
+    AuthorizationResult denyResult = mock(AuthorizationResult.class);
+    when(denyResult.getType()).thenReturn(AuthorizationResult.Type.DENY);
+    when(denyAuthorizer.authorize(any())).thenReturn(denyResult);
+
+    Authentication authentication =
+        new Authentication(new Actor(ActorType.USER, UrnUtils.getUrn(actorUrn).getId()), "creds");
+
+    OperationContext operationContext =
+        TestOperationContexts.userContextNoSearchAuthorization(denyAuthorizer, authentication);
+
+    QueryContext mockContext = mock(QueryContext.class);
+    when(mockContext.getActorUrn()).thenReturn(actorUrn);
     when(mockContext.getOperationContext()).thenReturn(operationContext);
 
     return mockContext;
@@ -143,6 +179,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()),
@@ -151,6 +188,7 @@ public class TestUtils {
                 m -> {
                   m.getSystemMetadata().removeAspectModified();
                   m.getSystemMetadata().removeAspectCreated();
+                  m.getSystemMetadata().removeSchemaVersion();
                   return m.getSystemMetadata().setLastObserved(0);
                 })
             .collect(Collectors.toList()));
@@ -171,7 +209,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 
@@ -207,7 +247,9 @@ public class TestUtils {
 
     // check without time
     proposalCaptor.getValue().getSystemMetadata().setLastObserved(0L);
+    proposalCaptor.getValue().getSystemMetadata().removeSchemaVersion();
     expectedProposal.getSystemMetadata().setLastObserved(0L);
+    expectedProposal.getSystemMetadata().removeSchemaVersion();
     Assert.assertEquals(proposalCaptor.getValue(), expectedProposal);
   }
 

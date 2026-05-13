@@ -1,6 +1,7 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { Icon, Pill, colors } from '@components';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -97,7 +98,7 @@ const meta = {
                 ]}
                 baseUrl=""
             />,
-            <StyledMenuIcon icon="DotsThreeVertical" source="phosphor" />,
+            <StyledMenuIcon icon={DotsThreeVertical} />,
         ],
         childrenText: (
             <ChildrenTextWrapper>

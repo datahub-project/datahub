@@ -93,7 +93,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements() {
+  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+    // schemaVersionIndex is intentionally not created for MySQL: MySQL's query optimizer typically
+    // uses only one index per table scan, so an additional index on schemaVersion rarely helps and
+    // adds write overhead. This query only helps during the upgrade process during background
+    // migration.
     return java.util.Arrays.asList(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
@@ -107,11 +111,60 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
           createdfor                    varchar(255),
           CONSTRAINT pk_metadata_aspect_v2 PRIMARY KEY (urn, aspect, version),
           INDEX timeIndex (createdon),
-          INDEX urnIndex (urn),
-          INDEX aspectIndex (aspect),
-          INDEX versionIndex (version)
-        );
+          INDEX idx_version_urn_aspect (version, urn, aspect)
+        ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
         """);
+  }
+
+  @Override
+  public void dropLegacyAspectTableIndexes(Connection connection) throws SQLException {
+    String checkSql =
+        "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'metadata_aspect_v2' AND index_name = ?";
+    String[] legacyIndexNames = {"urnIndex", "aspectIndex", "versionIndex"};
+    for (String indexName : legacyIndexNames) {
+      try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+        stmt.setString(1, indexName);
+        try (ResultSet rs = stmt.executeQuery()) {
+          if (rs.next() && rs.getInt(1) > 0) {
+            log.info("Dropping legacy index {} on metadata_aspect_v2", indexName);
+            try (java.sql.Statement alterStmt = connection.createStatement()) {
+              alterStmt.execute(
+                  "ALTER TABLE metadata_aspect_v2 DROP INDEX " + escapeMysqlIdentifier(indexName));
+            }
+          }
+        }
+      }
+    }
+  }
+
+  @Override
+  public void ensureAspectIndexes(Connection connection) throws SQLException {
+    // CREATE TABLE IF NOT EXISTS does not add new indexes to an already-existing table; align
+    // upgraded databases with current DDL for secondary indexes not covered by the primary key.
+    ensureMysqlIndexIfAbsent(connection, "timeIndex", "(createdon)");
+    ensureMysqlIndexIfAbsent(connection, "idx_version_urn_aspect", "(version, urn, aspect)");
+  }
+
+  private void ensureMysqlIndexIfAbsent(
+      Connection connection, String indexName, String indexColumnListWithParens)
+      throws SQLException {
+    String checkSql =
+        "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'metadata_aspect_v2' AND index_name = ?";
+    try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+      stmt.setString(1, indexName);
+      try (ResultSet rs = stmt.executeQuery()) {
+        if (rs.next() && rs.getInt(1) == 0) {
+          log.info("Adding index {} on metadata_aspect_v2", indexName);
+          try (java.sql.Statement alterStmt = connection.createStatement()) {
+            alterStmt.execute(
+                "ALTER TABLE metadata_aspect_v2 ADD INDEX "
+                    + escapeMysqlIdentifier(indexName)
+                    + " "
+                    + indexColumnListWithParens);
+          }
+        }
+      }
+    }
   }
 
   @Override
@@ -124,8 +177,13 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
       stmt.setString(1, databaseName);
       try (ResultSet result = stmt.executeQuery()) {
         if (!result.next()) {
-          // Create database using PreparedStatement
-          String createDbSql = "CREATE DATABASE `" + databaseName + "`";
+          // Create database with charset/collation matching docker/mysql-setup/init.sql to avoid
+          // case/encoding mismatches (e.g. utf8mb4_ci vs utf8mb4_bin) that can cause NPE in
+          // EbeanAspectDao.getNextVersions when DB-returned URN strings don't match request keys.
+          String createDbSql =
+              "CREATE DATABASE "
+                  + escapeMysqlIdentifier(databaseName)
+                  + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
           try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
             createStmt.executeUpdate();
             log.info("Created MySQL database: {}", databaseName);
@@ -137,8 +195,11 @@ public class MySqlDatabaseOperations implements DatabaseOperations {
     } catch (Exception e) {
       log.debug("MySQL database check failed, attempting to create: {}", e.getMessage());
       // Fallback: try to create database directly
-      try (PreparedStatement createStmt =
-          connection.prepareStatement("CREATE DATABASE `" + databaseName + "`")) {
+      String createDbSql =
+          "CREATE DATABASE "
+              + escapeMysqlIdentifier(databaseName)
+              + " CHARACTER SET utf8mb4 COLLATE utf8mb4_bin";
+      try (PreparedStatement createStmt = connection.prepareStatement(createDbSql)) {
         createStmt.executeUpdate();
         log.info("Created MySQL database: {}", databaseName);
       }

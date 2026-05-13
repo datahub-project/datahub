@@ -26,7 +26,7 @@
             "customProperties": {
                 "schema_inferred_from": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
                 "number_of_files": "1",
-                "size_in_bytes": "3575"
+                "size_in_bytes": "3581"
             },
             "name": "NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv",
             "description": "",
@@ -458,7 +458,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808010000
+            "lastUpdatedTimestamp": 1586833210000
         }
     },
     "systemMetadata": {
@@ -566,6 +566,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -640,22 +656,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -669,6 +669,22 @@
                     "urn": "urn:li:container:c0b6448a96b5b99a7cabec1c4bfa66c0"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
         }
     },
     "systemMetadata": {
@@ -755,22 +771,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -788,6 +788,22 @@
                     "urn": "urn:li:container:09bc75f9aaf92d57502aad33cab2e999"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
         }
     },
     "systemMetadata": {
@@ -874,22 +890,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -911,6 +911,22 @@
                     "urn": "urn:li:container:564adc1710f345e4777dbdc81a4b20db"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
         }
     },
     "systemMetadata": {
@@ -997,22 +1013,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1038,6 +1038,22 @@
                     "urn": "urn:li:container:c46207c164682005e865a54fcf7f4a9f"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
         }
     },
     "systemMetadata": {
@@ -1124,22 +1140,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1169,6 +1169,22 @@
                     "urn": "urn:li:container:fd50ce59cb982671fc700636ab5744e2"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
         }
     },
     "systemMetadata": {
@@ -1255,22 +1271,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -1304,6 +1304,22 @@
                     "urn": "urn:li:container:34dcc9e05fe0d390619cbe1210771ba1"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
         }
     },
     "systemMetadata": {
@@ -1378,22 +1394,6 @@
             "typeNames": [
                 "Folder"
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:46c2438600873ee3264c24c4ac6081b9",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:ec0a322960f194cdd055a5a6d5172ecb"
         }
     },
     "systemMetadata": {
@@ -1776,7 +1776,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "Lat (\ufffdN)",
+                    "fieldPath": "Lat (\u00b0N)",
                     "uniqueCount": 19,
                     "uniqueProportion": 0.95,
                     "nullCount": 13,
@@ -1891,7 +1891,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "Long (\ufffdW)",
+                    "fieldPath": "Long (\u00b0W)",
                     "uniqueCount": 20,
                     "uniqueProportion": 1.0,
                     "nullCount": 13,
@@ -2006,7 +2006,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "Water Temp (\ufffdC)",
+                    "fieldPath": "Water Temp (\u00b0C)",
                     "uniqueCount": 16,
                     "uniqueProportion": 0.8,
                     "nullCount": 13,
@@ -2105,7 +2105,7 @@
                     ]
                 },
                 {
-                    "fieldPath": "Cond (\ufffdS/cm)",
+                    "fieldPath": "Cond (\u00b5S/cm)",
                     "uniqueCount": 16,
                     "uniqueProportion": 0.8,
                     "nullCount": 13,
@@ -2965,7 +2965,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808020000
+            "lastUpdatedTimestamp": 1586833220000
         }
     },
     "systemMetadata": {
@@ -3541,7 +3541,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808030000
+            "lastUpdatedTimestamp": 1586833230000
         }
     },
     "systemMetadata": {
@@ -4093,7 +4093,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808040000
+            "lastUpdatedTimestamp": 1586833240000
         }
     },
     "systemMetadata": {
@@ -4352,7 +4352,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808050000
+            "lastUpdatedTimestamp": 1586833250000
         }
     },
     "systemMetadata": {
@@ -4882,7 +4882,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808060000
+            "lastUpdatedTimestamp": 1586833260000
         }
     },
     "systemMetadata": {
@@ -5583,7 +5583,7 @@
                 "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1586808070000
+            "lastUpdatedTimestamp": 1586833270000
         }
     },
     "systemMetadata": {
@@ -7945,7 +7945,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808010000
+                    "time": 1586833210000
                 }
             }
         ]
@@ -7967,7 +7967,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808020000
+                    "time": 1586833220000
                 }
             }
         ]
@@ -7989,7 +7989,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808030000
+                    "time": 1586833230000
                 }
             }
         ]
@@ -8011,7 +8011,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808040000
+                    "time": 1586833240000
                 }
             }
         ]
@@ -8033,7 +8033,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808050000
+                    "time": 1586833250000
                 }
             }
         ]
@@ -8055,7 +8055,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808060000
+                    "time": 1586833260000
                 }
             }
         ]
@@ -8077,7 +8077,7 @@
                 "op": "add",
                 "path": "/lastModified",
                 "value": {
-                    "time": 1586808070000
+                    "time": 1586833270000
                 }
             }
         ]

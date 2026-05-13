@@ -143,9 +143,13 @@ public class DocumentMapper {
     // Map Global Tags aspect
     final EnvelopedAspect envelopedGlobalTags = aspects.get(Constants.GLOBAL_TAGS_ASPECT_NAME);
     if (envelopedGlobalTags != null) {
-      result.setTags(
+      final com.linkedin.datahub.graphql.generated.GlobalTags mappedTags =
           GlobalTagsMapper.map(
-              context, new GlobalTags(envelopedGlobalTags.getValue().data()), entityUrn));
+              context, new GlobalTags(envelopedGlobalTags.getValue().data()), entityUrn);
+      result.setTags(mappedTags);
+      // Populate the deprecated `globalTags` alias for parity with Dataset / DataProduct /
+      // Domain. See DatasetMapper for the same pattern.
+      result.setGlobalTags(mappedTags);
     }
 
     // Map Glossary Terms aspect

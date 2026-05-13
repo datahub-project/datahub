@@ -1,5 +1,8 @@
 package com.linkedin.datahub.upgrade;
 
+import com.hazelcast.config.Config;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.search.SemanticSearchServiceFactory;
 import com.linkedin.gms.factory.search.semantic.EmbeddingProviderFactory;
@@ -20,15 +23,14 @@ import io.ebean.Database;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.Nonnull;
-import jakarta.annotation.PostConstruct;
 import java.util.UUID;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 @TestConfiguration
 @Import(
@@ -38,31 +40,39 @@ import org.springframework.context.annotation.Primary;
     })
 public class UpgradeCliApplicationTestConfiguration {
 
-  // TODO: We cannot remove the MockBean annotation here because with MockitoBean it is still trying
-  // to instantiate
-  //       see: https://github.com/spring-projects/spring-framework/issues/33934
-  @MockBean public UpgradeCli upgradeCli;
+  // TODO: Convert to @Bean @Primary (like configEntityRegistry below) to avoid Spring Framework
+  // issue #33934 where @MockitoBean still triggers real factory bean initialization.
+  // See: https://github.com/spring-projects/spring-framework/issues/33934
+  @MockitoBean public UpgradeCli upgradeCli;
 
-  @MockBean public SearchService searchService;
+  @MockitoBean public SearchService searchService;
 
-  @MockBean public GraphService graphService;
+  @MockitoBean public GraphService graphService;
 
-  @MockBean public ConfigEntityRegistry configEntityRegistry;
-
-  @MockBean public SearchClientShim<?> searchClientShim;
+  // Use @Bean instead of @MockitoBean to prevent ConfigEntityRegistryFactory from
+  // attempting to load entity-registry.yml (Spring Framework 7.0 issue #33934)
+  @Bean
+  public ConfigEntityRegistry configEntityRegistry() {
+    return Mockito.mock(ConfigEntityRegistry.class);
+  }
 
   // Mock semantic search factories to avoid needing full configuration
-  @MockBean public EmbeddingProviderFactory embeddingProviderFactory;
+  @MockitoBean public EmbeddingProviderFactory embeddingProviderFactory;
 
-  @MockBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
+  @MockitoBean public SemanticEntitySearchServiceFactory semanticEntitySearchServiceFactory;
 
-  @MockBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
+  @MockitoBean public SemanticSearchServiceFactory semanticSearchServiceFactory;
 
-  @PostConstruct
-  public void configureMocks() {
-    // Configure SearchClientShim mock to return a valid engine type
-    Mockito.when(searchClientShim.getEngineType())
-        .thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+  /**
+   * Provide a pre-stubbed SearchClientShim so getEngineType() is non-null before any bean (e.g.
+   * ElasticSearchGraphServiceFactory) uses it during context refresh.
+   */
+  @Bean
+  @Primary
+  public SearchClientShim<?> searchClientShim() {
+    SearchClientShim<?> shim = Mockito.mock(SearchClientShim.class);
+    Mockito.when(shim.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    return shim;
   }
 
   /** Use real EntityRegistry from TestOperationContexts for proper annotation-based validation. */
@@ -98,5 +108,21 @@ public class UpgradeCliApplicationTestConfiguration {
     String instanceId = "upgradecli_" + UUID.randomUUID().toString().replace("-", "");
     String serverName = "upgradecli_test_" + UUID.randomUUID().toString().replace("-", "");
     return EbeanTestUtils.createNamedTestServer(instanceId, serverName);
+  }
+
+  /**
+   * Provide an in-memory HazelcastInstance for tests so that Hazelcast Spring integration
+   * (HazelcastObjectExtractionConfiguration in hazelcast-spring 5.6+) can create its
+   * hzInternalBeanExposer bean. Network is disabled so no cluster join is attempted.
+   */
+  @Bean(name = "hazelcastInstance")
+  @Primary
+  public HazelcastInstance hazelcastInstance() {
+    Config config = new Config();
+    config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+    config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
+    config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
+    config.setClusterName("datahub-upgrade-test-" + UUID.randomUUID());
+    return Hazelcast.newHazelcastInstance(config);
   }
 }

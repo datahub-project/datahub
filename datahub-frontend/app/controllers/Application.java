@@ -3,7 +3,6 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
-import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -12,6 +11,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.linkedin.util.Pair;
 import com.typesafe.config.Config;
+import config.GracefulShutdownModule;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import org.apache.pekko.util.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.Environment;
@@ -50,16 +51,22 @@ public class Application extends Controller {
 
   private final Config config;
   private final Environment environment;
+  private final GracefulShutdownModule shutdownModule;
 
   private final String basePath;
   private final String gaTrackingId;
   private final List<String> streamingPathPrefixes;
 
   @Inject
-  public Application(HttpClient httpClient, Environment environment, @Nonnull Config config) {
+  public Application(
+      HttpClient httpClient,
+      Environment environment,
+      @Nonnull Config config,
+      GracefulShutdownModule shutdownModule) {
     this.httpClient = httpClient;
     this.config = config;
     this.environment = environment;
+    this.shutdownModule = shutdownModule;
     this.basePath = config.getString("datahub.basePath");
     this.gaTrackingId =
         config.hasPath("analytics.google.tracking.id")
@@ -122,6 +129,9 @@ public class Application extends Controller {
 
   @Nonnull
   public Result healthcheck() {
+    if (shutdownModule.isShuttingDown()) {
+      return status(SERVICE_UNAVAILABLE, "Shutting down");
+    }
     return ok("GOOD");
   }
 
@@ -133,26 +143,6 @@ public class Application extends Controller {
   @Nonnull
   public Result index(@Nullable String path) {
     return serveAsset(path);
-  }
-
-  /**
-   * Moves permanently the get into version without trailing slash
-   *
-   * @param path String
-   * @return Result
-   */
-  @Nonnull
-  public Result redirectTrailingSlash(@Nullable String path) {
-    String redirectBase = basePath.equals("/") ? "" : basePath;
-
-    if (path == null || path.isEmpty()) {
-      return movedPermanently(redirectBase + "/");
-    }
-    String sanitizedPath = path.replaceFirst("^/+", "");
-    if (sanitizedPath.isEmpty()) {
-      return movedPermanently(redirectBase + "/");
-    }
-    return movedPermanently(redirectBase + "/" + sanitizedPath);
   }
 
   /**
@@ -264,7 +254,7 @@ public class Application extends Controller {
     HttpEntity body =
         useStreaming
             ? new HttpEntity.Streamed(
-                akka.stream.javadsl.StreamConverters.fromInputStream(
+                org.apache.pekko.stream.javadsl.StreamConverters.fromInputStream(
                     () -> (InputStream) apiResponse.body()),
                 Optional.empty(),
                 contentType)

@@ -7,7 +7,18 @@ function isResource(entry: PerformanceEntry): entry is PerformanceResourceTiming
 }
 
 function isUploading(entry: PerformanceResourceTiming) {
-    return entry.name.includes('amazonaws') && entry.initiatorType === 'fetch';
+    // S3 presigned upload URLs have X-Amz-Signature query parameter
+    // This specifically identifies S3 uploads and excludes all other requests
+    try {
+        const url = new URL(entry.name);
+        return (
+            url.hostname.endsWith('.amazonaws.com') &&
+            url.searchParams.has('X-Amz-Signature') &&
+            entry.initiatorType === 'fetch'
+        );
+    } catch {
+        return false;
+    }
 }
 
 function isDownloading(entry: PerformanceResourceTiming) {

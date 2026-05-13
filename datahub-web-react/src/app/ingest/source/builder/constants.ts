@@ -1,3 +1,4 @@
+import aerospikeLogo from '@images/aerospike.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
@@ -5,17 +6,22 @@ import bigqueryLogo from '@images/bigquerylogo.png';
 import cassandraLogo from '@images/cassandralogo.png';
 import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
+import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
 import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import fabricDataFactoryLogo from '@images/fabricdatafactorylogo.svg';
+import fabricLogo from '@images/fabriclogo.svg';
 import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
+import flinkLogo from '@images/flinklogo.svg';
 import glueLogo from '@images/gluelogo.png';
 import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
@@ -31,7 +37,9 @@ import mongodbLogo from '@images/mongodblogo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
+import notionLogo from '@images/notionlogo.png';
 import oktaLogo from '@images/oktalogo.png';
+import omniLogo from '@images/omnilogo.svg';
 import oracleLogo from '@images/oraclelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
@@ -42,6 +50,8 @@ import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import snowplowLogo from '@images/snowplowlogo.png';
+import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
@@ -49,104 +59,115 @@ import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
 
-export const ATHENA = 'athena';
-export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
+const AEROSPIKE = 'aerospike';
+const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
+const ATHENA = 'athena';
+const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
-export const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
-export const AZURE_DATA_FACTORY = 'azure-data-factory';
-export const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
-export const BIGQUERY = 'bigquery';
-export const BIGQUERY_USAGE = 'bigquery-usage';
+const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
+const AZURE_DATA_FACTORY = 'azure-data-factory';
+const AZURE_DATA_FACTORY_URN = `urn:li:dataPlatform:${AZURE_DATA_FACTORY}`;
+const BIGQUERY = 'bigquery';
+const BIGQUERY_USAGE = 'bigquery-usage';
 export const BIGQUERY_BETA = 'bigquery-beta';
-export const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
-export const CLICKHOUSE = 'clickhouse';
-export const CLICKHOUSE_USAGE = 'clickhouse-usage';
-export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
-export const COCKROACHDB = 'cockroachdb';
-export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
-export const DBT = 'dbt';
+const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
+const CLICKHOUSE = 'clickhouse';
+const CLICKHOUSE_USAGE = 'clickhouse-usage';
+const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
+const COCKROACHDB = 'cockroachdb';
+const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
+export const CONFLUENCE = 'confluence';
+const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
+const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
-export const DREMIO = 'dremio';
-export const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
-export const DRUID = 'druid';
-export const DRUID_URN = `urn:li:dataPlatform:${DRUID}`;
-export const DYNAMODB = 'dynamodb';
-export const DYNAMODB_URN = `urn:li:dataPlatform:${DYNAMODB}`;
-export const ELASTICSEARCH = 'elasticsearch';
-export const ELASTICSEARCH_URN = `urn:li:dataPlatform:${ELASTICSEARCH}`;
-export const FEAST = 'feast';
-export const FEAST_LEGACY = 'feast-legacy';
-export const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
-export const GLUE = 'glue';
-export const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
-export const GRAFANA = 'grafana';
-export const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
-export const HIVE = 'hive';
-export const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
-export const KAFKA = 'kafka';
-export const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
+const DREMIO = 'dremio';
+const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
+const DRUID = 'druid';
+const DRUID_URN = `urn:li:dataPlatform:${DRUID}`;
+const DYNAMODB = 'dynamodb';
+const DYNAMODB_URN = `urn:li:dataPlatform:${DYNAMODB}`;
+const ELASTICSEARCH = 'elasticsearch';
+const ELASTICSEARCH_URN = `urn:li:dataPlatform:${ELASTICSEARCH}`;
+const FEAST = 'feast';
+const FEAST_LEGACY = 'feast-legacy';
+const FEAST_URN = `urn:li:dataPlatform:${FEAST}`;
+const FLINK = 'flink';
+const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
+const GLUE = 'glue';
+const GLUE_URN = `urn:li:dataPlatform:${GLUE}`;
+const GRAFANA = 'grafana';
+const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
+const HIVE = 'hive';
+const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
+const KAFKA = 'kafka';
+const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
 export const LOOKER = 'looker';
 export const LOOK_ML = 'lookml';
 export const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
-export const MARIA_DB = 'mariadb';
-export const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
+const MARIA_DB = 'mariadb';
+const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
 export const MATILLION = 'matillion';
 export const MATILLION_DPC = 'matillion-dpc';
 export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
-export const METABASE = 'metabase';
-export const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
-export const MLFLOW = 'mlflow';
-export const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
+const METABASE = 'metabase';
+const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
+const MLFLOW = 'mlflow';
+const MLFLOW_URN = `urn:li:dataPlatform:${MLFLOW}`;
 export const MODE = 'mode';
 export const MODE_URN = `urn:li:dataPlatform:${MODE}`;
-export const MONGO_DB = 'mongodb';
-export const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
-export const MSSQL = 'mssql';
-export const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
+const MONGO_DB = 'mongodb';
+const MONGO_DB_URN = `urn:li:dataPlatform:${MONGO_DB}`;
+const MSSQL = 'mssql';
+const MSSQL_URN = `urn:li:dataPlatform:${MSSQL}`;
 export const MYSQL = 'mysql';
-export const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
+const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
+export const NOTION = 'notion';
+const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
-export const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
-export const ORACLE = 'oracle';
-export const ORACLE_URN = `urn:li:dataPlatform:${ORACLE}`;
-export const POSTGRES = 'postgres';
-export const POSTGRES_URN = `urn:li:dataPlatform:${POSTGRES}`;
+const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
+const ORACLE = 'oracle';
+const ORACLE_URN = `urn:li:dataPlatform:${ORACLE}`;
+const POSTGRES = 'postgres';
+const POSTGRES_URN = `urn:li:dataPlatform:${POSTGRES}`;
 export const POWER_BI = 'powerbi';
-export const POWER_BI_URN = `urn:li:dataPlatform:${POWER_BI}`;
-export const PRESET = 'preset';
-export const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
-export const REDSHIFT = 'redshift';
-export const REDSHIFT_USAGE = 'redshift-usage';
-export const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
-export const SNOWFLAKE = 'snowflake';
-export const SNOWFLAKE_BETA = 'snowflake-beta';
-export const SNOWFLAKE_USAGE = 'snowflake-usage';
-export const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;
-export const STARBURST_TRINO_USAGE = 'starburst-trino-usage';
-export const SUPERSET = 'superset';
-export const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
-export const TABLEAU = 'tableau';
+const POWER_BI_URN = `urn:li:dataPlatform:${POWER_BI}`;
+const PRESET = 'preset';
+const PRESET_URN = `urn:li:dataPlatform:${PRESET}`;
+const REDSHIFT = 'redshift';
+const REDSHIFT_USAGE = 'redshift-usage';
+const REDSHIFT_URN = `urn:li:dataPlatform:${REDSHIFT}`;
+const SNOWFLAKE = 'snowflake';
+const SNOWFLAKE_BETA = 'snowflake-beta';
+const SNOWFLAKE_USAGE = 'snowflake-usage';
+const SNOWFLAKE_URN = `urn:li:dataPlatform:${SNOWFLAKE}`;
+const STARROCKS = 'starrocks';
+const STARROCKS_URN = `urn:li:dataPlatform:${STARROCKS}`;
+const STARBURST_TRINO_USAGE = 'starburst-trino-usage';
+const SUPERSET = 'superset';
+const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
+const TABLEAU = 'tableau';
 export const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
-export const TRINO = 'trino';
-export const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
+const TRINO = 'trino';
+const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
-export const CUSTOM_URN = `urn:li:dataPlatform:${CUSTOM}`;
-export const UNITY_CATALOG = 'unity-catalog';
-export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+const UNITY_CATALOG = 'unity-catalog';
+const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
 export const DATABRICKS = 'databricks';
-export const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
+const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const VERTICA = 'vertica';
-export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
-export const FIVETRAN = 'fivetran';
-export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
+const FIVETRAN = 'fivetran';
+const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
 export const CSV = 'csv-enricher';
-export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
-export const QLIK_SENSE = 'qlik-sense';
-export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
-export const SIGMA = 'sigma';
-export const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
+const CSV_URN = `urn:li:dataPlatform:${CSV}`;
+const QLIK_SENSE = 'qlik-sense';
+const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+const SIGMA = 'sigma';
+const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
 export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
 export const CASSANDRA = 'cassandra';
@@ -164,24 +185,35 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const SNOWPLOW = 'snowplow';
+export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
+export const FABRIC = 'fabric';
+export const FABRIC_URN = `urn:li:dataPlatform:${FABRIC}`;
+export const FABRIC_DATA_FACTORY = 'fabric-data-factory';
+export const FABRIC_DATA_FACTORY_URN = `urn:li:dataPlatform:${FABRIC_DATA_FACTORY}`;
 export const FABRIC_ONELAKE = 'fabric-onelake';
 export const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
 export const STREAMLIT = 'streamlit';
 export const STREAMLIT_URN = `urn:li:dataPlatform:${STREAMLIT}`;
+export const OMNI = 'omni';
+export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [AEROSPIKE_URN]: aerospikeLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
+    [CONFLUENCE_URN]: confluenceLogo,
     [DBT_URN]: dbtLogo,
     [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
     [FEAST_URN]: feastLogo,
+    [FLINK_URN]: flinkLogo,
     [GLUE_URN]: glueLogo,
     [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
@@ -195,6 +227,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MONGO_DB_URN]: mongodbLogo,
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
+    [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
     [POSTGRES_URN]: postgresLogo,
@@ -202,12 +235,15 @@ export const PLATFORM_URN_TO_LOGO = {
     [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
+    [SNOWPLOW_URN]: snowplowLogo,
+    [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
+    [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
@@ -219,8 +255,11 @@ export const PLATFORM_URN_TO_LOGO = {
     [VERTEXAI_URN]: vertexAI,
     [SNAPLOGIC_URN]: snaplogicLogo,
     [GOOGLE_SHEETS_URN]: googleSheetsLogo,
+    [FABRIC_URN]: fabricLogo,
+    [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
     [STREAMLIT_URN]: streamlitLogo,
+    [OMNI_URN]: omniLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

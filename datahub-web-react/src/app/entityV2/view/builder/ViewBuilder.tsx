@@ -1,5 +1,4 @@
 import { useApolloClient } from '@apollo/client';
-import { message } from 'antd';
 import React from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -10,6 +9,7 @@ import { updateListMyViewsCache, updateViewSelectCache } from '@app/entityV2/vie
 import { ViewBuilderState } from '@app/entityV2/view/types';
 import { DEFAULT_LIST_VIEWS_PAGE_SIZE, convertStateToUpdateInput } from '@app/entityV2/view/utils';
 import { useSearchVersion } from '@app/search/useSearchAndBrowseVersion';
+import { notification } from '@src/alchemy-components';
 
 import { useCreateViewMutation, useUpdateViewMutation } from '@graphql/view.generated';
 import { DataHubView } from '@types';
@@ -109,9 +109,9 @@ export const ViewBuilder = ({ mode, urn, initialState, onSubmit, onCancel }: Pro
                 onSubmit?.(state);
             })
             .catch((_) => {
-                message.destroy();
-                message.error({
-                    content: `Failed to save View! An unexpected error occurred.`,
+                notification.error({
+                    message: 'Failed to save View',
+                    description: 'An unexpected error occurred.',
                     duration: 3,
                 });
             });

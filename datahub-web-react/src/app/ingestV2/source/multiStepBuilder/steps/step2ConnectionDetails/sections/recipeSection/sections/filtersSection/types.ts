@@ -4,7 +4,3 @@ export interface Filter {
     subtype: string | undefined;
     value: string;
 }
-
-export interface FilterWithFieldName extends Filter {
-    name: string;
-}

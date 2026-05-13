@@ -1,5 +1,6 @@
 package com.linkedin.metadata.kafka.listener;
 
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -113,6 +114,16 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
       // Initialize MDC context with event metadata
       setMDCContext(event);
 
+      // Propagate cascade operation ID from SystemMetadata to MDC for cross-service correlation
+      SystemMetadata sysMetadata = getSystemMetadata(event);
+      if (sysMetadata != null && sysMetadata.getProperties() != null) {
+        String cascadeOpId =
+            sysMetadata.getProperties().get(CascadeOperationContext.SYSTEM_METADATA_CASCADE_ID_KEY);
+        if (cascadeOpId != null) {
+          MDC.put(CascadeOperationContext.MDC_CASCADE_OPERATION_ID, cascadeOpId);
+        }
+      }
+
       // Check if should skip processing
       if (shouldSkipProcessing(event)) {
         log.info("Skipping event: {}", event);
@@ -140,7 +151,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
         getSystemMetadata(event),
         topic,
         () -> {
-          log.info(
+          log.debug(
               "Invoking hooks for consumer: {} event: {}",
               consumerGroupId,
               getEventDisplayString(event));
@@ -189,7 +200,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
                   metricUtils ->
                       metricUtils.increment(
                           this.getClass(), consumerGroupId + "_consumed_event_count", 1));
-          log.info(
+          log.debug(
               "Successfully completed hooks for consumer: {} event: {}",
               consumerGroupId,
               getEventDisplayString(event));

@@ -2,7 +2,7 @@ import { Input } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-export interface ApplicationDetailsProps {
+interface ApplicationDetailsProps {
     applicationName: string;
     setApplicationName: React.Dispatch<React.SetStateAction<string>>;
     applicationDescription: string;

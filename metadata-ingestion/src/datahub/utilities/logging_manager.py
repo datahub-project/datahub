@@ -15,6 +15,8 @@ import collections
 import contextlib
 import itertools
 import logging
+import logging.config
+import os
 import pathlib
 import sys
 from typing import Deque, Iterator, Optional
@@ -220,6 +222,35 @@ def _remove_all_handlers(logger: logging.Logger) -> None:
             pass
 
 
+def _reset_logging() -> None:
+    """
+    Reset all loggers to their default state.
+
+    This is useful when we want to completely reconfigure logging from
+    an external config file, ensuring no previously configured handlers
+    or settings interfere.
+    """
+    manager = logging.root.manager
+    manager.disable = logging.NOTSET
+    for sub_logger in manager.loggerDict.values():
+        if isinstance(sub_logger, logging.Logger):
+            sub_logger.setLevel(logging.NOTSET)
+            sub_logger.propagate = True
+            sub_logger.disabled = False
+            sub_logger.filters.clear()
+            handlers = sub_logger.handlers.copy()
+            for handler in handlers:
+                try:
+                    handler.acquire()
+                    handler.flush()
+                    handler.close()
+                except (OSError, ValueError):
+                    pass
+                finally:
+                    handler.release()
+                sub_logger.removeHandler(handler)
+
+
 _log_buffer = _LogBuffer(maxlen=IN_MEMORY_LOG_BUFFER_SIZE)
 
 
@@ -237,6 +268,14 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
 
     if get_suppress_logging_manager() == "1":
         # If we're running in pytest, we don't want to configure logging.
+        yield
+        return
+
+    # Check for external config file - if set, use it instead of default configuration
+    external_config = os.environ.get("DATAHUB_LOG_CONFIG_FILE")
+    if external_config:
+        _reset_logging()
+        logging.config.fileConfig(external_config, disable_existing_loggers=False)
         yield
         return
 

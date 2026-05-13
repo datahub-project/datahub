@@ -19,9 +19,6 @@ query getDataJob($urn: String!) {
                 ...structuredPropertiesFields
             }
         }
-        forms {
-            ...formsFields
-        }
         browsePathV2 {
             ...browsePathV2Fields
         }

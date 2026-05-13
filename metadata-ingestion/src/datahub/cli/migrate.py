@@ -27,9 +27,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.graph.client import (
     ClientMode,
     DataHubGraph,
-    RelatedEntity,
     get_default_graph,
 )
+from datahub.ingestion.graph.openapi import RelatedEntity
 from datahub.metadata.schema_classes import (
     ContainerKeyClass,
     ContainerPropertiesClass,
@@ -146,6 +146,10 @@ def dataplatform2instance_func(
     click.echo(
         f"Starting migration: platform:{platform}, instance={instance}, force={force}, dry-run={dry_run}"
     )
+    click.echo(
+        "This command will migrate DATASETS and CONTAINERS only. "
+        "Other entity types (charts, dashboards, datajobs) are not supported."
+    )
     run_id: str = f"migrate-{uuid.uuid4()}"
     migration_report = MigrationReport(run_id, dry_run, keep)
     system_metadata = SystemMetadataClass(runId=run_id)
@@ -155,7 +159,9 @@ def dataplatform2instance_func(
     urns_to_migrate: List[str] = []
 
     # we first calculate all the urns we will be migrating
-    for src_entity_urn in graph.get_urns_by_filter(platform=platform, env=env):
+    for src_entity_urn in graph.get_urns_by_filter(
+        platform=platform, env=env, entity_types=["dataset"]
+    ):
         key = dataset_urn_to_key(src_entity_urn)
         assert key
         # Does this urn already have a platform instance associated with it?
@@ -247,7 +253,11 @@ def dataplatform2instance_func(
                 relationshipType, entity_type
             )
             aspect_map = cli_utils.get_aspects_for_entity(
-                graph._session, graph.config.server, target_urn, aspects=[aspect_name]
+                graph._session,
+                graph.config.server,
+                target_urn,
+                aspects=[aspect_name],
+                typed=True,
             )
             if aspect_name in aspect_map:
                 aspect = aspect_map[aspect_name]

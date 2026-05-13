@@ -1,10 +1,12 @@
+import { Avatar } from '@components';
 import DeleteOutlinedIcon from '@mui/icons-material/DeleteOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { Typography, message } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import ActorAvatar from '@app/entityV2/shared/ActorAvatar';
+import { AvatarType } from '@components/components/AvatarStack/types';
+
 import { ActionButton } from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import QueryBuilderModal from '@app/entityV2/shared/tabs/Dataset/Queries/QueryBuilderModal';
 import { Query } from '@app/entityV2/shared/tabs/Dataset/Queries/types';
@@ -81,12 +83,7 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
 
     return (
         <div>
-            <ActorAvatar
-                size={26}
-                name={userName}
-                url={`/${entityRegistry.getPathName(createdBy.type)}/${createdBy.urn}`}
-                photoUrl={photoUrl}
-            />
+            <Avatar name={userName || ''} imageUrl={photoUrl} type={AvatarType.user} size="lg" />
         </div>
     );
 };

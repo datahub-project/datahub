@@ -79,7 +79,10 @@ public class ESSystemMetadataDAO {
             .docAsUpsert(true)
             .doc(document, XContentType.JSON)
             .retryOnConflict(numRetries);
-    bulkProcessor.add(updateRequest);
+    // Route by docId (Base64(SHA-256(urn + "--" + aspect))) so concurrent writes for
+    // the same (urn, aspect) — e.g. setDocStatus during soft-delete racing with a
+    // normal aspect insert — serialize on one bulk thread and retryOnConflict works.
+    bulkProcessor.add(docId, updateRequest);
   }
 
   public DeleteResponse deleteByDocId(@Nonnull final String docId) {

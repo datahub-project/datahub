@@ -1,3 +1,7 @@
+---
+description: "Add stateful ingestion support to a DataHub source connector for stale metadata removal and incremental ingestion."
+---
+
 # Adding Stateful Ingestion to a Source
 
 Currently, datahub supports the [Stale Metadata Removal](./stateful.md#stale-entity-removal) and

@@ -44,6 +44,7 @@ export default function IngestionRunDetailsPage() {
         <Breadcrumb
             items={[
                 {
+                    key: 'back',
                     label: fromUrl === tabUrlMap[TabType.RunHistory] ? 'Run history' : 'Manage Data Sources',
                     href: fromUrl ?? tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
@@ -51,6 +52,7 @@ export default function IngestionRunDetailsPage() {
                 ...(name
                     ? [
                           {
+                              key: 'source',
                               label: name,
                           },
                       ]
@@ -58,6 +60,7 @@ export default function IngestionRunDetailsPage() {
                 ...(runTime
                     ? [
                           {
+                              key: 'run',
                               label: formatDateTime(runTime),
                           },
                       ]

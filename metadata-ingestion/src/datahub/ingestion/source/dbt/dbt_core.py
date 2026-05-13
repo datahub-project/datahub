@@ -1,8 +1,10 @@
 import dataclasses
+import fnmatch
+import glob as glob_module
 import json
 import logging
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple, cast
 from urllib.parse import urlparse
 
 import requests
@@ -28,12 +30,16 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.aws.s3_util import is_s3_uri
 from datahub.ingestion.source.dbt.dbt_common import (
+    DBT_EXPOSURE_MATURITY,
+    DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTExposure,
     DBTModelPerformance,
     DBTNode,
     DBTSourceBase,
     DBTSourceReport,
+    convert_semantic_model_fields_to_columns,
     parse_dbt_timestamp,
 )
 from datahub.ingestion.source.dbt.dbt_tests import (
@@ -45,11 +51,18 @@ from datahub.ingestion.source.dbt.dbt_tests import (
 
 logger = logging.getLogger(__name__)
 
+_GLOB_CHARACTERS = frozenset("*?[]")
+
+
+def _has_glob_characters(path: str) -> bool:
+    return any(c in path for c in _GLOB_CHARACTERS)
+
 
 @dataclasses.dataclass
 class DBTCoreReport(DBTSourceReport):
     catalog_info: Optional[dict] = None
     manifest_info: Optional[dict] = None
+    run_results_paths_expanded: Optional[List[str]] = None
 
 
 class DBTCoreConfig(DBTCommonConfig):
@@ -72,8 +85,10 @@ class DBTCoreConfig(DBTCommonConfig):
     run_results_paths: List[str] = Field(
         default=[],
         description="Path to output of dbt test run as run_results files in JSON format. "
-        "If not specified, test execution results and model performance metadata will not be populated in DataHub."
+        "If not specified, test execution results and model performance metadata will not be populated in DataHub. "
         "If invoking dbt multiple times, you can provide paths to multiple run result files. "
+        "Glob patterns are supported for both S3 URIs and local paths "
+        "(e.g. 's3://bucket/results/*/run_results.json' or '/path/to/results/*/run_results.json'). "
         "See https://docs.getdbt.com/reference/artifacts/run-results-json.",
     )
 
@@ -172,6 +187,41 @@ def get_columns(
     return columns
 
 
+def _extract_catalog_stats(
+    catalog_node: Optional[Dict[str, Any]],
+    node_name: Optional[str] = None,
+) -> Tuple[Optional[int], Optional[int]]:
+    """Extract row_count and size_in_bytes from catalog node stats.
+
+    Returns:
+        Tuple of (row_count, size_in_bytes), each can be None if not available.
+    """
+    if catalog_node is None:
+        return None, None
+
+    catalog_stats = catalog_node.get("stats", {})
+    row_count: Optional[int] = None
+    size_in_bytes: Optional[int] = None
+
+    # Extract row count (num_rows)
+    num_rows_stat = catalog_stats.get("num_rows", {})
+    if num_rows_stat.get("include", False) and num_rows_stat.get("value") is not None:
+        try:
+            row_count = int(num_rows_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_rows stat for {node_name}: {e}")
+
+    # Extract size in bytes (num_bytes)
+    num_bytes_stat = catalog_stats.get("num_bytes", {})
+    if num_bytes_stat.get("include", False) and num_bytes_stat.get("value") is not None:
+        try:
+            size_in_bytes = int(num_bytes_stat["value"])
+        except (ValueError, TypeError) as e:
+            logger.debug(f"Failed to parse num_bytes stat for {node_name}: {e}")
+
+    return row_count, size_in_bytes
+
+
 def extract_dbt_entities(
     all_manifest_entities: Dict[str, Dict[str, Any]],
     all_catalog_entities: Optional[Dict[str, Dict[str, Any]]],
@@ -231,6 +281,9 @@ def extract_dbt_entities(
                     )
         else:
             catalog_type = catalog_node["metadata"]["type"]
+
+        # Extract stats from catalog (e.g., num_rows, num_bytes from BigQuery/Snowflake)
+        row_count, size_in_bytes = _extract_catalog_stats(catalog_node, node_name=key)
 
         # initialize comment to "" for consistency with descriptions
         # (since dbt null/undefined descriptions as "")
@@ -334,6 +387,8 @@ def extract_dbt_entities(
             ),  # Backward compatibility dbt <=v1.2
             test_info=test_info,
             freshness_info=freshness_info,
+            row_count=row_count,
+            size_in_bytes=size_in_bytes,
         )
 
         # Load columns from catalog, and override some properties from manifest.
@@ -355,6 +410,148 @@ def extract_dbt_entities(
         dbt_entities.append(dbtNode)
 
     return dbt_entities
+
+
+def extract_dbt_exposures(
+    manifest_exposures: Dict[str, Dict[str, Any]],
+    tag_prefix: str,
+) -> List[DBTExposure]:
+    """Extract dbt exposures from the manifest.json exposures section."""
+    exposures = []
+    for key, exposure_node in manifest_exposures.items():
+        owner = exposure_node.get("owner", {})
+        depends_on = exposure_node.get("depends_on", {})
+        # depends_on can have "nodes" and "macros" keys
+        depends_on_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        tags = exposure_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        raw_type = exposure_node.get("type", "dashboard")
+        exposure_type: Literal[
+            "dashboard", "notebook", "ml", "application", "analysis"
+        ] = cast(
+            Literal["dashboard", "notebook", "ml", "application", "analysis"],
+            raw_type if raw_type in DBT_EXPOSURE_TYPES else "dashboard",
+        )
+        raw_maturity = exposure_node.get("maturity")
+        maturity = raw_maturity if raw_maturity in DBT_EXPOSURE_MATURITY else None
+
+        exposures.append(
+            DBTExposure(
+                name=exposure_node["name"],
+                unique_id=key,
+                type=exposure_type,
+                owner_name=owner.get("name") if isinstance(owner, dict) else None,
+                owner_email=owner.get("email") if isinstance(owner, dict) else None,
+                description=exposure_node.get("description"),
+                url=exposure_node.get("url"),
+                maturity=maturity,
+                depends_on=depends_on_nodes,
+                tags=tags,
+                meta=exposure_node.get("meta", {}),
+                dbt_package_name=exposure_node.get("package_name"),
+                dbt_file_path=exposure_node.get("original_file_path"),
+            )
+        )
+    return exposures
+
+
+def _resolve_database_schema(
+    node_relation: Dict[str, Any],
+    depends_on: Dict[str, Any],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+) -> Tuple[Optional[str], Optional[str]]:
+    """Resolve database/schema from node_relation or upstream dependencies."""
+    database = node_relation.get("database")
+    schema = node_relation.get("schema")
+
+    if database and schema:
+        return database, schema
+
+    depends_on_nodes = (
+        depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+    )
+    for ref_node_id in depends_on_nodes:
+        if ref_node_id in manifest_nodes:
+            ref_node = manifest_nodes[ref_node_id]
+            return (
+                database or ref_node.get("database"),
+                schema or ref_node.get("schema"),
+            )
+
+    return database, schema
+
+
+def extract_semantic_models(
+    manifest_semantic_models: Dict[str, Dict[str, Any]],
+    manifest_nodes: Dict[str, Dict[str, Any]],
+    manifest_adapter: Optional[str],
+    tag_prefix: str,
+) -> List[DBTNode]:
+    """Extract dbt semantic models (dbt 1.6+) from manifest.json."""
+    semantic_model_nodes: List[DBTNode] = []
+
+    for key, sm_node in manifest_semantic_models.items():
+        name = sm_node.get("name", "")
+        description = sm_node.get("description", "")
+
+        node_relation = sm_node.get("node_relation", {})
+        depends_on = sm_node.get("depends_on", {})
+        database, schema = _resolve_database_schema(
+            node_relation, depends_on, manifest_nodes
+        )
+        alias = node_relation.get("alias")
+
+        entities = sm_node.get("entities", [])
+        dimensions = sm_node.get("dimensions", [])
+        measures = sm_node.get("measures", [])
+
+        columns = convert_semantic_model_fields_to_columns(
+            entities=entities,
+            dimensions=dimensions,
+            measures=measures,
+        )
+
+        tags = sm_node.get("tags", [])
+        tags = [tag_prefix + tag for tag in tags]
+
+        upstream_nodes = (
+            depends_on.get("nodes", []) if isinstance(depends_on, dict) else []
+        )
+
+        semantic_model_nodes.append(
+            DBTNode(
+                dbt_name=key,
+                dbt_adapter=manifest_adapter,
+                dbt_package_name=sm_node.get("package_name"),
+                database=database,
+                schema=schema,
+                name=name,
+                alias=alias,
+                dbt_file_path=sm_node.get("original_file_path"),
+                node_type="semantic_model",
+                max_loaded_at=None,
+                comment="",
+                description=description,
+                upstream_nodes=upstream_nodes,
+                materialization=None,
+                catalog_type=None,
+                missing_from_catalog=False,
+                meta=sm_node.get("meta", {}),
+                query_tag={},
+                tags=tags,
+                owner=None,
+                language="yaml",
+                columns=columns,
+                compiled_code=None,
+                raw_code=None,
+            )
+        )
+
+    return semantic_model_nodes
 
 
 class DBTRunTiming(BaseModel):
@@ -538,6 +735,99 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             with open(uri) as f:
                 return json.load(f)
 
+    @staticmethod
+    def _expand_s3_glob(uri: str, aws_connection: AwsConnectionConfig) -> List[str]:
+        u = urlparse(uri)
+        bucket = u.netloc
+        key_pattern = u.path.lstrip("/")
+
+        # Use the longest static prefix to limit S3 listing scope.
+        prefix_parts: List[str] = []
+        for part in key_pattern.split("/"):
+            if _has_glob_characters(part):
+                break
+            prefix_parts.append(part)
+        prefix = "/".join(prefix_parts)
+        if prefix:
+            prefix += "/"
+
+        s3_client = aws_connection.get_s3_client()
+        paginator = s3_client.get_paginator("list_objects_v2")
+
+        pattern_parts = key_pattern.split("/")
+        matched_keys: List[str] = []
+        total_scanned = 0
+        for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+            for obj in page.get("Contents", []):
+                total_scanned += 1
+                key = obj["Key"]
+                key_parts = key.split("/")
+                if len(key_parts) == len(pattern_parts) and all(
+                    fnmatch.fnmatchcase(k, p)
+                    for k, p in zip(key_parts, pattern_parts, strict=True)
+                ):
+                    matched_keys.append(key)
+
+        logger.info(
+            f"S3 glob '{uri}': scanned {total_scanned} object(s) under "
+            f"prefix '{prefix}', matched {len(matched_keys)}"
+        )
+        return [f"{u.scheme}://{bucket}/{key}" for key in sorted(matched_keys)]
+
+    def _expand_run_results_paths(self) -> List[str]:
+        expanded_paths: List[str] = []
+
+        for path in self.config.run_results_paths:
+            if not _has_glob_characters(path):
+                expanded_paths.append(path)
+                continue
+
+            if is_s3_uri(path):
+                if not self.config.aws_connection:
+                    self.report.failure(
+                        title="Missing AWS connection for S3 glob",
+                        message=f"aws_connection is required for S3 glob pattern: {path}",
+                    )
+                    continue
+                try:
+                    s3_paths = self._expand_s3_glob(path, self.config.aws_connection)
+                except Exception as e:
+                    self.report.failure(
+                        title="S3 glob expansion failed",
+                        message=f"Failed to expand S3 glob pattern '{path}': {e}",
+                    )
+                    continue
+                if not s3_paths:
+                    self.report.warning(
+                        title="S3 glob pattern matched no objects",
+                        message=f"Pattern '{path}' did not match any S3 objects",
+                    )
+                else:
+                    logger.info(
+                        f"S3 glob pattern '{path}' expanded to {len(s3_paths)} file(s)"
+                    )
+                expanded_paths.extend(s3_paths)
+            elif re.match("^https?://", path):
+                self.report.warning(
+                    title="Glob patterns not supported for HTTP(S) URIs",
+                    message=f"Glob patterns are not supported for HTTP(S) URIs: {path}. "
+                    "Please provide explicit file paths.",
+                )
+            else:
+                local_paths = sorted(glob_module.glob(path))
+                if not local_paths:
+                    self.report.warning(
+                        title="Local glob pattern matched no files",
+                        message=f"Pattern '{path}' did not match any local files",
+                    )
+                else:
+                    logger.info(
+                        f"Local glob pattern '{path}' expanded to {len(local_paths)} file(s)"
+                    )
+                expanded_paths.extend(local_paths)
+
+        return expanded_paths
+
     def loadManifestAndCatalog(
         self,
     ) -> Tuple[
@@ -570,6 +860,16 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
                 dbt_version=dbt_catalog_metadata.get("dbt_version", "unknown"),
                 project_name=dbt_catalog_metadata.get("project_name", "unknown"),
             )
+            # Parse and store catalog's generated_at for use in DatasetProfile timestamps
+            if generated_at_str := dbt_catalog_metadata.get("generated_at"):
+                try:
+                    self.report.catalog_generated_at = parse_dbt_timestamp(
+                        generated_at_str
+                    )
+                except Exception:
+                    logger.debug(
+                        f"Failed to parse catalog generated_at: {generated_at_str}"
+                    )
         else:
             self.report.warning(
                 title="No catalog file configured",
@@ -600,6 +900,8 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
 
         manifest_nodes = dbt_manifest_json["nodes"]
         manifest_sources = dbt_manifest_json["sources"]
+        manifest_exposures = dbt_manifest_json.get("exposures", {})
+        manifest_semantic_models = dbt_manifest_json.get("semantic_models", {})
 
         all_manifest_entities = {**manifest_nodes, **manifest_sources}
 
@@ -622,6 +924,30 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             report=self.report,
             sources_invocation_id=sources_invocation_id,
         )
+
+        # Extract exposures from manifest
+        self._exposures = extract_dbt_exposures(
+            manifest_exposures=manifest_exposures,
+            tag_prefix=self.config.tag_prefix,
+        )
+
+        # Extract semantic models from manifest (dbt 1.6+)
+        if (
+            self.config.entities_enabled.can_emit_semantic_models
+            and manifest_semantic_models
+        ):
+            semantic_model_nodes = extract_semantic_models(
+                manifest_semantic_models=manifest_semantic_models,
+                manifest_nodes=manifest_nodes,
+                manifest_adapter=manifest_adapter,
+                tag_prefix=self.config.tag_prefix,
+            )
+            nodes.extend(semantic_model_nodes)
+            self.report.num_semantic_models_emitted = len(semantic_model_nodes)
+            if semantic_model_nodes:
+                logger.info(
+                    f"Extracted {len(semantic_model_nodes)} semantic models from manifest"
+                )
 
         return (
             nodes,
@@ -673,8 +999,10 @@ class DBTCoreSource(DBTSourceBase, TestableSource):
             "catalog_version": catalog_version,
         }
 
-        for run_results_path in self.config.run_results_paths:
-            # This will populate the test_results and model_performance fields on each node.
+        expanded_run_results_paths = self._expand_run_results_paths()
+        if expanded_run_results_paths:
+            self.report.run_results_paths_expanded = expanded_run_results_paths
+        for run_results_path in expanded_run_results_paths:
             all_nodes = load_run_results(
                 self.config,
                 self.load_file_as_json(run_results_path, self.config.aws_connection),

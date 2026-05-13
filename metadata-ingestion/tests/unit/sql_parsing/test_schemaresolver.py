@@ -1,7 +1,12 @@
+from unittest.mock import MagicMock
+
+import pytest
 import sqlglot
 from sqlglot import parse_one
 from sqlglot.expressions import Table
 
+from datahub.ingestion.graph.client import DataHubGraph
+from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -23,6 +28,24 @@ def create_default_schema_resolver(urn: str) -> SchemaResolver:
     )
 
     return schema_resolver
+
+
+def create_mock_schema(columns: list[tuple[str, str]]) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="test",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=MagicMock(),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=col_name,
+                nativeDataType=col_type,
+                type=MagicMock(),
+            )
+            for col_name, col_type in columns
+        ],
+    )
 
 
 def test_basic_schema_resolver():
@@ -114,6 +137,167 @@ def test_match_columns_to_schema():
     )
 
     assert output_columns == ["id", "Name", "Address", "weight"]
+
+
+class TestResolveTableBatching:
+    @pytest.fixture
+    def mock_graph(self):
+        return MagicMock(spec=DataHubGraph)
+
+    @pytest.fixture
+    def schema_resolver(self, mock_graph):
+        return SchemaResolver(
+            platform="snowflake",
+            platform_instance="prod",
+            env="PROD",
+            graph=mock_graph,
+        )
+
+    def test_batches_all_urn_variations(self, schema_resolver, mock_graph):
+        mock_graph.get_entities.return_value = {
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)": {
+                "schemaMetadata": (
+                    create_mock_schema([("id", "int"), ("name", "string")]),
+                    {},
+                )
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "id" in schema_info
+        assert mock_graph.get_entities.call_count == 1
+        urns_tried = mock_graph.get_entities.call_args[1]["urns"]
+        assert len(urns_tried) >= 2
+        assert len(urns_tried) == len(set(urns_tried))
+
+    def test_uses_cache_first(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        schema_resolver.add_schema_metadata(
+            urn, create_mock_schema([("cached_col", "string")])
+        )
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "cached_col" in schema_info
+        mock_graph.get_entities.assert_not_called()
+
+    def test_respects_ingestion_cache_precedence(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        schema_resolver.add_schema_metadata(
+            urn, create_mock_schema([("fresh_col", "string")])
+        )
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "fresh_col" in schema_info
+        mock_graph.get_entities.assert_not_called()
+
+    def test_batch_error_caches_none_and_no_fallback(self, schema_resolver, mock_graph):
+        """Test that batch errors cache None for all URNs without falling back to individual fetches."""
+        mock_graph.get_entities.side_effect = ConnectionError("Network error")
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert mock_graph.get_entities.call_count == 1
+        mock_graph.get_aspect.assert_not_called()
+
+        # Verify URNs are cached as None to prevent repeated lookups
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_handles_not_found(self, schema_resolver, mock_graph):
+        mock_graph.get_entities.return_value = {}
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is None
+        assert "prod.db.schema.table" in resolved_urn.lower()
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_caches_results(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        mock_graph.get_entities.return_value = {
+            urn: {"schemaMetadata": (create_mock_schema([("id", "int")]), {})}
+        }
+
+        table = _TableName(database="db", db_schema="schema", table="table")
+
+        resolved_urn1, schema_info1 = schema_resolver.resolve_table(table)
+        assert schema_info1 is not None
+        assert mock_graph.get_entities.call_count == 1
+
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 == schema_info1
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_partial_urn_match_from_batch(self, schema_resolver, mock_graph):
+        """Test when batch fetch returns schemas for SOME URN variations but not others."""
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("col1", "string")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "col1" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_mixed_cached_none_and_fetch(self, schema_resolver, mock_graph):
+        """Test when some URN variations are cached as None and others need fetching."""
+        urn_upper = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.DB.SCHEMA.TABLE,PROD)"
+        )
+        urn_lower = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        )
+
+        schema_resolver.add_schema_metadata_from_fetch(urn_upper, None)
+
+        mock_graph.get_entities.return_value = {
+            urn_lower: {
+                "schemaMetadata": (create_mock_schema([("found_col", "int")]), {})
+            }
+        }
+
+        table = _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        resolved_urn, schema_info = schema_resolver.resolve_table(table)
+
+        assert schema_info is not None
+        assert "found_col" in schema_info
+        assert resolved_urn == urn_lower
+        assert mock_graph.get_entities.call_count == 1
+
+    def test_caches_none_to_prevent_repeated_lookups(self, schema_resolver, mock_graph):
+        """Test that None results are cached to prevent repeated API calls."""
+        mock_graph.get_entities.return_value = {}
+
+        table = _TableName(database="db", db_schema="schema", table="missing_table")
+
+        resolved_urn1, schema_info1 = schema_resolver.resolve_table(table)
+        assert schema_info1 is None
+        assert mock_graph.get_entities.call_count == 1
+
+        resolved_urn2, schema_info2 = schema_resolver.resolve_table(table)
+        assert schema_info2 is None
+        assert mock_graph.get_entities.call_count == 1
 
 
 class TestTableNameParts:

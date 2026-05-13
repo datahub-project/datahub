@@ -1,87 +1,99 @@
 # Agent Context Kit
 
-**DataHub Agent Context** provides a collection of tools and utilities for building AI agents that interact with DataHub metadata. This package contains MCP (Model Context Protocol) tools that enable AI agents to search, retrieve, and manipulate metadata in DataHub. These can be used directly to create an agent, or be included in an MCP server such as Datahub's open source MCP server.
+The DataHub Agent Context Kit is a set of guides, SDKs, and an [MCP server](../../features/feature-guides/mcp.md) that help you build AI agents with access to the capabilities and context in your DataHub instance — business definitions, context documents, data ownership, lineage, quality signals, sample queries, and more.
 
-## Installation
+## What Can You Build?
 
-```
+### Data Analytics Agent (Text-to-SQL)
+
+An agent that answers business questions by finding the right data, then querying it.
+
+1. **Find & understand trustworthy data** — Search DataHub for relevant datasets, read descriptions, check glossary terms, review sample queries, and look at usage stats to pick the right table.
+2. **Execute SQL** — Generate and run SQL against your data warehouse (Snowflake, BigQuery, Databricks, etc.).
+
+_"What was our revenue by region last quarter?" → finds the revenue table in DataHub, confirms it's the certified source, generates the SQL, runs it._
+
+### Data Quality Agent
+
+An agent that provisions data quality checks and reports on the health of your data estate.
+
+1. **Find important tables** — Identify high-usage or business-critical datasets using usage stats and ownership from DataHub.
+2. **Add assertions** — Provision data quality assertions in DataHub (and in external tools).
+3. **Generate health reports** — Daily or on-demand, broken down by domain or owning team, using assertion results and incident data.
+
+_"Set up freshness checks on all tables owned by the Finance team, and send me a weekly health summary."_
+
+### Data Steward / Governance Agent
+
+An agent that applies descriptions and compliance-related glossary terms to tables and columns, then reports on coverage.
+
+1. **Find target tables** — Filter by platform, domain, or ownership to find datasets that need attention.
+2. **Apply context** — Cross-reference schema information against critical glossary terms, then apply glossary terms, descriptions, and tags.
+3. **Report on compliance** — Generate reports on where sensitive data lives, PII usage across the organization, or gaps in documentation.
+
+_"Tag all columns containing email addresses with the PII glossary term across our Snowflake datasets, then show me a coverage report."_
+
+## Where Do Your Agents Run?
+
+### AI Coding Assistants
+
+| Platform                | Guide                               |
+| ----------------------- | ----------------------------------- |
+| Cursor                  | [Guide](./cursor.md)                |
+| Claude (Code & Desktop) | [Guide](./claude.md)                |
+| Google Gemini CLI       | [Guide](./gemini-cli.md)            |
+| Snowflake Cortex Code   | [Guide](./snowflake-cortex-code.md) |
+
+### Agent Frameworks (SDK)
+
+| Platform            | Guide                                         |
+| ------------------- | --------------------------------------------- |
+| LangChain           | [Guide](./langchain.md)                       |
+| Google ADK          | [Guide](./google-adk.md)                      |
+| Custom / Direct MCP | See [Getting Started](#getting-started) below |
+
+### Managed Agent Platforms
+
+| Platform                 | Guide                                 |
+| ------------------------ | ------------------------------------- |
+| Databricks Genie Code    | [Guide](./databricks-genie-code.md)   |
+| Databricks Agent Bricks  | [Guide](./databricks-agent-bricks.md) |
+| Snowflake Cortex Agents  | [Guide](./snowflake.md)               |
+| Google Vertex AI         | [Guide](./google-vertex-ai.md)        |
+| Microsoft Copilot Studio | [Guide](./copilot-studio.md)          |
+
+## Getting Started
+
+The fastest way to connect any agent to DataHub is through the [MCP server](../../features/feature-guides/mcp.md) — just point your agent at the endpoint:
+
+- **DataHub Cloud**: `https://<tenant>.acryl.io/integrations/ai/mcp`
+- **Self-hosted**: `http://<gms-host>:8080/mcp`
+
+See the [MCP Server Guide](../../features/feature-guides/mcp.md) for authentication and setup.
+
+For Python SDK usage (LangChain, Google ADK, etc.):
+
+```bash
 pip install datahub-agent-context
 ```
 
-## Use
+**Requirements:** Python 3.10+, a DataHub instance, and a [personal access token](../../authentication/personal-access-tokens.md).
 
-### Basic Example
+## Available Tools
 
-These tools are designed to be used with an AI agent and have the responses passed directly to an LLM, so the return schema is a simple dict, but they can be used independently if desired.
+Agents discover these automatically via MCP. See the [MCP Server Guide](../../features/feature-guides/mcp.md) for details.
 
-```python
-from datahub.ingestion.graph.client import DataHubGraph
-from datahub_agent_context.mcp_tools.search import search
-from datahub_agent_context.mcp_tools.entities import get_entities
+| Tool                                           | What it does                                                           |
+| ---------------------------------------------- | ---------------------------------------------------------------------- |
+| `search`                                       | Find datasets, dashboards, and other entities by keyword               |
+| `get_entities`                                 | Get full details for a specific entity (schema, ownership, docs, tags) |
+| `get_lineage`                                  | Trace upstream or downstream lineage                                   |
+| `list_schema_fields`                           | List columns for a dataset                                             |
+| `get_dataset_queries`                          | Get SQL queries associated with a dataset                              |
+| `search_documents` / `grep_documents`          | Search knowledge base articles and docs                                |
+| `add_tags` / `remove_tags`                     | Manage tags                                                            |
+| `update_description`                           | Set or update descriptions                                             |
+| `add_glossary_terms` / `remove_glossary_terms` | Link to glossary terms                                                 |
+| `set_domains` / `add_owners` / `save_document` | Manage domains, ownership, and documents                               |
 
-# Initialize DataHub graph client
-client = DataHubClient.from_env()
-
-# Search for datasets
-with client.graph as graph:
-    results = search(
-        query="user_data",
-        filters={"entity_type": ["dataset"]},
-        num_results=10
-    )
-
-# Get detailed entity information
-with client.graph as graph:
-    entities = get_entities(
-        urns=[result["entity"]["urn"] for result in results["searchResults"]]
-    )
-```
-
-## Agent Platforms
-
-| Platform   | Status      |
-| ---------- | ----------- |
-| Custom     | Launched    |
-| Langchain  | Launched    |
-| Google ADK | Coming Soon |
-| Crew AI    | Coming Soon |
-| OpenAI     | Coming Soon |
-
-### Available Tools
-
-#### Search Tools
-
-- `search()` - Search across all entity types with filters and sorting
-- `search_documents()` - Search specifically for Document entities
-- `grep_documents()` - Grep for patterns in document content
-
-#### Entity Tools
-
-- `get_entities()` - Get detailed information about entities by URN
-- `list_schema_fields()` - List and filter schema fields for datasets
-
-#### Lineage Tools
-
-- `get_lineage()` - Get upstream or downstream lineage
-- `get_lineage_paths_between()` - Get detailed paths between two entities
-
-#### Query Tools
-
-- `get_dataset_queries()` - Get SQL queries for datasets or columns
-
-#### Mutation Tools
-
-- `add_tags()`, `remove_tags()` - Manage tags
-- `update_description()` - Update entity descriptions
-- `set_domains()`, `remove_domains()` - Manage domains
-- `add_owners()`, `remove_owners()` - Manage owners
-- `add_glossary_terms()`, `remove_glossary_terms()` - Manage glossary terms
-- `add_structured_properties()`, `remove_structured_properties()` - Manage structured properties
-
-#### User Tools
-
-- `get_me()` - Get information about the authenticated user
-
-## MCP Server
-
-It is also possible to connect your agent or tool directly to the **Datahub MCP Server**: [DataHub MCP Server](../../features/feature-guides/mcp.md) with your chosen framework.
+**Need help?** [DataHub Slack](https://datahub.com/slack/) · [GitHub Issues](https://github.com/datahub-project/datahub/issues) · DataHub Cloud: support@acryl.io

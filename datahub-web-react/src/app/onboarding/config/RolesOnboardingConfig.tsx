@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -10,7 +10,7 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
         id: ROLES_INTRO_ID,
         title: 'Roles',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to DataHub <strong>Roles</strong>!
                 </p>
@@ -32,7 +32,7 @@ export const RolesOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

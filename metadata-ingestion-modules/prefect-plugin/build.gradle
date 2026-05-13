@@ -81,17 +81,25 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
   // We can't enforce the coverage requirements if we run a subset of the tests.
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest -m 'not slow_integration' -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=test-results/junit.quick.xml"
+}
+
+task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
+  // We can't enforce the coverage requirements if we run a subset of the tests.
+  inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
+  inputs.files(project.fileTree(dir: "tests/"))
+  inputs.file file("pyproject.toml")
+  inputs.file file("setup.cfg")
+  inputs.file file("setup.py")
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml -s"
-}
-
-
-task testFull(type: Exec, dependsOn: [testQuick, installDevTest]) {
-  commandLine 'bash', '-c',
-    "source ${venv_name}/bin/activate && set -x && " +
-    "pytest -m 'not slow_integration' -vv ${get_coverage_args('full')} --continue-on-collection-errors --junit-xml=junit.full.xml"
+    "pytest ${get_coverage_args('full')} -vv --continue-on-collection-errors"
 }
 
 

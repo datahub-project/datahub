@@ -69,6 +69,13 @@ public class ReindexConfig {
   private final boolean isPureStructuredPropertyAddition;
   private final boolean hasRemovedStructuredProperty;
 
+  /**
+   * True when the mapping diff contains new or modified fields that are NOT structured properties.
+   * New fields come from new {@code @Searchable} annotations and require backfill because the ES
+   * {@code _reindex} API only copies existing doc fields.
+   */
+  private final boolean requiresDataBackfill;
+
   private void restrictedMethod() throws IllegalAccessException {
     String allowed = "ReindexDebugStep";
     if (!isCalledFromReindexDebugStep(allowed)) {
@@ -237,35 +244,55 @@ public class ReindexConfig {
         super.requiresApplyMappings =
             !mappingsDiff.entriesDiffering().isEmpty()
                 || !mappingsDiff.entriesOnlyOnRight().isEmpty();
-        super.isPureStructuredPropertyAddition =
-            mappingsDiff
-                    .entriesDiffering()
-                    .keySet()
-                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                || mappingsDiff
-                    .entriesOnlyOnRight()
-                    .keySet()
-                    .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD));
         super.isPureMappingsAddition =
             super.requiresApplyMappings
                 && mappingsDiff.entriesDiffering().isEmpty()
                 && !mappingsDiff.entriesOnlyOnRight().isEmpty();
-        super.hasNewStructuredProperty =
-            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+        // Compute SP diffs independently of mappingsDiff because calculateMapDifference
+        // strips dynamic fields (including structuredProperties) from the comparison.
+        Pair<Long, Long> spDiffCount =
+            structuredPropertiesDiffCount(super.currentMappings, super.targetMappings);
+        super.hasNewStructuredProperty = spDiffCount.getSecond() > 0;
+        super.hasRemovedStructuredProperty = spDiffCount.getFirst() > 0;
+        // True when the only mapping change is adding structured properties.
+        // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
+        // SP stripped from mappingsDiff (dynamic=true, the common production case).
+        boolean onlySPInDiff =
+            (mappingsDiff.entriesDiffering().isEmpty()
+                    || mappingsDiff
+                        .entriesDiffering()
+                        .keySet()
+                        .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD)))
+                && (mappingsDiff.entriesOnlyOnRight().isEmpty()
                     || mappingsDiff
                         .entriesOnlyOnRight()
-                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
-                        .getSecond()
-                    > 0;
-        super.hasRemovedStructuredProperty =
-            (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
+                        .keySet()
+                        .equals(Set.of(STRUCTURED_PROPERTY_MAPPING_FIELD)))
+                && (mappingsDiff.entriesDiffering().containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD)
                     || mappingsDiff
-                        .entriesOnlyOnLeft()
-                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
-                && structuredPropertiesDiffCount(super.currentMappings, super.targetMappings)
-                        .getFirst()
-                    > 0;
+                        .entriesOnlyOnRight()
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD));
+        super.isPureStructuredPropertyAddition =
+            (onlySPInDiff || !super.requiresApplyMappings)
+                && super.hasNewStructuredProperty
+                && !super.hasRemovedStructuredProperty;
+
+        // Detect new or modified non-structured-property fields that require DB backfill.
+        // New fields: _reindex won't populate them (they didn't exist in the source index).
+        // Modified fields: _reindex with conflicts:proceed may skip docs with incompatible values,
+        // and partial doc upserts from MCLs won't fix them unless the owning aspect is
+        // re-processed.
+        Set<String> newNonStructuredPropertyFields =
+            mappingsDiff.entriesOnlyOnRight().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        Set<String> modifiedNonStructuredPropertyFields =
+            mappingsDiff.entriesDiffering().keySet().stream()
+                .filter(key -> !STRUCTURED_PROPERTY_MAPPING_FIELD.equals(key))
+                .collect(Collectors.toSet());
+        super.requiresDataBackfill =
+            !newNonStructuredPropertyFields.isEmpty()
+                || !modifiedNonStructuredPropertyFields.isEmpty();
 
         if (super.requiresApplyMappings && super.isPureMappingsAddition) {
           log.info(
@@ -399,6 +426,10 @@ public class ReindexConfig {
     }
 
     private boolean isAnalysisEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -413,6 +444,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsEqual() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return true;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return true;
       }
@@ -434,6 +469,10 @@ public class ReindexConfig {
     }
 
     private boolean isSettingsReindexRequired() {
+      // If currentSettings is null, assume no current settings (new index or test scenario)
+      if (super.currentSettings == null) {
+        return false;
+      }
       if (super.targetSettings == null || !super.targetSettings.containsKey("index")) {
         return false;
       }

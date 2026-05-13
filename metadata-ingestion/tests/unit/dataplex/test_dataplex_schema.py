@@ -6,8 +6,8 @@ from google.cloud import dataplex_v1
 
 from datahub.ingestion.source.dataplex.dataplex_schema import (
     extract_field_value,
+    extract_graph_schema_from_entry_aspects,
     extract_schema_from_entry_aspects,
-    extract_schema_metadata,
     map_aspect_type_to_datahub,
     process_schema_field_item,
 )
@@ -17,98 +17,11 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     NumberTypeClass,
     RecordTypeClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     StringTypeClass,
     TimeTypeClass,
 )
-
-
-class TestExtractSchemaMetadata:
-    """Test extract_schema_metadata function."""
-
-    def test_extract_schema_no_schema(self):
-        """Test extraction when entity has no schema."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.schema = None
-        entity.id = "test_entity"
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-        assert result is None
-
-    def test_extract_schema_no_fields(self):
-        """Test extraction when schema has no fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.schema = Mock()
-        entity.schema.fields = []
-        entity.id = "test_entity"
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-        assert result is None
-
-    def test_extract_schema_with_simple_fields(self):
-        """Test extraction with simple fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.id = "test_entity"
-
-        # Mock field with STRING type
-        field1 = Mock()
-        field1.name = "column1"
-        field1.type_ = int(dataplex_v1.types.Schema.Type.STRING)
-        field1.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        field1.description = "First column"
-        field1.fields = []
-
-        # Mock field with INT64 type
-        field2 = Mock()
-        field2.name = "column2"
-        field2.type_ = int(dataplex_v1.types.Schema.Type.INT64)
-        field2.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        field2.description = ""
-        field2.fields = []
-
-        entity.schema = Mock()
-        entity.schema.fields = [field1, field2]
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-
-        assert result is not None
-        assert len(result.fields) == 2
-        assert result.schemaName == "test_entity"
-        assert result.fields[0].fieldPath == "column1"
-        assert result.fields[0].description == "First column"
-        assert result.fields[1].fieldPath == "column2"
-
-    def test_extract_schema_with_nested_fields(self):
-        """Test extraction with nested fields."""
-        entity = Mock(spec=dataplex_v1.Entity)
-        entity.id = "test_entity"
-
-        # Nested field
-        nested_field = Mock()
-        nested_field.name = "nested_col"
-        nested_field.type_ = int(dataplex_v1.types.Schema.Type.STRING)
-        nested_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        nested_field.description = "Nested column"
-
-        # Parent field with nested fields
-        parent_field = Mock()
-        parent_field.name = "parent"
-        parent_field.type_ = int(dataplex_v1.types.Schema.Type.RECORD)
-        parent_field.mode = int(dataplex_v1.types.Schema.Mode.NULLABLE)
-        parent_field.description = "Parent column"
-        parent_field.fields = [nested_field]
-
-        entity.schema = Mock()
-        entity.schema.fields = [parent_field]
-
-        result = extract_schema_metadata(entity, "urn:li:dataset:test", "bigquery")
-
-        assert result is not None
-        # Should have parent + nested field
-        assert len(result.fields) == 2
-        assert result.fields[0].fieldPath == "parent.nested_col"
-        assert result.fields[1].fieldPath == "parent"
-        # Parent should be RECORD type
-        assert isinstance(result.fields[1].type.type, RecordTypeClass)
 
 
 class TestExtractFieldValue:
@@ -447,3 +360,186 @@ class TestExtractSchemaFromEntryAspects:
         result = extract_schema_from_entry_aspects(entry, "test_entry", "bigquery")
 
         assert result is None
+
+
+def _make_node_value(name: str) -> Mock:
+    """Build a mock protobuf Value for a graph node entry."""
+    name_val = Mock()
+    name_val.string_value = name
+
+    struct = Mock()
+    struct.fields = {"name": name_val}
+
+    value = Mock()
+    value.struct_value = struct
+    return value
+
+
+def _make_edge_value(name: str, source: str, destination: str) -> Mock:
+    """Build a mock protobuf Value for a graph edge entry."""
+    name_val = Mock()
+    name_val.string_value = name
+
+    src_name_val = Mock()
+    src_name_val.string_value = source
+    src_struct = Mock()
+    src_struct.fields = {"name": src_name_val}
+    src_val = Mock()
+    src_val.struct_value = src_struct
+
+    dst_name_val = Mock()
+    dst_name_val.string_value = destination
+    dst_struct = Mock()
+    dst_struct.fields = {"name": dst_name_val}
+    dst_val = Mock()
+    dst_val.struct_value = dst_struct
+
+    edge_struct = Mock()
+    edge_struct.fields = {"name": name_val, "source": src_val, "destination": dst_val}
+
+    value = Mock()
+    value.struct_value = edge_struct
+    return value
+
+
+def _make_graph_aspect(nodes: list, edges: list) -> Mock:
+    nodes_list = Mock()
+    nodes_list.values = nodes
+    nodes_val = Mock()
+    nodes_val.list_value = nodes_list
+
+    edges_list = Mock()
+    edges_list.values = edges
+    edges_val = Mock()
+    edges_val.list_value = edges_list
+
+    aspect = Mock()
+    aspect.data = {"nodes": nodes_val, "edges": edges_val}
+    return aspect
+
+
+class TestExtractGraphSchemaFromEntryAspects:
+    def test_no_aspects_returns_none(self) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_no_graph_schema_aspect_returns_none(self) -> None:
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"some-other-aspect": Mock()}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_graph_schema_aspect_no_data_returns_none(self) -> None:
+        aspect = Mock()
+        aspect.data = None
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None
+
+    def test_nodes_and_edges_extracted(self) -> None:
+        aspect = _make_graph_aspect(
+            nodes=[_make_node_value("Users"), _make_node_value("Orders")],
+            edges=[_make_edge_value("ShoppingCarts", "Users", "Products")],
+        )
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(
+            entry, "ECommerceGraph", "spanner"
+        )
+
+        assert result is not None
+        assert result.fields == [
+            SchemaFieldClass(
+                fieldPath="[nodes].Users",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[nodes].Orders",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[edges].ShoppingCarts",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="EDGE",
+                description="Users \u2192 Products",
+                nullable=True,
+                recursive=False,
+            ),
+        ]
+
+    def test_schema_name_and_platform(self) -> None:
+        aspect = _make_graph_aspect(
+            nodes=[_make_node_value("A")],
+            edges=[],
+        )
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(entry, "MyGraph", "spanner")
+
+        assert result is not None
+        assert result.schemaName == "MyGraph"
+        assert "spanner" in result.platform
+
+    def test_nodes_and_edges_native_list_form(self) -> None:
+        """Python-native list form produced by proto-plus auto-marshaling."""
+        aspect = Mock()
+        aspect.data = {
+            "nodes": [
+                {"name": "Users"},
+                {"name": "Orders"},
+            ],
+            "edges": [
+                {
+                    "name": "ShoppingCarts",
+                    "source": {"name": "Users"},
+                    "destination": {"name": "Products"},
+                }
+            ],
+        }
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+
+        result = extract_graph_schema_from_entry_aspects(
+            entry, "ECommerceGraph", "spanner"
+        )
+
+        assert result is not None
+        assert result.fields == [
+            SchemaFieldClass(
+                fieldPath="[nodes].Users",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[nodes].Orders",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="NODE",
+                nullable=True,
+                recursive=False,
+            ),
+            SchemaFieldClass(
+                fieldPath="[edges].ShoppingCarts",
+                type=SchemaFieldDataTypeClass(type=RecordTypeClass()),
+                nativeDataType="EDGE",
+                description="Users \u2192 Products",
+                nullable=True,
+                recursive=False,
+            ),
+        ]
+
+    def test_empty_nodes_and_edges_returns_none(self) -> None:
+        aspect = Mock()
+        aspect.data = {"nodes": [], "edges": []}
+        entry = Mock(spec=dataplex_v1.Entry)
+        entry.aspects = {"655216118709.global.graph-schema": aspect}
+        assert extract_graph_schema_from_entry_aspects(entry, "g", "spanner") is None

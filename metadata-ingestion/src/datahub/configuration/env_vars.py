@@ -34,6 +34,16 @@ def get_gms_token() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_TOKEN")
 
 
+def get_username() -> Optional[str]:
+    """Username for generating access tokens."""
+    return os.getenv("DATAHUB_USERNAME")
+
+
+def get_password() -> Optional[str]:
+    """Password for generating access tokens."""
+    return os.getenv("DATAHUB_PASSWORD")
+
+
 def get_system_client_id() -> Optional[str]:
     """System client ID for OAuth/auth."""
     return os.getenv("DATAHUB_SYSTEM_CLIENT_ID")
@@ -70,6 +80,16 @@ def get_rest_emitter_429_retry_multiplier() -> int:
     Number of retries will effectively be this value * get_rest_emitter_default_retry_max_times().
     """
     return int(os.getenv("DATAHUB_REST_EMITTER_429_RETRY_MULTIPLIER", "2")) or 1
+
+
+def get_rest_emitter_default_pool_connections() -> int:
+    """Max number of different hosts to cache connection pools for."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_CONNECTIONS", "100"))
+
+
+def get_rest_emitter_default_pool_maxsize() -> int:
+    """Max connections per host in each connection pool."""
+    return int(os.getenv("DATAHUB_REST_EMITTER_DEFAULT_POOL_MAXSIZE", "100"))
 
 
 def get_rest_emitter_batch_max_payload_bytes() -> int:
@@ -114,6 +134,11 @@ def get_rest_sink_default_mode() -> Optional[str]:
     return os.getenv("DATAHUB_REST_SINK_DEFAULT_MODE")
 
 
+def get_rest_sink_default_tcp_keepalive() -> bool:
+    """Default value for tcp_keepalive on the REST sink / DataHub client"""
+    return os.getenv("DATAHUB_REST_SINK_DEFAULT_TCP_KEEPALIVE", "").lower() == "true"
+
+
 # ============================================================================
 # Telemetry & Monitoring
 # ============================================================================
@@ -132,6 +157,41 @@ def get_sentry_dsn() -> Optional[str]:
 def get_sentry_environment() -> str:
     """Sentry environment (dev/prod)."""
     return os.getenv("SENTRY_ENVIRONMENT", "dev")
+
+
+# ============================================================================
+# Report Configuration
+# ============================================================================
+
+
+def get_report_failure_sample_size() -> int:
+    """Maximum number of failure entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "10"))
+
+
+def get_report_warning_sample_size() -> int:
+    """Maximum number of warning entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_WARNING_SAMPLE_SIZE", "10"))
+
+
+def get_report_info_sample_size() -> int:
+    """Maximum number of info entries to include in the report."""
+    return int(os.getenv("DATAHUB_REPORT_INFO_SAMPLE_SIZE", "10"))
+
+
+def get_progress_report_max_failures() -> int:
+    """Maximum number of failure entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_FAILURES", "10"))
+
+
+def get_progress_report_max_warnings() -> int:
+    """Maximum number of warning entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_WARNINGS", "10"))
+
+
+def get_progress_report_max_infos() -> int:
+    """Maximum number of info entries in intermediate progress reports."""
+    return int(os.getenv("DATAHUB_PROGRESS_REPORT_MAX_INFOS", "10"))
 
 
 # ============================================================================
@@ -207,6 +267,14 @@ def get_kafka_schema_registry_url() -> Optional[str]:
 def get_spark_version() -> Optional[str]:
     """Spark version (for S3 source)."""
     return os.getenv("SPARK_VERSION")
+
+
+def get_vertexai_disable_parallelism() -> bool:
+    """Disable parallel resource fetching in Vertex AI connector."""
+    return os.getenv("DATAHUB_VERTEXAI_DISABLE_PARALLELISM", "").lower() in (
+        "1",
+        "true",
+    )
 
 
 def get_bigquery_schema_parallelism() -> int:
@@ -357,3 +425,26 @@ def get_update_entity_registry() -> str:
 def get_ci() -> Optional[str]:
     """Indicates running in CI environment."""
     return os.getenv("CI")
+
+
+def is_ci() -> bool:
+    """Check if running in a CI environment.
+
+    Returns True if running in a CI environment.
+
+    Checks multiple indicators:
+    - CI environment variable (set by most CI systems like GitHub Actions, GitLab CI, Travis CI, CircleCI, etc.)
+    - GITHUB_ACTIONS (GitHub Actions specific, always set even on custom runners)
+
+    This handles various CI value formats (true, 1, yes) and provides fallback
+    detection for GitHub Actions workflows using custom runners that might not set
+    the standard CI variable.
+    """
+    # Check standard CI variable (set by most CI systems)
+    ci_value = os.getenv("CI", "").lower()
+    if ci_value in ("true", "1", "yes"):
+        return True
+
+    # Fallback: GitHub Actions always sets GITHUB_ACTIONS=true
+    # This handles Depot runners and other custom GitHub Actions runners
+    return os.getenv("GITHUB_ACTIONS") == "true"

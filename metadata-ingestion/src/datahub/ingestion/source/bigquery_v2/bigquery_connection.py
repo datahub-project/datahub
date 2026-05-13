@@ -1,10 +1,10 @@
 import logging
-import os
 from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
 from google.cloud import bigquery, datacatalog_v1, resourcemanager_v3
 from google.cloud.logging_v2.client import Client as GCPLoggingClient
+from google.oauth2 import service_account
 from pydantic import Field, PrivateAttr
 
 from datahub._version import __version__
@@ -28,7 +28,7 @@ class BigQueryConnectionConfig(ConfigModel):
         default=None, description="BigQuery credential informations"
     )
 
-    _credentials_path: Optional[str] = PrivateAttr(None)
+    _credentials: Optional[service_account.Credentials] = PrivateAttr(None)
 
     extra_client_options: Dict[str, Any] = Field(
         default={},
@@ -44,25 +44,25 @@ class BigQueryConnectionConfig(ConfigModel):
         super().__init__(**data)
 
         if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
+            # Keep credentials only in memory.
+            self._credentials = service_account.Credentials.from_service_account_info(
+                self.credential.to_dict()
             )
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
         return bigquery.Client(
             self.project_on_behalf,
+            credentials=self._credentials,
             client_info=_get_bigquery_client_info(),
             **client_options,
         )
 
     def get_projects_client(self) -> resourcemanager_v3.ProjectsClient:
-        return resourcemanager_v3.ProjectsClient()
+        return resourcemanager_v3.ProjectsClient(credentials=self._credentials)
 
     def get_policy_tag_manager_client(self) -> datacatalog_v1.PolicyTagManagerClient:
-        return datacatalog_v1.PolicyTagManagerClient()
+        return datacatalog_v1.PolicyTagManagerClient(credentials=self._credentials)
 
     def make_gcp_logging_client(
         self, project_id: Optional[str] = None
@@ -75,11 +75,14 @@ class BigQueryConnectionConfig(ConfigModel):
             return GCPLoggingClient(
                 **client_options,
                 project=project_id,
+                credentials=self._credentials,
                 client_info=_get_bigquery_client_info(),
             )
         else:
             return GCPLoggingClient(
-                **client_options, client_info=_get_bigquery_client_info()
+                **client_options,
+                credentials=self._credentials,
+                client_info=_get_bigquery_client_info(),
             )
 
     def get_sql_alchemy_url(self) -> str:

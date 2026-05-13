@@ -17,6 +17,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryFilterConfig,
     BigQueryIdentifierConfig,
 )
+from datahub.ingestion.source.common.gcp_project_filter import (
+    is_project_allowed as gcp_is_project_allowed,
+)
 
 BQ_DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BQ_DATE_SHARD_FORMAT = "%Y%m%d"
@@ -103,7 +106,7 @@ class BigQueryFilter:
         return AllowDenyPattern(deny=BQ_SYSTEM_TABLES_PATTERN).allowed(
             str(table_id)
         ) and (
-            self.is_project_allowed(table_id.project_id)
+            gcp_is_project_allowed(self.filter_config, table_id.project_id)
             and is_schema_allowed(
                 self.filter_config.dataset_pattern,
                 table_id.dataset,
@@ -112,8 +115,3 @@ class BigQueryFilter:
             )
             and self.filter_config.table_pattern.allowed(str(table_id))
         )  # TODO: use view_pattern ?
-
-    def is_project_allowed(self, project_id: str) -> bool:
-        if self.filter_config.project_ids:
-            return project_id in self.filter_config.project_ids
-        return self.filter_config.project_id_pattern.allowed(project_id)

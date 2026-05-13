@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static com.linkedin.metadata.models.StructuredPropertyUtils.entityTypeMatches;
+import static com.linkedin.metadata.models.StructuredPropertyUtils.getLogicalValueType;
 import static com.linkedin.metadata.models.StructuredPropertyUtils.toElasticsearchFieldName;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
@@ -71,8 +72,7 @@ public class StructuredPropertyMappingBuilder {
 
     Map<String, Object> fieldMapping = new HashMap<>();
 
-    String valueType = definition.getValueType().getId();
-    LogicalValueType logicalValueType = LogicalValueType.valueOf(valueType);
+    LogicalValueType logicalValueType = getLogicalValueType(definition.getValueType());
     String elasticsearchType =
         FieldTypeMapper.getElasticsearchTypeForLogicalValueType(logicalValueType);
 

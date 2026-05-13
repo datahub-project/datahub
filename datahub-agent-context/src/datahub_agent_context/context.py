@@ -1,6 +1,6 @@
 """Context management for DataHub tools.
 
-This module provides a context manager pattern for managing DataHubGraph instances
+This module provides a context manager pattern for managing DataHubClient instances
 across tool calls without explicit parameter passing.
 """
 
@@ -9,56 +9,69 @@ from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
+    from datahub.sdk.main_client import DataHubClient
 
-# Context variable to store the current DataHubGraph instance
-_graph_context: contextvars.ContextVar[Optional["DataHubGraph"]] = (
-    contextvars.ContextVar("datahub_graph", default=None)
+# Context variable to store the current DataHubClient instance
+_client_context: contextvars.ContextVar[Optional["DataHubClient"]] = (
+    contextvars.ContextVar("datahub_client", default=None)
 )
 
 
-def get_graph() -> "DataHubGraph":
-    """Get the current DataHubGraph from context.
+def get_datahub_client() -> "DataHubClient":
+    """Get the current DataHubClient from context.
 
     Returns:
-        DataHubGraph instance from context
+        DataHubClient instance from context
 
     Raises:
-        RuntimeError: If no graph is set in context
+        RuntimeError: If no client is set in context
     """
-    graph = _graph_context.get()
-    if graph is None:
+    client = _client_context.get()
+    if client is None:
         raise RuntimeError(
-            "No DataHubGraph in context. "
-            "Make sure to use DataHubContext context manager or set_graph() before calling tools."
+            "No DataHubClient in context. "
+            "Make sure to use DataHubContext context manager or set_client() before calling tools."
         )
-    return graph
+    return client
 
 
-def set_graph(graph: "DataHubGraph") -> contextvars.Token:
-    """Set the DataHubGraph in context.
+def get_graph() -> "DataHubGraph":
+    """Get the current DataHubGraph from context (convenience method).
+
+    Returns:
+        DataHubGraph instance from the client in context
+
+    Raises:
+        RuntimeError: If no client is set in context
+    """
+    return get_datahub_client()._graph
+
+
+def set_client(client: "DataHubClient") -> contextvars.Token:
+    """Set the DataHubClient in context.
 
     Args:
-        graph: DataHubGraph instance to set
+        client: DataHubClient instance to set
 
     Returns:
         Token that can be used to reset the context
     """
-    return _graph_context.set(graph)
+    return _client_context.set(client)
 
 
-def reset_graph(token: contextvars.Token) -> None:
-    """Reset the DataHubGraph context to its previous value.
+def reset_client(token: contextvars.Token) -> None:
+    """Reset the DataHubClient context to its previous value.
 
     Args:
-        token: Token returned by set_graph()
+        token: Token returned by set_client()
     """
-    _graph_context.reset(token)
+    _client_context.reset(token)
 
 
 class DataHubContext:
     """Context manager for DataHub tool execution.
 
-    This context manager sets the DataHubGraph in context for the duration
+    This context manager sets the DataHubClient in context for the duration
     of the with block, allowing tools to access it without explicit parameter passing.
 
     Example:
@@ -68,30 +81,30 @@ class DataHubContext:
 
         client = DataHubClient(...)
 
-        with DataHubContext(client.graph):
-            results = search(query="users")  # No graph parameter needed!
+        with DataHubContext(client):
+            results = search(query="users")  # No client parameter needed!
     """
 
-    def __init__(self, graph: "DataHubGraph"):
+    def __init__(self, client: "DataHubClient"):
         """Initialize the context manager.
 
         Args:
-            graph: DataHubGraph instance to use in this context
+            client: DataHubClient instance to use in this context
         """
-        self.graph = graph
+        self.client = client
         self._token: Optional[contextvars.Token] = None
 
-    def __enter__(self) -> "DataHubGraph":
-        """Enter the context and set the graph.
+    def __enter__(self) -> "DataHubClient":
+        """Enter the context and set the client.
 
         Returns:
-            The DataHubGraph instance
+            The DataHubClient instance
         """
-        self._token = set_graph(self.graph)
-        return self.graph
+        self._token = set_client(self.client)
+        return self.client
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Exit the context and reset the graph."""
+        """Exit the context and reset the client."""
         if self._token is not None:
-            reset_graph(self._token)
+            reset_client(self._token)
             self._token = None

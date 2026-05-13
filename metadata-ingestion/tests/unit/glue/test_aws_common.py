@@ -467,4 +467,5 @@ class TestAwsSourceConfig:
 
         # Should have access to connection config fields
         assert config.aws_access_key_id == "AKIA123456789"
-        assert config.aws_secret_access_key == "secret123"
+        assert config.aws_secret_access_key is not None
+        assert config.aws_secret_access_key.get_secret_value() == "secret123"

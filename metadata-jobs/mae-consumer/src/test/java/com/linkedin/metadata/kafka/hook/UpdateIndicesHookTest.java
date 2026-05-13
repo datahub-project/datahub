@@ -143,7 +143,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -260,7 +261,8 @@ public class UpdateIndicesHookTest {
             mockTimeseriesAspectService,
             "MD5",
             null,
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            false);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -892,7 +894,8 @@ public class UpdateIndicesHookTest {
               mockTimeseriesAspectService,
               "MD5",
               null, // No semantic search config for this test
-              mock(IndexConvention.class));
+              mock(IndexConvention.class),
+              false);
       strategies.add(v2Strategy);
     }
 
@@ -1119,5 +1122,29 @@ public class UpdateIndicesHookTest {
     event.setEntityType(Constants.CHART_ENTITY_NAME);
     event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
     return event;
+  }
+
+  @Test
+  public void testInvokeBatchSmallBatchProcessesEvents() throws Exception {
+    // A small batch (< 500 events) should still be processed normally
+    MetadataChangeLog changeLog =
+        createUpstreamLineageMCL(
+            List.of(UrnUtils.getUrn(TEST_SCHEMA_FIELD_HDFS_FIELD_INFO)),
+            UrnUtils.getUrn(TEST_SCHEMA_FIELD_HIVE_FIELD_INFO),
+            List.of(TEST_DATASET_URN_2),
+            TEST_DATASET_URN);
+    updateIndicesHook.invokeBatch(List.of(changeLog));
+
+    // Verify that the service was invoked (batch was processed, not skipped)
+    Mockito.verify(mockEntitySearchService, Mockito.atLeastOnce())
+        .upsertDocument(any(OperationContext.class), Mockito.any(), Mockito.any(), Mockito.any());
+  }
+
+  @Test
+  public void testInvokeBatchEmptyBatchSkipsProcessing() {
+    // An empty batch should not invoke the service
+    updateIndicesHook.invokeBatch(Collections.emptyList());
+
+    Mockito.verifyNoInteractions(mockEntitySearchService, mockGraphService);
   }
 }

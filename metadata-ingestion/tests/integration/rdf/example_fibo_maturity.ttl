@@ -1,0 +1,21 @@
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix fibo-fnd-utl-av: <https://www.omg.org/spec/Commons/AnnotationVocabulary/> .
+
+# Released term - should always be included
+<http://example.org/ReleasedTerm> a owl:Class ;
+    rdfs:label "Released Term" ;
+    rdfs:comment "This term has been fully approved and released" ;
+    fibo-fnd-utl-av:hasMaturityLevel fibo-fnd-utl-av:Release .
+
+# Provisional term - should be excluded when include_provisional=False
+<http://example.org/ProvisionalTerm> a owl:Class ;
+    rdfs:label "Provisional Term" ;
+    rdfs:comment "This term is still in the pipeline and not yet fully approved" ;
+    fibo-fnd-utl-av:hasMaturityLevel fibo-fnd-utl-av:Provisional .
+
+# Term without maturity level - should always be included
+<http://example.org/NoMaturityTerm> a owl:Class ;
+    rdfs:label "No Maturity Term" ;
+    rdfs:comment "This term has no maturity level specified" .
+

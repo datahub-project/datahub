@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -62,7 +63,13 @@ class TestIsolatedClassLoader {
 
   @BeforeClass
   public void setSecurityManager() {
-    System.setSecurityManager(new SecurityManager());
+    // SecurityManager deprecated and removed in Java 21+
+    // Plugin security is now enforced by PluginPermissionManager instead
+  }
+
+  @AfterClass
+  public void clearSecurityManager() {
+    // SecurityManager deprecated and removed in Java 21+
   }
 
   @Test

@@ -247,10 +247,10 @@ Read on to understand how to re-build DataHub for the oss-fork option.
 `./gradlew :metadata-service:restli-servlet-impl:build -Prest.model.compatibility=ignore`
 before running `build`.
 
-Then, run `./gradlew build` from the repository root to rebuild Datahub with access to your new entity.
+Then, run `./gradlew build` from the repository root to rebuild DataHub with access to your new entity.
 
 Then, re-deploy metadata-service (gms), and mae-consumer and mce-consumer (optionally if you are running them unbundled). See [docker development](../../docker/README.md) for details on how
-to deploy during development. This will allow Datahub to read and write your new entity or extensions to existing entities, along with serving search and graph queries for that entity type.
+to deploy during development. This will allow DataHub to read and write your new entity or extensions to existing entities, along with serving search and graph queries for that entity type.
 
 ### <a name="step_7"></a>(Optional) Step 7: Use custom models with the Python SDK
 
@@ -540,7 +540,7 @@ This example demonstrates several new features:
 - **Status field**: `addToFilters: true` makes it available as a filter, `filterNameOverride` provides a custom display name "Dashboard Status", and `eagerGlobalOrdinals: true` optimizes aggregation performance for this frequently filtered field
 - **Owner field**: `fieldType: "URN"` with `eagerGlobalOrdinals: true` optimizes aggregation performance for owner-based filtering, and `searchLabel: "owner"` copies the field to `_search.owner` for ranking operations
 
-Now, when Datahub ingests Dashboards, it will index the priority and status fields in Elasticsearch. The priority field will be available for sorting operations, and both fields will be available as filters in the UI.
+Now, when DataHub ingests Dashboards, it will index the priority and status fields in Elasticsearch. The priority field will be available for sorting operations, and both fields will be available as filters in the UI.
 
 Note, when @Searchable annotation is applied to a map, it will convert it into a list with "key.toString()
 =value.toString()" as elements. This allows us to index map fields, while not increasing the number of columns indexed.

@@ -1,12 +1,13 @@
 ---
 title: "Local Development"
+description: "Local development guide for DataHub contributors, including system requirements, building from source, and running tests."
 ---
 
 # DataHub Developer's Guide
 
 ## Requirements
 
-- [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
+- [Java 21 JDK](https://openjdk.org/projects/jdk/21/) for building (Docker images run Java 25 LTS at runtime)
 - [Python 3.11](https://www.python.org/downloads/latest/python3.11/)
 - [Docker](https://www.docker.com/)
 - [Node 22.x](https://nodejs.org/en/about/previous-releases)
@@ -20,7 +21,7 @@ On macOS, these can be installed using [Homebrew](https://brew.sh/).
 
 ```shell
 # Install Java
-brew install openjdk@17
+brew install openjdk@21
 
 # Install Python
 brew install python@3.11  # you may need to add this to your PATH
@@ -60,7 +61,7 @@ You can verify the tools are activated correctly by running
 # Check tool versions installed
 ❯ mise ls --local
 Tool    Version  Source                             Requested
-java    17.0.2   ~/path/to/datahub/mise.toml  17
+java    21.0.2   ~/path/to/datahub/mise.toml  21
 node    22.21.1  ~/path/to/datahub/mise.toml  22
 python  3.11.14  ~/path/to/datahub/mise.toml  3.11
 yarn    4.12.0   ~/path/to/datahub/mise.toml  latest
@@ -90,13 +91,13 @@ Note that the above will also run tests and a number of validations which makes 
 
 We suggest partially compiling DataHub according to your needs:
 
-- Build Datahub's backend GMS (Generalized metadata service):
+- Build DataHub's backend GMS (Generalized metadata service):
 
   ```
   ./gradlew :metadata-service:war:build
   ```
 
-- Build Datahub's frontend:
+- Build DataHub's frontend:
 
   ```
   ./gradlew :datahub-frontend:dist -x yarnTest -x yarnLint
@@ -230,6 +231,160 @@ If you see warnings about lock state, regenerate the locks:
 ./gradlew resolveAndLockAll --write-locks
 ```
 
+### Custom Repositories
+
+For airgapped environments or corporate networks that route artifact traffic through an internal proxy (Nexus, Artifactory, etc.), DataHub's Gradle build supports overriding every Maven repository URL through a standardised set of properties.
+
+#### Maven Repositories
+
+Three Maven repositories are used during the build:
+
+| Property                                        | Default                                              | Purpose                            |
+| ----------------------------------------------- | ---------------------------------------------------- | ---------------------------------- |
+| `datahub.dependencies.maven.central`            | `https://repo1.maven.org/maven2/`                    | Most Java dependencies             |
+| `datahub.dependencies.maven.confluent`          | `https://packages.confluent.io/maven/`               | Kafka and Schema Registry packages |
+| `datahub.dependencies.maven.linkedinOpenSource` | `https://linkedin.jfrog.io/artifactory/open-source/` | Pegasus and GMA artifacts          |
+
+The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag** — one-off or CI invocation:
+
+   ```bash
+   ./gradlew build \
+     -P'datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/ \
+     -P'datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   ```
+
+2. **Environment variable** — prefix each property name with `ORG_GRADLE_PROJECT_`:
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.central'=https://nexus.company.com/repository/maven-public/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.confluent'=https://nexus.company.com/repository/confluent/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.maven.linkedinOpenSource'=https://nexus.company.com/repository/open-source/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`** — not checked into git, suitable for shared workstations or CI agents:
+
+   ```properties
+   datahub.dependencies.maven.central=https://nexus.company.com/repository/maven-public/
+   datahub.dependencies.maven.confluent=https://nexus.company.com/repository/confluent/
+   datahub.dependencies.maven.linkedinOpenSource=https://nexus.company.com/repository/open-source/
+   ```
+
+:::note
+The legacy properties `apacheMavenRepositoryUrl`, `mavenCentralRepositoryUrl`, `confluentMavenRepositoryUrl`, and `linkedinOpenSourceRepositoryUrl` are deprecated but still honoured. They take precedence over the new namespaced properties when set. Migrate to the `datahub.dependencies.maven.*` group at your earliest convenience.
+:::
+
+#### Node.js Distribution
+
+The frontend build downloads a pinned Node.js binary from `https://nodejs.org/dist`. Override this for airgapped environments or corporate mirrors:
+
+| Property                                | Default                   | Purpose                               |
+| --------------------------------------- | ------------------------- | ------------------------------------- |
+| `datahub.dependencies.node.distBaseUrl` | `https://nodejs.org/dist` | Base URL for Node.js binary downloads |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :datahub-web-react:yarnBuild \
+     -P'datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.node.distBaseUrl'=https://nexus.company.com/nodejs/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.node.distBaseUrl=https://nexus.company.com/nodejs/
+   ```
+
+:::note
+The legacy property `nodeDistBaseUrl` is deprecated but still honoured. It takes precedence over `datahub.dependencies.node.distBaseUrl` when set. Migrate to the new property at your earliest convenience.
+:::
+
+#### Alpine APK Repository
+
+Docker images are built on Alpine/Wolfi Linux. Override the APK package repository for airgapped environments or corporate mirrors:
+
+| Property                           | Default                          | Purpose                                  |
+| ---------------------------------- | -------------------------------- | ---------------------------------------- |
+| `datahub.dependencies.apkrepo.url` | `https://apk.cgr.dev/chainguard` | APK repository URL used in Docker builds |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.apkrepo.url'=https://nexus.company.com/apk/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.apkrepo.url=https://nexus.company.com/apk/
+   ```
+
+   :::
+
+#### GitHub Base URL
+
+Docker images download JVM tooling (jattach, OpenTelemetry Java agent) from GitHub at build time.
+Override this URL to point to an internal mirror for airgapped or corporate environments:
+
+| Property                              | Default              | Purpose                                             |
+| ------------------------------------- | -------------------- | --------------------------------------------------- |
+| `datahub.dependencies.github.baseURL` | `https://github.com` | GitHub base URL used in Docker builds for JVM tools |
+
+The default is defined in `gradle.properties`
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :metadata-service:war:docker \
+     -P'datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.github.baseURL'=https://github.internal.company.com
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.github.baseURL=https://github.internal.company.com
+   ```
+
+:::note Legacy property
+
+The `githubMirrorUrl` Gradle property is **deprecated** in favour of
+`datahub.dependencies.github.baseURL`. It is still honoured for backward compatibility but will be
+removed in a future release.
+
+:::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.
@@ -253,6 +408,18 @@ Deploy the entire system using docker-compose:
 ./gradlew quickstartDebug
 ```
 
+:::note
+Starting v1.5.0 the default values for `authentication.tokenService.signingKey` and `authentication.tokenService.salt` have been removed. It is recommended that users provided their own values for these. If no values are provided, new keys are generated the first time the above command is run. The generated keys are saved to docker/.local-secrets.env and reused in subsequent runs as long as the file exists.
+
+To provide your own values, either update the above keys in `metadata-service/configuration/src/main/resources/application.yaml` or set the following environment variables
+
+```
+DATAHUB_TOKEN_SERVICE_SIGNING_KEY
+DATAHUB_TOKEN_SERVICE_SALT
+```
+
+If you are upgrading from an earlier version Personal Access Tokens created before will be invalidated and will need to be created again.
+:::
 Access the DataHub UI at `http://localhost:9002`
 
 ### Refreshing the Frontend
@@ -392,11 +559,11 @@ You're probably using a Java version that's too new for gradle. Run the followin
 java --version
 ```
 
-While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 17](https://openjdk.org/projects/jdk/17/) (aka Java 17).
+While it may be possible to build and run DataHub using newer versions of Java, we currently only support [Java 21](https://openjdk.org/projects/jdk/21/) (aka Java 21).
 
 #### Getting `cannot find symbol` error for `javax.annotation.Generated`
 
-Similar to the previous issue, please use Java 17 to build the project.
+Similar to the previous issue, please use Java 21 to build the project.
 You can install multiple version of Java on a single machine and switch between them using the `JAVA_HOME` environment variable. See [this document](https://docs.oracle.com/cd/E21454_01/html/821-2531/inst_jdk_javahome_t.html) for more details.
 
 #### `:metadata-models:generateDataTemplate` task fails with `java.nio.file.InvalidPathException: Illegal char <:> at index XX` or `Caused by: java.lang.IllegalArgumentException: 'other' has different root` error

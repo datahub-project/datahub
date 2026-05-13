@@ -265,70 +265,80 @@ def test_url_normalization_datacenter_with_context_path() -> None:
 
 
 def test_space_allow_with_space_keys() -> None:
-    """Test space_allow with space keys."""
+    """Test spaces.allow with space keys."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["ENGINEERING", "PRODUCT", "DESIGN"],
+        "spaces": {
+            "allow": ["ENGINEERING", "PRODUCT", "DESIGN"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
-    assert config.space_allow == ["ENGINEERING", "PRODUCT", "DESIGN"]
+    assert config.spaces.allow == ["ENGINEERING", "PRODUCT", "DESIGN"]
     assert config._parsed_space_allow == ["ENGINEERING", "PRODUCT", "DESIGN"]
 
 
 def test_space_allow_with_urls() -> None:
-    """Test space_allow with space URLs."""
+    """Test spaces.allow with space URLs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": [
-            "https://test.atlassian.net/wiki/spaces/TEAM",
-            "https://test.atlassian.net/wiki/spaces/DOCS",
-        ],
+        "spaces": {
+            "allow": [
+                "https://test.atlassian.net/wiki/spaces/TEAM",
+                "https://test.atlassian.net/wiki/spaces/DOCS",
+            ],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_space_allow == ["TEAM", "DOCS"]
 
 
 def test_space_allow_mixed_keys_and_urls() -> None:
-    """Test space_allow with mix of space keys and URLs."""
+    """Test spaces.allow with mix of space keys and URLs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": [
-            "ENGINEERING",
-            "https://test.atlassian.net/wiki/spaces/PRODUCT",
-            "DESIGN",
-        ],
+        "spaces": {
+            "allow": [
+                "ENGINEERING",
+                "https://test.atlassian.net/wiki/spaces/PRODUCT",
+                "DESIGN",
+            ],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_space_allow == ["ENGINEERING", "PRODUCT", "DESIGN"]
 
 
 def test_space_deny_with_space_keys() -> None:
-    """Test space_deny with space keys."""
+    """Test spaces.deny with space keys."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_deny": ["~john.doe", "~jane.smith", "ARCHIVE"],
+        "spaces": {
+            "deny": ["~john.doe", "~jane.smith", "ARCHIVE"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
-    assert config.space_deny == ["~john.doe", "~jane.smith", "ARCHIVE"]
+    assert config.spaces.deny == ["~john.doe", "~jane.smith", "ARCHIVE"]
     assert config._parsed_space_deny == ["~john.doe", "~jane.smith", "ARCHIVE"]
 
 
 def test_space_allow_and_deny_together() -> None:
-    """Test using both space_allow and space_deny."""
+    """Test using both spaces.allow and spaces.deny."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["ENGINEERING", "PRODUCT"],
-        "space_deny": ["~admin"],
+        "spaces": {
+            "allow": ["ENGINEERING", "PRODUCT"],
+            "deny": ["~admin"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_space_allow == ["ENGINEERING", "PRODUCT"]
@@ -336,25 +346,29 @@ def test_space_allow_and_deny_together() -> None:
 
 
 def test_space_allow_empty_list_raises_error() -> None:
-    """Test that empty space_allow list raises validation error."""
+    """Test that empty spaces.allow list raises validation error."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": [],
+        "spaces": {
+            "allow": [],
+        },
     }
     with pytest.raises(ValidationError) as exc_info:
         ConfluenceSourceConfig.model_validate(config_dict)
-    assert "space_allow must be a non-empty list" in str(exc_info.value)
+    assert "spaces.allow must be a non-empty list" in str(exc_info.value)
 
 
 def test_space_allow_invalid_url_raises_error() -> None:
-    """Test that invalid space URL in space_allow raises error."""
+    """Test that invalid space URL in spaces.allow raises error."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["https://test.atlassian.net/wiki/invalid/path"],
+        "spaces": {
+            "allow": ["https://test.atlassian.net/wiki/invalid/path"],
+        },
     }
     with pytest.raises(ValidationError) as exc_info:
         ConfluenceSourceConfig.model_validate(config_dict)
@@ -367,85 +381,97 @@ def test_space_allow_invalid_url_raises_error() -> None:
 
 
 def test_page_allow_with_page_ids() -> None:
-    """Test page_allow with page IDs."""
+    """Test pages.allow with page IDs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": ["123456", "789012", "345678"],
+        "pages": {
+            "allow": ["123456", "789012", "345678"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
-    assert config.page_allow == ["123456", "789012", "345678"]
+    assert config.pages.allow == ["123456", "789012", "345678"]
     assert config._parsed_page_allow == ["123456", "789012", "345678"]
 
 
 def test_page_allow_with_cloud_urls() -> None:
-    """Test page_allow with Cloud page URLs."""
+    """Test pages.allow with Cloud page URLs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": [
-            "https://test.atlassian.net/wiki/spaces/ENG/pages/123456/API-Docs",
-            "https://test.atlassian.net/wiki/spaces/TEAM/pages/789012/Guide",
-        ],
+        "pages": {
+            "allow": [
+                "https://test.atlassian.net/wiki/spaces/ENG/pages/123456/API-Docs",
+                "https://test.atlassian.net/wiki/spaces/TEAM/pages/789012/Guide",
+            ],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_page_allow == ["123456", "789012"]
 
 
 def test_page_allow_with_datacenter_urls() -> None:
-    """Test page_allow with Data Center page URLs."""
+    """Test pages.allow with Data Center page URLs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": [
-            "https://confluence.company.com/pages/viewpage.action?pageId=123456",
-            "https://confluence.company.com/pages/viewpage.action?pageId=789012",
-        ],
+        "pages": {
+            "allow": [
+                "https://confluence.company.com/pages/viewpage.action?pageId=123456",
+                "https://confluence.company.com/pages/viewpage.action?pageId=789012",
+            ],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_page_allow == ["123456", "789012"]
 
 
 def test_page_allow_mixed_ids_and_urls() -> None:
-    """Test page_allow with mix of page IDs and URLs."""
+    """Test pages.allow with mix of page IDs and URLs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": [
-            "123456",
-            "https://test.atlassian.net/wiki/spaces/TEAM/pages/789012/Guide",
-            "345678",
-        ],
+        "pages": {
+            "allow": [
+                "123456",
+                "https://test.atlassian.net/wiki/spaces/TEAM/pages/789012/Guide",
+                "345678",
+            ],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_page_allow == ["123456", "789012", "345678"]
 
 
 def test_page_deny_with_page_ids() -> None:
-    """Test page_deny with page IDs."""
+    """Test pages.deny with page IDs."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_deny": ["999999", "888888"],
+        "pages": {
+            "deny": ["999999", "888888"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
-    assert config.page_deny == ["999999", "888888"]
+    assert config.pages.deny == ["999999", "888888"]
     assert config._parsed_page_deny == ["999999", "888888"]
 
 
 def test_page_allow_and_deny_together() -> None:
-    """Test using both page_allow and page_deny."""
+    """Test using both pages.allow and pages.deny."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": ["123456", "789012"],
-        "page_deny": ["888888"],
+        "pages": {
+            "allow": ["123456", "789012"],
+            "deny": ["888888"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_page_allow == ["123456", "789012"]
@@ -453,25 +479,29 @@ def test_page_allow_and_deny_together() -> None:
 
 
 def test_page_allow_empty_list_raises_error() -> None:
-    """Test that empty page_allow list raises validation error."""
+    """Test that empty pages.allow list raises validation error."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": [],
+        "pages": {
+            "allow": [],
+        },
     }
     with pytest.raises(ValidationError) as exc_info:
         ConfluenceSourceConfig.model_validate(config_dict)
-    assert "page_allow must be a non-empty list" in str(exc_info.value)
+    assert "pages.allow must be a non-empty list" in str(exc_info.value)
 
 
 def test_page_allow_non_numeric_id_raises_error() -> None:
-    """Test that non-numeric page ID in page_allow raises error."""
+    """Test that non-numeric page ID in pages.allow raises error."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": ["NOTANID"],
+        "pages": {
+            "allow": ["NOTANID"],
+        },
     }
     with pytest.raises(ValidationError) as exc_info:
         ConfluenceSourceConfig.model_validate(config_dict)
@@ -479,12 +509,14 @@ def test_page_allow_non_numeric_id_raises_error() -> None:
 
 
 def test_page_allow_invalid_url_raises_error() -> None:
-    """Test that invalid page URL in page_allow raises error."""
+    """Test that invalid page URL in pages.allow raises error."""
     config_dict = {
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "page_allow": ["https://test.atlassian.net/wiki/spaces/TEAM"],
+        "pages": {
+            "allow": ["https://test.atlassian.net/wiki/spaces/TEAM"],
+        },
     }
     with pytest.raises(ValidationError) as exc_info:
         ConfluenceSourceConfig.model_validate(config_dict)
@@ -502,9 +534,13 @@ def test_combined_space_and_page_filtering() -> None:
         "url": "https://test.atlassian.net/wiki",
         "username": "test@example.com",
         "api_token": "test-token-123",
-        "space_allow": ["ENGINEERING", "PRODUCT"],
-        "space_deny": ["~admin"],
-        "page_deny": ["999999", "888888"],
+        "spaces": {
+            "allow": ["ENGINEERING", "PRODUCT"],
+            "deny": ["~admin"],
+        },
+        "pages": {
+            "deny": ["999999", "888888"],
+        },
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config._parsed_space_allow == ["ENGINEERING", "PRODUCT"]

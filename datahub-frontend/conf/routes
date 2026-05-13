@@ -50,5 +50,5 @@ GET           /node_modules/*file                                              c
 GET           /manifest.json                                                   controllers.Assets.at(path="/public", file="manifest.json")
 
 # Wildcard route accepts any routes and delegates to serveAsset which in turn serves the React Bundle's index.html
+# Trailing-slash redirects are handled by BasePathRedirectFilter before routing.
 GET           /*path                                                           controllers.Application.index(path)
-GET           /*path/                                                          controllers.Application.redirectTrailingSlash(path)

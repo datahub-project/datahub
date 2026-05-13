@@ -43,7 +43,7 @@ from datahub_agent_context.mcp_tools.entities import get_entities
 client = DataHubClient.from_env()
 
 # Search for datasets
-with client.graph as graph:
+with client as client:
     results = search(
         query="user_data",
         filters={"entity_type": ["dataset"]},
@@ -51,7 +51,7 @@ with client.graph as graph:
     )
 
 # Get detailed entity information
-with client.graph as graph:
+with client as client:
     entities = get_entities(
         urns=[result["entity"]["urn"] for result in results["searchResults"]]
     )
@@ -64,7 +64,6 @@ Build AI agents with pre-built LangChain tools:
 ```python
 from datahub.sdk.main_client import DataHubClient
 from datahub_agent_context.langchain_tools import build_langchain_tools
-from langchain.agents import create_agent
 
 # Initialize DataHub client
 client = DataHubClient.from_env()
@@ -77,6 +76,32 @@ tools = build_langchain_tools(client, include_mutations=True)
 
 # Create agent
 agent = create_agent(model, tools=tools, system_prompt="...")
+```
+
+#### DataHub Cloud Tools
+
+If you're connected to a **DataHub Cloud** instance, you can add Cloud-only tools
+like Ask DataHub (AI-powered data assistant):
+
+```python
+from datahub_agent_context.langchain_tools import build_langchain_tools, build_langchain_cloud_tools
+
+client = DataHubClient.from_env()
+
+# Base tools (works on any DataHub instance)
+tools = build_langchain_tools(client, include_mutations=True)
+
+# Add Cloud-only tools (requires DataHub Cloud)
+tools += build_langchain_cloud_tools(client, ask_datahub=True)
+```
+
+The same pattern works for Google ADK:
+
+```python
+from datahub_agent_context.google_adk_tools import build_google_adk_tools, build_google_adk_cloud_tools
+
+tools = build_google_adk_tools(client, include_mutations=True)
+tools += build_google_adk_cloud_tools(client, ask_datahub=True)
 ```
 
 **See [examples/langchain/](examples/langchain/)** for complete LangChain agent examples including:
@@ -113,10 +138,16 @@ agent = create_agent(model, tools=tools, system_prompt="...")
 - `add_owners()`, `remove_owners()` - Manage owners
 - `add_glossary_terms()`, `remove_glossary_terms()` - Manage glossary terms
 - `add_structured_properties()`, `remove_structured_properties()` - Manage structured properties
+- `save_document()` - Save or update a Document.
 
 #### User Tools
 
 - `get_me()` - Get information about the authenticated user
+
+#### Cloud-Only Tools (DataHub Cloud)
+
+- `ask_datahub_chat()` - Ask the DataHub AI assistant a question about your data catalog
+- `get_datahub_chat()` - Retrieve messages and status from an Ask DataHub conversation
 
 ## Architecture
 
@@ -146,7 +177,7 @@ cd datahub/datahub-agent-context
 ./gradlew :datahub-agent-context:installDev
 
 # Run tests
-./gradlew :datahub-agent-context:testQuick
+./gradlew :datahub-agent-context:testFull
 
 # Run linting
 ./gradlew :datahub-agent-context:lintFix
@@ -157,9 +188,6 @@ cd datahub/datahub-agent-context
 The package includes comprehensive unit tests for all tools:
 
 ```shell
-# Run quick tests
-./gradlew :datahub-agent-context:testQuick
-
 # Run full test suite
 ./gradlew :datahub-agent-context:testFull
 ```

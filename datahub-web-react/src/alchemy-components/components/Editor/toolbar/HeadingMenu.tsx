@@ -15,7 +15,7 @@ const OPTIONS = [
 const DEFAULT_VALUE = 0;
 
 export const HeadingMenu = () => {
-    const { toggleHeading } = useCommands();
+    const commands = useCommands();
     const active = useActive(true);
 
     const activeHeading =
@@ -33,10 +33,11 @@ export const HeadingMenu = () => {
                 const value = values[0];
                 const level = +`${value}`;
                 if (level) {
-                    toggleHeading({ level });
+                    commands.toggleHeading({ level });
                 } else {
-                    toggleHeading();
+                    commands.toggleHeading();
                 }
+                commands.focus();
             }}
             options={options}
             width="fit-content"

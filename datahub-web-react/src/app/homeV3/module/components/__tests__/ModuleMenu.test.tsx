@@ -1,9 +1,11 @@
+/* eslint-disable rulesdir/no-hardcoded-colors */
 import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import ModuleMenu from '@app/homeV3/module/components/ModuleMenu';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
@@ -20,11 +22,10 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
 
 // Mock the Icon component
 vi.mock('@components', () => ({
-    Icon: React.forwardRef(({ icon, _source, _size, ...props }: any, ref: any) => (
-        <div ref={ref} data-testid="icon" data-icon={icon} {...props}>
-            {icon}
-        </div>
-    )),
+    Icon: React.forwardRef(({ icon, ...props }: any, ref: any) => {
+        const iconName = typeof icon === 'string' ? icon : icon?.displayName || icon?.name || '';
+        return <div ref={ref} data-testid="icon" data-icon={iconName} {...props} />;
+    }),
     Tooltip: (props: any) => <span {...props} />,
     Text: (props: any) => <p {...props} />,
     Button: (props: any) => <button type="button" data-testid="confirm" {...props} />,
@@ -61,6 +62,8 @@ vi.mock('@components', () => ({
     },
 }));
 
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
+
 describe('ModuleMenu', () => {
     const mockModule: PageModuleFragment = {
         urn: 'urn:li:dataHubPageModule:test',
@@ -83,7 +86,7 @@ describe('ModuleMenu', () => {
     });
 
     it('should render menu with correct items', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -96,7 +99,7 @@ describe('ModuleMenu', () => {
     });
 
     it('should call removeModule when remove is clicked', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -133,7 +136,7 @@ describe('ModuleMenu', () => {
             rowSide: 'right',
         };
 
-        render(<ModuleMenu module={differentModule} position={differentPosition} />);
+        renderWithTheme(<ModuleMenu module={differentModule} position={differentPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -154,7 +157,7 @@ describe('ModuleMenu', () => {
     });
 
     it('should render remove option with red color', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -173,7 +176,7 @@ describe('ModuleMenu', () => {
             moduleIndex: 2,
         };
 
-        render(<ModuleMenu module={mockModule} position={positionWithModuleIndex} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={positionWithModuleIndex} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -205,7 +208,7 @@ describe('ModuleMenu', () => {
             },
         };
 
-        render(<ModuleMenu module={moduleWithLongName} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={moduleWithLongName} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -231,7 +234,7 @@ describe('ModuleMenu', () => {
             // rowSide and moduleIndex are optional/undefined
         };
 
-        render(<ModuleMenu module={mockModule} position={minimalPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={minimalPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -263,7 +266,7 @@ describe('ModuleMenu', () => {
             },
         };
 
-        render(<ModuleMenu module={moduleWithSpecialChars} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={moduleWithSpecialChars} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -284,7 +287,7 @@ describe('ModuleMenu', () => {
     });
 
     it('should handle edit option (placeholder functionality)', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');
@@ -306,7 +309,7 @@ describe('ModuleMenu', () => {
     });
 
     it('should handle multiple rapid clicks on remove', () => {
-        render(<ModuleMenu module={mockModule} position={mockPosition} />);
+        renderWithTheme(<ModuleMenu module={mockModule} position={mockPosition} />);
 
         // Click to open the dropdown
         const menuButton = screen.getByTestId('icon');

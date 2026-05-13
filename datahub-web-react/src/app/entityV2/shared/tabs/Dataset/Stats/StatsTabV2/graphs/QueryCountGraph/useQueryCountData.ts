@@ -1,4 +1,3 @@
-import moment from 'moment';
 import { useEffect, useState } from 'react';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
@@ -13,6 +12,7 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
+import dayjs from '@utils/dayjs';
 
 const MAX_NUM_DAYS_PER_MONTH = 31;
 const MAX_NUM_DAYS_PER_QUARTER = 95;
@@ -88,7 +88,7 @@ export default function useQueryCountData(urn: string | undefined, timeRange?: T
                     urn,
                     timeRange,
                     startTime,
-                    timeZone: moment.tz.guess(),
+                    timeZone: dayjs.tz.guess(),
                 },
             });
         }

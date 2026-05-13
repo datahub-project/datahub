@@ -11,7 +11,7 @@ import requests
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mce_builder import make_group_urn, make_user_urn
@@ -67,7 +67,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     tenant_id: str = Field(
         description="Directory ID. Found in your app registration on Azure AD Portal"
     )
-    client_secret: str = Field(
+    client_secret: TransparentSecretStr = Field(
         description="Client secret. Found in your app registration on Azure AD Portal"
     )
     authority: str = Field(
@@ -134,7 +134,9 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="regex patterns for groups to include in ingestion.",
     )
 
-    _remove_filtered_tracking = pydantic_removed_field("filtered_tracking")
+    _remove_filtered_tracking = pydantic_removed_field(
+        "filtered_tracking", month="January", year=2025
+    )
 
     # Optional: Whether to mask sensitive information from workunit ID's. On by default.
     mask_group_id: bool = Field(
@@ -171,77 +173,13 @@ class AzureADSourceReport(StaleEntityRemovalSourceReport):
 )
 class AzureADSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts the following:
+    Source that extracts users, groups, and group membership from Azure AD via Microsoft Graph API.
 
-    - Users
-    - Groups
-    - Group Membership
-
-    from your Azure AD instance.
-
-    Note that any users ingested from this connector will not be able to log into DataHub unless you have Azure AD OIDC
-    SSO enabled. You can, however, have these users ingested into DataHub before they log in for the first time if you
-    would like to take actions like adding them to a group or assigning them a role.
-
-    For instructions on how to do configure Azure AD OIDC SSO, please read the documentation
-    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-registration-in-microsoft-azure-portal).
-
-    ### Extracting DataHub Users
-
-    #### Usernames
-
-    Usernames serve as unique identifiers for users on DataHub. This connector extracts usernames using the
-    "userPrincipalName" field of an [Azure AD User Response](https://docs.microsoft.com/en-us/graph/api/user-list?view=graph-rest-1.0&tabs=http#response-1),
-    which is the unique identifier for your Azure AD users.
-
-    If this is not how you wish to map to DataHub usernames, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_username_attr`
-    and `azure_ad_response_to_username_regex`.
-
-    #### Responses
-
-    This connector also extracts basic user response information from Azure. The following fields of the Azure User Response are extracted
-    and mapped to the DataHub `CorpUserInfo` aspect:
-
-    - display name
-    - first name
-    - last name
-    - email
-    - title
-    - country
-
-    ### Extracting DataHub Groups
-
-    #### Group Names
-
-    Group names serve as unique identifiers for groups on DataHub. This connector extracts group names using the "name" attribute of an Azure Group Response.
-    By default, a URL-encoded version of the full group name is used as the unique identifier (CorpGroupKey) and the raw "name" attribute is mapped
-    as the display name that will appear in DataHub's UI.
-
-    If this is not how you wish to map to DataHub group names, you can provide a custom mapping using the configurations options detailed below. Namely, `azure_ad_response_to_groupname_attr`
-    and `azure_ad_response_to_groupname_regex`.
-
-    #### Responses
-
-    This connector also extracts basic group information from Azure. The following fields of the [Azure AD Group Response](https://docs.microsoft.com/en-us/graph/api/group-list?view=graph-rest-1.0&tabs=http#response-1) are extracted and mapped to the
-    DataHub `CorpGroupInfo` aspect:
-
-    - name
-    - description
-
-    ### Extracting Group Membership
-
-    This connector additional extracts the edges between Users and Groups that are stored in [Azure AD](https://docs.microsoft.com/en-us/graph/api/group-list-members?view=graph-rest-1.0&tabs=http#response-1). It maps them to the `GroupMembership` aspect
-    associated with DataHub users (CorpUsers).
-
-    ### Prerequisite
-
-    [Create a DataHub Application](https://docs.microsoft.com/en-us/graph/toolkit/get-started/add-aad-app-registration) within the Azure AD Portal with the permissions
-    to read your organization's Users and Groups. The following permissions are required, with the `Application` permission type:
-
-    - `Group.Read.All`
-    - `GroupMember.Read.All`
-    - `User.Read.All`
-
+    Implementation notes:
+    - Uses Microsoft Graph REST API v1.0
+    - Requires OAuth2 client credentials flow for authentication
+    - Supports regex-based username/groupname mapping from Azure AD responses
+    - Implements pagination for large user/group sets
     """
 
     config: AzureADConfig
@@ -273,7 +211,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             "grant_type": "client_credentials",
             "client_id": self.config.client_id,
             "tenant_id": self.config.tenant_id,
-            "client_secret": self.config.client_secret,
+            "client_secret": self.config.client_secret.get_secret_value(),
             "resource": "https://graph.microsoft.com",
             "scope": "https://graph.microsoft.com/.default",
         }
@@ -540,22 +478,37 @@ class AzureADSource(StatefulIngestionSourceBase):
                 self.report.report_failure("azure_ad_group", str(e))
 
     def _map_azure_ad_group(self, azure_ad_group):
-        corp_group_urn, error_str = self._map_identity_to_urn(
-            self._map_azure_ad_group_to_urn,
-            azure_ad_group,
-            "azure_ad_group_mapping",
-            "group",
-        )
-        if error_str is not None:
+        # Resolve group name and apply filters before building the URN.
+        # This avoids false report_failure entries for groups that are
+        # intentionally excluded by the user's configuration.
+        #
+        # Pre-check for missing attribute so we can distinguish misconfiguration
+        # from intentional regex filtering without changing the shared helper's
+        # exception contract (which other callers rely on).
+        raw_name = azure_ad_group.get(self.config.azure_ad_response_to_groupname_attr)
+        if raw_name is None:
+            self.report.report_failure(
+                "azure_ad_group_mapping",
+                f"Attribute '{self.config.azure_ad_response_to_groupname_attr}' not found in group response. "
+                f"Check azure_ad_response_to_groupname_attr in your config.",
+            )
             return
-        group_name = self._extract_regex_match_from_dict_value(
-            azure_ad_group,
-            self.config.azure_ad_response_to_groupname_attr,
-            self.config.azure_ad_response_to_groupname_regex,
-        )
+        try:
+            group_name = self._extract_regex_match_from_dict_value(
+                azure_ad_group,
+                self.config.azure_ad_response_to_groupname_attr,
+                self.config.azure_ad_response_to_groupname_regex,
+            )
+        except ValueError:
+            # Attribute exists but regex didn't match — group is intentionally
+            # excluded by azure_ad_response_to_groupname_regex, not an error.
+            self.report.report_filtered(f"group:{raw_name}")
+            return
         if not self.config.groups_pattern.allowed(group_name):
-            self.report.report_filtered(f"{corp_group_urn}")
+            self.report.report_filtered(f"group:{group_name}")
             return
+        # URN construction is safe here: group_name is already validated above.
+        corp_group_urn = make_group_urn(urllib.parse.quote(group_name))
         self.selected_azure_ad_groups.append(azure_ad_group)
         corp_group_snapshot = CorpGroupSnapshot(
             urn=corp_group_urn,

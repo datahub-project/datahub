@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from datahub.ingestion.source.fabric.onelake.schema_report import (
         SqlAnalyticsEndpointReport,
     )
+    from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
 
 
 @dataclass
@@ -41,12 +42,18 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     warehouses_scanned: int = 0
     schemas_scanned: int = 0
     tables_scanned: int = 0
+    views_scanned: int = 0
 
     # Filtered entities
     filtered_workspaces: LossyList[str] = field(default_factory=LossyList)
     filtered_lakehouses: LossyList[str] = field(default_factory=LossyList)
     filtered_warehouses: LossyList[str] = field(default_factory=LossyList)
     filtered_tables: LossyList[str] = field(default_factory=LossyList)
+    filtered_views: LossyList[str] = field(default_factory=LossyList)
+
+    # Views whose definition was unavailable (e.g. caller lacks
+    # `VIEW DEFINITION` permission); their lineage cannot be parsed.
+    views_missing_definition: LossyList[str] = field(default_factory=LossyList)
 
     # API metrics (can be populated from FabricClientReport)
     api_calls_total_count: int = 0
@@ -57,6 +64,9 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
 
     # Schema extraction report (optional, can be set from schema extraction client)
     schema_report: Optional["SqlAnalyticsEndpointReport"] = None
+
+    # SQL parsing aggregator report (lineage / view parsing metrics)
+    sql_aggregator: Optional["SqlAggregatorReport"] = None
 
     def report_workspace_scanned(self) -> None:
         """Increment workspaces scanned counter."""
@@ -93,6 +103,18 @@ class FabricOneLakeSourceReport(StaleEntityRemovalSourceReport):
     def report_table_filtered(self, table_name: str) -> None:
         """Record a filtered table."""
         self.filtered_tables.append(table_name)
+
+    def report_view_scanned(self) -> None:
+        """Increment views scanned counter."""
+        self.views_scanned += 1
+
+    def report_view_filtered(self, view_name: str) -> None:
+        """Record a filtered view."""
+        self.filtered_views.append(view_name)
+
+    def report_view_missing_definition(self, view_name: str) -> None:
+        """Record a view whose SQL definition was unavailable for lineage parsing."""
+        self.views_missing_definition.append(view_name)
 
     def report_api_call(self) -> None:
         """Track an API call."""

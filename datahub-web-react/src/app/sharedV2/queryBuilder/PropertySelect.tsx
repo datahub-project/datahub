@@ -28,7 +28,7 @@ const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Prop
                 onUpdate={(val) => onChangeProperty(val[0])}
                 values={selectedProperty ? [selectedProperty] : []}
                 placeholder="Select a property"
-                data-testid="condition-select"
+                dataTestId="condition-select"
                 width="full"
                 showClear={false}
             />

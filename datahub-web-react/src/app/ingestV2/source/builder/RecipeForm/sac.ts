@@ -87,6 +87,7 @@ export const RESOURCE_ID_ALLOW: FilterRecipeField = {
     fieldPath: resourceIdAllowFieldPath,
     rules: null,
     section: 'Stories and Applications',
+    filteringResource: 'Resource ID',
     placeholder: 'LXTH4JCE36EOYLU41PIINLYPU9XRYM26',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, resourceIdAllowFieldPath),
@@ -105,6 +106,7 @@ export const RESOURCE_ID_DENY: FilterRecipeField = {
     fieldPath: resourceIdDenyFieldPath,
     rules: null,
     section: 'Stories and Applications',
+    filteringResource: 'Resource ID',
     placeholder: 'LXTH4JCE36EOYLU41PIINLYPU9XRYM26',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, resourceIdDenyFieldPath),
@@ -123,6 +125,7 @@ export const RESOURCE_NAME_ALLOW: FilterRecipeField = {
     fieldPath: resourceNameAllowFieldPath,
     rules: null,
     section: 'Stories and Applications',
+    filteringResource: 'Resource Name',
     placeholder: 'Name of the story',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, resourceNameAllowFieldPath),
@@ -141,6 +144,7 @@ export const RESOURCE_NAME_DENY: FilterRecipeField = {
     fieldPath: resourceNameDenyFieldPath,
     rules: null,
     section: 'Stories and Applications',
+    filteringResource: 'Resource Name',
     placeholder: 'Name of the story',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, resourceNameDenyFieldPath),
@@ -160,6 +164,7 @@ export const FOLDER_ALLOW: FilterRecipeField = {
     rules: null,
     section: 'Stories and Applications',
     placeholder: 'Folder of the story',
+    filteringResource: 'Folder',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, folderAllowFieldPath),
 };
@@ -177,6 +182,7 @@ export const FOLDER_DENY: FilterRecipeField = {
     fieldPath: folderDenyFieldPath,
     rules: null,
     section: 'Stories and Applications',
+    filteringResource: 'Folder',
     placeholder: 'Folder of the story',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, folderDenyFieldPath),

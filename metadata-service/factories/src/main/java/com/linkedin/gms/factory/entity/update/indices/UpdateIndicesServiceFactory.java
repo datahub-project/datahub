@@ -45,7 +45,8 @@ public class UpdateIndicesServiceFactory {
   /** Creates a collection of UpdateIndicesStrategy instances based on Spring beans. */
   private Collection<UpdateIndicesStrategy> createStrategies(
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
-      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
 
     Collection<UpdateIndicesStrategy> strategies = new ArrayList<>();
 
@@ -55,6 +56,10 @@ public class UpdateIndicesServiceFactory {
 
     if (v3Strategy != null) {
       strategies.add(v3Strategy);
+    }
+
+    if (upgradeStrategy != null) {
+      strategies.add(upgradeStrategy);
     }
 
     List<String> strategyNames =
@@ -83,9 +88,11 @@ public class UpdateIndicesServiceFactory {
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
-      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
 
-    Collection<UpdateIndicesStrategy> strategies = createStrategies(v2Strategy, v3Strategy);
+    Collection<UpdateIndicesStrategy> strategies =
+        createStrategies(v2Strategy, v3Strategy, upgradeStrategy);
 
     return new UpdateIndicesService(
         new UpdateGraphIndicesService(
@@ -114,9 +121,11 @@ public class UpdateIndicesServiceFactory {
       @Value("#{'${featureFlags.fineGrainedLineageNotAllowedForPlatforms}'.split(',')}")
           final List<String> fineGrainedLineageNotAllowedForPlatforms,
       @Qualifier("updateIndicesV2Strategy") @Nullable UpdateIndicesStrategy v2Strategy,
-      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy) {
+      @Qualifier("updateIndicesV3Strategy") @Nullable UpdateIndicesStrategy v3Strategy,
+      @Qualifier("updateIndicesUpgradeStrategy") @Nullable UpdateIndicesStrategy upgradeStrategy) {
 
-    Collection<UpdateIndicesStrategy> strategies = createStrategies(v2Strategy, v3Strategy);
+    Collection<UpdateIndicesStrategy> strategies =
+        createStrategies(v2Strategy, v3Strategy, upgradeStrategy);
 
     UpdateIndicesService updateIndicesService =
         new UpdateIndicesService(

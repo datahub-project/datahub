@@ -35,6 +35,8 @@ import org.springframework.stereotype.Component;
 })
 public class UpdateIndicesHook implements MetadataChangeLogHook {
 
+  private static final int LARGE_BATCH_THRESHOLD = 500;
+
   protected final UpdateIndicesService updateIndicesService;
   private final boolean isEnabled;
   private final boolean reprocessUIEvents;
@@ -85,8 +87,14 @@ public class UpdateIndicesHook implements MetadataChangeLogHook {
         events.stream().filter(this::shouldProcessEvent).collect(Collectors.toList());
 
     if (!eventsToProcess.isEmpty()) {
-      log.info(
-          "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
+      if (eventsToProcess.size() >= LARGE_BATCH_THRESHOLD) {
+        log.info(
+            "Processing large batch of {} MCL events with UpdateIndicesService",
+            eventsToProcess.size());
+      } else {
+        log.debug(
+            "Processing batch of {} MCL events with UpdateIndicesService", eventsToProcess.size());
+      }
       updateIndicesService.handleChangeEvents(systemOperationContext, eventsToProcess);
     } else {
       log.debug("No MCL events to process in batch of {} events", events.size());

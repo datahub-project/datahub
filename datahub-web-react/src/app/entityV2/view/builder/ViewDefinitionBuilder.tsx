@@ -1,26 +1,38 @@
-import React from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { ViewBuilderMode } from '@app/entityV2/view/builder/types';
-import { fromUnionType, toUnionType } from '@app/entityV2/view/builder/utils';
+import { SelectFilterValuesTab } from '@app/entityV2/view/builder/SelectFilterValuesTab';
+import {
+    BUILD_FILTERS_TAB_KEY,
+    DEFAULT_DYNAMIC_FILTER,
+    SELECT_ASSETS_TAB_KEY,
+} from '@app/entityV2/view/builder/constants';
+import { ViewBuilderMode, ViewFilter } from '@app/entityV2/view/builder/types';
+import {
+    buildViewDefinition,
+    filtersToLogicalPredicate,
+    filtersToSelectedUrns,
+    getInitialTabKey,
+    logicalPredicateToFilters,
+    selectedUrnsToFilters,
+} from '@app/entityV2/view/builder/utils';
+import { viewBuilderProperties } from '@app/entityV2/view/builder/viewBuilderProperties';
 import { ViewBuilderState } from '@app/entityV2/view/types';
-import { ENTITY_FILTER_NAME } from '@app/search/utils/constants';
-// eslint-disable-next-line import/no-cycle
-import SearchFiltersBuilder from '@app/searchV2/filters/SearchFiltersBuilder';
-import { VIEW_BUILDER_FIELDS } from '@app/searchV2/filters/field/fields';
-import { convertFrontendToBackendOperatorType } from '@app/searchV2/filters/operator/operator';
-import { FilterPredicate } from '@app/searchV2/filters/types';
-import { convertToSelectedFilterPredictes } from '@app/searchV2/filters/utils';
+import ButtonTabs from '@app/homeV3/modules/shared/ButtonTabs/ButtonTabs';
+import { Tab } from '@app/homeV3/modules/shared/ButtonTabs/types';
+import LogicalFiltersBuilder from '@app/sharedV2/queryBuilder/LogicalFiltersBuilder';
+import { LogicalPredicate } from '@app/sharedV2/queryBuilder/builder/types';
 
 import { LogicalOperator } from '@types';
 
-const Container = styled.div`
-    border-radius: 4px;
-    padding: 12px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
-    border: 1px solid ${ANTD_GRAY[4]};
-    margin-bottom: 20px;
+const ScrollableFiltersWrapper = styled.div`
+    max-height: 300px;
+    overflow-y: auto;
+`;
+
+const ReadOnlyWrapper = styled.div`
+    pointer-events: none;
+    opacity: 0.75;
 `;
 
 type Props = {
@@ -30,90 +42,98 @@ type Props = {
 };
 
 export const ViewDefinitionBuilder = ({ mode, state, updateState }: Props) => {
-    // The selected operator type.
-    const operatorType = state.definition?.filter?.operator || LogicalOperator.Or;
+    const existingFilters = (state.definition?.filter?.filters || []) as ViewFilter[];
+    const existingOperator = state.definition?.filter?.operator;
 
-    // The selected filters.
-    const selectedFilters = state.definition?.filter?.filters || [];
+    const [activeTab, setActiveTab] = useState(() => getInitialTabKey(existingFilters));
 
-    // The union type
-    const unionType = toUnionType(state?.definition?.filter?.operator || LogicalOperator.Or);
+    // State for Select Assets tab
+    const [selectedUrns, setSelectedUrns] = useState<string[]>(() => filtersToSelectedUrns(existingFilters));
 
-    // Parse the default entity type filter from the state.
-    const entityTypeFilter = state?.definition?.entityTypes?.length && {
-        field: ENTITY_FILTER_NAME,
-        values: state?.definition?.entityTypes,
-    };
+    // State for Build Filters tab
+    const [dynamicFilter, setDynamicFilter] = useState<LogicalPredicate | null>(() => {
+        if (existingFilters.length > 0 && activeTab === BUILD_FILTERS_TAB_KEY) {
+            return filtersToLogicalPredicate(existingOperator, existingFilters);
+        }
+        return null;
+    });
 
-    const filterPredicates: FilterPredicate[] = convertToSelectedFilterPredictes(
-        (entityTypeFilter && [entityTypeFilter, ...selectedFilters]) || selectedFilters,
-        [],
+    // Use a ref to access current state without adding it to effect dependencies
+    const stateRef = useRef(state);
+    stateRef.current = state;
+
+    // Update parent state when Select Assets tab changes.
+    // URN selections always use OR so the view matches any of the selected assets.
+    const handleSelectAssetsChange = useCallback(
+        (newUrns: string[]) => {
+            setSelectedUrns(newUrns);
+            const filters = selectedUrnsToFilters(newUrns);
+            updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.Or, filters) });
+        },
+        [updateState],
     );
 
-    const updateFilters = (newFilters: FilterPredicate[]) => {
-        const backendFilters = newFilters.map((predicate) => {
-            const condition = convertFrontendToBackendOperatorType(predicate.operator);
-            return {
-                field: predicate.field.field,
-                values: predicate.values.map((value) => value.value),
-                condition: condition.operator,
-                negated: condition.negated,
-            };
-        });
-        const newDefinition = {
-            entityTypes: [], // Now we use the raw entity type filters.
-            filter: {
-                operator: operatorType,
-                filters: backendFilters || [],
-            },
-        };
-        updateState({
-            ...state,
-            definition: newDefinition,
-        });
-    };
-
-    const updateUnionType = (newUnionType) => {
-        const newDefinition = {
-            ...state.definition,
-            filter: {
-                operator: fromUnionType(newUnionType),
-                filters: state.definition?.filter?.filters || [],
-            },
-        };
-        updateState({
-            ...state,
-            definition: newDefinition,
-        });
-    };
-
-    const onClearFilters = () => {
-        const newDefinition = {
-            ...state.definition,
-            filter: {
-                operator: operatorType,
-                filters: [],
-            },
-        };
-        updateState({
-            ...state,
-            definition: newDefinition,
-        });
-    };
-
-    return (
-        <Container>
-            <SearchFiltersBuilder
-                fields={VIEW_BUILDER_FIELDS}
-                filters={filterPredicates}
-                onChangeFilters={updateFilters}
-                onClearFilters={onClearFilters}
-                disabled={mode === ViewBuilderMode.PREVIEW}
-                unionType={unionType}
-                onChangeUnionType={updateUnionType}
-                showUnionType
-                vertical
-            />
-        </Container>
+    // Update parent state when Build Filters tab changes
+    const handleDynamicFilterChange = useCallback(
+        (newPredicate?: LogicalPredicate) => {
+            setDynamicFilter(newPredicate || null);
+            if (newPredicate) {
+                const { operator, filters } = logicalPredicateToFilters(newPredicate);
+                updateState({ ...stateRef.current, definition: buildViewDefinition(operator, filters) });
+            } else {
+                updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.And, []) });
+            }
+        },
+        [updateState],
     );
+
+    const handleTabChange = useCallback(
+        (newTabKey: string) => {
+            setActiveTab(newTabKey);
+            if (newTabKey === SELECT_ASSETS_TAB_KEY) {
+                const filters = selectedUrnsToFilters(selectedUrns);
+                updateState({ ...stateRef.current, definition: buildViewDefinition(LogicalOperator.Or, filters) });
+            } else {
+                const { operator, filters } = logicalPredicateToFilters(dynamicFilter);
+                updateState({ ...stateRef.current, definition: buildViewDefinition(operator, filters) });
+            }
+        },
+        [selectedUrns, dynamicFilter, updateState],
+    );
+
+    const isDisabled = mode === ViewBuilderMode.PREVIEW;
+
+    const tabs: Tab[] = [
+        {
+            key: BUILD_FILTERS_TAB_KEY,
+            label: 'Build Filters',
+            content: (
+                <ScrollableFiltersWrapper>
+                    <LogicalFiltersBuilder
+                        filters={dynamicFilter ?? DEFAULT_DYNAMIC_FILTER}
+                        onChangeFilters={handleDynamicFilterChange}
+                        properties={viewBuilderProperties}
+                        hideAddGroup
+                    />
+                </ScrollableFiltersWrapper>
+            ),
+        },
+        {
+            key: SELECT_ASSETS_TAB_KEY,
+            label: 'Select Assets',
+            content: (
+                <SelectFilterValuesTab selectedUrns={selectedUrns} onChangeSelectedUrns={handleSelectAssetsChange} />
+            ),
+        },
+    ];
+
+    if (isDisabled) {
+        return (
+            <ReadOnlyWrapper>
+                <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} />
+            </ReadOnlyWrapper>
+        );
+    }
+
+    return <ButtonTabs tabs={tabs} defaultKey={activeTab} onTabClick={handleTabChange} />;
 };

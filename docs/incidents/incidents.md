@@ -1,4 +1,5 @@
 ---
+title: Incidents Overview
 description: This page provides an overview of working with the DataHub Incidents API.
 ---
 
@@ -38,7 +39,7 @@ is possibly unfit for use due to an ongoing issue.
 
 ## Resolving an Incident
 
-To resolve an incident, simply naviagte to the profile page for the asset of interest, click
+To resolve an incident, simply navigate to the profile page for the asset of interest, click
 the **Incidents** tab, and then click the **Resolve** button for the incident of interest.
 This will resolve the incident from the list of active incidents for the asset, removing it from the
 asset's health status.

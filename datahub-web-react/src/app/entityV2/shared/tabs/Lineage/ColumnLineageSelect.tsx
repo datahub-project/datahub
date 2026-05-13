@@ -1,4 +1,3 @@
-import { blue } from '@ant-design/colors';
 import { CaretDownOutlined } from '@ant-design/icons';
 import { Tooltip } from '@components';
 import { Button, Select } from 'antd';
@@ -14,8 +13,8 @@ import updateQueryParams from '@app/shared/updateQueryParams';
 
 const StyledSelect = styled(Select)`
     margin-right: 5px;
-    min-width: 140px;
-    max-width: 200px;
+    min-width: 200px;
+    max-width: 300px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`
@@ -26,9 +25,9 @@ const StyledButton = styled(Button)<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected &&
         `
-        color: ${blue[5]};
+        color: ${props.theme.colors.textBrand};
         &:focus, &:hover {
-            color: ${blue[5]};
+            color: ${props.theme.colors.textBrand};
         }
     `};
 `;
@@ -71,11 +70,12 @@ export default function ColumnsLineageSelect({
                     showSearch
                     allowClear
                     placeholder="Select column"
+                    optionFilterProp="label"
                 >
                     {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
-                            <Select.Option value={field.fieldPath}>
+                            <Select.Option value={field.fieldPath} label={fieldPath}>
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>
@@ -86,7 +86,7 @@ export default function ColumnsLineageSelect({
                         const fieldPath = downgradeV2FieldPath(field?.schemaField?.fieldPath);
                         const key = `${field?.schemaField?.fieldPath}-${idx}`;
                         return (
-                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''}>
+                            <Select.Option key={key} value={field?.schemaField?.fieldPath || ''} label={fieldPath}>
                                 <Tooltip title={fieldPath} showArrow={false}>
                                     {fieldPath}
                                 </Tooltip>

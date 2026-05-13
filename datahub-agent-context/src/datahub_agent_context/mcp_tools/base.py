@@ -66,9 +66,12 @@ def execute_graphql(
     )
 
     try:
-        # Execute the GraphQL query
+        # Execute the GraphQL query with projection enabled for agentic callers
         result = graph.execute_graphql(
-            query=query, variables=variables, operation_name=operation_name
+            query=query,
+            variables=variables,
+            operation_name=operation_name,
+            strip_unsupported_fields=True,
         )
         return result
 
@@ -107,6 +110,7 @@ def execute_graphql(
                     query=fallback_query,
                     variables=variables,
                     operation_name=operation_name,
+                    strip_unsupported_fields=True,
                 )
                 logger.info(
                     f"Fallback query succeeded without newer GMS fields for operation: {operation_name}"
@@ -152,9 +156,12 @@ def _is_datahub_cloud(graph: DataHubGraph) -> bool:
         )
         return False
 
-    is_cloud = hasattr(graph, "frontend_base_url") and graph.frontend_base_url
-    logger.debug(f"Cloud detection: {is_cloud}")
-    return bool(is_cloud)
+    try:
+        is_cloud = hasattr(graph, "frontend_base_url") and graph.frontend_base_url
+        logger.debug(f"Cloud detection: {is_cloud}")
+        return bool(is_cloud)
+    except ValueError:
+        return False
 
 
 def _is_field_validation_error(error_msg: str) -> bool:
@@ -250,7 +257,6 @@ def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
     Cached for VIEW_CACHE_TTL_SECONDS seconds.
     Returns None if disabled or if no default view is configured.
     """
-    # Return None immediately if feature is disabled
     if DISABLE_DEFAULT_VIEW:
         return None
 
@@ -271,6 +277,62 @@ def fetch_global_default_view(graph: DataHubGraph) -> Optional[str]:
             return view_urn
     logger.debug("No global default view configured")
     return None
+
+
+_user_view_cache: cachetools.TTLCache = cachetools.TTLCache(
+    maxsize=64, ttl=VIEW_CACHE_TTL_SECONDS
+)
+
+
+@cachetools.cached(cache=_user_view_cache)
+def fetch_user_default_view(graph: DataHubGraph) -> Optional[str]:
+    """Fetch the authenticated user's personal default view URN.
+
+    Uses the ``me`` query so the result depends on the token behind *graph*
+    (works for both regular users and service accounts).
+    Cached per graph instance for VIEW_CACHE_TTL_SECONDS seconds.
+    """
+    if DISABLE_DEFAULT_VIEW:
+        return None
+
+    query = """
+    query getUserDefaultView {
+        me {
+            corpUser {
+                settings {
+                    views {
+                        defaultView {
+                            urn
+                        }
+                    }
+                }
+            }
+        }
+    }
+    """
+
+    try:
+        result = execute_graphql(graph, query=query)
+    except Exception:
+        logger.warning("Failed to fetch user default view, skipping", exc_info=True)
+        return None
+
+    me = result.get("me") or {}
+    corp_user = me.get("corpUser") or {}
+    settings = corp_user.get("settings") or {}
+    views = settings.get("views") or {}
+    default_view = views.get("defaultView") or {}
+    urn = default_view.get("urn")
+    if urn:
+        logger.debug("Fetched user default view: %s", urn)
+    else:
+        logger.debug("No user default view configured")
+    return urn
+
+
+def resolve_default_view(graph: DataHubGraph) -> Optional[str]:
+    """Resolve the effective default view: user personal first, then org global."""
+    return fetch_user_default_view(graph) or fetch_global_default_view(graph)
 
 
 def clean_gql_response(response: Any) -> Any:

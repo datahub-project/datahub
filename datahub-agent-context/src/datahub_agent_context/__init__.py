@@ -17,9 +17,19 @@
 from datahub_agent_context._version import __version__
 from datahub_agent_context.context import (
     DataHubContext,
+    get_datahub_client,
     get_graph,
-    reset_graph,
-    set_graph,
+    reset_client,
+    set_client,
 )
+from datahub_agent_context.utils import create_context_wrapper
 
-__all__ = ["__version__", "DataHubContext", "get_graph", "set_graph", "reset_graph"]
+__all__ = [
+    "__version__",
+    "DataHubContext",
+    "create_context_wrapper",
+    "get_datahub_client",
+    "get_graph",
+    "set_client",
+    "reset_client",
+]

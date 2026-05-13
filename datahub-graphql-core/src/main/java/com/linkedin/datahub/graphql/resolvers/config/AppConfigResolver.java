@@ -284,6 +284,10 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setDocumentationFileUploadV1(isDocumentationFileUploadV1Enabled())
             .setContextDocumentsEnabled(_featureFlags.isContextDocumentsEnabled())
             .setIngestionOnboardingRedesignV1(_featureFlags.isIngestionOnboardingRedesignV1())
+            .setHideLineageInSearchCards(_featureFlags.isHideLineageInSearchCards())
+            .setMultipleDataProductsPerAsset(_featureFlags.isMultipleDataProductsPerAsset())
+            .setGlossaryBasedPoliciesEnabled(_featureFlags.isGlossaryBasedPoliciesEnabled())
+            .setShowTestsInHealthIcon(_featureFlags.isShowTestsInHealthIcon())
             .build();
 
     appConfig.setFeatureFlags(featureFlagsConfig);
@@ -315,10 +319,33 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
 
         // Populate provider-specific configuration
         if ("aws-bedrock".equalsIgnoreCase(providerConfig.getType())
-            && providerConfig.getAwsRegion() != null) {
+            && providerConfig.getBedrock() != null
+            && providerConfig.getBedrock().getAwsRegion() != null) {
           final AwsProviderConfig awsProviderConfig = new AwsProviderConfig();
-          awsProviderConfig.setRegion(providerConfig.getAwsRegion());
+          awsProviderConfig.setRegion(providerConfig.getBedrock().getAwsRegion());
           embeddingConfig.setAwsProviderConfig(awsProviderConfig);
+        } else if ("vertex_ai".equalsIgnoreCase(providerConfig.getType())
+            && providerConfig.getVertexai() != null) {
+          final com.linkedin.metadata.config.search.EmbeddingProviderConfiguration.VertexAiConfig
+              vertexConfig = providerConfig.getVertexai();
+          final boolean projectIdSet =
+              vertexConfig.getProjectId() != null && !vertexConfig.getProjectId().isBlank();
+          final boolean locationSet =
+              vertexConfig.getLocation() != null && !vertexConfig.getLocation().isBlank();
+          if (projectIdSet && locationSet) {
+            final VertexProviderConfig vertexProviderConfig = new VertexProviderConfig();
+            vertexProviderConfig.setProjectId(vertexConfig.getProjectId());
+            vertexProviderConfig.setLocation(vertexConfig.getLocation());
+            embeddingConfig.setVertexProviderConfig(vertexProviderConfig);
+          } else {
+            log.warn(
+                "Vertex AI semantic search config has missing or blank projectId or location "
+                    + "(projectIdSet={}, locationSet={}). vertexProviderConfig will be omitted "
+                    + "from GraphQL response. Set VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION env vars "
+                    + "(or embeddingProvider.vertexai.{projectId,location} in application.yaml).",
+                projectIdSet,
+                locationSet);
+          }
         }
 
         semanticSearchConfig.setEmbeddingConfig(embeddingConfig);
@@ -340,15 +367,34 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
    * <p>The modelEmbeddingKey is used as the key in the SemanticContent embeddings map and as the
    * field name in Elasticsearch indices.
    *
-   * <p>Examples: cohere.embed-english-v3 → cohere_embed_v3 cohere.embed-multilingual-v3 →
-   * cohere_embed_multilingual_v3 amazon.titan-embed-text-v1 → amazon_titan_v1
+   * <p>Examples:
+   *
+   * <ul>
+   *   <li>cohere.embed-english-v3 → cohere_embed_v3
+   *   <li>cohere.embed-multilingual-v3 → cohere_embed_multilingual_v3
+   *   <li>amazon.titan-embed-text-v1 → amazon_titan_v1
+   *   <li>text-embedding-3-small → text_embedding_3_small
+   *   <li>text-embedding-3-large → text_embedding_3_large
+   *   <li>embed-english-v3.0 → embed_english_v3_0
+   * </ul>
    */
   private static String deriveModelEmbeddingKey(final String modelId) {
+    // Cohere native models (embed-english-v3.0, embed-multilingual-v3.0)
+    // Check these FIRST because they also match the "embed-english-v3" pattern
+    if (modelId.contains("embed-english-v3.0")) return "embed_english_v3_0";
+    if (modelId.contains("embed-multilingual-v3.0")) return "embed_multilingual_v3_0";
+    if (modelId.contains("embed-english-light-v3.0")) return "embed_english_light_v3_0";
+    // AWS Bedrock Cohere models (without the .0 suffix)
     if (modelId.contains("embed-english-v3")) return "cohere_embed_v3";
     if (modelId.contains("embed-multilingual-v3")) return "cohere_embed_multilingual_v3";
+    // AWS Bedrock Titan models
     if (modelId.contains("titan-embed-text-v1")) return "amazon_titan_v1";
     if (modelId.contains("titan-embed-text-v2")) return "amazon_titan_v2";
+    // Vertex AI Gemini models
+    if (modelId.contains("gemini-embedding-001")) return "gemini_embedding_001";
+    if (modelId.contains("text-embedding-005")) return "text_embedding_005";
     // Fallback: replace special chars with underscores
+    // This handles OpenAI models like text-embedding-3-small → text_embedding_3_small
     return modelId.replace("-", "_").replace(".", "_").replace(":", "_");
   }
 

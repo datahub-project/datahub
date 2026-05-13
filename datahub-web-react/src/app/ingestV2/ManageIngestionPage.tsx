@@ -1,4 +1,5 @@
 import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -25,17 +26,17 @@ import { PageRoutes } from '@conf/Global';
 
 const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        overflow: hidden;
-        margin: 5px;
-        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
-        height: 100%;
-    `}
+ overflow: hidden;
+ margin: 5px;
+box-shadow: ${props.theme.colors.shadowSm};
+ height: 100%;
+ `}
 `;
 
 const PageContentContainer = styled.div`
@@ -242,10 +243,10 @@ export const ManageIngestionPage = () => {
                                     id={INGESTION_CREATE_SOURCE_ID}
                                     onClick={handleCreateSource}
                                     data-testid="create-ingestion-source-button"
-                                    icon={{ icon: 'Plus', source: 'phosphor' }}
+                                    icon={{ icon: Plus }}
                                     disabled={!canManageIngestion}
                                 >
-                                    Create source
+                                    Create Source
                                 </Button>
                             </div>
                         </Tooltip>
@@ -256,7 +257,7 @@ export const ManageIngestionPage = () => {
                             variant="filled"
                             onClick={handleCreateSecret}
                             data-testid="create-secret-button"
-                            icon={{ icon: 'Plus', source: 'phosphor' }}
+                            icon={{ icon: Plus }}
                         >
                             Create secret
                         </Button>

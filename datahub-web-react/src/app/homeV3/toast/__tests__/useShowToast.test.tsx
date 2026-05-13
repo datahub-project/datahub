@@ -1,9 +1,15 @@
 import { act, renderHook } from '@testing-library/react-hooks';
 import { notification } from 'antd';
 import React from 'react';
+import { ThemeProvider } from 'styled-components';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useShowToast from '@app/homeV3/toast/useShowToast';
+import themeV2 from '@conf/theme/themeV2';
+
+const wrapper = ({ children }: { children: React.ReactNode }) => (
+    <ThemeProvider theme={themeV2}>{children}</ThemeProvider>
+);
 
 interface NotificationArgsProps {
     message?: React.ReactNode;
@@ -27,12 +33,12 @@ describe('useShowToast', () => {
     });
 
     it('should return a showToast function', () => {
-        const { result } = renderHook(() => useShowToast());
+        const { result } = renderHook(() => useShowToast(), { wrapper });
         expect(typeof result.current.showToast).toBe('function');
     });
 
     it('should call notification.open with correct config on showToast call', () => {
-        const { result } = renderHook(() => useShowToast());
+        const { result } = renderHook(() => useShowToast(), { wrapper });
 
         const sampleTitle = 'Test Title';
         const sampleDescription = 'Sample description text';
@@ -64,7 +70,9 @@ describe('useShowToast', () => {
         expect(React.isValidElement(config.description)).toBe(true);
 
         if (React.isValidElement(config.message)) {
-            const messageProps = config.message.props;
+            const messageEl = (config.message.props as { children: React.ReactElement }).children;
+            expect(React.isValidElement(messageEl)).toBe(true);
+            const messageProps = (messageEl as React.ReactElement).props;
             expect(messageProps.children).toBe(sampleTitle);
             expect(messageProps.color).toBe('blue');
             expect(messageProps.colorLevel).toBe(1000);
@@ -75,7 +83,9 @@ describe('useShowToast', () => {
         }
 
         if (React.isValidElement(config.description)) {
-            const descriptionProps = config.description.props;
+            const descriptionEl = (config.description.props as { children: React.ReactElement }).children;
+            expect(React.isValidElement(descriptionEl)).toBe(true);
+            const descriptionProps = (descriptionEl as React.ReactElement).props;
             expect(descriptionProps.children).toBe(sampleDescription);
             expect(descriptionProps.color).toBe('blue');
             expect(descriptionProps.colorLevel).toBe(1000);
@@ -86,7 +96,7 @@ describe('useShowToast', () => {
     });
 
     it('should handle missing description gracefully', () => {
-        const { result } = renderHook(() => useShowToast());
+        const { result } = renderHook(() => useShowToast(), { wrapper });
 
         const sampleTitle = 'Only Title';
 
@@ -100,13 +110,12 @@ describe('useShowToast', () => {
 
         expect(React.isValidElement(config.message)).toBe(true);
 
-        if (config.description === undefined || config.description === null) {
-            expect(config.description).toBeUndefined();
-        } else if (React.isValidElement(config.description)) {
-            const descriptionProps = config.description.props;
+        if (React.isValidElement(config.description)) {
+            const descriptionEl = (config.description.props as { children: React.ReactElement }).children;
+            const descriptionProps = (descriptionEl as React.ReactElement).props;
             expect(descriptionProps.children).toBeUndefined();
         } else {
-            throw new Error('config.description is not a valid React element or undefined');
+            expect(config.description).toBeUndefined();
         }
     });
 });

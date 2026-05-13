@@ -12,7 +12,7 @@ import json
 import os
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import pytest
 import requests
@@ -21,61 +21,43 @@ from tests.utils import run_datahub_cmd, wait_for_healthcheck_util
 
 
 class TestGraphQLCLIStandalone:
-    """Fast standalone tests that don't require full DataHub functionality."""
-
-    def setup_method(self):
-        """Set up test environment variables."""
-        self.original_env = os.environ.copy()
-        # Ensure we have the required DataHub connection info
-        os.environ.setdefault("DATAHUB_GMS_HOST", "http://localhost:8080")
-        os.environ.setdefault("DATAHUB_GMS_TOKEN", "")
-
-    def teardown_method(self):
-        """Restore original environment."""
-        os.environ.clear()
-        os.environ.update(self.original_env)
+    """Fast standalone tests that validate GraphQL CLI behavior against a live DataHub."""
 
     def _run_datahub_cli(
-        self, args: list[str], input_data: Optional[str] = None
+        self, auth_session: Any, args: list[str], input_data: Optional[str] = None
     ) -> tuple[int, str, str]:
-        """
-        Run datahub CLI command and return (exit_code, stdout, stderr).
-
-        Args:
-            args: CLI arguments (e.g., ['graphql', '--schema'])
-            input_data: Optional stdin input
-
-        Returns:
-            Tuple of (exit_code, stdout, stderr)
-        """
-        result = run_datahub_cmd(args, input=input_data)
+        result = run_datahub_cmd(
+            args,
+            input=input_data,
+            env={
+                "DATAHUB_GMS_URL": auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+            },
+        )
         return result.exit_code, result.stdout, result.stderr
 
-    def test_graphql_help(self):
+    def test_graphql_help(self, auth_session: Any):
         """Test that GraphQL CLI help is accessible."""
-        exit_code, stdout, stderr = self._run_datahub_cli(["graphql", "--help"])
+        exit_code, stdout, stderr = self._run_datahub_cli(
+            auth_session, ["graphql", "--help"]
+        )
 
         assert exit_code == 0, f"CLI help failed with stderr: {stderr}"
         assert "GraphQL" in stdout or "graphql" in stdout
         assert "--list-operations" in stdout or "--schema-path" in stdout
         assert "--query" in stdout
 
-    def test_graphql_schema_discovery(self):
-        """Test GraphQL schema discovery functionality."""
-        # This should work even without authentication for schema discovery
+    def test_graphql_schema_discovery(self, auth_session: Any):
+        """Test GraphQL schema discovery via live introspection."""
         exit_code, stdout, stderr = self._run_datahub_cli(
-            ["graphql", "--list-operations"]
+            auth_session, ["graphql", "--list-operations"]
         )
 
-        # Command may exit with error (no DataHub connection) but should not crash
-        assert exit_code in [0, 1], f"Unexpected exit code. stderr: {stderr}"
-        assert "Traceback" not in stderr  # No Python crashes
-        assert (
-            "graphql" not in stderr.lower() or "command not found" not in stderr.lower()
-        )
+        assert exit_code == 0, f"Schema discovery failed. stderr: {stderr}"
+        assert "Traceback" not in stderr
 
-    def test_graphql_file_path_handling(self):
-        """Test that GraphQL CLI properly handles file path arguments."""
+    def test_graphql_file_path_handling(self, auth_session: Any):
+        """Test that GraphQL CLI properly handles absolute file path arguments."""
         with tempfile.NamedTemporaryFile(
             mode="w", suffix=".graphql", delete=False
         ) as f:
@@ -83,13 +65,12 @@ class TestGraphQLCLIStandalone:
             temp_path = f.name
 
         try:
-            # Test with absolute path
             exit_code, stdout, stderr = self._run_datahub_cli(
-                ["graphql", "--query", temp_path, "--format", "json"]
+                auth_session,
+                ["graphql", "--query", temp_path, "--format", "json"],
             )
 
-            # Should recognize as file path (may fail due to missing DataHub connection)
-            assert exit_code in [0, 1], (
+            assert exit_code == 0, (
                 f"Unexpected exit code with file path. stderr: {stderr}"
             )
             assert "No such file or directory" not in stderr
@@ -98,26 +79,24 @@ class TestGraphQLCLIStandalone:
         finally:
             os.unlink(temp_path)
 
-    def test_graphql_relative_path_handling(self):
+    def test_graphql_relative_path_handling(self, auth_session: Any):
         """Test that GraphQL CLI handles relative paths correctly."""
-        # Create a temporary GraphQL file in a subdirectory
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_path = Path(temp_dir)
             query_file = temp_path / "test.graphql"
             query_file.write_text("{ __typename }")
 
-            # Change to parent directory and use relative path
             original_cwd = os.getcwd()
             try:
                 os.chdir(temp_path.parent)
                 relative_path = os.path.relpath(str(query_file))
 
                 exit_code, stdout, stderr = self._run_datahub_cli(
-                    ["graphql", "--query", relative_path, "--format", "json"]
+                    auth_session,
+                    ["graphql", "--query", relative_path, "--format", "json"],
                 )
 
-                # Should recognize relative path (may fail due to missing DataHub connection)
-                assert exit_code in [0, 1], (
+                assert exit_code == 0, (
                     f"Relative path handling failed. stderr: {stderr}"
                 )
                 assert "No such file or directory" not in stderr
@@ -333,3 +312,110 @@ class TestGraphQLCLIFileHandling:
 
             finally:
                 os.chdir(original_cwd)
+
+
+class TestAgentFriendlyFeatures:
+    """
+    Smoke tests for the agent-friendly additions to `datahub graphql`.
+
+    Proves that --agent-context, --dry-run, structured exit codes, and
+    non-TTY help injection work correctly against a live DataHub instance.
+    """
+
+    @pytest.fixture(autouse=True)
+    def setup_datahub(self, auth_session):
+        self.auth_session = auth_session
+
+    def _run(self, args: list) -> tuple:
+        """Run `datahub graphql ...` with auth. Returns (exit_code, stdout, stderr)."""
+        result = run_datahub_cmd(
+            ["graphql"] + args,
+            env={
+                "DATAHUB_GMS_URL": self.auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": self.auth_session.gms_token(),
+            },
+        )
+        return result.exit_code, result.stdout, result.stderr
+
+    def test_agent_context_flag_exits_zero(self):
+        """--agent-context prints the context file and exits 0 (no GMS call needed)."""
+        exit_code, stdout, _ = self._run(["--agent-context"])
+        assert exit_code == 0
+        assert "## Output Discipline" in stdout
+        assert "## Dry Run" in stdout
+        assert "## Error Handling" in stdout
+
+    def test_non_tty_help_includes_agent_context(self):
+        """--help in non-TTY (CliRunner/pipe) appends GRAPHQL_AGENT_CONTEXT.md."""
+        exit_code, stdout, _ = self._run(["--help"])
+        assert exit_code == 0
+        # Core help content
+        assert "--dry-run" in stdout
+        assert "--agent-context" in stdout
+        # Agent context injected at the end
+        assert "## Output Discipline" in stdout
+
+    def test_dry_run_with_raw_query_returns_json(self):
+        """`--dry-run --query` returns JSON without hitting the GraphQL endpoint."""
+        query = "{ me { corpUser { urn } } }"
+        exit_code, stdout, stderr = self._run(["--query", query, "--dry-run"])
+        assert exit_code == 0, f"dry-run failed: {stderr}"
+        data = json.loads(stdout)
+        assert data["dry_run"] is True
+        assert data["query"] == query
+        assert "variables" in data
+        assert isinstance(data["variables"], dict)
+
+    def test_dry_run_with_operation_resolves_via_introspection(self):
+        """`--dry-run --operation me` introspects the live schema and shows the query."""
+        exit_code, stdout, stderr = self._run(["--operation", "me", "--dry-run"])
+        assert exit_code == 0, f"dry-run operation failed: {stderr}"
+        data = json.loads(stdout)
+        assert data["dry_run"] is True
+        assert data["operation"] == "me"
+        assert "me" in data["query"]
+        assert "operation_type" in data
+
+    def test_no_args_exits_with_usage_code(self):
+        """`datahub graphql` with no flags exits 2 (usage error)."""
+        exit_code, _, stderr = self._run([])
+        assert exit_code == 2
+        # In non-TTY context, error should be JSON
+        error = json.loads(stderr)
+        assert error["error"] == "usage_error"
+
+    def test_list_operations_returns_real_schema(self):
+        """`--list-operations --format json` returns real DataHub operations."""
+        exit_code, stdout, stderr = self._run(["--list-operations", "--format", "json"])
+        assert exit_code == 0, f"list-operations failed: {stderr}"
+        data = json.loads(stdout)
+        assert "schema" in data
+        queries = data["schema"].get("queries", [])
+        mutations = data["schema"].get("mutations", [])
+        assert len(queries) > 0, "Expected at least one query in live schema"
+        assert len(mutations) > 0, "Expected at least one mutation in live schema"
+        # Spot-check that well-known operations are present
+        query_names = {q["name"] for q in queries}
+        assert "me" in query_names or "search" in query_names
+
+    def test_describe_me_returns_operation_details(self):
+        """`--describe me --format json` returns operation details with arguments."""
+        exit_code, stdout, stderr = self._run(["--describe", "me", "--format", "json"])
+        assert exit_code == 0, f"describe failed: {stderr}"
+        data = json.loads(stdout)
+        assert "operation" in data
+        assert data["operation"]["name"] == "me"
+        assert data["operation"]["type"] in ("Query", "Mutation")
+
+    def test_execute_me_query_returns_current_user(self):
+        """`--query '{ me { corpUser { urn } } }'` returns the authenticated user URN."""
+        exit_code, stdout, stderr = self._run(
+            ["--query", "{ me { corpUser { urn } } }", "--format", "json"]
+        )
+        assert exit_code == 0, f"me query failed: {stderr}"
+        data = json.loads(stdout)
+        # DataHub returns either {me: {...}} or {data: {me: {...}}}
+        me_data = data.get("me") or (data.get("data") or {}).get("me")
+        assert me_data is not None, f"Expected 'me' in response, got: {data}"
+        urn = (me_data.get("corpUser") or {}).get("urn", "")
+        assert urn.startswith("urn:li:corpuser:")

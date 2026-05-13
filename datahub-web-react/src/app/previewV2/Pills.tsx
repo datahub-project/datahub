@@ -2,7 +2,7 @@ import { LayoutOutlined } from '@ant-design/icons';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
-import { BookmarkSimple } from '@phosphor-icons/react';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 

@@ -8,13 +8,16 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Set;
 import org.mockito.InjectMocks;
@@ -24,6 +27,8 @@ import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -332,5 +337,84 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Invalid GraphQL syntax");
     assertEquals(response.getBody().get("message"), "Invalid GraphQL query syntax");
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutReturns503WithRetryAfter() {
+    when(mockRequest.getRequestURI()).thenReturn("/openapi/v3/entity/structuredProperty");
+    when(mockRequest.getMethod()).thenReturn("DELETE");
+    when(mockRequest.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE))
+        .thenReturn("/openapi/v3/entity/{entityName}");
+
+    AsyncRequestTimeoutException ex = new AsyncRequestTimeoutException();
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleAsyncTimeout(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertNotNull(response.getBody());
+    assertEquals(
+        response.getBody().get("error"),
+        "Request timed out. The operation may still be completing in the background.");
+    assertEquals(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER), "30");
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutWithMetricsEmitsCounter() throws Exception {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+    injectMetricUtils(exceptionHandler, metricUtils);
+
+    when(mockRequest.getRequestURI()).thenReturn("/openapi/v3/entity/structuredProperty");
+    when(mockRequest.getMethod()).thenReturn("DELETE");
+    when(mockRequest.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE))
+        .thenReturn("/openapi/v3/entity/{entityName}");
+
+    exceptionHandler.handleAsyncTimeout(new AsyncRequestTimeoutException(), mockRequest);
+
+    double count =
+        meterRegistry
+            .counter(
+                "datahub.http.async_timeout", "request_path", "/openapi/v3/entity/{entityName}")
+            .count();
+    assertEquals(count, 1.0);
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutWithNullMetricsDoesNotThrow() {
+    // metricUtils is null by default (no injection) — verify no NPE
+    when(mockRequest.getRequestURI()).thenReturn("/test");
+    when(mockRequest.getMethod()).thenReturn("GET");
+    when(mockRequest.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).thenReturn(null);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleAsyncTimeout(new AsyncRequestTimeoutException(), mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertEquals(response.getHeaders().getFirst(HttpHeaders.RETRY_AFTER), "30");
+  }
+
+  @Test
+  public void testHandleAsyncTimeoutWithNullPatternFallsBackToUnknown() throws Exception {
+    SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+    MetricUtils metricUtils = MetricUtils.builder().registry(meterRegistry).build();
+    injectMetricUtils(exceptionHandler, metricUtils);
+
+    when(mockRequest.getRequestURI()).thenReturn("/test");
+    when(mockRequest.getMethod()).thenReturn("GET");
+    when(mockRequest.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE)).thenReturn(null);
+
+    exceptionHandler.handleAsyncTimeout(new AsyncRequestTimeoutException(), mockRequest);
+
+    double count =
+        meterRegistry.counter("datahub.http.async_timeout", "request_path", "unknown").count();
+    assertEquals(count, 1.0);
+  }
+
+  private static void injectMetricUtils(
+      GlobalControllerExceptionHandler handler, MetricUtils metricUtils) throws Exception {
+    Field field = GlobalControllerExceptionHandler.class.getDeclaredField("metricUtils");
+    field.setAccessible(true);
+    field.set(handler, metricUtils);
   }
 }

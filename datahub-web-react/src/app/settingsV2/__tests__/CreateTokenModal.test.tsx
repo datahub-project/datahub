@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 import { AccessTokenDuration, AccessTokenType } from '@types';
 
@@ -77,7 +78,11 @@ describe('CreateTokenModal', () => {
     });
 
     const renderWithRouter = (component: React.ReactNode) => {
-        return render(<MemoryRouter>{component}</MemoryRouter>);
+        return render(
+            <CustomThemeProvider>
+                <MemoryRouter>{component}</MemoryRouter>
+            </CustomThemeProvider>,
+        );
     };
 
     describe('Personal Token Creation', () => {

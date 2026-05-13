@@ -1,16 +1,18 @@
+import { ShieldWarning } from '@phosphor-icons/react/dist/csr/ShieldWarning';
 import React from 'react';
 import styled from 'styled-components/macro';
 
 import CreateServiceAccountModal from '@app/identity/serviceAccount/CreateServiceAccountModal';
 import { ModalFooter, ServiceAccountTable } from '@app/identity/serviceAccount/ServiceAccountList.components';
 import {
+    useServiceAccountDefaultView,
     useServiceAccountListData,
     useServiceAccountListState,
     useServiceAccountRoleAssignment,
+    useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
 import { Message } from '@app/shared/Message';
 import { Button, Icon, Modal, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 const PageContainer = styled.div`
     display: flex;
@@ -27,7 +29,7 @@ const NoPermissionContainer = styled.div`
     padding: 60px 20px;
     text-align: center;
     gap: 16px;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type ServiceAccountListProps = {
@@ -80,6 +82,9 @@ export const ServiceAccountList = ({
         refetch,
     );
 
+    const { viewOptions } = useServiceAccountViewOptions();
+    const { handleDefaultViewChange } = useServiceAccountDefaultView(refetch);
+
     const handleCreateComplete = () => {
         setIsCreatingServiceAccount(false);
     };
@@ -95,7 +100,7 @@ export const ServiceAccountList = ({
     if (!canManageServiceAccounts) {
         return (
             <NoPermissionContainer>
-                <Icon icon="ShieldWarning" source="phosphor" size="4xl" color="gray" />
+                <Icon icon={ShieldWarning} size="4xl" color="gray" />
                 <Text size="lg" weight="semiBold">
                     Access Denied
                 </Text>
@@ -126,6 +131,7 @@ export const ServiceAccountList = ({
                 serviceAccounts={serviceAccounts}
                 selectRoleOptions={selectRoleOptions}
                 optimisticRoles={optimisticRoles}
+                viewOptions={viewOptions}
                 loading={loading}
                 page={page}
                 pageSize={pageSize}
@@ -135,6 +141,7 @@ export const ServiceAccountList = ({
                 }}
                 onDelete={handleDelete}
                 onRoleChange={handleRoleChange}
+                onDefaultViewChange={handleDefaultViewChange}
                 refetch={refetch}
             />
 
