@@ -6,9 +6,10 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator
+from pydantic import PositiveInt, field_validator, model_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
+from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -71,6 +72,7 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
@@ -133,6 +135,15 @@ class MongoDBConfig(
         description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
     )
 
+    emit_as_documentdb: bool = Field(
+        default=False,
+        description=(
+            "Emit entities under the `documentdb` data platform URN instead of "
+            "`mongodb`. Only takes effect when `hostingEnvironment` is set to "
+            "`AWS_DOCUMENTDB`."
+        ),
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -161,6 +172,19 @@ class MongoDBConfig(
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
         return doc_size_filter_value
+
+    @model_validator(mode="after")
+    def warn_if_documentdb_emission_misconfigured(self) -> Self:
+        if (
+            self.emit_as_documentdb
+            and self.hostingEnvironment != HostingEnvironment.AWS_DOCUMENTDB
+        ):
+            add_global_warning(
+                "emit_as_documentdb is True but hostingEnvironment is not "
+                "AWS_DOCUMENTDB — the flag is being ignored and entities will "
+                "continue to be emitted under the mongodb data platform. "
+            )
+        return self
 
 
 @dataclass
@@ -292,12 +316,17 @@ class MongoDBSource(StatefulIngestionSourceBase):
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str = "mongodb"
+    platform: str
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
+        self.platform = (
+            "documentdb"
+            if (config.emit_as_documentdb and self.is_hosted_on_aws_documentdb())
+            else "mongodb"
+        )
 
         options = {}
         if self.config.username is not None:
