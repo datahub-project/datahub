@@ -720,6 +720,13 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ]
 
     def process_ml_models(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if self.config.ml_model_max_results == 0:
+            logger.info(
+                "Skipping ML model ingestion for schema %s because ml_model_max_results is 0",
+                schema.id,
+            )
+            return
+
         for ml_model in self.unity_catalog_api_proxy.ml_models(
             schema=schema, max_results=self.config.ml_model_max_results
         ):
