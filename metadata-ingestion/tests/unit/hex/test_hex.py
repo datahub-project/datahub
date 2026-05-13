@@ -5,7 +5,8 @@ from unittest.mock import MagicMock, patch
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
-from datahub.ingestion.source.hex.hex import HexSource, HexSourceConfig
+from datahub.ingestion.source.hex.config import HexSourceConfig
+from datahub.ingestion.source.hex.hex import HexSource
 from tests.unit.hex.conftest import load_json_data
 
 
