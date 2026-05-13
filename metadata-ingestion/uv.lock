@@ -1894,6 +1894,8 @@ testing-utils = [
     { name = "pyyaml" },
 ]
 thoughtspot = [
+    { name = "patchy" },
+    { name = "sqlglot" },
     { name = "thoughtspot-rest-api" },
 ]
 trino = [
@@ -2828,6 +2830,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'superset'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'tableau'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'teradata'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'thoughtspot'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'vertica'", specifier = "==2.8.0" },
@@ -3358,6 +3361,7 @@ requires-dist = [
     { name = "sqlglot", marker = "extra == 'superset'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'tableau'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'teradata'", specifier = "==30.0.3" },
+    { name = "sqlglot", marker = "extra == 'thoughtspot'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'trino'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'unity-catalog'", specifier = "==30.0.3" },
     { name = "sqlglot", marker = "extra == 'vertica'", specifier = "==30.0.3" },

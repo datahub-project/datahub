@@ -1377,6 +1377,8 @@ teradata = [
 ]
 
 thoughtspot = [
+    "patchy==2.8.0",
+    "sqlglot==30.0.3",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
 ]
 
