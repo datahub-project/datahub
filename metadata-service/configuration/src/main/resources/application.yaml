@@ -1434,6 +1434,17 @@ metadataChangeLog:
     batch:
       enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
       size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+  throttle:
+    timeseries:
+      entityIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED:false}
+      timeseriesIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED:false}
+      observe:
+        enabled: ${MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED:false}
+      refreshPeriodSeconds: ${MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS:3600}
+      refreshOverrides: ${MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES:{}}
+      maxCacheUrns: ${MCL_TIMESERIES_THROTTLE_MAX_URNS:10000}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}
