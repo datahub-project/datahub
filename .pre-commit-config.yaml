@@ -41,6 +41,13 @@ repos:
         files: ^datahub-agent-context/.*\.(py|toml)$
         pass_filenames: false
 
+      - id: datahub-frontend-spotless
+        name: datahub-frontend Spotless Apply
+        entry: ./gradlew :datahub-frontend:spotlessApply -x generateGitPropertiesGlobal
+        language: system
+        files: ^datahub-frontend/.*\.java$
+        pass_filenames: false
+
       - id: datahub-graphql-core-spotless
         name: datahub-graphql-core Spotless Apply
         entry: ./gradlew :datahub-graphql-core:spotlessApply -x generateGitPropertiesGlobal
@@ -214,8 +221,6 @@ repos:
           -x generateGitPropertiesGlobal
         language: system
         files: ^metadata-integration/java/openlineage-converter/.*\.java$
-        pass_filenames: false
-
         pass_filenames: false
 
       - id: metadata-io-spotless
@@ -565,3 +570,9 @@ repos:
         pass_filenames: false
         files: ^datahub-web-react/.*\.(ts|tsx|js)$
         entry: ./gradlew :datahub-web-react:lintFix
+
+      - id: bump-schema-versions
+        name: Bump PDL schema versions
+        entry: python .github/scripts/bump_schema_versions.py
+        language: python
+        pass_filenames: false
