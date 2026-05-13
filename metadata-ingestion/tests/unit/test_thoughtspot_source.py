@@ -2873,7 +2873,7 @@ class TestHttpStatusCodeHelper:
         regardless of the stringified message wording."""
         from datahub.ingestion.source.thoughtspot.client import _http_status_code
 
-        e = Exception("Server says ok actually")
+        e: Any = Exception("Server says ok actually")
         e.response = MagicMock(status_code=403)
 
         assert _http_status_code(e) == 403
@@ -2893,7 +2893,7 @@ class TestHttpStatusCodeHelper:
         a backup, not a peer."""
         from datahub.ingestion.source.thoughtspot.client import _http_status_code
 
-        e = Exception("The 404 page is fine, this is a 401")
+        e: Any = Exception("The 404 page is fine, this is a 401")
         e.response = MagicMock(status_code=403)
 
         assert _http_status_code(e) == 403
@@ -7012,8 +7012,8 @@ class TestResolveSqlViewWarehouse:
 
     @staticmethod
     def _make_source(
-        connections=None,
-        external_connections=None,
+        connections: Optional[List[ConnectionResponse]] = None,
+        external_connections: Optional[Dict[str, Any]] = None,
     ) -> ThoughtSpotSource:
         """Build a ThoughtSpotSource with the connection lookup
         pre-populated. ``connections`` is the list ``get_connections``
@@ -7152,7 +7152,7 @@ class TestProcessDatasetSqlViewIntegration:
     )
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_sql_view_emits_view_properties_and_parsed_upstreams(
-        self, mock_client_cls, _mock_resolver, mock_parser
+        self, mock_client_cls, _mock_resolver, mock_parser, monkeypatch
     ):
         upstream_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
@@ -7196,8 +7196,15 @@ class TestProcessDatasetSqlViewIntegration:
         # parsing without a known dialect, but viewLogic still emits).
         # The SQL view code path now goes through _resolve_sql_view_warehouse,
         # so inject there rather than _resolve_external_upstream.
-        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(
-            platform="snowflake", env="PROD", platform_instance=None, default_db=None
+        monkeypatch.setattr(
+            source,
+            "_resolve_sql_view_warehouse",
+            lambda table: SqlViewWarehouseRef(
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db=None,
+            ),
         )
         wus = list(source.get_workunits_internal())
 
@@ -7226,7 +7233,7 @@ class TestProcessDatasetSqlViewIntegration:
     )
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_sql_view_dedups_against_existing_ts_resolved_fgl_edges(
-        self, mock_client_cls, _mock_resolver, mock_parser
+        self, mock_client_cls, _mock_resolver, mock_parser, monkeypatch
     ):
         """End-to-end dedup contract: when the SQL_VIEW has a TS-pre-resolved
         ``columns[*].sources`` edge that ``_apply_dataset_upstreams`` already
@@ -7273,8 +7280,8 @@ class TestProcessDatasetSqlViewIntegration:
                         data_type="INT",
                         sources=[
                             ColumnSourceRef(
-                                tableId="prod.public.upstream",
-                                columnName="id",
+                                table_id="prod.public.upstream",
+                                column_name="id",
                             )
                         ],
                     ),
@@ -7297,8 +7304,15 @@ class TestProcessDatasetSqlViewIntegration:
         )
         source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
         # Inject the warehouse identity so the parser path runs.
-        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(
-            platform="snowflake", env="PROD", platform_instance=None, default_db=None
+        monkeypatch.setattr(
+            source,
+            "_resolve_sql_view_warehouse",
+            lambda table: SqlViewWarehouseRef(
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db=None,
+            ),
         )
         # The TS-resolved column lineage path needs to land on the dataset
         # with the same URN shape the parser would produce. We patch
@@ -7309,10 +7323,12 @@ class TestProcessDatasetSqlViewIntegration:
         # Each table the TS edges reference must map to the same warehouse
         # URN the SQL parser produced — otherwise the URNs don't collide
         # and dedup has nothing to do.
-        source._make_self_dataset_urn = (
+        monkeypatch.setattr(
+            source,
+            "_make_self_dataset_urn",
             lambda name: upstream_urn
             if name == "prod.public.upstream"
-            else original_make_self_urn(name)
+            else original_make_self_urn(name),
         )
 
         wus = list(source.get_workunits_internal())
@@ -7594,7 +7610,7 @@ class TestIterGeneratorSemantics:
     contract directly."""
 
     @staticmethod
-    def _make_client_with_paginated(items):
+    def _make_client_with_paginated(items, monkeypatch):
         """Build a client whose ``_paginated_metadata_search`` yields the
         given items, lazily."""
         config = ThoughtSpotConnectionConfig(
@@ -7616,20 +7632,28 @@ class TestIterGeneratorSemantics:
                 seen["items"] += 1
                 yield item
 
-        client._paginated_metadata_search = _gen
+        monkeypatch.setattr(client, "_paginated_metadata_search", _gen)
         # No-op TML enrichment (returns the buffer unchanged) so the
         # generator's buffering loop is what's exercised.
-        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)
-        client._enrich_and_yield_answers = lambda ans: iter(ans)
+        monkeypatch.setattr(
+            client,
+            "_enrich_and_yield_liveboards",
+            lambda liveboards: iter(liveboards),
+        )
+        monkeypatch.setattr(
+            client,
+            "_enrich_and_yield_answers",
+            lambda answers: iter(answers),
+        )
         return client, seen
 
-    def test_iter_liveboards_is_lazy(self):
+    def test_iter_liveboards_is_lazy(self, monkeypatch):
         """Consuming only the first item must not force the upstream
         generator past the next batch boundary."""
         # ``_paginated_metadata_search`` yields already-flattened dicts;
         # callers ``model_validate`` them directly. Use the flat shape.
         items = [{"id": f"lb-{i}", "name": f"LB-{i}"} for i in range(200)]
-        client, seen = self._make_client_with_paginated(items)
+        client, seen = self._make_client_with_paginated(items, monkeypatch)
         # batch_size default is 50; the first yield happens after the
         # buffer fills.
         gen = client.iter_liveboards()
@@ -7638,24 +7662,24 @@ class TestIterGeneratorSemantics:
         # We've only consumed one batch — not the whole 200.
         assert seen["items"] <= client.config.tml_export_batch_size
 
-    def test_iter_answers_is_lazy(self):
+    def test_iter_answers_is_lazy(self, monkeypatch):
         items = [{"id": f"ans-{i}", "name": f"A-{i}"} for i in range(200)]
-        client, seen = self._make_client_with_paginated(items)
+        client, seen = self._make_client_with_paginated(items, monkeypatch)
         gen = client.iter_answers()
         first = next(gen)
         assert first.id == "ans-0"
         assert seen["items"] <= client.config.tml_export_batch_size
 
-    def test_iter_liveboards_yields_partial_buffer_at_eof(self):
+    def test_iter_liveboards_yields_partial_buffer_at_eof(self, monkeypatch):
         """If the upstream emits fewer than ``batch_size`` items, the
         last partial buffer still flushes and yields. Without this
         users would lose the tail of the result."""
         items = [{"id": f"lb-{i}", "name": f"LB-{i}"} for i in range(3)]
-        client, _ = self._make_client_with_paginated(items)
+        client, _ = self._make_client_with_paginated(items, monkeypatch)
         yielded = list(client.iter_liveboards())
         assert [lb.id for lb in yielded] == ["lb-0", "lb-1", "lb-2"]
 
-    def test_iter_liveboards_skips_malformed_and_aggregates_count(self):
+    def test_iter_liveboards_skips_malformed_and_aggregates_count(self, monkeypatch):
         """A malformed item (empty ``id``) is dropped per-item and the
         client increments ``malformed_liveboards_dropped``; the run
         does not abort, and clean siblings still emit."""
@@ -7664,12 +7688,12 @@ class TestIterGeneratorSemantics:
             {"id": "", "name": "no-id"},  # min_length=1 → ValidationError
             {"id": "lb-2", "name": "also-good"},
         ]
-        client, _ = self._make_client_with_paginated(items)
+        client, _ = self._make_client_with_paginated(items, monkeypatch)
         yielded = list(client.iter_liveboards())
         assert {lb.id for lb in yielded} == {"lb-1", "lb-2"}
         assert client.report.malformed_liveboards_dropped == 1
 
-    def test_iter_answers_skips_malformed_and_aggregates_count(self):
+    def test_iter_answers_skips_malformed_and_aggregates_count(self, monkeypatch):
         """Mirror of the liveboard test for answers. ``iter_answers``
         has the additional ``_coerce_source_tables`` drop path on top
         of the parse path; this test only exercises the parse path. The
@@ -7681,7 +7705,7 @@ class TestIterGeneratorSemantics:
             {"id": "", "name": "no-id"},  # min_length=1 → ValidationError
             {"id": "ans-2", "name": "also-good"},
         ]
-        client, _ = self._make_client_with_paginated(items)
+        client, _ = self._make_client_with_paginated(items, monkeypatch)
         yielded = list(client.iter_answers())
         assert {a.id for a in yielded} == {"ans-1", "ans-2"}
         assert client.report.malformed_answers_dropped == 1
@@ -7697,7 +7721,7 @@ class TestGetLogicalTablesDropAggregation:
     """
 
     @staticmethod
-    def _make_client_with_raw(items):
+    def _make_client_with_raw(items, monkeypatch):
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
@@ -7707,18 +7731,18 @@ class TestGetLogicalTablesDropAggregation:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client.get_metadata_list = lambda **_: items
+        monkeypatch.setattr(client, "get_metadata_list", lambda **_: items)
         return client
 
-    def test_clean_batch_no_drops(self):
+    def test_clean_batch_no_drops(self, monkeypatch):
         items = [{"id": "ws-1", "name": "orders", "type": "WORKSHEET"}]
-        client = self._make_client_with_raw(items)
+        client = self._make_client_with_raw(items, monkeypatch)
         result = client.get_logical_tables()
         assert len(result) == 1
         assert client.report.malformed_logical_tables_dropped == 0
         assert client.report.malformed_column_sources_dropped == 0
 
-    def test_malformed_table_drops_increment_counter(self):
+    def test_malformed_table_drops_increment_counter(self, monkeypatch):
         """A bad worksheet in the middle of a batch does not abort the
         batch; clean siblings still emit."""
         items = [
@@ -7726,12 +7750,12 @@ class TestGetLogicalTablesDropAggregation:
             {"id": "", "name": "no-id"},  # ValidationError on min_length=1
             {"id": "ws-2", "name": "also-good", "type": "WORKSHEET"},
         ]
-        client = self._make_client_with_raw(items)
+        client = self._make_client_with_raw(items, monkeypatch)
         result = client.get_logical_tables()
         assert {t.id for t in result} == {"ws-1", "ws-2"}
         assert client.report.malformed_logical_tables_dropped == 1
 
-    def test_column_source_drops_surface_to_counter(self):
+    def test_column_source_drops_surface_to_counter(self, monkeypatch):
         """A nested malformed ``ColumnSourceRef`` (e.g. missing
         ``table_id``) is rejected by ``_coerce_sources`` and routes
         through the validation context — the parent column / table
@@ -7755,7 +7779,7 @@ class TestGetLogicalTablesDropAggregation:
                 ],
             }
         ]
-        client = self._make_client_with_raw(items)
+        client = self._make_client_with_raw(items, monkeypatch)
         result = client.get_logical_tables()
         assert len(result) == 1
         # The good source survived.
@@ -7772,7 +7796,7 @@ class TestSqlViewDefinitionFetch:
     """
 
     @staticmethod
-    def _make_client_with_tml(items):
+    def _make_client_with_tml(items, monkeypatch):
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
@@ -7782,11 +7806,15 @@ class TestSqlViewDefinitionFetch:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client._iter_tml_export_items = lambda *a, **kw: iter(items)
-        client._check_tml_item_status = lambda item, _kind: True
+        monkeypatch.setattr(
+            client, "_iter_tml_export_items", lambda *a, **kw: iter(items)
+        )
+        monkeypatch.setattr(
+            client, "_check_tml_item_status", lambda item, metadata_type: True
+        )
         return client
 
-    def test_returns_id_to_sql_map(self):
+    def test_returns_id_to_sql_map(self, monkeypatch):
         """Happy path: TML export returns a sql_view whose
         ``sql_query`` is a string (the modern TS Cloud shape) → the
         method returns ``{guid: sql}``.
@@ -7801,11 +7829,11 @@ class TestSqlViewDefinitionFetch:
                 ),
             }
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         result = client.get_sql_view_definitions(["sv-1"])
         assert result == {"sv-1": "SELECT col_a FROM upstream"}
 
-    def test_forbidden_sql_view_silently_absent_from_map(self):
+    def test_forbidden_sql_view_silently_absent_from_map(self, monkeypatch):
         """A SQL view with per-item ``ERROR`` status (FORBIDDEN
         per-object ACL) is silently absent from the returned map.
         Regression guard for the ``_check_tml_item_status`` reuse —
@@ -7825,18 +7853,20 @@ class TestSqlViewDefinitionFetch:
                 "edoc": None,
             }
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         # Use the real _check_tml_item_status (not the stubbed True-return
         # from the helper) to exercise the real ERROR-status path.
-        client._check_tml_item_status = (
-            ThoughtSpotClient._check_tml_item_status.__get__(client)
+        monkeypatch.setattr(
+            client,
+            "_check_tml_item_status",
+            ThoughtSpotClient._check_tml_item_status.__get__(client),
         )
         result = client.get_sql_view_definitions(["sv-bad"])
         assert result == {}
         titles = [w.title for w in client.report.warnings]
         assert "TML Export Failed" in titles
 
-    def test_yaml_parse_failure_aggregated_in_report(self):
+    def test_yaml_parse_failure_aggregated_in_report(self, monkeypatch):
         """A broken-YAML SQL view payload surfaces as a single
         aggregated ``SQL View TML Parse Failures`` warning, not one
         warning per object. Mirrors the existing liveboard / answer
@@ -7847,7 +7877,7 @@ class TestSqlViewDefinitionFetch:
                 "edoc": "sql_view: [malformed",
             }
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         result = client.get_sql_view_definitions(["sv-broken"])
         assert result == {}
         titles = [w.title for w in client.report.warnings]
@@ -7859,7 +7889,7 @@ class TestSqlViewDefinitionFetch:
         )
         assert "sv-broken" in (bad.context[0] if bad.context else "")
 
-    def test_structural_skip_when_statement_field_missing(self):
+    def test_structural_skip_when_statement_field_missing(self, monkeypatch):
         """TML parses fine but lacks any of ``sql_view.sql_query`` /
         ``sql_view.sql_query.statement`` / ``sql_view.statement`` →
         counted as structural_skip and surfaced via report.info."""
@@ -7869,7 +7899,7 @@ class TestSqlViewDefinitionFetch:
                 "edoc": "sql_view:\n  name: Shape Drift\n  some_other_key: value\n",
             }
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         result = client.get_sql_view_definitions(["sv-shape"])
         assert result == {}
         info_titles = [i.title for i in client.report.infos]
@@ -7951,7 +7981,7 @@ class TestTMLParseAggregation:
     """
 
     @staticmethod
-    def _make_client_with_tml(items):
+    def _make_client_with_tml(items, monkeypatch):
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
@@ -7961,11 +7991,15 @@ class TestTMLParseAggregation:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client._iter_tml_export_items = lambda *a, **kw: iter(items)
-        client._check_tml_item_status = lambda item, _kind: True
+        monkeypatch.setattr(
+            client, "_iter_tml_export_items", lambda *a, **kw: iter(items)
+        )
+        monkeypatch.setattr(
+            client, "_check_tml_item_status", lambda item, metadata_type: True
+        )
         return client
 
-    def test_liveboard_yaml_parse_failure_aggregates_warning(self):
+    def test_liveboard_yaml_parse_failure_aggregates_warning(self, monkeypatch):
         """A liveboard whose TML payload is broken YAML must be
         captured in a single aggregated ``report.warning`` so operators
         see *which* liveboards lost their chart layer."""
@@ -7975,7 +8009,7 @@ class TestTMLParseAggregation:
                 "edoc": "this: is: not: valid: yaml: [",
             },
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         result = client._get_liveboard_visualizations_via_tml(["lb-bad"])
         assert result == {}
         # The warning lives in the structured-logs section of the
@@ -7988,20 +8022,20 @@ class TestTMLParseAggregation:
         bad = next(w for w in warnings if w.title == "Liveboard TML Parse Failures")
         assert "lb-bad" in (bad.context[0] if bad.context else "")
 
-    def test_answer_yaml_parse_failure_aggregates_warning(self):
+    def test_answer_yaml_parse_failure_aggregates_warning(self, monkeypatch):
         items = [
             {
                 "info": {"id": "ans-bad"},
                 "edoc": "broken: [yaml",
             },
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         result = client._get_answer_dependencies(["ans-bad"])
         assert result == []
         titles = [w.title for w in client.report.warnings]
         assert "Answer TML Parse Failures" in titles
 
-    def test_liveboard_structural_skip_surfaces_info(self):
+    def test_liveboard_structural_skip_surfaces_info(self, monkeypatch):
         """TML parses fine but has no liveboard/visualizations keys →
         F3 ``structural_skips`` increments and a ``report.info`` is
         emitted so the operator notices possible TS schema drift."""
@@ -8012,7 +8046,7 @@ class TestTMLParseAggregation:
                 "edoc": "liveboard:\n  visualizations:\n    - not_a_dict\n",
             },
         ]
-        client = self._make_client_with_tml(items)
+        client = self._make_client_with_tml(items, monkeypatch)
         client._get_liveboard_visualizations_via_tml(["lb-shape-drift"])
         infos = [i.title for i in client.report.infos]
         assert "Liveboard TML structural skips" in infos
@@ -8577,7 +8611,7 @@ class TestMetadataSearchIncludeStats:
             )
 
     @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
-    def test_stats_flows_through_to_parsed_model(self, mock_sdk_class):
+    def test_stats_flows_through_to_parsed_model(self, mock_sdk_class, monkeypatch):
         """When the wire response contains a ``stats`` block, the
         parsed ``LiveboardResponse`` exposes it as ``entity.stats``."""
         from datahub.ingestion.source.thoughtspot.models import EntityStats
@@ -8604,7 +8638,11 @@ class TestMetadataSearchIncludeStats:
         client = ThoughtSpotClient(config, report=ThoughtSpotReport())
         # No-op enrichment so the parsed LiveboardResponse passes through
         # unchanged (we don't have TML in this test fixture).
-        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)
+        monkeypatch.setattr(
+            client,
+            "_enrich_and_yield_liveboards",
+            lambda liveboards: iter(liveboards),
+        )
 
         liveboards = list(client.iter_liveboards())
         assert len(liveboards) == 1
