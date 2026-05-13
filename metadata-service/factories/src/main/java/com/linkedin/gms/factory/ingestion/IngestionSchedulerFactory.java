@@ -4,6 +4,7 @@ import com.datahub.metadata.ingestion.IngestionScheduler;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,12 +14,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Scope;
 
-@Import({SystemAuthenticationFactory.class})
+@Import({SystemAuthenticationFactory.class, IngestionVersionMatrixServiceFactory.class})
 public class IngestionSchedulerFactory {
 
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configProvider;
+
+  @Autowired
+  @Qualifier("ingestionVersionMatrixService")
+  private IngestionVersionMatrixService versionMatrixService;
 
   @Value("${ingestion.scheduler.delayIntervalSeconds:45}") // Boot up ingestion source cache after
   // waiting 45 seconds for startup.
@@ -38,6 +43,7 @@ public class IngestionSchedulerFactory {
         systemOpContext,
         entityClient,
         configProvider.getIngestion(),
+        versionMatrixService,
         delayIntervalSeconds,
         refreshIntervalSeconds);
   }

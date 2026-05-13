@@ -16,6 +16,8 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -26,8 +28,30 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
+import org.json.JSONException;
+import org.json.JSONObject;
 
-/** Creates an on-demand ingestion execution request. */
+/**
+ * Creates an on-demand "test connection" ingestion execution request.
+ *
+ * <p>Version resolution priority (top wins):
+ *
+ * <ol>
+ *   <li>{@code input.version} — explicit per-request override (existing behavior)
+ *   <li>{@code matrix[serverVersion][source.type]} — connector-specific version pin from {@link
+ *       IngestionVersionMatrixService} when enabled
+ *   <li>{@code matrix[serverVersion][source.type]._default}
+ *   <li>{@link IngestionConfiguration#getDefaultCliVersion()} — workspace-wide fallback
+ * </ol>
+ *
+ * <p>Prior to this change the test-connection path silently omitted {@code version} when the input
+ * did not provide one, causing the executor to fall back to whatever bundled default it shipped
+ * with — different from the path that real (non-test) executions take. The {@code
+ * defaultCliVersion} fallback below closes that gap; the matrix lookup brings test connections onto
+ * the same per-connector-pin behavior real executions get.
+ */
+@Slf4j
 public class CreateTestConnectionRequestResolver implements DataFetcher<CompletableFuture<String>> {
 
   private static final String TEST_CONNECTION_TASK_NAME = "TEST_CONNECTION";
@@ -35,14 +59,31 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private static final String RECIPE_ARG_NAME = "recipe";
   private static final String VERSION_ARG_NAME = "version";
   private static final String DEFAULT_EXECUTOR_ID = "default";
+  private static final String SOURCE_FIELD = "source";
+  private static final String TYPE_FIELD = "type";
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final IngestionVersionMatrixService _versionMatrixService;
 
+  /** Two-arg constructor — no per-connector version matrix is consulted. */
   public CreateTestConnectionRequestResolver(
       final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
+    this(entityClient, ingestionConfiguration, null);
+  }
+
+  /**
+   * Three-arg constructor for deployments that want matrix-aware version resolution. When {@code
+   * versionMatrixService} is non-null the per-connector version matrix is consulted before falling
+   * back to {@code defaultCliVersion}.
+   */
+  public CreateTestConnectionRequestResolver(
+      final EntityClient entityClient,
+      final IngestionConfiguration ingestionConfiguration,
+      final IngestionVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
+    _versionMatrixService = versionMatrixService;
   }
 
   @Override
@@ -80,18 +121,23 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                 RECIPE_ARG_NAME,
                 IngestionUtils.injectPipelineName(
                     input.getRecipe(), executionRequestUrn.toString()));
-            // Mirror the manual-ingestion path (CreateIngestionExecutionRequestResolver) which
-            // routes the same call through IngestionUtils.resolveIngestionCliVersion. Without
-            // this, a test-connection request with no input.version (or a blank one) silently
-            // omits args.version, causing the executor to fall back to its bundled CLI version
-            // rather than the configured defaultCliVersion. That divergence makes test
-            // connections run on a different CLI than the actual ingestion will use — hiding
-            // compatibility issues that surface in production.
-            arguments.put(
-                VERSION_ARG_NAME,
-                IngestionUtils.resolveIngestionCliVersion(
-                    input.getVersion(), _ingestionConfiguration.getDefaultCliVersion()));
+            // input.getVersion() may be null, empty, or whitespace-only (UI forms can submit any
+            // of these); the helper normalizes all three to "unset" and falls through to the
+            // matrix / workspace default. See #17471 for the whitespace-only edge case.
+            final CliVersionResolutionHelper.Result resolution =
+                CliVersionResolutionHelper.resolve(
+                    input.getVersion(),
+                    extractSourceType(input.getRecipe()),
+                    _versionMatrixService,
+                    _ingestionConfiguration.getDefaultCliVersion(),
+                    _versionMatrixService != null
+                        ? _versionMatrixService.getServerVersion()
+                        : null);
+            if (resolution.getVersion() != null && !resolution.getVersion().isEmpty()) {
+              arguments.put(VERSION_ARG_NAME, resolution.getVersion());
+            }
             execInput.setArgs(new StringMap(arguments));
+            execInput.setCliVersionProvenance(resolution.getStamp());
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithKey(
@@ -109,5 +155,32 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /**
+   * Best-effort extraction of {@code source.type} from a recipe JSON document. Returns {@code null}
+   * for any malformed input — the resolver falls back to {@code defaultCliVersion} in that case
+   * rather than failing the request, since a malformed recipe will surface a clearer error
+   * downstream when the executor parses it.
+   */
+  static String extractSourceType(final String recipeJson) {
+    if (recipeJson == null || recipeJson.isEmpty()) {
+      return null;
+    }
+    try {
+      JSONObject recipe = new JSONObject(recipeJson);
+      if (!recipe.has(SOURCE_FIELD)) {
+        return null;
+      }
+      JSONObject source = recipe.getJSONObject(SOURCE_FIELD);
+      if (!source.has(TYPE_FIELD)) {
+        return null;
+      }
+      String type = source.getString(TYPE_FIELD);
+      return (type != null && !type.isEmpty()) ? type : null;
+    } catch (JSONException e) {
+      log.debug("Could not extract source.type from recipe for version-matrix lookup", e);
+      return null;
+    }
   }
 }

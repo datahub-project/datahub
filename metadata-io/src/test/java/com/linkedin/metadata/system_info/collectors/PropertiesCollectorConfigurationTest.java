@@ -84,7 +84,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "postgres.pgQueue.pool.password",
           "postgres.pgCron.admin.password",
           "postgres.pgCron.iam.awsSecretAccessKey",
-          "postgres.pgCron.iam.awsSessionToken");
+          "postgres.pgCron.iam.awsSessionToken",
+          // Auth token for fetching the per-connector CLI version matrix from a private host
+          // (e.g. "token ghp_xxx" for a private GitHub repo, "Bearer ey..." for OIDC). Property
+          // name intentionally ends with "Token" so PropertiesCollector's keyword-based redaction
+          // catches it without needing a new keyword in SENSITIVE_PATTERNS.
+          "ingestion.versionMatrixAuthToken");
 
   /**
    * Template patterns for sensitive properties that contain dynamic parts. Use [*] for numeric
@@ -752,8 +757,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "incidents.hook.maxIncidentHistory",
           "ingestion.batchRefreshCount",
           "ingestion.defaultCliVersion",
+          "ingestion.deploymentId",
           "ingestion.enabled",
           "ingestion.maxSerializedStringLength",
+          "ingestion.versionMatrixRefreshSeconds",
+          "ingestion.versionMatrixUrl",
           "ingestionMetrics.enabled",
           "ingestionScheduler.consumerGroupSuffix",
           "ingestionScheduler.enabled",

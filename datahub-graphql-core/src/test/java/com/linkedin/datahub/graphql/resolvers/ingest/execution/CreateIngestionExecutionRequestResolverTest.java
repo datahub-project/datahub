@@ -17,13 +17,17 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.ingestion.DataHubIngestionSourceConfig;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
+import org.json.JSONObject;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -90,6 +94,168 @@ public class CreateIngestionExecutionRequestResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
+  }
+
+  // ---------------------------------------------------------------------------
+  // Version matrix tests — use a source with NO per-source version so the
+  // resolver falls through to the matrix / default-cli-version path.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * When the version matrix has an entry for the connector type, that version should win over the
+   * global defaultCliVersion.
+   */
+  @Test
+  public void testVersionMatrixConnectorSpecificVersionUsed() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    mockBatchGetV2(mockClient, sourceWithoutVersion("snowflake"));
+
+    IngestionConfiguration config = new IngestionConfiguration();
+    config.setDefaultCliVersion("default-global");
+
+    // Matrix maps "1.3.1.4" → { "snowflake": "matrix-snowflake-version" }
+    IngestionVersionMatrixService matrixService =
+        matrixServiceForConnector("snowflake", "matrix-snowflake-version", "1.3.1.4");
+
+    CreateIngestionExecutionRequestResolver resolver =
+        new CreateIngestionExecutionRequestResolver(mockClient, config, matrixService);
+
+    String resolvedVersion = executeAndCaptureVersion(mockClient, resolver);
+    assertEquals(resolvedVersion, "matrix-snowflake-version");
+  }
+
+  /**
+   * When the matrix has no entry for the connector under the current server version, the resolver
+   * falls back to the global {@code defaultCliVersion}. (Replaces the old {@code _default}
+   * server-level fallback the previous schema offered — the new schema requires explicit
+   * per-connector entries, and unknown connectors fall through to the workspace default.)
+   */
+  @Test
+  public void testVersionMatrixConnectorNotPresent_fallsBackToDefaultCliVersion() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    mockBatchGetV2(mockClient, sourceWithoutVersion("mysql"));
+
+    IngestionConfiguration config = new IngestionConfiguration();
+    config.setDefaultCliVersion("default-global");
+
+    // Matrix has snowflake only; mysql is absent.
+    IngestionVersionMatrixService matrixService =
+        matrixServiceForConnector("snowflake", "matrix-snowflake-version", "1.3.1.4");
+
+    CreateIngestionExecutionRequestResolver resolver =
+        new CreateIngestionExecutionRequestResolver(mockClient, config, matrixService);
+
+    String resolvedVersion = executeAndCaptureVersion(mockClient, resolver);
+    assertEquals(resolvedVersion, "default-global");
+  }
+
+  /** When the matrix is disabled (null URL), the global {@code defaultCliVersion} is used. */
+  @Test
+  public void testVersionMatrixMissFallsBackToDefaultCliVersion() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    mockBatchGetV2(mockClient, sourceWithoutVersion("mysql"));
+
+    IngestionConfiguration config = new IngestionConfiguration();
+    config.setDefaultCliVersion("default-global");
+
+    // Matrix service backed by a NoOp source → always returns empty
+    IngestionVersionMatrixService matrixService =
+        new IngestionVersionMatrixService(
+            new com.linkedin.metadata.ingestion.NoOpMatrixSource(), "1.3.1.4", null);
+
+    CreateIngestionExecutionRequestResolver resolver =
+        new CreateIngestionExecutionRequestResolver(mockClient, config, matrixService);
+
+    String resolvedVersion = executeAndCaptureVersion(mockClient, resolver);
+    assertEquals(resolvedVersion, "default-global");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  private static DataHubIngestionSourceInfo sourceWithoutVersion(String connectorType) {
+    DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo();
+    info.setName("Test Source");
+    info.setType(connectorType);
+    info.setSchedule(
+        new DataHubIngestionSourceSchedule().setTimezone("UTC").setInterval("* * * * *"));
+    // Deliberately omit .setVersion() so version resolution falls through to the matrix
+    info.setConfig(new DataHubIngestionSourceConfig().setRecipe("{}").setExecutorId("default"));
+    return info;
+  }
+
+  private static void mockBatchGetV2(EntityClient mockClient, DataHubIngestionSourceInfo info)
+      throws Exception {
+    Mockito.when(
+            mockClient.batchGetV2(
+                any(),
+                Mockito.eq(Constants.INGESTION_SOURCE_ENTITY_NAME),
+                Mockito.eq(new HashSet<>(ImmutableSet.of(TEST_INGESTION_SOURCE_URN))),
+                Mockito.eq(ImmutableSet.of(Constants.INGESTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            ImmutableMap.of(
+                TEST_INGESTION_SOURCE_URN,
+                new EntityResponse()
+                    .setEntityName(Constants.INGESTION_SOURCE_ENTITY_NAME)
+                    .setUrn(TEST_INGESTION_SOURCE_URN)
+                    .setAspects(
+                        new EnvelopedAspectMap(
+                            ImmutableMap.of(
+                                Constants.INGESTION_INFO_ASPECT_NAME,
+                                new EnvelopedAspect().setValue(new Aspect(info.data())))))));
+  }
+
+  /**
+   * Returns a matrix service pre-loaded with a single entry under the new nested schema:
+   *
+   * <pre>{@code
+   * { "<serverVersion>": { "<connector>": { "_default": "<version>" } } }
+   * }</pre>
+   *
+   * <p>deploymentId is left null since these tests don't exercise cohort matching.
+   */
+  private static IngestionVersionMatrixService matrixServiceForConnector(
+      String connector, String version, String serverVersion) throws Exception {
+    String json =
+        String.format("{\"%s\":{\"%s\":{\"_default\":\"%s\"}}}", serverVersion, connector, version);
+
+    java.nio.file.Path tmp = java.nio.file.Files.createTempFile("matrix", ".json");
+    java.nio.file.Files.write(tmp, json.getBytes());
+    tmp.toFile().deleteOnExit();
+
+    com.linkedin.metadata.ingestion.HttpUrlMatrixSource httpSource =
+        new com.linkedin.metadata.ingestion.HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionVersionMatrixService svc =
+        new IngestionVersionMatrixService(httpSource, serverVersion, null);
+
+    // Wait for the initial background fetch to complete
+    for (int i = 0; i < 20; i++) {
+      if (svc.resolveVersion(connector).isPresent()) {
+        break;
+      }
+      Thread.sleep(100);
+    }
+    return svc;
+  }
+
+  /** Runs the resolver and returns the {@code version} value from the captured execution args. */
+  private static String executeAndCaptureVersion(
+      EntityClient mockClient, CreateIngestionExecutionRequestResolver resolver) throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    Mockito.verify(mockClient, Mockito.atLeastOnce())
+        .ingestProposal(any(), captor.capture(), anyBoolean());
+
+    String aspectJson = captor.getValue().getAspect().getValue().asString(StandardCharsets.UTF_8);
+    return new JSONObject(aspectJson).getJSONObject("args").getString("version");
   }
 
   @Test

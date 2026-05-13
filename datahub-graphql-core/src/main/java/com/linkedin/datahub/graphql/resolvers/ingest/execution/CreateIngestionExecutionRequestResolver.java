@@ -23,6 +23,8 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -48,11 +50,26 @@ public class CreateIngestionExecutionRequestResolver
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
+  private final IngestionVersionMatrixService _versionMatrixService;
 
+  /** Two-arg constructor — no per-connector version matrix is consulted. */
   public CreateIngestionExecutionRequestResolver(
       final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
+    this(entityClient, ingestionConfiguration, null);
+  }
+
+  /**
+   * Three-arg constructor for deployments that want matrix-aware version resolution. When {@code
+   * versionMatrixService} is non-null, the per-connector version matrix is consulted before falling
+   * back to {@code defaultCliVersion}.
+   */
+  public CreateIngestionExecutionRequestResolver(
+      final EntityClient entityClient,
+      final IngestionConfiguration ingestionConfiguration,
+      final IngestionVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
+    _versionMatrixService = versionMatrixService;
   }
 
   @Override
@@ -122,11 +139,25 @@ public class CreateIngestionExecutionRequestResolver
               recipe = injectRunId(recipe, executionRequestUrn.toString());
               recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
               arguments.put(RECIPE_ARG_NAME, recipe);
-              arguments.put(
-                  VERSION_ARG_NAME,
-                  IngestionUtils.resolveIngestionCliVersion(
-                      ingestionSourceInfo.getConfig().getVersion(),
-                      _ingestionConfiguration.getDefaultCliVersion()));
+              // Per-source version may be null, empty, or whitespace-only (bootstrap YAML
+              // templating can render any of these); the helper normalizes all three to "unset"
+              // and falls through to the matrix / workspace default. See #17471 for the
+              // whitespace-only edge case.
+              final String explicitVersion =
+                  ingestionSourceInfo.getConfig().hasVersion()
+                      ? ingestionSourceInfo.getConfig().getVersion()
+                      : null;
+              final CliVersionResolutionHelper.Result resolution =
+                  CliVersionResolutionHelper.resolve(
+                      explicitVersion,
+                      ingestionSourceInfo.getType(),
+                      _versionMatrixService,
+                      _ingestionConfiguration.getDefaultCliVersion(),
+                      _versionMatrixService != null
+                          ? _versionMatrixService.getServerVersion()
+                          : null);
+              arguments.put(VERSION_ARG_NAME, resolution.getVersion());
+              execInput.setCliVersionProvenance(resolution.getStamp());
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

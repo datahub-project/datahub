@@ -17,6 +17,8 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
+import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -87,6 +89,7 @@ public class IngestionScheduler {
   private final ScheduledExecutorService scheduledExecutorService =
       Executors.newScheduledThreadPool(1);
   private final IngestionConfiguration ingestionConfiguration;
+  private final IngestionVersionMatrixService versionMatrixService;
   private final int batchGetDelayIntervalSeconds;
   private final int batchGetRefreshIntervalSeconds;
 
@@ -177,6 +180,7 @@ public class IngestionScheduler {
                 systemOpContext,
                 entityClient,
                 ingestionConfiguration,
+                versionMatrixService,
                 ingestionSourceUrn,
                 newInfo,
                 () -> nextIngestionSourceExecutionCache.remove(ingestionSourceUrn),
@@ -338,6 +342,7 @@ public class IngestionScheduler {
     private final OperationContext systemOpContext;
     private final EntityClient entityClient;
     private final IngestionConfiguration ingestionConfiguration;
+    private final IngestionVersionMatrixService versionMatrixService;
 
     // Information about the ingestion source being executed
     private final Urn ingestionSourceUrn;
@@ -354,6 +359,7 @@ public class IngestionScheduler {
         @Nonnull final OperationContext systemOpContext,
         @Nonnull final EntityClient entityClient,
         @Nonnull final IngestionConfiguration ingestionConfiguration,
+        @Nonnull final IngestionVersionMatrixService versionMatrixService,
         @Nonnull final Urn ingestionSourceUrn,
         @Nonnull final DataHubIngestionSourceInfo ingestionSourceInfo,
         @Nonnull final Runnable deleteNextIngestionSourceExecution,
@@ -363,6 +369,7 @@ public class IngestionScheduler {
       this.systemOpContext = systemOpContext;
       this.entityClient = Objects.requireNonNull(entityClient);
       this.ingestionConfiguration = Objects.requireNonNull(ingestionConfiguration);
+      this.versionMatrixService = Objects.requireNonNull(versionMatrixService);
       this.ingestionSourceUrn = Objects.requireNonNull(ingestionSourceUrn);
       this.ingestionSourceInfo = Objects.requireNonNull(ingestionSourceInfo);
       this.deleteNextIngestionSourceExecution =
@@ -409,11 +416,22 @@ public class IngestionScheduler {
             IngestionUtils.injectPipelineName(
                 ingestionSourceInfo.getConfig().getRecipe(), ingestionSourceUrn.toString());
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
-        arguments.put(
-            VERSION_ARGUMENT_NAME,
-            IngestionUtils.resolveIngestionCliVersion(
-                ingestionSourceInfo.getConfig().getVersion(),
-                ingestionConfiguration.getDefaultCliVersion()));
+        // Per-source version may be null, empty, or whitespace-only (bootstrap YAML templating
+        // can render any of these); the helper normalizes all three to "unset" and falls through
+        // to the matrix / workspace default. See #17471 for the whitespace-only edge case.
+        final String explicitVersion =
+            ingestionSourceInfo.getConfig().hasVersion()
+                ? ingestionSourceInfo.getConfig().getVersion()
+                : null;
+        final CliVersionResolutionHelper.Result resolution =
+            CliVersionResolutionHelper.resolve(
+                explicitVersion,
+                ingestionSourceInfo.getType(),
+                versionMatrixService,
+                ingestionConfiguration.getDefaultCliVersion(),
+                versionMatrixService != null ? versionMatrixService.getServerVersion() : null);
+        arguments.put(VERSION_ARGUMENT_NAME, resolution.getVersion());
+        input.setCliVersionProvenance(resolution.getStamp());
         String debugMode = "false";
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
