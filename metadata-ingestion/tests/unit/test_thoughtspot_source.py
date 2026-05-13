@@ -2912,7 +2912,10 @@ class TestCallSdkReauthWrapper:
         assert call.call_count == 2
         # auth_token_full was called once for __init__ and once for reauth
         assert mock_ts.auth_token_full.call_count == 2
-        assert client._reauth_attempts == 1
+        # Counter resets to 0 after the successful retry — the cap bounds
+        # CONSECUTIVE 401s, not lifetime. (See
+        # ``TestReauthCounterResetsOnSuccess`` for the contract.)
+        assert client._reauth_attempts == 0
 
     @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
     def test_bearer_token_updated_after_reauth(self, mock_ts_client_class):
@@ -3005,39 +3008,35 @@ class TestCallSdkReauthWrapper:
 
     @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
     def test_organic_cap_traversal(self, mock_ts_client_class):
-        """Drive ``_MAX_REAUTH_ATTEMPTS`` 401-then-success cycles and assert
-        the next 401 raises. The cap test that primes the counter directly
-        (``test_cap_raises_after_max_attempts``) would still pass if the
-        wrapper forgot to *increment*; this test catches that regression
-        AND a hypothetical off-by-one on the cap comparison."""
+        """Drive ``_MAX_REAUTH_ATTEMPTS`` CONSECUTIVE 401s (no intervening
+        success) and assert the cap raises. The cap bounds consecutive
+        failures only — a long-running ingestion with periodic legitimate
+        token refreshes must not spuriously hit the cap, so any success
+        in the middle resets the counter (covered by
+        ``TestReauthCounterResetsOnSuccess``).
+        """
         from datahub.ingestion.source.thoughtspot.client import (
             _MAX_REAUTH_ATTEMPTS,
         )
 
         client, mock_ts = self._make_client(mock_ts_client_class)
-        # MAX successful (401 → reauth → ok) cycles, then a terminal 401
-        # that must hit the cap rather than triggering a (MAX+1)th reauth.
-        sequence = []
-        for _ in range(_MAX_REAUTH_ATTEMPTS):
-            sequence.extend([Exception("401 Unauthorized"), "ok"])
-        sequence.append(Exception("401 Unauthorized"))
+        # MAX+1 consecutive 401s. The first MAX trigger reauth+retry;
+        # the (MAX+1)th routes through the cap path and raises.
         call = MagicMock(__name__="metadata_search")
-        call.side_effect = sequence
+        call.side_effect = [
+            Exception("401 Unauthorized") for _ in range(_MAX_REAUTH_ATTEMPTS + 1)
+        ]
         # auth_token_full must succeed for each of the MAX reauths; the
-        # cap fires before any further reauth on the terminal 401.
+        # cap fires before any further reauth on the (MAX+1)th 401.
         mock_ts.auth_token_full.side_effect = [
             {"token": f"refreshed-{i}"} for i in range(_MAX_REAUTH_ATTEMPTS)
         ]
 
-        # Drain the successful cycles.
-        for _ in range(_MAX_REAUTH_ATTEMPTS):
-            assert client._call_sdk(call) == "ok"
-        assert client._reauth_attempts == _MAX_REAUTH_ATTEMPTS
-
-        # Terminal 401 must raise — counter is at the cap.
         with pytest.raises(ThoughtSpotAuthenticationError, match="Re-auth limit"):
             client._call_sdk(call)
-        # No additional reauth attempt was made.
+        # Counter is at the cap immediately before the raise.
+        assert client._reauth_attempts == _MAX_REAUTH_ATTEMPTS
+        # Reauth was attempted MAX times (the cap fires before the next).
         assert (
             mock_ts.auth_token_full.call_count == 1 + _MAX_REAUTH_ATTEMPTS
         )  # init + MAX
@@ -3069,7 +3068,10 @@ class TestCallSdkReauthWrapper:
 
         assert client._call_sdk(call) == "ok"
         assert call.call_count == 3
-        assert client._reauth_attempts == 2
+        # Counter resets to 0 after the eventual success — cap bounds
+        # CONSECUTIVE failures, not lifetime. Two reauths were observed
+        # via ``auth_token_full.call_count``.
+        assert client._reauth_attempts == 0
         assert mock_ts.bearer_token == "refreshed-2"
 
     @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
@@ -3088,6 +3090,52 @@ class TestCallSdkReauthWrapper:
 
         info_titles = [i.title for i in client.report.infos]
         assert "Bearer token re-minted mid-run" in info_titles
+
+
+class TestReauthCounterResetsOnSuccess:
+    """``_call_sdk`` was capping reauths at 3 LIFETIME — a long-running
+    ingestion with several legitimate 50-min token expiries would
+    fail spuriously. The cap should be on *consecutive* failures
+    instead, with the counter resetting after every successful call.
+    """
+
+    @staticmethod
+    def _make_client():
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+        return client
+
+    def test_counter_resets_after_successful_call(self, monkeypatch):
+        client = self._make_client()
+        # Inject a fake authenticator we can observe.
+        monkeypatch.setattr(client, "_authenticate", lambda: None)
+
+        # Build an SDK callable that 401s once, then succeeds.
+        import requests
+        from requests.exceptions import HTTPError
+
+        call_count = {"n": 0}
+
+        def flaky(**_):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                resp = requests.Response()
+                resp.status_code = 401
+                raise HTTPError(response=resp)
+            return "ok"
+
+        result = client._call_sdk(flaky)
+        assert result == "ok"
+        # After success the counter must reset; the next reauth cycle
+        # should have a full _MAX_REAUTH_ATTEMPTS budget again.
+        assert client._reauth_attempts == 0
 
 
 class TestThoughtSpotSourceTestConnection:

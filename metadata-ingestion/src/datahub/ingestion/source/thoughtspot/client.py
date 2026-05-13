@@ -644,7 +644,14 @@ class ThoughtSpotClient:
         originating_exc: Optional[BaseException] = None
         while True:
             try:
-                return fn(*args, **kwargs)
+                result = fn(*args, **kwargs)
+                # Reset the reauth budget on every successful call so the
+                # cap bounds CONSECUTIVE 401s, not lifetime ones. A long
+                # ingestion legitimately needs ≥ ceil(runtime / token_TTL)
+                # token refreshes; the prior lifetime cap of 3 would
+                # spuriously fail any run >2.5h with a 50-min token TTL.
+                self._reauth_attempts = 0
+                return result
             except Exception as e:
                 if _classify_http_error(e) is not ThoughtSpotAuthenticationError:
                     raise
