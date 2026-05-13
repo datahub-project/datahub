@@ -150,6 +150,7 @@ export const MATILLION_PIPELINE_ALLOW: FilterRecipeField = {
     rules: null,
     section: 'Pipelines',
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Pipeline',
     placeholder: '.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionPipelineAllowFieldPath),
@@ -166,6 +167,7 @@ export const MATILLION_PIPELINE_DENY: FilterRecipeField = {
     rules: null,
     section: 'Pipelines',
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Pipeline',
     placeholder: 'test-.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionPipelineDenyFieldPath),
@@ -182,6 +184,7 @@ export const MATILLION_PROJECT_ALLOW: FilterRecipeField = {
     rules: null,
     section: 'Projects',
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Project',
     placeholder: '.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionProjectAllowFieldPath),
@@ -198,6 +201,7 @@ export const MATILLION_PROJECT_DENY: FilterRecipeField = {
     rules: null,
     section: 'Projects',
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Project',
     placeholder: 'archive-.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionProjectDenyFieldPath),
@@ -214,6 +218,7 @@ export const MATILLION_ENVIRONMENT_ALLOW: FilterRecipeField = {
     rules: null,
     section: 'Environments',
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Environment',
     placeholder: '.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionEnvironmentAllowFieldPath),
@@ -230,6 +235,7 @@ export const MATILLION_ENVIRONMENT_DENY: FilterRecipeField = {
     rules: null,
     section: 'Environments',
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Environment',
     placeholder: 'sandbox-.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionEnvironmentDenyFieldPath),
@@ -246,6 +252,7 @@ export const MATILLION_STREAMING_ALLOW: FilterRecipeField = {
     rules: null,
     section: 'Streaming Pipelines',
     rule: FilterRule.INCLUDE,
+    filteringResource: 'Streaming Pipeline',
     placeholder: '.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionStreamingAllowFieldPath),
@@ -262,6 +269,7 @@ export const MATILLION_STREAMING_DENY: FilterRecipeField = {
     rules: null,
     section: 'Streaming Pipelines',
     rule: FilterRule.EXCLUDE,
+    filteringResource: 'Streaming Pipeline',
     placeholder: 'test-.*',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, matillionStreamingDenyFieldPath),
