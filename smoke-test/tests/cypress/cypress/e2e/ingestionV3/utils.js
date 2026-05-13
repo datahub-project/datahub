@@ -146,7 +146,7 @@ export const createIngestionSource = (sourceName, options = undefined) => {
   };
 
   if (options?.sourceDetails) {
-    verifySourceDetails(options.sourceDetails);
+    fillSourceDetails(options.sourceDetails);
   } else {
     // Just fill in minimal details without verification
     fillSourceDetails(defaultSourceDetails);
