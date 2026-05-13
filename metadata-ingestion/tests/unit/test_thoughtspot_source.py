@@ -58,7 +58,11 @@ from datahub.ingestion.source.thoughtspot.models import (
     VisualizationResponse,
     WorkspaceResponse,
 )
-from datahub.ingestion.source.thoughtspot.source import ExternalRef, ThoughtSpotSource
+from datahub.ingestion.source.thoughtspot.source import (
+    ExternalRef,
+    SqlViewWarehouseRef,
+    ThoughtSpotSource,
+)
 from datahub.ingestion.source.thoughtspot.thoughtspot_report import ThoughtSpotReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -6980,6 +6984,157 @@ class TestSqlParsedUpstreams:
         assert mock_resolver.call_args.kwargs["graph"] is None
 
 
+class TestResolveSqlViewWarehouse:
+    """``_resolve_sql_view_warehouse`` derives dialect / env /
+    platform_instance / default_db for a SQL_VIEW dataset **without
+    requiring** a successful connection-lookup or any physical_*
+    fields on the LogicalTableResponse.
+
+    SQL views differ from Worksheets in two key ways:
+    1. ``physical_database_name / schema_name / table_name`` are
+       always None — the upstream tables live inside the SQL
+       statement, not in metadata fields.
+    2. ``columns[*].sources`` is typically empty — TS doesn't
+       pre-resolve column-level lineage for SQL views.
+
+    So ``_resolve_external_upstream`` (which is geared for 1:1
+    physical mappings) returns None and the SQL parser was being
+    skipped. The new helper bypasses those requirements: it pulls
+    the dialect directly from ``data_source_type`` and the
+    platform_instance / env from ``external_connections`` config —
+    both available without any TS API call.
+    """
+
+    @staticmethod
+    def _make_source(
+        connections=None,
+        external_connections=None,
+    ) -> ThoughtSpotSource:
+        """Build a ThoughtSpotSource with the connection lookup
+        pre-populated. ``connections`` is the list ``get_connections``
+        returns."""
+        config_dict = {
+            "connection": {
+                "base_url": "https://example.thoughtspot.cloud",
+                "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+            },
+        }
+        if external_connections:
+            config_dict["external_connections"] = external_connections
+        config = ThoughtSpotConfig.model_validate(config_dict)
+        with patch(
+            "datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient"
+        ) as mock_client_cls:
+            mock_client_cls.return_value.get_connections.return_value = (
+                connections or []
+            )
+            source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        return source
+
+    def test_primary_path_uses_connection_lookup_for_dialect(self):
+        """Primary path: connection found in lookup → read
+        ``conn.data_source_type`` (canonical, no ``RDBMS_`` prefix),
+        ``conn.default_database`` for default_db."""
+        source = self._make_source(
+            connections=[
+                ConnectionResponse(
+                    id="conn-guid-1",
+                    name="Test Databricks",
+                    data_source_type="DATABRICKS",
+                    default_database="main",
+                )
+            ]
+        )
+        table = LogicalTableResponse(
+            id="sv-1",
+            name="CompexTest",
+            type="SQL_VIEW",
+            data_source_id="conn-guid-1",
+            # data_source_type intentionally not set — primary path
+            # reads from the connection, not the table.
+        )
+        ref = source._resolve_sql_view_warehouse(table)
+        assert ref is not None
+        assert ref.platform == "databricks"
+        assert ref.default_db == "main"
+        assert ref.platform_instance is None
+        assert ref.env == source.config.env
+
+    def test_overrides_via_external_connections_by_guid_or_name(self):
+        """``_external_connection_overrides`` (existing) walks
+        ``external_connections`` by GUID first, then by name —
+        verify the SQL view path inherits that."""
+        source = self._make_source(
+            connections=[
+                ConnectionResponse(
+                    id="conn-guid-1",
+                    name="Test Databricks",
+                    data_source_type="DATABRICKS",
+                    default_database=None,
+                )
+            ],
+            external_connections={
+                # Key by name to exercise the secondary lookup arm.
+                "Test Databricks": {
+                    "platform_instance": "prod-databricks",
+                    "env": "PROD",
+                },
+            },
+        )
+        table = LogicalTableResponse(
+            id="sv-1",
+            name="CompexTest",
+            type="SQL_VIEW",
+            data_source_id="conn-guid-1",
+        )
+        ref = source._resolve_sql_view_warehouse(table)
+        assert ref is not None
+        assert ref.platform_instance == "prod-databricks"
+        assert ref.env == "PROD"
+
+    def test_fallback_to_table_data_source_type_when_conn_missing(self):
+        """Fallback path: connection lookup returns empty (rare —
+        restrictive ACLs). Read ``table.data_source_type`` directly,
+        strip the ``RDBMS_`` prefix TS applies on the table. The
+        ``default_db`` ends up None — sqlglot handles fully-qualified
+        SQL without it.
+        """
+        # No connections in the lookup.
+        source = self._make_source(connections=[])
+        table = LogicalTableResponse(
+            id="sv-1",
+            name="CompexTest",
+            type="SQL_VIEW",
+            data_source_id="conn-guid-1",
+            data_source_type="RDBMS_DATABRICKS",
+        )
+        ref = source._resolve_sql_view_warehouse(table)
+        assert ref is not None
+        assert ref.platform == "databricks"
+        assert ref.default_db is None
+
+    def test_returns_none_when_dialect_unmapped(self):
+        """An unknown ``data_source_type`` means no dialect → None →
+        caller skips the parser (only viewLogic emits)."""
+        source = self._make_source(
+            connections=[
+                ConnectionResponse(
+                    id="conn-guid-1",
+                    name="Mystery DB",
+                    data_source_type="MYSTERY_WAREHOUSE",
+                    default_database=None,
+                )
+            ]
+        )
+        table = LogicalTableResponse(
+            id="sv-1",
+            name="Strange View",
+            type="SQL_VIEW",
+            data_source_id="conn-guid-1",
+        )
+        assert source._resolve_sql_view_warehouse(table) is None
+
+
 class TestProcessDatasetSqlViewIntegration:
     """End-to-end: a SQL_VIEW LogicalTableResponse passed through
     ``_process_dataset`` emits ViewProperties + augmented
@@ -7034,12 +7189,13 @@ class TestProcessDatasetSqlViewIntegration:
         # Inject a resolved warehouse identity for sv-1 so the SQL
         # parser path actually runs (the platform=None guard skips
         # parsing without a known dialect, but viewLogic still emits).
-        source._resolve_external_upstream = lambda table: ExternalRef(  # type: ignore[assignment]
+        # The SQL view code path now goes through _resolve_sql_view_warehouse,
+        # so inject there rather than _resolve_external_upstream.
+        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(  # type: ignore[assignment]
             platform="snowflake",
-            urn=upstream_urn,
             env="PROD",
             platform_instance=None,
-            preserve_column_case=False,
+            default_db=None,
         )
         wus = list(source.get_workunits_internal())
 
@@ -7799,7 +7955,6 @@ class TestLineageBuilderHelpers:
         """When ``external_ref`` is set, each TS column also emits a
         column-level edge to the external dataset using
         ``physical_column_name`` (falling back to the TS name)."""
-        from datahub.ingestion.source.thoughtspot.source import ExternalRef
 
         source = self._make_source()
         cols = [

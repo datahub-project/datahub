@@ -194,6 +194,36 @@ class ExternalRef:
     preserve_column_case: bool = False
 
 
+@dataclass(frozen=True)
+class SqlViewWarehouseRef:
+    """Resolved warehouse context for one TS SQL_VIEW.
+
+    SQL views differ from Worksheets in that they don't have a 1:1
+    physical mapping (``physical_database_name`` / ``physical_table_name``
+    are None) — the upstream tables live inside the SQL statement
+    itself. So ``ExternalRef`` (which represents a single resolved
+    upstream URN) doesn't fit; we just need the warehouse identity
+    so sqlglot can parse the SQL.
+
+    Built by ``_resolve_sql_view_warehouse`` from
+    ``LogicalTableResponse.data_source_type`` (for dialect) +
+    ``external_connections`` config (for platform_instance / env).
+    Crucially, no successful ``/connections/search`` lookup is
+    required — both inputs are available without an extra TS API
+    call, so SQL views whose connection the principal can't read
+    still get parsed lineage.
+    """
+
+    platform: str  # DataHub platform name (e.g. "databricks")
+    env: str  # PROD / STAGING / etc.
+    platform_instance: Optional[str]
+    # ``default_db`` is best-effort: populated when the connection
+    # lookup happens to succeed (gives sqlglot a default for
+    # unqualified table refs). ``None`` is fine — sqlglot handles
+    # fully-qualified SQL without it.
+    default_db: Optional[str] = None
+
+
 class WorkspaceKey(ContainerKey):
     """Container key for ThoughtSpot workspaces.
 
@@ -1409,17 +1439,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             # UpstreamLineage MCP arrives as a follow-up edit rather
             # than racing with the SDK V2 entity emission.
             if table.type == "SQL_VIEW" and table.sql_view_definition:
-                external_ref = self._resolve_external_upstream(table)
-                conn = (
-                    self._get_connection_lookup().get(table.data_source_id)
-                    if table.data_source_id
-                    else None
-                )
-                default_db = table.physical_database_name or (
-                    conn.default_database if conn else None
-                )
+                # SQL views don't have ``physical_*`` fields (the
+                # upstream tables live inside the SQL statement), so
+                # _resolve_external_upstream returns None for them.
+                # Use the SQL-view-specific resolver which only needs
+                # ``data_source_type`` for dialect — works without a
+                # successful /connections/search lookup.
+                sv_ref = self._resolve_sql_view_warehouse(table)
                 # Build the set of (downstream_col_urn, upstream_col_urn)
-                # triples the existing _apply_dataset_upstreams already
+                # tuples the existing _apply_dataset_upstreams already
                 # emitted onto the dataset, so sqlglot-parsed edges
                 # don't duplicate them.
                 existing_fgl_edges: Set[tuple] = set()
@@ -1436,17 +1464,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._apply_sql_view_logic(
                     table_id=table.id,
                     sql=table.sql_view_definition,
-                    dialect=external_ref.platform if external_ref else None,
+                    dialect=sv_ref.platform if sv_ref else None,
                 )
                 yield from self._apply_sql_parsed_upstreams(
                     table_id=table.id,
                     sql=table.sql_view_definition,
-                    platform=external_ref.platform if external_ref else None,
-                    env=external_ref.env if external_ref else self.config.env,
-                    platform_instance=(
-                        external_ref.platform_instance if external_ref else None
-                    ),
-                    default_db=default_db,
+                    platform=sv_ref.platform if sv_ref else None,
+                    env=sv_ref.env if sv_ref else self.config.env,
+                    platform_instance=(sv_ref.platform_instance if sv_ref else None),
+                    default_db=sv_ref.default_db if sv_ref else None,
                     existing_fgl_edges=existing_fgl_edges or None,
                 )
 
@@ -1865,6 +1891,104 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         """
         m = self.config.external_connections
         return m.get(conn.id) or m.get(conn.name) or ExternalConnectionConfig()
+
+    def _external_connection_overrides_by_id(
+        self, conn_id: Optional[str]
+    ) -> "ExternalConnectionConfig":
+        """Lookup ``external_connections`` by TS connection GUID only.
+
+        Used by the SQL_VIEW path where we don't have a successful
+        connection-lookup (and therefore no ``ConnectionResponse.name``)
+        but we do have the data_source_id from the LogicalTableResponse.
+        Same fallback shape as ``_external_connection_overrides`` —
+        returns a defaults-only config when no override is configured.
+        """
+        if not conn_id:
+            return ExternalConnectionConfig()
+        return (
+            self.config.external_connections.get(conn_id) or ExternalConnectionConfig()
+        )
+
+    def _resolve_sql_view_warehouse(
+        self, table: "LogicalTableResponse"
+    ) -> Optional[SqlViewWarehouseRef]:
+        """Derive a warehouse reference for a SQL_VIEW dataset.
+
+        Unlike ``_resolve_external_upstream`` (which targets 1:1
+        physical mappings and needs ``physical_*`` fields on the
+        table to build a single upstream URN), this helper only
+        needs to know the warehouse dialect so sqlglot can parse the
+        SQL — the upstream URNs come out of the parsed SQL itself.
+
+        Primary source: the connection lookup. Reading
+        ``conn.data_source_type`` is canonical (no ``RDBMS_`` prefix
+        to strip), and ``conn.default_database`` feeds sqlglot's
+        ``default_db`` for unqualified table refs. The same
+        ``_external_connection_overrides(conn)`` path the cross-
+        platform lineage uses gives ``platform_instance`` / ``env``.
+
+        Fallback: if the connection isn't in the lookup (rare —
+        observed only on tenants with very restrictive ACLs), read
+        ``table.data_source_type`` directly. Strip TS's ``RDBMS_``
+        prefix so the platform map (keyed by bare names like
+        ``DATABRICKS``) resolves. ``default_db`` ends up None on the
+        fallback path, which sqlglot handles fine when the SQL is
+        fully-qualified.
+
+        Returns ``None`` when the dialect can't be determined or
+        ``include_external_lineage`` is disabled — caller skips SQL
+        parsing (viewLogic still emits via ``_apply_sql_view_logic``).
+        """
+        # Avoid the top-level circular import by importing the
+        # platform map lazily, matching the pattern in
+        # ``_resolve_external_upstream``.
+        from datahub.ingestion.source.thoughtspot.client import (
+            _TS_TO_DATAHUB_PLATFORM,
+        )
+
+        if not self.config.include_external_lineage:
+            return None
+
+        # Primary: connection lookup.
+        conn = None
+        if table.data_source_id:
+            conn = self._get_connection_lookup().get(table.data_source_id)
+
+        if conn is not None:
+            ts_type = (conn.data_source_type or "").upper()
+            platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
+            if not platform:
+                return None  # in-memory, FALCON, or unmapped warehouse
+            overrides = self._external_connection_overrides(conn)
+            return SqlViewWarehouseRef(
+                platform=platform,
+                env=overrides.env or self.config.env,
+                platform_instance=overrides.platform_instance,
+                default_db=conn.default_database,
+            )
+
+        # Fallback: connection not in lookup. Read data_source_type
+        # off the table directly. Strip the ``RDBMS_`` / ``NOSQL_``
+        # prefix TS applies on the LogicalTableResponse so the map
+        # (keyed by bare warehouse names) resolves.
+        ts_type = (table.data_source_type or "").upper()
+        if not ts_type:
+            return None
+        for prefix in ("RDBMS_", "NOSQL_", "FILE_"):
+            if ts_type.startswith(prefix):
+                ts_type = ts_type[len(prefix) :]
+                break
+        platform = _TS_TO_DATAHUB_PLATFORM.get(ts_type)
+        if not platform:
+            return None
+
+        overrides = self._external_connection_overrides_by_id(table.data_source_id)
+        return SqlViewWarehouseRef(
+            platform=platform,
+            env=overrides.env or self.config.env,
+            platform_instance=overrides.platform_instance,
+            default_db=None,
+        )
 
     def _resolve_external_upstream(
         self, table: "LogicalTableResponse"
