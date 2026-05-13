@@ -33,10 +33,13 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
-# Unity Catalog Metric Views (GA April 2026) are exposed via TableType.METRIC_VIEW.
-# Older databricks-sdk versions in our >=0.30.0 floor predate the enum value, so we
-# resolve it defensively — when missing, downstream metric-view code paths short-circuit.
+# TableType.METRIC_VIEW is absent on older databricks-sdk versions.
 _TABLE_TYPE_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None)
+
+
+def metric_view_supported() -> bool:
+    return _TABLE_TYPE_METRIC_VIEW is not None
+
 
 # TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {

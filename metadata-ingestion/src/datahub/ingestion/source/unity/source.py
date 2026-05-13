@@ -6,6 +6,9 @@ import time
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union, cast
 from urllib.parse import urljoin
 
+import sqlglot
+import sqlglot.errors
+import sqlglot.expressions as sqlglot_exp
 import yaml
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
@@ -119,6 +122,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageType,
     FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
     Upstream,
     UpstreamLineage,
@@ -154,6 +158,75 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+
+def _split_databricks_identifier(raw: str) -> Optional[List[str]]:
+    parts: List[str] = []
+    buf: List[str] = []
+    in_tick = False
+    for ch in raw:
+        if ch == "`":
+            in_tick = not in_tick
+            continue
+        if ch == "." and not in_tick:
+            parts.append("".join(buf))
+            buf = []
+            continue
+        buf.append(ch)
+    if in_tick:
+        return None
+    parts.append("".join(buf))
+    cleaned: List[str] = []
+    for p in parts:
+        p = p.strip()
+        # Only strip surrounding "..." so " inside a backtick-quoted part survives.
+        if len(p) >= 2 and p.startswith('"') and p.endswith('"'):
+            p = p[1:-1]
+        cleaned.append(p)
+    return cleaned
+
+
+def _parse_metric_view_source(
+    raw: str,
+    *,
+    default_catalog: str,
+    default_metastore: Optional[str],
+) -> Optional[TableReference]:
+    # Returns None for subqueries, 1-part names, or malformed input so the caller falls back to REST lineage.
+    if not raw:
+        logger.debug("metric view source rejected: empty input")
+        return None
+    if any(ch in raw for ch in ("(", "\n")):
+        logger.debug("metric view source rejected (subquery / newline): %r", raw)
+        return None
+    if any(ch in raw for ch in (" ", "\t")) and "`" not in raw:
+        logger.debug("metric view source rejected (unquoted whitespace): %r", raw)
+        return None
+    parts = _split_databricks_identifier(raw)
+    if parts is None:
+        logger.debug("metric view source rejected (unterminated backtick): %r", raw)
+        return None
+    if len(parts) == 3:
+        catalog, schema, name = parts
+    elif len(parts) == 2:
+        catalog = default_catalog
+        schema, name = parts
+    else:
+        logger.debug(
+            "metric view source rejected (need 2 or 3 parts, got %d): %r",
+            len(parts),
+            raw,
+        )
+        return None
+    if not (catalog and schema and name):
+        logger.debug("metric view source rejected (empty part after split): %r", raw)
+        return None
+    return TableReference(
+        metastore=default_metastore,
+        catalog=catalog,
+        schema=schema,
+        table=name,
+    )
 
 
 @platform_name("Databricks")
@@ -268,12 +341,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 "Hive Metastore Extraction is disabled due to missing warehouse_id in config",
             )
 
-        # If the user opted into metric-view ingestion but the installed
-        # databricks-sdk lacks the enum, the feature degrades to a no-op.
-        # Surface it so they don't spend hours wondering why nothing changed.
+        # SDK lacks TableType.METRIC_VIEW; warn so the no-op flag isn't silent.
         if (
             self.config.include_metric_views
-            and unity_proxy_types._TABLE_TYPE_METRIC_VIEW is None
+            and not unity_proxy_types.metric_view_supported()
         ):
             self.report.report_warning(
                 "include_metric_views has no effect with installed databricks-sdk",
@@ -592,10 +663,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 continue
 
-            # When include_metric_views is enabled, apply metric_view_pattern as an
-            # additional filter on metric views. When the flag is off, metric views
-            # flow through the normal table path (preserves pre-flag behaviour where
-            # they were emitted as plain Tables).
             if (
                 table.is_metric_view
                 and self.config.include_metric_views
@@ -603,6 +670,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     table.ref.qualified_table_name
                 )
             ):
+                self.report.tables.dropped(table.id, f"table ({table.table_type})")
                 self.report.metric_views.dropped(table.id)
                 continue
 
@@ -619,9 +687,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if table.is_view:
                 self.view_refs.add(table.ref)
             else:
-                # Metric views have is_view=False today so they land here; we keep
-                # them in table_refs unconditionally so stateful soft-delete and any
-                # other downstream code that iterates table_refs continues to work.
+                # Keep metric views in table_refs so stateful soft-delete still tracks them.
                 self.table_refs.add(table.ref)
             yield from self.process_table(table, schema)
             self.report.tables.processed(table.id, f"table ({table.table_type})")
@@ -632,7 +698,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
-        table_props = self._create_table_property_aspect(table)
+        metric_view_spec: Optional[Dict[str, Any]] = None
+        if table.is_metric_view and self.config.include_metric_views:
+            metric_view_spec = self._load_metric_view_spec(table)
+
+        table_props = self._create_table_property_aspect(table, metric_view_spec)
         tags = None
         if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
             try:
@@ -663,10 +733,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         view_props = None
         if table.view_definition:
-            view_props = self._create_view_property_aspect(table)
+            view_props = self._create_view_property_aspect(table, metric_view_spec)
 
         sub_type = self._create_table_sub_type_aspect(table)
-        schema_metadata, platform_resources = self._create_schema_metadata_aspect(table)
+        schema_metadata, platform_resources = self._create_schema_metadata_aspect(
+            table, metric_view_spec
+        )
         yield from platform_resources
 
         domain = self._get_domain_aspect(dataset_name=table.ref.qualified_table_name)
@@ -674,17 +746,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         data_platform_instance = self._create_data_platform_instance_aspect()
 
         if table.is_metric_view and self.config.include_metric_views:
-            # Prefer YAML-derived lineage when we can parse the metric view body,
-            # but fall back to the existing table-lineage REST API when the YAML
-            # yields no usable upstreams (parse failure, SQL-subquery source,
-            # 2-part identifiers, etc.) so we don't silently regress lineage
-            # users had before opting in.
-            lineage = self._extract_metric_view_lineage(table)
+            # REST fallback so subquery sources / parse failures don't lose upstreams.
+            lineage = (
+                self._extract_metric_view_lineage(table, metric_view_spec)
+                if metric_view_spec is not None
+                else None
+            )
             if lineage is None:
                 lineage = self.ingest_lineage(table)
                 if lineage is None:
-                    # Both paths produced nothing. Surface so users aren't left
-                    # wondering why a metric view shows no upstreams.
                     self.report.info(
                         title="Metric view has no upstream lineage",
                         message=(
@@ -1221,7 +1291,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         all_tags = self.unity_catalog_api_proxy.get_column_tags(catalog)
         return all_tags.get(f"{catalog}.{schema}.{table}.{column}", [])
 
-    def _create_table_property_aspect(self, table: Table) -> DatasetPropertiesClass:
+    def _create_table_property_aspect(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> DatasetPropertiesClass:
         custom_properties: dict = {}
         if table.storage_location is not None:
             custom_properties["storage_location"] = table.storage_location
@@ -1236,7 +1310,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         if table.created_by:
             custom_properties["created_by"] = table.created_by
         if table.properties:
-            custom_properties.update({k: str(v) for k, v in table.properties.items()})
+            # Unity Catalog injects ~150 view.sqlConfig.spark.* keys per metric view; drop them.
+            drop_sql_config = table.is_metric_view and self.config.include_metric_views
+            for k, v in table.properties.items():
+                if drop_sql_config and k.startswith("view.sqlConfig."):
+                    continue
+                custom_properties[k] = str(v)
         if table.table_id:
             custom_properties["table_id"] = table.table_id
         if table.owner:
@@ -1245,6 +1324,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             custom_properties["updated_by"] = table.updated_by
         if table.updated_at:
             custom_properties["updated_at"] = str(table.updated_at)
+
+        if (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            filter_expr = metric_view_spec.get("filter")
+            if isinstance(filter_expr, str) and filter_expr.strip():
+                custom_properties["metric_view_filter"] = filter_expr
 
         created: Optional[TimeStampClass] = None
         if table.created_at:
@@ -1312,74 +1400,113 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             type_name = DatasetSubTypes.TABLE
         return SubTypesClass(typeNames=[type_name])
 
-    def _create_view_property_aspect(self, table: Table) -> ViewProperties:
+    def _create_view_property_aspect(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
+    ) -> ViewProperties:
         assert table.view_definition
+        materialized = False
         if table.is_metric_view and self.config.include_metric_views:
             view_language = "YAML"
+            if metric_view_spec is not None:
+                mat = metric_view_spec.get("materialization")
+                materialized = isinstance(mat, str) and mat.lower() == "materialized"
         else:
             view_language = "SQL"
         return ViewProperties(
-            materialized=False,
+            materialized=materialized,
             viewLanguage=view_language,
             viewLogic=table.view_definition,
         )
 
-    def _extract_metric_view_lineage(
-        self, table: Table
-    ) -> Optional[UpstreamLineageClass]:
-        """Parse the YAML body of a Unity Catalog metric view and emit upstream lineage.
-
-        The metric-view YAML carries a top-level `source` and an optional `joins`
-        list; each may contain a fully qualified `catalog.schema.table` reference
-        or a SQL subquery. v1 only emits lineage for the qualified-name form.
-        Returns None to signal "no usable lineage from YAML"; the caller falls
-        back to the table-lineage REST API in that case.
-        """
+    def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
+        consequence = (
+            "Falling back to the REST table-lineage API; column-level lineage "
+            "and Dimension/Measure tags will be absent for this view."
+        )
         if not table.view_definition:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view has no YAML body",
+                f"{table.ref.qualified_table_name}: view_definition is empty. "
+                f"{consequence}",
+            )
             return None
-
         try:
-            spec: Any = yaml.safe_load(table.view_definition)
-        except yaml.YAMLError as e:
+            spec = yaml.safe_load(table.view_definition)
+        except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
             self.report.num_metric_views_yaml_parse_failures += 1
             self.report.report_warning(
                 "Metric view YAML failed to parse",
-                f"{table.ref.qualified_table_name}: {e}",
+                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}. "
+                f"{consequence}",
             )
             return None
-        except (MemoryError, RecursionError) as e:
-            # Pathological YAML (huge anchors, deep nesting) must not abort the
-            # whole ingestion — record and continue with REST-API lineage.
-            self.report.num_metric_views_yaml_parse_failures += 1
-            self.report.report_warning(
-                "Metric view YAML exhausted resources during parse",
-                f"{table.ref.qualified_table_name}: {type(e).__name__}: {e}",
-            )
-            return None
-
         if not isinstance(spec, dict):
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML is not a mapping",
+                f"{table.ref.qualified_table_name}: top-level type is "
+                f"{type(spec).__name__!r}, expected dict. {consequence}",
+            )
+            return None
+        return spec
+
+    def _extract_metric_view_lineage(
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+    ) -> Optional[UpstreamLineageClass]:
+        if metric_view_spec is None:
+            metric_view_spec = self._load_metric_view_spec(table)
+        if metric_view_spec is None:
             return None
 
+        shape_issues: List[str] = []
         source_names: List[str] = []
-        top_source = spec.get("source")
+        top_source = metric_view_spec.get("source")
         if isinstance(top_source, str):
             source_names.append(top_source)
+        elif top_source is not None:
+            shape_issues.append(
+                f"`source` is {type(top_source).__name__}, expected str"
+            )
 
-        joins = spec.get("joins")
+        joins = metric_view_spec.get("joins")
         if isinstance(joins, list):
-            for join in joins:
-                if isinstance(join, dict):
-                    js = join.get("source")
-                    if isinstance(js, str):
-                        source_names.append(js)
+            for i, join in enumerate(joins):
+                if not isinstance(join, dict):
+                    shape_issues.append(
+                        f"`joins[{i}]` is {type(join).__name__}, expected mapping"
+                    )
+                    continue
+                js = join.get("source")
+                if isinstance(js, str):
+                    source_names.append(js)
+                elif js is not None:
+                    shape_issues.append(
+                        f"`joins[{i}].source` is {type(js).__name__}, expected str"
+                    )
+        elif joins is not None:
+            shape_issues.append(f"`joins` is {type(joins).__name__}, expected list")
 
+        if shape_issues:
+            self.report.num_metric_views_yaml_shape_invalid += 1
+            self.report.report_warning(
+                "Metric view YAML has unexpected shape",
+                f"{table.ref.qualified_table_name}: {'; '.join(shape_issues)}. "
+                "Affected entries are skipped; remaining YAML continues to be processed.",
+            )
+
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
         upstreams: List[UpstreamClass] = []
         for raw in source_names:
-            ref = self._parse_metric_view_source(raw, table)
+            ref = _parse_metric_view_source(
+                raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
             if ref is None:
-                logger.debug(
-                    f"Skipping non-qualified metric view source for {table.ref}: {raw!r}"
-                )
                 continue
             upstreams.append(
                 self._create_upstream_class(
@@ -1391,49 +1518,158 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if not upstreams:
             if source_names:
-                # We saw `source`/`joins` entries but parsed none — typical when
-                # the YAML uses 2-part names (default-catalog session) or SQL
-                # subqueries. Surface so users know lineage extraction silently
-                # skipped these entries.
                 self.report.num_metric_views_no_parseable_sources += 1
                 self.report.report_warning(
                     "Metric view has no parseable upstream sources",
                     f"{table.ref.qualified_table_name}: sources={source_names!r}. "
-                    "Lineage extraction requires 3-part identifiers "
-                    "(catalog.schema.table); SQL subqueries, 2-part names, and "
-                    "backtick-quoted identifiers are not supported in v1.",
+                    "Lineage extraction needs 2-part (schema.table) or 3-part "
+                    "(catalog.schema.table) identifiers; 1-part names and SQL "
+                    "subqueries fall back to the REST table-lineage API.",
                 )
             return None
-        return UpstreamLineageClass(upstreams=upstreams)
 
-    @staticmethod
-    def _parse_metric_view_source(raw: str, table: Table) -> Optional[TableReference]:
-        """Return a TableReference if `raw` is a `catalog.schema.table` identifier.
-
-        Anything else — SQL subqueries, two-part names, identifiers with whitespace
-        or backticks (which can quote dots and break a naive split) — is rejected
-        and lineage is skipped.
-        """
-        # Reject anything that looks like a SQL body or expression.
-        if any(ch in raw for ch in ("(", " ", "\n", "\t")):
-            return None
-        # Backtick-quoted Databricks identifiers may legitimately contain dots
-        # (e.g. `db.with.dots`.s.t). We don't tokenise those properly yet, so
-        # refuse rather than risk emitting a wrong URN.
-        if "`" in raw:
-            return None
-        parts = raw.split(".")
-        if len(parts) != 3:
-            return None
-        catalog, schema, name = (p.strip('"') for p in parts)
-        if not (catalog and schema and name):
-            return None
-        return TableReference(
-            metastore=table.ref.metastore,
-            catalog=catalog,
-            schema=schema,
-            table=name,
+        fine_grained: Optional[List[FineGrainedLineage]] = None
+        if self.config.include_column_lineage:
+            fine_grained = (
+                self._extract_metric_view_column_lineage(table, metric_view_spec)
+                or None
+            )
+        return UpstreamLineageClass(
+            upstreams=upstreams,
+            fineGrainedLineages=fine_grained,
         )
+
+    def _extract_metric_view_column_lineage(
+        self, table: Table, spec: Dict[str, Any]
+    ) -> List[FineGrainedLineage]:
+        default_catalog = table.ref.catalog
+        default_metastore = table.ref.metastore
+        alias_map: Dict[str, TableReference] = {}
+        source_raw = spec.get("source")
+        if isinstance(source_raw, str):
+            source_ref = _parse_metric_view_source(
+                source_raw,
+                default_catalog=default_catalog,
+                default_metastore=default_metastore,
+            )
+            if source_ref is not None:
+                alias_map[""] = source_ref
+
+        joins_skipped = 0
+        joins = spec.get("joins")
+        if isinstance(joins, list):
+            for join in joins:
+                if not isinstance(join, dict):
+                    joins_skipped += 1
+                    continue
+                join_name = join.get("name")
+                join_source = join.get("source")
+                if not isinstance(join_name, str) or not isinstance(join_source, str):
+                    joins_skipped += 1
+                    continue
+                ref = _parse_metric_view_source(
+                    join_source,
+                    default_catalog=default_catalog,
+                    default_metastore=default_metastore,
+                )
+                if ref is None:
+                    joins_skipped += 1
+                    continue
+                alias_map[join_name.lower()] = ref
+
+        if joins_skipped:
+            self.report.num_metric_view_joins_skipped += joins_skipped
+            self.report.report_warning(
+                "Metric view joins skipped",
+                f"{table.ref.qualified_table_name}: {joins_skipped} join "
+                "entry/entries skipped due to malformed shape or unparseable "
+                "source. Column lineage for join-qualified columns will be absent.",
+            )
+
+        downstream_urn = self.gen_dataset_urn(table.ref)
+        fine: List[FineGrainedLineage] = []
+        unresolved_qualifiers: Set[str] = set()
+        for key in ("dimensions", "measures"):
+            entries = spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                col_name = entry.get("name")
+                expr = entry.get("expr")
+                if not isinstance(col_name, str) or not isinstance(expr, str):
+                    continue
+                upstream_cols, unresolved = self._parse_metric_view_expr(
+                    expr,
+                    alias_map,
+                    context=f"{table.ref.qualified_table_name}:{col_name}",
+                )
+                unresolved_qualifiers.update(unresolved)
+                if not upstream_cols:
+                    continue
+                upstream_urns = [
+                    make_schema_field_urn(self.gen_dataset_urn(ref), upc)
+                    for (ref, upc) in upstream_cols
+                ]
+                fine.append(
+                    FineGrainedLineage(
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstream_urns,
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[make_schema_field_urn(downstream_urn, col_name)],
+                    )
+                )
+
+        if unresolved_qualifiers:
+            self.report.num_metric_view_unresolved_qualifiers += len(
+                unresolved_qualifiers
+            )
+            self.report.report_warning(
+                "Metric view expression references unknown qualifier",
+                f"{table.ref.qualified_table_name}: qualifiers="
+                f"{sorted(unresolved_qualifiers)!r} not found in `source`/`joins`. "
+                "Lineage rows for affected columns were skipped.",
+            )
+
+        return fine
+
+    def _parse_metric_view_expr(
+        self,
+        expr: str,
+        alias_map: Dict[str, TableReference],
+        context: str = "",
+    ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
+        try:
+            tree = sqlglot.parse_one(expr, dialect="databricks")
+        except (sqlglot.errors.SqlglotError, RecursionError, ValueError) as e:
+            self.report.num_metric_views_expr_parse_failures += 1
+            self.report.report_warning(
+                "Metric view expression failed to parse",
+                f"{context}: expr={expr!r}: {type(e).__name__}: {e}".lstrip(": "),
+            )
+            return [], set()
+        if tree is None:
+            return [], set()
+
+        result: List[Tuple[TableReference, str]] = []
+        unresolved: Set[str] = set()
+        seen: Set[Tuple[str, str]] = set()
+        for col in tree.find_all(sqlglot_exp.Column):
+            qualifier = col.table.lower() if col.table else ""
+            ref = alias_map.get(qualifier)
+            if ref is None:
+                # "<source>" sentinel surfaces unqualified columns when top `source`
+                # was unparseable; without it they would be silently dropped.
+                unresolved.add(qualifier or "<source>")
+                continue
+            col_name = col.name
+            key = (str(ref), col_name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append((ref, col_name))
+        return result, unresolved
 
     def get_or_create_from_unity_tag(
         self,
@@ -1505,10 +1741,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     continue
 
     def _create_schema_metadata_aspect(
-        self, table: Table
+        self,
+        table: Table,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
     ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
         schema_fields: List[SchemaFieldClass] = []
         unique_tags: Set[UnityCatalogTag] = set()
+        dim_measure_tags, dim_measure_descriptions = (
+            self._build_metric_view_column_overrides(table, metric_view_spec)
+        )
         for column in table.columns:
             tag_urns: Optional[List[TagUrn]] = None
             if self.config.include_tags:
@@ -1517,7 +1758,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 unique_tags.update(column_tags)
                 tag_urns = [tag.to_datahub_tag_urn() for tag in column_tags]
-            schema_fields.extend(self._create_schema_field(column, tag_urns))
+            extra_tag = dim_measure_tags.get(column.name.lower())
+            description_override = dim_measure_descriptions.get(column.name.lower())
+            schema_fields.extend(
+                self._create_schema_field(
+                    column,
+                    tag_urns,
+                    extra_tag=extra_tag,
+                    description_override=description_override,
+                )
+            )
 
         platform_resources = self.gen_platform_resources(list(unique_tags))
         return (
@@ -1532,42 +1782,82 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             platform_resources,
         )
 
+    def _build_metric_view_column_overrides(
+        self, table: Table, metric_view_spec: Optional[Dict[str, Any]]
+    ) -> Tuple[Dict[str, TagUrn], Dict[str, str]]:
+        if not (
+            table.is_metric_view
+            and self.config.include_metric_views
+            and metric_view_spec is not None
+        ):
+            return {}, {}
+        tag_map: Dict[str, TagUrn] = {}
+        desc_map: Dict[str, str] = {}
+        for key, tag in (("dimensions", "Dimension"), ("measures", "Measure")):
+            entries = metric_view_spec.get(key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                if not isinstance(name, str) or not name:
+                    continue
+                tag_map[name.lower()] = TagUrn(tag)
+                description = entry.get("description")
+                if isinstance(description, str) and description.strip():
+                    desc_map[name.lower()] = description
+        return tag_map, desc_map
+
     @staticmethod
     def _create_schema_field(
-        column: Column, tags: Optional[List[TagUrn]]
+        column: Column,
+        tags: Optional[List[TagUrn]],
+        extra_tag: Optional[TagUrn] = None,
+        description_override: Optional[str] = None,
     ) -> List[SchemaFieldClass]:
         _COMPLEX_TYPE = re.compile("^(struct|array)")
-        global_tags: Optional[GlobalTags] = None
-        if _COMPLEX_TYPE.match(column.type_text.lower()):
-            return get_schema_fields_for_hive_column(
-                column.name, column.type_text.lower(), description=column.comment
-            )
-        else:
-            if tags is not None:
-                attribution = MetadataAttribution(
-                    source="urn:li:dataPlatform:unity-catalog",
-                    actor="urn:li:corpuser:datahub",
-                    time=int(time.time() * 1000),
-                )
-                global_tags = GlobalTags(
-                    tags=[
-                        TagAssociation(tag=tag.urn(), attribution=attribution)
-                        for tag in tags
-                    ]
-                )
+        attribution = MetadataAttribution(
+            source="urn:li:dataPlatform:unity-catalog",
+            actor="urn:li:corpuser:datahub",
+            time=int(time.time() * 1000),
+        )
+        description = description_override if description_override else column.comment
 
-            return [
-                SchemaFieldClass(
-                    fieldPath=column.name,
-                    type=SchemaFieldDataTypeClass(
-                        type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
-                    ),
-                    nativeDataType=column.type_text,
-                    nullable=column.nullable,
-                    description=column.comment,
-                    globalTags=global_tags if tags else None,
+        if _COMPLEX_TYPE.match(column.type_text.lower()):
+            fields = get_schema_fields_for_hive_column(
+                column.name, column.type_text.lower(), description=description
+            )
+            # Complex types: tag the root field only; children carry no semantics.
+            if fields and extra_tag is not None:
+                fields[0].globalTags = GlobalTags(
+                    tags=[TagAssociation(tag=extra_tag.urn(), attribution=attribution)]
                 )
-            ]
+            return fields
+
+        tag_associations: List[TagAssociation] = []
+        if tags is not None:
+            tag_associations.extend(
+                TagAssociation(tag=tag.urn(), attribution=attribution) for tag in tags
+            )
+        if extra_tag is not None:
+            tag_associations.append(
+                TagAssociation(tag=extra_tag.urn(), attribution=attribution)
+            )
+        global_tags = GlobalTags(tags=tag_associations) if tag_associations else None
+
+        return [
+            SchemaFieldClass(
+                fieldPath=column.name,
+                type=SchemaFieldDataTypeClass(
+                    type=DATA_TYPE_REGISTRY.get(column.type_name, NullTypeClass)()
+                ),
+                nativeDataType=column.type_text,
+                nullable=column.nullable,
+                description=description,
+                globalTags=global_tags,
+            )
+        ]
 
     def get_view_lineage(self) -> Iterable[MetadataWorkUnit]:
         if not (

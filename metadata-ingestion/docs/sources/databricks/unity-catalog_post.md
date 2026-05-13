@@ -2,6 +2,35 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Unity Catalog Metric Views
+
+[Unity Catalog Metric Views](https://docs.databricks.com/aws/en/metric-views/) are first-class semantic layer assets that expose dimensions and measures via a YAML specification. DataHub ingests them as datasets with subtype `Metric View` when you opt in with `include_metric_views: true`.
+
+```yaml
+source:
+  type: unity-catalog
+  config:
+    include_metric_views: true
+    metric_view_pattern:
+      allow:
+        - my_catalog\.analytics\..*
+```
+
+When enabled, each metric view emits:
+
+- A `Metric View` subtype so it is distinguishable from regular tables and views in the UI.
+- A `ViewProperties` aspect carrying the raw YAML body with `viewLanguage: YAML`. The `materialized` flag is set to `true` when the YAML contains `materialization: materialized`.
+- Upstream lineage parsed from the YAML `source` and `joins[].source` fields. Both 3-part (`catalog.schema.table`) and 2-part (`schema.table`, resolved against the metric view's own catalog) identifiers are supported, as are backtick-quoted parts (`` `db.with.dots`.schema.table ``).
+- Column-level lineage parsed from each `dimensions[].expr` / `measures[].expr` using the Databricks SQL dialect (requires `include_column_lineage: true`, which is the default). Unqualified columns map to the source table; `<join_name>.column` references map through the join's `source`.
+- A `Dimension` or `Measure` tag on each schema field whose name matches a YAML `dimensions[].name` or `measures[].name`.
+- A `metric_view_filter` custom property when the YAML carries a top-level `filter`.
+- Per-column descriptions taken from the YAML `dimensions[].description` / `measures[].description` when present (falls back to the underlying Unity Catalog column comment otherwise).
+- A filtered set of custom properties: the Spark engine config snapshot Unity Catalog injects as `view.sqlConfig.spark.*` keys (~150 entries per view) is dropped, since it is identical across views in a workspace and crowds the UI. All other Databricks-injected `view.*` properties (`view.query.out.col.*`, `view.referredTemp*`, `view.catalogAndNamespace.*`) and the `metric_view.*` keys are preserved.
+
+If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier that DataHub can't resolve, the YAML lineage path is skipped and DataHub falls back to the Unity Catalog table-lineage REST API for upstream resolution.
+
+`include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
+
 #### Advanced
 
 ##### Multiple Databricks Workspaces
