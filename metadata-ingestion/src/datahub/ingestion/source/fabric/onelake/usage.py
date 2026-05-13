@@ -91,6 +91,11 @@ class FabricUsageExtractor:
         Use the resolved (`self.start_time` / `self.end_time`) — not the raw
         config window — so we don't over-claim coverage when the skip handler
         narrowed the window to only the uncovered portion.
+
+        Note: the handler internally refuses to advance the checkpoint if any
+        per-item `extract()` reported failure via `report_current_run_status`.
+        So this is a no-op unless every item succeeded; the next run then
+        retries the same window.
         """
         if self.redundant_run_skip_handler:
             self.redundant_run_skip_handler.update_state(
@@ -145,6 +150,14 @@ class FabricUsageExtractor:
                 context=f"workspace_id={workspace_id}, item_id={item_id}",
                 exc=e,
             )
+            # Mark this item's step as failed so the skip handler refuses to advance
+            # the usage checkpoint. Otherwise a window where every item failed would
+            # be permanently marked as covered, and the missed rows are unrecoverable
+            # past queryinsights' 30-day retention.
+            if self.redundant_run_skip_handler:
+                self.redundant_run_skip_handler.report_current_run_status(
+                    f"usage-extraction-{workspace_id}/{item_id}", False
+                )
         finally:
             self.report.usage_extraction_per_item_sec[item_key] = round(
                 time.monotonic() - started_at, 3
@@ -191,7 +204,6 @@ class FabricUsageExtractor:
             user=user,
             default_db=default_db,
             default_schema=default_schema,
-            query_hash=row.query_hash,
             extra_info={
                 "fabric_workspace_id": workspace_id,
                 "fabric_item_id": item_id,

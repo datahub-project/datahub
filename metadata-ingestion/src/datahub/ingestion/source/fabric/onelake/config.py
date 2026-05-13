@@ -101,6 +101,16 @@ class FabricUsageConfig(BaseUsageConfig):
         ),
     )
 
+    include_queries: bool = Field(
+        default=True,
+        description=(
+            "If enabled, emit a `Query` entity for each unique parsed queryinsights "
+            "row so the SQL becomes a first-class, searchable asset in DataHub "
+            "(visible on the Queries tab and as standalone Query pages). "
+            "Requires `include_usage_statistics=True`."
+        ),
+    )
+
 
 class FabricOneLakeSourceConfig(
     StatefulIngestionConfigBase,
@@ -236,7 +246,7 @@ class FabricOneLakeSourceConfig(
 
     # Usage tracking
     usage: FabricUsageConfig = Field(
-        default=FabricUsageConfig(),
+        default_factory=FabricUsageConfig,
         description=(
             "Usage tracking configuration. Reads `queryinsights.exec_requests_history` "
             "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires a "

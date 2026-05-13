@@ -155,6 +155,10 @@ class WarehouseSchemaKey(WarehouseKey):
     "`usage.include_usage_statistics` is enabled. Column-level usage is derived "
     "via SQL parsing of the query text.",
 )
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
+)
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
 
@@ -186,14 +190,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # aspects. Constructed unconditionally so view lineage works regardless of
         # the usage toggle; usage flags below decide what gets emitted.
         usage_enabled = config.usage.include_usage_statistics
+        queries_enabled = usage_enabled and config.usage.include_queries
         self.aggregator = SqlParsingAggregator(
             platform=PLATFORM,
             platform_instance=config.platform_instance,
             env=config.env,
             graph=ctx.graph,
             generate_lineage=True,
-            generate_queries=False,
-            generate_query_subject_fields=False,
+            generate_queries=queries_enabled,
+            generate_query_subject_fields=queries_enabled,
             generate_usage_statistics=usage_enabled,
             generate_operations=usage_enabled
             and config.usage.include_operational_stats,
@@ -330,7 +335,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             aggregator_drain_succeeded = True
             logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
         except Exception as e:
-            self.report.report_warning(
+            self.report.report_failure(
                 title="Failed to Generate Lineage / Usage",
                 message="Error draining SQL aggregator for lineage and usage.",
                 context=f"mcps_emitted_before_failure={emitted}",

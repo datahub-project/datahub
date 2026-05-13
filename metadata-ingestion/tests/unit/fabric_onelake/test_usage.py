@@ -29,7 +29,6 @@ def make_row(
         command=command,
         login_name=login_name,
         row_count=1,
-        query_hash="hash-1",
     )
 
 
@@ -181,6 +180,54 @@ def test_extract_swallows_stream_exception_and_warns() -> None:
     assert any(w.title == "Failed to Extract Usage" for w in report.warnings)
     # Timing is still recorded even when extraction fails.
     assert f"{WORKSPACE_ID}/{ITEM_ID}" in report.usage_extraction_per_item_sec
+
+
+def test_extract_failure_marks_skip_handler_step_failed() -> None:
+    """Per-item failures must call report_current_run_status(False) so the skip
+    handler refuses to advance the usage checkpoint — otherwise a window where
+    every item failed would be permanently marked as covered.
+    """
+    skip_handler = MagicMock()
+    skip_handler.suggest_run_time_window.return_value = (
+        FabricUsageConfig().start_time,
+        FabricUsageConfig().end_time,
+    )
+    extractor, _, _ = make_extractor(skip_handler=skip_handler)
+
+    schema_client = MagicMock()
+    schema_client.stream_usage_history.side_effect = RuntimeError("endpoint down")
+
+    extractor.extract(
+        workspace_id=WORKSPACE_ID,
+        item_id=ITEM_ID,
+        item_display_name=ITEM_DISPLAY_NAME,
+        schema_client=schema_client,
+    )
+
+    skip_handler.report_current_run_status.assert_called_once_with(
+        f"usage-extraction-{WORKSPACE_ID}/{ITEM_ID}", False
+    )
+
+
+def test_extract_happy_path_does_not_mark_skip_handler_step_failed() -> None:
+    skip_handler = MagicMock()
+    skip_handler.suggest_run_time_window.return_value = (
+        FabricUsageConfig().start_time,
+        FabricUsageConfig().end_time,
+    )
+    extractor, _, _ = make_extractor(skip_handler=skip_handler)
+
+    schema_client = MagicMock()
+    schema_client.stream_usage_history.return_value = iter([make_row()])
+
+    extractor.extract(
+        workspace_id=WORKSPACE_ID,
+        item_id=ITEM_ID,
+        item_display_name=ITEM_DISPLAY_NAME,
+        schema_client=schema_client,
+    )
+
+    skip_handler.report_current_run_status.assert_not_called()
 
 
 def test_extract_partial_failure_keeps_already_processed_rows() -> None:

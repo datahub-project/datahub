@@ -123,4 +123,3 @@ class FabricQueryInsightsRow:
     command: str
     login_name: Optional[str]
     row_count: Optional[int]
-    query_hash: Optional[str]

@@ -123,7 +123,7 @@ class SchemaExtractionClient(Protocol):
         start_time: datetime,
         end_time: datetime,
         skip_failed_queries: bool,
-        batch_size: int = 1000,
+        fetch_chunk_size: int = 1000,
     ) -> Iterator[FabricQueryInsightsRow]:
         """Stream rows from queryinsights.exec_requests_history within a time window.
 
@@ -133,7 +133,8 @@ class SchemaExtractionClient(Protocol):
             start_time: Inclusive lower bound on `start_time` column
             end_time: Exclusive upper bound on `start_time` column
             skip_failed_queries: When True, filter `status = 'Succeeded'` at the source
-            batch_size: Server-side fetch size
+            fetch_chunk_size: Python-side `cursor.fetchmany()` chunk size — tunes. Narrow the time
+                window if a single run's result set is too large to process.
 
         Yields:
             One `FabricQueryInsightsRow` per matching row, ordered by `start_time`.
@@ -468,23 +469,17 @@ class SqlAnalyticsEndpointClient:
                     )
                 return columns_by_table
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to extract schema for all tables "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error extracting schema for all tables: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
             raise
 
     def get_all_views(
@@ -538,21 +533,17 @@ class SqlAnalyticsEndpointClient:
                     )
                 return views
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to discover views "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error discovering views: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
             raise
 
     def stream_usage_history(
@@ -562,13 +553,9 @@ class SqlAnalyticsEndpointClient:
         start_time: datetime,
         end_time: datetime,
         skip_failed_queries: bool,
-        batch_size: int = 1000,
+        fetch_chunk_size: int = 1000,
     ) -> Iterator[FabricQueryInsightsRow]:
         """Stream queryinsights.exec_requests_history rows for a single item.
-
-        Note: pyodbc / ODBC 18 buffer the full result set client-side, so peak
-        memory scales with total rows in the window, not `batch_size`. Narrow
-        the window if needed.
 
         Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
         """
@@ -579,7 +566,6 @@ class SqlAnalyticsEndpointClient:
                 login_name,
                 row_count,
                 status,
-                query_hash,
                 command
             FROM queryinsights.exec_requests_history
             WHERE start_time >= :start_time AND start_time < :end_time
@@ -603,39 +589,31 @@ class SqlAnalyticsEndpointClient:
                     query, {"start_time": sql_start, "end_time": sql_end}
                 )
                 while True:
-                    batch = cursor.fetchmany(batch_size)
+                    batch = cursor.fetchmany(fetch_chunk_size)
                     if not batch:
                         break
                     for row in batch:
                         row_mapping = row._mapping
-                        # query_hash surfaces from pyodbc as binary(8); coerce to str at the
-                        # boundary so consumers don't have to think about its wire type.
-                        raw_hash = row_mapping["query_hash"]
                         yield FabricQueryInsightsRow(
                             start_time=row_mapping["start_time"],
                             statement_type=row_mapping["statement_type"],
                             login_name=row_mapping["login_name"],
                             row_count=row_mapping["row_count"],
                             status=row_mapping["status"],
-                            query_hash=str(raw_hash) if raw_hash is not None else None,
                             command=row_mapping["command"],
                         )
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to stream queryinsights.exec_requests_history "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error streaming usage history: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
             raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
