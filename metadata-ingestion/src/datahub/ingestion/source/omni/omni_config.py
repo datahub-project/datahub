@@ -129,3 +129,54 @@ class OmniSourceConfig(
             "and DataHub's Snowflake connector stores them in upper case by default."
         ),
     )
+    connection_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex allow/deny patterns applied to Omni connection IDs. "
+            "Use to restrict ingestion to specific database connections. "
+            "The connection ID is the UUID shown in Omni Admin → Connections. "
+            "Example: allow: ['^prod-.*'] to ingest only production connections."
+        ),
+    )
+    scope_pattern: AllowDenyPattern = Field(
+        default_factory=lambda: AllowDenyPattern(allow=["shared"]),
+        description=(
+            "Regex allow/deny patterns applied to Omni document scope values. "
+            "Omni scopes are typically 'shared' (Hub-visible, organisation content) "
+            "or 'personal' (individual user content). "
+            "Default: allow only 'shared' content, which matches Omni Hub visibility. "
+            "Set allow: ['.*'] to ingest all content regardless of scope."
+        ),
+    )
+    connection_schema_prefix_strip: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Per-connection prefix to strip from Omni schema names before building "
+            "physical dataset URNs. Used when Omni's dbt integration (or another "
+            "integration) adds a fixed prefix to warehouse schema names. "
+            "Example: {'abc-123': 'omni_dbt_'} strips 'omni_dbt_' from every "
+            "schema name for connection abc-123, so 'omni_dbt_dbt_marts' becomes "
+            "'dbt_marts' in the emitted URN."
+        ),
+    )
+    connection_schema_map: Optional[Dict[str, Dict[str, str]]] = Field(
+        default=None,
+        description=(
+            "Per-connection explicit schema name remapping. Maps Omni-internal schema "
+            "names to the canonical names used by the warehouse connector in DataHub. "
+            "Applied after connection_schema_prefix_strip. "
+            "Example: {'abc-123': {'omni_dbt_dbt_marts': 'dbt_marts'}}"
+        ),
+    )
+    connection_to_dbt_project: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Map Omni connection IDs to dbt project names. "
+            "When set for a connection, physical dataset URNs emitted for that connection "
+            "will use the 'dbt' platform instead of the warehouse platform, pointing "
+            "lineage at the dbt model entities already ingested by the dbt connector. "
+            "The project name must exactly match the project name used when the dbt "
+            "connector ingested those models. "
+            "Example: {'abc-123': 'my_dbt_project'}"
+        ),
+    )

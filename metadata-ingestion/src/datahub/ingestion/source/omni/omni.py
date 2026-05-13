@@ -275,6 +275,14 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self.PLATFORM, f"connection.{connection_id}", self.config.env
         )
 
+    def _physical_dataset_name(
+        self, platform: str, database: str, schema: str, table: str
+    ) -> str:
+        db, sc, tb = database or "", schema or "", table or ""
+        if self.config.normalize_snowflake_names and platform.lower() == "snowflake":
+            db, sc, tb = db.upper(), sc.upper(), tb.upper()
+        return ".".join(p for p in [db, sc, tb] if p)
+
     def _physical_dataset_urn(
         self,
         platform: str,
@@ -283,10 +291,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         table: str,
         platform_instance: Optional[str] = None,
     ) -> str:
-        db, sc, tb = database or "", schema or "", table or ""
-        if self.config.normalize_snowflake_names and platform.lower() == "snowflake":
-            db, sc, tb = db.upper(), sc.upper(), tb.upper()
-        full_name = ".".join(p for p in [db, sc, tb] if p)
+        full_name = self._physical_dataset_name(platform, database, schema, table)
         if platform_instance:
             return make_dataset_urn_with_platform_instance(
                 platform=platform,
@@ -300,6 +305,19 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         self, model_id: str, view_name: str, field_name: str
     ) -> str:
         return f"{model_id}:{view_name}.{field_name}"
+
+    def _normalize_schema_name(self, schema: str, connection_id: str) -> str:
+        """Strip configured prefix and apply explicit remap for a schema name."""
+        if not schema:
+            return schema
+        prefix_map = self.config.connection_schema_prefix_strip or {}
+        prefix = prefix_map.get(connection_id)
+        if prefix and schema.startswith(prefix):
+            schema = schema[len(prefix) :]
+        explicit_map = (self.config.connection_schema_map or {}).get(
+            connection_id
+        ) or {}
+        return explicit_map.get(schema, schema)
 
     # ------------------------------------------------------------------
     # SDK V2 entity emitters
@@ -657,52 +675,58 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             seen_fields: Set[str] = set()
             physical_urn: Optional[str] = None
 
-            schema = view.get("schema") or ""
+            schema = self._normalize_schema_name(
+                view.get("schema") or "", connection_id
+            )
             table = view.get("table_name") or ""
             if table:
-                physical_urn = self._physical_dataset_urn(
-                    platform, database, schema, table, platform_instance
+                dbt_project = (self.config.connection_to_dbt_project or {}).get(
+                    connection_id
                 )
-                self._physical_dataset_urns.add(physical_urn)
-                yield from self._emit_dataset(
-                    name=".".join(
-                        p
-                        for p in [
-                            (
-                                database.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else database
-                            ),
-                            (
-                                schema.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else schema
-                            ),
-                            (
-                                table.upper()
-                                if self.config.normalize_snowflake_names
-                                and platform.lower() == "snowflake"
-                                else table
-                            ),
-                        ]
-                        if p
-                    ),
-                    description="Physical source table referenced by Omni model.",
-                    custom_properties={
-                        "platform": platform,
-                        "database": database,
-                        "schema": schema,
-                        "table": table,
-                        "connectionId": connection_id,
-                        "platformInstance": platform_instance or "",
-                    },
-                    subtype="Table",
-                    platform=platform,
-                    platform_instance=platform_instance,
-                )
-                self.report.physical_datasets_emitted += 1
+                if dbt_project:
+                    # Point lineage at the dbt model entity so DataHub shows the full
+                    # chain: Omni View → dbt Model → Warehouse Table.
+                    # The dbt connector already handles the dbt → warehouse edge.
+                    dbt_name = ".".join(p for p in [dbt_project, schema, table] if p)
+                    physical_urn = make_dataset_urn("dbt", dbt_name, self.config.env)
+                    self._physical_dataset_urns.add(physical_urn)
+                    yield from self._emit_dataset(
+                        name=dbt_name,
+                        description="dbt model referenced by Omni semantic view.",
+                        custom_properties={
+                            "platform": "dbt",
+                            "dbtProject": dbt_project,
+                            "schema": schema,
+                            "table": table,
+                            "connectionId": connection_id,
+                        },
+                        subtype="dbt Model",
+                        platform="dbt",
+                    )
+                    self.report.physical_datasets_emitted += 1
+                else:
+                    physical_urn = self._physical_dataset_urn(
+                        platform, database, schema, table, platform_instance
+                    )
+                    self._physical_dataset_urns.add(physical_urn)
+                    yield from self._emit_dataset(
+                        name=self._physical_dataset_name(
+                            platform, database, schema, table
+                        ),
+                        description="Physical source table referenced by Omni model.",
+                        custom_properties={
+                            "platform": platform,
+                            "database": database,
+                            "schema": schema,
+                            "table": table,
+                            "connectionId": connection_id,
+                            "platformInstance": platform_instance or "",
+                        },
+                        subtype=DatasetSubTypes.TABLE,
+                        platform=platform,
+                        platform_instance=platform_instance,
+                    )
+                    self.report.physical_datasets_emitted += 1
 
             # Collect schema fields and register semantic field metadata
             for dimension in view.get("dimensions", []):
@@ -801,7 +825,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 display_name=f"{readable_model}.{view_name}",
                 description=f"Omni semantic view from topic {topic_name}.",
                 custom_properties=view_props,
-                subtype="View",
+                subtype=DatasetSubTypes.VIEW,
                 schema_fields=schema_fields or None,
                 upstreams=view_upstreams,
             )
@@ -832,8 +856,9 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._ensure_connection_dataset(connection_id, connection)
         except Exception as exc:
             self.report.warning(
-                "connections-fetch",
-                f"Failed to fetch Omni connections; proceeding with config overrides only: {exc}",
+                title="Failed to fetch connections",
+                message="Failed to fetch Omni connections; proceeding with config overrides only.",
+                exc=exc,
             )
 
         for model in self.client.list_models(page_size=self.config.page_size):
@@ -864,6 +889,12 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             self._model_dataset_urns.add(model_urn)
 
             connection_id = model.get("connectionId") or ""
+            if connection_id and not self.config.connection_pattern.allowed(
+                connection_id
+            ):
+                self.report.connections_filtered += 1
+                self.report.report_dropped(model_id)
+                continue
             conn: Optional[Dict[str, object]] = connections.get(connection_id)
             if connection_id:
                 yield from self._ensure_connection_dataset(connection_id, conn)
@@ -934,51 +965,74 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             )
             self.report.semantic_datasets_emitted += 1
 
+            yield from self._ingest_model_topics(
+                model_id=model_id,
+                platform=platform,
+                database=database,
+                connection_id=connection_id,
+                platform_instance=platform_instance,
+                model_kind=model_kind,
+                model_layer=model_layer,
+                model_name=model_name,
+            )
+
+    def _ingest_model_topics(
+        self,
+        model_id: str,
+        platform: str,
+        database: str,
+        connection_id: str,
+        platform_instance: Optional[str],
+        model_kind: Optional[str],
+        model_layer: str,
+        model_name: str,
+    ) -> Iterator[MetadataWorkUnit]:
+        """Fetch model YAML, resolve topics, and ingest each topic payload."""
+        model_yaml_files: Dict[str, str] = {}
+        try:
+            model_yaml_payload = self.client.get_model_yaml(model_id)
+            model_yaml_files = model_yaml_payload.get("files", {}) or {}
+        except Exception as exc:
+            self.report.warning(
+                title="Failed to fetch model YAML",
+                message="Failed to fetch model YAML; topic ingestion may be incomplete.",
+                context=f"model_id={model_id}",
+                exc=exc,
+            )
+        topic_names = self._topic_names_from_yaml(model_yaml_files)
+        topic_specs, view_specs = self._parse_model_yaml_specs(model_yaml_files)
+        self._topic_specs_by_model_id[model_id] = topic_specs
+        self._view_specs_by_model_id[model_id] = view_specs
+        for topic_name in sorted(topic_names):
             try:
-                model_yaml_payload = self.client.get_model_yaml(model_id)
+                topic = self.client.get_topic(model_id, topic_name)
             except Exception as exc:
                 self.report.warning(
-                    "model-yaml-fetch",
-                    f"Failed to fetch model YAML for {model_id}: {exc}",
+                    title="Failed to fetch topic",
+                    message="Failed to fetch topic; using YAML spec as fallback.",
+                    context=f"topic={topic_name}, model_id={model_id}",
+                    exc=exc,
                 )
-                continue
-
-            model_yaml_files = model_yaml_payload.get("files", {})
-            topic_names = self._topic_names_from_yaml(model_yaml_files)
-            topic_specs, view_specs = self._parse_model_yaml_specs(model_yaml_files)
-            self._topic_specs_by_model_id[model_id] = topic_specs
-            self._view_specs_by_model_id[model_id] = view_specs
-            if not topic_names:
-                continue
-
-            for topic_name in sorted(topic_names):
-                try:
-                    topic = self.client.get_topic(model_id, topic_name)
-                except Exception as exc:
-                    self.report.warning(
-                        "topic-fetch",
-                        f"Failed to fetch topic {topic_name} for model {model_id}; using YAML fallback: {exc}",
-                    )
-                    topic = self._topic_payload_from_yaml_specs(
-                        topic_name, topic_specs, view_specs
-                    )
-                if not topic:
-                    continue
-                yield from self._ingest_topic_payload(
-                    model_id=model_id,
-                    topic_name=topic_name,
-                    topic=topic,
-                    platform=platform,
-                    database=database,
-                    connection_id=connection_id,
-                    platform_instance=platform_instance,
-                    inferred=bool(topic.get("views")) and not bool(topic.get("id")),
-                    model_custom_properties={
-                        "modelKind": model_kind or "",
-                        "modelLayer": model_layer,
-                    },
-                    model_name=model_name,
+                topic = self._topic_payload_from_yaml_specs(
+                    topic_name, topic_specs, view_specs
                 )
+            if not topic:
+                continue
+            yield from self._ingest_topic_payload(
+                model_id=model_id,
+                topic_name=topic_name,
+                topic=topic,
+                platform=platform,
+                database=database,
+                connection_id=connection_id,
+                platform_instance=platform_instance,
+                inferred=bool(topic.get("views")) and not bool(topic.get("id")),
+                model_custom_properties={
+                    "modelKind": model_kind or "",
+                    "modelLayer": model_layer,
+                },
+                model_name=model_name,
+            )
 
     def _ingest_folders(self) -> Iterator[MetadataWorkUnit]:
         for folder in self.client.list_folders(page_size=self.config.page_size):
@@ -1081,8 +1135,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 )
             else:
                 self.report.warning(
-                    "topic-fetch-from-dashboard",
-                    f"Failed to fetch topic {topic_name} for model {model_id}: {exc}",
+                    title="Failed to fetch topic from dashboard",
+                    message="Failed to fetch topic referenced by dashboard tile.",
+                    context=f"topic={topic_name}, model_id={model_id}",
+                    exc=exc,
                 )
 
     def _collect_tile_data(
@@ -1157,8 +1213,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                 chart_urls[qp_id] = f"{dashboard_url}?queryPresentationId={qp_id}"
         except Exception as exc:
             self.report.warning(
-                "dashboard-document-fetch",
-                f"Failed to fetch dashboard payload for {doc_id}: {exc}",
+                title="Failed to fetch dashboard payload",
+                message="Failed to fetch dashboard document payload.",
+                context=f"doc_id={doc_id}",
+                exc=exc,
             )
 
     def _emit_inferred_view_datasets(
@@ -1200,7 +1258,7 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                         "viewName": field_ref.view,
                         "inferred": "true",
                     },
-                    subtype="View",
+                    subtype=DatasetSubTypes.VIEW,
                     schema_fields=inferred_schema_fields or None,
                 )
                 self.report.semantic_datasets_emitted += 1
@@ -1259,6 +1317,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
         ):
             doc_id = document.get("identifier")
             if not doc_id:
+                continue
+            doc_scope = document.get("scope") or ""
+            if not self.config.scope_pattern.allowed(doc_scope):
+                self.report.documents_filtered_by_scope += 1
                 continue
             if not self.config.document_pattern.allowed(doc_id):
                 self.report.report_dropped(doc_id)
@@ -1347,8 +1409,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
                     )
             except Exception as exc:
                 self.report.warning(
-                    "document-queries-fetch",
-                    f"Failed to fetch queries for {doc_id}: {exc}",
+                    title="Failed to fetch document queries",
+                    message="Failed to fetch queries for document.",
+                    context=f"doc_id={doc_id}",
+                    exc=exc,
                 )
 
             if model_id_from_dashboard and dashboard_topics:
@@ -1436,6 +1500,10 @@ class OmniSource(StatefulIngestionSourceBase, TestableSource):
             yield from self._ingest_semantic_model()
             yield from self._ingest_folders()
             yield from self._ingest_documents()
+            yield from self.stale_entity_removal_handler.gen_removed_entity_workunits()
         except Exception as exc:
-            self.report.failure("omni-source", str(exc))
+            self.report.failure(
+                message="Unhandled exception in Omni source.",
+                exc=exc,
+            )
             raise
