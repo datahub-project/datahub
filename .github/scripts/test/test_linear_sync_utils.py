@@ -88,6 +88,15 @@ def test_find_team_label_by_name_from_mocked_graphql(monkeypatch):
     assert utils.find_team_label_by_name("k", "team-1", "main") == "LBL-1"
 
 
+def test_find_workspace_label_by_name_from_mocked_graphql(monkeypatch):
+    def fake_graphql(_api_key, _query, variables):
+        assert variables == {"name": "v1.0.1-cloud"}
+        return {"issueLabels": {"nodes": [{"id": "LBL-W", "name": "v1.0.1-cloud"}]}}
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    assert utils.find_workspace_label_by_name("k", "v1.0.1-cloud") == "LBL-W"
+
+
 def test_create_team_label_includes_team_id_and_color(monkeypatch):
     seen: dict[str, object] = {}
 
@@ -103,29 +112,61 @@ def test_create_team_label_includes_team_id_and_color(monkeypatch):
     }
 
 
-def test_get_or_create_team_label_id_reuses_existing(monkeypatch):
-    monkeypatch.setattr(utils, "find_team_label_by_name", lambda *_args, **_kwargs: "LBL-EXIST")
+def test_create_workspace_label_omits_team_id(monkeypatch):
+    seen: dict[str, object] = {}
+
+    def fake_graphql(_api_key, _query, variables):
+        seen["vars"] = variables
+        return {"issueLabelCreate": {"success": True, "issueLabel": {"id": "LBL-G"}}}
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    label_id = utils.create_workspace_label("k", "v1.0.0", "#abcdef")
+    assert label_id == "LBL-G"
+    assert seen["vars"] == {"input": {"name": "v1.0.0", "color": "#abcdef"}}
+
+
+def test_get_or_create_workspace_label_id_reuses_existing(monkeypatch):
+    monkeypatch.setattr(
+        utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: "LBL-EXIST"
+    )
     called = {"create": False}
 
     def fake_create(*_args, **_kwargs):
         called["create"] = True
         return "LBL-NEW"
 
-    monkeypatch.setattr(utils, "create_team_label", fake_create)
-    assert utils.get_or_create_team_label_id("k", "team-1", "main") == "LBL-EXIST"
+    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
+    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-EXIST"
     assert called["create"] is False
 
 
-def test_get_or_create_team_label_id_creates_when_missing(monkeypatch):
-    monkeypatch.setattr(utils, "find_team_label_by_name", lambda *_args, **_kwargs: None)
+def test_get_or_create_workspace_label_id_creates_when_missing(monkeypatch):
+    monkeypatch.setattr(utils, "find_workspace_label_by_name", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(utils, "random_label_color_hex", lambda: "#00ff00")
 
-    def fake_create(_api_key, _team_id, _label_name, color_hex):
+    def fake_create(_api_key, _label_name, color_hex):
         assert color_hex == "#00ff00"
         return "LBL-NEW"
 
-    monkeypatch.setattr(utils, "create_team_label", fake_create)
-    assert utils.get_or_create_team_label_id("k", "team-1", "main") == "LBL-NEW"
+    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
+    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-NEW"
+
+
+def test_get_or_create_workspace_label_id_recovers_after_duplicate(monkeypatch):
+    calls = {"n": 0}
+
+    def find_twice(_api_key, _name):
+        calls["n"] += 1
+        return "LBL-RACE" if calls["n"] >= 2 else None
+
+    monkeypatch.setattr(utils, "find_workspace_label_by_name", find_twice)
+
+    def fake_create(*_args, **_kwargs):
+        raise RuntimeError("Linear GraphQL errors: [{'message': 'duplicate label name'}]")
+
+    monkeypatch.setattr(utils, "create_workspace_label", fake_create)
+    assert utils.get_or_create_workspace_label_id("k", "main") == "LBL-RACE"
+    assert calls["n"] == 2
 
 
 def test_attach_file_to_issue_uploads_then_attaches(monkeypatch, tmp_path: Path):
@@ -195,3 +236,27 @@ def test_upload_file_merges_content_type_for_gcs_put(monkeypatch):
     )
     assert got["headers"]["Content-Type"] == "application/json"
     assert got["data"] == b"ab"
+
+
+def test_get_issue_display_and_identifier_url(monkeypatch):
+    def fake_graphql(
+        api_key: str, query: str, variables: dict | None = None
+    ) -> dict[str, object]:
+        assert variables == {"id": "issue-uuid"}
+        return {
+            "issue": {
+                "identifier": "ENG-9",
+                "url": "https://linear.example/issue/9",
+                "title": "CVE fix",
+            }
+        }
+
+    monkeypatch.setattr(utils, "graphql", fake_graphql)
+    d = utils.get_issue_display("key", "issue-uuid")
+    assert d == utils.IssueDisplay(
+        "ENG-9", "https://linear.example/issue/9", "CVE fix"
+    )
+    assert utils.get_issue_identifier_url("key", "issue-uuid") == (
+        "ENG-9",
+        "https://linear.example/issue/9",
+    )

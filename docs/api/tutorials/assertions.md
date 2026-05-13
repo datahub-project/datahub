@@ -91,15 +91,15 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart freshness assertion (AI-powered anomaly detection)
+# Create a Freshness assertion with Anomaly Detection (AI-powered thresholding)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Freshness Anomaly Monitor",
+    display_name="Freshness Anomaly Monitor",
     # Detection mechanism - information_schema is recommended
     detection_mechanism="information_schema",
-    # Smart sensitivity setting
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "freshness", "data_quality"],
@@ -107,7 +107,7 @@ smart_freshness_assertion = client.assertions.sync_smart_freshness_assertion(
     enabled=True
 )
 
-print(f"Created smart freshness assertion: {smart_freshness_assertion.urn}")
+print(f"Created freshness anomaly monitor: {smart_freshness_assertion.urn}")
 
 # Create traditional freshness assertion (fixed interval)
 freshness_assertion = client.assertions.sync_freshness_assertion(
@@ -236,15 +236,16 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart volume assertion (AI-powered anomaly detection)
+# Create a Volume assertion with Anomaly Detection (AI-powered thresholding)
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Volume Check",
-    # Detection mechanism options
-    detection_mechanism="information_schema",
-    # Smart sensitivity setting
+    display_name="Volume Anomaly Monitor",
+    # Bucketing always requires a query-based source; information_schema and
+    # DataHub Dataset Profile cannot be bucketed.
+    detection_mechanism="query",
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Tags for grouping
     tags=["automated", "volume", "data_quality"],
@@ -260,9 +261,9 @@ smart_volume_assertion = client.assertions.sync_smart_volume_assertion(
     enabled=True
 )
 
-print(f"Created smart volume assertion: {smart_volume_assertion.urn}")
+print(f"Created volume anomaly monitor: {smart_volume_assertion.urn}")
 
-# Create traditional volume assertion (fixed threshold range)
+# Create fixed-threshold volume assertion (static range)
 volume_assertion = client.assertions.sync_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Row Count Range Check",
@@ -373,21 +374,21 @@ from datahub.metadata.urns import DatasetUrn
 # Initialize the client
 client = DataHubClient(server="<your_server>", token="<your_token>")
 
-# Create smart column metric assertion (AI-powered anomaly detection).
-# Note: Smart Assertions currently only support the following column metrics:
-# null_count, unique_count, empty_count, zero_count, negative_count.
-# For other metrics (e.g. min, max, mean), use a regular column metric assertion
-# with a fixed threshold (see below).
+# Create a Column Metric assertion with Anomaly Detection.
+# Note: Anomaly Detection for Column Metrics currently only supports the
+# following metrics: null_count, unique_count, empty_count, zero_count,
+# negative_count. For other metrics (e.g. min, max, mean), use a fixed-threshold
+# column metric assertion (see below).
 dataset_urn = DatasetUrn.from_string("urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)")
 
 smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="user_id",
     metric_type="null_count",
-    display_name="Smart Null Count Check - user_id",
+    display_name="Null Count Anomaly Monitor - user_id",
     # Detection mechanism for column metrics
     detection_mechanism="all_rows_query_datahub_dataset_profile",
-    # Smart sensitivity setting
+    # AI sensitivity setting
     sensitivity="medium",  # options: "low", "medium", "high"
     # Optional: partition data into daily time buckets
     time_bucketing_strategy={
@@ -402,10 +403,10 @@ smart_column_assertion = client.assertions.sync_smart_column_metric_assertion(
     enabled=True
 )
 
-print(f"Created smart column assertion: {smart_column_assertion.urn}")
+print(f"Created column metric anomaly monitor: {smart_column_assertion.urn}")
 
-# Create regular column metric assertion (fixed threshold on aggregated metric).
-# Use this for metrics not supported by Smart Assertions (e.g. min, max, mean, median, stddev).
+# Create fixed-threshold column metric assertion.
+# Use this for metrics not supported by Anomaly Detection (e.g. min, max, mean, median, stddev).
 column_metric_assertion = client.assertions.sync_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="price",
@@ -514,7 +515,7 @@ This API will return a unique identifier (URN) for the new assertion if you were
 
 ---
 
-To create a new **smart SQL** assertion (AI anomaly detection), use the same mutation with `inferWithAI: true`.
+To create a new **Custom SQL assertion with Anomaly Detection**, use the same mutation with `inferWithAI: true`.
 
 ```graphql
 mutation upsertDatasetSqlAssertionMonitor {
@@ -522,7 +523,7 @@ mutation upsertDatasetSqlAssertionMonitor {
     input: {
       entityUrn: "<urn of entity being monitored>"
       type: METRIC
-      description: "<description of the smart SQL assertion>"
+      description: "<description of the Custom SQL anomaly monitor>"
       statement: "<SQL query to be evaluated>"
       inferWithAI: true
       inferenceSettings: { sensitivity: { level: 5 } }
@@ -583,13 +584,13 @@ range_sql_assertion = client.assertions.sync_sql_assertion(
 
 print(f"Created range SQL assertion: {range_sql_assertion.urn}")
 
-# ----------------------------
-# Smart SQL assertions (AI anomaly detection)
-# ----------------------------
+# -----------------------------------------------------------
+# Custom SQL assertion with Anomaly Detection
+# -----------------------------------------------------------
 
 smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
     dataset_urn=dataset_urn,
-    display_name="Smart Revenue Monitor",
+    display_name="Revenue Anomaly Monitor",
     # The SQL statement to evaluate - should return a single numeric value
     statement="SELECT SUM(revenue) FROM database.schema.table WHERE date >= CURRENT_DATE - INTERVAL '1 day'",
     # AI sensitivity setting
@@ -599,11 +600,11 @@ smart_sql_assertion = client.assertions.sync_smart_sql_assertion(
     # Optional: training data lookback
     training_data_lookback_days=60,
     # Tags
-    tags=["automated", "revenue", "smart_sql"],
+    tags=["automated", "revenue", "anomaly_detection"],
     enabled=True
 )
 
-print(f"Created smart SQL assertion: {smart_sql_assertion.urn}")
+print(f"Created Custom SQL anomaly monitor: {smart_sql_assertion.urn}")
 ```
 
 </TabItem>

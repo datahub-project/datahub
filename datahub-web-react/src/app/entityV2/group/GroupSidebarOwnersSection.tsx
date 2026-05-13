@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
 
 import GroupOwnerSidebarSectionContent from '@app/entityV2/group/GroupOwnerSidebarSectionContent';
@@ -31,11 +31,12 @@ export const GroupSidebarOwnersSection = ({ ownership, refetch, urn }: Props) =>
             }
             extra={
                 <SectionActionButton
-                    button={<PlusOutlined data-testid="add-owners-sidebar-button" />}
+                    icon={Plus}
                     onClick={(event) => {
                         setShowAddOwnerModal(true);
                         event.stopPropagation();
                     }}
+                    dataTestId="add-owners-sidebar-button"
                 />
             }
         />

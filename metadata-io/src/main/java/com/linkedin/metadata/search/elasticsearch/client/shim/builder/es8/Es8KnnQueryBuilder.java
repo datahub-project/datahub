@@ -46,7 +46,7 @@ public final class Es8KnnQueryBuilder {
     body.put("size", req.k());
     body.put("track_total_hits", false);
     if (!req.fieldsToFetch().isEmpty()) {
-      body.put("_source", req.fieldsToFetch());
+      body.put("_source", Map.of("includes", req.fieldsToFetch()));
     }
     body.put("query", Map.of("bool", bool));
     return body;

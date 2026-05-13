@@ -141,6 +141,8 @@ class Constant:
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
+    USERS = "users"
+    TILES = "tiles"
 
     # DirectLake / Fabric artifact constants
     RELATIONS = "relations"
