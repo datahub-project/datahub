@@ -1,0 +1,42 @@
+package com.linkedin.metadata.ingestion;
+
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * In-memory snapshot of the per-connector CLI version matrix.
+ *
+ * <p>The matrix is keyed by server release version, then by connector type, with each entry
+ * carrying a {@code _default} version and an optional ordered list of canary cohorts.
+ *
+ * <p>This is a pure POJO produced by {@link MatrixSource} implementations and consumed by {@link
+ * IngestionVersionMatrixService} — the storage layer (HTTP, GMS aspect, config server, …) is
+ * decoupled from the resolution layer that walks the matrix and applies precedence rules.
+ */
+public final class Matrix {
+
+  /** Empty matrix used when no source is configured or fetch has not yet succeeded. */
+  public static final Matrix EMPTY = new Matrix(Collections.emptyMap());
+
+  private final Map<String, Map<String, ConnectorEntry>> entriesByServerVersion;
+
+  public Matrix(Map<String, Map<String, ConnectorEntry>> entriesByServerVersion) {
+    this.entriesByServerVersion =
+        entriesByServerVersion == null
+            ? Collections.emptyMap()
+            : Collections.unmodifiableMap(entriesByServerVersion);
+  }
+
+  /**
+   * Lookup the per-connector matrix entries for a given server release. Returns {@code null} if the
+   * server version has no entry — callers fall back to the workspace default.
+   */
+  public Map<String, ConnectorEntry> getEntriesForServer(String serverVersion) {
+    return entriesByServerVersion.get(serverVersion);
+  }
+
+  /** Number of server-version keys in the matrix. Used for diagnostic logging. */
+  public int size() {
+    return entriesByServerVersion.size();
+  }
+}

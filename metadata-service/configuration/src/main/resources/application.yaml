@@ -104,6 +104,22 @@ ingestion:
   defaultCliVersion: "${UI_INGESTION_DEFAULT_CLI_VERSION:@cliVersion@}"
   maxSerializedStringLength: "${INGESTION_MAX_SERIALIZED_STRING_LENGTH:16000000}" # Indicates the maximum allowed JSON String length Jackson will handle, impacts the maximum size of ingested aspects
   batchRefreshCount: ${INGESTION_BATCH_REFRESH_COUNT:100} # The number of entities to refresh in a single batch when refreshing entities after ingestion
+  # Optional: URL to a publicly accessible JSON file containing a per-connector CLI version matrix
+  # keyed by server release. When set, overrides defaultCliVersion on a per-connector basis.
+  # Update this file externally (e.g. S3/CDN) without redeploying to change connector versions.
+  versionMatrixUrl: "${INGESTION_VERSION_MATRIX_URL:}"
+  versionMatrixRefreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}
+  # Optional. Sent verbatim as the `Authorization` header when fetching versionMatrixUrl. Required
+  # when the matrix is hosted behind authentication (e.g. a private GitHub repo). Format examples:
+  #   token ghp_xxxxxxxxxxxxxxxx           (GitHub PAT)
+  #   Bearer eyJ...                        (OAuth / OIDC bearer)
+  # Leave unset for public URLs. Property name ends with "Token" so it is auto-redacted in system-info.
+  versionMatrixAuthToken: "${INGESTION_VERSION_MATRIX_AUTH_TOKEN:}"
+  # Identifier for this deployment, used for matching against `deployments` allowlists in the
+  # version matrix. Sourced from DATAHUB_EXECUTOR_CUSTOMER_ID, which the Acryl Cloud Helm chart
+  # injects from the K8s namespace. Empty in single-tenant / OSS deployments — cohort matching
+  # never fires in that case and only the per-connector `_default` from the matrix applies.
+  deploymentId: "${DATAHUB_EXECUTOR_CUSTOMER_ID:}"
   scheduler:
     refreshIntervalSeconds: ${INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS:43200} # The interval at which the ingestion source scheduler will check for new or updated ingestion sources
 
