@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: "Container image tag to pull and scan (e.g. head, latest, or a release tag). Defaults to head."
+        description: "Image tag in the container registry to pull/scan. Default is `head` (DataHub’s published branch image tag; see `MAIN_BRANCH_TAG` in docker helpers). Examples: head, latest, or a release tag."
         required: true
         type: string
         default: head
@@ -19,6 +19,8 @@ on:
           - allImages
           - javaImages
           - actionsImages
+          - executorImages
+          - integrationImages
       variant_scope:
         description: "Tag variants to scan: base only (`primary`), all profile suffixes (`all`), or `slim` / `locked`."
         required: true
@@ -660,16 +662,15 @@ jobs:
     env:
       DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
     steps:
+      # Cone checkout of `.github/scripts` for the sync entrypoint and `utils/` imports.
       - name: Checkout (sync script)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           ref: ${{ github.ref_name }}
           fetch-tags: true
+          sparse-checkout-cone-mode: true
           sparse-checkout: |
-            .github/scripts/security_scan_linear_sync.py
-            .github/scripts/utils/security_scan_utils.py
-            .github/scripts/utils/linear_sync_utils.py
-          sparse-checkout-cone-mode: false
+            .github/scripts
 
       - name: Ensure report directories
         run: |
@@ -684,13 +685,29 @@ jobs:
           merge-multiple: true
           path: scan-reports/trivy
 
-      - name: Download Grype report artifacts (merged + raw, per matrix)
+      - name: Download Grype report artifacts (per-image matrix)
         if: env.RESOLVED_SCAN_WITH_GRYPE == 'true'
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: security-scan-grype--*
           merge-multiple: true
-          path: .
+          path: scan-reports/grype
+
+      - name: Download Trivy raw report artifacts (per-image matrix)
+        if: env.RESOLVED_SCAN_WITH_TRIVY == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: security-scan-trivy-raw--*
+          merge-multiple: true
+          path: scan-reports-raw/trivy
+
+      - name: Download Grype raw report artifacts (per-image matrix)
+        if: env.RESOLVED_SCAN_WITH_GRYPE == 'true'
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: security-scan-grype-raw--*
+          merge-multiple: true
+          path: scan-reports-raw/grype
 
       - name: Sync to Linear
         env:
@@ -711,44 +728,7 @@ jobs:
           SCAN_WITH_GRYPE: ${{ env.RESOLVED_SCAN_WITH_GRYPE }}
           DATAHUB_SCAN_SEVERITIES: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
           DATAHUB_VARIANT_TAG_SUFFIXES: ${{ needs.select-runner.outputs.variant_suffix_labels }}
-        run: |
-          set -euo pipefail
-          python3 -m pip install --disable-pip-version-check -q "requests==2.32.5"
-          if [[ -z "${LINEAR_SECURITY_SCAN_API_KEY:-}" ]]; then
-            echo "::error::Missing GitHub Actions secret LINEAR_SECURITY_SCAN_API_KEY (empty or unset). Add it under Settings → Secrets and variables → Actions. For organization secrets, open the secret and add this repository to \"Repository access\"."
-            exit 1
-          fi
-          shopt -s nullglob
-          files=()
-          if [[ "${SCAN_WITH_TRIVY}" == "true" ]]; then
-            for f in scan-reports/trivy/*.json; do
-              [[ -f "${f}" ]] && files+=("${f}")
-            done
-          fi
-          if [[ "${SCAN_WITH_GRYPE}" == "true" ]]; then
-            for f in scan-reports/grype/*.json; do
-              [[ -f "${f}" ]] && files+=("${f}")
-            done
-          fi
-          raw_files=()
-          if [[ "${SCAN_WITH_GRYPE}" == "true" ]]; then
-            for f in scan-reports-raw/grype/*.json; do
-              [[ -f "${f}" ]] && raw_files+=("${f}")
-            done
-          fi
-          if [[ ${#files[@]} -eq 0 ]]; then
-            echo "::notice::No merged scan report JSONs (e.g. all matrix scanner jobs failed or produced no files). Skipping Linear sync."
-            exit 0
-          fi
-          cmd=(python3 .github/scripts/security_scan_linear_sync.py --scanner trivy_grype)
-          cmd+=("${files[@]}")
-          # --raw-report-paths uses action=append in the script: repeat the flag once per file.
-          if [[ ${#raw_files[@]} -gt 0 ]]; then
-            for f in "${raw_files[@]}"; do
-              cmd+=(--raw-report-paths "$f")
-            done
-          fi
-          "${cmd[@]}"
+        run: bash .github/scripts/ci/run_security_scan_linear_sync.sh
 
       - name: Fail on scanner errors
         if: |

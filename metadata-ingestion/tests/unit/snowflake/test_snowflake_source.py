@@ -584,6 +584,10 @@ def test_test_connection_capability_all_success(mock_connect):
             SourceCapability.DATA_PROFILING,
             SourceCapability.DESCRIPTIONS,
             SourceCapability.LINEAGE_COARSE,
+            SourceCapability.LINEAGE_FINE,
+            SourceCapability.USAGE_STATS,
+            SourceCapability.OPERATION_CAPTURE,
+            SourceCapability.TAGS,
         ],
     )
 

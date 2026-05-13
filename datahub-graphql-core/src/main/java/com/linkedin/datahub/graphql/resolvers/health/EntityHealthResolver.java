@@ -35,6 +35,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.test.TestResults;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.AggregationType;
 import com.linkedin.timeseries.GenericTable;
@@ -80,7 +81,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       @Nonnull final EntityClient entityClient,
       @Nonnull final GraphClient graphClient,
       @Nonnull final TimeseriesAspectService timeseriesAspectService) {
-    this(entityClient, graphClient, timeseriesAspectService, new Config(true, true));
+    this(entityClient, graphClient, timeseriesAspectService, new Config(true, true, true));
   }
 
   public EntityHealthResolver(
@@ -133,6 +134,13 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
       final Health assertionsHealth = computeAssertionHealthForAsset(entityUrn, context);
       if (assertionsHealth != null) {
         healthStatuses.add(assertionsHealth);
+      }
+    }
+
+    if (_config.getTestsEnabled()) {
+      final Health testsHealth = computeTestsHealthForAsset(entityUrn, context);
+      if (testsHealth != null) {
+        healthStatuses.add(testsHealth);
       }
     }
 
@@ -298,6 +306,65 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
         createAssertionGroupingBuckets());
   }
 
+  /**
+   * Returns the resolved "tests health", which is a static function of whether there are any
+   * failing governance tests on the asset.
+   *
+   * @param entityUrn the asset to compute health for
+   * @param context the query context
+   * @return an instance of {@link Health} for the entity, null if one cannot be computed.
+   */
+  @Nullable
+  private Health computeTestsHealthForAsset(final String entityUrn, final QueryContext context) {
+    try {
+      final Urn urn = Urn.createFromString(entityUrn);
+      final EntityResponse entityResponse =
+          _entityClient.getV2(
+              context.getOperationContext(),
+              urn.getEntityType(),
+              urn,
+              ImmutableSet.of(Constants.TEST_RESULTS_ASPECT_NAME));
+
+      if (entityResponse == null
+          || !entityResponse.getAspects().containsKey(Constants.TEST_RESULTS_ASPECT_NAME)) {
+        return null;
+      }
+
+      final TestResults testResults =
+          new TestResults(
+              entityResponse
+                  .getAspects()
+                  .get(Constants.TEST_RESULTS_ASPECT_NAME)
+                  .getValue()
+                  .data());
+
+      final int passingCount = testResults.getPassing().size();
+      final int failingCount = testResults.getFailing().size();
+      final int totalCount = passingCount + failingCount;
+
+      if (totalCount == 0) {
+        return null;
+      }
+
+      final Health health = new Health();
+      health.setType(HealthStatusType.TESTS);
+      if (failingCount > 0) {
+        health.setStatus(HealthStatus.FAIL);
+        health.setMessage(String.format("%s of %s tests failing", failingCount, totalCount));
+      } else {
+        health.setStatus(HealthStatus.PASS);
+        health.setMessage("All tests are passing");
+      }
+      return health;
+    } catch (RemoteInvocationException e) {
+      log.error("Failed to compute test health status!", e);
+      return null;
+    } catch (URISyntaxException e) {
+      log.error("Failed to parse incident URN!", e);
+      return null;
+    }
+  }
+
   private List<String> getFailingAssertionUrns(
       final GenericTable assertionRunsResult, final Set<String> candidateAssertionUrns) {
     // Create the buckets based on the result
@@ -371,6 +438,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public static class Config {
     private Boolean assertionsEnabled;
     private Boolean incidentsEnabled;
+    private Boolean testsEnabled;
   }
 
   @AllArgsConstructor
