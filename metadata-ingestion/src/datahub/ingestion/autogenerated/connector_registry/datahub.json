@@ -2292,7 +2292,7 @@
       "capabilities": [
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
+          "description": "Enabled by default, can be disabled via configuration `parse_sql_for_lineage`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -2310,7 +2310,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default, can be disabled via configuration `include_lineage`",
+          "description": "Enabled by default via OpenLineage data from pipeline executions",
           "subtype_modifier": null,
           "supported": true
         }
