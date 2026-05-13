@@ -876,7 +876,13 @@ class ThoughtSpotClient:
                 if fetch_ids:
                     request["metadata"][0]["identifier"] = fetch_ids
                 if tag_names:
-                    request["metadata"][0]["tag_name"] = tag_names
+                    # Top-level ``tag_identifiers`` accepts tag names OR
+                    # GUIDs (verified against TS REST v2). The earlier
+                    # ``metadata[0].tag_name`` shape gets rejected with
+                    # 400 Bad Request; the also-tried top-level ``tags``
+                    # is silently ignored. ``tag_identifiers`` is the
+                    # only documented + working filter.
+                    request["tag_identifiers"] = tag_names
                 if include_details:
                     request["include_details"] = True
                 if self.config.org_identifier:

@@ -386,6 +386,42 @@ class TestTagFilterWiredToClient:
         lb_kwargs = mock_client.iter_liveboards.call_args.kwargs
         assert lb_kwargs.get("tag_names") is None
 
+    @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
+    def test_tag_names_sent_as_top_level_tag_identifiers_field(self, mock_sdk_class):
+        """Regression: live TS REST v2 rejects ``metadata[0].tag_name``
+        (400) and silently ignores top-level ``tags``. The only working
+        shape is top-level ``tag_identifiers`` (accepts names OR GUIDs).
+        Verified against techpartners.thoughtspot.cloud — pins the wire
+        contract so a future "tidy-up" doesn't regress to a broken shape.
+        """
+        mock_sdk = MagicMock()
+        mock_sdk_class.return_value = mock_sdk
+        mock_sdk.auth_token_full.return_value = {"token": "t"}
+        mock_sdk.metadata_search.return_value = []
+
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+        list(client.iter_liveboards(tag_names=["Production", "Curated"]))
+
+        # At least one metadata_search call must have happened with the
+        # tag filter at the TOP LEVEL under ``tag_identifiers`` (NOT
+        # under ``metadata[0]`` and NOT as ``tags``).
+        calls = mock_sdk.metadata_search.call_args_list
+        assert calls, "expected at least one metadata_search call"
+        first_request = calls[0].kwargs.get("request") or (
+            calls[0].args[0] if calls[0].args else {}
+        )
+        assert first_request.get("tag_identifiers") == ["Production", "Curated"], (
+            f"Tag filter must be sent as top-level ``tag_identifiers``. "
+            f"Actual request: {first_request}"
+        )
+        # Belt-and-braces: confirm the broken nestings are NOT used.
+        assert "tag_name" not in first_request["metadata"][0]
+        assert "tags" not in first_request
+
 
 class TestThoughtSpotSourceErrorRecovery:
     """Test error handling and graceful degradation during ingestion."""
