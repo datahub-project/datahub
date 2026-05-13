@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -64,7 +65,8 @@ public class UpdateIndicesServiceTest {
             "MD5",
             null, // No semantic search config for this test
             mock(IndexConvention.class),
-            false);
+            false,
+            mock(V2MappingsBuilder.class));
 
     UpdateIndicesV3Strategy v3Strategy =
         new UpdateIndicesV3Strategy(
