@@ -434,9 +434,9 @@ elasticsearch:
           spaceType: cosinesimil
           efConstruction: 128
           m: 16
-        # Vertex AI gemini-embedding-001 (768 dimensions)
+        # Vertex AI gemini-embedding-001 (3072 dimensions, the model's native output)
         gemini_embedding_001:
-          vectorDimension: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:768}
+          vectorDimension: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:3072}
           knnEngine: faiss
           spaceType: cosinesimil
           efConstruction: 128
