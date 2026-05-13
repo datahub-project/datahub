@@ -39,7 +39,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
 
     pathValues.add(
         ImmutableTriple.of(
-            PatchOperationType.ADD.getValue(), BASE_PATH + encodeValueUrn(urn) + "/", value));
+            PatchOperationType.ADD.getValue(), BASE_PATH + "/" + encodeValueUrn(urn), value));
     return this;
   }
 
@@ -55,12 +55,17 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.ADD.getValue(),
-            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            BASE_PATH + encodeValue(attributionSource.toString()) + "/" + encodeValueUrn(urn),
             value));
     return this;
   }
 
   public GlobalTagsPatchBuilder removeTag(@Nonnull TagUrn urn) {
+    // Wildcard remove: reorder to tag-first so the server removes all source entries for this tag.
+    // This matches how Python's determine_array_primary_keys reorders when source is absent.
+    arrayPrimaryKeysOverride =
+        Collections.singletonMap(
+            "tags", Collections.unmodifiableList(Arrays.asList(URN_KEY, ATTRIBUTION_SOURCE_KEY)));
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(), BASE_PATH + encodeValueUrn(urn), null));
@@ -71,7 +76,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
     pathValues.add(
         ImmutableTriple.of(
             PatchOperationType.REMOVE.getValue(),
-            BASE_PATH + encodeValueUrn(urn) + "/" + encodeValue(attributionSource.toString()),
+            BASE_PATH + encodeValue(attributionSource.toString()) + "/" + encodeValueUrn(urn),
             null));
     return this;
   }
@@ -79,7 +84,7 @@ public class GlobalTagsPatchBuilder extends AbstractMultiFieldPatchBuilder<Globa
   @Override
   protected Map<String, List<String>> getArrayPrimaryKeys() {
     return Collections.singletonMap(
-        "tags", Collections.unmodifiableList(Arrays.asList(URN_KEY, ATTRIBUTION_SOURCE_KEY)));
+        "tags", Collections.unmodifiableList(Arrays.asList(ATTRIBUTION_SOURCE_KEY, URN_KEY)));
   }
 
   @Override

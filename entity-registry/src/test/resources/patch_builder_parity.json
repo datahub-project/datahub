@@ -2,7 +2,7 @@
   "documentation_add": {
     "arrayPrimaryKeys": {
       "documentations": [
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -18,7 +18,7 @@
   "documentation_add_attributed": {
     "arrayPrimaryKeys": {
       "documentations": [
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -40,7 +40,7 @@
   "documentation_remove": {
     "arrayPrimaryKeys": {
       "documentations": [
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -54,7 +54,7 @@
   "documentation_remove_attributed": {
     "arrayPrimaryKeys": {
       "documentations": [
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -68,14 +68,14 @@
   "globalTags_add": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution␟source",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/",
+        "path": "/tags//urn:li:tag:testTag",
         "value": {
           "tag": "urn:li:tag:testTag"
         }
@@ -85,14 +85,14 @@
   "globalTags_add_attributed": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution␟source",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "path": "/tags/urn:li:dataHubAction:testSource/urn:li:tag:testTag",
         "value": {
           "attribution": {
             "actor": "urn:li:corpuser:datahub",
@@ -108,14 +108,14 @@
   "globalTags_add_with_context": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution␟source",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "add",
-        "path": "/tags/urn:li:tag:testTag/",
+        "path": "/tags//urn:li:tag:testTag",
         "value": {
           "context": "testContext",
           "tag": "urn:li:tag:testTag"
@@ -127,7 +127,7 @@
     "arrayPrimaryKeys": {
       "tags": [
         "tag",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -141,14 +141,14 @@
   "globalTags_remove_attributed": {
     "arrayPrimaryKeys": {
       "tags": [
-        "tag",
-        "attribution\u241fsource"
+        "attribution␟source",
+        "tag"
       ]
     },
     "patch": [
       {
         "op": "remove",
-        "path": "/tags/urn:li:tag:testTag/urn:li:dataHubAction:testSource",
+        "path": "/tags/urn:li:dataHubAction:testSource/urn:li:tag:testTag",
         "value": {}
       }
     ]
@@ -157,7 +157,7 @@
     "arrayPrimaryKeys": {
       "terms": [
         "urn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -174,7 +174,7 @@
     "arrayPrimaryKeys": {
       "terms": [
         "urn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -197,7 +197,7 @@
     "arrayPrimaryKeys": {
       "terms": [
         "urn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -215,7 +215,7 @@
     "arrayPrimaryKeys": {
       "terms": [
         "urn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -230,7 +230,7 @@
     "arrayPrimaryKeys": {
       "terms": [
         "urn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -247,7 +247,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -267,7 +267,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -293,7 +293,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -310,7 +310,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -327,7 +327,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -344,7 +344,7 @@
         "owner",
         "type",
         "typeUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -359,7 +359,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -381,7 +381,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -403,7 +403,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -418,7 +418,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -433,7 +433,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -455,7 +455,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
@@ -480,7 +480,7 @@
     "arrayPrimaryKeys": {
       "properties": [
         "propertyUrn",
-        "attribution\u241fsource"
+        "attribution␟source"
       ]
     },
     "patch": [
