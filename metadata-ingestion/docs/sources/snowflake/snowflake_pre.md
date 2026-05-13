@@ -59,28 +59,15 @@ grant imported privileges on database snowflake to role datahub_role;
 // - DESCRIBE AVAILABLE LISTING for enriched metadata (if fetch_internal_marketplace_listing_details=true)
 grant imported privileges on database snowflake to role datahub_role;
 
-// CRITICAL: For SHOW SHARES to work properly:
-// - IMPORT SHARE: Required to view INBOUND shares (shares you're consuming)
-// - For OUTBOUND shares (shares you're providing):
-//   * The role can see shares it OWNS (shares created by that role)
-//   * The role can see shares owned by roles it inherits from
-//   * If shares are owned by ACCOUNTADMIN/SYSADMIN, grant one of those roles
-
-// Grant IMPORT SHARE for consumer mode (INBOUND shares)
-// Note: ACCOUNTADMIN is required to grant account-level privileges
-use role accountadmin;
-grant import share on account to role datahub_role;
-
-// For provider mode, you have options depending on share ownership:
-// Option 1: If datahub_role creates/owns the shares - no additional grant needed
-
-// Option 2 (Most common): If shares are owned by ACCOUNTADMIN/SYSADMIN:
-// Grant SYSADMIN role (use SECURITYADMIN to grant roles)
+// For marketplace provider mode (marketplace_mode: provider or both):
+// SHOW SHARES lists shares the role owns or is inheriting from a parent role.
+// DESC SHARE requires OWNERSHIP of the share — Snowflake grants no finer-grained privilege.
+// Marketplace-created shares are typically owned by SYSADMIN. To allow DESC SHARE,
+// grant SYSADMIN to the DataHub role (use SECURITYADMIN to grant roles):
 use role securityadmin;
-grant role sysadmin to role datahub_role;  // SYSADMIN can see all shares
+grant role sysadmin to role datahub_role;
 
-// Option 3: Use SYSADMIN directly for ingestion
-// Set role: SYSADMIN in your recipe instead of datahub_role
+// Alternatively, set `role: SYSADMIN` directly in your recipe.
 
 // Optional - required if extracting Streamlit Apps
 grant usage on all streamlits in database "<your-database>" to role datahub_role;

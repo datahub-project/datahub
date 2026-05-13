@@ -607,7 +607,10 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         return self.identifiers.gen_dataset_urn(table_identifier)
 
     def _collect_assets_from_share(
-        self, share_name: str, listing_global_name: str
+        self,
+        share_name: str,
+        listing_global_name: str,
+        source_database: Optional[str] = None,
     ) -> List[str]:
         asset_urns: List[str] = []
         try:
@@ -647,6 +650,22 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 )
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
+                if source_database:
+                    # DESC SHARE requires share ownership (ACCOUNTADMIN or owner
+                    # role). Snowflake does not allow transferring share ownership,
+                    # so fall back to enumerating the source database directly.
+                    self.structured_reporter.info(
+                        title="DESC SHARE permission denied — falling back to database enumeration",
+                        message=(
+                            f"Role cannot run DESC SHARE on {share_name}. "
+                            f"Falling back to enumerating tables in {source_database}. "
+                            "Grant ACCOUNTADMIN role or use `role: ACCOUNTADMIN` in the recipe "
+                            "to use DESC SHARE instead."
+                        ),
+                    )
+                    return self._collect_assets_from_database(
+                        source_database, listing_global_name
+                    )
                 self.structured_reporter.warning(
                     title="Failed to describe provider share",
                     message=f"Could not query tables from share {share_name}",
@@ -777,7 +796,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             if provider_share and provider_share.share_name:
                 asset_urns.extend(
                     self._collect_assets_from_share(
-                        provider_share.share_name, listing.listing_global_name
+                        provider_share.share_name,
+                        listing.listing_global_name,
+                        source_database=provider_share.source_database or None,
                     )
                 )
 
