@@ -6743,10 +6743,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT col_a FROM prod.public.upstream",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db="prod",
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db="prod",
+                ),
             )
         )
         upstream_wus = [wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage"]
@@ -6781,10 +6783,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT src_a AS col_a FROM prod.public.upstream",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db="prod",
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db="prod",
+                ),
             )
         )
         upstream_wu = next(wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage")
@@ -6812,10 +6816,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT FROM ???",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db=None,
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db=None,
+                ),
             )
         )
         upstream_wus = [wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage"]
@@ -6845,10 +6851,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT * FROM prod.public.upstream",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db="prod",
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db="prod",
+                ),
             )
         )
         upstream_wu = next(wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage")
@@ -6892,10 +6900,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT src_a AS col_a FROM prod.public.upstream",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db="prod",
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db="prod",
+                ),
                 existing_fgl_edges=existing,
             )
         )
@@ -6920,10 +6930,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT FROM ???",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db=None,
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db=None,
+                ),
             )
         )
         assert wus == []
@@ -6965,10 +6977,12 @@ class TestSqlParsedUpstreams:
             source._apply_sql_parsed_upstreams(
                 table_id="sv-1",
                 sql="SELECT 1",
-                platform="snowflake",
-                env="PROD",
-                platform_instance=None,
-                default_db=None,
+                sv_ref=SqlViewWarehouseRef(
+                    platform="snowflake",
+                    env="PROD",
+                    platform_instance=None,
+                    default_db=None,
+                ),
             )
         )
         mock_resolver.assert_called_once()

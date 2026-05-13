@@ -1486,10 +1486,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._apply_sql_parsed_upstreams(
                     table_id=table.id,
                     sql=table.sql_view_definition,
-                    platform=sv_ref.platform if sv_ref else None,
-                    env=sv_ref.env if sv_ref else self.config.env,
-                    platform_instance=(sv_ref.platform_instance if sv_ref else None),
-                    default_db=sv_ref.default_db if sv_ref else None,
+                    sv_ref=sv_ref,
                     existing_fgl_edges=existing_fgl_edges or None,
                 )
 
@@ -1562,10 +1559,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         self,
         table_id: str,
         sql: str,
-        platform: Optional[str],
-        env: str,
-        platform_instance: Optional[str],
-        default_db: Optional[str],
+        sv_ref: Optional[SqlViewWarehouseRef],
         existing_fgl_edges: Optional[Set[tuple]] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Augment the SQL view dataset's UpstreamLineage with
@@ -1584,18 +1578,17 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         so we can drop duplicate column-level edges. When ``None``,
         all parsed edges emit verbatim.
 
-        ``platform``/``env``/``platform_instance`` are the resolved
-        warehouse identifiers from ``_resolve_external_upstream``.
-        ``None`` for ``platform`` means we couldn't identify the
-        warehouse (connection unreadable, deleted upstream) — the
-        parser is skipped in that case because ``sqlglot_lineage``
-        requires a known dialect to map upstream tables to URNs.
-        The sibling ``_apply_sql_view_logic`` still emits viewLogic
-        so the SQL is documented regardless.
+        ``sv_ref`` is the resolved warehouse context from
+        ``_resolve_sql_view_warehouse``. ``None`` means we couldn't
+        identify the warehouse (connection unreadable, deleted
+        upstream) — the parser is skipped in that case because
+        ``sqlglot_lineage`` requires a known dialect to map upstream
+        tables to URNs. The sibling ``_apply_sql_view_logic`` still
+        emits viewLogic so the SQL is documented regardless.
         """
         if not sql:
             return
-        if not platform:
+        if sv_ref is None:
             return
 
         start = time.perf_counter()
@@ -1603,15 +1596,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
 
         try:
             schema_resolver = create_and_cache_schema_resolver(
-                platform=platform,
-                env=env,
+                platform=sv_ref.platform,
+                env=sv_ref.env,
                 graph=self.ctx.graph,
-                platform_instance=platform_instance,
+                platform_instance=sv_ref.platform_instance,
             )
             parsed: SqlParsingResult = sqlglot_lineage(
                 sql=sql,
                 schema_resolver=schema_resolver,
-                default_db=default_db,
+                default_db=sv_ref.default_db,
             )
         except Exception as e:
             self.report.num_sql_parser_failures += 1
