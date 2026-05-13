@@ -21,11 +21,14 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Page,
     PowerBIDataset,
     Report,
-    ReportType,
     Table,
     Tile,
     User,
     Workspace,
+    new_powerbi_dashboards,
+    new_powerbi_reports,
+    new_powerbi_tiles,
+    new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.profiling_utils import (
     process_column_result,
@@ -153,7 +156,7 @@ class DataResolverBase(ABC):
         pass
 
     @abstractmethod
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pass
 
     @abstractmethod
@@ -243,34 +246,7 @@ class DataResolverBase(ABC):
 
         response.raise_for_status()
 
-        dashboards_dict: List[Any] = response.json()[Constant.VALUE]
-
-        # Iterate through response and create a list of PowerBiAPI.Dashboard
-        dashboards: List[Dashboard] = [
-            Dashboard(
-                id=instance.get(Constant.ID),
-                isReadOnly=instance.get(Constant.IS_READ_ONLY),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                description=instance.get(Constant.DESCRIPTION, ""),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                webUrl=instance.get(Constant.WEB_URL),
-                workspace_id=workspace.id,
-                workspace_name=workspace.name,
-                tiles=[],
-                users=[],
-                tags=[],
-            )
-            for instance in dashboards_dict
-            if (
-                instance is not None
-                and Constant.APP_ID
-                not in instance  # As we add dashboards to the App, Power BI starts
-                # providing duplicate dashboard information,
-                # where the duplicate includes an AppId, while the original dashboard does not.
-            )
-        ]
-
-        return dashboards
+        return new_powerbi_dashboards(workspace, response.json()[Constant.VALUE])
 
     def get_groups(self, filter_: Dict) -> List[dict]:
         group_endpoint = self.get_groups_endpoint()
@@ -285,62 +261,20 @@ class DataResolverBase(ABC):
 
         return output
 
-    def get_reports(
-        self, workspace: Workspace, _filter: Optional[str] = None
-    ) -> List[Report]:
+    def get_reports(self, workspace: Workspace) -> List[Report]:
         reports_endpoint = self.get_reports_endpoint(workspace)
-        # Hit PowerBi
         logger.debug(f"Request to report URL={reports_endpoint}")
-        params: Optional[dict] = None
-        if _filter is not None:
-            params = {"$filter": _filter}
 
-        def fetch_reports():
-            response = self._request_session.get(
-                reports_endpoint,
-                headers=self.get_authorization_header(),
-                params=params,
-            )
-            response.raise_for_status()
-            response_dict = response.json()
-            logger.debug(f"Report Request response = {response_dict}")
-            return response_dict.get(Constant.VALUE, [])
-
-        reports: List[Report] = [
-            Report(
-                id=raw_instance.get(Constant.ID),
-                name=raw_instance.get(Constant.NAME),
-                type=ReportType[raw_instance.get(Constant.REPORT_TYPE)],
-                webUrl=raw_instance.get(Constant.WEB_URL),
-                embedUrl=raw_instance.get(Constant.EMBED_URL),
-                description=raw_instance.get(Constant.DESCRIPTION, ""),
-                pages=self._get_pages_by_report(
-                    workspace=workspace, report_id=raw_instance[Constant.ID]
-                ),
-                dataset_id=raw_instance.get(Constant.DATASET_ID),
-                users=[],  # It will be fetched using Admin Fetcher based on condition
-                tags=[],  # It will be fetched using Admin Fetcher based on condition
-                dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
-            )
-            for raw_instance in fetch_reports()
-            if Constant.APP_ID
-            not in raw_instance  # As we add reports to the App, Power BI starts providing
-            # duplicate report information,
-            # where the duplicate includes an AppId,
-            # while the original report does not.
-        ]
-
-        return reports
-
-    def get_report(self, workspace: Workspace, report_id: str) -> Optional[Report]:
-        reports: List[Report] = self.get_reports(
-            workspace, _filter=f"id eq '{report_id}'"
+        response = self._request_session.get(
+            reports_endpoint,
+            headers=self.get_authorization_header(),
         )
+        response.raise_for_status()
+        response_dict = response.json()
+        logger.debug(f"Report Request response = {response_dict}")
 
-        if len(reports) == 0:
-            return None
-
-        return reports[0]
+        # The /reports endpoint omits users; ownership is populated separately.
+        return new_powerbi_reports(workspace, response_dict.get(Constant.VALUE, []))
 
     def get_tiles(self, workspace: Workspace, dashboard: Dashboard) -> List[Tile]:
         """
@@ -365,30 +299,7 @@ class DataResolverBase(ABC):
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         tile_dict: List[Any] = response.json().get(Constant.VALUE, [])
         logger.debug(f"Tile Dict = {tile_dict}")
-        tiles: List[Tile] = [
-            Tile(
-                id=instance.get(Constant.ID),
-                title=instance.get(Constant.TITLE),
-                embedUrl=instance.get(Constant.EMBED_URL),
-                dataset_id=instance.get(Constant.DATASET_ID),
-                report_id=instance.get(Constant.REPORT_ID),
-                dataset=None,
-                report=None,
-                createdFrom=(
-                    # In the past we considered that only one of the two report_id or dataset_id would be present
-                    # but we have seen cases where both are present. If both are present, we prioritize the report.
-                    Tile.CreatedFrom.REPORT
-                    if instance.get(Constant.REPORT_ID)
-                    else Tile.CreatedFrom.DATASET
-                    if instance.get(Constant.DATASET_ID)
-                    else Tile.CreatedFrom.VISUALIZATION
-                ),
-            )
-            for instance in tile_dict
-            if instance is not None
-        ]
-
-        return tiles
+        return new_powerbi_tiles(tile_dict)
 
     def itr_pages(
         self,
@@ -525,7 +436,7 @@ class RegularAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         pages_endpoint: str = RegularAPIResolver.API_ENDPOINTS[Constant.PAGE_BY_REPORT]
         # Replace place holders
         pages_endpoint = pages_endpoint.format(
@@ -847,20 +758,10 @@ class AdminAPIResolver(DataResolverBase):
 
         # Iterate through response and create a list of PowerBiAPI.Dashboard
         users: List[User] = [
-            User(
-                id=instance.get(Constant.IDENTIFIER),
-                displayName=instance.get(Constant.DISPLAY_NAME),
-                emailAddress=instance.get(Constant.EMAIL_ADDRESS),
-                graphId=instance.get(Constant.GRAPH_ID),
-                principalType=instance.get(Constant.PRINCIPAL_TYPE),
-                datasetUserAccessRight=instance.get(Constant.DATASET_USER_ACCESS_RIGHT),
-                reportUserAccessRight=instance.get(Constant.REPORT_USER_ACCESS_RIGHT),
-                dashboardUserAccessRight=instance.get(
-                    Constant.DASHBOARD_USER_ACCESS_RIGHT
-                ),
-                groupUserAccessRight=instance.get(Constant.GROUP_USER_ACCESS_RIGHT),
-            )
+            user
             for instance in users_dict
+            for user in [new_powerbi_user(instance)]
+            if user is not None
         ]
 
         return users
@@ -922,7 +823,7 @@ class AdminAPIResolver(DataResolverBase):
             DASHBOARD_ID=dashboard_id,
         )
 
-    def _get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
+    def get_pages_by_report(self, workspace: Workspace, report_id: str) -> List[Page]:
         return []  # Report pages are not available in Admin API
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:
