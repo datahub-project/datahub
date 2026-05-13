@@ -44,7 +44,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,7 +53,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +61,14 @@ import lombok.extern.slf4j.Slf4j;
 public class DatahubEventEmitter extends EventEmitter {
   private final AtomicBoolean streaming = new AtomicBoolean(false);
 
-  private final List<DatahubJob> _datahubJobs = new LinkedList<>();
+  // Running aggregator state. Coalesced emission folds each incoming RunEvent
+  // directly into `mergedJob` and discards the source so that driver heap
+  // stays at O(unique datasets observed) rather than O(RunEvents observed).
+  private final Object mergedJobLock = new Object();
+  private DatahubJob mergedJob;
+  private long minStartTime = Long.MAX_VALUE;
+  private long maxEndTime = 0L;
+
   private final Map<String, MetadataChangeProposalWrapper> schemaMap = new HashMap<>();
   private SparkLineageConf datahubConf;
   private static final int DEFAULT_TIMEOUT_SEC = 10;
@@ -140,7 +145,6 @@ public class DatahubEventEmitter extends EventEmitter {
         }
         log.info(
             "Converted Job: {}, from {}", datahubJob.get(), OpenLineageClientUtils.toJson(event));
-        _datahubJobs.add(datahubJob.get());
         return datahubJob;
       }
     } catch (IOException | URISyntaxException e) {
@@ -173,7 +177,16 @@ public class DatahubEventEmitter extends EventEmitter {
       log.info("Streaming mode is enabled. Skipping lineage emission.");
       return;
     }
-    if (!datahubConf.isCoalesceEnabled()) {
+    if (datahubConf.isCoalesceEnabled()) {
+      foldIntoMergedJob(job.get());
+      if (datahubConf.isEmitCoalescePeriodically()) {
+        log.info("Emitting coalesced lineage periodically");
+        emitCoalesced();
+        log.debug(
+            "Collecting coalesced lineage periodically completed successfully: {}",
+            OpenLineageClientUtils.toJson(event));
+      }
+    } else {
       log.info("Emitting lineage");
       try {
         emitMcps(job.get().toMcps(datahubConf.getOpenLineageConf()));
@@ -182,13 +195,6 @@ public class DatahubEventEmitter extends EventEmitter {
       }
       log.debug(
           "Emitting non-coalesced lineage completed successfully: {}",
-          OpenLineageClientUtils.toJson(event));
-    }
-    if (datahubConf.isCoalesceEnabled() && datahubConf.isEmitCoalescePeriodically()) {
-      log.info("Emitting coalesced lineage periodically");
-      emitCoalesced();
-      log.debug(
-          "Collecting coalesced lineage periodically completed successfully: {}",
           OpenLineageClientUtils.toJson(event));
     }
     long elapsedTime = System.currentTimeMillis() - startTime;
@@ -212,94 +218,90 @@ public class DatahubEventEmitter extends EventEmitter {
     log.info("Emitting coalesced lineage completed in {} ms", elapsedTime);
   }
 
-  public List<MetadataChangeProposal> generateCoalescedMcps() {
-    List<MetadataChangeProposal> mcps = new ArrayList<>();
-
-    if (_datahubJobs.isEmpty()) {
-      log.warn("No lineage events to emit. Maybe the spark job finished prematurely?");
-      return mcps;
-    }
-
-    DatahubJob datahubJob = DatahubJob.builder().build();
-    AtomicLong minStartTime = new AtomicLong(Long.MAX_VALUE);
-    AtomicLong maxEndTime = new AtomicLong();
-    _datahubJobs.forEach(
-        storedDatahubJob -> {
-          log.info("Merging job stored job {} with {}", storedDatahubJob, datahubJob);
-          DataJobUrn jobUrn =
-              jobUrn(
-                  storedDatahubJob.getFlowUrn(), storedDatahubJob.getFlowUrn().getFlowIdEntity());
-          datahubJob.setJobUrn(jobUrn);
-          datahubJob.setFlowUrn(storedDatahubJob.getFlowUrn());
-          datahubJob.setFlowPlatformInstance(storedDatahubJob.getFlowPlatformInstance());
-          if ((datahubJob.getJobInfo() == null) && (storedDatahubJob.getJobInfo() != null)) {
-            datahubJob.setJobInfo(storedDatahubJob.getJobInfo());
-            datahubJob.getJobInfo().setName(storedDatahubJob.getFlowUrn().getFlowIdEntity());
-          }
-          if (storedDatahubJob.getJobInfo() != null
-              && storedDatahubJob.getJobInfo().getCustomProperties() != null) {
-            if (datahubJob.getJobInfo().getCustomProperties() == null) {
-              datahubJob
-                  .getJobInfo()
-                  .setCustomProperties(storedDatahubJob.getJobInfo().getCustomProperties());
-            } else {
-              Map<String, String> mergedProperties =
-                  Stream.of(
-                          datahubJob.getJobInfo().getCustomProperties(),
-                          storedDatahubJob.getJobInfo().getCustomProperties())
-                      .flatMap(map -> map.entrySet().stream())
-                      .collect(
-                          Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
-              datahubJob.getJobInfo().setCustomProperties(new StringMap(mergedProperties));
-            }
-          }
-          if (datahubJob.getDataFlowInfo() == null) {
-            datahubJob.setDataFlowInfo(storedDatahubJob.getDataFlowInfo());
-          }
-
-          if (storedDatahubJob.getStartTime() < minStartTime.get()) {
-            minStartTime.set(storedDatahubJob.getStartTime());
-          }
-
-          if (storedDatahubJob.getEndTime() > maxEndTime.get()) {
-            maxEndTime.set(storedDatahubJob.getEndTime());
-          }
-
-          mergeDatasets(storedDatahubJob.getOutSet(), datahubJob.getOutSet());
-
-          mergeDatasets(storedDatahubJob.getInSet(), datahubJob.getInSet());
-
-          mergeDataProcessInstance(datahubJob, storedDatahubJob);
-
-          mergeCustomProperties(datahubJob, storedDatahubJob);
-        });
-
-    datahubJob.setStartTime(minStartTime.get());
-    datahubJob.setEndTime(maxEndTime.get());
-    if (!datahubConf.getTags().isEmpty()) {
-      GlobalTags tags = OpenLineageToDataHub.generateTags(datahubConf.getTags());
-      datahubJob.setFlowGlobalTags(tags);
-    }
-
-    if (!datahubConf.getDomains().isEmpty()) {
-      Domains domains = OpenLineageToDataHub.generateDomains(datahubConf.getDomains());
-      datahubJob.setFlowDomains(domains);
-    }
-    try {
-      if (datahubConf.getOpenLineageConf().getParentJobUrn() != null) {
-        datahubJob.getParentJobs().add(datahubConf.getOpenLineageConf().getParentJobUrn());
+  // Fold a single RunEvent's DatahubJob into the running mergedJob aggregator.
+  // The source DatahubJob is not retained — only the deduplicated state on the
+  // aggregator persists across events. This caps driver heap at O(unique
+  // datasets) regardless of how many RunEvents the Spark app produces.
+  private void foldIntoMergedJob(DatahubJob source) {
+    synchronized (mergedJobLock) {
+      if (mergedJob == null) {
+        mergedJob = DatahubJob.builder().build();
       }
-    } catch (ClassCastException e) {
-      log.warn(
-          datahubConf.getOpenLineageConf().getParentJobUrn()
-              + " is not a valid Datajob URN. Skipping setting up upstream job.");
-    }
+      log.info("Folding source job {} into mergedJob {}", source, mergedJob);
+      DataJobUrn newJobUrn = jobUrn(source.getFlowUrn(), source.getFlowUrn().getFlowIdEntity());
+      mergedJob.setJobUrn(newJobUrn);
+      mergedJob.setFlowUrn(source.getFlowUrn());
+      mergedJob.setFlowPlatformInstance(source.getFlowPlatformInstance());
+      if ((mergedJob.getJobInfo() == null) && (source.getJobInfo() != null)) {
+        mergedJob.setJobInfo(source.getJobInfo());
+        mergedJob.getJobInfo().setName(source.getFlowUrn().getFlowIdEntity());
+      }
+      if (source.getJobInfo() != null && source.getJobInfo().getCustomProperties() != null) {
+        if (mergedJob.getJobInfo().getCustomProperties() == null) {
+          mergedJob.getJobInfo().setCustomProperties(source.getJobInfo().getCustomProperties());
+        } else {
+          Map<String, String> mergedProperties =
+              Stream.of(
+                      mergedJob.getJobInfo().getCustomProperties(),
+                      source.getJobInfo().getCustomProperties())
+                  .flatMap(map -> map.entrySet().stream())
+                  .collect(
+                      Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (v1, v2) -> v1));
+          mergedJob.getJobInfo().setCustomProperties(new StringMap(mergedProperties));
+        }
+      }
+      if (mergedJob.getDataFlowInfo() == null) {
+        mergedJob.setDataFlowInfo(source.getDataFlowInfo());
+      }
 
-    log.info("Generating MCPs for job: {}", datahubJob);
-    try {
-      return datahubJob.toMcps(datahubConf.getOpenLineageConf());
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+      if (source.getStartTime() < minStartTime) {
+        minStartTime = source.getStartTime();
+      }
+      if (source.getEndTime() > maxEndTime) {
+        maxEndTime = source.getEndTime();
+      }
+
+      mergeDatasets(source.getOutSet(), mergedJob.getOutSet());
+      mergeDatasets(source.getInSet(), mergedJob.getInSet());
+      mergeDataProcessInstance(mergedJob, source);
+      mergeCustomProperties(mergedJob, source);
+    }
+  }
+
+  public List<MetadataChangeProposal> generateCoalescedMcps() {
+    synchronized (mergedJobLock) {
+      if (mergedJob == null) {
+        log.warn("No lineage events to emit. Maybe the spark job finished prematurely?");
+        return new ArrayList<>();
+      }
+
+      mergedJob.setStartTime(minStartTime);
+      mergedJob.setEndTime(maxEndTime);
+      if (!datahubConf.getTags().isEmpty()) {
+        GlobalTags tags = OpenLineageToDataHub.generateTags(datahubConf.getTags());
+        mergedJob.setFlowGlobalTags(tags);
+      }
+      if (!datahubConf.getDomains().isEmpty()) {
+        Domains domains = OpenLineageToDataHub.generateDomains(datahubConf.getDomains());
+        mergedJob.setFlowDomains(domains);
+      }
+      try {
+        if (datahubConf.getOpenLineageConf().getParentJobUrn() != null) {
+          // parentJobs is a TreeSet — repeated adds dedup, so periodic emit is safe.
+          mergedJob.getParentJobs().add(datahubConf.getOpenLineageConf().getParentJobUrn());
+        }
+      } catch (ClassCastException e) {
+        log.warn(
+            datahubConf.getOpenLineageConf().getParentJobUrn()
+                + " is not a valid Datajob URN. Skipping setting up upstream job.");
+      }
+
+      log.info("Generating MCPs for job: {}", mergedJob);
+      try {
+        return mergedJob.toMcps(datahubConf.getOpenLineageConf());
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
