@@ -7037,6 +7037,96 @@ class TestSqlViewDefinitionFetch:
         result = client.get_sql_view_definitions(["sv-1"])
         assert result == {"sv-1": "SELECT col_a FROM upstream"}
 
+    def test_forbidden_sql_view_silently_absent_from_map(self):
+        """A SQL view with per-item ``ERROR`` status (FORBIDDEN
+        per-object ACL) is silently absent from the returned map.
+        Regression guard for the ``_check_tml_item_status`` reuse —
+        if a future refactor removes that call, this test fails
+        loudly."""
+        items = [
+            {
+                "info": {
+                    "id": "sv-bad",
+                    "name": "Forbidden View",
+                    "status": {
+                        "status_code": "ERROR",
+                        "error_message": "FORBIDDEN: no access",
+                        "error_code": 403,
+                    },
+                },
+                "edoc": None,
+            }
+        ]
+        client = self._make_client_with_tml(items)
+        # Use the real _check_tml_item_status (not the stubbed True-return
+        # from the helper) to exercise the real ERROR-status path.
+        client._check_tml_item_status = (  # type: ignore[assignment]
+            ThoughtSpotClient._check_tml_item_status.__get__(client)
+        )
+        result = client.get_sql_view_definitions(["sv-bad"])
+        assert result == {}
+        titles = [w.title for w in client.report.warnings]
+        assert "TML Export Failed" in titles
+
+    def test_yaml_parse_failure_aggregated_in_report(self):
+        """A broken-YAML SQL view payload surfaces as a single
+        aggregated ``SQL View TML Parse Failures`` warning, not one
+        warning per object. Mirrors the existing liveboard / answer
+        aggregation pattern."""
+        items = [
+            {
+                "info": {"id": "sv-broken"},
+                "edoc": "sql_view: [malformed",
+            }
+        ]
+        client = self._make_client_with_tml(items)
+        result = client.get_sql_view_definitions(["sv-broken"])
+        assert result == {}
+        titles = [w.title for w in client.report.warnings]
+        assert "SQL View TML Parse Failures" in titles
+        bad = next(
+            w
+            for w in client.report.warnings
+            if w.title == "SQL View TML Parse Failures"
+        )
+        assert "sv-broken" in (bad.context[0] if bad.context else "")
+
+    def test_structural_skip_when_statement_field_missing(self):
+        """TML parses fine but lacks any of ``sql_view.sql_query`` /
+        ``sql_view.sql_query.statement`` / ``sql_view.statement`` →
+        counted as structural_skip and surfaced via report.info."""
+        items = [
+            {
+                "info": {"id": "sv-shape"},
+                "edoc": "sql_view:\n  name: Shape Drift\n  some_other_key: value\n",
+            }
+        ]
+        client = self._make_client_with_tml(items)
+        result = client.get_sql_view_definitions(["sv-shape"])
+        assert result == {}
+        info_titles = [i.title for i in client.report.infos]
+        assert "SQL View TML structural skips" in info_titles
+
+    def test_chunks_to_tml_export_batch_size(self):
+        """Inputs > tml_export_batch_size produce multiple
+        metadata_tml_export calls via the existing
+        ``_iter_tml_export_items`` chunking primitive."""
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+            tml_export_batch_size=2,
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            mock_sdk.return_value.metadata_tml_export.return_value = []
+            client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+            client.get_sql_view_definitions(["a", "b", "c", "d", "e"])
+            calls = mock_sdk.return_value.metadata_tml_export.call_args_list
+            # 5 ids with batch_size=2 → 3 calls (2 + 2 + 1)
+            assert len(calls) == 3
+
 
 class TestTMLParseAggregation:
     """The H3 fix surfaces YAML parse failures + structural skips that
