@@ -291,11 +291,8 @@ class TestMarketplaceBasicFunctionality:
 
         assert len(dp_props) == 1
         props = dp_props[0]
-        # `create_handler` plumbs in a test SnowsightUrlBuilder pointing at
-        # aws_us_west_2 / test-account.
         assert props.externalUrl == (
-            "https://app.snowflake.com/us-west-2/test-account/"
-            "#/data-products/marketplace/internal/listing/ACME.DATA.LISTING"
+            "https://app.snowflake.com/marketplace/internal/listing/ACME.DATA.LISTING"
         )
         # Mapped properties should be present
         assert (

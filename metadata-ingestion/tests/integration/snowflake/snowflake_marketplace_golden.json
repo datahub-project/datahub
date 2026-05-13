@@ -4249,7 +4249,7 @@
           "listing_name": "customer_360_listing",
           "listing_created_on": "2023-01-01T00:00:00+00:00"
         },
-        "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data-products/marketplace/internal/listing/ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+        "externalUrl": "https://app.snowflake.com/marketplace/internal/listing/ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
         "name": "Customer 360 View",
         "description": "Internal marketplace listing from ACME Corp",
         "assets": [
@@ -4335,7 +4335,7 @@
           "listing_name": "weather_data_listing",
           "listing_created_on": "2023-02-01T00:00:00+00:00"
         },
-        "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data-products/marketplace/internal/listing/WEATHER_CO.PUBLIC.WEATHER_DATA",
+        "externalUrl": "https://app.snowflake.com/marketplace/internal/listing/WEATHER_CO.PUBLIC.WEATHER_DATA",
         "name": "Global Weather Data",
         "description": "Internal marketplace listing from Weather Co"
       }
@@ -4514,9 +4514,9 @@
         "patch": [
           {
             "op": "add",
-            "path": "/elements/https:~1~1app.snowflake.com~1ap-south-1.aws~1abc12345~1#~1data-products~1marketplace~1internal~1listing~1ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+            "path": "/elements/https:~1~1app.snowflake.com~1marketplace~1internal~1listing~1ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
             "value": {
-              "url": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data-products/marketplace/internal/listing/ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
+              "url": "https://app.snowflake.com/marketplace/internal/listing/ACME_CORP.DATA_PRODUCT.CUSTOMER_360",
               "description": "Marketplace Listing: Customer 360 View",
               "createStamp": {
                 "time": 1678838400000,

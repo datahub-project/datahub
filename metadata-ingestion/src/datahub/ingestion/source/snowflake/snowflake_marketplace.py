@@ -337,12 +337,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 exc=e,
             )
 
-    def _build_marketplace_listing_url(self, listing_global_name: str) -> Optional[str]:
-        """Snowsight URL for a marketplace listing, or ``None`` if we don't
-        have a ``SnowsightUrlBuilder`` to pick the correct base host (e.g.
-        ``app.snowflake.com`` vs ``app.snowflake.cn``)."""
+    def _build_marketplace_listing_url(self, listing_global_name: str) -> str:
         if self.snowsight_url_builder is None:
-            return None
+            return SnowsightUrlBuilder.marketplace_listing_url(listing_global_name)
         return self.snowsight_url_builder.get_external_url_for_internal_marketplace_listing(
             listing_global_name
         )
@@ -1128,19 +1125,18 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 listing_url = self._build_marketplace_listing_url(
                     listing.listing_global_name
                 )
-                if listing_url is not None:
-                    container_patcher.add_institutional_memory(
-                        InstitutionalMemoryMetadataClass(
-                            url=listing_url,
-                            description=(
-                                f"Marketplace Listing: {listing.title or listing.listing_global_name}"
-                            ),
-                            createStamp=AuditStamp(
-                                time=int(purchase.purchase_date.timestamp() * 1000),
-                                actor="urn:li:corpuser:datahub",
-                            ),
-                        )
+                container_patcher.add_institutional_memory(
+                    InstitutionalMemoryMetadataClass(
+                        url=listing_url,
+                        description=(
+                            f"Marketplace Listing: {listing.title or listing.listing_global_name}"
+                        ),
+                        createStamp=AuditStamp(
+                            time=int(purchase.purchase_date.timestamp() * 1000),
+                            actor="urn:li:corpuser:datahub",
+                        ),
                     )
+                )
 
             for mcp in container_patcher.build():
                 yield MetadataWorkUnit(

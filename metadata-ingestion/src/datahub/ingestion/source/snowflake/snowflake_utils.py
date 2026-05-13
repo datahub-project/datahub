@@ -140,10 +140,15 @@ class SnowsightUrlBuilder:
     ) -> Optional[str]:
         return f"{self.snowsight_base_url}#/streamlit-apps/{db_name}.{schema_name}.{app_name}"
 
+    @staticmethod
+    def marketplace_listing_url(listing_global_name: str) -> str:
+        # Account-neutral URL — Snowflake redirects to the user's session automatically.
+        return f"https://app.snowflake.com/marketplace/internal/listing/{listing_global_name}"
+
     def get_external_url_for_internal_marketplace_listing(
         self, listing_global_name: str
-    ) -> Optional[str]:
-        return f"{self.snowsight_base_url}#/data-products/marketplace/internal/listing/{listing_global_name}"
+    ) -> str:
+        return self.marketplace_listing_url(listing_global_name)
 
 
 class SnowflakeFilter:
