@@ -334,8 +334,8 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                                     name = str(tbl).split(" ")[0].strip("\"'`")
                                     if "." in name and len(name) < 120:
                                         result[conn_id].add(name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Best-effort connection sampling failed: %s", e)
         return result
 
     @staticmethod

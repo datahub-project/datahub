@@ -526,7 +526,7 @@ class HexApi:
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch data connections",
-                message="Connection type resolution will fall back to default platform",
+                message="Lineage will be incomplete: connection IDs cannot be resolved to platforms.",
                 exc=e,
             )
             return {}
