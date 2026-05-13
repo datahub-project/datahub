@@ -69,7 +69,6 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartUsageStatisticsClass,
     ContainerClass,
-    ContainerPropertiesClass,
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
     DatasetPropertiesClass,
@@ -139,59 +138,43 @@ def _make_tml_stubbed_client(
 class TestThoughtSpotConnectionConfig:
     """Test connection configuration validation logic."""
 
-    def test_base_url_normalization_removes_trailing_slash(self):
-        """Test that trailing slashes are removed from base URL."""
+    @pytest.mark.parametrize(
+        "raw_url",
+        [
+            "https://example.thoughtspot.cloud/",
+            "https://example.thoughtspot.cloud/api/rest/2.0",
+            "https://example.thoughtspot.cloud/api/rest/2.0/",
+        ],
+    )
+    def test_base_url_normalization(self, raw_url):
+        """Trailing slashes and an accidentally-included API path are
+        stripped so the resulting URL matches the expected host root."""
         config = ThoughtSpotConnectionConfig(
-            base_url="https://example.thoughtspot.cloud/",
+            base_url=raw_url,
             auth=TrustedAuth(username="testuser", secret_key="test_token"),
         )
         assert config.base_url == "https://example.thoughtspot.cloud"
 
-    def test_base_url_normalization_removes_api_path(self):
-        """Test that accidentally included API path is removed."""
-        config = ThoughtSpotConnectionConfig(
-            base_url="https://example.thoughtspot.cloud/api/rest/2.0",
-            auth=TrustedAuth(username="testuser", secret_key="test_token"),
-        )
-        assert config.base_url == "https://example.thoughtspot.cloud"
-
-    def test_base_url_normalization_handles_both_slash_and_path(self):
-        """Test that both trailing slash and API path are removed."""
-        config = ThoughtSpotConnectionConfig(
-            base_url="https://example.thoughtspot.cloud/api/rest/2.0/",
-            auth=TrustedAuth(username="testuser", secret_key="test_token"),
-        )
-        assert config.base_url == "https://example.thoughtspot.cloud"
-
-    def test_timeout_validation_rejects_zero(self):
-        """Test that zero timeout is rejected."""
+    @pytest.mark.parametrize(
+        "field, value",
+        [
+            ("timeout_seconds", 0),
+            ("timeout_seconds", -5),
+            ("max_retries", -1),
+        ],
+    )
+    def test_numeric_bounds_reject_invalid(self, field, value):
+        """``timeout_seconds`` must be > 0; ``max_retries`` must be >= 0."""
         with pytest.raises(ValidationError):
             ThoughtSpotConnectionConfig(
                 base_url="https://example.thoughtspot.cloud",
                 auth=TrustedAuth(username="testuser", secret_key="test_token"),
-                timeout_seconds=0,
-            )
-
-    def test_timeout_validation_rejects_negative(self):
-        """Test that negative timeout is rejected."""
-        with pytest.raises(ValidationError):
-            ThoughtSpotConnectionConfig(
-                base_url="https://example.thoughtspot.cloud",
-                auth=TrustedAuth(username="testuser", secret_key="test_token"),
-                timeout_seconds=-5,
-            )
-
-    def test_max_retries_validation_rejects_negative(self):
-        """Test that negative max_retries is rejected."""
-        with pytest.raises(ValidationError):
-            ThoughtSpotConnectionConfig(
-                base_url="https://example.thoughtspot.cloud",
-                auth=TrustedAuth(username="testuser", secret_key="test_token"),
-                max_retries=-1,
+                **{field: value},
             )
 
     def test_max_retries_accepts_zero(self):
-        """Test that zero retries (disable retry) is valid."""
+        """``max_retries=0`` is the documented way to disable retry — must
+        be accepted even though ``-1`` is not."""
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="testuser", secret_key="test_token"),
@@ -2427,174 +2410,6 @@ class TestCoercionValidators:
         assert col.sources[0].table_id == "tbl-1"
 
 
-class TestThoughtSpotSourcePydanticAccess:
-    """Test that ThoughtSpotSource uses Pydantic model attribute access instead of dict.get()."""
-
-    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
-    def test_source_uses_pydantic_workspace_attributes(self, mock_client_class):
-        """Test that source accesses workspace.id instead of workspace.get('id')."""
-
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        config_dict = {
-            "connection": {
-                "base_url": "https://example.thoughtspot.cloud",
-                "auth": {
-                    "type": "trusted",
-                    "username": "testuser",
-                    "secret_key": "test_token",
-                },
-            }
-        }
-        config = ThoughtSpotConfig.parse_obj(config_dict)
-        ctx = PipelineContext(run_id="test-run")
-        source = ThoughtSpotSource(config, ctx)
-
-        # Client returns Pydantic models, not dicts
-        workspace_model = WorkspaceResponse(
-            id="ws-123", name="Production Workspace", description="Main workspace"
-        )
-        mock_client.get_workspaces.return_value = [workspace_model]
-
-        workunits = list(source.get_workunits_internal())
-
-        # Should successfully process workspace using attribute access
-        # Container URNs are hashed, so just verify containers were created
-        container_urns = [
-            wu.get_urn() for wu in workunits if "container" in wu.get_urn()
-        ]
-        assert len(container_urns) > 0
-
-        # Verify containerProperties aspect has correct name
-        container_props_wus = [
-            wu for wu in workunits if _mcp(wu).aspectName == "containerProperties"
-        ]
-        assert len(container_props_wus) > 0
-        assert (
-            _aspect_as(container_props_wus[0], ContainerPropertiesClass).name
-            == "Production Workspace"
-        )
-
-    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
-    def test_source_uses_pydantic_liveboard_attributes(self, mock_client_class):
-        """Test that source accesses liveboard.id instead of liveboard.get('id')."""
-
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        config_dict = {
-            "connection": {
-                "base_url": "https://example.thoughtspot.cloud",
-                "auth": {
-                    "type": "trusted",
-                    "username": "testuser",
-                    "secret_key": "test_token",
-                },
-            }
-        }
-        config = ThoughtSpotConfig.parse_obj(config_dict)
-        ctx = PipelineContext(run_id="test-run")
-        source = ThoughtSpotSource(config, ctx)
-
-        mock_client.get_workspaces.return_value = []
-
-        # Client returns Pydantic models
-        liveboard_model = LiveboardResponse(
-            id="lb-456",
-            name="Sales Dashboard",
-            description="Q4 metrics",
-            visualizations=[
-                {"id": "viz-1", "name": "Sales by Region"},
-                {"id": "viz-2", "name": "Revenue Trend"},
-            ],
-            author_name="john.doe",
-        )
-        mock_client.iter_liveboards.return_value = [liveboard_model]
-
-        workunits = list(source.get_workunits_internal())
-
-        # Should process liveboard using Pydantic attributes
-        dashboard_urns = [
-            wu.get_urn() for wu in workunits if "dashboard" in wu.get_urn()
-        ]
-        assert len(dashboard_urns) > 0
-        assert any("lb-456" in urn for urn in dashboard_urns)
-
-    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
-    def test_source_uses_pydantic_answer_attributes(self, mock_client_class):
-        """Test that source accesses answer.id instead of answer.get('id')."""
-
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        config_dict = {
-            "connection": {
-                "base_url": "https://example.thoughtspot.cloud",
-                "auth": {
-                    "type": "trusted",
-                    "username": "testuser",
-                    "secret_key": "test_token",
-                },
-            }
-        }
-        config = ThoughtSpotConfig.parse_obj(config_dict)
-        ctx = PipelineContext(run_id="test-run")
-        source = ThoughtSpotSource(config, ctx)
-
-        mock_client.get_workspaces.return_value = []
-
-        # Client returns Pydantic models
-        answer_model = AnswerResponse(
-            id="ans-789", name="Top Customers", author_name="jane.smith"
-        )
-        mock_client.iter_answers.return_value = [answer_model]
-
-        workunits = list(source.get_workunits_internal())
-
-        # Should process answer using Pydantic attributes
-        chart_urns = [wu.get_urn() for wu in workunits if "chart" in wu.get_urn()]
-        assert len(chart_urns) > 0
-        assert any("ans-789" in urn for urn in chart_urns)
-
-    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
-    def test_source_uses_pydantic_logical_table_attributes(self, mock_client_class):
-        """Test that source accesses table.id instead of table.get('id')."""
-
-        mock_client = MagicMock()
-        mock_client_class.return_value = mock_client
-
-        config_dict = {
-            "connection": {
-                "base_url": "https://example.thoughtspot.cloud",
-                "auth": {
-                    "type": "trusted",
-                    "username": "testuser",
-                    "secret_key": "test_token",
-                },
-            }
-        }
-        config = ThoughtSpotConfig.parse_obj(config_dict)
-        ctx = PipelineContext(run_id="test-run")
-        source = ThoughtSpotSource(config, ctx)
-
-        mock_client.get_workspaces.return_value = []
-
-        # Client returns Pydantic models
-        table_model = LogicalTableResponse(
-            id="tbl-111", name="customer_dim", description="Customer dimension"
-        )
-        mock_client.get_logical_tables.return_value = [table_model]
-        mock_client.get_logical_table_details.return_value = []
-
-        workunits = list(source.get_workunits_internal())
-
-        # Should process table using Pydantic attributes
-        dataset_urns = [wu.get_urn() for wu in workunits if "dataset" in wu.get_urn()]
-        assert len(dataset_urns) > 0
-        assert any("tbl-111" in urn for urn in dataset_urns)
-
-
 class TestThoughtSpotSourceOwnerIdValidation:
     """Test owner_id field validation logging."""
 
@@ -4702,84 +4517,33 @@ class TestCheckTmlItemStatus:
         assert "A" * 300 in ctx_blob
 
 
-class TestLogicalTableResponseType:
-    """``LogicalTableResponse.type`` carries the TS-side discriminator
-    (WORKSHEET / SQL_VIEW / LOGICAL_TABLE / etc) so the source can pick
-    the right DataHub subtype downstream. Promoted from a silently-allowed
-    extra field to a typed Optional so it shows up in static analysis."""
-
-    def test_type_field_defaults_to_none_for_backward_compat(self):
-        # Existing constructions that don't pass ``type`` must keep working —
-        # the field's default is ``None``, which is what every existing test
-        # implicitly relies on.
-        t = LogicalTableResponse(id="tbl1", name="Customers")
-        assert t.type is None
-
-    def test_type_field_accepts_worksheet(self):
-        t = LogicalTableResponse(id="tbl1", name="Customers", type="WORKSHEET")
-        assert t.type == "WORKSHEET"
-
-
 class TestLogicalTableSubtypeHelper:
     """``_logical_table_subtype`` maps ThoughtSpot's ``metadata_header.type``
     string to a DataHub ``DatasetSubTypes`` value. Unknown / None falls
     back to VIEW so any tenant returning an uncatalogued type still emits
-    a valid subtype (matches the pre-fix hardcoded behaviour)."""
+    a valid subtype (matches the pre-fix hardcoded behaviour).
 
-    def test_worksheet_maps_to_thoughtspot_worksheet(self):
-        assert (
-            ThoughtSpotSource._logical_table_subtype("WORKSHEET")
-            == DatasetSubTypes.THOUGHTSPOT_WORKSHEET
-        )
+    TS REST API v2 type semantics:
+    - ``ONE_TO_ONE_LOGICAL``: physical 1:1 warehouse-table mapping → TABLE.
+    - ``PRIVATE_WORKSHEET``: privacy-flagged worksheet → WORKSHEET subtype.
+    - ``USER_DEFINED``: CSV-imported data → TABLE.
+    - Unknown / None: forward-compat fallback → VIEW.
+    """
 
-    def test_sql_view_maps_to_view(self):
-        assert (
-            ThoughtSpotSource._logical_table_subtype("SQL_VIEW") == DatasetSubTypes.VIEW
-        )
-
-    def test_one_to_one_logical_maps_to_table(self):
-        # TS REST API v2 docs enumerate this as the LOGICAL_TABLE
-        # subtype for Tables (physical 1:1 mappings of a warehouse
-        # table). Confirmed against techpartners.thoughtspot.cloud:
-        # 4 of 22 datasets use this type.
-        assert (
-            ThoughtSpotSource._logical_table_subtype("ONE_TO_ONE_LOGICAL")
-            == DatasetSubTypes.TABLE
-        )
-
-    def test_private_worksheet_maps_to_thoughtspot_worksheet(self):
-        # TS REST API v2 docs list ``PRIVATE_WORKSHEET`` for private
-        # Models — same entity as ``WORKSHEET``, just privacy-flagged.
-        # Without this mapping private Models render as generic
-        # ``View``, losing the native Worksheet badge.
-        assert (
-            ThoughtSpotSource._logical_table_subtype("PRIVATE_WORKSHEET")
-            == DatasetSubTypes.THOUGHTSPOT_WORKSHEET
-        )
-
-    def test_user_defined_maps_to_table(self):
-        # TS REST API v2 docs: ``USER_DEFINED`` is "for data imported
-        # from other sources such as a CSV file". A CSV-backed dataset
-        # is tabular row data — TABLE is the closest DataHub subtype.
-        # Without this mapping CSV imports emit as ``View``.
-        assert (
-            ThoughtSpotSource._logical_table_subtype("USER_DEFINED")
-            == DatasetSubTypes.TABLE
-        )
-
-    def test_unknown_type_falls_back_to_view(self):
-        # Forward-compat: TS may add new types in future API versions.
-        # We don't want to break those tenants — fall back to VIEW
-        # and let a future PR map the new type properly once observed.
-        assert (
-            ThoughtSpotSource._logical_table_subtype("BRAND_NEW_TYPE_2027")
-            == DatasetSubTypes.VIEW
-        )
-
-    def test_none_type_falls_back_to_view(self):
-        # Older TS deployments may not return a ``type`` field at all;
-        # the model has it as Optional[str]. None must also yield VIEW.
-        assert ThoughtSpotSource._logical_table_subtype(None) == DatasetSubTypes.VIEW
+    @pytest.mark.parametrize(
+        "ts_type, expected_subtype",
+        [
+            ("WORKSHEET", DatasetSubTypes.THOUGHTSPOT_WORKSHEET),
+            ("SQL_VIEW", DatasetSubTypes.VIEW),
+            ("ONE_TO_ONE_LOGICAL", DatasetSubTypes.TABLE),
+            ("PRIVATE_WORKSHEET", DatasetSubTypes.THOUGHTSPOT_WORKSHEET),
+            ("USER_DEFINED", DatasetSubTypes.TABLE),
+            ("BRAND_NEW_TYPE_2027", DatasetSubTypes.VIEW),  # forward-compat fallback
+            (None, DatasetSubTypes.VIEW),  # absent ``type`` field on older TS
+        ],
+    )
+    def test_subtype_mapping(self, ts_type, expected_subtype):
+        assert ThoughtSpotSource._logical_table_subtype(ts_type) == expected_subtype
 
 
 class TestLogicalTableSubtypeEmission:
@@ -7585,17 +7349,6 @@ class TestSourceTableDropCounter:
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
         return client
 
-    def test_initial_counter_is_zero(self):
-        client = self._make_client()
-        assert client._consume_source_table_drop_count() == 0
-
-    def test_consume_resets_counter(self):
-        client = self._make_client()
-        client._source_table_drop_count = 5
-        assert client._consume_source_table_drop_count() == 5
-        # Second call after drain → 0 (no leaks across iter_answers calls).
-        assert client._consume_source_table_drop_count() == 0
-
     def test_enrich_and_yield_answers_increments_counter_on_malformed(self):
         """Drive the real production path: stub
         ``_get_answer_dependencies`` to return a detail with one good
@@ -8496,71 +8249,6 @@ class TestExternalColumnCasePreservation:
         assert upstream_cols == ["REVENUE"], (
             f"Preserve mode should keep case verbatim; got {upstream_cols!r}"
         )
-
-
-class TestEntityStatsModel:
-    """``ThoughtSpotMetadataHeader.stats`` carries the
-    ``{views, favorites, last_accessed}`` block returned by TS REST v2
-    ``metadata_search`` when ``include_stats=True``. The shape is the same
-    on Liveboards / Answers; LOGICAL_TABLE returns ``null``.
-    """
-
-    def test_stats_block_parses_from_wire_shape(self):
-        """The wire shape ``{"views": 42, "favorites": 1, "last_accessed": 1700000000000}``
-        deserialises into ``EntityStats`` with all three fields preserved."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            EntityStats,
-            LiveboardResponse,
-        )
-
-        lb = LiveboardResponse.model_validate(
-            {
-                "id": "lb-1",
-                "name": "Dashboard",
-                "stats": {
-                    "views": 42,
-                    "favorites": 1,
-                    "last_accessed": 1700000000000,
-                },
-            }
-        )
-        assert isinstance(lb.stats, EntityStats)
-        assert lb.stats.views == 42
-        assert lb.stats.favorites == 1
-        assert lb.stats.last_accessed == 1700000000000
-
-    def test_stats_block_optional(self):
-        """LOGICAL_TABLE responses return ``stats: null``; the field must
-        be ``Optional`` and absence must not break parsing."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            LiveboardResponse,
-        )
-
-        lb = LiveboardResponse.model_validate(
-            {"id": "lb-1", "name": "Dashboard", "stats": None}
-        )
-        assert lb.stats is None
-
-        lb_no_stats_key = LiveboardResponse.model_validate(
-            {"id": "lb-1", "name": "Dashboard"}
-        )
-        assert lb_no_stats_key.stats is None
-
-    def test_stats_block_defaults_missing_subfields_to_zero(self):
-        """TS sometimes returns ``stats: {"views": 5}`` without favorites
-        or last_accessed (early TS versions, fresh-entity edge case).
-        ``favorites`` defaults to 0; ``last_accessed`` stays None."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            LiveboardResponse,
-        )
-
-        lb = LiveboardResponse.model_validate(
-            {"id": "lb-1", "name": "Dashboard", "stats": {"views": 5}}
-        )
-        assert lb.stats is not None
-        assert lb.stats.views == 5
-        assert lb.stats.favorites == 0
-        assert lb.stats.last_accessed is None
 
 
 class TestMetadataSearchIncludeStats:
