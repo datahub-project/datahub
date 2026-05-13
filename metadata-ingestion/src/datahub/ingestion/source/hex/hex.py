@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from pydantic import Field, SecretStr
 from typing_extensions import assert_never
@@ -267,9 +267,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.project_registry: Dict[str, Project] = {}
         self.component_registry: Dict[str, Component] = {}
-        # Projects whose last_edited_at hasn't changed since the last checkpoint.
-        # These skip the expensive per-project fetches (cells, lineage, context docs).
-        self._light_project_ids: Set[str] = set()
         # Cache of raw cells per entity ID, populated during lineage enrichment and
         # reused by context document generation to avoid fetching twice per project.
         self._cells_cache: Dict[str, List[dict]] = {}
@@ -589,9 +586,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
           1. Paginates through all of them and emits Status(removed=True) to
              each — ensuring cleanup regardless of whether the stale-entity
              removal handler was tracking them.
-          2. Clears _light_project_ids so the current run is forced to fully
-             re-process all projects, populating DashboardInfo.charts with the
-             new Chart URNs.
+          2. Resets self._last_ingested_at_ms to None so every project takes
+             the full path this run, re-emitting DashboardInfo.charts with the
+             new Chart URNs. The end-of-run checkpoint still writes
+             run_start_ms, so subsequent runs resume incremental mode normally.
 
         Requires ctx.graph. If the graph is unavailable the migration is
         skipped silently; operators should run once with ignore_old_state=true
@@ -660,9 +658,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 ),
             )
 
-        # Force all projects to be fully re-processed so DashboardInfo.charts
-        # gets populated with the new Chart URNs for components.
-        self._light_project_ids.clear()
+        # Force every project through the full path this run so DashboardInfo.charts
+        # is re-emitted with the new Chart URNs. The light-path gate in _stream_project
+        # reads self._last_ingested_at_ms;
+        self._last_ingested_at_ms = None
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Read incremental checkpoint — None on first run or when ignore_old_state=true
@@ -670,25 +669,26 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         last_checkpoint = self.state_provider.get_last_checkpoint(
             HEX_INCREMENTAL_JOB_ID, HexIncrementalCheckpointState
         )
-        last_ingested_at_ms: Optional[int] = (
+        self._last_ingested_at_ms = (
             last_checkpoint.state.last_ingested_at_millis
             if last_checkpoint and last_checkpoint.state.last_ingested_at_millis
             else None
         )
-        self._last_ingested_at_ms = last_ingested_at_ms
-        if last_ingested_at_ms:
+        if self._last_ingested_at_ms:
             logger.info(
                 "Incremental ingestion: last checkpoint at %s. "
                 "Projects unchanged since then will skip cells/lineage/context fetches.",
                 datetime.fromtimestamp(
-                    last_ingested_at_ms / 1000, tz=timezone.utc
+                    self._last_ingested_at_ms / 1000, tz=timezone.utc
                 ).isoformat(),
             )
         else:
             logger.info("No incremental checkpoint found — performing full ingestion.")
 
         # One-time migration: soft-delete legacy Dashboard-typed Component entities
-        # from the previous connector version and force a full re-process.
+        # from the previous connector version and force a full re-process. The
+        # migration resets self._last_ingested_at_ms when legacy entities are found
+        # so every project takes the full path this run.
         # No-op after the first successful migration run (search returns 0).
         with self.report.new_stage("Migrate legacy Component entities"):
             yield from self._migrate_legacy_component_dashboards()
@@ -737,7 +737,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                             item,
                             lineage_builder,
                             connections_by_id,
-                            last_ingested_at_ms,
                         )
                         projects_processed += 1
                         if (
@@ -901,7 +900,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         project: Project,
         lineage_builder: HexLineageBuilder,
         connections_by_id: Dict[str, Any],
-        last_ingested_at_ms: Optional[int],
     ) -> Iterable[MetadataWorkUnit]:
         """Process and emit a single project immediately."""
         self.project_registry[project.id] = project
@@ -911,11 +909,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # cells/lineage/context haven't changed. Skip the expensive fetches and
         # only refresh run history for published projects.
         if (
-            last_ingested_at_ms
+            self._last_ingested_at_ms
             and project.last_edited_at
-            and int(project.last_edited_at.timestamp() * 1000) <= last_ingested_at_ms
+            and int(project.last_edited_at.timestamp() * 1000)
+            <= self._last_ingested_at_ms
         ):
-            self._light_project_ids.add(project.id)
             # Register URNs we won't re-emit so stale-entity-removal keeps them.
             dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
             self._stale_handler.add_entity_to_state("dashboard", dashboard_urn)
