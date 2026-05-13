@@ -2114,6 +2114,19 @@ class ThoughtSpotClient:
                     f"first_reasons={column_source_drops[:3]}"
                 ),
             )
+
+        # Single batched TML export over every SQL_VIEW in the result
+        # set so each emitted dataset can carry a ViewProperties
+        # aspect with the raw SQL plus sqlglot-parsed upstream
+        # lineage. Other LOGICAL_TABLE subtypes (WORKSHEET,
+        # ONE_TO_ONE_LOGICAL, etc.) leave ``sql_view_definition`` as
+        # None — they don't have a SQL statement.
+        sql_view_ids = [t.id for t in results if t.type == "SQL_VIEW"]
+        if sql_view_ids:
+            sql_map = self.get_sql_view_definitions(sql_view_ids)
+            for t in results:
+                if t.type == "SQL_VIEW":
+                    t.sql_view_definition = sql_map.get(t.id)
         return results
 
     def get_logical_table_details(self, table_ids: List[str]) -> List[Dict[str, Any]]:

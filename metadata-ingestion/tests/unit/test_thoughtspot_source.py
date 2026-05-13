@@ -7128,6 +7128,53 @@ class TestSqlViewDefinitionFetch:
             assert len(calls) == 3
 
 
+class TestGetLogicalTablesSqlViewEnrichment:
+    """``get_logical_tables`` runs a single batched TML export over its
+    SQL_VIEW-typed results and attaches the SQL definition to each
+    matching LogicalTableResponse before returning. Worksheets and
+    physical tables leave ``sql_view_definition`` as None."""
+
+    @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
+    def test_sql_view_definition_populated_only_on_sql_view_types(self, mock_sdk_cls):
+        mock_sdk = mock_sdk_cls.return_value
+        mock_sdk.auth_token_full.return_value = {"token": "t"}
+        # metadata_search returns one SQL_VIEW and one WORKSHEET.
+        mock_sdk.metadata_search.return_value = [
+            {
+                "metadata_header": {
+                    "id": "sv-1",
+                    "name": "My View",
+                    "type": "SQL_VIEW",
+                },
+                "metadata_detail": {"columns": []},
+            },
+            {
+                "metadata_header": {
+                    "id": "ws-1",
+                    "name": "My Worksheet",
+                    "type": "WORKSHEET",
+                },
+                "metadata_detail": {"columns": []},
+            },
+        ]
+        # metadata_tml_export returns SQL for sv-1 only.
+        mock_sdk.metadata_tml_export.return_value = [
+            {
+                "info": {"id": "sv-1", "status": {"status_code": "OK"}},
+                "edoc": "sql_view:\n  sql_query: 'SELECT 1'\n",
+            }
+        ]
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+        tables = client.get_logical_tables()
+        by_id = {t.id: t for t in tables}
+        assert by_id["sv-1"].sql_view_definition == "SELECT 1"
+        assert by_id["ws-1"].sql_view_definition is None
+
+
 class TestTMLParseAggregation:
     """The H3 fix surfaces YAML parse failures + structural skips that
     were previously DEBUG-only. Test both
