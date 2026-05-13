@@ -6997,6 +6997,47 @@ class TestGetLogicalTablesDropAggregation:
         assert client.report.malformed_column_sources_dropped == 1
 
 
+class TestSqlViewDefinitionFetch:
+    """``get_sql_view_definitions`` batches TML export for SQL_VIEW
+    objects and returns ``{guid: sql_statement}``. Mirrors the pattern
+    used by ``_get_answer_dependencies`` / ``_get_liveboard_visualizations_via_tml``.
+    """
+
+    @staticmethod
+    def _make_client_with_tml(items):
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+        client._iter_tml_export_items = lambda *a, **kw: iter(items)  # type: ignore[assignment]
+        client._check_tml_item_status = lambda item, _kind: True  # type: ignore[assignment]
+        return client
+
+    def test_returns_id_to_sql_map(self):
+        """Happy path: TML export returns a sql_view whose
+        ``sql_query`` is a string (the modern TS Cloud shape) → the
+        method returns ``{guid: sql}``.
+        """
+        items = [
+            {
+                "info": {"id": "sv-1"},
+                "edoc": (
+                    "sql_view:\n"
+                    "  name: My View\n"
+                    "  sql_query: 'SELECT col_a FROM upstream'\n"
+                ),
+            }
+        ]
+        client = self._make_client_with_tml(items)
+        result = client.get_sql_view_definitions(["sv-1"])
+        assert result == {"sv-1": "SELECT col_a FROM upstream"}
+
+
 class TestTMLParseAggregation:
     """The H3 fix surfaces YAML parse failures + structural skips that
     were previously DEBUG-only. Test both

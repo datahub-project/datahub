@@ -90,6 +90,39 @@ def _extract_search_query_columns(search_query: Any) -> List[str]:
     return columns
 
 
+def _extract_sql_view_statement(tml: Dict[str, Any]) -> Optional[str]:
+    """Extract the raw SQL statement from a ``SQL_VIEW`` TML edoc.
+
+    Field shape (verified against TS Cloud techpartners tenant on
+    2026-05-13): ``sql_view.sql_query`` is a **string** carrying the
+    SQL directly. Older / hypothetical alternate shapes are accepted
+    defensively:
+
+    - ``sql_view.sql_query`` (str): preferred, current TS Cloud shape.
+    - ``sql_view.sql_query.statement`` (dict.str): hypothetical
+      nested form mentioned in older TS docs.
+    - ``sql_view.statement`` (str): defensive flat fallback.
+
+    Returns ``None`` when none of the above holds a non-empty string
+    — caller emits the dataset without ``viewLogic`` rather than
+    attaching an empty aspect.
+    """
+    sv = tml.get("sql_view")
+    if not isinstance(sv, dict):
+        return None
+    sq = sv.get("sql_query")
+    if isinstance(sq, str) and sq.strip():
+        return sq
+    if isinstance(sq, dict):
+        nested = sq.get("statement")
+        if isinstance(nested, str) and nested.strip():
+            return nested
+    flat = sv.get("statement")
+    if isinstance(flat, str) and flat.strip():
+        return flat
+    return None
+
+
 def _extract_answer_chart_type(answer_tml: Dict[str, Any]) -> Optional[str]:
     """Extract the chart-type label (``PIE``, ``COLUMN``, …) from a TML
     ``answer`` block.
@@ -1794,6 +1827,86 @@ class ThoughtSpotClient:
                 context=f"count={structural_skips}",
             )
         return viz_map
+
+    def get_sql_view_definitions(self, sql_view_ids: List[str]) -> Dict[str, str]:
+        """Fetch the raw SQL statement for each ``SQL_VIEW`` via TML export.
+
+        Returns ``{sql_view_id: statement_string}``. SQL views the
+        principal can't TML-export (FORBIDDEN per-object ACLs) are
+        silently absent from the map — same graceful-degradation
+        contract as the Answer TML path. YAML-parse failures and
+        structural skips surface as aggregated warnings on the
+        report so a tenant returning broken TML for a subset of
+        views is visible without flooding the log.
+        """
+        if not sql_view_ids:
+            return {}
+
+        result: Dict[str, str] = {}
+        yaml_parse_failures: List[str] = []
+        structural_skips = 0
+        for item in self._iter_tml_export_items(
+            sql_view_ids,
+            batch_size=self.config.tml_export_batch_size,
+            export_associated=False,
+            export_fqn=True,
+            edoc_format="YAML",
+            failure_warning_title="SQL View TML Export Failed",
+            failure_warning_message=(
+                "viewLogic / SQL-parsed lineage will not be emitted for "
+                "the SQL views in this batch. Most often caused by FORBIDDEN "
+                "per-object access — share the SQL views and their "
+                "underlying connections with the ingestion principal."
+            ),
+        ):
+            if not self._check_tml_item_status(item, "SQL_VIEW"):
+                continue
+            edoc = item.get("edoc")
+            sv_id = item.get("info", {}).get("id")
+            if not edoc or not sv_id:
+                continue
+            try:
+                tml = _safe_load_tml_yaml(edoc)
+            except yaml.YAMLError as e:
+                yaml_parse_failures.append(f"sql_view={sv_id}: {e}")
+                logger.warning(f"Failed to parse SQL View TML for {sv_id}: {e}")
+                continue
+            if not isinstance(tml, dict):
+                structural_skips += 1
+                continue
+            stmt = _extract_sql_view_statement(tml)
+            if stmt is None:
+                structural_skips += 1
+                continue
+            result[sv_id] = stmt
+
+        if yaml_parse_failures:
+            self.report.warning(
+                title="SQL View TML Parse Failures",
+                message=(
+                    "TML export returned syntactically broken YAML for "
+                    "one or more SQL views. viewLogic and SQL-parsed "
+                    "lineage are missing for those views; the existing "
+                    "columns[*].sources edges still emit."
+                ),
+                context=(
+                    f"count={len(yaml_parse_failures)}; "
+                    f"first_reasons={yaml_parse_failures[:3]}"
+                ),
+            )
+        if structural_skips:
+            self.report.info(
+                title="SQL View TML structural skips",
+                message=(
+                    "TML payloads parsed but had unexpected shape "
+                    "(no sql_view.sql_query / sql_view.statement). "
+                    "Affected views emit without viewLogic. A non-trivial "
+                    "count after a TS upgrade suggests a metadata-schema "
+                    "rename."
+                ),
+                context=f"count={structural_skips}",
+            )
+        return result
 
     def _get_answer_dependencies(self, answer_ids: List[str]) -> List[Dict[str, Any]]:
         """Extract per-answer TML fields needed by the source.
