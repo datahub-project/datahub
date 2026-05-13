@@ -8,8 +8,6 @@ source:
       region: US1 # EU1 or US1
 
     env: PROD
-    include_lineage: true
-    include_column_lineage: true
     extract_projects_to_containers: true
 
     # Optional: Map OpenLineage namespaces to DataHub platform instances
@@ -30,10 +28,10 @@ source:
     # parse_sql_for_lineage: true
     # start_time: "-7 days"  # Time window for lineage and execution history
     # include_streaming_pipelines: false
-    # project_pattern:
+    # project_patterns:
     #   allow:
     #     - "my_project"
-    # pipeline_pattern:
+    # pipeline_patterns:
     #   allow:
     #     - "prod_.*"
     # stateful_ingestion:

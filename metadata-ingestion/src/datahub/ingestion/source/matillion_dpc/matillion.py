@@ -108,11 +108,11 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default, can be disabled via configuration `include_lineage`",
+    "Enabled by default via OpenLineage data from pipeline executions",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Enabled by default, can be disabled via configuration `include_column_lineage`",
+    "Enabled by default, can be disabled via configuration `parse_sql_for_lineage`",
 )
 class MatillionSource(StatefulIngestionSourceBase):
     config: MatillionSourceConfig

@@ -823,6 +823,13 @@ mariadb = [
     "urllib3>=1.26,<3.0",
 ]
 
+matillion-dpc = [
+    "patchy==2.8.0",
+    "requests<3.0.0",
+    "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
+]
+
 metabase = [
     "patchy==2.8.0",
     "requests<3.0.0",
@@ -2137,6 +2144,7 @@ mongodb = "datahub.ingestion.source.mongodb:MongoDBSource"
 mssql = "datahub.ingestion.source.sql.mssql:SQLServerSource"
 mysql = "datahub.ingestion.source.sql.mysql:MySQLSource"
 mariadb = "datahub.ingestion.source.sql.mariadb:MariaDBSource"
+matillion-dpc = "datahub.ingestion.source.matillion_dpc.matillion:MatillionSource"
 doris = "datahub.ingestion.source.sql.doris.doris_source:DorisSource"
 okta = "datahub.ingestion.source.identity.okta:OktaSource"
 oracle = "datahub.ingestion.source.sql.oracle:OracleSource"

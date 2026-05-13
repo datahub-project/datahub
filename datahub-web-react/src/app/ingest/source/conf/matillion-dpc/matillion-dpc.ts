@@ -11,10 +11,7 @@ source:
             client_secret: "\${MATILLION_CLIENT_SECRET}"
             region: US1  # or EU1
         env: "PROD"
-        include_pipeline_executions: true
-        include_lineage: true
-        include_column_lineage: true
-        parse_sql_for_lineage: false
+        parse_sql_for_lineage: true
         extract_projects_to_containers: true
         
         # Optional: Filter by projects, environments, pipelines
