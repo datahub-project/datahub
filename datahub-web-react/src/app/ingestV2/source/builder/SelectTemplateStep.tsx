@@ -85,6 +85,7 @@ function SourceOption({ source, onClick }: SourceOptionProps) {
             logoUrl={logoUrl}
             description={description}
             logoComponent={logoComponent}
+            dataTestId={`source-option-${name}`}
         />
     );
 }
@@ -143,6 +144,7 @@ export const SelectTemplateStep = ({
                 <SearchBarContainer>
                     <StyledSearchBar
                         ref={searchInputCallbackRef}
+                        data-testid="source-type-search-input"
                         placeholder="Search data sources..."
                         value={searchFilter}
                         onChange={(e) => setSearchFilter(e.target.value)}

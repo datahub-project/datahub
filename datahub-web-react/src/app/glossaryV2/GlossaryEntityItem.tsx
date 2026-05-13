@@ -71,7 +71,7 @@ function GlossaryEntityItem(props: Props) {
 
     return (
         <Tooltip title={name} showArrow={false} placement="top">
-            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
+            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`} data-testid={`glossary-entity-item-${urn}`}>
                 {type === EntityType.GlossaryNode && props.showAsCard ? (
                     <GlossaryNodeCard
                         name={name}

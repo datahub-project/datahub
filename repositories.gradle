@@ -1,37 +1,11 @@
+// Used for buildscript dependency resolution (applied in buildSrc and root build.gradle buildscript blocks).
+// Project dependency resolution is centralized via dependencyResolutionManagement in settings.gradle.
+// URLs are resolved (with legacy-property fallback) in settings.gradle / buildSrc/settings.gradle and
+// stored in gradle.ext before this script is ever evaluated.
 repositories {
     gradlePluginPortal()
     mavenLocal()
-
-    if (project.hasProperty('apacheMavenRepositoryUrl')) {
-        maven { url project.getProperty('apacheMavenRepositoryUrl') }
-    } else {
-        mavenCentral()
-    }
-
-    if (project.hasProperty('confluentMavenRepositoryUrl')) {
-        maven {
-            url project.getProperty('confluentMavenRepositoryUrl')
-        }
-    } else {
-        maven {
-            url "https://packages.confluent.io/maven/"
-        }
-    }
-
-    if (project.hasProperty('linkedinOpenSourceRepositoryUrl')) {
-        maven {
-            url project.getProperty('linkedinOpenSourceRepositoryUrl')
-        }
-    } else {
-        maven {
-            url "https://linkedin.jfrog.io/artifactory/open-source/" // GMA, pegasus
-        }
-    }
-}
-
-try {
-    subprojects {
-        project.repositories.addAll(rootProject.repositories)
-    }
-} catch (Throwable t) {
+    maven { url gradle.ext['datahub.dependencies.maven.central'] }
+    maven { url gradle.ext['datahub.dependencies.maven.confluent'] }
+    maven { url gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] } // GMA, pegasus
 }

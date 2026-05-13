@@ -25,7 +25,6 @@ aiohttp==3.13.5
     #   acryl-datahub
     #   aiobotocore
     #   azure-core
-    #   litellm
     #   okta
     #   s3fs
 aioitertools==0.13.0
@@ -50,7 +49,6 @@ anyio==4.12.1
     #   gql
     #   httpx
     #   jupyter-server
-    #   openai
     #   starlette
     #   watchfiles
 appnope==0.1.4 ; sys_platform == 'darwin'
@@ -248,7 +246,6 @@ click==8.3.1
     #   feast
     #   flask
     #   geomet
-    #   litellm
     #   mlflow-skinny
     #   nltk
     #   pyiceberg
@@ -374,9 +371,7 @@ deprecated==1.3.1
 dill==0.3.9
     # via feast
 distro==1.9.0
-    # via
-    #   google-genai
-    #   openai
+    # via google-genai
 dlt==1.26.0
     # via acryl-datahub
 dnspython==2.7.0
@@ -423,14 +418,11 @@ fastavro==1.12.1
     #   confluent-kafka
 fastjsonschema==2.21.2
     # via nbformat
-fastuuid==0.14.0
-    # via litellm
 feast==0.47.0
     # via acryl-datahub
 filelock==3.25.0
     # via
     #   acryl-datahub
-    #   huggingface-hub
     #   snowflake-connector-python
 filetype==1.2.0
     # via unstructured
@@ -453,7 +445,6 @@ fsspec==2026.2.0
     #   adlfs
     #   dask
     #   dlt
-    #   huggingface-hub
     #   pyathena
     #   pyiceberg
     #   s3fs
@@ -488,6 +479,7 @@ google-api-core==2.25.2
     #   sqlalchemy-bigquery
 google-auth==2.49.0
     # via
+    #   acryl-datahub
     #   databricks-sdk
     #   google-api-core
     #   google-cloud-aiplatform
@@ -604,8 +596,6 @@ hdbcli==2.27.24 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via
     #   acryl-datahub
     #   sqlalchemy-hana
-hf-xet==1.3.2 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
-    # via huggingface-hub
 html5lib==1.1
     # via unstructured
 htmlbuilder==1.0.0
@@ -620,16 +610,11 @@ httpx==0.28.1
     # via
     #   confluent-kafka
     #   google-genai
-    #   huggingface-hub
     #   jupyterlab
-    #   litellm
     #   mixpanel
     #   notion-client
-    #   openai
     #   unstructured-client
     #   unstructured-ingest
-huggingface-hub==1.6.0
-    # via tokenizers
 humanfriendly==10.0
     # via acryl-datahub
 humanize==4.15.0
@@ -658,7 +643,6 @@ importlib-metadata==8.7.1
     #   build
     #   dask
     #   keyring
-    #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
 importlib-resources==6.5.2 ; python_full_version < '3.12'
@@ -712,13 +696,10 @@ jinja2==3.1.6
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
-    #   litellm
     #   memray
     #   moto
     #   nbconvert
     #   spacy
-jiter==0.13.0
-    # via openai
 jmespath==1.1.0
     # via
     #   aiobotocore
@@ -757,7 +738,6 @@ jsonschema==4.24.1
     #   feast
     #   jupyter-events
     #   jupyterlab-server
-    #   litellm
     #   nbformat
     #   tableschema
 jsonschema-specifications==2025.9.1
@@ -818,8 +798,6 @@ linear-tsv==1.1.0
     # via dataflows-tabulator
 linkify-it-py==2.1.0
     # via markdown-it-py
-litellm==1.83.0
-    # via acryl-datahub
 lkml==1.3.7
     # via acryl-datahub
 locket==1.0.0
@@ -988,8 +966,6 @@ okta==1.7.0
     # via acryl-datahub
 olefile==0.47
     # via python-oxmsg
-openai==2.26.0
-    # via litellm
 openpyxl==3.1.5
     # via
     #   acryl-datahub
@@ -1031,7 +1007,6 @@ packaging==24.2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   gunicorn
-    #   huggingface-hub
     #   ipykernel
     #   jpype1
     #   jupyter-events
@@ -1218,10 +1193,8 @@ pydantic==2.11.10
     #   feast
     #   google-cloud-aiplatform
     #   google-genai
-    #   litellm
     #   mixpanel
     #   mlflow-skinny
-    #   openai
     #   pyiceberg
     #   spacy
     #   thinc
@@ -1334,9 +1307,7 @@ python-dateutil==2.9.0.post0
     #   unstructured-ingest
     #   vertica-python
 python-dotenv==1.2.2
-    # via
-    #   litellm
-    #   uvicorn
+    # via uvicorn
 python-iso639==2026.1.31
     # via unstructured
 python-jose==3.5.0
@@ -1395,7 +1366,6 @@ pyyaml==6.0.3
     #   dask
     #   dlt
     #   feast
-    #   huggingface-hub
     #   jupyter-events
     #   mlflow-skinny
     #   moto
@@ -1426,9 +1396,7 @@ referencing==0.37.0
     #   jsonschema-specifications
     #   jupyter-events
 regex==2026.2.28
-    # via
-    #   nltk
-    #   tiktoken
+    # via nltk
 requests==2.32.5
     # via
     #   acryl-datahub
@@ -1473,7 +1441,6 @@ requests==2.32.5
     #   spacy
     #   tableauserverclient
     #   tableschema
-    #   tiktoken
     #   trino
     #   twine
     #   unstructured
@@ -1608,9 +1575,7 @@ smart-open==7.5.1
 smmap==5.0.3
     # via gitdb
 sniffio==1.3.1
-    # via
-    #   google-genai
-    #   openai
+    # via google-genai
 snowflake-connector-python==4.4.0
     # via
     #   acryl-datahub
@@ -1730,14 +1695,10 @@ thrift==0.16.0
     #   thrift-sasl
 thrift-sasl==0.4.3
     # via acryl-pyhive
-tiktoken==0.12.0
-    # via litellm
 time-machine==3.2.0
     # via acryl-datahub
 tinycss2==1.4.0
     # via bleach
-tokenizers==0.22.2
-    # via litellm
 toml==0.10.2
     # via
     #   acryl-datahub
@@ -1771,9 +1732,7 @@ tqdm==4.67.3
     # via
     #   acryl-great-expectations
     #   feast
-    #   huggingface-hub
     #   nltk
-    #   openai
     #   pinecone-client
     #   spacy
     #   unstructured
@@ -1801,7 +1760,6 @@ typeguard==4.5.1
     # via feast
 typer==0.24.1
     # via
-    #   huggingface-hub
     #   spacy
     #   typer-slim
 typer-slim==0.24.0
@@ -1877,7 +1835,6 @@ typing-extensions==4.15.0
     #   google-cloud-aiplatform
     #   google-genai
     #   grpcio
-    #   huggingface-hub
     #   ipython
     #   looker-sdk
     #   mistune
@@ -1890,7 +1847,6 @@ typing-extensions==4.15.0
     #   mypy-boto3-s3
     #   mypy-boto3-sagemaker
     #   mypy-boto3-sts
-    #   openai
     #   opentelemetry-api
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions

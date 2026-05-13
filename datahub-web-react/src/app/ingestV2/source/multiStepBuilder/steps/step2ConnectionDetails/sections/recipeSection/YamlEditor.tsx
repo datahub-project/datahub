@@ -121,7 +121,13 @@ export function YamlEditor({ value, onChange }: Props) {
                 <NoPaddingButton variant="text" size="md" color="gray" onClick={onCopy}>
                     <Icon size="md" icon={Copy} /> Copy
                 </NoPaddingButton>
-                <NoPaddingButton variant="text" size="md" color="gray" onClick={toggleExpanded}>
+                <NoPaddingButton
+                    variant="text"
+                    size="md"
+                    color="gray"
+                    onClick={toggleExpanded}
+                    data-testid="toggle-expand-button"
+                >
                     {isExpanded ? (
                         <Icon size="lg" icon={ArrowsInLineVertical} />
                     ) : (

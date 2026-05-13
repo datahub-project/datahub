@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -69,7 +70,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
 
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    V2MappingsBuilder v2MappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
 
@@ -231,7 +234,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    V2MappingsBuilder v2MappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     // Use real IndexConventionImpl instead of mocking
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
@@ -266,7 +271,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    V2MappingsBuilder v2MappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     SemanticSearchConfiguration semanticConfig = buildTestSemanticConfig();
 
@@ -431,7 +438,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    V2MappingsBuilder v2MappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
         new com.linkedin.metadata.config.search.EntityIndexConfiguration();
@@ -498,7 +507,9 @@ public class V2SemanticSearchMappingsBuilderTest {
     EntityIndexConfiguration entityIndexConfiguration = mock(EntityIndexConfiguration.class);
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
-    V2MappingsBuilder v2MappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    V2MappingsBuilder v2MappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     com.linkedin.metadata.config.search.EntityIndexConfiguration entityIndexConfig =
         new com.linkedin.metadata.config.search.EntityIndexConfiguration();

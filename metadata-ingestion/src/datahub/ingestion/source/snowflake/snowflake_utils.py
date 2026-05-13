@@ -22,6 +22,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
+# Truncate definition strings (e.g. task / pipe SQL bodies) stored in
+# customProperties to stay well within DataHub's aspect size limits.
+MAX_DEFINITION_LENGTH = 4000
+
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property

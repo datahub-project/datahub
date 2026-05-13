@@ -58,15 +58,19 @@ from utils.linear_sync_utils import (
     attach_file_to_issue as _attach_file_to_issue_util,
     create_comment as _create_comment_util,
     create_issue as _create_issue_util,
+    create_team_label as _create_team_label_util,
     dedupe_preserve_order as _dedupe_preserve_order,
     find_issue_by_title as _find_issue_by_title_util,
-    get_or_create_team_label_id as _get_or_create_team_label_id_util,
+    find_team_label_by_name as _find_team_label_by_name_util,
+    get_issue_identifier_url as _get_issue_identifier_url_util,
+    get_or_create_workspace_label_id as _get_or_create_workspace_label_id_util,
     get_marker_comment_id as _get_marker_comment_id_util,
     issue_graphql_label_ids as _issue_graphql_label_ids_util,
     issue_update_label_ids as _issue_update_label_ids_util,
     link_issue_related_best_effort as _link_issue_related_best_effort_util,
     linear_due_date_for_scan_severity as _linear_due_date_for_scan_severity,
     linear_priority_for_scan_severity as _linear_priority_for_scan_severity,
+    random_label_color_hex as _random_label_color_hex_util,
     repo_label_ids_for_occurrences as _repo_label_ids_for_occurrences_util,
     resolve_issue_create_state_id as _resolve_issue_create_state_id_from_linear_util,
     resolve_linear_repo_label_map as _resolve_linear_repo_label_map_util,
@@ -85,6 +89,7 @@ from utils.security_scan_utils import (
     repo_scope_ticket_label as _repo_scope_ticket_label,
     trivy_pkg_name_for_title as _trivy_pkg_name_for_title_util,
     worst_trivy_severity as _worst_trivy_severity,
+    write_security_scan_summary_json,
 )
 
 LINEAR_GRAPHQL = "https://api.linear.app/graphql"
@@ -804,45 +809,6 @@ query TeamTriageIssueState($id: String!) {
     return str(tid) if tid else None
 
 
-def _create_issue(
-    api_key: str,
-    team_id: str,
-    title: str,
-    description: str,
-    label_ids: list[str] | None,
-    priority: int | None,
-    state_id: str | None,
-    due_date: str | None,
-) -> str:
-    m = """
-mutation CreateIssue($input: IssueCreateInput!) {
-  issueCreate(input: $input) {
-    success
-    issue { id identifier url }
-  }
-}
-"""
-    input_payload: dict[str, Any] = {
-        "teamId": team_id,
-        "title": title,
-        "description": description,
-    }
-    if label_ids:
-        input_payload["labelIds"] = label_ids
-    if priority is not None:
-        input_payload["priority"] = priority
-    if state_id:
-        input_payload["stateId"] = state_id
-    if due_date:
-        input_payload["dueDate"] = due_date
-    data = _graphql(api_key, m, {"input": input_payload})
-    result = data.get("issueCreate") or {}
-    if not result.get("success"):
-        raise RuntimeError(f"issueCreate failed: {data}")
-    issue = result.get("issue") or {}
-    return str(issue["id"])
-
-
 def _link_issue_related(
     api_key: str, issue_id: str, related_issue_id: str
 ) -> None:
@@ -965,6 +931,36 @@ def _create_issue_relations_cve_or_pkg(
         f"Issue relations (same-CVE or same-PkgName components): "
         f"{n_ok} pair operation(s) OK, {n_err} error(s) ({len(pairs)} unique pair(s))."
     )
+
+
+def _is_label_group_collision(err: RuntimeError) -> bool:
+    msg = str(err).lower()
+    return "not exclusive child labels" in msg or "same group" in msg
+
+
+def _get_or_create_fallback_ref_label_id(
+    api_key: str, team_id: str, ref_name: str
+) -> str:
+    """Team-scoped label ``{ref_name}-sec`` to avoid workspace label group collisions."""
+    fallback_name = f"{ref_name}-sec"
+    existing = _find_team_label_by_name_util(api_key, team_id, fallback_name)
+    if existing:
+        return existing
+    try:
+        return _create_team_label_util(
+            api_key, team_id, fallback_name, _random_label_color_hex_util()
+        )
+    except RuntimeError as e:
+        em = str(e).lower()
+        if any(
+            x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
+        ):
+            existing_after = _find_team_label_by_name_util(
+                api_key, team_id, fallback_name
+            )
+            if existing_after:
+                return existing_after
+        raise
 
 
 def _comment_has_refs_anchor(body: str) -> bool:
@@ -1119,6 +1115,12 @@ def main() -> int:
         type=Path,
         help="Optional raw scanner report; repeat the flag for each file (uploaded as issue attachments on create).",
     )
+    p.add_argument(
+        "--output-summary-json",
+        type=Path,
+        default=None,
+        help="Write machine-readable summary JSON for downstream integrations.",
+    )
     args = p.parse_args()
     raw_report_path_list: list[Path] = list(args.raw_report_paths or [])
     scanner = args.scanner.strip().lower()
@@ -1156,7 +1158,7 @@ def main() -> int:
         )
         return 1
     scan_ref = ScanRef(kind=kind, name=name)
-    ref_label_id = _get_or_create_team_label_id_util(api_key, team_id, scan_ref.name)
+    ref_label_id = _get_or_create_workspace_label_id_util(api_key, scan_ref.name)
 
     initial_state_id = _resolve_issue_create_state_id_from_linear_util(
         api_key, team_id, os.environ.get("LINEAR_ISSUE_STATE_ID", "").strip()
@@ -1174,8 +1176,12 @@ def main() -> int:
         print(f"No findings in reports for scanner {scanner!r}. Nothing to sync.")
         return 0
 
+    docker_tag = os.environ.get("RESOLVED_DOCKER_TAG", "").strip()
+    severity_levels = os.environ.get("DATAHUB_SCAN_SEVERITIES", "").strip()
+
     created = 0
     updated = 0
+    created_issue_records: list[dict[str, Any]] = []
     # (issue_id, vid, pkg_key) for each **created** issue this run — used for clique relations at end.
     created_in_run: list[tuple[str, str, str]] = []
 
@@ -1224,23 +1230,60 @@ def main() -> int:
                 current = _issue_graphql_label_ids_util(api_key, issue_id)
                 merged = _dedupe_preserve_order([*current, *desired_sync_label_ids])
                 if set(merged) != set(current):
-                    _issue_update_label_ids_util(api_key, issue_id, merged)
+                    try:
+                        _issue_update_label_ids_util(api_key, issue_id, merged)
+                    except RuntimeError as e:
+                        if not _is_label_group_collision(e):
+                            raise
+                        fallback_id = _get_or_create_fallback_ref_label_id(
+                            api_key, team_id, scan_ref.name
+                        )
+                        merged_fb = _dedupe_preserve_order(
+                            [*current, fallback_id, *repo_lids]
+                        )
+                        _issue_update_label_ids_util(api_key, issue_id, merged_fb)
             updated += 1
             print(f"Updated refs comment: {linear_title} ({issue_id})")
         else:
-            issue_id = _create_issue_util(
-                api_key,
-                team_id,
-                linear_title,
-                description,
-                create_labels_arg,
-                linear_priority,
-                initial_state_id,
-                linear_due_date,
-            )
+            try:
+                issue_id = _create_issue_util(
+                    api_key,
+                    team_id,
+                    linear_title,
+                    description,
+                    create_labels_arg,
+                    linear_priority,
+                    initial_state_id,
+                    linear_due_date,
+                )
+            except RuntimeError as e:
+                if not _is_label_group_collision(e):
+                    raise
+                fallback_id = _get_or_create_fallback_ref_label_id(
+                    api_key, team_id, scan_ref.name
+                )
+                fb_labels = _dedupe_preserve_order(
+                    [*base_label_ids, fallback_id, *repo_lids]
+                )
+                issue_id = _create_issue_util(
+                    api_key,
+                    team_id,
+                    linear_title,
+                    description,
+                    fb_labels or None,
+                    linear_priority,
+                    initial_state_id,
+                    linear_due_date,
+                )
+            identifier, url = "", ""
+            if args.output_summary_json is not None:
+                identifier, url = _get_issue_identifier_url_util(api_key, issue_id)
+                ident_display = identifier or issue_id
+            else:
+                ident_display = issue_id
             _sync_refs_comment(api_key, issue_id, scan_ref, short_sha, run_url)
             created += 1
-            print(f"Created issue: {linear_title} ({issue_id})")
+            print(f"Created issue: {linear_title} ({ident_display})")
             issue_raw_reports = _raw_report_paths_for_occurrences(
                 raw_report_path_list, occ, scanner
             )
@@ -1265,6 +1308,32 @@ def main() -> int:
                 else ""
             )
             created_in_run.append((issue_id, vid, pkg_key))
+            if args.output_summary_json is not None:
+                created_issue_records.append(
+                    {
+                        "vulnerability_id": vid,
+                        "package_name": pkg_key,
+                        "repo_scope": repo_scope,
+                        "identifier": identifier,
+                        "url": url,
+                        "title": linear_title,
+                        "issue_id": issue_id,
+                    }
+                )
+
+    if args.output_summary_json is not None:
+        write_security_scan_summary_json(
+            args.output_summary_json,
+            created_issue_records=created_issue_records,
+            created_count=created,
+            updated_count=updated,
+            run_url=run_url,
+            scan_ref_kind=scan_ref.kind,
+            scan_ref_name=scan_ref.name,
+            commit_sha=commit_sha,
+            docker_tag=docker_tag,
+            severity_levels=severity_levels,
+        )
 
     if created_in_run:
         _create_issue_relations_cve_or_pkg(

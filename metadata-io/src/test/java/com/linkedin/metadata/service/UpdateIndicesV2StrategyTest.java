@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -67,6 +68,7 @@ public class UpdateIndicesV2StrategyTest {
   @Mock private ObjectNode mockSearchDocument;
   @Mock private ObjectNode mockPreviousSearchDocument;
   @Mock private StructuredPropertyDefinition mockStructuredProperty;
+  @Mock private V2MappingsBuilder mockMappingsBuilder;
 
   private OperationContext operationContext;
   private UpdateIndicesV2Strategy strategy;
@@ -113,7 +115,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             null, // No semantic search config for basic tests
-            mock(IndexConvention.class));
+            mock(IndexConvention.class),
+            true,
+            mockMappingsBuilder);
   }
 
   @Test
@@ -419,7 +423,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Verify: Should not write to semantic index when not enabled
     assertFalse(
@@ -442,7 +448,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Verify: Should not write to semantic index for dataset (not in enabled list)
     assertFalse(
@@ -468,7 +476,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Verify: Should not write to semantic index when index doesn't exist
     assertFalse(strategyWithMissingIndex.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -493,7 +503,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Verify: Should write to semantic index when all conditions are met
     assertTrue(strategyWithAllConditions.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -518,7 +530,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Call shouldWriteToSemanticIndex multiple times
     assertTrue(strategyWithCaching.shouldWriteToSemanticIndex(operationContext, "dataset"));
@@ -548,7 +562,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Setup mocks for document transformation
     when(searchDocumentTransformer.transformAspect(
@@ -640,7 +656,9 @@ public class UpdateIndicesV2StrategyTest {
             timeseriesAspectService,
             "MD5",
             semanticConfig,
-            indexConvention);
+            indexConvention,
+            false,
+            mockMappingsBuilder);
 
     // Execute with isKeyAspect = true (full delete)
     strategyWithSemantic.deleteSearchData(
@@ -870,7 +888,8 @@ public class UpdateIndicesV2StrategyTest {
             "MD5",
             null,
             mock(IndexConvention.class),
-            false);
+            false,
+            mockMappingsBuilder);
 
     AspectSpec ownershipSpec = mock(AspectSpec.class);
     when(ownershipSpec.getName()).thenReturn("ownership");

@@ -101,6 +101,7 @@ export const DEFAULT_APP_CONFIG = {
         hideLineageInSearchCards: false,
         glossaryBasedPoliciesEnabled: false,
         multipleDataProductsPerAsset: false,
+        showTestsInHealthIcon: false,
     },
     chromeExtensionConfig: {
         enabled: false,
