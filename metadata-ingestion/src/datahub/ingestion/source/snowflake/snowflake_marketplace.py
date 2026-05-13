@@ -15,6 +15,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DomainKey, gen_data_product
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import (
@@ -48,15 +49,29 @@ from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetUsageStatisticsClass,
     DomainPropertiesClass,
-    GlobalTagsClass,
-    InstitutionalMemoryClass,
     InstitutionalMemoryMetadataClass,
     OwnershipTypeClass,
     TagAssociationClass,
     TimeWindowSizeClass,
 )
-from datahub.metadata.urns import DataTypeUrn, EntityTypeUrn, StructuredPropertyUrn
+from datahub.metadata.urns import (
+    DataTypeUrn,
+    EntityTypeUrn,
+    StructuredPropertyUrn,
+    TagUrn,
+)
+from datahub.specific.aspect_helpers.institutional_memory import (
+    HasInstitutionalMemoryPatch,
+)
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.dataproduct import DataProductPatchBuilder
+
+
+class _ContainerPatcher(
+    HasTagsPatch, HasInstitutionalMemoryPatch, MetadataPatchProposal
+):
+    pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -933,24 +948,24 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             )
 
             if metadata.documentation_links:
-                memory_elements = [
-                    InstitutionalMemoryMetadataClass(
-                        url=link,
-                        description="Documentation",
-                        createStamp=AuditStamp(
-                            time=int(listing.created_on.timestamp() * 1000)
-                            if listing.created_on
-                            else 0,
-                            actor="urn:li:corpuser:datahub",
-                        ),
+                dp_patcher = DataProductPatchBuilder(data_product_urn)
+                for link in metadata.documentation_links:
+                    dp_patcher.add_institutional_memory(
+                        InstitutionalMemoryMetadataClass(
+                            url=link,
+                            description="Documentation",
+                            createStamp=AuditStamp(
+                                time=int(listing.created_on.timestamp() * 1000)
+                                if listing.created_on
+                                else 0,
+                                actor="urn:li:corpuser:datahub",
+                            ),
+                        )
                     )
-                    for link in metadata.documentation_links
-                ]
-
-                yield MetadataChangeProposalWrapper(
-                    entityUrn=data_product_urn,
-                    aspect=InstitutionalMemoryClass(elements=memory_elements),
-                ).as_workunit()
+                for mcp in dp_patcher.build():
+                    yield MetadataWorkUnit(
+                        id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                    )
 
             self.report.report_marketplace_data_product_created()
 
@@ -1076,9 +1091,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
     def _enhance_purchased_datasets(self) -> Iterable[MetadataWorkUnit]:
         """Stamp marketplace tags + a documentation link onto each imported
-        database container. Only additive aspects so we don't clobber what
-        the regular pipeline already emitted via ``gen_database_containers``;
-        richer purchase metadata lives on the Data Product."""
+        database container. Uses patch operations so existing tags and links
+        added outside this pipeline are preserved. Richer purchase metadata
+        lives on the Data Product."""
         for purchase in self._marketplace_purchases.values():
             container_urn = self.identifiers.gen_database_key(
                 purchase.database_name
@@ -1091,25 +1106,30 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                 else None
             )
 
-            tags = [make_tag_urn("Marketplace:Imported")]
+            container_patcher = _ContainerPatcher(container_urn)
+
+            tag_urns = [make_tag_urn("Marketplace:Imported")]
             if listing is not None and listing.organization_profile_name:
-                tags.append(
+                tag_urns.append(
                     make_tag_urn(
                         f"Marketplace:Provider:{listing.organization_profile_name}"
                     )
                 )
-
-            yield MetadataChangeProposalWrapper(
-                entityUrn=container_urn,
-                aspect=GlobalTagsClass(tags=[TagAssociationClass(tag=t) for t in tags]),
-            ).as_workunit()
+            for tag_urn in tag_urns:
+                container_patcher.add_tag(TagAssociationClass(tag=tag_urn))
+                # Emit the tag key aspect explicitly: auto_materialize_referenced_tags_terms
+                # cannot extract URNs from opaque PATCH payloads.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=tag_urn,
+                    aspect=TagUrn.from_string(tag_urn).to_key_aspect(),
+                ).as_workunit()
 
             if listing is not None:
                 listing_url = self._build_marketplace_listing_url(
                     listing.listing_global_name
                 )
                 if listing_url is not None:
-                    memory_elements = [
+                    container_patcher.add_institutional_memory(
                         InstitutionalMemoryMetadataClass(
                             url=listing_url,
                             description=(
@@ -1120,11 +1140,12 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                                 actor="urn:li:corpuser:datahub",
                             ),
                         )
-                    ]
-                    yield MetadataChangeProposalWrapper(
-                        entityUrn=container_urn,
-                        aspect=InstitutionalMemoryClass(elements=memory_elements),
-                    ).as_workunit()
+                    )
+
+            for mcp in container_patcher.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                )
 
             self.report.report_marketplace_dataset_enhanced()
 

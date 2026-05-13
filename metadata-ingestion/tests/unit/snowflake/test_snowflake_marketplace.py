@@ -1,5 +1,6 @@
 """Unit tests for Snowflake Marketplace handler."""
 
+import json
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, cast
 
@@ -28,12 +29,39 @@ from datahub.metadata.com.linkedin.pegasus2avro.structured import (
 from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     GlobalTagsClass,
-    InstitutionalMemoryClass,
-    StructuredPropertiesClass,
 )
 from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
     FakeNativeConn as _FakeNativeConn,
 )
+
+# ---------------------------------------------------------------------------
+# Helpers for inspecting PATCH workunits
+# ---------------------------------------------------------------------------
+
+
+def _aspect_name(wu: MetadataWorkUnit) -> Optional[str]:
+    """Return the aspect name for both UPSERT (typed) and PATCH workunits."""
+    aspect = getattr(wu.metadata, "aspect", None)
+    if aspect is not None and hasattr(aspect, "get_aspect_name"):
+        return aspect.get_aspect_name()
+    return getattr(wu.metadata, "aspectName", None)
+
+
+def _patch_ops(wu: MetadataWorkUnit) -> List[Dict[str, Any]]:
+    """Return the list of JSON-Patch operations from a PATCH workunit."""
+    aspect = getattr(wu.metadata, "aspect", None)
+    if aspect is None or not hasattr(aspect, "value"):
+        return []
+    try:
+        payload = json.loads(aspect.value)
+        return payload.get("patch", [])
+    except Exception:
+        return []
+
+
+def _patch_paths(wu: MetadataWorkUnit) -> List[str]:
+    return [op.get("path", "") for op in _patch_ops(wu)]
+
 
 # Test Fixtures
 
@@ -195,24 +223,20 @@ class TestMarketplaceBasicFunctionality:
         demo_container_urn = handler.identifiers.gen_database_key(
             "DEMO_DATABASE"
         ).as_urn()
-        demo_tag_wus = [
-            wu
-            for wu in wus
-            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
-            and getattr(wu.metadata, "entityUrn", None) == demo_container_urn
-        ]
-        assert len(demo_tag_wus) == 1
-        tags = cast(GlobalTagsClass, demo_tag_wus[0].metadata.aspect).tags  # type: ignore[union-attr]
-        tag_urns = {t.tag for t in tags}
-        assert "urn:li:tag:Marketplace:Imported" in tag_urns
-        assert "urn:li:tag:Marketplace:Provider:INTERNAL" in tag_urns
+        tag_paths = []
+        for wu in wus:
+            if (
+                _aspect_name(wu) == "globalTags"
+                and getattr(wu.metadata, "entityUrn", None) == demo_container_urn
+            ):
+                tag_paths.extend(_patch_paths(wu))
+        assert any("urn:li:tag:Marketplace:Imported" in p for p in tag_paths)
+        assert any("urn:li:tag:Marketplace:Provider:INTERNAL" in p for p in tag_paths)
 
         demo_memory_wus = [
             wu
             for wu in wus
-            if isinstance(
-                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
-            )
+            if _aspect_name(wu) == "institutionalMemory"
             and getattr(wu.metadata, "entityUrn", None) == demo_container_urn
         ]
         assert len(demo_memory_wus) == 1
@@ -285,21 +309,19 @@ class TestMarketplaceBasicFunctionality:
         assert props.customProperties.get("support_contact") == "Acme Support"
         assert props.customProperties.get("request_approver") == "approver@acme.example"
 
-        # Check InstitutionalMemory aspect for documentation links (marketplace URL is in externalUrl)
-        institutional_memory_aspects = [
-            wu.metadata.aspect
-            for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(wu.metadata.aspect, InstitutionalMemoryClass)
+        # Check InstitutionalMemory PATCH for documentation links (marketplace URL is in externalUrl)
+        im_patch_ops: List[Dict[str, Any]] = []
+        for wu in wus:
+            if _aspect_name(wu) == "institutionalMemory":
+                im_patch_ops.extend(_patch_ops(wu))
+        assert len(im_patch_ops) >= 2  # At least 2 documentation URLs
+        urls = [op["value"]["url"] for op in im_patch_ops if op.get("op") == "add"]
+        assert "https://docs.acme.example" in urls
+        assert "https://quick.acme.example" in urls
+        descs = [
+            op["value"]["description"] for op in im_patch_ops if op.get("op") == "add"
         ]
-        assert len(institutional_memory_aspects) == 1
-        memory = institutional_memory_aspects[0]
-        assert len(memory.elements) >= 2  # At least 2 documentation URLs
-        # Check that documentation links have simple "Documentation" description
-        assert memory.elements[0].url == "https://docs.acme.example"
-        assert memory.elements[0].description == "Documentation"
-        assert memory.elements[1].url == "https://quick.acme.example"
-        assert memory.elements[1].description == "Documentation"
+        assert all(d == "Documentation" for d in descs)
 
 
 # Heuristic Matching Tests
@@ -383,28 +405,20 @@ class TestListingPurchaseMatching:
             "UNKNOWN_DB"
         ).as_urn()
 
-        tag_wus = [
-            wu
-            for wu in wus
-            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
-            and getattr(wu.metadata, "entityUrn", None) == unknown_container_urn
-        ]
-        assert len(tag_wus) == 1
-        tag_urns = {
-            t.tag
-            for t in cast(GlobalTagsClass, tag_wus[0].metadata.aspect).tags  # type: ignore[union-attr]
-        }
-        assert "urn:li:tag:Marketplace:Imported" in tag_urns
-        assert not any(
-            t.startswith("urn:li:tag:Marketplace:Provider:") for t in tag_urns
-        )
+        tag_paths: List[str] = []
+        for wu in wus:
+            if (
+                _aspect_name(wu) == "globalTags"
+                and getattr(wu.metadata, "entityUrn", None) == unknown_container_urn
+            ):
+                tag_paths.extend(_patch_paths(wu))
+        assert any("urn:li:tag:Marketplace:Imported" in p for p in tag_paths)
+        assert not any("urn:li:tag:Marketplace:Provider:" in p for p in tag_paths)
 
         memory_wus = [
             wu
             for wu in wus
-            if isinstance(
-                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
-            )
+            if _aspect_name(wu) == "institutionalMemory"
             and getattr(wu.metadata, "entityUrn", None) == unknown_container_urn
         ]
         assert len(memory_wus) == 0
@@ -602,7 +616,7 @@ class TestMarketplaceConfiguration:
         container_tag_wus = [
             wu
             for wu in wus
-            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            if _aspect_name(wu) == "globalTags"
             and cast(str, getattr(wu.metadata, "entityUrn", "")).startswith(
                 "urn:li:container:"
             )
@@ -784,24 +798,16 @@ class TestMarketplaceEdgeCases:
         handler = create_handler(config_dict, mock_listings, mock_purchases)
         wus = list(handler.get_marketplace_workunits())
 
-        sp_wus = [
-            wu
-            for wu in wus
-            if hasattr(wu.metadata, "aspect")
-            and isinstance(
-                getattr(wu.metadata, "aspect", None), StructuredPropertiesClass
-            )
-        ]
+        sp_wus = [wu for wu in wus if _aspect_name(wu) == "structuredProperties"]
 
         assert len(sp_wus) >= 1
 
         for wu in sp_wus:
-            sp = cast(StructuredPropertiesClass, wu.metadata.aspect)  # type: ignore[union-attr]
-            assert sp.properties is not None
-            for assignment in sp.properties:
-                urn = assignment.propertyUrn
-                assert urn.startswith("urn:li:structuredProperty:"), urn
-                assert "marketplace.mode" not in urn
+            for op in _patch_ops(wu):
+                if op.get("op") == "add":
+                    prop_urn = op["value"].get("propertyUrn", "")
+                    assert prop_urn.startswith("urn:li:structuredProperty:"), prop_urn
+                    assert "marketplace.mode" not in prop_urn
 
     def test_listing_without_optional_fields(self, base_config: Dict[str, Any]) -> None:
         """Test listing with minimal fields."""
@@ -845,7 +851,7 @@ class TestMarketplaceEdgeCases:
         tag_wus = [
             wu
             for wu in wus
-            if isinstance(getattr(wu.metadata, "aspect", None), GlobalTagsClass)
+            if _aspect_name(wu) == "globalTags"
             and getattr(wu.metadata, "entityUrn", None) == container_urn
         ]
         assert len(tag_wus) == 1
@@ -853,9 +859,7 @@ class TestMarketplaceEdgeCases:
         memory_wus = [
             wu
             for wu in wus
-            if isinstance(
-                getattr(wu.metadata, "aspect", None), InstitutionalMemoryClass
-            )
+            if _aspect_name(wu) == "institutionalMemory"
             and getattr(wu.metadata, "entityUrn", None) == container_urn
         ]
         assert len(memory_wus) == 0
