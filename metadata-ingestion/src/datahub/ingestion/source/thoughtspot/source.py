@@ -1304,26 +1304,40 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
     def _logical_table_subtype(ts_type: Optional[str]) -> str:
         """Map a ThoughtSpot ``metadata_header.type`` to a DataHub subtype.
 
-        TS distinguishes a few logical-table flavours that DataHub users
-        recognise as different concepts:
+        TS's REST API v2 docs enumerate six subtypes under the
+        ``LOGICAL_TABLE`` metadata type (see
+        https://developers.thoughtspot.com/docs/rest-apiv2-metadata-search):
 
         - ``WORKSHEET``: a curated semantic layer over one or more
-          underlying tables, with calculated columns, joins, and column
-          formulas. Maps to the ``THOUGHTSPOT_WORKSHEET`` subtype.
-        - ``SQL_VIEW`` / ``LOGICAL_VIEW``: a TS-defined SQL view on top
-          of a connection's schema. Maps to ``VIEW``.
-        - ``LOGICAL_TABLE``: a direct one-to-one mapping of a physical
-          source table. Maps to ``TABLE``.
-        - Anything else (``MODEL``, future types, missing field): fall
-          back to ``VIEW`` so any tenant returning a type we haven't
-          catalogued still emits a valid
-          subtype rather than crashing.
+          underlying tables, with calculated columns, joins, and
+          column formulas. (TS Cloud 26.x calls these "Models" in the
+          UI but the API still returns ``WORKSHEET``.) Maps to
+          ``THOUGHTSPOT_WORKSHEET``.
+        - ``PRIVATE_WORKSHEET``: a private Worksheet/Model. Same
+          entity, just privacy-flagged. Also maps to
+          ``THOUGHTSPOT_WORKSHEET``.
+        - ``SQL_VIEW``: a TS-defined SQL view on top of a connection's
+          schema. Maps to ``VIEW``.
+        - ``ONE_TO_ONE_LOGICAL``: a direct one-to-one mapping of a
+          physical source table. Maps to ``TABLE``.
+        - ``USER_DEFINED``: data imported from external sources (e.g.
+          a CSV file). Tabular row data — maps to ``TABLE``.
+        - ``AGGR_WORKSHEET``: a user-saved View, materialised from an
+          Answer saved as a View. Intentionally **not** mapped here —
+          the unknown-type fallback already routes it to ``VIEW``,
+          which is the correct semantic. Adding an explicit mapping
+          would change nothing at runtime.
+
+        Anything else (future types or a missing field): fall back to
+        ``VIEW`` so any tenant returning a type we haven't catalogued
+        still emits a valid subtype rather than crashing.
         """
         mapping = {
             "WORKSHEET": DatasetSubTypes.THOUGHTSPOT_WORKSHEET,
+            "PRIVATE_WORKSHEET": DatasetSubTypes.THOUGHTSPOT_WORKSHEET,
             "SQL_VIEW": DatasetSubTypes.VIEW,
-            "LOGICAL_VIEW": DatasetSubTypes.VIEW,
-            "LOGICAL_TABLE": DatasetSubTypes.TABLE,
+            "ONE_TO_ONE_LOGICAL": DatasetSubTypes.TABLE,
+            "USER_DEFINED": DatasetSubTypes.TABLE,
         }
         return mapping.get(ts_type or "", DatasetSubTypes.VIEW)
 

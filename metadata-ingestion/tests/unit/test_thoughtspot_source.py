@@ -4709,26 +4709,40 @@ class TestLogicalTableSubtypeHelper:
             ThoughtSpotSource._logical_table_subtype("SQL_VIEW") == DatasetSubTypes.VIEW
         )
 
-    def test_logical_view_maps_to_view(self):
+    def test_one_to_one_logical_maps_to_table(self):
+        # TS REST API v2 docs enumerate this as the LOGICAL_TABLE
+        # subtype for Tables (physical 1:1 mappings of a warehouse
+        # table). Confirmed against techpartners.thoughtspot.cloud:
+        # 4 of 22 datasets use this type.
         assert (
-            ThoughtSpotSource._logical_table_subtype("LOGICAL_VIEW")
-            == DatasetSubTypes.VIEW
+            ThoughtSpotSource._logical_table_subtype("ONE_TO_ONE_LOGICAL")
+            == DatasetSubTypes.TABLE
         )
 
-    def test_physical_logical_table_maps_to_table(self):
-        # TS uses ``LOGICAL_TABLE`` ambiguously — both as the metadata-search
-        # filter (returns all logical tables) AND as the per-item type for
-        # tables that are direct one-to-one mappings of a physical source
-        # table. When it appears as an item type, it means "physical table".
+    def test_private_worksheet_maps_to_thoughtspot_worksheet(self):
+        # TS REST API v2 docs list ``PRIVATE_WORKSHEET`` for private
+        # Models — same entity as ``WORKSHEET``, just privacy-flagged.
+        # Without this mapping private Models render as generic
+        # ``View``, losing the native Worksheet badge.
         assert (
-            ThoughtSpotSource._logical_table_subtype("LOGICAL_TABLE")
+            ThoughtSpotSource._logical_table_subtype("PRIVATE_WORKSHEET")
+            == DatasetSubTypes.THOUGHTSPOT_WORKSHEET
+        )
+
+    def test_user_defined_maps_to_table(self):
+        # TS REST API v2 docs: ``USER_DEFINED`` is "for data imported
+        # from other sources such as a CSV file". A CSV-backed dataset
+        # is tabular row data — TABLE is the closest DataHub subtype.
+        # Without this mapping CSV imports emit as ``View``.
+        assert (
+            ThoughtSpotSource._logical_table_subtype("USER_DEFINED")
             == DatasetSubTypes.TABLE
         )
 
     def test_unknown_type_falls_back_to_view(self):
         # Forward-compat: TS may add new types in future API versions.
-        # We don't want to break those tenants — fall back to VIEW (the
-        # pre-fix default) and let a future PR map the new type properly.
+        # We don't want to break those tenants — fall back to VIEW
+        # and let a future PR map the new type properly once observed.
         assert (
             ThoughtSpotSource._logical_table_subtype("BRAND_NEW_TYPE_2027")
             == DatasetSubTypes.VIEW
@@ -4738,14 +4752,6 @@ class TestLogicalTableSubtypeHelper:
         # Older TS deployments may not return a ``type`` field at all;
         # the model has it as Optional[str]. None must also yield VIEW.
         assert ThoughtSpotSource._logical_table_subtype(None) == DatasetSubTypes.VIEW
-
-    def test_model_type_falls_back_to_view(self):
-        # The TS API returns ``MODEL`` for the newer Liveboard model
-        # objects. Helper docstring names it as a fallback case — pin
-        # that behaviour with an explicit test rather than relying on
-        # the synthetic ``BRAND_NEW_TYPE_2027`` case alone.
-
-        assert ThoughtSpotSource._logical_table_subtype("MODEL") == DatasetSubTypes.VIEW
 
 
 class TestLogicalTableSubtypeEmission:
@@ -4762,7 +4768,9 @@ class TestLogicalTableSubtypeEmission:
         mock_client.get_logical_tables.return_value = [
             LogicalTableResponse(id="ws1", name="Worksheet One", type="WORKSHEET"),
             LogicalTableResponse(id="sv1", name="SQL View One", type="SQL_VIEW"),
-            LogicalTableResponse(id="pt1", name="Physical Table", type="LOGICAL_TABLE"),
+            LogicalTableResponse(
+                id="pt1", name="Physical Table", type="ONE_TO_ONE_LOGICAL"
+            ),
         ]
 
         config = ThoughtSpotConfig.model_validate(
@@ -4808,7 +4816,7 @@ class TestLogicalTableSubtypeEmission:
         assert "Table" in subtype_by_urn[pt_urn]
         # Critical regression guard: pre-fix all three were "View".
         assert subtype_by_urn[ws_urn] != subtype_by_urn[pt_urn], (
-            "WORKSHEET and LOGICAL_TABLE must emit distinct subtypes"
+            "WORKSHEET and ONE_TO_ONE_LOGICAL must emit distinct subtypes"
         )
 
 
