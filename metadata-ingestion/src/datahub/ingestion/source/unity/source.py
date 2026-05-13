@@ -350,11 +350,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             self.config.include_metric_views
             and not unity_proxy_types.metric_view_supported()
         ):
+            try:
+                from databricks.sdk.version import __version__ as _sdk_version
+            except Exception:
+                _sdk_version = "unknown"
             self.report.report_warning(
                 "include_metric_views has no effect with installed databricks-sdk",
-                "The installed databricks-sdk does not expose TableType.METRIC_VIEW. "
+                f"databricks-sdk {_sdk_version} does not expose TableType.METRIC_VIEW. "
                 "Metric views will be emitted as plain Tables. Upgrade databricks-sdk "
-                "to enable metric-view ingestion.",
+                "to >= 0.58.0 (the release that added this enum) to enable "
+                "metric-view ingestion.",
             )
 
         # Include platform resource repository in report for automatic cache statistics
@@ -759,13 +764,10 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             if lineage is None:
                 lineage = self.ingest_lineage(table)
                 if lineage is None:
-                    self.report.info(
-                        title="Metric view has no upstream lineage",
-                        message=(
-                            "Neither YAML parsing nor the table-lineage REST "
-                            "API produced any upstreams."
-                        ),
-                        context=table.ref.qualified_table_name,
+                    self.report.report_warning(
+                        "Metric view has no upstream lineage",
+                        f"{table.ref.qualified_table_name}: neither YAML parsing "
+                        "nor the table-lineage REST API produced any upstreams.",
                     )
         else:
             lineage = self.ingest_lineage(table)
@@ -1317,7 +1319,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             # Unity Catalog injects ~150 view.sqlConfig.spark.* keys per metric view; drop them.
             drop_sql_config = table.is_metric_view and self.config.include_metric_views
             for k, v in table.properties.items():
-                if drop_sql_config and k.startswith("view.sqlConfig."):
+                if drop_sql_config and k.startswith("view.sqlConfig.spark."):
                     continue
                 custom_properties[k] = str(v)
         if table.table_id:
@@ -1336,7 +1338,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         ):
             filter_expr = metric_view_spec.get("filter")
             if isinstance(filter_expr, str) and filter_expr.strip():
-                custom_properties["metric_view_filter"] = filter_expr
+                custom_properties["metric_view.filter"] = filter_expr
 
         created: Optional[TimeStampClass] = None
         if table.created_at:
@@ -1504,6 +1506,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         default_catalog = table.ref.catalog
         default_metastore = table.ref.metastore
         upstreams: List[UpstreamClass] = []
+        unparseable: List[str] = []
         for raw in source_names:
             ref = _parse_metric_view_source(
                 raw,
@@ -1511,6 +1514,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 default_metastore=default_metastore,
             )
             if ref is None:
+                unparseable.append(raw)
                 continue
             upstreams.append(
                 self._create_upstream_class(
@@ -1518,6 +1522,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     DatasetLineageTypeClass.TRANSFORMED,
                     None,
                 )
+            )
+
+        if unparseable and upstreams:
+            # All-rejected case is reported below via num_metric_views_no_parseable_sources.
+            self.report.num_metric_view_unparseable_sources += len(unparseable)
+            self.report.report_warning(
+                "Metric view source(s) skipped",
+                f"{table.ref.qualified_table_name}: unparseable sources="
+                f"{unparseable!r}. Need 2-part (schema.table) or 3-part "
+                "(catalog.schema.table) identifiers; 1-part names and SQL "
+                "subqueries are not supported by the YAML lineage path.",
             )
 
         if not upstreams:
@@ -1593,16 +1608,19 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         downstream_urn = self.gen_dataset_urn(table.ref)
         fine: List[FineGrainedLineage] = []
         unresolved_qualifiers: Set[str] = set()
+        skipped_entries = 0
         for key in ("dimensions", "measures"):
             entries = spec.get(key)
             if not isinstance(entries, list):
                 continue
             for entry in entries:
                 if not isinstance(entry, dict):
+                    skipped_entries += 1
                     continue
                 col_name = entry.get("name")
                 expr = entry.get("expr")
                 if not isinstance(col_name, str) or not isinstance(expr, str):
+                    skipped_entries += 1
                     continue
                 upstream_cols, unresolved = self._parse_metric_view_expr(
                     expr,
@@ -1625,6 +1643,16 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     )
                 )
 
+        if skipped_entries:
+            self.report.num_metric_view_skipped_dim_measure_entries += skipped_entries
+            self.report.report_warning(
+                "Metric view dimension/measure entries skipped",
+                f"{table.ref.qualified_table_name}: {skipped_entries} "
+                "dimension/measure entry/entries skipped due to malformed shape "
+                "(non-mapping entry, missing or non-string `name`/`expr`). Column "
+                "lineage for affected columns will be absent.",
+            )
+
         if unresolved_qualifiers:
             self.report.num_metric_view_unresolved_qualifiers += len(
                 unresolved_qualifiers
@@ -1645,8 +1673,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         context: str = "",
     ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
         try:
+            # sqlglot internals can leak AttributeError/TypeError on malformed ASTs.
             tree = sqlglot.parse_one(expr, dialect="databricks")
-        except (sqlglot.errors.SqlglotError, RecursionError, ValueError) as e:
+        except (
+            sqlglot.errors.SqlglotError,
+            RecursionError,
+            ValueError,
+            AttributeError,
+            TypeError,
+        ) as e:
             self.report.num_metric_views_expr_parse_failures += 1
             self.report.report_warning(
                 "Metric view expression failed to parse",
@@ -1654,6 +1689,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
             return [], set()
         if tree is None:
+            self.report.num_metric_view_expr_empty_tree += 1
             return [], set()
 
         result: List[Tuple[TableReference, str]] = []

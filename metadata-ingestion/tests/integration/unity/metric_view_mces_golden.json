@@ -527,7 +527,7 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/metric_view_filter",
+                "path": "/customProperties/metric_view.filter",
                 "value": "o_orderstatus = 'F'"
             },
             {

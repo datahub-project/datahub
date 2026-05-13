@@ -1411,13 +1411,13 @@ class TestUnityCatalogMetricViews:
         )
         spec = source._load_metric_view_spec(table)
         props = source._create_table_property_aspect(table, spec)
-        assert props.customProperties.get("metric_view_filter") == "o_orderstatus = 'F'"
+        assert props.customProperties.get("metric_view.filter") == "o_orderstatus = 'F'"
 
     def test_filter_omitted_when_spec_unavailable(self):
         source = self._build_source(include_metric_views=True)
         table, _ = self._build_metric_view_table()
         props = source._create_table_property_aspect(table, metric_view_spec=None)
-        assert "metric_view_filter" not in props.customProperties
+        assert "metric_view.filter" not in props.customProperties
 
     def test_cll_bare_column_maps_to_source(self):
         source = self._build_source(include_metric_views=True)
@@ -1645,7 +1645,7 @@ class TestUnityCatalogMetricViews:
         assert source.report.num_metric_views_yaml_parse_failures == 1
 
     def test_process_table_yaml_fail_skips_metric_view_props(self):
-        """Parse failure must not emit a metric_view_filter prop or set materialized=True."""
+        """Parse failure must not emit a metric_view.filter prop or set materialized=True."""
         source = self._build_source(include_metric_views=True)
         table, schema = self._build_metric_view_table(
             view_definition='version: 1.1\nsource: "unterminated\n'
@@ -1658,7 +1658,7 @@ class TestUnityCatalogMetricViews:
             if hasattr(mcp, "materialized"):
                 assert mcp.materialized is False
             if hasattr(mcp, "customProperties"):
-                assert "metric_view_filter" not in (mcp.customProperties or {})
+                assert "metric_view.filter" not in (mcp.customProperties or {})
 
     @pytest.mark.parametrize(
         "yaml_value,expected_materialized",
@@ -1697,7 +1697,7 @@ class TestUnityCatalogMetricViews:
         )
         spec = source._load_metric_view_spec(table)
         props = source._create_table_property_aspect(table, spec)
-        assert "metric_view_filter" not in props.customProperties
+        assert "metric_view.filter" not in props.customProperties
 
     def test_struct_column_with_legacy_tags_unchanged_when_flag_off(self):
         from datahub.metadata.urns import TagUrn
@@ -1888,8 +1888,72 @@ class TestUnityCatalogMetricViews:
             messages.count("Metric view expression references unknown qualifier") == 1
         )
 
-    def test_rest_fallback_also_empty_emits_info(self):
-        """When neither YAML nor REST yields upstreams, surface an info entry."""
+    def test_skipped_dim_measure_entries_increment_counter_and_warn(self):
+        """Malformed dimension/measure entries must not silently disappear."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 0.1\n"
+                "source: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - just_a_string\n"  # non-dict entry
+                "  - name: missing_expr\n"  # missing `expr`
+                "  - name: bad_expr_type\n"
+                "    expr: 42\n"  # non-string expr
+                "  - name: order_date\n"
+                "    expr: o_orderdate\n"  # one valid row to confirm processing continues
+            ),
+            column_names=["order_date"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        source._extract_metric_view_column_lineage(table, spec)
+        assert source.report.num_metric_view_skipped_dim_measure_entries == 3
+        warnings_for_view = [
+            w
+            for w in source.report.warnings
+            if w.message == "Metric view dimension/measure entries skipped"
+        ]
+        assert len(warnings_for_view) == 1
+
+    def test_coarse_lineage_partial_unparseable_sources_warns(self):
+        """When some sources resolve and others don't, surface the rejected ones via a counter."""
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 0.1\n"
+                "source: cat.sch.orders\n"
+                "joins:\n"
+                "  - name: customers\n"
+                "    source: badname\n"  # 1-part name, unparseable
+                "  - name: regions\n"
+                "    source: cat.sch.regions\n"  # parseable
+            )
+        )
+        lineage = source._extract_metric_view_lineage(table)
+        assert lineage is not None
+        assert source.report.num_metric_view_unparseable_sources == 1
+        messages = [w.message for w in source.report.warnings]
+        assert "Metric view source(s) skipped" in messages
+
+    def test_expr_empty_tree_increments_counter(self):
+        """sqlglot returning None (empty/comment-only expr) must not silently produce empty CLL."""
+        source = self._build_source(include_metric_views=True)
+        with patch(
+            "datahub.ingestion.source.unity.source.sqlglot.parse_one",
+            return_value=None,
+        ):
+            result, unresolved = source._parse_metric_view_expr(
+                "-- empty", alias_map={}
+            )
+        assert result == []
+        assert unresolved == set()
+        assert source.report.num_metric_view_expr_empty_tree == 1
+        # No parse-failure counter should fire — None is a "successful empty parse".
+        assert source.report.num_metric_views_expr_parse_failures == 0
+
+    def test_rest_fallback_also_empty_emits_warning(self):
+        """When neither YAML nor REST yields upstreams, surface a warning so the gap is visible."""
         source = self._build_source(include_metric_views=True)
         table, schema = self._build_metric_view_table(
             view_definition=(
@@ -1898,8 +1962,8 @@ class TestUnityCatalogMetricViews:
         )
         with patch.object(source, "ingest_lineage", return_value=None):
             list(source.process_table(table, schema))
-        titles = {i.title for i in source.report.infos}
-        assert "Metric view has no upstream lineage" in titles
+        messages = {w.message for w in source.report.warnings}
+        assert "Metric view has no upstream lineage" in messages
 
     def test_dim_measure_description_override_from_yaml(self):
         """YAML `description` on a dim/measure surfaces as the schema field description."""
@@ -1970,13 +2034,14 @@ class TestUnityCatalogMetricViews:
         assert schema_metadata.fields[0].description is None
 
     def test_view_sqlconfig_keys_filtered_on_metric_view(self):
-        """`view.sqlConfig.*` keys from UC `table.properties` must be dropped on metric views."""
+        """`view.sqlConfig.spark.*` keys are dropped; other `view.sqlConfig.*` namespaces survive."""
         source = self._build_source(include_metric_views=True)
         table, _ = self._build_metric_view_table()
         table.properties = {
             "metric_view.from.name": "cat.sch.orders",
             "view.sqlConfig.spark.sql.session.timeZone": "Etc/UTC",
             "view.sqlConfig.spark.sql.ansi.enabled": "true",
+            "view.sqlConfig.hive.some.key": "preserved",
             "view.referredTempViewNames": "[]",
         }
         props = source._create_table_property_aspect(table, metric_view_spec=None)
@@ -1985,10 +2050,15 @@ class TestUnityCatalogMetricViews:
             "non-sqlConfig view properties must still flow through"
         )
         assert "view.referredTempViewNames" in cp, (
-            "only `view.sqlConfig.*` is filtered — other `view.*` keys are useful"
+            "non-sqlConfig view.* properties must pass through"
         )
-        assert not any(k.startswith("view.sqlConfig.") for k in cp), (
-            f"sqlConfig keys leaked: {sorted(k for k in cp if k.startswith('view.sqlConfig.'))}"
+        assert cp.get("view.sqlConfig.hive.some.key") == "preserved", (
+            "only view.sqlConfig.spark.* is filtered; other sqlConfig sub-namespaces "
+            "must survive so we don't silently drop future Databricks additions"
+        )
+        assert not any(k.startswith("view.sqlConfig.spark.") for k in cp), (
+            "spark sqlConfig keys leaked: "
+            f"{sorted(k for k in cp if k.startswith('view.sqlConfig.spark.'))}"
         )
 
     def test_view_sqlconfig_keys_preserved_when_flag_off(self):

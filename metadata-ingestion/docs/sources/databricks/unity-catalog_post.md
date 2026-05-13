@@ -23,9 +23,9 @@ When enabled, each metric view emits:
 - Upstream lineage parsed from the YAML `source` and `joins[].source` fields. Both 3-part (`catalog.schema.table`) and 2-part (`schema.table`, resolved against the metric view's own catalog) identifiers are supported, as are backtick-quoted parts (`` `db.with.dots`.schema.table ``).
 - Column-level lineage parsed from each `dimensions[].expr` / `measures[].expr` using the Databricks SQL dialect (requires `include_column_lineage: true`, which is the default). Unqualified columns map to the source table; `<join_name>.column` references map through the join's `source`.
 - A `Dimension` or `Measure` tag on each schema field whose name matches a YAML `dimensions[].name` or `measures[].name`.
-- A `metric_view_filter` custom property when the YAML carries a top-level `filter`.
+- A `metric_view.filter` custom property when the YAML carries a top-level `filter`.
 - Per-column descriptions taken from the YAML `dimensions[].description` / `measures[].description` when present (falls back to the underlying Unity Catalog column comment otherwise).
-- A filtered set of custom properties: the Spark engine config snapshot Unity Catalog injects as `view.sqlConfig.spark.*` keys (~150 entries per view) is dropped, since it is identical across views in a workspace and crowds the UI. All other Databricks-injected `view.*` properties (`view.query.out.col.*`, `view.referredTemp*`, `view.catalogAndNamespace.*`) and the `metric_view.*` keys are preserved.
+- A filtered set of custom properties: the Spark engine config snapshot Unity Catalog injects as `view.sqlConfig.spark.*` keys (~150 entries per view) is dropped, since it is identical across views in a workspace and crowds the UI. All other source-table properties are preserved unchanged.
 
 If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier that DataHub can't resolve, the YAML lineage path is skipped and DataHub falls back to the Unity Catalog table-lineage REST API for upstream resolution.
 
