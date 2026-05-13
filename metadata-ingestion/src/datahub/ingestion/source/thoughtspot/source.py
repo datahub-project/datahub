@@ -477,9 +477,8 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                     )
 
             # Step 4: Worksheets and Tables (Datasets)
-            if self.config.worksheet_pattern or self.config.table_pattern:
-                with self.report.dataset_extraction_time:
-                    yield from self._extract_datasets(workspace_map)
+            with self.report.dataset_extraction_time:
+                yield from self._extract_datasets(workspace_map)
 
             # Step 5: Usage statistics — consumes entity.stats.views from
             # the caches built during steps 2–3; no additional API call.

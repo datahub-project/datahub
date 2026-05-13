@@ -34,10 +34,6 @@ source:
       allow:
         - ".*"
 
-    table_pattern:
-      allow:
-        - ".*"
-
     # Feature toggles
     include_ownership: true
     include_usage_stats: false  # Not yet implemented

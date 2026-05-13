@@ -289,14 +289,6 @@ class ThoughtSpotConfig(
         ),
     )
 
-    table_pattern: AllowDenyPattern = Field(
-        default_factory=AllowDenyPattern.allow_all,
-        description=(
-            "Regex patterns to filter Tables (physical datasets) by name. "
-            "Example: {'allow': ['.*'], 'deny': ['^staging_.*']}"
-        ),
-    )
-
     # Feature toggles
     include_ownership: bool = Field(
         default=True,
