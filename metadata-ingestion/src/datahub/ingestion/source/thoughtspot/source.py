@@ -893,9 +893,18 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             # LiveboardResponse coerces wire dicts/strings to
             # VisualizationResponse via its field validator, so we can
             # iterate directly without per-element type dispatch.
+            #
+            # TS doesn't tag individual viz tiles — only the parent
+            # Liveboard. A viz inside a tagged Liveboard is part of
+            # that tagged asset, so we propagate the parent's tags
+            # down before processing each viz. Done here (always runs)
+            # rather than inside ``_enrich_and_yield_liveboards``
+            # (skipped when callers bypass the streaming pipeline).
             chart_urns = []
             for viz in liveboard.visualizations or []:
-                for wu in self._process_visualization(viz):
+                if not viz.tags and liveboard.tags:
+                    viz.tags = liveboard.tags
+                for wu in self._process_visualization(viz, container_key=container_key):
                     yield wu
                     if "chart" in wu.get_urn():
                         chart_urns.append(wu.get_urn())
@@ -935,12 +944,19 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             )
 
     def _process_visualization(
-        self, viz: VisualizationResponse
+        self,
+        viz: VisualizationResponse,
+        container_key: Optional[WorkspaceKey] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Process a Visualization and emit as a Chart entity using SDK V2.
 
         Args:
             viz: VisualizationResponse object containing visualization metadata
+            container_key: Parent Liveboard's workspace key. A viz lives
+                inside the parent Liveboard's workspace, not its own —
+                ``VisualizationResponse.owner_id`` is almost always
+                ``None``, so we receive the resolved key from
+                ``_process_liveboard`` rather than re-resolving here.
 
         Yields:
             MetadataWorkUnit objects representing the Chart entity and its aspects
@@ -1007,6 +1023,25 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 created_by=viz_author_urn,
                 last_modified_by=viz_author_urn,
             )
+
+            # Container parity. The viz inherits its workspace from
+            # the parent Liveboard — the resolved key is passed in by
+            # ``_process_liveboard`` so we don't re-resolve.
+            if container_key:
+                chart._set_container(container_key)
+
+            # Ownership parity with Answer / Liveboard. The viz's
+            # ``author`` and ``author_name`` are propagated from the
+            # parent liveboard inside ``_enrich_and_yield_liveboards``,
+            # so the data is already in hand by the time we get here.
+            self._apply_entity_ownership(chart, viz.author, viz.author_name)
+
+            # Tag parity with Answer / Liveboard. ``viz.tags`` is
+            # populated by the same enrichment step that propagates
+            # author — TS doesn't expose per-viz tags via the API.
+            tag_urns = self._resolve_entity_tag_urns(getattr(viz, "tags", None))
+            if tag_urns:
+                chart.set_tags(tag_urns)
 
             # Wire upstream lineage. ``source_table_ids`` is populated by the
             # TML-based viz fetch in ``client._get_liveboard_visualizations_via_tml``

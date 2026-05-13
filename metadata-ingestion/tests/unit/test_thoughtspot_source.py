@@ -1326,6 +1326,148 @@ class TestThoughtSpotSourceLiveboardVisualizationReferences:
         assert chart_edges is None or len(chart_edges) == 0
 
 
+class TestVisualizationAspectParity:
+    """Pin parity of aspect coverage between Visualization charts and the
+    other Chart-type entities (Answers, Liveboards). Live smoke audit
+    found that _process_visualization emitted Chart entities **without**
+    ownership / tags / container aspects, even though the parent
+    Liveboard already had those populated. This class tests each gap
+    in isolation so a regression on one doesn't mask a fix on another.
+    """
+
+    @staticmethod
+    def _make_source() -> "ThoughtSpotSource":
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                },
+                "include_ownership": True,
+            }
+        )
+        return ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_visualization_emits_ownership_aspect(self, mock_client_class):
+        """A Visualization with author info must emit an Ownership
+        aspect on the Chart URN — same contract as Answer and
+        Liveboard. _enrich_and_yield_liveboards already propagates
+        author/author_name from the parent liveboard onto each viz
+        (client.py _enrich_and_yield_liveboards), so the data is in
+        hand by the time _process_visualization runs.
+        """
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        source = self._make_source()
+        mock_client.get_workspaces.return_value = []
+        viz = VisualizationResponse(
+            id="viz-1",
+            name="Q1 revenue",
+            author=ThoughtSpotAuthor(id="author-guid", name="alice@example.com"),
+            author_name="alice@example.com",
+        )
+        mock_client.iter_liveboards.return_value = [
+            LiveboardResponse(
+                id="lb-1",
+                name="Sales",
+                visualizations=[viz],
+            )
+        ]
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+
+        workunits = list(source.get_workunits_internal())
+        viz_ownership = [
+            wu
+            for wu in workunits
+            if _mcp(wu).aspectName == "ownership" and "viz-1" in wu.get_urn()
+        ]
+        assert len(viz_ownership) == 1
+        owners = _aspect_as(viz_ownership[0], OwnershipClass).owners or []
+        assert len(owners) >= 1
+        assert any("alice" in o.owner for o in owners)
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_visualization_linked_to_parent_workspace_container(
+        self, mock_client_class
+    ):
+        """A viz lives inside the parent Liveboard's workspace. Without
+        an explicit ``_set_container`` call on the Chart, the viz emits
+        as an orphan under ``platform: thoughtspot`` instead of nested
+        under the Workspace it belongs to — breaking the browse path
+        that Liveboards / Answers / Datasets already establish.
+        """
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        source = self._make_source()
+        mock_client.get_workspaces.return_value = [
+            WorkspaceResponse(id="ws-1", name="Prod")
+        ]
+        viz = VisualizationResponse(id="viz-1", name="Q1 revenue")
+        mock_client.iter_liveboards.return_value = [
+            LiveboardResponse(
+                id="lb-1",
+                name="Sales",
+                owner_id="ws-1",
+                visualizations=[viz],
+            )
+        ]
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+
+        workunits = list(source.get_workunits_internal())
+        viz_container = [
+            wu
+            for wu in workunits
+            if _mcp(wu).aspectName == "container" and "viz-1" in wu.get_urn()
+        ]
+        assert len(viz_container) == 1
+        aspect = _aspect_as(viz_container[0], ContainerClass)
+        assert aspect.container.startswith("urn:li:container:")
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_visualization_inherits_tags_from_parent_liveboard(self, mock_client_class):
+        """TS only tags Liveboards, not individual visualizations — the
+        viz API doesn't expose a per-viz tag list. A viz inside a tagged
+        Liveboard is part of that tagged asset, so DataHub should
+        surface the same tag on the Chart entity. We inherit the
+        parent's tags onto the viz at enrichment time and then the
+        ordinary tag-emission path in ``_process_visualization`` does
+        the rest.
+        """
+        mock_client = MagicMock()
+        mock_client_class.return_value = mock_client
+        source = self._make_source()
+        mock_client.get_workspaces.return_value = []
+        mock_client.get_tags.return_value = [TagResponse(id="t1", name="Revenue")]
+        viz = VisualizationResponse(id="viz-1", name="Q1 revenue")
+        mock_client.iter_liveboards.return_value = [
+            LiveboardResponse(
+                id="lb-1",
+                name="Sales",
+                visualizations=[viz],
+                tags=[{"id": "t1"}],
+            )
+        ]
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+
+        workunits = list(source.get_workunits_internal())
+        viz_tags = [
+            wu
+            for wu in workunits
+            if _mcp(wu).aspectName == "globalTags" and "viz-1" in wu.get_urn()
+        ]
+        assert len(viz_tags) == 1
+        tag_urns = {t.tag for t in _aspect_as(viz_tags[0], GlobalTagsClass).tags}
+        assert "urn:li:tag:Revenue" in tag_urns
+
+
 class TestThoughtSpotSourcePermissionErrors:
     """Test handling of permission errors during entity extraction."""
 
