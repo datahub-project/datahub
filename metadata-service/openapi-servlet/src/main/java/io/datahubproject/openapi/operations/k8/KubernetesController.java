@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -21,6 +22,7 @@ import io.fabric8.kubernetes.api.model.GenericKubernetesResource;
 import io.fabric8.kubernetes.api.model.batch.v1.Job;
 import io.fabric8.kubernetes.api.model.batch.v1.JobBuilder;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.dsl.base.ResourceDefinitionContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -35,7 +37,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -87,8 +89,8 @@ public class KubernetesController {
 
   private static final String KEDA_PAUSED_REPLICAS_ANNOTATION =
       "autoscaling.keda.sh/paused-replicas";
-  public static final String KEDA_PAUSED = "keda-paused";
-  public static final String KEDA_ACTIVE = "keda-active";
+  private static final String AUTO_SCALING_PAUSED = "paused";
+  private static final String AUTO_SCALING_RESUMED = "resumed";
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
   private final KubernetesClient kubernetesClient;
@@ -234,18 +236,16 @@ public class KubernetesController {
           Optional<GenericKubernetesResource> scaledObject =
               req.getReplicas() != null ? findScaledObjectForDeployment(name) : Optional.empty();
 
-          if (req.getReplicas() != null) {
-            if (scaledObject.isPresent()) {
-              // KEDA manages this deployment — pause via annotation instead of direct scale.
-              pauseKedaScaledObject(scaledObject.get(), req.getReplicas());
-              log.info(
-                  "KEDA ScaledObject found for deployment {}. Pausing at {} replicas via annotation.",
-                  name,
-                  req.getReplicas());
-            } else {
-              deployments.withName(name).scale(req.getReplicas());
-              log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
-            }
+          if (scaledObject.isPresent()) {
+            // KEDA manages this deployment — pause via annotation instead of direct scale.
+            pauseKedaScaledObject(scaledObject.get(), req.getReplicas());
+            log.info(
+                "KEDA ScaledObject found for deployment {}. Pausing at {} replicas via annotation.",
+                name,
+                req.getReplicas());
+          } else if (req.getReplicas() != null) {
+            deployments.withName(name).scale(req.getReplicas());
+            log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
           }
 
           if (req.getResources() != null) {
@@ -273,7 +273,7 @@ public class KubernetesController {
           var updatedDeployment = deployments.withName(name).get();
           if (scaledObject.isPresent()) {
             return buildKedaResponse(
-                updatedDeployment, scaledObject.get(), KEDA_PAUSED, req.getReplicas());
+                updatedDeployment, AUTO_SCALING_PAUSED);
           }
           return k8sResponse(updatedDeployment);
         });
@@ -802,7 +802,7 @@ public class KubernetesController {
               annotations != null && annotations.containsKey(KEDA_PAUSED_REPLICAS_ANNOTATION);
 
           if (!wasPaused) {
-            return buildKedaResponse(d, scaledObject.get(), KEDA_ACTIVE, null);
+            return buildKedaResponse(d, AUTO_SCALING_RESUMED);
           }
 
           kubernetesClient
@@ -818,11 +818,7 @@ public class KubernetesController {
                   });
 
           log.info("Resumed KEDA autoscaling for deployment {}", name);
-          return buildKedaResponse(
-              kubernetesClient.apps().deployments().inNamespace(ns()).withName(name).get(),
-              scaledObject.get(),
-              KEDA_ACTIVE,
-              null);
+          return buildKedaResponse(d, AUTO_SCALING_RESUMED);
         });
   }
 
@@ -928,7 +924,9 @@ public class KubernetesController {
 
   /**
    * Finds the KEDA ScaledObject targeting the given deployment in the current namespace. Returns
-   * null if KEDA is not installed (CRD not found) or no ScaledObject targets this deployment.
+   * empty if KEDA is not installed (CRD returns 404/410). Rethrows on auth failures, network
+   * errors, or other unexpected conditions to avoid silently falling back to direct scale on a
+   * KEDA-managed deployment.
    */
   private Optional<GenericKubernetesResource> findScaledObjectForDeployment(String deploymentName) {
     try {
@@ -947,12 +945,23 @@ public class KubernetesController {
                 return deploymentName.equals(((Map<?, ?>) scaleTargetRef).get("name"));
               })
           .findFirst();
+    } catch (KubernetesClientException e) {
+      if (e.getCode() == 404 || e.getCode() == 410) {
+        log.debug(
+            "KEDA ScaledObject CRD not found (HTTP {}), falling back to direct scale for deployment {}",
+            e.getCode(),
+            deploymentName);
+      } else {
+        log.warn(
+            "Kubernetes error checking KEDA ScaledObjects for deployment {} (HTTP {}): {}. Falling back to direct scale.",
+            deploymentName,
+            e.getCode(),
+            e.getMessage());
+      }
+      return Optional.empty();
     } catch (Exception e) {
-      // KEDA CRD not installed (404) or unreachable — fall back to direct scale
-      log.debug(
-          "KEDA ScaledObjects not available for deployment {}, falling back to direct scale: {}",
-          deploymentName,
-          e.getMessage());
+
+      log.error("Unexpected error checking KEDA ScaledObjects for deployment {}: {}", deploymentName, e.getMessage());
       return Optional.empty();
     }
   }
@@ -977,34 +986,24 @@ public class KubernetesController {
   }
 
   /**
-   * Builds the deployment response enhanced with a kedaStatus block. The deployment object is
-   * returned as-is (spec.replicas may be stale when KEDA hasn't reconciled yet); the kedaStatus
-   * block communicates the actual requested state and KEDA mode to the caller.
+   * Builds the deployment response with an autoScalingMode field indicating whether autoscaling is
+   * paused or resumed. Implementation details (KEDA, ScaledObject names) are intentionally omitted
+   * from the response as this is a public-facing API.
    */
   private ResponseEntity<String> buildKedaResponse(
       Object deployment,
-      @Nonnull final GenericKubernetesResource scaledObject,
-      @Nonnull final String scalingMode,
-      @Nullable final Integer requestedReplicas) {
+      @Nonnull final String scalingMode) {
     try {
       String deploymentJson = k8sObjectMapper.writeValueAsString(deployment);
-      com.fasterxml.jackson.databind.node.ObjectNode root =
-          (com.fasterxml.jackson.databind.node.ObjectNode) k8sObjectMapper.readTree(deploymentJson);
+      ObjectNode root = (ObjectNode) k8sObjectMapper.readTree(deploymentJson);
 
-      com.fasterxml.jackson.databind.node.ObjectNode kedaStatus =
-          k8sObjectMapper.createObjectNode();
-      kedaStatus.put("scalingMode", scalingMode);
-      kedaStatus.put("scaledObject", scaledObject.getMetadata().getName());
-      if (requestedReplicas != null) {
-        kedaStatus.put("requestedReplicas", requestedReplicas);
-      }
-      root.set("kedaStatus", kedaStatus);
+      root.put("autoScalingMode", scalingMode);
 
       return ResponseEntity.ok()
           .contentType(MediaType.APPLICATION_JSON)
           .body(k8sObjectMapper.writeValueAsString(root));
     } catch (JsonProcessingException e) {
-      log.error("Failed to serialize KEDA-aware response", e);
+      log.error("Failed to serialize autoscaling-aware response", e);
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body("{\"error\": \"Serialization failed\"}");
     }
