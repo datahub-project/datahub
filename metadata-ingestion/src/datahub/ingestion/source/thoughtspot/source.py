@@ -613,6 +613,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         fetch_fn: Callable[[], Iterable],
         pattern: "AllowDenyPattern",
         entity_type: str,
+        tag_filter: Optional[List[str]] = None,
     ) -> Iterator:
         """Stream entities from the API and filter by pattern.
 
@@ -624,6 +625,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         Auth / permission failures terminate the iterator (and are
         surfaced as report failures); API failures surface a warning and
         the iterator ends cleanly.
+
+        ``tag_filter`` (optional): when set, the entity fetch was
+        server-side-filtered by these tag names. If the result is empty
+        we surface a ``report.warning`` so a typo'd tag name doesn't
+        result in a silent zero-emission run. (TS tag names are
+        case-sensitive — ``"Production"`` and ``"production"`` differ.)
         """
         kept = 0
         filtered_out = 0
@@ -658,6 +665,21 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
             return
+        if tag_filter and kept == 0 and filtered_out == 0:
+            # Zero entities AND a tag filter was configured AND no
+            # entities were dropped by pattern → the server-side filter
+            # matched nothing. Typo / case-mismatch is the most common
+            # cause; surface it loudly so operators don't end up with a
+            # silent empty run.
+            self.report.warning(
+                title=f"Tag filter matched 0 {entity_type}",
+                message=(
+                    f"Configured tag filter for {entity_type} returned "
+                    "zero entities. ThoughtSpot tag names are "
+                    "case-sensitive — check for typos."
+                ),
+                context=f"tag_filter={tag_filter}",
+            )
         logger.info(
             f"Streamed {kept} {entity_type} to processor ({filtered_out} filtered by pattern)"
         )
@@ -677,6 +699,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             lambda: self.client.iter_liveboards(tag_names=tag_filter),
             self.config.liveboard_pattern,
             "Liveboards",
+            tag_filter=tag_filter,
         )
 
     def _get_answers(self) -> Iterator[AnswerResponse]:
@@ -686,6 +709,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             lambda: self.client.iter_answers(tag_names=tag_filter),
             self.config.answer_pattern,
             "Answers",
+            tag_filter=tag_filter,
         )
 
     def _get_logical_tables(self) -> Iterator[LogicalTableResponse]:

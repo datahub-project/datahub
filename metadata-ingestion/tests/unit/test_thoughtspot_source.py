@@ -12,7 +12,11 @@ from typing import Any, Dict, List, Optional, Type, TypeVar, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 from pydantic import ValidationError
+from requests.adapters import HTTPAdapter
+from requests.exceptions import HTTPError
+from urllib3.util.retry import Retry
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -421,6 +425,129 @@ class TestTagFilterWiredToClient:
         # Belt-and-braces: confirm the broken nestings are NOT used.
         assert "tag_name" not in first_request["metadata"][0]
         assert "tags" not in first_request
+
+    @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
+    def test_iter_answers_sends_top_level_tag_identifiers(self, mock_sdk_class):
+        """Symmetric wire-shape pin for the Answer code path. Both
+        ``iter_liveboards`` and ``iter_answers`` flow through
+        ``_paginated_metadata_search``, but a future helper split could
+        regress one without the other. Cover both explicitly so the
+        regression guard is symmetric.
+        """
+        mock_sdk = MagicMock()
+        mock_sdk_class.return_value = mock_sdk
+        mock_sdk.auth_token_full.return_value = {"token": "t"}
+        mock_sdk.metadata_search.return_value = []
+
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+        list(client.iter_answers(tag_names=["KPI"]))
+
+        calls = mock_sdk.metadata_search.call_args_list
+        assert calls, "expected at least one metadata_search call"
+        first_request = calls[0].kwargs.get("request") or (
+            calls[0].args[0] if calls[0].args else {}
+        )
+        assert first_request.get("tag_identifiers") == ["KPI"], first_request
+        assert "tag_name" not in first_request["metadata"][0]
+        assert "tags" not in first_request
+
+    @patch("datahub.ingestion.source.thoughtspot.client.TSRestApiV2")
+    def test_tag_identifiers_omitted_when_filter_unset_or_empty(self, mock_sdk_class):
+        """Regression guard: ``tag_identifiers`` must NOT appear in the
+        request body when no filter is configured. The current
+        ``if tag_names:`` short-circuit covers ``None`` AND ``[]``;
+        a future drift to ``if tag_names is not None:`` would send
+        ``tag_identifiers: []`` and (per TS REST v2 semantics) return
+        zero rows — a silent-empty-result regression. Pin both paths.
+        """
+        mock_sdk = MagicMock()
+        mock_sdk_class.return_value = mock_sdk
+        mock_sdk.auth_token_full.return_value = {"token": "t"}
+        mock_sdk.metadata_search.return_value = []
+
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+        )
+        client = ThoughtSpotClient(config, report=ThoughtSpotReport())
+
+        # tag_names=None — the no-filter case.
+        list(client.iter_liveboards(tag_names=None))
+        # tag_names=[] — the empty-list edge case.
+        list(client.iter_liveboards(tag_names=[]))
+
+        calls = mock_sdk.metadata_search.call_args_list
+        assert len(calls) >= 2, "expected at least two metadata_search calls"
+        for call in calls:
+            req = call.kwargs.get("request") or (call.args[0] if call.args else {})
+            assert "tag_identifiers" not in req, (
+                "tag_identifiers must be absent from the request body when "
+                f"no tag filter is configured. Actual request: {req}"
+            )
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_zero_result_with_tag_filter_emits_warning(self, mock_client_cls):
+        """When a configured tag filter matches 0 entities and the pattern
+        didn't drop any either, surface a ``report.warning`` so a typo'd
+        tag name (TS is case-sensitive) doesn't result in a silent empty
+        run."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []  # server returned empty
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+        mock_client.get_tags.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                },
+                "liveboard_tag_filter": ["Produciton"],  # typo
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        list(source.get_workunits_internal())
+
+        titles = [w.title or "" for w in source.report.warnings]
+        assert any("Tag filter matched 0 Liveboards" in t for t in titles), (
+            f"Expected zero-result tag-filter warning. Got titles: {titles}"
+        )
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_zero_result_without_tag_filter_does_not_warn(self, mock_client_cls):
+        """A genuinely empty tenant (no tag filter configured) should NOT
+        emit the tag-filter warning — only configured-and-mismatched
+        filters trigger it."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+        mock_client.get_tags.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        list(source.get_workunits_internal())
+
+        titles = [w.title or "" for w in source.report.warnings]
+        assert not any("Tag filter matched 0" in t for t in titles), titles
 
 
 class TestThoughtSpotSourceErrorRecovery:
@@ -3251,9 +3378,6 @@ class TestReauthCounterResetsOnSuccess:
         monkeypatch.setattr(client, "_authenticate", lambda: None)
 
         # Build an SDK callable that 401s once, then succeeds.
-        import requests
-        from requests.exceptions import HTTPError
-
         call_count = {"n": 0}
 
         def flaky(**_):
@@ -3279,9 +3403,6 @@ class TestMaxRetriesWiredToSession:
     """
 
     def test_max_retries_installs_retry_adapter(self):
-        from requests.adapters import HTTPAdapter
-        from urllib3.util.retry import Retry
-
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
@@ -3308,8 +3429,6 @@ class TestMaxRetriesWiredToSession:
             assert 500 in retry.status_forcelist
 
     def test_max_retries_zero_means_no_retries(self):
-        from urllib3.util.retry import Retry
-
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
@@ -3336,30 +3455,57 @@ class TestTimeoutSecondsAppliedToSession:
     ``requests_session``.
     """
 
-    def test_timeout_injected_when_caller_omits(self):
-        """A request fired through ``requests_session`` with no explicit
-        ``timeout=`` kwarg must pick up ``timeout_seconds`` as the
-        default."""
+    def _build_adapter(self, timeout_seconds: int) -> HTTPAdapter:
+        """Construct a ThoughtSpotClient with a real session so the
+        ``_TimeoutInjectingHTTPAdapter`` is mounted, then return the
+        adapter for direct invocation."""
         config = ThoughtSpotConnectionConfig(
             base_url="https://example.thoughtspot.cloud",
             auth=TrustedAuth(username="u", secret_key="k"),
-            timeout_seconds=42,
+            timeout_seconds=timeout_seconds,
         )
         with patch(
             "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
-            # Use a real session here so the adapter logic actually runs.
-            import requests as _requests
-
-            real_session = _requests.Session()
+            real_session = requests.Session()
             mock_sdk.return_value.requests_session = real_session
             ThoughtSpotClient(config, report=ThoughtSpotReport())
-            # Probe the mounted adapter: it must expose the configured
-            # default timeout so when ``send`` is called without one,
-            # this value is used.
             adapter = real_session.get_adapter("https://example.thoughtspot.cloud")
-            assert getattr(adapter, "_default_timeout", None) == 42
+            assert isinstance(adapter, HTTPAdapter)
+            return adapter
+
+    def test_default_timeout_attached_to_adapter(self):
+        """Adapter exposes the configured default for inspection."""
+        adapter = self._build_adapter(timeout_seconds=42)
+        assert getattr(adapter, "_default_timeout", None) == 42
+
+    def test_send_injects_default_timeout_when_caller_omits(self):
+        """The ``send`` override must inject ``_default_timeout`` into
+        ``kwargs`` when the caller omits ``timeout``. Pinning the
+        injection mechanism — not just the attribute — prevents a
+        rename of ``_default_timeout`` from silently breaking the
+        contract that ``ThoughtSpotConnectionConfig.timeout_seconds``
+        actually applies."""
+        adapter = self._build_adapter(timeout_seconds=42)
+        fake_request = MagicMock()
+        with patch.object(HTTPAdapter, "send") as super_send:
+            super_send.return_value = MagicMock()
+            adapter.send(fake_request)
+            # Parent ``send`` saw the injected default.
+            assert super_send.call_args.kwargs.get("timeout") == 42
+
+    def test_send_does_not_override_explicit_timeout(self):
+        """When a caller passes ``timeout=`` explicitly, ``setdefault``
+        semantics keep their value — the adapter only fills the gap
+        when the caller didn't supply one."""
+        adapter = self._build_adapter(timeout_seconds=42)
+        fake_request = MagicMock()
+        with patch.object(HTTPAdapter, "send") as super_send:
+            super_send.return_value = MagicMock()
+            adapter.send(fake_request, timeout=5)
+            # Caller-supplied 5 wins; the adapter's 42 default is ignored.
+            assert super_send.call_args.kwargs.get("timeout") == 5
 
 
 class TestThoughtSpotSourceTestConnection:
