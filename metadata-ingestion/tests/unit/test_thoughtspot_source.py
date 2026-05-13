@@ -35,6 +35,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    _extract_answer_chart_type,
     _safe_load_tml_yaml,
 )
 from datahub.ingestion.source.thoughtspot.config import (
@@ -6949,6 +6950,48 @@ class TestTMLYamlLoaderQuirks:
 
         with pytest.raises(yaml.constructor.ConstructorError):
             _safe_load_tml_yaml("value: !!python/object/new:list [[]]\n")
+
+
+class TestTMLAnswerExtractionHelpers:
+    """Pin the contract of ``_extract_answer_chart_type`` — the helper
+    that walks an answer-block dict to find the chart type label.
+
+    Background: a live smoke run against a TS Cloud 26.x tenant found
+    that ``answer.chart_type`` (the field older docs reference) is
+    always ``None`` on modern responses — the real value lives at
+    ``answer.chart.type``. Before this helper, ``thoughtspot_chart_type``
+    was missing from every Visualization's custom properties even
+    though every chart had a clear type (PIE / COLUMN / KPI / …).
+    The helper prefers the nested path with a fallback to the legacy
+    field for older tenants.
+    """
+
+    def test_extract_chart_type_prefers_nested_chart_type(self):
+        """TS Cloud 26.x stores the chart type at ``answer.chart.type``
+        (``'PIE'``, ``'COLUMN'``, …) and leaves the legacy
+        ``answer.chart_type`` field unset. Without this preference,
+        every emitted Chart entity has ``thoughtspot_chart_type``
+        missing from its custom properties — exactly what the live
+        smoke run found (0/170 vizes had chart_type populated).
+        """
+        answer_tml = {"chart": {"type": "PIE"}, "chart_type": None}
+        assert _extract_answer_chart_type(answer_tml) == "PIE"
+
+    def test_extract_chart_type_falls_back_to_legacy_field(self):
+        """Older TML payloads keep ``chart_type`` at the top level
+        of ``answer``. Preserve that path so tenants on older TS
+        versions keep emitting the property.
+        """
+        answer_tml = {"chart_type": "BAR"}
+        assert _extract_answer_chart_type(answer_tml) == "BAR"
+
+    def test_extract_chart_type_returns_none_when_unset(self):
+        """No chart type signal at all → ``None`` (caller omits the
+        custom property rather than emitting an empty string).
+        """
+        assert _extract_answer_chart_type({}) is None
+        assert _extract_answer_chart_type({"chart": {}}) is None
+        assert _extract_answer_chart_type({"chart": {"type": ""}}) is None
 
 
 class TestLineageBuilderHelpers:

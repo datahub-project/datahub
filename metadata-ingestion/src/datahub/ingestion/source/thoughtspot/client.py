@@ -68,6 +68,15 @@ def _extract_search_query_columns(search_query: Any) -> List[str]:
     that references the same column twice doesn't emit duplicate
     edges. Non-string inputs (TML schema drift) return ``[]`` so the
     caller can no-op without a type check.
+
+    Why not ``answer.answer_columns[]``? Despite the name, that field
+    carries the chart's *display* column labels — post-aggregation
+    metric names like ``"Total Credits"`` or ``"Month(TS Query Start
+    Time)"`` — not the underlying worksheet column refs. A live smoke
+    showed that preferring ``answer_columns`` over ``search_query``
+    regressed 79 KPI tiles whose display labels don't match any
+    worksheet schema entry. The ``search_query`` ``[bracket]`` tokens
+    remain the correct source for source-column references.
     """
     if not isinstance(search_query, str) or not search_query:
         return []
@@ -79,6 +88,29 @@ def _extract_search_query_columns(search_query: Any) -> List[str]:
             seen.add(col_name)
             columns.append(col_name)
     return columns
+
+
+def _extract_answer_chart_type(answer_tml: Dict[str, Any]) -> Optional[str]:
+    """Extract the chart-type label (``PIE``, ``COLUMN``, …) from a TML
+    ``answer`` block.
+
+    TS Cloud 26.x stores the chart type at ``answer.chart.type`` and
+    leaves the legacy top-level ``answer.chart_type`` unset — older
+    docs still reference the top-level field, so we prefer the
+    nested path with a fallback. Returns ``None`` when neither
+    location holds a non-empty string so callers can omit the
+    ``thoughtspot_chart_type`` custom property entirely rather than
+    emitting it as an empty string.
+    """
+    chart = answer_tml.get("chart")
+    if isinstance(chart, dict):
+        nested = chart.get("type")
+        if isinstance(nested, str) and nested:
+            return nested
+    legacy = answer_tml.get("chart_type")
+    if isinstance(legacy, str) and legacy:
+        return legacy
+    return None
 
 
 # ThoughtSpot's ``dataSourceTypeEnum`` → DataHub platform name. Driving
@@ -1704,20 +1736,19 @@ class ThoughtSpotClient:
                     if isinstance(fqn, str) and fqn:
                         source_table_ids.append(fqn)
 
-                # Parse ``[col]`` tokens from the search query so this
-                # visualization can emit Chart→Dataset column-level lineage
-                # downstream. Shared with the Answer TML path via the
-                # module-level helper.
+                # Parse ``[col]`` tokens from search_query so this viz
+                # emits Chart→Dataset column-level lineage downstream.
+                # Shared with the Answer TML path via the module-level
+                # helper.
                 search_query = answer.get("search_query") or ""
                 source_columns = _extract_search_query_columns(search_query)
 
-                chart_type = answer.get("chart_type")
                 visualizations.append(
                     VisualizationResponse(
                         id=viz_guid,
                         name=answer.get("name") or viz_guid,
                         description=answer.get("description"),
-                        chart_type=chart_type if isinstance(chart_type, str) else None,
+                        chart_type=_extract_answer_chart_type(answer),
                         question_text=(
                             search_query
                             if isinstance(search_query, str) and search_query
@@ -1843,17 +1874,16 @@ class ThoughtSpotClient:
                     # upgrading TS sees the drift in the report.
                     structural_skips += 1
 
-            chart_type = answer_tml.get("chart_type")
             search_query = answer_tml.get("search_query")
             # Same ``[col]`` parsing the Liveboard viz path runs, so
-            # standalone Answers emit Chart→Dataset column-level lineage
-            # symmetrically with the Visualization path.
+            # standalone Answers emit Chart→Dataset column-level
+            # lineage symmetrically with the Visualization path.
             source_columns = _extract_search_query_columns(search_query)
             dependencies.append(
                 {
                     "id": answer_id,
                     "source_tables": source_tables,
-                    "chart_type": chart_type if isinstance(chart_type, str) else None,
+                    "chart_type": _extract_answer_chart_type(answer_tml),
                     "question_text": (
                         search_query
                         if isinstance(search_query, str) and search_query
