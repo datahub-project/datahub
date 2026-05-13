@@ -1403,6 +1403,53 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 self.processed_dataset_urns.add(wu.get_urn())
                 yield wu
 
+            # SQL_VIEW datasets: emit viewLogic + augment lineage with
+            # sqlglot-parsed edges. No-op for other LOGICAL_TABLE types.
+            # Runs after the dataset's own workunits so the parsed
+            # UpstreamLineage MCP arrives as a follow-up edit rather
+            # than racing with the SDK V2 entity emission.
+            if table.type == "SQL_VIEW" and table.sql_view_definition:
+                external_ref = self._resolve_external_upstream(table)
+                conn = (
+                    self._get_connection_lookup().get(table.data_source_id)
+                    if table.data_source_id
+                    else None
+                )
+                default_db = table.physical_database_name or (
+                    conn.default_database if conn else None
+                )
+                # Build the set of (downstream_col_urn, upstream_col_urn)
+                # triples the existing _apply_dataset_upstreams already
+                # emitted onto the dataset, so sqlglot-parsed edges
+                # don't duplicate them.
+                existing_fgl_edges: Set[tuple] = set()
+                for asp in (
+                    getattr(dataset, "_upstreams_aspect", None)
+                    and [dataset._upstreams_aspect]
+                    or []
+                ):
+                    for fgl in (asp.fineGrainedLineages or []) if asp else []:
+                        for d in fgl.downstreams or []:
+                            for u in fgl.upstreams or []:
+                                existing_fgl_edges.add((d, u))
+
+                yield from self._apply_sql_view_logic(
+                    table_id=table.id,
+                    sql=table.sql_view_definition,
+                    dialect=external_ref.platform if external_ref else None,
+                )
+                yield from self._apply_sql_parsed_upstreams(
+                    table_id=table.id,
+                    sql=table.sql_view_definition,
+                    platform=external_ref.platform if external_ref else None,
+                    env=external_ref.env if external_ref else self.config.env,
+                    platform_instance=(
+                        external_ref.platform_instance if external_ref else None
+                    ),
+                    default_db=default_db,
+                    existing_fgl_edges=existing_fgl_edges or None,
+                )
+
         except Exception as e:
             self.report.warning(
                 title="Failed to Process Dataset",

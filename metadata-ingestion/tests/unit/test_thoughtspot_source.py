@@ -6980,6 +6980,79 @@ class TestSqlParsedUpstreams:
         assert mock_resolver.call_args.kwargs["graph"] is None
 
 
+class TestProcessDatasetSqlViewIntegration:
+    """End-to-end: a SQL_VIEW LogicalTableResponse passed through
+    ``_process_dataset`` emits ViewProperties + augmented
+    UpstreamLineage (when sqlglot succeeds), alongside the existing
+    schema and column-level aspects."""
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_sql_view_emits_view_properties_and_parsed_upstreams(
+        self, mock_client_cls, _mock_resolver, mock_parser
+    ):
+        upstream_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        parsed = MagicMock()
+        parsed.in_tables = [upstream_urn]
+        parsed.column_lineage = []
+        parsed.debug_info = MagicMock(table_error=None, column_error=None, error=None)
+        mock_parser.return_value = parsed
+
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = [
+            LogicalTableResponse(
+                id="sv-1",
+                name="My SQL View",
+                type="SQL_VIEW",
+                sql_view_definition="SELECT col_a FROM prod.public.upstream",
+            )
+        ]
+        mock_client.get_connections.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        wus = list(source.get_workunits_internal())
+
+        view_props = [
+            wu
+            for wu in wus
+            if _mcp(wu).aspectName == "viewProperties" and "sv-1" in wu.get_urn()
+        ]
+        assert len(view_props) == 1
+        upstream_wus_for_sv = [
+            wu
+            for wu in wus
+            if _mcp(wu).aspectName == "upstreamLineage" and "sv-1" in wu.get_urn()
+        ]
+        assert upstream_wus_for_sv
+        all_upstream_urns = [
+            u.dataset
+            for wu in upstream_wus_for_sv
+            for u in (_aspect_as(wu, UpstreamLineageClass).upstreams or [])
+        ]
+        assert any("snowflake,prod.public.upstream" in u for u in all_upstream_urns)
+
+
 class TestResolveAuthorLogin:
     """``_resolve_author_login`` is the choke point for "should this
     metadata become an owner URN or get omitted?". It implements two
