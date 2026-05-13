@@ -17,6 +17,8 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -47,8 +49,11 @@ public class V2MappingsBuilderTest {
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
 
-    // Create LegacyMappingsBuilder
-    mappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    // Create LegacyMappingsBuilder. Default to the legacy (OpenSearch2/ES7) profile to match the
+    // historical test expectations — pre-refactor, this constructor produced legacy ngram config.
+    mappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     // Create real OperationContext with test setup
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -709,8 +714,9 @@ public class V2MappingsBuilderTest {
     // Test that constructor properly handles null EntityIndexConfiguration
     // The constructor doesn't actually throw an exception, so this test should pass
     // This is the current behavior of the implementation
-    V2MappingsBuilder builder = new V2MappingsBuilder(null);
-    assertNotNull(builder, "Constructor should create instance even with null input");
+    V2MappingsBuilder builder =
+        new V2MappingsBuilder(null, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertNotNull(builder, "Constructor should create instance even with null entity index config");
   }
 
   @Test
@@ -734,5 +740,134 @@ public class V2MappingsBuilderTest {
         TestSearchFieldConfig.class
             .getClassLoader()
             .getResourceAsStream("test-entity-registry.yaml"));
+  }
+
+  // ES7 / OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
+  // subfields,
+  // ES8+ strips it on round-trip, which causes a perpetual mapping diff and reindex loop.
+  /** Recursively collects every value found under any "ngram" key in a mappings tree. */
+  private List<Map<String, Object>> findAllNgramSubfields(Map<String, Object> root) {
+    List<Map<String, Object>> found = new java.util.ArrayList<>();
+    collectNgramSubfields(root, found);
+    return found;
+  }
+
+  @SuppressWarnings("unchecked")
+  private void collectNgramSubfields(Object node, List<Map<String, Object>> found) {
+    if (!(node instanceof Map)) {
+      return;
+    }
+    Map<String, Object> map = (Map<String, Object>) node;
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      if ("ngram".equals(entry.getKey()) && entry.getValue() instanceof Map) {
+        found.add((Map<String, Object>) entry.getValue());
+      }
+      collectNgramSubfields(entry.getValue(), found);
+    }
+  }
+
+  private Collection<IndexMapping> buildAllMappings(Map<String, String> partialNgramConfig) {
+    V2MappingsBuilder builder = new V2MappingsBuilder(entityIndexConfiguration, partialNgramConfig);
+    return builder.getIndexMappings(operationContext);
+  }
+
+  private List<Map<String, Object>> collectAllNgramSubfields(
+      Map<String, String> partialNgramConfig) {
+    Collection<IndexMapping> mappings = buildAllMappings(partialNgramConfig);
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Test entity registry must produce at least one mapping");
+
+    List<Map<String, Object>> all = new java.util.ArrayList<>();
+    for (IndexMapping mapping : mappings) {
+      all.addAll(findAllNgramSubfields(mapping.getMappings()));
+    }
+    return all;
+  }
+
+  private void assertLegacyNgramShape(List<Map<String, Object>> ngrams) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for legacy profile — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertEquals(
+          ngram.get("doc_values"),
+          "false",
+          "Legacy profile must continue to emit doc_values=false to avoid a transitional reindex"
+              + " of existing ES7/OpenSearch indexes");
+    }
+  }
+
+  private void assertEs8NgramShape(List<Map<String, Object>> ngrams) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for ES8 profile — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertFalse(
+          ngram.containsKey("doc_values"),
+          "ES8 profile must omit doc_values — ES8 strips it on round-trip and including it causes"
+              + " a perpetual mapping diff (PFP-3594)");
+    }
+  }
+
+  @Test
+  public void testNgramHasDocValuesForLegacyConfig() {
+    // OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG is also used by the ES7 compatibility shim
+    // (Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShim), so this test covers
+    // both ES7 and OpenSearch 2.x behavior.
+    assertLegacyNgramShape(
+        collectAllNgramSubfields(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+  }
+
+  @Test
+  public void testNgramOmitsDocValuesForEs8Config() {
+    // Es8SearchClientShim.PARTIAL_NGRAM_CONFIG is used for both ELASTICSEARCH_8 and
+    // ELASTICSEARCH_9, since both engines strip doc_values from search_as_you_type on round-trip.
+    assertEs8NgramShape(collectAllNgramSubfields(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG));
+  }
+
+  @Test
+  public void testProfileDoesNotChangeOtherStructure() {
+    // Sanity check: switching profile must NOT alter top-level fields like urn, runId,
+    // systemCreated, or the analyzer wiring. We only expect the ngram doc_values flag to differ.
+    Collection<IndexMapping> legacy =
+        buildAllMappings(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    Collection<IndexMapping> es8 = buildAllMappings(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertEquals(legacy.size(), es8.size(), "Same number of indexes regardless of profile");
+
+    java.util.Iterator<IndexMapping> legacyIt = legacy.iterator();
+    java.util.Iterator<IndexMapping> es8It = es8.iterator();
+    while (legacyIt.hasNext() && es8It.hasNext()) {
+      Map<String, Object> legacyProps =
+          (Map<String, Object>) legacyIt.next().getMappings().get("properties");
+      Map<String, Object> es8Props =
+          (Map<String, Object>) es8It.next().getMappings().get("properties");
+      assertEquals(
+          legacyProps.keySet(),
+          es8Props.keySet(),
+          "Top-level field set must be identical between profiles");
+    }
+  }
+
+  @Test
+  public void testNgramAnalyzerOverridesAreApplied() {
+    // The fix replaced static config with instance-based config. Verify that overrides
+    // (analyzer name) still apply correctly — different code paths use different analyzers
+    // (PARTIAL_URN_COMPONENT vs PARTIAL_ANALYZER).
+    List<Map<String, Object>> ngrams =
+        collectAllNgramSubfields(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertFalse(ngrams.isEmpty(), "Should produce ngram subfields");
+    for (Map<String, Object> ngram : ngrams) {
+      assertNotNull(ngram.get("analyzer"), "Every ngram subfield must specify an analyzer");
+      String analyzer = (String) ngram.get("analyzer");
+      assertTrue(
+          analyzer.startsWith("partial"),
+          "Analyzer should be a partial analyzer variant, got: " + analyzer);
+    }
   }
 }

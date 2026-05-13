@@ -292,6 +292,16 @@ public interface SearchClientShim<T> extends Closeable {
   @Nonnull
   SearchEngineType getEngineType();
 
+  /**
+   * Returns the base config for the {@code search_as_you_type} partial-ngram subfield.
+   *
+   * <p>ES7 and OpenSearch 2.x persist {@code doc_values: false} on round-trip, while ES8+ silently
+   * strips it. Each shim implementation supplies the variant that matches its engine, keeping
+   * engine-version knowledge inside the shim layer.
+   */
+  @Nonnull
+  Map<String, String> partialNgramConfig();
+
   @Nonnull
   String getEngineVersion() throws IOException;
 
