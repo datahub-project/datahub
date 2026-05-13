@@ -76,6 +76,7 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.sdk.dataset import Dataset
 
@@ -6639,6 +6640,44 @@ class TestCoreHelpers:
             )
         )
         assert out == []
+
+    # ---- _apply_sql_view_logic ----
+
+    def test_apply_sql_view_logic_emits_view_properties(self):
+        """Emits ``ViewPropertiesClass`` with the raw SQL on
+        viewLogic, ``materialized=False`` (TS SQL views are virtual),
+        and the resolved warehouse dialect on viewLanguage."""
+        source = self._make_source(logical_tables=[])
+        wus = list(
+            source._apply_sql_view_logic(
+                table_id="sv-1", sql="SELECT 1", dialect="snowflake"
+            )
+        )
+        view_props = [wu for wu in wus if _mcp(wu).aspectName == "viewProperties"]
+        assert len(view_props) == 1
+        aspect = _aspect_as(view_props[0], ViewPropertiesClass)
+        assert aspect.viewLogic == "SELECT 1"
+        assert aspect.materialized is False
+        assert aspect.viewLanguage == "snowflake"
+
+    def test_apply_sql_view_logic_skips_when_sql_is_empty(self):
+        """Empty / None SQL → no aspect emitted. Emitting an empty
+        viewLogic would clobber a real value from a prior ingestion
+        run."""
+        source = self._make_source(logical_tables=[])
+        assert (
+            list(source._apply_sql_view_logic("sv-1", sql="", dialect="snowflake"))
+            == []
+        )
+
+    def test_apply_sql_view_logic_falls_back_to_sql_when_dialect_unknown(self):
+        """viewLanguage is generic ``"SQL"`` when the dialect can't be
+        determined (e.g. the SQL view's connection is unreadable).
+        Better than empty string."""
+        source = self._make_source(logical_tables=[])
+        wus = list(source._apply_sql_view_logic("sv-1", sql="SELECT 1", dialect=None))
+        aspect = _aspect_as(wus[0], ViewPropertiesClass)
+        assert aspect.viewLanguage == "SQL"
 
     # ---- _resolve_workspace_container ----
 

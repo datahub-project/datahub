@@ -105,6 +105,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TimeTypeClass,
     UpstreamClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.chart import Chart
@@ -1402,6 +1403,41 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"table_id={getattr(table, 'id', 'unknown')}",
                 exc=e,
             )
+
+    def _apply_sql_view_logic(
+        self,
+        table_id: str,
+        sql: str,
+        dialect: Optional[str],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a ``ViewProperties`` aspect for a SQL_VIEW dataset.
+
+        The viewLogic carries the raw TS SQL statement so users
+        browsing the dataset in DataHub can see what the view does
+        without leaving the catalog. ``materialized=False`` because
+        TS SQL views are virtual (resolved against the warehouse at
+        query time). ``viewLanguage`` carries the resolved warehouse
+        dialect when available; falls back to ``"SQL"`` so the field
+        is never an empty string.
+
+        ``table_id`` is the TS GUID (same value the caller uses for
+        ``_make_self_dataset_urn``) — taking it directly keeps this
+        helper independent of the SDK V2 ``Dataset`` API surface,
+        which doesn't expose the name back as an attribute.
+
+        No-op when ``sql`` is empty / None — emitting an empty
+        viewLogic would clobber a real value from a prior ingestion.
+        """
+        if not sql:
+            return
+        yield MetadataChangeProposalWrapper(
+            entityUrn=str(self._make_self_dataset_urn(table_id)),
+            aspect=ViewPropertiesClass(
+                materialized=False,
+                viewLogic=sql,
+                viewLanguage=dialect or "SQL",
+            ),
+        ).as_workunit()
 
     def _apply_dataset_schema(
         self, dataset: Dataset, columns: Optional[List["ColumnResponse"]]
