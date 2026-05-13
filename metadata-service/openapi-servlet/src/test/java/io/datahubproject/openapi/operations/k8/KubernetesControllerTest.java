@@ -1915,7 +1915,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(jsonPath("$.autoScalingMode").doesNotExist());
 
     // replicas=null — KEDA lookup must be skipped entirely
-    verify(kubernetesClient, never()).genericKubernetesResources(any(ResourceDefinitionContext.class));
+    verify(kubernetesClient, never())
+        .genericKubernetesResources(any(ResourceDefinitionContext.class));
     // Resources update must still apply
     verify(deploymentResource).edit(any(java.util.function.UnaryOperator.class));
   }
