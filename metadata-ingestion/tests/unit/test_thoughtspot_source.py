@@ -1136,6 +1136,41 @@ class TestLogicalTablesCacheReuse:
         )
 
 
+class TestMakeSchemaFieldMemoisation:
+    """The chart-InputFields path builds a ``SchemaFieldClass`` per
+    referenced upstream column. A worksheet column referenced by many
+    vizzes should produce the SAME shared SchemaField instance —
+    repeated allocation at 10K-worksheet × 50-viz scale wastes ~10M
+    objects.
+    """
+
+    def _make_col(self, name: str, data_type: str = "VARCHAR") -> "ColumnResponse":
+        return ColumnResponse(id=f"c-{name}", name=name, data_type=data_type)
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_repeated_column_returns_identical_schema_field(self, mock_client_cls):
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+        col_a = self._make_col("revenue", "DOUBLE")
+        col_b = self._make_col("revenue", "DOUBLE")  # same hashable fields
+        sf_a = source._make_schema_field(col_a)
+        sf_b = source._make_schema_field(col_b)
+        # The two should be the SAME object (memoised).
+        assert sf_a is sf_b, (
+            "_make_schema_field should reuse the same SchemaFieldClass "
+            "instance for columns with identical (name, data_type, "
+            "description, column_type)"
+        )
+
+
 class TestMakeSelfDatasetUrnCaching:
     """``_make_self_dataset_urn`` is called many times per run with the
     same ``table_id`` from different references (column sources, chart
@@ -5257,12 +5292,24 @@ class TestColumnSemanticTags:
     classification, matching the canonical URNs Looker emits so the column
     role is cross-source comparable in the DataHub UI."""
 
+    @staticmethod
+    def _make_source() -> ThoughtSpotSource:
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        with patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient"):
+            return ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
     def test_attribute_column_emits_dimension_tag(self):
         col = ColumnResponse(
             id="c1", name="region", data_type="VARCHAR", column_type="ATTRIBUTE"
         )
-        field = ThoughtSpotSource._make_schema_field(col)
-        assert field.globalTags is not None
+        field = self._make_source()._make_schema_field(col)
         assert field.globalTags is not None
         tag_urns = {t.tag for t in field.globalTags.tags}
         assert "urn:li:tag:Dimension" in tag_urns
@@ -5272,8 +5319,7 @@ class TestColumnSemanticTags:
         col = ColumnResponse(
             id="c2", name="revenue", data_type="FLOAT", column_type="MEASURE"
         )
-        field = ThoughtSpotSource._make_schema_field(col)
-        assert field.globalTags is not None
+        field = self._make_source()._make_schema_field(col)
         assert field.globalTags is not None
         tag_urns = {t.tag for t in field.globalTags.tags}
         assert "urn:li:tag:Measure" in tag_urns
@@ -5285,7 +5331,7 @@ class TestColumnSemanticTags:
         col = ColumnResponse(
             id="c3", name="signup_date", data_type="DATE", column_type="ATTRIBUTE"
         )
-        field = ThoughtSpotSource._make_schema_field(col)
+        field = self._make_source()._make_schema_field(col)
         assert field.globalTags is not None
         tag_urns = {t.tag for t in field.globalTags.tags}
         assert "urn:li:tag:Dimension" in tag_urns
@@ -5295,7 +5341,7 @@ class TestColumnSemanticTags:
         """Columns without a TS column_type stay tag-free — don't fabricate
         a Dimension/Measure assignment just because Looker has one."""
         col = ColumnResponse(id="c4", name="raw", data_type="VARCHAR")
-        field = ThoughtSpotSource._make_schema_field(col)
+        field = self._make_source()._make_schema_field(col)
         assert field.globalTags is None
 
 

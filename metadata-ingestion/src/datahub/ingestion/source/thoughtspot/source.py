@@ -17,6 +17,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
+    NamedTuple,
     Optional,
     Protocol,
     Set,
@@ -196,6 +197,22 @@ class ExternalRef:
     preserve_column_case: bool = False
 
 
+class _SchemaFieldCacheKey(NamedTuple):
+    """Hashable key for ``_schema_field_cache``.
+
+    Identifies a TS column by the fields ``_make_schema_field`` actually
+    reads, so two ``ColumnResponse`` objects that differ only in
+    irrelevant fields (e.g. ``id``) still hit the same cache slot. Using
+    a NamedTuple instead of a bare ``Tuple[Optional[str], ...]`` makes
+    the positional contract self-documenting at the call site.
+    """
+
+    name: Optional[str]
+    data_type: Optional[str]
+    description: Optional[str]
+    column_type: Optional[str]
+
+
 @dataclass(frozen=True)
 class SqlViewWarehouseRef:
     """Resolved warehouse context for one TS SQL_VIEW.
@@ -328,6 +345,13 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         # The three resolution inputs (platform / env / platform_instance)
         # are run-invariant so a simple ``Dict[str, str]`` cache is safe.
         self._self_dataset_urn_cache: Dict[str, str] = {}
+
+        # Per-run memo for ``_make_schema_field``. Keyed by a
+        # ``_SchemaFieldCacheKey`` NamedTuple over the column fields the
+        # body actually reads, so a worksheet column referenced by N
+        # visualisations yields ONE shared ``SchemaFieldClass`` instance
+        # instead of N identical ones.
+        self._schema_field_cache: Dict[_SchemaFieldCacheKey, SchemaFieldClass] = {}
 
         # Per-run ``(entity_id, views)`` accumulators populated during
         # ``_process_liveboard`` / ``_process_answer``; consumed by
@@ -877,8 +901,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             tags.append(cls._TEMPORAL_TAG_URN)
         return tags
 
-    @classmethod
-    def _make_schema_field(cls, col: "ColumnResponse") -> SchemaFieldClass:
+    def _make_schema_field(self, col: "ColumnResponse") -> SchemaFieldClass:
         """Build a ``SchemaFieldClass`` from a TS ``ColumnResponse``.
 
         Single source of truth for SchemaField construction so the worksheet
@@ -894,22 +917,39 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         ``globalTags`` using the same canonical URNs Looker uses
         (``urn:li:tag:Measure`` / ``urn:li:tag:Dimension``), so the
         semantic role of a column is cross-source comparable in the UI.
+
+        Memoised per-instance keyed on the column fields actually read
+        by the body. Repeated calls for the same column (e.g. one
+        worksheet column pinned by N visualizations) return the same
+        ``SchemaFieldClass`` instance — ``SchemaFieldClass`` is treated
+        as immutable by the emitter so sharing is safe.
         """
-        tag_urns = cls._column_semantic_tags(col)
+        key = _SchemaFieldCacheKey(
+            name=col.name,
+            data_type=col.data_type,
+            description=col.description,
+            column_type=col.column_type,
+        )
+        cached = self._schema_field_cache.get(key)
+        if cached is not None:
+            return cached
+        tag_urns = self._column_semantic_tags(col)
         global_tags = (
             GlobalTagsClass(tags=[TagAssociationClass(tag=urn) for urn in tag_urns])
             if tag_urns
             else None
         )
-        return SchemaFieldClass(
+        sf = SchemaFieldClass(
             fieldPath=col.name,
             type=SchemaFieldDataTypeClass(
-                type=cls._ts_type_to_schema_type(col.data_type)
+                type=self._ts_type_to_schema_type(col.data_type)
             ),
             nativeDataType=col.data_type or "UNKNOWN",
             description=col.description,
             globalTags=global_tags,
         )
+        self._schema_field_cache[key] = sf
+        return sf
 
     def _process_workspace_container(
         self, workspace: WorkspaceResponse
