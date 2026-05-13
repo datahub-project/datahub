@@ -36,7 +36,10 @@ source:
 
     # Feature toggles
     include_ownership: true
-    include_usage_stats: false  # Not yet implemented
+    # Keep usage stats off in the integration golden to preserve the
+    # current aspect set; behavior is unit-tested in
+    # TestUsageStatsFromMetadataSearch / TestMetadataSearchIncludeStats.
+    include_usage_stats: false
 
     # Stateful ingestion for deletion detection
     stateful_ingestion:

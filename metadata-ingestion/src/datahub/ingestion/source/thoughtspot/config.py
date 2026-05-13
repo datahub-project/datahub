@@ -299,7 +299,7 @@ class ThoughtSpotConfig(
     )
 
     include_usage_stats: bool = Field(
-        default=False,
+        default=True,
         description=(
             "Emit per-entity view counts as ``DashboardUsageStatistics`` / "
             "``ChartUsageStatistics`` aspects. View counts are the global "
@@ -307,8 +307,9 @@ class ThoughtSpotConfig(
             "``include_stats=True`` is sent — the same number shown in the "
             "TS UI's 'Views' column. No additional API round-trip is "
             "performed: the data is piggybacked on the same paginated "
-            "``metadata_search`` calls that build the entities. "
-            "Disabled by default."
+            "``metadata_search`` calls that build the entities. Enabled by "
+            "default since the cost is ~50 bytes of wire bytes per entity. "
+            "Set to ``false`` to skip emitting the usage aspects entirely."
         ),
     )
 
