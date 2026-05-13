@@ -63,6 +63,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.ingestion.source.thoughtspot.client import (
+    _KEY_BUILDERS,
     _TS_TO_DATAHUB_PLATFORM,
     ThoughtSpotAPIError,
     ThoughtSpotAuthenticationError,
@@ -1999,11 +2000,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         Returns the resolved reference so callers can also build
         column-level edges without re-resolving.
         """
-        from datahub.ingestion.source.thoughtspot.client import (
-            _KEY_BUILDERS,
-            _TS_TO_DATAHUB_PLATFORM,
-        )
-
         if not self.config.include_external_lineage:
             return None
         if not table.data_source_id:

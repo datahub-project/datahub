@@ -2873,7 +2873,7 @@ class TestHttpStatusCodeHelper:
         from datahub.ingestion.source.thoughtspot.client import _http_status_code
 
         e = Exception("Server says ok actually")
-        e.response = MagicMock(status_code=403)  # type: ignore[attr-defined]
+        e.response = MagicMock(status_code=403)
 
         assert _http_status_code(e) == 403
 
@@ -2893,7 +2893,7 @@ class TestHttpStatusCodeHelper:
         from datahub.ingestion.source.thoughtspot.client import _http_status_code
 
         e = Exception("The 404 page is fine, this is a 401")
-        e.response = MagicMock(status_code=403)  # type: ignore[attr-defined]
+        e.response = MagicMock(status_code=403)
 
         assert _http_status_code(e) == 403
 
@@ -3155,8 +3155,9 @@ class TestThoughtSpotSourceTestConnection:
 
             assert report.basic_connectivity is not None
             assert report.basic_connectivity.capable is True
-            assert SourceCapability.DESCRIPTIONS in report.capability_report  # type: ignore[operator]
-            assert SourceCapability.OWNERSHIP in report.capability_report  # type: ignore[operator]
+            assert report.capability_report is not None
+            assert SourceCapability.DESCRIPTIONS in report.capability_report
+            assert SourceCapability.OWNERSHIP in report.capability_report
 
     def test_connection_api_error_surfaces_in_failure_reason(self):
         """ThoughtSpotAPIError raised by client.test_connection (network /
@@ -3707,10 +3708,7 @@ class TestThoughtSpotSourceErrorRecoveryPaths:
 
         # Should emit dataset properties even if schema fails
         property_wus = [
-            wu
-            for wu in workunits
-            if hasattr(wu.metadata, "aspectName")
-            and _mcp(wu).aspectName == "datasetProperties"  # type: ignore
+            wu for wu in workunits if _mcp(wu).aspectName == "datasetProperties"
         ]
         assert len(property_wus) > 0
 
@@ -7344,7 +7342,7 @@ class TestSourceTableDropCounter:
         client = self._make_client()
         # Mock the TML-export round-trip so the function returns the
         # detail block we want to feed through ``validate_assignment``.
-        client._get_answer_dependencies = lambda answer_ids: [  # type: ignore[assignment]
+        client._get_answer_dependencies = lambda answer_ids: [
             {
                 "id": "ans-1",
                 "source_tables": [{"id": "good"}, {"name": "no-id"}],
@@ -7393,11 +7391,11 @@ class TestIterGeneratorSemantics:
                 seen["items"] += 1
                 yield item
 
-        client._paginated_metadata_search = _gen  # type: ignore[assignment]
+        client._paginated_metadata_search = _gen
         # No-op TML enrichment (returns the buffer unchanged) so the
         # generator's buffering loop is what's exercised.
-        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)  # type: ignore[assignment]
-        client._enrich_and_yield_answers = lambda ans: iter(ans)  # type: ignore[assignment]
+        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)
+        client._enrich_and_yield_answers = lambda ans: iter(ans)
         return client, seen
 
     def test_iter_liveboards_is_lazy(self):
@@ -7484,7 +7482,7 @@ class TestGetLogicalTablesDropAggregation:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client.get_metadata_list = lambda **_: items  # type: ignore[assignment]
+        client.get_metadata_list = lambda **_: items
         return client
 
     def test_clean_batch_no_drops(self):
@@ -7738,8 +7736,8 @@ class TestTMLParseAggregation:
         ) as mock_sdk:
             mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
             client = ThoughtSpotClient(config, report=ThoughtSpotReport())
-        client._iter_tml_export_items = lambda *a, **kw: iter(items)  # type: ignore[assignment]
-        client._check_tml_item_status = lambda item, _kind: True  # type: ignore[assignment]
+        client._iter_tml_export_items = lambda *a, **kw: iter(items)
+        client._check_tml_item_status = lambda item, _kind: True
         return client
 
     def test_liveboard_yaml_parse_failure_aggregates_warning(self):
@@ -8080,12 +8078,12 @@ class TestReportDroppedExcPropagation:
         """Two malformed orgs in the same batch → one aggregated
         warning whose ``.exc`` is the *first* ``ValidationError``."""
         client = self._make_client()
-        client.ts_client.orgs_search = lambda **_: {  # type: ignore[assignment]
+        client.ts_client.orgs_search = lambda **_: {
             "orgs": [
                 {"id": "good-1", "name": "Analytics"},
-                {"id": ""},  # ValidationError: min_length=1
+                {"id": ""},
                 {"id": "good-2", "name": "Sales"},
-                {"name": "no-id-at-all"},  # ValidationError: id required
+                {"name": "no-id-at-all"},
             ]
         }
 
@@ -8340,7 +8338,7 @@ class TestMetadataSearchIncludeStats:
         client = ThoughtSpotClient(config, report=ThoughtSpotReport())
         # No-op enrichment so the parsed LiveboardResponse passes through
         # unchanged (we don't have TML in this test fixture).
-        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)  # type: ignore[assignment]
+        client._enrich_and_yield_liveboards = lambda lbs: iter(lbs)
 
         liveboards = list(client.iter_liveboards())
         assert len(liveboards) == 1
