@@ -97,6 +97,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    *     batch to a single update with the last state. This is a performance optimization that can
    *     be disabled for more granular updates at the cost of more writes. Note: timeseries aspects
    *     are always processed per-event and not coalesced.
+   * @param mappingsBuilder Pre-built V2 mappings builder. Engine-specific mapping quirks (e.g.
+   *     ES8's stripping of {@code doc_values: false} on round-trip) are supplied to the builder by
+   *     its factory via {@link
+   *     com.linkedin.metadata.utils.elasticsearch.SearchClientShim#partialNgramConfig()}, keeping
+   *     engine-version knowledge out of this strategy.
    */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
@@ -106,7 +111,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention,
-      boolean coalesceBatchUpdates) {
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -115,11 +121,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.semanticSearchConfig = semanticSearchConfig;
     this.indexConvention = indexConvention;
     this.coalesceBatchUpdates = coalesceBatchUpdates;
-    this.mappingsBuilder =
-        new V2MappingsBuilder(
-            com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
-                .v2(v2Config)
-                .build());
+    this.mappingsBuilder = mappingsBuilder;
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
