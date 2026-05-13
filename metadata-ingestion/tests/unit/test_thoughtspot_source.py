@@ -35,6 +35,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    _safe_load_tml_yaml,
 )
 from datahub.ingestion.source.thoughtspot.config import (
     PasswordAuth,
@@ -6819,6 +6820,69 @@ class TestTMLParseAggregation:
         client._get_liveboard_visualizations_via_tml(["lb-shape-drift"])
         infos = [i.title for i in client.report.infos]
         assert "Liveboard TML structural skips" in infos
+
+
+class TestTMLYamlLoaderQuirks:
+    """Pin the ``_TMLYamlLoader`` behavior against PyYAML quirks that
+    ThoughtSpot's TML edocs exercise in practice. The loader is the
+    single chokepoint for *every* liveboard/answer TML — a regression
+    here silently strips the entire chart layer for any object whose
+    TML contains a formula filter.
+    """
+
+    def test_oper_equals_in_mapping_value_parses_as_string(self):
+        """``oper: =`` (TS's equality operator in formula/filter blocks)
+        uses YAML's obscure ``=`` value tag. Without the
+        ``tag:yaml.org,2002:value`` constructor registered on
+        ``_TMLYamlLoader``, ``yaml.SafeLoader`` raises ``ConstructorError``
+        and the whole TML payload is dropped.
+        """
+        result = _safe_load_tml_yaml("oper: =\n")
+        assert result == {"oper": "="}
+
+    def test_oper_equals_inside_realistic_liveboard_tml(self):
+        """End-to-end shape: the ``=`` token sits deep inside the
+        liveboard's filter block. Parsing must reach the surrounding
+        ``visualizations[].viz_guid`` / ``answer.tables[].fqn`` fields
+        the connector actually extracts.
+        """
+        tml = (
+            "liveboard:\n"
+            "  name: Sales\n"
+            "  visualizations:\n"
+            "  - id: Viz_1\n"
+            "    viz_guid: viz-123\n"
+            "    answer:\n"
+            "      name: Q1 revenue\n"
+            "      chart_type: COLUMN\n"
+            "      search_query: '[revenue] = 100'\n"
+            "      tables:\n"
+            "      - id: orders\n"
+            "        fqn: ws-guid-1\n"
+            "      filters:\n"
+            "      - column:\n"
+            "        - revenue\n"
+            "        oper: =\n"
+            "        values:\n"
+            "        - '100'\n"
+        )
+        data = _safe_load_tml_yaml(tml)
+        viz = data["liveboard"]["visualizations"][0]
+        assert viz["viz_guid"] == "viz-123"
+        assert viz["answer"]["tables"][0]["fqn"] == "ws-guid-1"
+        assert viz["answer"]["filters"][0]["oper"] == "="
+
+    def test_loader_rejects_python_specific_tags(self):
+        """The shim adds *one* constructor for ``=``. Anyone swapping
+        the SafeLoader base for ``FullLoader``/``UnsafeLoader`` to
+        unblock a different parse error would silently allow arbitrary
+        Python object construction. SafeLoader rejects *any* ``!!python/*``
+        tag — use the benign ``list`` target as the canary.
+        """
+        import yaml
+
+        with pytest.raises(yaml.constructor.ConstructorError):
+            _safe_load_tml_yaml("value: !!python/object/new:list [[]]\n")
 
 
 class TestLineageBuilderHelpers:

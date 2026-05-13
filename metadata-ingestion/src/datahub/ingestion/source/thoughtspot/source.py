@@ -217,8 +217,11 @@ class WorkspaceKey(ContainerKey):
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Column-level lineage from TML's column `sources` field (TS-internal) and "
-    "from `physicalColumnName` (cross-platform external)",
+    "Column-level lineage from TS's pre-resolved `columns[*].sources` field "
+    "on `metadata/search` (TS-internal) and from `physicalColumnName` "
+    "(cross-platform external). TML edocs are consulted separately for "
+    "chart-layer details (search query, source-table FQNs, chart type), "
+    "not for column-level lineage.",
 )
 @capability(
     SourceCapability.USAGE_STATS,
