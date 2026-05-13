@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.embedding.OpenAIEmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VertexAiEmbeddingProvider;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.Map;
 import java.util.function.Supplier;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -491,6 +492,129 @@ public class EmbeddingProviderFactoryTest {
 
     assertNotNull(provider);
     assertTrue(provider instanceof CohereEmbeddingProvider);
+  }
+
+  // ------- ONNX provider tests -------
+
+  private static EmbeddingProviderConfiguration configWithOnnx(String modelName, String modelDir) {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("onnx");
+    EmbeddingProviderConfiguration.OnnxConfig o = new EmbeddingProviderConfiguration.OnnxConfig();
+    o.setModelName(modelName);
+    o.setModelDir(modelDir);
+    config.setOnnx(o);
+    return config;
+  }
+
+  private static TestableFactory factoryWithOnnxConfig(
+      EmbeddingProviderConfiguration embeddingConfig,
+      Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models)
+      throws Exception {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEmbeddingProvider(embeddingConfig);
+    if (models != null) {
+      semanticConfig.setModels(models);
+    }
+
+    EntityIndexConfiguration entityIndexConfig = new EntityIndexConfiguration();
+    entityIndexConfig.setSemanticSearch(semanticConfig);
+
+    ElasticSearchConfiguration esConfig = new ElasticSearchConfiguration();
+    esConfig.setEntityIndex(entityIndexConfig);
+
+    ConfigurationProvider configProvider = mock(ConfigurationProvider.class);
+    when(configProvider.getElasticSearch()).thenReturn(esConfig);
+
+    TestableFactory factory = new TestableFactory();
+    Field field = EmbeddingProviderFactory.class.getDeclaredField("configurationProvider");
+    field.setAccessible(true);
+    field.set(factory, configProvider);
+
+    return factory;
+  }
+
+  @Test
+  public void rejectsOnnxWithNullConfig() throws Exception {
+    EmbeddingProviderConfiguration config = new EmbeddingProviderConfiguration();
+    config.setType("onnx");
+    config.setOnnx(null);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX configuration block is missing"),
+        "expected 'ONNX configuration block is missing' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithNullModelName() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx(null, "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX model name is required"),
+        "expected 'ONNX model name is required' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithBlankModelName() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("  ", "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsOnnxWithNullModelDir() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", null);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("ONNX model directory is required"),
+        "expected 'ONNX model directory is required' in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWithBlankModelDir() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", "   ");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    assertThrows(IllegalStateException.class, factory::getInstance);
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelNotInModelsMap() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("unknown_model", "/some/dir");
+
+    java.util.Map<String, com.linkedin.metadata.config.search.ModelEmbeddingConfig> models =
+        new java.util.HashMap<>();
+    com.linkedin.metadata.config.search.ModelEmbeddingConfig modelConfig =
+        new com.linkedin.metadata.config.search.ModelEmbeddingConfig();
+    modelConfig.setVectorDimension(384);
+    models.put("snowflake_arctic_embed_s", modelConfig);
+
+    TestableFactory factory = factoryWithOnnxConfig(config, models);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("does not match any entry"),
+        "expected 'does not match any entry' in message, got: " + ex.getMessage());
+    assertTrue(
+        ex.getMessage().contains("unknown_model"),
+        "expected model name in message, got: " + ex.getMessage());
+  }
+
+  @Test
+  public void rejectsOnnxWhenModelsMapIsNull() throws Exception {
+    EmbeddingProviderConfiguration config = configWithOnnx("my_model", "/some/dir");
+
+    TestableFactory factory = factoryWithOnnxConfig(config, null);
+    IllegalStateException ex = expectThrows(IllegalStateException.class, factory::getInstance);
+    assertTrue(
+        ex.getMessage().contains("does not match any entry"),
+        "expected 'does not match any entry' in message, got: " + ex.getMessage());
   }
 
   // ------- getInstance() NoOp paths -------

@@ -1,6 +1,8 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
+ai.djl.huggingface:tokenizers:0.31.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+ai.djl:api:0.31.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 antlr:antlr:2.7.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 at.yawk.lz4:lz4-java:1.10.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
@@ -119,6 +121,7 @@ com.linkedin.pegasus:restli-server:29.74.2=productionRuntimeClasspath,runtimeCla
 com.linkedin.pegasus:restli-spring-bridge:29.74.2=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.microsoft.azure:msal4j-persistence-extension:1.3.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.microsoft.azure:msal4j:1.23.1=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+com.microsoft.onnxruntime:onnxruntime:1.21.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.mixpanel:mixpanel-java:1.4.4=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.mysql:mysql-connector-j:9.4.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 com.palantir.javapoet:javapoet:0.6.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath

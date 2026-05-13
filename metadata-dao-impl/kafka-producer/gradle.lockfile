@@ -1,6 +1,8 @@
 # This is a Gradle generated file for dependency locking.
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
+ai.djl.huggingface:tokenizers:0.31.1=runtimeClasspath,testRuntimeClasspath
+ai.djl:api:0.31.1=runtimeClasspath,testRuntimeClasspath
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 at.yawk.lz4:lz4-java:1.10.1=runtimeClasspath,testRuntimeClasspath
@@ -76,6 +78,7 @@ com.linkedin.pegasus:restli-client:29.74.2=compileClasspath,runtimeClasspath,tes
 com.linkedin.pegasus:restli-common:29.74.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.linkedin.pegasus:restli-disruptor:29.74.2=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.linkedin.pegasus:restli-server:29.74.2=runtimeClasspath,testRuntimeClasspath
+com.microsoft.onnxruntime:onnxruntime:1.21.0=runtimeClasspath,testRuntimeClasspath
 com.mixpanel:mixpanel-java:1.4.4=runtimeClasspath,testRuntimeClasspath
 com.sun.activation:jakarta.activation:2.0.1=runtimeClasspath,testRuntimeClasspath
 com.sun.activation:javax.activation:1.2.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -262,7 +265,8 @@ javax.validation:validation-api:2.0.1.Final=compileClasspath,runtimeClasspath,te
 joda-time:joda-time:2.12.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy-agent:1.17.7=testCompileClasspath,testRuntimeClasspath
 net.bytebuddy:byte-buddy:1.17.7=testCompileClasspath,testRuntimeClasspath
-net.java.dev.jna:jna:5.13.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+net.java.dev.jna:jna:5.13.0=compileClasspath,testCompileClasspath
+net.java.dev.jna:jna:5.14.0=runtimeClasspath,testRuntimeClasspath
 net.openhft:zero-allocation-hashing:0.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 net.sf.jopt-simple:jopt-simple:5.0.4=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 nl.basjes.collections:prefixmap:2.0=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
