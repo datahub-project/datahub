@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
@@ -6708,6 +6709,275 @@ class TestCoreHelpers:
         source = self._make_source()
         key = source._resolve_workspace_container(None, {})
         assert key is None
+
+
+class TestSqlParsedUpstreams:
+    """``_apply_sql_parsed_upstreams`` runs sqlglot against a graph-backed
+    SchemaResolver and emits parsed upstream lineage. Mirrors Mode's
+    pattern at source/mode.py:1267-1303.
+    """
+
+    @staticmethod
+    def _make_source() -> ThoughtSpotSource:
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        with patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient"):
+            return ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+    @staticmethod
+    def _make_parsed_result(
+        in_tables=None,
+        column_lineage=None,
+        table_error=None,
+        column_error=None,
+    ):
+        """Build a mock SqlParsingResult with the right debug_info
+        shape. Mocking the parser (rather than running real sqlglot)
+        keeps these tests focused on our merge / dedup / counter
+        logic — real dialect coverage is tested upstream in
+        datahub.sql_parsing."""
+        result = MagicMock()
+        result.in_tables = in_tables or []
+        result.column_lineage = column_lineage or []
+        result.debug_info = MagicMock()
+        result.debug_info.table_error = table_error
+        result.debug_info.column_error = column_error
+        result.debug_info.error = table_error or column_error
+        return result
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_parsed_in_tables_emit_as_upstreams(self, _mock_resolver, mock_parser):
+        """When sqlglot returns in_tables, each becomes an
+        UpstreamClass on an emitted UpstreamLineage aspect. Report
+        counters increment as success."""
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)",
+            ],
+        )
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT col_a FROM prod.public.upstream",
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db="prod",
+            )
+        )
+        upstream_wus = [wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage"]
+        assert len(upstream_wus) == 1
+        agg = _aspect_as(upstream_wus[0], UpstreamLineageClass)
+        urns = [u.dataset for u in agg.upstreams or []]
+        assert any("snowflake,prod.public.upstream" in u for u in urns)
+        assert source.report.num_sql_parsed == 1
+        assert source.report.num_sql_parser_success == 1
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_parsed_column_lineage_emits_fine_grained(
+        self, _mock_resolver, mock_parser
+    ):
+        """When sqlglot resolves column_lineage, each entry becomes a
+        FineGrainedLineageClass on the emitted UpstreamLineage."""
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        cl_entry = MagicMock()
+        cl_entry.downstream.column = "col_a"
+        cl_entry.upstreams = [MagicMock(table=upstream_table_urn, column="src_a")]
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[upstream_table_urn],
+            column_lineage=[cl_entry],
+        )
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT src_a AS col_a FROM prod.public.upstream",
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db="prod",
+            )
+        )
+        upstream_wu = next(wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage")
+        agg = _aspect_as(upstream_wu, UpstreamLineageClass)
+        assert agg.fineGrainedLineages is not None
+        assert len(agg.fineGrainedLineages) == 1
+        edge = agg.fineGrainedLineages[0]
+        assert any("src_a" in u for u in edge.upstreams or [])
+        assert any("col_a" in d for d in edge.downstreams or [])
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_table_error_skips_parsed_lineage_increments_counter(
+        self, _mock_resolver, mock_parser
+    ):
+        """``debug_info.table_error`` → no new edges emitted, counter
+        increments, no exception raised."""
+        mock_parser.return_value = self._make_parsed_result(
+            table_error="couldn't resolve upstream tables",
+        )
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT FROM ???",
+                platform=None,
+                env="PROD",
+                platform_instance=None,
+                default_db=None,
+            )
+        )
+        upstream_wus = [wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage"]
+        assert upstream_wus == []
+        assert source.report.num_sql_parser_table_error == 1
+        assert source.report.num_sql_parser_failures == 1
+        assert source.report.num_sql_parser_success == 0
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_column_error_emits_table_level_only(self, _mock_resolver, mock_parser):
+        """``debug_info.column_error`` → in_tables emit as table-level
+        edges, column_lineage is skipped, success counter does NOT
+        increment (it's still a failure mode)."""
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[upstream_table_urn],
+            column_lineage=[],
+            column_error="ambiguous column reference",
+        )
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT * FROM prod.public.upstream",
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db="prod",
+            )
+        )
+        upstream_wu = next(wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage")
+        agg = _aspect_as(upstream_wu, UpstreamLineageClass)
+        assert len(agg.upstreams or []) == 1
+        # column-level lineage skipped
+        assert not agg.fineGrainedLineages
+        assert source.report.num_sql_parser_column_error == 1
+        assert source.report.num_sql_parser_failures == 1
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_duplicate_of_ts_resolved_edge_is_deduped(
+        self, _mock_resolver, mock_parser
+    ):
+        """If sqlglot produces a column edge identical to one already
+        on the dataset (placed there by ``_apply_dataset_upstreams``
+        via ``columns[*].sources``), drop it silently via the
+        ``existing_fgl_edges`` set."""
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        cl_entry = MagicMock()
+        cl_entry.downstream.column = "col_a"
+        cl_entry.upstreams = [MagicMock(table=upstream_table_urn, column="src_a")]
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[upstream_table_urn],
+            column_lineage=[cl_entry],
+        )
+        source = self._make_source()
+        downstream_urn = str(source._make_self_dataset_urn("sv-1"))
+        existing = {
+            (
+                make_schema_field_urn(downstream_urn, "col_a"),
+                make_schema_field_urn(upstream_table_urn, "src_a"),
+            )
+        }
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT src_a AS col_a FROM prod.public.upstream",
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db="prod",
+                existing_fgl_edges=existing,
+            )
+        )
+        # Aspect emitted for the table-level edge, but fineGrainedLineages
+        # is None/empty since the only candidate column edge was a duplicate.
+        upstream_wus = [wu for wu in wus if _mcp(wu).aspectName == "upstreamLineage"]
+        assert len(upstream_wus) == 1
+        agg = _aspect_as(upstream_wus[0], UpstreamLineageClass)
+        assert not agg.fineGrainedLineages
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    def test_graph_none_passes_through_to_resolver(self, mock_resolver, mock_parser):
+        """Running under SDK without a graph (self.ctx.graph = None)
+        passes graph=None straight to create_and_cache_schema_resolver
+        — the resolver handles that case internally. Parser still
+        produces table-level lineage."""
+        upstream_table_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        mock_parser.return_value = self._make_parsed_result(
+            in_tables=[upstream_table_urn],
+        )
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        with patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient"):
+            source = ThoughtSpotSource(config, PipelineContext(run_id="t", graph=None))
+        assert source.ctx.graph is None
+        list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT 1",
+                platform=None,
+                env="PROD",
+                platform_instance=None,
+                default_db=None,
+            )
+        )
+        mock_resolver.assert_called_once()
+        assert mock_resolver.call_args.kwargs["graph"] is None
 
 
 class TestResolveAuthorLogin:

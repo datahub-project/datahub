@@ -7,6 +7,7 @@ organized within Workspace containers.
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import (
@@ -105,12 +106,18 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     TimeTypeClass,
     UpstreamClass,
+    UpstreamLineageClass,
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sdk.chart import Chart
 from datahub.sdk.dashboard import Dashboard
 from datahub.sdk.dataset import Dataset, UpstreamInputType
+from datahub.sql_parsing.sqlglot_lineage import (
+    SqlParsingResult,
+    create_and_cache_schema_resolver,
+    sqlglot_lineage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1436,6 +1443,135 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 materialized=False,
                 viewLogic=sql,
                 viewLanguage=dialect or "SQL",
+            ),
+        ).as_workunit()
+
+    def _apply_sql_parsed_upstreams(
+        self,
+        table_id: str,
+        sql: str,
+        platform: Optional[str],
+        env: str,
+        platform_instance: Optional[str],
+        default_db: Optional[str],
+        existing_fgl_edges: Optional[Set[tuple]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Augment the SQL view dataset's UpstreamLineage with
+        sqlglot-parsed edges. Mirrors Mode's pattern at
+        ``source/mode.py:1267-1303``.
+
+        Runs ``sqlglot_lineage`` against a graph-backed
+        ``SchemaResolver`` so upstream warehouse columns can resolve
+        to real schemaField URNs. Parse failures increment the
+        standard SQL-parser counters but never raise — the existing
+        ``columns[*].sources`` edges on this dataset are unaffected
+        by any failure here.
+
+        ``existing_fgl_edges`` (optional) carries ``(downstream_col,
+        upstream_urn, upstream_col)`` triples already on the dataset
+        so we can drop duplicate column-level edges. When ``None``,
+        all parsed edges emit verbatim.
+
+        ``platform``/``env``/``platform_instance`` are the resolved
+        warehouse identifiers from ``_resolve_external_upstream``;
+        ``None`` for ``platform`` means we couldn't identify the
+        warehouse (connection unreadable) — the parser still runs
+        but produces lower-fidelity table-level lineage only.
+        """
+        if not sql:
+            return
+
+        start = time.perf_counter()
+        self.report.num_sql_parsed += 1
+
+        try:
+            schema_resolver = create_and_cache_schema_resolver(
+                platform=platform or "unknown",
+                env=env,
+                graph=self.ctx.graph,
+                platform_instance=platform_instance,
+            )
+            parsed: SqlParsingResult = sqlglot_lineage(
+                sql=sql,
+                schema_resolver=schema_resolver,
+                default_db=default_db,
+            )
+        except Exception as e:
+            self.report.num_sql_parser_failures += 1
+            self.report.sql_parsing_total_sec += time.perf_counter() - start
+            logger.info(f"sqlglot raised for {table_id}: {e}")
+            return
+
+        self.report.sql_parsing_total_sec += time.perf_counter() - start
+
+        if parsed.debug_info.table_error:
+            self.report.num_sql_parser_table_error += 1
+            self.report.num_sql_parser_failures += 1
+            logger.info(
+                f"sqlglot table_error for {table_id}: {parsed.debug_info.error}"
+            )
+            return
+
+        if parsed.debug_info.column_error:
+            self.report.num_sql_parser_column_error += 1
+            self.report.num_sql_parser_failures += 1
+            logger.info(
+                f"sqlglot column_error for {table_id}: {parsed.debug_info.column_error}"
+            )
+            # Continue — emit table-level edges only.
+        else:
+            self.report.num_sql_parser_success += 1
+
+        downstream_urn = str(self._make_self_dataset_urn(table_id))
+        audit = AuditStampClass(
+            time=int(datetime.now(tz=timezone.utc).timestamp() * 1000),
+            actor="urn:li:corpuser:datahub",
+        )
+        upstream_classes = [
+            UpstreamClass(
+                dataset=urn,
+                type=DatasetLineageTypeClass.TRANSFORMED,
+                auditStamp=audit,
+            )
+            for urn in parsed.in_tables
+        ]
+
+        fine_grained: List[FineGrainedLineageClass] = []
+        if not parsed.debug_info.column_error:
+            for cl in parsed.column_lineage or []:
+                downstream_col_urn = make_schema_field_urn(
+                    downstream_urn, cl.downstream.column
+                )
+                upstream_col_urns: List[str] = []
+                for u in cl.upstreams:
+                    candidate_urn = make_schema_field_urn(u.table, u.column)
+                    # Dedup against existing TS-pre-resolved edges so
+                    # we don't emit a duplicate column-level edge that
+                    # already lives on the dataset's UpstreamLineage.
+                    if (
+                        existing_fgl_edges is not None
+                        and (downstream_col_urn, candidate_urn) in existing_fgl_edges
+                    ):
+                        continue
+                    upstream_col_urns.append(candidate_urn)
+                if upstream_col_urns:
+                    fine_grained.append(
+                        FineGrainedLineageClass(
+                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                            upstreams=upstream_col_urns,
+                            downstreams=[downstream_col_urn],
+                        )
+                    )
+
+        if not upstream_classes and not fine_grained:
+            return
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=downstream_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=upstream_classes,
+                fineGrainedLineages=fine_grained or None,
             ),
         ).as_workunit()
 
