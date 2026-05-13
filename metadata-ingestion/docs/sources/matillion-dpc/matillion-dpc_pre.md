@@ -1,3 +1,7 @@
+### Overview
+
+The `matillion-dpc` module ingests metadata from Matillion Data Productivity Cloud (DPC) into DataHub. It extracts pipelines, streaming pipelines, projects, environments, execution history, and table and column-level lineage via the Matillion OpenLineage API.
+
 ### Prerequisites
 
 #### Obtain API Credentials
