@@ -37,6 +37,7 @@ from datahub.ingestion.source.thoughtspot.client import (
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
     _extract_answer_chart_type,
+    _extract_sql_view_statement,
     _safe_load_tml_yaml,
 )
 from datahub.ingestion.source.thoughtspot.config import (
@@ -4695,39 +4696,6 @@ class TestLogicalTableResponseType:
         t = LogicalTableResponse(id="tbl1", name="Customers", type="WORKSHEET")
         assert t.type == "WORKSHEET"
 
-    def test_report_initializes_sql_parser_counters_to_zero(self):
-        """SQL parser counters mirror Mode's naming so operators reading
-        multiple connector reports see consistent telemetry."""
-        from datahub.ingestion.source.thoughtspot.thoughtspot_report import (
-            ThoughtSpotReport,
-        )
-
-        r = ThoughtSpotReport()
-        assert r.num_sql_parsed == 0
-        assert r.num_sql_parser_success == 0
-        assert r.num_sql_parser_failures == 0
-        assert r.num_sql_parser_table_error == 0
-        assert r.num_sql_parser_column_error == 0
-        assert r.sql_parsing_total_sec == 0.0
-
-    def test_logical_table_response_carries_sql_view_definition(self):
-        """SQL_VIEW datasets carry their TML-fetched SQL string on
-        ``sql_view_definition``. Other LOGICAL_TABLE types leave it
-        ``None``. Populated by ``client.iter_logical_tables`` after
-        the per-table fetch loop runs a single batched TML export
-        over every SQL_VIEW.
-        """
-        sv = LogicalTableResponse(
-            id="sv1",
-            name="My SQL View",
-            type="SQL_VIEW",
-            sql_view_definition="SELECT 1",
-        )
-        assert sv.sql_view_definition == "SELECT 1"
-
-        ws = LogicalTableResponse(id="ws1", name="Sales", type="WORKSHEET")
-        assert ws.sql_view_definition is None
-
 
 class TestLogicalTableSubtypeHelper:
     """``_logical_table_subtype`` maps ThoughtSpot's ``metadata_header.type``
@@ -6942,6 +6910,31 @@ class TestSqlParsedUpstreams:
     @patch(
         "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
     )
+    def test_sqlglot_raises_swallowed_and_counted(self, _mock_resolver, mock_parser):
+        """If sqlglot itself raises (pathological SQL, version drift, etc.),
+        the catch must increment ``num_sql_parser_failures``, charge the
+        elapsed time, and emit no workunits — the run must not crash."""
+        mock_parser.side_effect = ValueError("sqlglot can't parse this")
+        source = self._make_source()
+        wus = list(
+            source._apply_sql_parsed_upstreams(
+                table_id="sv-1",
+                sql="SELECT FROM ???",
+                platform="snowflake",
+                env="PROD",
+                platform_instance=None,
+                default_db=None,
+            )
+        )
+        assert wus == []
+        assert source.report.num_sql_parser_failures == 1
+        # Timer charged even on exception so per-view cost is visible
+        assert source.report.sql_parsing_total_sec >= 0.0
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
     def test_graph_none_passes_through_to_resolver(self, mock_resolver, mock_parser):
         """Running under SDK without a graph (self.ctx.graph = None)
         passes graph=None straight to create_and_cache_schema_resolver
@@ -7212,6 +7205,224 @@ class TestProcessDatasetSqlViewIntegration:
             for u in (_aspect_as(wu, UpstreamLineageClass).upstreams or [])
         ]
         assert any("snowflake,prod.public.upstream" in u for u in all_upstream_urns)
+
+    @patch("datahub.ingestion.source.thoughtspot.source.sqlglot_lineage")
+    @patch(
+        "datahub.ingestion.source.thoughtspot.source.create_and_cache_schema_resolver"
+    )
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_sql_view_dedups_against_existing_ts_resolved_fgl_edges(
+        self, mock_client_cls, _mock_resolver, mock_parser
+    ):
+        """End-to-end dedup contract: when the SQL_VIEW has a TS-pre-resolved
+        ``columns[*].sources`` edge that ``_apply_dataset_upstreams`` already
+        emitted onto ``Dataset.upstreams``, the SQL parser path must drop a
+        column-level edge that duplicates it.
+
+        Regression guard for ``_collect_existing_fgl_edges`` (was previously
+        reading a non-existent ``dataset._upstreams_aspect`` attribute, making
+        the entire dedup contract dead code while passing the standalone helper
+        test).
+        """
+        upstream_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.public.upstream,PROD)"
+        )
+        cl_entry = MagicMock()
+        cl_entry.downstream.column = "id"
+        cl_entry.upstreams = [MagicMock(table=upstream_urn, column="id")]
+        parsed = MagicMock()
+        parsed.in_tables = [upstream_urn]
+        parsed.column_lineage = [cl_entry]
+        parsed.debug_info = MagicMock(table_error=None, column_error=None, error=None)
+        mock_parser.return_value = parsed
+
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        # The SQL_VIEW has a single column whose ``columns[*].sources``
+        # already references the same upstream column the SQL parser
+        # would produce. ``_apply_dataset_upstreams`` writes this onto
+        # ``Dataset.upstreams`` *before* ``_apply_sql_parsed_upstreams``
+        # runs; the builder must observe it and drop the duplicate.
+        mock_client.get_logical_tables.return_value = [
+            LogicalTableResponse(
+                id="sv-1",
+                name="My SQL View",
+                type="SQL_VIEW",
+                sql_view_definition="SELECT id FROM prod.public.upstream",
+                columns=[
+                    ColumnResponse(
+                        id="c1",
+                        name="id",
+                        data_type="INT",
+                        sources=[
+                            ColumnSourceRef(
+                                tableId="prod.public.upstream",
+                                columnName="id",
+                            )
+                        ],
+                    ),
+                ],
+            )
+        ]
+        mock_client.get_connections.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        # Inject the warehouse identity so the parser path runs.
+        source._resolve_sql_view_warehouse = lambda table: SqlViewWarehouseRef(
+            platform="snowflake", env="PROD", platform_instance=None, default_db=None
+        )
+        # The TS-resolved column lineage path needs to land on the dataset
+        # with the same URN shape the parser would produce. We patch
+        # ``_make_self_dataset_urn`` to mirror the upstream URN so the
+        # existing-edge set and parsed-edge set collide on the same
+        # ``(downstream_col_urn, upstream_col_urn)`` tuple.
+        original_make_self_urn = source._make_self_dataset_urn
+        # Each table the TS edges reference must map to the same warehouse
+        # URN the SQL parser produced — otherwise the URNs don't collide
+        # and dedup has nothing to do.
+        source._make_self_dataset_urn = (
+            lambda name: upstream_urn
+            if name == "prod.public.upstream"
+            else original_make_self_urn(name)
+        )
+
+        wus = list(source.get_workunits_internal())
+
+        # ``_apply_sql_parsed_upstreams`` emits a *separate* upstreamLineage
+        # workunit after the SDK-V2 dataset emits its own (from
+        # ``_apply_dataset_upstreams``). The parser-path workunit's
+        # ``fineGrainedLineages`` must be empty / None when the only
+        # candidate edge duplicates an existing TS-resolved one — that's
+        # the dedup contract.
+        sv_urn = str(source._make_self_dataset_urn("sv-1"))
+        # Workunit ordering: dataset-emitted aspect first (from
+        # _apply_dataset_upstreams via SDK V2), then parser-emitted aspect
+        # (from _apply_sql_parsed_upstreams). The parser-path one is what
+        # we expect dedup to have neutered.
+        all_upstream_wus = [
+            wu
+            for wu in wus
+            if _mcp(wu).aspectName == "upstreamLineage" and sv_urn in wu.get_urn()
+        ]
+        assert len(all_upstream_wus) >= 1
+        # The parser-path UpstreamLineage workunit (the *last* one for this
+        # dataset) must NOT carry a FineGrainedLineage that duplicates the
+        # TS-resolved column edge.
+        parser_aspect = _aspect_as(all_upstream_wus[-1], UpstreamLineageClass)
+        parser_fgls = parser_aspect.fineGrainedLineages or []
+        # All FGLs from the parser path must be NEW edges, not duplicates
+        # of TS-resolved ones. With dedup broken, an FGL with downstream=id,
+        # upstream=upstream.id would appear; with dedup working, it doesn't.
+        for fgl in parser_fgls:
+            for d in fgl.downstreams or []:
+                for u in fgl.upstreams or []:
+                    assert (d, u) not in [
+                        (
+                            make_schema_field_urn(sv_urn, "id"),
+                            make_schema_field_urn(upstream_urn, "id"),
+                        )
+                    ], (
+                        f"Dedup contract broken: parser-path FGL emitted a "
+                        f"duplicate of the TS-resolved edge ({d}, {u}). "
+                        f"This means _collect_existing_fgl_edges returned "
+                        f"empty when it shouldn't have."
+                    )
+
+
+class TestSqlParserAggregatedWarning:
+    """Per-view DEBUG/INFO logs from ``_apply_sql_parsed_upstreams`` aren't
+    surfaced to operators in the run report. The end-of-run aggregator at
+    ``get_workunits_internal`` emits one ``report.warning`` summarising
+    SQL-parser failures so the gap becomes visible without forcing log
+    triage."""
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_no_warning_when_no_sql_parsed(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        list(source.get_workunits_internal())
+        titles = [w.title for w in source.report.warnings]
+        assert "SQL View Lineage Parse Failures" not in titles
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_aggregated_warning_when_parser_failures(self, mock_client_cls):
+        """End-to-end: bump the counters mid-run, finalize the source,
+        and verify the aggregated warning fires with the table/column
+        error breakdown in context."""
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_logical_tables.return_value = []
+        mock_client.get_connections.return_value = []
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {
+                        "type": "trusted",
+                        "username": "u",
+                        "secret_key": "k",
+                    },
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+        # Simulate two SQL parse attempts: one table_error, one column_error.
+        source.report.num_sql_parsed = 2
+        source.report.num_sql_parser_failures = 2
+        source.report.num_sql_parser_table_error = 1
+        source.report.num_sql_parser_column_error = 1
+        list(source.get_workunits_internal())
+        agg = next(
+            (
+                w
+                for w in source.report.warnings
+                if w.title == "SQL View Lineage Parse Failures"
+            ),
+            None,
+        )
+        assert agg is not None, "Expected aggregated parse-failure warning"
+        # Context carries the breakdown
+        ctx_str = " ".join(agg.context or [])
+        assert "table_error=1" in ctx_str
+        assert "column_error=1" in ctx_str
 
 
 class TestResolveAuthorLogin:
@@ -7896,6 +8107,47 @@ class TestTMLAnswerExtractionHelpers:
         assert _extract_answer_chart_type({}) is None
         assert _extract_answer_chart_type({"chart": {}}) is None
         assert _extract_answer_chart_type({"chart": {"type": ""}}) is None
+
+
+class TestExtractSqlViewStatement:
+    """``_extract_sql_view_statement`` accepts three TML shapes (newest
+    first) because TS Cloud's SQL view TML evolved over versions:
+
+    1. ``sql_view.sql_query`` as a bare string — the current TS Cloud shape
+       (verified live against techpartners.thoughtspot.cloud on 2026-05-13)
+    2. ``sql_view.sql_query.statement`` as ``{statement: str}`` — older
+       documented form, kept for defensive forward/back-compat
+    3. ``sql_view.statement`` as a flat string — defensive fallback
+
+    Each shape gets a focused test so a future cleanup that "simplifies"
+    an unused-looking branch can't silently break ingestion for old
+    deployments.
+    """
+
+    def test_modern_sql_query_string_shape(self):
+        """Primary path: ``sql_view.sql_query`` is a bare string."""
+        tml = {"sql_view": {"sql_query": "SELECT 1"}}
+        assert _extract_sql_view_statement(tml) == "SELECT 1"
+
+    def test_legacy_sql_query_dict_statement_shape(self):
+        """Nested dict form: ``sql_view.sql_query.statement`` carries the SQL."""
+        tml = {"sql_view": {"sql_query": {"statement": "SELECT 2"}}}
+        assert _extract_sql_view_statement(tml) == "SELECT 2"
+
+    def test_defensive_flat_statement_shape(self):
+        """Flat fallback: ``sql_view.statement`` carries the SQL."""
+        tml = {"sql_view": {"statement": "SELECT 3"}}
+        assert _extract_sql_view_statement(tml) == "SELECT 3"
+
+    def test_returns_none_when_no_known_shape(self):
+        """All three known shapes absent → None. Caller emits the dataset
+        without ``viewLogic`` (structural-skip is counted at the caller)."""
+        assert _extract_sql_view_statement({}) is None
+        assert _extract_sql_view_statement({"sql_view": {}}) is None
+        assert _extract_sql_view_statement({"sql_view": "not-a-dict"}) is None
+        # Empty / whitespace-only statements are rejected (avoid clobber)
+        assert _extract_sql_view_statement({"sql_view": {"sql_query": ""}}) is None
+        assert _extract_sql_view_statement({"sql_view": {"sql_query": "   "}}) is None
 
 
 class TestLineageBuilderHelpers:

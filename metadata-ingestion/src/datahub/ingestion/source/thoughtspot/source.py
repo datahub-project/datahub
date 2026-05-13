@@ -492,6 +492,30 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                         "Connections page to fix."
                     ),
                 )
+            # Aggregated SQL-parser-failure surfacing: per-object DEBUG/INFO
+            # logs alone don't surface to operators in the run report.
+            # If any SQL view's statement failed to parse, emit one
+            # structured warning summarising the breakdown so the gap
+            # becomes visible without forcing log triage.
+            if self.report.num_sql_parser_failures > 0:
+                self.report.warning(
+                    title="SQL View Lineage Parse Failures",
+                    message=(
+                        f"{self.report.num_sql_parser_failures} of "
+                        f"{self.report.num_sql_parsed} SQL view "
+                        "statements could not be parsed by sqlglot. "
+                        "Upstream-lineage edges for those views are "
+                        "missing or partial; viewLogic still emits. "
+                        "Common causes: unsupported warehouse dialect, "
+                        "TS-specific SQL extensions, or graph-resolver "
+                        "errors. Check INFO logs for per-view error "
+                        "details."
+                    ),
+                    context=(
+                        f"table_error={self.report.num_sql_parser_table_error}, "
+                        f"column_error={self.report.num_sql_parser_column_error}"
+                    ),
+                )
             self.client.close()
 
     def _safe_extract(
@@ -1452,16 +1476,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 # tuples the existing _apply_dataset_upstreams already
                 # emitted onto the dataset, so sqlglot-parsed edges
                 # don't duplicate them.
-                existing_fgl_edges: Set[tuple] = set()
-                for asp in (
-                    getattr(dataset, "_upstreams_aspect", None)
-                    and [dataset._upstreams_aspect]
-                    or []
-                ):
-                    for fgl in (asp.fineGrainedLineages or []) if asp else []:
-                        for d in fgl.downstreams or []:
-                            for u in fgl.upstreams or []:
-                                existing_fgl_edges.add((d, u))
+                existing_fgl_edges = self._collect_existing_fgl_edges(dataset)
 
                 yield from self._apply_sql_view_logic(
                     table_id=table.id,
@@ -1485,6 +1500,28 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 context=f"table_id={getattr(table, 'id', 'unknown')}",
                 exc=e,
             )
+
+    @staticmethod
+    def _collect_existing_fgl_edges(dataset: Dataset) -> Set[Tuple[str, str]]:
+        """Return ``(downstream_col_urn, upstream_col_urn)`` pairs already
+        on the dataset's ``UpstreamLineage`` aspect.
+
+        Used by the SQL_VIEW parser path to skip column-level edges that
+        ``_apply_dataset_upstreams`` already emitted from TS's pre-resolved
+        ``columns[*].sources``. The SDK V2 ``Dataset`` exposes the aspect
+        via the public ``dataset.upstreams`` property — not the
+        ``_upstreams_aspect`` attribute that an earlier revision used (which
+        does not exist and silently produced an empty set, disabling dedup).
+        """
+        edges: Set[Tuple[str, str]] = set()
+        upstreams_aspect = dataset.upstreams
+        if upstreams_aspect is None:
+            return edges
+        for fgl in upstreams_aspect.fineGrainedLineages or []:
+            for d in fgl.downstreams or []:
+                for u in fgl.upstreams or []:
+                    edges.add((d, u))
+        return edges
 
     def _apply_sql_view_logic(
         self,

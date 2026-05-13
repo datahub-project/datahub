@@ -316,6 +316,15 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "metadata_type": "LOGICAL_TABLE",
                 "type": "SQL_VIEW",
             },
+            # Wire a recognised data_source_type so the
+            # _resolve_sql_view_warehouse fallback resolves a dialect
+            # (no connection lookup needed). Without this the SQL parser
+            # path is skipped and the golden never captures
+            # upstreamLineage for this SQL view — see PR review B1/H1.
+            "metadata_detail": {
+                "dataSourceId": "snowflake-conn-1",
+                "dataSourceTypeEnum": "RDBMS_SNOWFLAKE",
+            },
         },
     ]
 
