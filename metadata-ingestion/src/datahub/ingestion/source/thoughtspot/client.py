@@ -320,6 +320,24 @@ def _response_items(response: Any, *keys: str) -> List[Dict[str, Any]]:
     return []
 
 
+class _TimeoutInjectingHTTPAdapter(HTTPAdapter):
+    """``HTTPAdapter`` that injects a default ``timeout`` when the caller
+    omits one. ``requests.Session`` has no global ``timeout`` — the
+    canonical way to enforce a session-wide default is to subclass the
+    adapter and override ``send``. This lets ``timeout_seconds`` actually
+    apply to every request the SDK fires, including those where the SDK
+    doesn't expose a ``timeout`` kwarg on its higher-level methods.
+    """
+
+    def __init__(self, *args: Any, default_timeout: int, **kwargs: Any) -> None:
+        self._default_timeout = default_timeout
+        super().__init__(*args, **kwargs)
+
+    def send(self, request, **kwargs):  # type: ignore[override]
+        kwargs.setdefault("timeout", self._default_timeout)
+        return super().send(request, **kwargs)
+
+
 class ThoughtSpotClient:
     """
     Client for ThoughtSpot REST API v2.0 using official SDK.
@@ -390,7 +408,10 @@ class ThoughtSpotClient:
             allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE"]),
             raise_on_status=False,
         )
-        retry_adapter = HTTPAdapter(max_retries=retry_policy)
+        retry_adapter = _TimeoutInjectingHTTPAdapter(
+            max_retries=retry_policy,
+            default_timeout=config.timeout_seconds,
+        )
         self.ts_client.requests_session.mount("http://", retry_adapter)
         self.ts_client.requests_session.mount("https://", retry_adapter)
 

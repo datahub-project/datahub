@@ -3222,6 +3222,39 @@ class TestMaxRetriesWiredToSession:
             assert retry.total == 0
 
 
+class TestTimeoutSecondsAppliedToSession:
+    """``ThoughtSpotConnectionConfig.timeout_seconds`` was declared but
+    never threaded into request execution. Verify it's now applied as
+    a default timeout on every request issued through the SDK's
+    ``requests_session``.
+    """
+
+    def test_timeout_injected_when_caller_omits(self):
+        """A request fired through ``requests_session`` with no explicit
+        ``timeout=`` kwarg must pick up ``timeout_seconds`` as the
+        default."""
+        config = ThoughtSpotConnectionConfig(
+            base_url="https://example.thoughtspot.cloud",
+            auth=TrustedAuth(username="u", secret_key="k"),
+            timeout_seconds=42,
+        )
+        with patch(
+            "datahub.ingestion.source.thoughtspot.client.TSRestApiV2"
+        ) as mock_sdk:
+            mock_sdk.return_value.auth_token_full.return_value = {"token": "t"}
+            # Use a real session here so the adapter logic actually runs.
+            import requests as _requests
+
+            real_session = _requests.Session()
+            mock_sdk.return_value.requests_session = real_session
+            ThoughtSpotClient(config, report=ThoughtSpotReport())
+            # Probe the mounted adapter: it must expose the configured
+            # default timeout so when ``send`` is called without one,
+            # this value is used.
+            adapter = real_session.get_adapter("https://example.thoughtspot.cloud")
+            assert getattr(adapter, "_default_timeout", None) == 42
+
+
 class TestThoughtSpotSourceTestConnection:
     """Test the static test_connection() method error handling paths."""
 
