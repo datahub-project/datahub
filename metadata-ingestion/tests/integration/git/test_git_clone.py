@@ -2,6 +2,7 @@ import os
 import pathlib
 from unittest.mock import MagicMock, patch
 
+import git
 import pytest
 from pydantic import SecretStr
 
@@ -139,6 +140,27 @@ def test_clone_passes_timeout_to_git(tmp_path: pathlib.Path) -> None:
             repo_url="https://github.com/org/repo",
         )
         assert mock_clone.call_args.kwargs.get("kill_after_timeout") is None
+
+
+def test_clone_error_messages() -> None:
+    def make_error(stderr: str) -> git.GitCommandError:
+        return git.GitCommandError("git clone", 128, stderr)
+
+    assert "deploy key" in GitClone._clone_error_message(
+        make_error("Permission denied (publickey).")
+    )
+    assert "port 22" in GitClone._clone_error_message(
+        make_error("ssh: connect to host github.com port 22: Connection refused")
+    )
+    assert "hostname" in GitClone._clone_error_message(
+        make_error("Could not resolve hostname github.com")
+    )
+    assert (
+        "not found"
+        in GitClone._clone_error_message(
+            make_error("ERROR: Repository not found.")
+        ).lower()
+    )
 
 
 def test_sanitize_repo_url() -> None:
