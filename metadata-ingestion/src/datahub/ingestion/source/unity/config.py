@@ -366,6 +366,15 @@ class UnityCatalogSourceConfig(
         # First, let the parent handle the root validators and field processing
         super().__init__(**data)
 
+        if self.authentication_type is not None:
+            msg = (
+                f"`authentication_type={self.authentication_type}` is accepted but "
+                "not used by this connector. Authentication is inferred from the "
+                "credentials provided."
+            )
+            logger.warning(msg)
+            add_global_warning(msg)
+
         # After model creation, check if we need to auto-disable features
         # based on the final warehouse_id value (which may have been set by root validators)
         include_tags_original = data.get("include_tags", INCLUDE_TAGS_DEFAULT)

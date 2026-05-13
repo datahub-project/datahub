@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 import pydantic
 from databricks.sdk import WorkspaceClient
 from pydantic import Field, model_validator
+from typing_extensions import Literal
 
 from datahub._version import nice_version_name
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
@@ -36,6 +37,17 @@ class UnityCatalogConnectionConfig(ConfigModel):
     )
     client_secret: Optional[TransparentSecretStr] = pydantic.Field(
         default=None, description="Databricks service principal client secret"
+    )
+    authentication_type: Optional[Literal["PAT", "OAUTH_M2M", "AZURE_AD"]] = (
+        pydantic.Field(
+            default=None,
+            description=(
+                "Accepted for UI compatibility but NOT used by this connector. "
+                "The actual authentication method is inferred from which credentials "
+                "are populated (`token`, `client_id`+`client_secret`, or `azure_auth`). "
+                "Setting this field has no effect on ingestion behavior."
+            ),
+        )
     )
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
