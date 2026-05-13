@@ -1004,6 +1004,11 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.spaceType",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.efConstruction",
           "elasticsearch.entityIndex.semanticSearch.models.nomic_embed_text.m",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.vectorDimension",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.knnEngine",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.spaceType",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.efConstruction",
+          "elasticsearch.entityIndex.semanticSearch.models.gemini_embedding_001.m",
           // MAE consumer (shared YAML; active when MAE_CONSUMER_ENABLED=true)
           "maeConsumer.enabled",
           "maeConsumer.elasticsearch.socketTimeoutMs",

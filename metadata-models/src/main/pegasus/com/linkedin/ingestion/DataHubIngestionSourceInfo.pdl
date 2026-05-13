@@ -8,7 +8,7 @@ import com.linkedin.common.Urn
  */
 @Aspect = {
   "name": "dataHubIngestionSourceInfo",
-  "schemaVersion": 3
+  "schemaVersion": 2
 }
 record DataHubIngestionSourceInfo {
   /**

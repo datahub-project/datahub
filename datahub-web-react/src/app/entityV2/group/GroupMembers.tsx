@@ -1,5 +1,5 @@
 import { MoreOutlined, UserAddOutlined, UserDeleteOutlined } from '@ant-design/icons';
-import { Avatar } from '@components';
+import { Avatar, Tooltip } from '@components';
 import { Button, Col, Dropdown, Empty, MenuProps, Pagination, Row, Typography, message } from 'antd';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -8,6 +8,7 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
+import { getExternalGroupMembershipTooltip } from '@app/entityV2/group/utils';
 import { scrollToTop } from '@app/shared/searchUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -88,10 +89,11 @@ type Props = {
     urn: string;
     pageSize: number;
     isExternalGroup: boolean;
+    externalGroupType?: string;
     onChangeMembers?: () => void;
 };
 
-export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeMembers }: Props) {
+export default function GroupMembers({ urn, pageSize, isExternalGroup, externalGroupType, onChangeMembers }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const [page, setPage] = useState(1);
@@ -176,15 +178,27 @@ export default function GroupMembers({ urn, pageSize, isExternalGroup, onChangeM
     return (
         <>
             <Row style={ADD_MEMBER_STYLE}>
-                <AddMember
-                    type="text"
-                    disabled={isExternalGroup}
-                    onClick={onClickEditMembers}
-                    data-testid="add-group-member-button"
+                <Tooltip
+                    showArrow={false}
+                    title={isExternalGroup ? getExternalGroupMembershipTooltip(externalGroupType) : null}
                 >
-                    <UserAddOutlined />
-                    <AddMemberText>Add Member</AddMemberText>
-                </AddMember>
+                    {/*
+                     * Wrapper needed so the Tooltip has a hover target: antd's `disabled`
+                     * Buttons get `pointer-events: none`, which swallows mouse events and
+                     * prevents the Tooltip from firing when disabled.
+                     */}
+                    <div style={{ display: 'inline-block', cursor: isExternalGroup ? 'not-allowed' : 'auto' }}>
+                        <AddMember
+                            type="text"
+                            disabled={isExternalGroup}
+                            onClick={onClickEditMembers}
+                            data-testid="add-group-member-button"
+                        >
+                            <UserAddOutlined />
+                            <AddMemberText>Add Member</AddMemberText>
+                        </AddMember>
+                    </div>
+                </Tooltip>
             </Row>
             <GroupMemberWrapper>
                 {groupMembers.length === 0 && <NoGroupMembers description="No members in this group yet." />}
