@@ -330,6 +330,48 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: SigmaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
+        # Diagnostic trace logger: opt-in via SigmaSourceConfig.lineage_trace.
+        # Independent of DataHub's global ``--debug`` flag so an operator can
+        # selectively enable per-element / per-column resolver tracing without
+        # also enabling DEBUG across the rest of the ingestion stack. The flag
+        # only affects log volume; no metadata emission behaviour is altered.
+        #
+        # Implementation note: ``datahub.utilities.logging_manager`` attaches
+        # an ``INFO``-floored filter (``_DatahubLogFilter``) to every datahub
+        # package logger when ``--debug`` is not set, which would otherwise
+        # drop our trace ``DEBUG`` records before they reach any handler.
+        # We bypass that by attaching a dedicated unfiltered ``StreamHandler``
+        # directly to the trace logger and disabling propagation so trace
+        # records reach stderr (which the DataHub Cloud executor captures
+        # into the same ingestion log the operator greps) without flowing up
+        # to the filtered parent handler.
+        if config.lineage_trace:
+            trace_logger.setLevel(logging.DEBUG)
+            # Idempotent: re-running ``__init__`` (e.g. via a Pipeline retry
+            # in the same process) must not double-attach the handler.
+            already_attached = any(
+                getattr(h, "_sigma_lineage_trace_handler", False)
+                for h in trace_logger.handlers
+            )
+            if not already_attached:
+                trace_handler = logging.StreamHandler()
+                trace_handler.setLevel(logging.DEBUG)
+                trace_handler.setFormatter(
+                    logging.Formatter(
+                        "[%(asctime)s] %(levelname)-8s "
+                        "{%(name)s:%(lineno)d} - %(message)s"
+                    )
+                )
+                # Marker for the idempotency check above.
+                trace_handler._sigma_lineage_trace_handler = True  # type: ignore[attr-defined]
+                trace_logger.addHandler(trace_handler)
+            trace_logger.propagate = False
+            logger.info(
+                "Sigma lineage_trace enabled; per-element / per-column resolver "
+                "decisions will be emitted to logger "
+                "'datahub.ingestion.source.sigma.trace' at DEBUG via a dedicated "
+                "stderr handler (independent of DataHub's --debug flag)."
+            )
         self.reporter = SigmaSourceReport()
         self.dataset_upstream_urn_mapping: Dict[str, List[str]] = {}
         # Sigma Dataset url_id -> dataset URN. Used to resolve DM element
