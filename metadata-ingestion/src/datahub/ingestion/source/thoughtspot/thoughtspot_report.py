@@ -29,6 +29,19 @@ class ThoughtSpotReport(StaleEntityRemovalSourceReport):
     malformed_source_tables_dropped: int = 0
     malformed_column_sources_dropped: int = 0
 
+    # SQL parser telemetry — mirrors Mode connector field names so
+    # operators reading multiple connector reports see consistent
+    # naming. ``num_sql_parsed`` is the denominator;
+    # ``num_sql_parser_failures`` is the sum of table_error +
+    # column_error. ``sql_parsing_total_sec`` aggregates wall-clock
+    # so the operator can spot when SQL parsing dominates run time.
+    num_sql_parsed: int = 0
+    num_sql_parser_success: int = 0
+    num_sql_parser_failures: int = 0
+    num_sql_parser_table_error: int = 0
+    num_sql_parser_column_error: int = 0
+    sql_parsing_total_sec: float = 0.0
+
     # Per-phase wall-clock timers. At 10K-dashboard scale the dominant
     # cost is TML enrichment inside ``liveboard_extraction_time`` —
     # exposing per-phase wall-clock makes that obvious in the run report

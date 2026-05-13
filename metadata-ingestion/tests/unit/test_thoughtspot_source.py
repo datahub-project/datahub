@@ -4691,6 +4691,21 @@ class TestLogicalTableResponseType:
         t = LogicalTableResponse(id="tbl1", name="Customers", type="WORKSHEET")
         assert t.type == "WORKSHEET"
 
+    def test_report_initializes_sql_parser_counters_to_zero(self):
+        """SQL parser counters mirror Mode's naming so operators reading
+        multiple connector reports see consistent telemetry."""
+        from datahub.ingestion.source.thoughtspot.thoughtspot_report import (
+            ThoughtSpotReport,
+        )
+
+        r = ThoughtSpotReport()
+        assert r.num_sql_parsed == 0
+        assert r.num_sql_parser_success == 0
+        assert r.num_sql_parser_failures == 0
+        assert r.num_sql_parser_table_error == 0
+        assert r.num_sql_parser_column_error == 0
+        assert r.sql_parsing_total_sec == 0.0
+
     def test_logical_table_response_carries_sql_view_definition(self):
         """SQL_VIEW datasets carry their TML-fetched SQL string on
         ``sql_view_definition``. Other LOGICAL_TABLE types leave it
