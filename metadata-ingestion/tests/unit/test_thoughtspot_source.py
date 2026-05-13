@@ -4691,6 +4691,24 @@ class TestLogicalTableResponseType:
         t = LogicalTableResponse(id="tbl1", name="Customers", type="WORKSHEET")
         assert t.type == "WORKSHEET"
 
+    def test_logical_table_response_carries_sql_view_definition(self):
+        """SQL_VIEW datasets carry their TML-fetched SQL string on
+        ``sql_view_definition``. Other LOGICAL_TABLE types leave it
+        ``None``. Populated by ``client.iter_logical_tables`` after
+        the per-table fetch loop runs a single batched TML export
+        over every SQL_VIEW.
+        """
+        sv = LogicalTableResponse(
+            id="sv1",
+            name="My SQL View",
+            type="SQL_VIEW",
+            sql_view_definition="SELECT 1",
+        )
+        assert sv.sql_view_definition == "SELECT 1"
+
+        ws = LogicalTableResponse(id="ws1", name="Sales", type="WORKSHEET")
+        assert ws.sql_view_definition is None
+
 
 class TestLogicalTableSubtypeHelper:
     """``_logical_table_subtype`` maps ThoughtSpot's ``metadata_header.type``

@@ -526,6 +526,17 @@ class LogicalTableResponse(ThoughtSpotMetadataHeader):
         ),
     )
 
+    sql_view_definition: Optional[str] = Field(
+        default=None,
+        description=(
+            "Raw SQL statement for ``SQL_VIEW`` datasets, extracted from "
+            "TML. ``None`` for non-SQL_VIEW types and for SQL views the "
+            "principal can't TML-export. Populated by "
+            "``client.iter_logical_tables`` after the per-table fetch "
+            "loop runs a single batched TML export over every SQL_VIEW."
+        ),
+    )
+
     data_source_id: Optional[str] = Field(
         default=None,
         description="GUID of the underlying ThoughtSpot connection backing this worksheet.",
