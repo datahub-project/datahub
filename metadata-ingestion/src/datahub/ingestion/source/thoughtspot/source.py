@@ -651,18 +651,49 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
     def _get_logical_tables(self) -> Iterator[LogicalTableResponse]:
         """Fetch Worksheets/Tables from ThoughtSpot API.
 
-        Logical tables are NOT streamed: the source needs the full set
-        materialised into ``_logical_tables_cache`` so the worksheet-
-        column lookup (used during chart column-lineage emission) is
-        available before liveboards begin streaming. Pattern filtering
-        is still applied here.
+        Materialises ``_logical_tables_cache`` on first call so a sibling
+        ``_get_worksheet_columns_lookup`` (used during Chart InputFields
+        emission) doesn't re-fetch from the API. Pattern filtering is
+        applied on the stream out — the cache holds the unfiltered set
+        so chart-input-field resolution can find worksheets that were
+        filtered out of the dataset emission step.
         """
-        # TODO: Distinguish between worksheets and physical tables
-        # For now, apply worksheet_pattern to all
-        return self._fetch_and_filter_entities(
-            self.client.get_logical_tables,
-            self.config.worksheet_pattern,
-            "Worksheets/Tables",
+        if self._logical_tables_cache is None:
+            try:
+                self._logical_tables_cache = list(self.client.get_logical_tables())
+            except ThoughtSpotAuthenticationError as e:
+                self.report.failure(
+                    title="Authentication Failed",
+                    message="Unable to authenticate with ThoughtSpot. Verify username and secret_key (or password).",
+                    exc=e,
+                )
+                return
+            except ThoughtSpotPermissionError as e:
+                self.report.failure(
+                    title="Permission Denied",
+                    message="Insufficient permissions to access Worksheets/Tables. Ensure the API token has 'Can access API' permission.",
+                    exc=e,
+                )
+                return
+            except ThoughtSpotAPIError as e:
+                self.report.warning(
+                    title="Failed to Fetch Worksheets/Tables",
+                    message="Unable to retrieve Worksheets/Tables list from ThoughtSpot API.",
+                    exc=e,
+                )
+                return
+
+        kept = 0
+        filtered_out = 0
+        for entity in self._logical_tables_cache:
+            if self.config.worksheet_pattern.allowed(entity.name):
+                kept += 1
+                yield entity
+            else:
+                filtered_out += 1
+                logger.debug(f"Worksheet/Table '{entity.name}' filtered out by pattern")
+        logger.info(
+            f"Streamed {kept} Worksheets/Tables to processor ({filtered_out} filtered by pattern)"
         )
 
     def _get_worksheet_columns_lookup(

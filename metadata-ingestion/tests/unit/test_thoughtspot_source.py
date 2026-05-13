@@ -1084,6 +1084,58 @@ class TestThoughtSpotSourceContainerHierarchy:
         assert len(container_wus) == 0
 
 
+class TestLogicalTablesCacheReuse:
+    """``client.get_logical_tables()`` must be called at most once per
+    ingestion run regardless of how many internal consumers
+    (``_extract_datasets`` vs ``_emit_chart_input_fields``) reach for it.
+    Prior to the fix the call happened twice — once in
+    ``_get_logical_tables`` (which discarded the result after streaming)
+    and once in ``_get_worksheet_columns_lookup`` (which populated the
+    cache for chart emission).
+    """
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_get_logical_tables_called_once_when_both_consumers_run(
+        self, mock_client_cls
+    ):
+        mock_client = MagicMock()
+        mock_client_cls.return_value = mock_client
+        mock_client.get_workspaces.return_value = []
+        mock_client.iter_liveboards.return_value = []
+        mock_client.iter_answers.return_value = []
+        mock_client.get_connections.return_value = []
+        mock_client.get_tags.return_value = []
+        # Return one worksheet so both code paths have something to iterate.
+        mock_client.get_logical_tables.return_value = [
+            LogicalTableResponse(
+                id="ws-1",
+                name="orders",
+                type="WORKSHEET",
+                columns=[ColumnResponse(id="c1", name="col_a", data_type="INT")],
+            ),
+        ]
+
+        config = ThoughtSpotConfig.model_validate(
+            {
+                "connection": {
+                    "base_url": "https://example.thoughtspot.cloud",
+                    "auth": {"type": "trusted", "username": "u", "secret_key": "k"},
+                }
+            }
+        )
+        source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
+
+        # Drive both consumers: _get_logical_tables runs via extract;
+        # _get_worksheet_columns_lookup is hit directly to simulate the
+        # chart-input-fields path.
+        list(source.get_workunits_internal())
+        source._get_worksheet_columns_lookup()
+
+        assert mock_client.get_logical_tables.call_count == 1, (
+            f"Expected one call, got {mock_client.get_logical_tables.call_count}"
+        )
+
+
 class TestThoughtSpotSourceSchemaExtraction:
     """Test schema metadata extraction from datasets."""
 
