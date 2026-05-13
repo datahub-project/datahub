@@ -748,7 +748,7 @@ class TestMapper(unittest.TestCase):
         mapper = Mapper(
             workspace_name=self.workspace_name,
         )
-        dashboard_urn = mapper._get_dashboard_urn("dashboard_name")
+        dashboard_urn = mapper.get_dashboard_urn("dashboard_name")
         assert dashboard_urn == DashboardUrn(
             dashboard_id="dashboard_name", dashboard_tool=HEX_PLATFORM_NAME
         )
@@ -758,7 +758,7 @@ class TestMapper(unittest.TestCase):
             workspace_name=self.workspace_name,
             platform_instance="test-platform",
         )
-        dashboard_urn = mapper._get_dashboard_urn("dashboard_name")
+        dashboard_urn = mapper.get_dashboard_urn("dashboard_name")
         assert dashboard_urn == DashboardUrn(
             dashboard_id="test-platform.dashboard_name",
             dashboard_tool=HEX_PLATFORM_NAME,

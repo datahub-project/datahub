@@ -122,7 +122,7 @@ class Mapper:
         )
 
     def map_project(self, project: Project) -> Iterable[MetadataWorkUnit]:
-        dashboard_urn = self._get_dashboard_urn(name=project.id)
+        dashboard_urn = self.get_dashboard_urn(name=project.id)
 
         custom_properties: dict = {"id": project.id}
         if project.latest_run:
@@ -148,7 +148,7 @@ class Mapper:
             customProperties=custom_properties,
             datasetEdges=self._dataset_edges(project.upstream_datasets),
             charts=[
-                self._get_chart_urn(comp_id).urn()
+                self.get_chart_urn(comp_id).urn()
                 for comp_id in project.used_component_ids
             ]
             or None,
@@ -194,7 +194,7 @@ class Mapper:
         )
 
     def map_component(self, component: Component) -> Iterable[MetadataWorkUnit]:
-        chart_urn = self._get_chart_urn(name=component.id)
+        chart_urn = self.get_chart_urn(name=component.id)
 
         chart_info = ChartInfoClass(
             title=component.title,
@@ -265,7 +265,7 @@ class Mapper:
         assert isinstance(container_urn, ContainerUrn)
         return container_urn
 
-    def _get_dashboard_urn(self, name: str) -> DashboardUrn:
+    def get_dashboard_urn(self, name: str) -> DashboardUrn:
         dashboard_urn_str = make_dashboard_urn(
             platform=HEX_PLATFORM_NAME,
             name=name,
@@ -275,7 +275,7 @@ class Mapper:
         assert isinstance(dashboard_urn, DashboardUrn)
         return dashboard_urn
 
-    def _get_chart_urn(self, name: str) -> ChartUrn:
+    def get_chart_urn(self, name: str) -> ChartUrn:
         chart_urn_str = make_chart_urn(
             platform=HEX_PLATFORM_NAME,
             name=name,
@@ -504,7 +504,7 @@ class Mapper:
         """
         from datahub.specific.dashboard import DashboardPatchBuilder
 
-        dashboard_urn = self._get_dashboard_urn(project.id)
+        dashboard_urn = self.get_dashboard_urn(project.id)
         patch_builder = DashboardPatchBuilder(dashboard_urn.urn())
         patch_builder.set_last_refreshed(last_refreshed_ms)
         for mcp in patch_builder.build():

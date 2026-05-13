@@ -878,7 +878,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         if self.source_config.include_context_documents:
             sql_cells, explore_cells, section_names, markdown = _parse_cells(comp_cells)
-            chart_urn = self.mapper._get_chart_urn(component.id).urn()
+            chart_urn = self.mapper.get_chart_urn(component.id).urn()
             doc_builder = HexDocumentBuilder(
                 workspace_name=self.source_config.workspace_name,
                 platform_instance=self.source_config.platform_instance,
@@ -913,7 +913,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             <= self._last_ingested_at_ms
         ):
             # Register URNs we won't re-emit so stale-entity-removal keeps them.
-            dashboard_urn = self.mapper._get_dashboard_urn(project.id).urn()
+            dashboard_urn = self.mapper.get_dashboard_urn(project.id).urn()
             self._stale_handler.add_entity_to_state("dashboard", dashboard_urn)
             if self.source_config.include_context_documents:
                 self._stale_handler.add_entity_to_state(
@@ -980,7 +980,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 explore_cells=explore_cells,
                 section_names=section_names,
                 markdown_content=markdown,
-                dashboard_urn=self.mapper._get_dashboard_urn(project.id).urn(),
+                dashboard_urn=self.mapper.get_dashboard_urn(project.id).urn(),
             )
 
     def _emit_run_history_patch(self, project: Project) -> Iterable[MetadataWorkUnit]:
