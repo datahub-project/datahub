@@ -11,6 +11,7 @@ import csvLogo from '@images/csv-logo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -28,6 +29,7 @@ import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
+import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
@@ -104,6 +106,9 @@ export const LOOK_ML = 'lookml';
 export const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
 const MARIA_DB = 'mariadb';
 const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
+export const MATILLION = 'matillion';
+export const MATILLION_DPC = 'matillion-dpc';
+export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
 const MLFLOW = 'mlflow';
@@ -151,6 +156,8 @@ export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 const FIVETRAN = 'fivetran';
@@ -213,6 +220,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
+    [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
@@ -235,6 +243,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
+    [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
@@ -259,6 +268,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
     [FEAST_LEGACY]: FEAST_URN,
     [LOOK_ML]: LOOKER_URN,
+    [MATILLION_DPC]: MATILLION_URN,
     [REDSHIFT_USAGE]: REDSHIFT_URN,
     [SNOWFLAKE_BETA]: SNOWFLAKE_URN,
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,

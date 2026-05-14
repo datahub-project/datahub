@@ -592,6 +592,34 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
+  public void testCspHeaderPresent() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    boolean hasEnforcing = result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY);
+    boolean hasReportOnly = result.headers().containsKey("Content-Security-Policy-Report-Only");
+    assertTrue(
+        hasEnforcing || hasReportOnly,
+        "Play CSPFilter should set Content-Security-Policy (or -Report-Only when DATAHUB_CSP_REPORT_ONLY=true)");
+  }
+
+  /**
+   * CSPFilter is composed outermost so BasePathRedirectFilter redirect responses (301) still pass
+   * through CSPFilter and include CSP headers — same mechanism as for non-root play.http.context.
+   */
+  @Test
+  public void testCspHeaderPresentOnBasePathRedirectResponse() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+    assertTrue(
+        result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY)
+            || result.headers().containsKey("Content-Security-Policy-Report-Only"),
+        "CSP headers must apply to BasePathRedirectFilter redirect responses");
+  }
+
+  @Test
   public void testAppConfigWithBasePath() {
     Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
 

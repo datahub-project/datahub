@@ -422,6 +422,52 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
         },
     }
 
+    # Default workbook lineage — returns empty entries so
+    # _build_workbook_warehouse_table_index produces an empty index and existing
+    # tests are unaffected. Tests that exercise warehouse-qualified chart
+    # InputFields override this via override_data.
+    api_vs_response[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": []},
+    }
+
+    # Default empty columns response — tests that don't exercise formula resolution
+    # override this; tests that do add their own entry via override_data.
+    api_vs_response[
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {"entries": [], "total": 0, "nextPage": None},
+    }
+
+    # Default /v2/connections mock (one Snowflake connection). Every Sigma
+    # integration test now exercises the connection registry build at
+    # SigmaSource.__init__, so this default keeps existing tests from hitting
+    # the registry-build failure path. Tests that need a specific connection
+    # shape can override via override_data.
+    api_vs_response["https://aws-api.sigmacomputing.com/v2/connections"] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "connectionId": "conn-test-snowflake",
+                    "name": "Test Snowflake",
+                    "type": "snowflake",
+                    "host": "acme.snowflakecomputing.com",
+                    "account": "acme",
+                    "warehouse": "COMPUTE_WH",
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+
     api_vs_response.update(override_data)
 
     for url in api_vs_response:
@@ -1408,6 +1454,309 @@ def test_sigma_ingest_data_models_disabled(pytestconfig, tmp_path, requests_mock
 
 
 @pytest.mark.integration
+def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
+    """
+    Exercises chart InputFields with formula-resolved upstreams.
+
+    Fixture topology (all on page "InputFieldsPage"):
+      - sourceElem   : table, upstream of downstream elements (warehouse table lineage)
+      - warehouseElem: table, column "[FIVETRAN_LOG__SAMPLE/some_col]" -> warehouse URN
+      - downstreamElem: table, column "[T Source/col]" -> sourceElem chart URN
+      - noFormulaElem : table, columns have no formula -> zero InputFields entries
+      - paramSiblingElem: columns "[P_param]" + "[bare_col]" -> zero entries (param + sibling)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data: Dict[str, Dict] = {
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"pageId": "InputFieldsPage", "name": "InputFields Page"},
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/pages/InputFieldsPage/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        # Source element — downstream's upstream via intra-workbook lineage.
+                        "elementId": "sourceElem01",
+                        "type": "table",
+                        "name": "T Source",
+                        "columns": ["col"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Intra-workbook downstream: [T Source/col] -> sourceElem01 URN.
+                        "elementId": "downstreamElem01",
+                        "type": "table",
+                        "name": "T Downstream",
+                        "columns": ["col"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Warehouse ref: [FIVETRAN_LOG__SAMPLE/some_col] resolved via SQL.
+                        "elementId": "warehouseElem01",
+                        "type": "table",
+                        "name": "T Warehouse",
+                        "columns": ["some_col"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Columns without formulas -> zero InputFields entries.
+                        "elementId": "noFormulaElem01",
+                        "type": "table",
+                        "name": "T No Formula",
+                        "columns": ["col_a", "col_b"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        # Parameter + sibling refs -> zero InputFields entries.
+                        "elementId": "paramSiblingElem01",
+                        "type": "table",
+                        "name": "T Param Sibling",
+                        "columns": ["monthly_target", "derived"],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 5,
+                "nextPage": None,
+            },
+        },
+        # Real production path: formula data comes from GET /workbooks/{id}/columns.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": "sourceElem01",
+                        "name": "col",
+                        "formula": None,
+                    },
+                    {
+                        "elementId": "downstreamElem01",
+                        "name": "col",
+                        "formula": "[T Source/col]",
+                    },
+                    {
+                        "elementId": "warehouseElem01",
+                        "name": "some_col",
+                        "formula": "[FIVETRAN_LOG__SAMPLE/some_col]",
+                    },
+                    {
+                        "elementId": "paramSiblingElem01",
+                        "name": "monthly_target",
+                        "formula": "[P_Monthly_Spend_Target]",
+                    },
+                    {
+                        "elementId": "paramSiblingElem01",
+                        "name": "derived",
+                        "formula": "[monthly_target]",
+                    },
+                ],
+                "total": 5,
+                "nextPage": None,
+            },
+        },
+        # sourceElem01: warehouse table upstream only (no sheet upstreams to resolve).
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/sourceElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_source": {
+                        "nodeId": "tgt_source",
+                        "elementId": "sourceElem01",
+                        "name": "T Source",
+                        "type": "sheet",
+                    },
+                    "inode-warehouseA": {
+                        "nodeId": "inode-warehouseA",
+                        "name": "SOME_WAREHOUSE_TABLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-warehouseA",
+                        "target": "tgt_source",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # downstreamElem01: intra-workbook sheet upstream -> sourceElem01.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/downstreamElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_downstream": {
+                        "nodeId": "tgt_downstream",
+                        "elementId": "downstreamElem01",
+                        "name": "T Downstream",
+                        "type": "sheet",
+                    },
+                    "src_source": {
+                        "nodeId": "src_source",
+                        "elementId": "sourceElem01",
+                        "name": "T Source",
+                        "type": "sheet",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "src_source",
+                        "target": "tgt_downstream",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        # warehouseElem01: warehouse table upstream with a known SQL short-name.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/warehouseElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_warehouse": {
+                        "nodeId": "tgt_warehouse",
+                        "elementId": "warehouseElem01",
+                        "name": "T Warehouse",
+                        "type": "sheet",
+                    },
+                    "inode-fivetran": {
+                        "nodeId": "inode-fivetran",
+                        "name": "FIVETRAN_LOG__SAMPLE",
+                        "type": "table",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": "inode-fivetran",
+                        "target": "tgt_warehouse",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/noFormulaElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_noformula": {
+                        "nodeId": "tgt_noformula",
+                        "elementId": "noFormulaElem01",
+                        "name": "T No Formula",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/lineage/elements/paramSiblingElem01": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_paramsib": {
+                        "nodeId": "tgt_paramsib",
+                        "elementId": "paramSiblingElem01",
+                        "name": "T Param Sibling",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        # SQL queries
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/sourceElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/downstreamElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # warehouseElem01 has a SQL query so the parser can resolve the warehouse URN.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/warehouseElem01/query": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "elementId": "warehouseElem01",
+                "name": "T Warehouse",
+                "sql": "select SOME_COL from LONG_TAIL_COMPANIONS.FIVETRAN.FIVETRAN_LOG__SAMPLE limit 1000",
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/noFormulaElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/elements/paramSiblingElem01/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+    }
+
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path: str = f"{tmp_path}/sigma_chart_input_fields_mces.json"
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                    "chart_sources_platform_mapping": {
+                        "Acryl Data/Acryl Workbook": {
+                            "data_source_platform": "snowflake"
+                        },
+                    },
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+    golden_file = "golden_test_sigma_extract_lineage.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+    report = _sigma_report(pipeline)
+    assert report.chart_input_fields_resolved == 2
+    # 3 self-ref fallbacks: sourceElem01.col (formula=None), noFormulaElem01.col_a, .col_b
+    assert report.chart_input_fields_self_ref_fallback == 3
+    assert report.chart_input_fields_skipped_parameter == 1
+    assert report.chart_input_fields_skipped_sibling == 1
+
+
+@pytest.mark.integration
 def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
@@ -1512,11 +1861,9 @@ def test_sigma_ingest_shared_entities(pytestconfig, tmp_path, requests_mock):
 
 
 def _minimal_sigma_pipeline_config(output_path: str, **extra: Any) -> Dict[str, Any]:
-    # Every caller of this helper is a DM-focused test; set
-    # ``ingest_data_models: True`` here (the source default is False per the
-    # opt-in release behavior) so the tests don't have to repeat the flag.
-    # Callers that want to override it can still pass ingest_data_models=False
-    # via ``**extra``.
+    # Every caller of this helper is a DM-focused test; ``ingest_data_models``
+    # defaults to True so DM ingestion runs automatically.  Callers that want
+    # to disable it can still pass ingest_data_models=False via ``**extra``.
     config: Dict[str, Any] = {
         "client_id": "CLIENTID",
         "client_secret": "CLIENTSECRET",
@@ -2588,6 +2935,292 @@ def test_sigma_ingest_data_models_cross_dm_upstream(
 
 
 @pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_fgl(pytestconfig, tmp_path, requests_mock):
+    """Cross-DM FineGrainedLineage: formula refs resolved to schemaField URNs.
+
+    Consumer DM element has formula columns referencing a source DM element
+    by name.  The emitted UpstreamLineage aspect must contain fineGrainedLineages
+    with correct upstream/downstream schemaField URN pairs.
+    """
+    source_dm_id = "src-dm-0000-0000-0000-000000000001"
+    source_dm_url_id = "srcDmUrlId0001"
+    source_element_id = "srcElem01"
+    consumer_dm_id = "con-dm-0000-0000-0000-000000000002"
+    consumer_dm_url_id = "conDmUrlId0002"
+    consumer_element_id = "conElem01"
+    cross_dm_suffix = "xSuffix01"
+
+    workspace_json = {
+        "workspaceId": "ws-0001",
+        "name": "Test WS",
+        "createdBy": "u1",
+        "createdAt": "2026-01-01T00:00:00.000Z",
+        "updatedAt": "2026-01-01T00:00:00.000Z",
+    }
+    override_data: Dict[str, Dict[str, Any]] = {
+        "https://aws-api.sigmacomputing.com/v2/workspaces": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [workspace_json], "total": 1, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces/ws-0001": {
+            "method": "GET",
+            "status_code": 200,
+            "json": workspace_json,
+        },
+        "https://aws-api.sigmacomputing.com/v2/members": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": source_dm_id,
+                        "urlId": source_dm_url_id,
+                        "name": "Source DM",
+                        "type": "data-model",
+                        "parentId": "ws-0001",
+                        "permission": "edit",
+                        "path": "Test WS",
+                        "badge": None,
+                        "createdBy": "u1",
+                        "updatedBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "isArchived": False,
+                    },
+                    {
+                        "id": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "type": "data-model",
+                        "parentId": "ws-0001",
+                        "permission": "edit",
+                        "path": "Test WS",
+                        "badge": None,
+                        "createdBy": "u1",
+                        "updatedBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "isArchived": False,
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": source_dm_id,
+                        "urlId": source_dm_url_id,
+                        "name": "Source DM",
+                        "createdBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/t/data-model/{source_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "ws-0001",
+                        "path": "Test WS",
+                    },
+                    {
+                        "dataModelId": consumer_dm_id,
+                        "urlId": consumer_dm_url_id,
+                        "name": "Consumer DM",
+                        "createdBy": "u1",
+                        "createdAt": "2026-01-01T00:00:00.000Z",
+                        "updatedAt": "2026-01-01T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/t/data-model/{consumer_dm_url_id}",
+                        "latestVersion": 1,
+                        "workspaceId": "ws-0001",
+                        "path": "Test WS",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # Source DM: one element "Sales Data" with two columns.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": source_element_id,
+                        "name": "Sales Data",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": source_element_id,
+                        "columnId": f"{source_element_id}-revenue",
+                        "name": "revenue",
+                        "formula": "",
+                        "label": "revenue",
+                    },
+                    {
+                        "elementId": source_element_id,
+                        "columnId": f"{source_element_id}-region",
+                        "name": "region",
+                        "formula": "",
+                        "label": "region",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{source_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Consumer DM: one element "Summary" with formula columns referencing
+        # "Sales Data" from the source DM.
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "name": "Summary",
+                        "type": "table",
+                        "vizualizationType": "levelTable",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": consumer_element_id,
+                        "columnId": f"{consumer_element_id}-revenue",
+                        "name": "revenue",
+                        "formula": "[Sales Data/revenue]",
+                        "label": "revenue",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "columnId": f"{consumer_element_id}-region",
+                        "name": "region",
+                        "formula": "[Sales Data/region]",
+                        "label": "region",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "type": "data-model",
+                        "dataModelId": source_dm_id,
+                        "name": "Sales Data",
+                        "connectionId": "conn-0001",
+                    },
+                    {
+                        "elementId": consumer_element_id,
+                        "type": "element",
+                        "sourceIds": [f"{source_dm_url_id}/{cross_dm_suffix}"],
+                        "dataSourceIds": [f"{source_dm_url_id}/{cross_dm_suffix}"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_cross_dm_fgl_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1
+    assert report.data_model_element_fgl_cross_dm_resolved == 2
+    assert report.data_model_element_fgl_cross_dm_deferred == 0
+    assert report.data_model_element_fgl_cross_dm_collision_pick_first == 0
+
+    source_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{source_dm_id}.{source_element_id},PROD)"
+    consumer_urn = f"urn:li:dataset:(urn:li:dataPlatform:sigma,{consumer_dm_id}.{consumer_element_id},PROD)"
+
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    fgl_mces = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == consumer_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(fgl_mces) == 1, (
+        f"expected one upstreamLineage on consumer, got {len(fgl_mces)}"
+    )
+
+    aspect = fgl_mces[0].get("aspect", {}).get("json", fgl_mces[0].get("aspect", {}))
+    fgls = aspect.get("fineGrainedLineages", [])
+    assert len(fgls) == 2, f"expected 2 FGL entries, got {len(fgls)}"
+
+    emitted_pairs = {(fgl["downstreams"][0], fgl["upstreams"][0]) for fgl in fgls}
+    from datahub.emitter import mce_builder as builder
+
+    assert emitted_pairs == {
+        (
+            builder.make_schema_field_urn(consumer_urn, "revenue"),
+            builder.make_schema_field_urn(source_urn, "revenue"),
+        ),
+        (
+            builder.make_schema_field_urn(consumer_urn, "region"),
+            builder.make_schema_field_urn(source_urn, "region"),
+        ),
+    }
+
+
+@pytest.mark.integration
 def test_sigma_ingest_data_models_orphan_dm_discovery(
     pytestconfig, tmp_path, requests_mock
 ):
@@ -2841,10 +3474,9 @@ def test_sigma_ingest_data_models_orphan_dm_discovery(
         f"{report.data_model_external_references_discovered}"
     )
     assert report.data_model_external_reference_unresolved == 0
-    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 1, (
-        f"expected 1 single-element fallback, got "
-        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
-    )
+    # Resolves via /lineage data-model entry name (not single-element fallback):
+    # the entry explicitly names the source element so name-matching is exact.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
     assert report.data_model_element_cross_dm_upstreams_resolved == 1
     assert report.data_model_element_cross_dm_upstreams_dm_unknown == 0
 
@@ -4147,68 +4779,6 @@ def _orphan_dm_mock_fixture() -> Dict[str, Dict[str, Any]]:
 
 
 @pytest.mark.integration
-def test_sigma_ingest_data_models_default_off(pytestconfig, tmp_path, requests_mock):
-    """Regression pin for the default value of ``ingest_data_models``.
-
-    The default is ``False`` (opt-in) per the release classification. This
-    test instantiates the source with **no** explicit ``ingest_data_models``
-    flag, runs against a full fixture that includes DM mocks, and asserts
-    that neither the DM listing nor any per-DM endpoint is hit. If the
-    default ever flips back to ``True``, this test fails fast so the change
-    is intentional and gets a Breaking-Changes release note.
-    """
-
-    # Use the DM-enabled baseline fixture so an accidental flip to ``True``
-    # would actually make requests.
-    override_data = get_mock_data_model_api()
-    register_mock_api(request_mock=requests_mock, override_data=override_data)
-
-    output_path = f"{tmp_path}/sigma_dm_default_off_mces.json"
-    # Construct the config without the helper (the helper injects
-    # ``ingest_data_models: True`` — this test specifically exercises the
-    # unset / default path).
-    pipeline = Pipeline.create(
-        {
-            "run_id": "sigma-test",
-            "source": {
-                "type": "sigma",
-                "config": {
-                    "client_id": "CLIENTID",
-                    "client_secret": "CLIENTSECRET",
-                    "chart_sources_platform_mapping": {
-                        "Acryl Data/Acryl Workbook": {
-                            "data_source_platform": "snowflake"
-                        },
-                    },
-                },
-            },
-            "sink": {"type": "file", "config": {"filename": output_path}},
-        }
-    )
-    pipeline.run()
-    pipeline.raise_from_status()
-
-    dm_endpoint_hits = [
-        req
-        for req in requests_mock.request_history
-        if "/v2/dataModels" in req.url or "typeFilters=data-model" in req.url
-    ]
-    assert dm_endpoint_hits == [], (
-        f"expected ingest_data_models default=False to short-circuit DM fetch, "
-        f"but got {len(dm_endpoint_hits)} requests: "
-        f"{[r.url for r in dm_endpoint_hits]}"
-    )
-
-    with open(output_path) as f:
-        mces = json.load(f)
-    # No DM-Container or DM-element URNs should appear in the output.
-    assert not any(
-        "147a4d09-a686-4eea-b183-9b82aa0f7beb" in mce.get("entityUrn", "")
-        for mce in mces
-    )
-
-
-@pytest.mark.integration
 def test_sigma_ingest_data_models_orphan_dm_blocked_by_ingest_shared_entities(
     pytestconfig, tmp_path, requests_mock
 ):
@@ -4673,22 +5243,17 @@ def test_sigma_ingest_data_models_cross_dm_diamond_counter_not_inflated(
 
 
 @pytest.mark.integration
-def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count(
+def test_sigma_ingest_data_models_cross_dm_lineage_entry_resolves_despite_blank_sibling(
     pytestconfig, tmp_path, requests_mock
 ):
-    """Regression pin for M3: the single-element fallback must require the
-    producer DM to have exactly one element **total**, not just one *named*
-    element. Blank-named elements are excluded from
-    ``dm_element_urn_by_name`` (see ``_prepopulate_dm_bridge_maps``), so a
-    DM with 1 named + N blank-named elements would previously have
-    spuriously triggered the fallback and attributed a cross-DM edge to
-    the single named element even though Sigma could legitimately be
-    pointing at any of the anonymous ones.
+    """When a /lineage data-model entry explicitly names the source element,
+    resolution succeeds even when the producer DM has a blank-named sibling
+    element (which would block the single-element fallback).
 
     Construction: producer DM with 1 named element ("data.csv") and 1
-    blank-named element. Consumer element name "Test Data" does not match.
-    The fallback must refuse (name_unmatched_but_dm_known, not
-    single_element_fallback) because the producer has 2 elements.
+    blank-named element. Consumer lineage carries a ``data-model`` entry
+    naming "data.csv". Resolution uses the entry name directly — the
+    blank sibling is irrelevant — and emits the correct upstream edge.
     """
 
     override_data = _orphan_dm_mock_fixture()
@@ -4732,19 +5297,120 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    # Fallback must NOT fire — producer has 2 elements total.
-    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0, (
-        f"single-element fallback must refuse when DM has >1 element total "
-        f"(even if only 1 is named); got "
-        f"{report.data_model_element_cross_dm_upstreams_single_element_fallback}"
-    )
-    # Degrades to name_unmatched_but_dm_known instead.
-    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 1
+    # Single-element fallback must NOT fire — superseded by /lineage data-model
+    # entry which explicitly names the source element regardless of total count.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 0
+    # Resolves correctly via data-model entry name: the blank-named sibling is
+    # irrelevant because the lineage entry explicitly identifies "data.csv".
+    assert report.data_model_element_cross_dm_upstreams_resolved == 1
 
-    # And no upstream edge should point at the producer element.
+    # Upstream edge should point at the named producer element (not the blank one).
     consumer_element_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:sigma,"
         "b584ddca-cfd6-4b72-97da-367fc0a5606d.1DYf5I08WO,PROD)"
+    )
+    producer_element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.wcUd3nEUAv,PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    upstream_edges = [
+        up.get("dataset")
+        for mce in mces
+        if mce.get("entityUrn") == consumer_element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+        for up in mce.get("aspect", {})
+        .get("json", mce.get("aspect", {}))
+        .get("upstreams", [])
+    ]
+    assert producer_element_urn in upstream_edges, (
+        f"data-model entry should resolve edge to named producer element "
+        f"{producer_element_urn}; got {upstream_edges}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_total_count(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Regression pin: the single-element fallback must require the producer DM
+    to have exactly one element total. When there is no /lineage data-model entry
+    and the consumer name does not match, a producer with 1 named + 1 blank-named
+    element must not trigger the fallback (total_elements == 2).
+    """
+    producer_dm_id = "766ea1d1-5ee0-4a9c-9b68-b8ba19a7f624"
+    producer_dm_url_id = "3BtEwqctAlmKlYTJIQ8QFC"
+    consumer_dm_id = "b584ddca-cfd6-4b72-97da-367fc0a5606d"
+    consumer_element_id = "1DYf5I08WO"
+
+    override_data = _orphan_dm_mock_fixture()
+
+    # Remove the data-model entry from consumer lineage so name-matching is
+    # the only resolution path available.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{consumer_dm_id}/lineage"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": consumer_element_id,
+                    "type": "element",
+                    "sourceIds": [f"{producer_dm_url_id}/vACRd1GzJS"],
+                    "dataSourceIds": [f"{producer_dm_url_id}/vACRd1GzJS"],
+                }
+            ],
+            "total": 1,
+            "nextPage": None,
+        },
+    }
+    # Producer has 1 named + 1 blank-named element → total_elements == 2.
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{producer_dm_id}/elements"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "elementId": "wcUd3nEUAv",
+                    "name": "data.csv",
+                    "type": "table",
+                    "vizualizationType": "levelTable",
+                    "columns": [],
+                },
+                {
+                    "elementId": "anonBlank001",
+                    "name": "",
+                    "type": "table",
+                    "vizualizationType": None,
+                    "columns": [],
+                },
+            ],
+            "total": 2,
+            "nextPage": None,
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_fallback_total_count_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_shared_entities=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # No data-model entry and DM has 2 elements → fallback must not fire.
+    assert report.data_model_element_cross_dm_upstreams_single_element_fallback == 0
+    assert report.data_model_element_cross_dm_upstreams_name_unmatched_but_dm_known == 1
+    assert report.data_model_element_cross_dm_upstreams_resolved == 0
+
+    consumer_element_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:sigma,"
+        f"{consumer_dm_id}.{consumer_element_id},PROD)"
     )
     producer_element_urn = (
         f"urn:li:dataset:(urn:li:dataPlatform:sigma,{producer_dm_id}.wcUd3nEUAv,PROD)"
@@ -4756,12 +5422,14 @@ def test_sigma_ingest_data_models_cross_dm_single_element_fallback_requires_tota
             mce.get("entityUrn") == consumer_element_urn
             and mce.get("aspectName") == "upstreamLineage"
         ):
-            aspect_json = mce.get("aspect", {}).get("json", mce.get("aspect", {}))
-            for up in aspect_json.get("upstreams", []):
+            for up in (
+                mce.get("aspect", {})
+                .get("json", mce.get("aspect", {}))
+                .get("upstreams", [])
+            ):
                 assert up.get("dataset") != producer_element_urn, (
-                    f"fallback must not attribute cross-DM edge to single named "
-                    f"element when DM has blank-named siblings; got edge "
-                    f"{consumer_element_urn} -> {producer_element_urn}"
+                    "fallback must not fire when producer has blank-named siblings "
+                    "and no data-model lineage entry is present"
                 )
 
 
@@ -5648,4 +6316,1471 @@ def test_sigma_ingest_data_models_workspaceId_mismatch_uses_files(
         element_browse_paths_seen += 1
     assert element_browse_paths_seen == 3, (
         f"expected BrowsePathsV2 for all 3 DM elements; got {element_browse_paths_seen}"
+    )
+
+
+@pytest.mark.integration
+def test_sigma_connection_registry(pytestconfig, tmp_path, requests_mock):
+    """Verify the connection registry builds from the /v2/connections mock."""
+    register_mock_api(request_mock=requests_mock)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "sigma-connection-registry-test",
+            "source": {
+                "type": "sigma",
+                "config": {
+                    "client_id": "CLIENTID",
+                    "client_secret": "CLIENTSECRET",
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/sigma_connection_registry_mces.json",
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.connections_resolved >= 1, (
+        f"connections_resolved should be >= 1; got {report.connections_resolved}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# DM element -> warehouse table UpstreamLineage
+# Fixture shape mirrors a live Sigma API response (IDs preserved, names
+# anonymized). Key chain:
+#   /lineage type=table: connectionId + inodeId (UUID)
+#   /files/{inodeId}:    urlId (slug) + path "Connection Root/<DB>/<SCHEMA>"
+#   Expected URN: urn:li:dataset:(urn:li:dataPlatform:snowflake,
+#                  warehouse_coffee_company.public.customers,PROD)
+# ---------------------------------------------------------------------------
+
+# Fixture IDs match live API UUID/slug shapes; display names are anonymized.
+_WH_DM_ID = "81e9980c-3ec8-4bbf-a38e-78f9fe472ce0"
+_WH_DM_URL_ID = "Acme-Snowflake-DM-fixture01"
+_WH_CONN_ID = "4b39cdcd-5a58-4ff6-af0d-8409ff880a23"
+_WH_INODE_ID = "f09fe362-828a-42e6-9f8f-3f0feeb2fb3e"
+_WH_URL_ID = "7k3e6T4RK9oix71Nm2umE6"
+_WH_ELEMENT_ID = "byF6DckhFw"
+_WH_WORKSPACE_ID = "3ee61405-3be2-4000-ba72-60d36757b95b"
+
+
+def _get_warehouse_dm_overrides() -> Dict[str, Dict]:
+    """Mock overrides for the warehouse-upstream integration test.
+
+    Payload shapes mirror the live Sigma API; display names and account
+    locators are anonymized for OSS publication.
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "ACME SNOWFLAKE",
+                        "type": "snowflake",
+                        "account": "acme-test-snowflake",
+                        "host": "acme-test-snowflake.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _WH_DM_ID,
+                        "urlId": _WH_DM_URL_ID,
+                        "name": "Acme Snowflake DM",
+                        "type": "data-model",
+                        "parentId": "3ee61405-3be2-4000-ba72-60d36757b95b",
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "Acryl Data",
+                        "badge": None,
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "updatedBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": _WH_DM_ID,
+                        "urlId": _WH_DM_URL_ID,
+                        "name": "Acme Snowflake DM",
+                        "description": "Integration fixture for warehouse-backed DM element",
+                        "createdBy": "awUuH3HDr10r2c41vSZ5MNcyCDYZl",
+                        "createdAt": "2026-05-04T00:00:00.000Z",
+                        "updatedAt": "2026-05-04T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/acryldata/dm/{_WH_DM_URL_ID}",
+                        "latestVersion": 1,
+                        "workspaceId": _WH_WORKSPACE_ID,
+                        "path": "Acryl Data",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_ELEMENT_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-1",
+                        "name": "CUSTOMER_ID",
+                        "elementId": _WH_ELEMENT_ID,
+                        "label": None,
+                        "formula": None,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "inodeId": _WH_INODE_ID,
+                    },
+                    {
+                        "elementId": _WH_ELEMENT_ID,
+                        "type": "element",
+                        "sourceIds": [f"inode-{_WH_URL_ID}"],
+                        "dataSourceIds": [f"inode-{_WH_URL_ID}"],
+                    },
+                ],
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _WH_INODE_ID,
+                "urlId": _WH_URL_ID,
+                "name": "CUSTOMERS",
+                "type": "table",
+                "parentId": "3f583620-d373-4d73-bdb9-1e63aa1c58fb",
+                "parentUrlId": "1VwPpYZ44VbssheaUKZvFp",
+                "permission": "edit",
+                "path": "Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_warehouse_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM element with a type=table warehouse source gets an UpstreamLineage
+    aspect pointing at the Snowflake warehouse table URN.
+
+    Fixture payload shape mirrors a live Sigma API; names anonymized.
+      DM:         Acme Snowflake DM (81e9980c-…)
+      Element:    byF6DckhFw
+      Source:     inode-7k3e6T4... -> type=table (CUSTOMERS)
+      Connection: 4b39cdcd-… (snowflake)
+      /files:     path = Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC
+      URN:        urn:li:dataset:(urn:li:dataPlatform:snowflake,
+                    warehouse_coffee_company.public.customers,PROD)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_upstream_emitted == 1, (
+        f"expected 1 warehouse upstream emitted; got {report.dm_element_warehouse_upstream_emitted}"
+    )
+    assert report.data_model_element_upstreams_unresolved == 0
+    assert report.connections_resolved == 1
+    # Error counters must all be zero on a clean fixture run.
+    assert report.dm_element_warehouse_unknown_connection == 0
+    assert report.dm_element_warehouse_table_lookup_failed == 0
+    assert report.dm_element_warehouse_path_unparseable == 0
+    assert report.dm_element_warehouse_table_entry_incomplete == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    upstream_lineage_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(upstream_lineage_aspects) == 1
+    upstreams = upstream_lineage_aspects[0]["aspect"]["json"]["upstreams"]
+    assert expected_warehouse_urn in [u["dataset"] for u in upstreams]
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )
+
+
+def _get_mock_customsql_dm_api() -> Dict[str, Dict]:
+    """Mock a single DM with one customSQL element (explicit column SELECT)."""
+    dm_id = "aa000000-0000-0000-0000-000000000001"
+    ws_id = "bb000000-0000-0000-0000-000000000001"
+    element_id = "csql-el-01"
+    conn_id = "conn-sf-csql"
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": conn_id,
+                        "name": "Test Connection",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "warehouse": "TEST_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": ws_id,
+                        "name": "Test Workspace",
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-01T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": dm_id,
+                        "urlId": "customsql-dm-urlid",
+                        "name": "CustomSQL DM",
+                        "type": "data-model",
+                        "parentId": ws_id,
+                        "parentUrlId": "test-ws-urlid",
+                        "permission": "edit",
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "dataModelId": dm_id,
+                        "urlId": "customsql-dm-urlid",
+                        "name": "CustomSQL DM",
+                        "createdBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "workspaceId": ws_id,
+                        "path": "Test Workspace",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": element_id,
+                        "name": "Custom SQL",
+                        "type": "table",
+                        "vizualizationType": None,
+                        "columns": [],
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-order-id",
+                        "elementId": element_id,
+                        "name": "Order Id",
+                        "label": "Order Id",
+                        "formula": "[Custom SQL/ORDER_ID]",
+                    },
+                    {
+                        "columnId": "col-amount",
+                        "elementId": element_id,
+                        "name": "Amount",
+                        "label": "Amount",
+                        "formula": "[Custom SQL/AMOUNT]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{dm_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "name": "csql-src-1",
+                        "type": "customSQL",
+                        "connectionId": conn_id,
+                        "definition": (
+                            "SELECT ORDER_ID, AMOUNT FROM TEST_DB.TEST_SCHEMA.ORDERS"
+                        ),
+                    },
+                    {
+                        "elementId": element_id,
+                        "type": "element",
+                        "sourceIds": ["csql-src-1"],
+                        "dataSourceIds": ["csql-src-1"],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_mock):
+    """DM customSQL element: UpstreamLineage + FGL emitted via SqlParsingAggregator.
+
+    Verifies:
+    - Entity-level UpstreamLineage emitted on the customSQL DM element Dataset.
+    - FGL downstream schemaField URNs use Sigma column display names (``Visit Id``,
+      ``Customer Id``), not SQL column names (``visit_id``, ``customer_id``).
+    - Counter shape: aggregator invocations == 1, upstream emitted == 1.
+    - Golden file captures the new UpstreamLineage + FineGrainedLineage aspects.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data=_get_mock_customsql_dm_api(),
+    )
+
+    output_path = f"{tmp_path}/sigma_customsql_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_customsql_aggregator_invocations == 1
+    assert report.dm_customsql_upstream_emitted == 1
+    assert report.dm_customsql_column_lineage_emitted == 1
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_data_models_customsql.json",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Chart inputFields warehouse-qualified via workbook lineage
+# ---------------------------------------------------------------------------
+
+# Reuse the same warehouse fixture IDs from the warehouse upstream test so the
+# URN identity invariant is exercisable: same inode → same Dataset URN from
+# both the DM element path and the workbook-lineage path.
+_WH_CHART_WORKBOOK_ID = "c4c4c4c4-0000-0000-0000-000000000001"
+_WH_CHART_PAGE_ID = "chart-wh-page-01"
+_WH_CHART_DM_FED_ELEM_ID = "dmFedElem01"
+_WH_CHART_LEGACY_SD_ELEM_ID = "legacySdElem01"
+
+# BFS entity-level test (C2) — independent from _WH_* fixtures above.
+_BFS_CONN_ID = "bfs-conn-0000-0000-000000000001"
+_BFS_INODE_ID = "bfs-inode-000-0000-000000000001"
+_BFS_URL_ID = "bfsUrlId001"
+_BFS_WORKSPACE_ID = "bfs-ws-0000-0000-000000000001"
+_BFS_WORKBOOK_ID = "bfs-wb-0000-0000-000000000001"
+_BFS_PAGE_ID = "bfs-page-01"
+_BFS_ELEM_ID = "bfsDirectElem01"
+_BFS_TABLE_NODE_ID = f"inode-{_BFS_URL_ID}"
+
+
+def _get_chart_warehouse_qualified_overrides() -> Dict[str, Dict]:
+    """Fixture overrides for the chart warehouse-qualified InputFields test.
+
+    Topology:
+      Workbook _WH_CHART_WORKBOOK_ID / page _WH_CHART_PAGE_ID
+        dmFedElem01 : column "customer_id" formula "[CUSTOMERS/customer_id]"
+                      DM-fed (no SQL query) — resolved via workbook lineage
+        legacySdElem01: column "legacy_col" formula "[LEGACY_DATASET/legacy_col]"
+                      legacy SD lineage entry (type=dataset) — skipped, self-ref
+
+      Workbook lineage /v2/workbooks/{id}/lineage:
+        type=table  CUSTOMERS   → same inode/connection as warehouse upstream test
+        type=dataset LEGACY_DATASET       → skipped (legacy Sigma Dataset, not yet supported)
+        type=customSQL CUSTOM   → skipped (not yet supported)
+
+      /files/{_WH_INODE_ID} → Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC (CUSTOMERS)
+
+      Expected:
+        dmFedElem01.customer_id  → schemaFieldUrn points at snowflake warehouse schemaField
+        legacySdElem01.legacy_col  → self-ref (LEGACY_DATASET lineage entry is type=dataset, skipped)
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": _WH_WORKSPACE_ID,
+                        "name": "My Org",
+                        "createdBy": "owner-wh-chart",
+                        "updatedBy": "owner-wh-chart",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Provide the same connection as the warehouse upstream test (URN identity).
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "ACME SNOWFLAKE",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "host": "test-account.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        # Workbook listing (no DMs in this test)
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": _WH_CHART_WORKBOOK_ID,
+                        "workbookUrlId": "ChartWh-WB-URL-ID",
+                        "ownerId": "owner-wh-chart",
+                        "createdBy": "owner-wh-chart",
+                        "updatedBy": "owner-wh-chart",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                        "name": "Chart Warehouse Workbook",
+                        "url": "https://app.sigmacomputing.com/my-org/workbook/ChartWh-WB-URL-ID",
+                        "path": "My Org",
+                        "latestVersion": 1,
+                        "isArchived": False,
+                        "workspaceId": _WH_WORKSPACE_ID,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _WH_CHART_WORKBOOK_ID,
+                        "urlId": "ChartWh-WB-URL-ID",
+                        "name": "Chart Warehouse Workbook",
+                        "type": "workbook",
+                        "parentId": _WH_WORKSPACE_ID,
+                        "parentUrlId": "1UGFyEQCHqwPfQoAec3xJ9",
+                        "permission": "edit",
+                        "path": "My Org",
+                        "badge": None,
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {"pageId": _WH_CHART_PAGE_ID, "name": "Chart Warehouse Page"}
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/pages/{_WH_CHART_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "type": "table",
+                        "name": "DM-fed Element",
+                        "columns": ["customer_id"],
+                        "vizualizationType": "levelTable",
+                    },
+                    {
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "type": "table",
+                        "name": "Legacy SD Element",
+                        "columns": ["legacy_col"],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "name": "customer_id",
+                        # Formula references warehouse table by short name. DM-fed chart
+                        # has no SQL query, so dataset_inputs is empty. Workbook
+                        # lineage index provides the resolution.
+                        "formula": "[CUSTOMERS/customer_id]",
+                    },
+                    {
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "name": "legacy_col",
+                        # LEGACY_DATASET is a legacy Sigma Dataset (type=dataset in workbook lineage).
+                        # type=dataset is skipped; formula falls back to self-ref.
+                        "formula": "[LEGACY_DATASET/legacy_col]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        # DM-fed element: no SQL query, no intra-workbook upstreams.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage/elements/{_WH_CHART_DM_FED_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_dmfed": {
+                        "nodeId": "tgt_dmfed",
+                        "elementId": _WH_CHART_DM_FED_ELEM_ID,
+                        "name": "DM-fed Element",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage/elements/{_WH_CHART_LEGACY_SD_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_legacysd": {
+                        "nodeId": "tgt_legacysd",
+                        "elementId": _WH_CHART_LEGACY_SD_ELEM_ID,
+                        "name": "Legacy SD Element",
+                        "type": "sheet",
+                    }
+                },
+                "edges": [],
+            },
+        },
+        # No SQL queries (DM-fed charts don't have parseable SQL).
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/elements/{_WH_CHART_DM_FED_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/elements/{_WH_CHART_LEGACY_SD_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # Workbook-level lineage: type=table (CUSTOMERS), type=dataset (LEGACY_DATASET, skipped),
+        # type=customSQL (CUSTOM_QUERY, skipped).
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_WH_CHART_WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _WH_CONN_ID,
+                        "name": "CUSTOMERS",
+                        "type": "table",
+                        "inodeId": _WH_INODE_ID,
+                    },
+                    {
+                        "name": "LEGACY_DATASET",
+                        "type": "dataset",
+                        "inodeId": "inode-pets-legacy",
+                    },
+                    {
+                        "name": "CUSTOM_QUERY",
+                        "type": "customSQL",
+                        "inodeId": "inode-customsql",
+                    },
+                ]
+            },
+        },
+        # /files for the CUSTOMERS warehouse table (same fixture as warehouse upstream test).
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _WH_INODE_ID,
+                "urlId": _WH_URL_ID,
+                "name": "CUSTOMERS",
+                "type": "table",
+                "path": "Connection Root/WAREHOUSE_COFFEE_COMPANY/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_chart_input_fields_warehouse_qualified(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Chart inputFields[].schemaFieldUrn is warehouse-qualified via workbook
+    lineage for DM-fed charts that have no parseable SQL query.
+
+    Fixture topology:
+      dmFedElem01  : formula "[CUSTOMERS/customer_id]"
+                     DM-fed — per-element SQL parser yields empty dataset_inputs.
+                     Workbook lineage (type=table CUSTOMERS) qualifies it to
+                     the Snowflake warehouse Dataset URN.
+      legacySdElem01: formula "[LEGACY_DATASET/legacy_col]"
+                     workbook lineage has type=dataset LEGACY_DATASET (skipped).
+                     Falls back to self-ref.
+
+    Assertions:
+      - dmFedElem01.customer_id schemaFieldUrn → warehouse schemaField URN
+      - legacySdElem01.legacy_col schemaFieldUrn → self-ref (chart URN)
+      - chart_input_fields_warehouse_qualified == 1
+      - chart_input_fields_warehouse_qualified_via_workbook_index == 1
+      - chart_input_fields_self_ref_fallback == 1
+      - No entity-level lineage changes.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_chart_warehouse_qualified_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_chart_warehouse_qualified_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_data_models=False,
+            chart_sources_platform_mapping={},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.chart_input_fields_warehouse_qualified == 1, (
+        f"expected 1 warehouse-qualified field; got {report.chart_input_fields_warehouse_qualified}"
+    )
+    assert report.chart_input_fields_warehouse_qualified_via_workbook_index == 1, (
+        f"expected 1 via-workbook-index; got {report.chart_input_fields_warehouse_qualified_via_workbook_index}"
+    )
+    # legacySdElem01.legacy_col falls back to self-ref (LEGACY_DATASET is type=dataset, skipped)
+    assert report.chart_input_fields_self_ref_fallback == 1
+    # No error counters
+    assert report.chart_input_fields_warehouse_index_lookup_failed == 0
+    assert report.chart_input_fields_warehouse_table_lookup_failed == 0
+    assert report.chart_input_fields_warehouse_path_unparseable == 0
+    assert report.chart_input_fields_warehouse_unknown_connection == 0
+    # No BFS type=table nodes in element lineage -> entity-level path not exercised here
+    assert report.chart_warehouse_upstream_emitted == 0
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
+
+    # Verify the actual schemaFieldUrn for dmFedElem01.customer_id
+    expected_warehouse_schema_field_urn = (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD),customer_id)"
+    )
+    dm_fed_chart_urn = f"urn:li:chart:(sigma,{_WH_CHART_DM_FED_ELEM_ID})"
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    input_fields_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == dm_fed_chart_urn
+        and mce.get("aspectName") == "inputFields"
+    ]
+    assert len(input_fields_aspects) == 1, (
+        f"expected 1 inputFields aspect for {dm_fed_chart_urn}"
+    )
+    fields = input_fields_aspects[0]["aspect"]["json"]["fields"]
+    schema_field_urns = [f["schemaFieldUrn"] for f in fields]
+    assert expected_warehouse_schema_field_urn in schema_field_urns, (
+        f"warehouse schemaFieldUrn not found. Got: {schema_field_urns}"
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_chart_warehouse_qualified.json",
+    )
+
+
+def _get_chart_bfs_warehouse_upstream_overrides() -> Dict[str, Dict]:
+    """Fixture for entity-level ChartInfo.inputs via BFS type=table node.
+
+    Topology:
+      Workbook _BFS_WORKBOOK_ID / page _BFS_PAGE_ID
+        bfsDirectElem01: per-element lineage BFS has a direct type=table upstream
+                         node inode-<_BFS_URL_ID> named "ORDERS". No SQL query.
+
+      Per-element lineage /lineage/elements/bfsDirectElem01:
+        type=table  inode-<_BFS_URL_ID>  name="ORDERS"
+
+      Workbook-level lineage /v2/workbooks/{id}/lineage:
+        type=table  ORDERS  inodeId=_BFS_INODE_ID  /files -> path="Connection Root/TESTDB/PUBLIC"
+
+      Expected:
+        chart_warehouse_upstream_emitted == 1
+        ChartInfo.inputs for bfsDirectElem01 contains snowflake dataset URN for testdb.public.orders
+    """
+    return {
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                        "name": "Test Org",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "Test Snowflake",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "host": "test-account.snowflakecomputing.com",
+                        "warehouse": "COMPUTE_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/dataModels": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": _BFS_WORKBOOK_ID,
+                        "workbookUrlId": "bfs-wb-url-id",
+                        "ownerId": "owner-bfs",
+                        "createdBy": "owner-bfs",
+                        "updatedBy": "owner-bfs",
+                        "createdAt": "2026-05-06T00:00:00.000Z",
+                        "updatedAt": "2026-05-06T00:00:00.000Z",
+                        "name": "BFS Test Workbook",
+                        "url": "https://app.sigmacomputing.com/test-org/workbook/bfs-wb-url-id",
+                        "path": "Test Org",
+                        "latestVersion": 1,
+                        "isArchived": False,
+                        "workspaceId": _BFS_WORKSPACE_ID,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": _BFS_WORKBOOK_ID,
+                        "urlId": "bfs-wb-url-id",
+                        "name": "BFS Test Workbook",
+                        "type": "workbook",
+                        "parentId": _BFS_WORKSPACE_ID,
+                        "parentUrlId": "bfs-ws-url-id",
+                        "permission": "edit",
+                        "path": "Test Org",
+                        "badge": None,
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [{"pageId": _BFS_PAGE_ID, "name": "BFS Page"}],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/pages/{_BFS_PAGE_ID}/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": _BFS_ELEM_ID,
+                        "type": "table",
+                        "name": "Direct BFS Element",
+                        "columns": [],
+                        "vizualizationType": "levelTable",
+                    },
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        # Per-element lineage: direct type=table upstream node.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage/elements/{_BFS_ELEM_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "dependencies": {
+                    "tgt_bfs": {
+                        "nodeId": "tgt_bfs",
+                        "elementId": _BFS_ELEM_ID,
+                        "name": "Direct BFS Element",
+                        "type": "sheet",
+                    },
+                    _BFS_TABLE_NODE_ID: {
+                        "nodeId": _BFS_TABLE_NODE_ID,
+                        "type": "table",
+                        "name": "ORDERS",
+                    },
+                },
+                "edges": [
+                    {
+                        "source": _BFS_TABLE_NODE_ID,
+                        "target": "tgt_bfs",
+                        "type": "source",
+                    }
+                ],
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/elements/{_BFS_ELEM_ID}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        # Workbook-level lineage: type=table ORDERS.
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{_BFS_WORKBOOK_ID}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": _BFS_CONN_ID,
+                        "name": "ORDERS",
+                        "type": "table",
+                        "inodeId": _BFS_INODE_ID,
+                    },
+                ]
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/files/{_BFS_INODE_ID}": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "id": _BFS_INODE_ID,
+                "urlId": _BFS_URL_ID,
+                "name": "ORDERS",
+                "type": "table",
+                "path": "Connection Root/TESTDB/PUBLIC",
+                "badge": None,
+                "isArchived": False,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_chart_bfs_warehouse_entity_upstream(
+    pytestconfig, tmp_path, requests_mock
+):
+    """Entity-level ChartInfo.inputs contains a warehouse Dataset URN when an
+    element's BFS graph has a direct type=table upstream node.
+
+    Assertions:
+      - chart_warehouse_upstream_emitted == 1
+      - ChartInfo.inputs for bfsDirectElem01 contains the snowflake Dataset URN
+    """
+    override_data = _get_chart_bfs_warehouse_upstream_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_chart_bfs_warehouse_upstream_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path,
+            ingest_data_models=False,
+            chart_sources_platform_mapping={},
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+
+    assert report.chart_warehouse_upstream_emitted == 1, (
+        f"expected 1 BFS warehouse upstream emitted; got {report.chart_warehouse_upstream_emitted}"
+    )
+    assert report.chart_warehouse_table_name_unmatched == 0
+    assert report.chart_warehouse_table_node_skipped == 0
+
+    expected_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,testdb.public.orders,PROD)"
+    )
+    bfs_chart_urn = f"urn:li:chart:(sigma,{_BFS_ELEM_ID})"
+    with open(output_path) as f:
+        mces = json.load(f)
+
+    chart_info_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == bfs_chart_urn
+        and mce.get("aspectName") == "chartInfo"
+    ]
+    assert len(chart_info_aspects) == 1, (
+        f"expected 1 chartInfo aspect for {bfs_chart_urn}"
+    )
+    inputs = chart_info_aspects[0]["aspect"]["json"].get("inputs", [])
+    input_urns = [inp.get("string") for inp in inputs]
+    assert expected_dataset_urn in input_urns, (
+        f"warehouse Dataset URN not in ChartInfo.inputs. Got: {input_urns}"
+    )
+
+
+def _get_warehouse_dm_fgl_overrides() -> Dict[str, Dict]:
+    """Extends the warehouse-upstream DM fixture with passthrough formula columns.
+
+    Three columns on element CUSTOMERS (byF6DckhFw):
+      - Customer Id  -> columnId=inode-<url_id>/CUSTOMER_ID  formula=[CUSTOMERS/Customer Id]
+      - Email        -> columnId=inode-<url_id>/EMAIL         formula=[CUSTOMERS/Email]
+      - First Name   -> columnId=inode-<url_id>/FIRST_NAME    formula=[CUSTOMERS/First Name]
+
+    All three resolve to warehouse schemaField URNs via columnId-based FGL resolution.
+    """
+    overrides = _get_warehouse_dm_overrides()
+    # Replace the columns endpoint with passthrough formula columns.
+    overrides[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "entries": [
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/CUSTOMER_ID",
+                    "name": "Customer Id",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Customer Id",
+                    "formula": "[CUSTOMERS/Customer Id]",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/EMAIL",
+                    "name": "Email",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "Email",
+                    "formula": "[CUSTOMERS/Email]",
+                    "type": {"type": "text"},
+                },
+                {
+                    "columnId": f"inode-{_WH_URL_ID}/FIRST_NAME",
+                    "name": "First Name",
+                    "elementId": _WH_ELEMENT_ID,
+                    "label": "First Name",
+                    "formula": "[CUSTOMERS/First Name]",
+                    "type": {"type": "text"},
+                },
+            ],
+            "total": 3,
+            "nextPage": None,
+        },
+    }
+    return overrides
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_dm_element_warehouse_fgl(
+    pytestconfig, tmp_path, requests_mock
+):
+    """DM element with warehouse-passthrough formula columns emits FineGrainedLineage.
+
+    Uses the warehouse-upstream DM fixture with columns updated to include
+    passthrough formulas like [CUSTOMERS/Email]. The columnId field encodes
+    the warehouse column identity (inode-<url_id>/<WAREHOUSE_COL>).
+
+    Assertions:
+      - 3 FineGrainedLineage entries on the DM-element child Dataset
+      - Upstream schemaField parent URN matches the entity-level warehouse URN
+      - warehouse_resolved == 3; warehouse_passthrough_deferred == 0
+      - No new entity-level Upstream entries (FGL-only)
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_fgl_overrides()
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_element_warehouse_fgl_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    # Warehouse-upstream counters must be clean.
+    assert report.dm_element_warehouse_upstream_emitted == 1
+    assert report.dm_element_warehouse_table_lookup_failed == 0
+    assert report.dm_element_warehouse_unknown_connection == 0
+    # Warehouse FGL counters.
+    assert report.data_model_element_fgl_warehouse_resolved == 3, (
+        f"expected 3 warehouse FGL resolved; got {report.data_model_element_fgl_warehouse_resolved}"
+    )
+    assert report.data_model_element_fgl_warehouse_passthrough_deferred == 0
+
+    expected_warehouse_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,"
+        "warehouse_coffee_company.public.customers,PROD)"
+    )
+    element_urn = (
+        f"urn:li:dataset:(urn:li:dataPlatform:sigma,{_WH_DM_ID}.{_WH_ELEMENT_ID},PROD)"
+    )
+    with open(output_path) as f:
+        mces = json.load(f)
+    ul_aspects = [
+        mce
+        for mce in mces
+        if mce.get("entityUrn") == element_urn
+        and mce.get("aspectName") == "upstreamLineage"
+    ]
+    assert len(ul_aspects) == 1
+    fgls = ul_aspects[0]["aspect"]["json"].get("fineGrainedLineages", [])
+    assert len(fgls) == 3, f"expected 3 FGL entries; got {len(fgls)}: {fgls}"
+    # Each FGL upstream must be a schemaField on the warehouse dataset.
+    for fgl in fgls:
+        for upstream in fgl.get("upstreams", []):
+            assert upstream.startswith(
+                f"urn:li:schemaField:({expected_warehouse_urn},"
+            ), f"unexpected upstream: {upstream}"
+    # Entity-level upstreams unchanged (1 warehouse table, no new entries).
+    upstreams = ul_aspects[0]["aspect"]["json"]["upstreams"]
+    assert len(upstreams) == 1
+    assert upstreams[0]["dataset"] == expected_warehouse_urn
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_element_warehouse_fgl.json",
+    )
+
+
+def _get_mock_workbook_customsql_api() -> Dict[str, Dict]:
+    """Mock a single workbook with one customSQL chart element (Snowflake, explicit SELECT)."""
+    wb_id = "wb-csql-test-0001"
+    ws_id = "cc000000-0000-0000-0000-000000000001"
+    element_id = "csql-chart-el-01"
+    csql_name = "AV5jCC4aQ3"
+    conn_id = "conn-sf-csql-wb"
+    return {
+        "https://aws-api.sigmacomputing.com/v2/connections": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "connectionId": conn_id,
+                        "name": "Test Snowflake",
+                        "type": "snowflake",
+                        "account": "test-account",
+                        "warehouse": "TEST_WH",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/workspaces?limit=50": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workspaceId": ws_id,
+                        "name": "Test Workspace",
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-01T00:00:00.000Z",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=dataset": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=workbook": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "id": wb_id,
+                        "urlId": "csql-wb-urlid",
+                        "name": "CustomSQL Workbook",
+                        "type": "workbook",
+                        "parentId": ws_id,
+                        "parentUrlId": "test-ws-urlid",
+                        "permission": "edit",
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "isArchived": False,
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        "https://aws-api.sigmacomputing.com/v2/files?typeFilters=data-model": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/datasets": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {"entries": [], "total": 0, "nextPage": None},
+        },
+        "https://aws-api.sigmacomputing.com/v2/workbooks": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "workbookId": wb_id,
+                        "ownerId": "test-user",
+                        "name": "CustomSQL Workbook",
+                        "latestVersion": 1,
+                        "workspaceId": ws_id,
+                        "path": "Test Workspace",
+                        "badge": None,
+                        "createdBy": "test-user",
+                        "updatedBy": "test-user",
+                        "createdAt": "2024-01-01T00:00:00.000Z",
+                        "updatedAt": "2024-01-02T00:00:00.000Z",
+                        "url": f"https://app.sigmacomputing.com/workbook/{wb_id}",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/pages": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "pageId": "pg-csql-01",
+                        "name": "Page 1",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/pages/pg-csql-01/elements": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "elementId": element_id,
+                        "type": "visualization",
+                        "name": "Custom SQL Chart",
+                        "columns": ["order_id", "amount"],
+                        "vizualizationType": "bar",
+                        "url": f"https://app.sigmacomputing.com/element/{element_id}",
+                    }
+                ],
+                "total": 1,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/columns": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "columnId": "col-order-id",
+                        "elementId": element_id,
+                        "name": "order_id",
+                        "label": "order_id",
+                        "formula": "[Custom SQL Chart/order_id]",
+                    },
+                    {
+                        "columnId": "col-amount",
+                        "elementId": element_id,
+                        "name": "amount",
+                        "label": "amount",
+                        "formula": "[Custom SQL Chart/amount]",
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/lineage/elements/{element_id}": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/elements/{element_id}/query": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        },
+        f"https://aws-api.sigmacomputing.com/v2/workbooks/{wb_id}/lineage": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "entries": [
+                    {
+                        "name": csql_name,
+                        "type": "customSQL",
+                        "connectionId": conn_id,
+                        "definition": (
+                            "SELECT ORDER_ID, AMOUNT FROM TEST_DB.TEST_SCHEMA.ORDERS"
+                        ),
+                    },
+                    {
+                        "elementId": element_id,
+                        "type": "element",
+                        "sourceIds": [csql_name],
+                        "dataSourceIds": [csql_name],
+                    },
+                ],
+                "total": 2,
+                "nextPage": None,
+            },
+        },
+    }
+
+
+@pytest.mark.integration
+def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
+    """Workbook customSQL chart: UpstreamLineage + FGL emitted via SqlParsingAggregator."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data=_get_mock_workbook_customsql_api(),
+    )
+
+    output_path = f"{tmp_path}/sigma_workbook_customsql_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(
+            output_path, ingest_data_models=False, extract_lineage=True
+        )
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.workbook_customsql_aggregator_invocations >= 1
+    assert report.workbook_customsql_upstream_emitted >= 1
+    assert report.dm_customsql_aggregator_invocations == 0
+    assert report.dm_customsql_upstream_emitted == 0
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_ingest_workbook_customsql.json",
     )

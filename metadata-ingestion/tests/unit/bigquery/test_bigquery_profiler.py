@@ -1,6 +1,13 @@
 from datetime import datetime, timezone
+from unittest.mock import MagicMock, patch
+
+import pytest
+from google.cloud import bigquery
 
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
+from datahub.ingestion.source.bigquery_v2.bigquery_connection import (
+    BigQueryConnectionConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
@@ -210,3 +217,71 @@ def test_generate_sharded_table_profiler_query():
 
     assert query[0] == "20200101"
     assert query[1] is None
+
+
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+)
+@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+def test_profiler_engine_uses_user_supplied_client_when_credential_set(
+    mock_create_engine, mock_from_sa_info
+):
+    """When a credential block is provided, the profiler engine must pass the
+    prebuilt bigquery.Client via connect_args and flag the URL with
+    user_supplied_client=true. This is what keeps the SQLAlchemy dialect from
+    falling back to google.auth.default() and reading
+    GOOGLE_APPLICATION_CREDENTIALS.
+    """
+    # Intercept create_engine so we can inspect what was passed without
+    # actually opening a BigQuery connection.
+    mock_create_engine.side_effect = RuntimeError("intercepted")
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "test-project",
+            "credential": {
+                "project_id": "test-project",
+                "private_key_id": "test-private-key",
+                "private_key": "random_private_key",
+                "client_email": "test@acryl.io",
+                "client_id": "test_client-id",
+            },
+        }
+    )
+    fake_client = MagicMock(spec=bigquery.Client)
+    fake_client.project = "test-project"
+
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    with (
+        patch.object(
+            BigQueryConnectionConfig, "get_bigquery_client", return_value=fake_client
+        ),
+        pytest.raises(RuntimeError, match="intercepted"),
+    ):
+        profiler.get_profiler_instance("test-project")
+
+    args, kwargs = mock_create_engine.call_args
+    url = args[0]
+    assert "user_supplied_client=true" in url
+    assert kwargs["connect_args"]["client"] is fake_client
+
+
+@patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
+def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine):
+    """When NO credential block is provided, the user opted into Application
+    Default Credentials (Workload Identity, gcloud, GOOGLE_APPLICATION_CREDENTIALS).
+    The profiler must NOT inject user_supplied_client in that case — the
+    dialect's normal credential lookup has to run unchanged.
+    """
+    mock_create_engine.side_effect = RuntimeError("intercepted")
+
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+
+    with pytest.raises(RuntimeError, match="intercepted"):
+        profiler.get_profiler_instance("test-project")
+
+    args, kwargs = mock_create_engine.call_args
+    url = args[0]
+    assert "user_supplied_client" not in url
+    assert kwargs["connect_args"] == {}

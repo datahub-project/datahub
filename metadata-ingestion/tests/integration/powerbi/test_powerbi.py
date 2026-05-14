@@ -995,6 +995,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         id="64ED5CAD-7C10-4684-8180-826122881108",
         name="demo-workspace",
         type="Workspace",
+        webUrl="https://app.powerbi.com/groups/64ed5cad-7c10-4684-8180-826122881108",
         datasets={},
         dashboards={},
         reports={},
@@ -1246,6 +1247,8 @@ def test_independent_datasets_extraction(
                             "datasets": [
                                 {
                                     "id": "91580e0e-1680-4b1c-bbf9-4f6764d7a5ff",
+                                    "name": "employee-dataset",
+                                    "description": "Employee Management",
                                     "tables": [
                                         {
                                             "name": "employee_ctc",
@@ -1449,6 +1452,16 @@ def test_powerbi_cross_workspace_reference_info_message(
     pipeline.run()
     pipeline.raise_from_status()
 
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    golden_file = "golden_test_cross_workspace_dataset.json"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
     assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
 
     info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
@@ -1464,16 +1477,6 @@ def test_powerbi_cross_workspace_reference_info_message(
 
     assert is_entry_present, (
         'Info message "Missing Dataset Lineage For Tile" should be present in reporter'
-    )
-
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
-
-    golden_file = "golden_test_cross_workspace_dataset.json"
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=f"{tmp_path}/powerbi_mces.json",
-        golden_path=f"{test_resources_dir}/{golden_file}",
     )
 
 
@@ -1664,7 +1667,7 @@ def test_powerbi_gcc_environment(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_ingest.json"
+    golden_file = "golden_test_ingest_gcc.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

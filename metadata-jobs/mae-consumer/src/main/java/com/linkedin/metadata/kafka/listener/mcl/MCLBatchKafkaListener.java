@@ -133,10 +133,7 @@ public class MCLBatchKafkaListener
             });
   }
 
-  /**
-   * Process a batch of Kafka consumer records for better performance. This method overrides the
-   * individual processing to handle batches.
-   */
+  @Override
   public void consumeBatch(
       @Nonnull final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     List<MetadataChangeLog> allMCLs = new ArrayList<>(consumerRecords.size());

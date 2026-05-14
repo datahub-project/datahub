@@ -214,7 +214,7 @@ class TestBigQueryServiceAccountCredentialSetup:
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
     )
-    def test_service_account_builds_explicit_credentials_and_temp_file(
+    def test_service_account_builds_explicit_credentials_in_memory(
         self, mock_from_info: MagicMock
     ) -> None:
         fake_creds = MagicMock()
@@ -224,9 +224,9 @@ class TestBigQueryServiceAccountCredentialSetup:
 
         assert config.auth_type == BigQueryAuthType.SERVICE_ACCOUNT
         assert config._credentials is fake_creds
-        assert config._credentials_path is not None
-        assert os.path.exists(config._credentials_path)
-        assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == config._credentials_path
+        # SA path keeps credentials only in memory — no temp file, no env var.
+        assert config._credentials_path is None
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
 
         # Verify the explicit credentials were built from the SA info
         # (concurrent-config thread safety relies on this).

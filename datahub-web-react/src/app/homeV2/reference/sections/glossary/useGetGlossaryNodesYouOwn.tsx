@@ -18,7 +18,6 @@ export const useGetGlossaryNodesYouOwn = (user?: CorpUser | null, count = MAX_AS
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
-                        value: user?.urn,
                         values: [user?.urn as string],
                     },
                 ],

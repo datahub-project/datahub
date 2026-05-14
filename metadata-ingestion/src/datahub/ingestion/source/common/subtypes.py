@@ -40,6 +40,7 @@ class DatasetSubTypes(StrEnum):
     PROJECTIONS = "Projections"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
 
@@ -72,6 +73,9 @@ class DatasetContainerSubTypes(StrEnum):
     NAMESPACE = "Namespace"  # Iceberg
     DREMIO_SPACE = "Dremio Space"
     DREMIO_SOURCE = "Dremio Source"
+    # Matillion
+    MATILLION_PROJECT = "Project"
+    MATILLION_ENVIRONMENT = "Environment"
     # Microsoft Fabric
     FABRIC_LAKEHOUSE = "Fabric Lakehouse"
     FABRIC_WAREHOUSE = "Fabric Warehouse"
@@ -103,9 +107,11 @@ class BIContainerSubTypes(StrEnum):
 
 
 class FlowContainerSubTypes(StrEnum):
+    GLUE_JOB = "Job"
     MSSQL_JOB = "Job"
     PROCEDURE_CONTAINER = "Procedures Container"
     ADF_DATA_FACTORY = "Data Factory"
+    MATILLION_PIPELINE = "Pipeline"
     SNOWFLAKE_TASK_GROUP = "Snowflake Task Group"
     SNOWFLAKE_PIPE_GROUP = "Snowflake Pipe Group"
 
@@ -114,6 +120,7 @@ class JobContainerSubTypes(StrEnum):
     NIFI_PROCESS_GROUP = "Process Group"
     MSSQL_JOBSTEP = "Job Step"
     STORED_PROCEDURE = "Stored Procedure"
+    MATILLION_COMPONENT = "Component"
     FUNCTION = "Function"
 
 
@@ -169,6 +176,11 @@ class MLAssetSubTypes(StrEnum):
     VERTEX_PIPELINE_TASK_RUN = "Task Run"
 
     FOLDER = "Folder"
+
+
+class DataFlowSubTypes(StrEnum):
+    # dlt
+    DLT_PIPELINE = "dlt Pipeline"
 
 
 class DataJobSubTypes(StrEnum):
@@ -230,6 +242,9 @@ class DataJobSubTypes(StrEnum):
     SNOWFLAKE_TASK = "Snowflake Task"
     SNOWFLAKE_PIPE = "Snowflake Pipe"
 
+    # dlt
+    DLT_RESOURCE = "dlt Resource"
+
 
 def create_source_capability_modifier_enum():
     all_values: Dict[str, Any] = {}
@@ -242,6 +257,7 @@ def create_source_capability_modifier_enum():
         JobContainerSubTypes,
         BIAssetSubTypes,
         MLAssetSubTypes,
+        DataFlowSubTypes,
         DataJobSubTypes,
     ]
 

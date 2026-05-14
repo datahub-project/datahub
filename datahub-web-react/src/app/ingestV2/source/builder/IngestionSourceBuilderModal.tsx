@@ -160,7 +160,14 @@ export const IngestionSourceBuilderModal = ({
     const StepComponent: React.FC<StepProps> = IngestionSourceBuilderStepComponent[currentStep];
 
     return (
-        <Modal width="64%" title={titleText} open={open} onCancel={onCancel} buttons={[]}>
+        <Modal
+            width="64%"
+            title={titleText}
+            open={open}
+            onCancel={onCancel}
+            buttons={[]}
+            dataTestId={isEditing ? 'edit-data-source-modal' : 'connect-data-source-modal'}
+        >
             <Spin spinning={loading} indicator={<LoadingOutlined />}>
                 {currentStepIndex > 0 ? (
                     <StepsContainer>

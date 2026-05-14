@@ -32,12 +32,11 @@ type Props = {
 };
 
 const DEFAULT_FETCH_COUNT = 25;
-const DEFAULT_VISIBLE_COUNT = 3;
+const INITIAL_VISIBLE_COUNT = 3;
 
 export const AssertionResultsTable = ({ assertion }: Props) => {
     const theme = useTheme();
-    const [count, setCount] = useState(DEFAULT_FETCH_COUNT);
-    const [visible, setVisible] = useState(DEFAULT_VISIBLE_COUNT);
+    const [count, setCount] = useState(INITIAL_VISIBLE_COUNT);
     const { data, loading } = useGetAssertionRunsQuery({
         variables: {
             assertionUrn: assertion.urn,
@@ -45,9 +44,9 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
         },
         fetchPolicy: 'cache-first',
     });
-    const visibleRuns = data?.assertion?.runEvents?.runEvents?.slice(0, visible) || [];
+    const visibleRuns = data?.assertion?.runEvents?.runEvents || [];
     const total = data?.assertion?.runEvents?.total || 0;
-    const showMore = visible < total;
+    const showMore = count < total;
 
     const timelineItems = visibleRuns.map((run) => {
         return {
@@ -62,27 +61,24 @@ export const AssertionResultsTable = ({ assertion }: Props) => {
         };
     });
 
-    if (visibleRuns.length === 0) {
-        return <NoResultsSummary />;
-    }
-
     return (
         <Container>
             <StyledTimeline>
-                {(loading && <AssertionResultsLoadingItems />) ||
+                {loading ? (
+                    <AssertionResultsLoadingItems />
+                ) : (
                     timelineItems.map((item) => (
                         <Timeline.Item key={item.key} dot={item.dot} color={item.color}>
                             {item.children}
                         </Timeline.Item>
-                    ))}
+                    ))
+                )}
             </StyledTimeline>
+            {!loading && visibleRuns.length === 0 && <NoResultsSummary />}
             {showMore && (
                 <ShowMoreButton
                     onClick={() => {
-                        if (visible + DEFAULT_VISIBLE_COUNT > count) {
-                            setCount(count + DEFAULT_FETCH_COUNT);
-                        }
-                        setVisible(visible + DEFAULT_VISIBLE_COUNT);
+                        setCount((currentCount) => currentCount + DEFAULT_FETCH_COUNT);
                     }}
                 >
                     Show more

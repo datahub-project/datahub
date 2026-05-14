@@ -30,6 +30,7 @@ export const AdvancedSearchAddFilterSelect = ({ selectedFilters, onFilterFieldSe
 
     return (
         <Select
+            data-testid="adv-search-add-filter-select"
             value={{
                 value: 'value',
                 label: (

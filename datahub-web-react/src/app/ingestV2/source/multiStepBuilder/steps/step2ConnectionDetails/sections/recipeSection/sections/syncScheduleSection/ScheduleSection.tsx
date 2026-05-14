@@ -105,7 +105,7 @@ export function ScheduleSection() {
     }, [state]);
 
     return (
-        <SectionContainer>
+        <SectionContainer data-testid="sync-schedule-section">
             <SectionName name="Sync Schedule" description={subtitle} />
             <SwitchLabel>
                 <Text size="sm" weight="bold" color="gray" colorLevel={600}>

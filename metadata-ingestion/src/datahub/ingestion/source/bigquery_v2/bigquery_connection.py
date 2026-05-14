@@ -116,20 +116,12 @@ class BigQueryConnectionConfig(GCPWIFConfig):
 
     def _setup_service_account_credentials(self) -> None:
         assert self.credential is not None
-        self._credentials_path = self.credential.create_credential_temp_file()
-        logger.debug(f"Created temporary credential file at {self._credentials_path}")
-        # Build explicit credentials for thread-safe client creation BEFORE
-        # setting the env var.  If from_service_account_info raises (e.g. malformed
-        # key), the env var must not be left pointing at a leaked temp file.
-        # In Observe/assertions, multiple BigQuery connections with different
-        # service accounts run concurrently in the same process. Without
-        # explicit credentials, concurrent configs overwrite the shared env
-        # var, causing clients to authenticate with the wrong service account.
+        # Keep credentials only in memory. SQLAlchemy callers pass the explicit
+        # bigquery.Client via connect_args (see profiler.py), so the
+        # GOOGLE_APPLICATION_CREDENTIALS env var no longer needs to be set.
         self._credentials = service_account.Credentials.from_service_account_info(
             self.credential.to_dict()
         )
-        # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def _setup_wif_credentials(self) -> None:
         # Resolve the WIF config dict once.  We reuse it for both credential
@@ -146,12 +138,11 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         # dialect) can pick it up. google-auth auto-detects external_account
         # credentials from the JSON file.
         #
-        # Caveat: like the service-account path, this env var is process-wide.
-        # Concurrent BigQuery configs with different WIF identities will
-        # trample each other for SQLAlchemy callers (the explicit `_credentials`
-        # object handles this for direct GCP client calls). This temp file is also
-        # never explicitly deleted (same issue as the SA path). Track at:
-        # https://linear.app/acryl-data/issue/ING-2376
+        # Caveat: this env var is process-wide. Concurrent BigQuery configs
+        # with different WIF identities will trample each other for SQLAlchemy
+        # callers (the explicit `_credentials` object handles this for direct
+        # GCP client calls). This temp file is also never explicitly deleted.
+        # Track at: https://linear.app/acryl-data/issue/ING-2376
         with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
             json.dump(wif_dict, fp)
             self._credentials_path = fp.name

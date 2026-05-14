@@ -10,3 +10,5 @@ include:
   - docker-compose.frontend.yml
   # Remaining components: i.e. gms, system-update, consumers
   - docker-compose.gms.yml
+  # Optional: Ollama local embedding server (quickstart-ai / debug-ai profiles)
+  - docker-compose.ollama.yml

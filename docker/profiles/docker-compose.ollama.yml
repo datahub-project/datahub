@@ -1,0 +1,76 @@
+---
+# Optional Ollama service for local/OSS embedding generation.
+#
+# Activate with the "quickstart-ai" or "debug-ai" profile:
+#   docker compose --profile quickstart-ai -f docker-compose.yml up -d
+#
+# Or set EMBEDDING_PROVIDER_TYPE=local and point LOCAL_EMBEDDING_ENDPOINT
+# at any running OpenAI-compatible embeddings server.
+
+x-ollama-quickstart-profiles: &ollama-quickstart-profiles
+  - quickstart-ai
+  - debug-ai
+
+services:
+  # Ollama inference server — serves the OpenAI-compatible /v1/embeddings endpoint.
+  ollama:
+    image: ollama/ollama:latest
+    profiles: *ollama-quickstart-profiles
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      # Keep the loaded model in memory between requests (24h window).
+      OLLAMA_KEEP_ALIVE: "24h"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # One-shot init container that pulls the embedding model and warms it up.
+  # The warmup request loads the GGUF into memory so the first real search query
+  # is not delayed by cold-model loading.  Runs once and exits.
+  ollama-model-init:
+    image: ollama/ollama:latest
+    profiles: *ollama-quickstart-profiles
+    restart: "no"
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        MODEL="${LOCAL_EMBEDDING_MODEL:-nomic-embed-text}"
+        echo "Pulling model: $$MODEL"
+        ollama pull "$$MODEL"
+        echo "Warming up model: $$MODEL"
+        curl -sf -X POST http://ollama:11434/v1/embeddings \
+          -H 'Content-Type: application/json' \
+          -d "{\"model\":\"$$MODEL\",\"input\":\"DataHub semantic search warmup\"}" \
+          > /dev/null
+        echo "Model $$MODEL is ready"
+    volumes:
+      - ollama_data:/root/.ollama
+
+# When the debug-ai profile is active, tell GMS to use the local Ollama provider.
+# GMS reads DATAHUB_LOCAL_COMMON_ENV as an env_file, so setting these vars here
+# (via docker compose profile-scoped service override) is the cleanest approach.
+# However, since docker compose doesn't support profile-scoped env overrides for
+# another service, datahub-dev start --ai writes these to the managed env file
+# instead (see scripts/dev/datahub_dev.py).  The definitions below serve as
+# documentation of the required vars and their values.
+#
+# Required for GMS when running with debug-ai profile:
+#   EMBEDDING_PROVIDER_TYPE=local
+#   ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED=true
+#   LOCAL_EMBEDDING_ENDPOINT=http://ollama:11434/v1/embeddings
+#   LOCAL_EMBEDDING_MODEL=nomic-embed-text
+
+volumes:
+  ollama_data:
