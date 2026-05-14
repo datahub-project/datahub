@@ -2102,37 +2102,57 @@ class MongoSourceConnector(BaseConnector):
         source_platform = parser.source_platform
         topic_prefix = parser.topic_prefix or ""
 
-        # Escape topic_prefix to handle cases where it contains dots
-        # Some users configure topic.prefix like "my.mongodb" which breaks the regex
-
-        # \w is equivalent to [a-zA-Z0-9_]
-        # So [\w-]+ matches alphanumeric characters, underscores, and hyphens
-        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.([\w-]+)\.([\w-]+)"
+        # Pattern: {topic_prefix}.{database}.{collection}
+        #
+        # MongoDB database names cannot contain dots, so the database group is restricted
+        # to [\w-]+ (alphanumeric, underscore, hyphen). Collection names *can* contain
+        # dots, so the collection group also allows them via [\w.-]+.
+        #
+        # We use fullmatch so that topics rewritten by SMTs (e.g. RegexRouter, TimestampRouter)
+        # into a different shape are surfaced via report.warning rather than silently
+        # mapped to a wrong source dataset.
+        topic_naming_pattern = rf"{re.escape(topic_prefix)}\.([\w-]+)\.([\w.-]+)"
+        pattern = re.compile(topic_naming_pattern)
 
         if not self.connector_manifest.topic_names:
             return lineages
 
         for topic in self.connector_manifest.topic_names:
-            found = re.search(re.compile(topic_naming_pattern), topic)
+            found = pattern.fullmatch(topic)
 
-            if found:
-                table_name = get_dataset_name(found.group(1), found.group(2))
-
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=table_name,
-                    source_platform=source_platform,
-                    target_dataset=topic,
-                    target_platform=KAFKA,
+            if not found:
+                self.report.warning(
+                    title="Mongo topic did not match expected pattern; lineage skipped",
+                    message=(
+                        "Topic does not match the canonical MongoDB Kafka source format "
+                        "'{topic.prefix}.{database}.{collection}'. This usually means an SMT "
+                        "(e.g. RegexRouter, TimestampRouter) has rewritten the topic name. "
+                        "No DataHub lineage will be emitted for this topic."
+                    ),
+                    context=(
+                        f"connector={self.connector_manifest.name}, topic={topic}, "
+                        f"expected_pattern={topic_naming_pattern}"
+                    ),
                 )
+                continue
 
-                lineage = KafkaConnectLineage(
-                    source_dataset=table_name,
-                    source_platform=source_platform,
-                    target_dataset=topic,
-                    target_platform=KAFKA,
-                    fine_grained_lineages=fine_grained,
-                )
-                lineages.append(lineage)
+            table_name = get_dataset_name(found.group(1), found.group(2))
+
+            fine_grained = self._extract_fine_grained_lineage(
+                source_dataset=table_name,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+            )
+
+            lineage = KafkaConnectLineage(
+                source_dataset=table_name,
+                source_platform=source_platform,
+                target_dataset=topic,
+                target_platform=KAFKA,
+                fine_grained_lineages=fine_grained,
+            )
+            lineages.append(lineage)
         return lineages
 
     def get_platform(self) -> str:

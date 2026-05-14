@@ -939,6 +939,66 @@ class TestMongoSourceConnector:
         assert len(lineages) == 2
         assert all(lin.fine_grained_lineages is None for lin in lineages)
 
+    def test_mongo_source_dotted_collection_name(self) -> None:
+        """MongoDB collection names may contain dots; the connector should preserve them."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo",
+        }
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=["prod.mongo.mydb.parent.child"],
+        )
+        config = create_mock_kafka_connect_config()
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = MongoSourceConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        # Database is "mydb" (no dots allowed) and collection is "parent.child" (dots ok).
+        assert lineages[0].source_dataset == "mydb.parent.child"
+        assert lineages[0].target_dataset == "prod.mongo.mydb.parent.child"
+
+    def test_mongo_source_unmatched_topic_emits_warning(self) -> None:
+        """Topics that do not match the canonical pattern should be skipped with a report warning."""
+        connector_config: Dict[str, str] = {
+            "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+            "topic.prefix": "prod.mongo",
+        }
+
+        # Simulate an SMT-rewritten topic (dots replaced with underscores) plus one valid topic.
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config=connector_config,
+            tasks=[],
+            topic_names=[
+                "prod.mongo.mydb.users",
+                "prod_mongo_mydb_users",
+            ],
+        )
+        config = create_mock_kafka_connect_config()
+        report = KafkaConnectSourceReport()
+
+        connector = MongoSourceConnector(manifest, config, report)
+        lineages = connector.extract_lineages()
+
+        # Only the canonical topic produces a lineage entry.
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+
+        # The rewritten topic is surfaced via report.warning instead of being silently dropped.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert any("prod_mongo_mydb_users" in ctx for ctx in warnings[0].context), (
+            f"Expected warning mentioning the unmatched topic, got: {warnings[0].context}"
+        )
+
 
 class TestConfluentCloudConnectors:
     """Test Confluent Cloud connector compatibility with Platform connectors."""
