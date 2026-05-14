@@ -218,7 +218,9 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     }
                     style={{ marginBottom: 16 }}
                 >
-                    <Typography.Paragraph>Give this data source a name</Typography.Paragraph>
+                    <Typography.Paragraph data-testid="give-source-name-heading">
+                        Give this data source a name
+                    </Typography.Paragraph>
                     <Input
                         data-testid="source-name-input"
                         className="source-name-input"
@@ -245,7 +247,14 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                 </Form.Item>
 
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
+                    <Collapse.Panel
+                        header={
+                            <Typography.Text type="secondary" data-testid="advanced-settings-header">
+                                Advanced
+                            </Typography.Text>
+                        }
+                        key="1"
+                    >
                         {/* NOTE: Executor ID is OSS-only, used by actions pod */}
                         <Form.Item label={<Typography.Text strong>Executor ID</Typography.Text>}>
                             <Typography.Paragraph>
