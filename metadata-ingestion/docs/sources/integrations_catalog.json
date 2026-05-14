@@ -863,11 +863,10 @@
     "description": "Enterprise data integration and management platform for ETL, data quality, and master data management.",
     "img_path": "img/logos/platforms/informatica.svg"
   },
-  "matillion": {
-    "api_connector": true,
+  "matillion-dpc": {
     "platform_type": "ETL/ELT",
     "title": "Matillion",
-    "description": "Cloud-native data integration platform for building ELT pipelines into cloud data warehouses.",
+    "description": "Import pipelines, streaming pipelines, projects, environments, and table/column-level lineage from Matillion Data Productivity Cloud.",
     "img_path": "img/logos/platforms/matillion.svg"
   },
   "microsoft-fabric": {
