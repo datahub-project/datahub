@@ -154,8 +154,8 @@
         "name": "timescaledb",
         "displayName": "TimescaleDB",
         "description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
-        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb",
-        "recipe": "source:\n  type: timescaledb\n  config:\n    host_port: localhost:5432\n    database: timescaledb\n    username: datahub_user\n    password: \"${TIMESCALEDB_PASSWORD}\"\n\n    include_tables: true\n    include_views: true\n    \n    profiling:\n      enabled: true\n      profile_table_level_only: true\n    stateful_ingestion:\n      enabled: true",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb/",
+        "recipe": "source: \n    type: timescaledb\n    config:\n        # Coordinates\n        host_port: # Your TimescaleDB host and port, e.g. timescaledb:5432\n        database: # Your TimescaleDB Database, e.g. tsdb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your TimescaleDB username, e.g. datahub_user\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # (Optional) Emit TimescaleDB background jobs as DataJob entities\n        # include_background_jobs: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
