@@ -772,13 +772,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             self.source_config.extract_embed_urls
             and self.source_config.external_base_url
         ):
-            dashboard_extra_aspects.append(
-                EmbedClass(
-                    renderUrl=looker_dashboard.embed_url(
-                        self.source_config.external_base_url
-                    )
-                )
-            )
+            dashboard_extra_aspects.append(EmbedClass())
 
         # Input fields aspect
         # Populate input fields from all the dashboard elements

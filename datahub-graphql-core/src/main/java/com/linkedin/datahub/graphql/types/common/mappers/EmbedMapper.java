@@ -18,8 +18,6 @@ public class EmbedMapper implements ModelMapper<com.linkedin.common.Embed, Embed
   @Override
   public Embed apply(
       @Nullable QueryContext context, @Nonnull final com.linkedin.common.Embed input) {
-    final Embed result = new Embed();
-    result.setRenderUrl(input.getRenderUrl());
-    return result;
+    return new Embed();
   }
 }

@@ -23,7 +23,9 @@ record TagProperties {
   /**
    * Documentation of the tag
    */
-  @Searchable = {}
+  @Searchable = {
+    "fieldType": "TEXT"
+  }
   description: optional string
 
   /**

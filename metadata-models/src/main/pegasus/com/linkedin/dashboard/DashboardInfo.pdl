@@ -35,7 +35,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Detailed description about the dashboard
    */
   @Searchable = {
-    "fieldType": "TEXT",
+    "fieldType": "TEXT_PARTIAL",
     "hasValuesFieldName": "hasDescription",
     "searchTier": 2,
     "sanitizeRichText": true

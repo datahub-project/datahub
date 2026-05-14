@@ -993,9 +993,15 @@
           "searchTier" : 2
         }
       }
+    }, {
+      "name" : "displayName",
+      "type" : "string",
+      "doc" : "displayName about the association",
+      "optional" : true
     } ],
     "Aspect" : {
-      "name" : "globalTags"
+      "name" : "globalTags",
+      "schemaVersion" : 2
     }
   }, {
     "type" : "typeref",
@@ -5394,7 +5400,10 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business term.",
-                    "Searchable" : { }
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "searchTier" : 2
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",
@@ -5582,7 +5591,10 @@
                     "name" : "definition",
                     "type" : "string",
                     "doc" : "Definition of business node",
-                    "Searchable" : { }
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "searchTier" : 2
+                    }
                   }, {
                     "name" : "parentNode",
                     "type" : "com.linkedin.common.GlossaryNodeUrn",

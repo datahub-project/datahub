@@ -8,7 +8,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Embed;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
@@ -108,7 +107,5 @@ public class UpdateEmbedResolver implements DataFetcher<CompletableFuture<Boolea
    * @param input the updates to apply
    */
   private static void updateEmbed(
-      @Nonnull final Embed embed, @Nonnull final UpdateEmbedInput input) {
-    embed.setRenderUrl(input.getRenderUrl(), SetMode.IGNORE_NULL);
-  }
+      @Nonnull final Embed embed, @Nonnull final UpdateEmbedInput input) {}
 }

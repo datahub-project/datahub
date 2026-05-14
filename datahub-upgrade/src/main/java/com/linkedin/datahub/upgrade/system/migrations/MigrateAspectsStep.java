@@ -59,6 +59,14 @@ public class MigrateAspectsStep implements UpgradeStep {
 
   static final String STEP_ID_PREFIX = "migrate-aspects-";
 
+  // Only for testing
+  // Zero by default; set SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS to inject a
+  // deterministic race window between the pre-write URN log and ingestProposal — used by
+  // the ZDU integration test to guarantee concurrent client writes beat the sweep write.
+  private static final int PRE_WRITE_DELAY_MS =
+      Integer.parseInt(
+          System.getenv().getOrDefault("SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS", "0"));
+
   public static String stepId(@Nonnull String upgradeVersion) {
     return STEP_ID_PREFIX + upgradeVersion;
   }
@@ -200,6 +208,19 @@ public class MigrateAspectsStep implements UpgradeStep {
                           .collect(Collectors.toList());
 
                   if (!items.isEmpty()) {
+                    log.info(
+                        "{}: Processing batch URNs: {}",
+                        id(),
+                        items.stream()
+                            .map(i -> i.getUrn().toString())
+                            .collect(Collectors.joining(",")));
+                    if (PRE_WRITE_DELAY_MS > 0) {
+                      try {
+                        Thread.sleep(PRE_WRITE_DELAY_MS);
+                      } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                      }
+                    }
                     entityService.ingestProposal(
                         opContext,
                         AspectsBatchImpl.builder()
