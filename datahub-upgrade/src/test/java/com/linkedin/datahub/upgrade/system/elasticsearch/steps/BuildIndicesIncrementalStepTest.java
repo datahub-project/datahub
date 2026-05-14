@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -31,6 +32,7 @@ import com.linkedin.upgrade.DataHubUpgradeState;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -136,53 +138,42 @@ public class BuildIndicesIncrementalStepTest {
 
   @Test
   public void testNonExistingIndexIsCreated() throws Throwable {
-    // Fresh-install scenario: the index has never been created. exists()=false and
-    // requiresReindex()=false (there is no existing index to compare against). With the
-    // broadened getIndicesNeedingReindexOrBuild filter, this config MUST still be picked
-    // up so the index gets created on first boot.
+    // Fresh-install scenario: the index has never been created. The broadened
+    // getIndicesNeedingReindexOrBuild filter picks it up, and BuildIndicesIncrementalStep
+    // must delegate to buildIndex (which calls createIndex under the canonical name) rather
+    // than the incremental path — getSourceDocCount / getBackingIndices / validateAndSwapAlias
+    // all throw on a missing alias.
     ReindexConfig newIndexConfig = mockReindexConfig(INDEX_NAME, false);
     when(newIndexConfig.exists()).thenReturn(false);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(newIndexConfig));
-
-    // No backing indices since the index doesn't exist yet
-    when(indexBuilder.getBackingIndices(INDEX_NAME)).thenReturn(Set.of());
-
-    // buildIndexIncremental creates the next index from scratch — nothing to copy from,
-    // so the result is flagged skippedEmpty
-    IncrementalReindexResult createResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, 0L, Map.of());
-    when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION))).thenReturn(createResult);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
-    // Critical: the non-existing index must trigger buildIndexIncremental so the index is created
-    verify(indexBuilder).buildIndexIncremental(any(), eq(UPGRADE_VERSION));
-    // No source data to poll on a brand-new index
+    // Critical: the non-existing index must be created via buildIndex
+    verify(indexBuilder).buildIndex(newIndexConfig);
+    // None of the incremental-path operations should run — they all assume a pre-existing source
+    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
+    verify(indexBuilder, never()).getBackingIndices(anyString());
     verify(indexBuilder, never())
         .pollReindexCompletion(any(), any(), any(), anyInt(), anyMap(), anyString());
-    // Alias swap still happens so reads start hitting the new index with correct mappings
-    verify(indexBuilder).validateAndSwapAlias(eq(INDEX_NAME), eq(NEXT_INDEX_NAME));
+    verify(indexBuilder, never()).validateAndSwapAlias(anyString(), anyString());
   }
 
   @Test
-  public void testNonExistingIndexFailsWhenAliasSwapFails() throws Throwable {
-    // Non-existing index path must propagate an alias-swap failure as FAILED rather than
-    // silently succeeding — otherwise the next index would be created but never read from.
+  public void testNonExistingIndexBuildThrowsReturnsFailed() throws Throwable {
+    // If the fresh-create path fails (e.g. ES is down), the step must propagate FAILED
+    // rather than continue past and pretend the index is ready.
     ReindexConfig newIndexConfig = mockReindexConfig(INDEX_NAME, false);
     when(newIndexConfig.exists()).thenReturn(false);
     when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(newIndexConfig));
-    when(indexBuilder.getBackingIndices(INDEX_NAME)).thenReturn(Set.of());
-
-    IncrementalReindexResult createResult =
-        new IncrementalReindexResult(NEXT_INDEX_NAME, 1679000000000L, null, true, 2, 0L, Map.of());
-    when(indexBuilder.buildIndexIncremental(any(), eq(UPGRADE_VERSION))).thenReturn(createResult);
-    when(indexBuilder.validateAndSwapAlias(anyString(), anyString())).thenReturn(false);
+    doThrow(new IOException("ES unavailable")).when(indexBuilder).buildIndex(newIndexConfig);
 
     UpgradeStepResult result = step.executable().apply(upgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
-    verify(indexBuilder).buildIndexIncremental(any(), eq(UPGRADE_VERSION));
+    verify(indexBuilder).buildIndex(newIndexConfig);
+    verify(indexBuilder, never()).buildIndexIncremental(any(), anyString());
   }
 
   @Test
@@ -291,6 +282,9 @@ public class BuildIndicesIncrementalStepTest {
     ReindexConfig config = mock(ReindexConfig.class);
     when(config.name()).thenReturn(name);
     when(config.requiresReindex()).thenReturn(requiresReindex);
+    // Default to an existing index — the incremental path is the common case. Fresh-create
+    // tests override this to false.
+    when(config.exists()).thenReturn(true);
     when(config.isSettingsReindex()).thenReturn(false);
     when(config.isPureMappingsAddition()).thenReturn(false);
     when(config.requiresApplyMappings()).thenReturn(false);
