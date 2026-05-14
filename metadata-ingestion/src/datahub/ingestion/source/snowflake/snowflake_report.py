@@ -124,6 +124,7 @@ class SnowflakeV2Report(
     num_structured_property_templates_created: int = 0
 
     marketplace_listings_scanned: int = 0
+    marketplace_listings_filtered: int = 0
     marketplace_purchases_scanned: int = 0
     marketplace_usage_events_processed: int = 0
     marketplace_data_products_created: int = 0
@@ -194,6 +195,9 @@ class SnowflakeV2Report(
 
     def report_marketplace_listing_scanned(self) -> None:
         self.marketplace_listings_scanned += 1
+
+    def report_marketplace_listing_filtered(self) -> None:
+        self.marketplace_listings_filtered += 1
 
     def report_marketplace_purchase_scanned(self) -> None:
         self.marketplace_purchases_scanned += 1

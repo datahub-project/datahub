@@ -4,7 +4,7 @@ import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, TypedDict
 
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
@@ -65,6 +65,13 @@ from datahub.specific.aspect_helpers.institutional_memory import (
 )
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.dataproduct import DataProductPatchBuilder
+
+
+class _ListingEnrichmentResult(TypedDict):
+    owners: List[str]
+    external_url: Optional[str]
+    description: Optional[str]
+    documentation_links: List[str]
 
 
 class _ContainerPatcher(
@@ -262,7 +269,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
                     self._marketplace_listings[listing.listing_global_name] = listing
                     self.report.report_marketplace_listing_scanned()
                 else:
-                    self.report.report_dropped(listing.listing_global_name)
+                    self.report.report_marketplace_listing_filtered()
 
             logger.info(
                 f"Loaded {len(self._marketplace_listings)} marketplace listings"
@@ -459,11 +466,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
     def _enrich_listing_custom_properties(
         self, listing: SnowflakeMarketplaceListing, props: Dict[str, str]
-    ) -> Dict[str, Any]:
+    ) -> _ListingEnrichmentResult:
         """Best-effort enrichment via DESCRIBE AVAILABLE LISTING. Mutates
         ``props`` in place and returns owner hints, description, and
         documentation links pulled from the listing detail rows."""
-        result: Dict[str, Any] = {
+        result: _ListingEnrichmentResult = {
             "owners": [],
             "external_url": None,
             "description": None,
