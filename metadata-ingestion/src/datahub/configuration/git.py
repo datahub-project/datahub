@@ -124,6 +124,8 @@ class GitInfo(GitReference):
         if values.get("deploy_key") is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
+                deploy_key_file = pathlib.Path(deploy_key_file).expanduser()
+                values["deploy_key_file"] = str(deploy_key_file)
                 with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
                     values["deploy_key"] = deploy_key

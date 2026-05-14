@@ -59,6 +59,12 @@ class GitClone:
             git_ssh_cmd += (
                 " -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
             )
+        # Set SSH-level connect timeout to match the overall clone timeout so a
+        # blocked port or unreachable host fails at the same deadline.
+        # kill_after_timeout only kills the git subprocess; SSH (its child)
+        # can keep blocking independently without this option.
+        if timeout is not None:
+            git_ssh_cmd += f" -o ConnectTimeout={timeout}"
         logger.debug(f"ssh_command={git_ssh_cmd}")
 
         git_env = dict(GIT_SSH_COMMAND=git_ssh_cmd)
