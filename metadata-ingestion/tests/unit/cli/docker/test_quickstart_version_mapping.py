@@ -12,7 +12,7 @@ example_version_mapper = QuickstartVersionMappingConfig.model_validate(
             "default": {
                 "composefile_git_ref": "master",
                 "docker_tag": "head",
-                "mysql_tag": "8.2",
+                "mysql_tag": "8.4",
             },
             "v0.9.6": {
                 "composefile_git_ref": "v0.9.6.1",
@@ -22,17 +22,17 @@ example_version_mapper = QuickstartVersionMappingConfig.model_validate(
             "v2.0.0": {
                 "composefile_git_ref": "v2.0.1",
                 "docker_tag": "v2.0.0",
-                "mysql_tag": "8.2",
+                "mysql_tag": "8.4",
             },
             "v1.2.0": {
                 "composefile_git_ref": "v1.2.0",
                 "docker_tag": "v1.2.0",
-                "mysql_tag": "8.2",
+                "mysql_tag": "8.4",
             },
             "stable": {
                 "composefile_git_ref": "v1.2.1",
                 "docker_tag": "v1.2.1",
-                "mysql_tag": "8.2",
+                "mysql_tag": "8.4",
             },
         },
     }
@@ -44,7 +44,7 @@ def test_quickstart_version_config():
     expected = QuickstartExecutionPlan(
         docker_tag="v1.2.0",
         composefile_git_ref="v1.2.0",
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     assert execution_plan == expected
 
@@ -54,7 +54,7 @@ def test_quickstart_version_config_default():
     expected = QuickstartExecutionPlan(
         docker_tag="v2.0.0",
         composefile_git_ref="v2.0.1",
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     assert execution_plan == expected
 
@@ -62,7 +62,7 @@ def test_quickstart_version_config_default():
 def test_quickstart_version_config_stable():
     execution_plan = example_version_mapper.get_quickstart_execution_plan("stable")
     expected = QuickstartExecutionPlan(
-        docker_tag="v1.2.1", composefile_git_ref="v1.2.1", mysql_tag="8.2"
+        docker_tag="v1.2.1", composefile_git_ref="v1.2.1", mysql_tag="8.4"
     )
     assert execution_plan == expected
 
@@ -71,13 +71,13 @@ def test_quickstart_forced_stable():
     example_version_mapper.quickstart_version_map["default"] = QuickstartExecutionPlan(
         composefile_git_ref="v1.2.0",
         docker_tag="head",
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     execution_plan = example_version_mapper.get_quickstart_execution_plan(None)
     expected = QuickstartExecutionPlan(
         docker_tag="head",
         composefile_git_ref="v1.2.0",
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     assert execution_plan == expected
 
@@ -95,7 +95,7 @@ def test_quickstart_forced_not_a_version_tag():
     expected = QuickstartExecutionPlan(
         docker_tag="NOT A VERSION",
         composefile_git_ref="NOT A VERSION",
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     assert execution_plan == expected
 
@@ -118,7 +118,7 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
                 "v1.1.0": {
                     "composefile_git_ref": "v1.1.0",
                     "docker_tag": "v1.1.0",
-                    "mysql_tag": "8.2",
+                    "mysql_tag": "8.4",
                 },
             },
         }
@@ -128,6 +128,6 @@ def test_quickstart_version_older_than_v1_2_0_uses_commit_hash():
     expected = QuickstartExecutionPlan(
         docker_tag="v1.1.0",
         composefile_git_ref="21726bc3341490f4182b904626c793091ac95edd",  # This should be the commit hash from line 168
-        mysql_tag="8.2",
+        mysql_tag="8.4",
     )
     assert execution_plan == expected

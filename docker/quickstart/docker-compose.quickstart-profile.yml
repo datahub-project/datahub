@@ -287,7 +287,7 @@ services:
       interval: 2s
       retries: 5
       start_period: 20s
-    image: mysql:8.2
+    image: mysql:8.4
     networks:
       default: null
     ports:

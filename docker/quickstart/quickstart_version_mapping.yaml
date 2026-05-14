@@ -29,7 +29,7 @@ quickstart_version_map:
   default:
     composefile_git_ref: v1.5.0.3
     docker_tag: v1.5.0.3
-    mysql_tag: "8.2"
+    mysql_tag: "8.4"
   # default:  # Use this to pin default to a specific version.
   #   composefile_git_ref: fd1bd51541a132017a648f4a2f037eec8f70ba26 # v0.10.0 + quickstart compose file fixes
   #   docker_tag: v0.10.0
@@ -37,25 +37,25 @@ quickstart_version_map:
   head:
     composefile_git_ref: master
     docker_tag: head
-    mysql_tag: "8.2"
+    mysql_tag: "8.4"
 
   # Must be v1.4.0.3+ so datahub-upgrade runs SqlSetup when DATAHUB_SQL_SETUP_ENABLED=true.
   v1.4.0:
     composefile_git_ref: v1.4.0.3
     docker_tag: v1.4.0.3
-    mysql_tag: "8.2"
+    mysql_tag: "8.4"
 
   # Locked for previous-release testing (compatibility/regression). Default is v1.4.0.3+.
   v1.3.0:
     composefile_git_ref: v1.3.0.1
     docker_tag: v1.3.0.1
-    mysql_tag: "8.2"
+    mysql_tag: "8.4"
 
   # v0.13.0 we upgraded MySQL image for EOL
   v0.13.0:
     composefile_git_ref: master
     docker_tag: v0.13.0
-    mysql_tag: "8.2"
+    mysql_tag: "8.4"
 
   # v0.9.6 images contain security vulnerabilities
   v0.9.6:
