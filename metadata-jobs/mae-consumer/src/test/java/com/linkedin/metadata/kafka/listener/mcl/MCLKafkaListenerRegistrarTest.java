@@ -15,6 +15,7 @@ import com.linkedin.metadata.config.MetadataChangeLogConfig;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
+import com.linkedin.metadata.kafka.listener.BatchKafkaListenerEndpoint;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -160,16 +161,15 @@ public class MCLKafkaListenerRegistrarTest {
   }
 
   @Test
-  public void testCreateEndpointRegistersConsumeBatchMethodWhenBatchEnabled() {
+  public void testCreateEndpointReturnsBatchEndpointWhenBatchEnabled() {
     when(mockBatchConfig.isEnabled()).thenReturn(true);
 
     KafkaListenerEndpoint endpoint =
         registrar.createListenerEndpoint("test-consumer-group", List.of("topic1"), hooks);
 
     assertNotNull(endpoint);
-    assertTrue(endpoint instanceof MethodKafkaListenerEndpoint);
-    MethodKafkaListenerEndpoint<?, ?> methodEndpoint = (MethodKafkaListenerEndpoint<?, ?>) endpoint;
-    assertEquals(methodEndpoint.getMethod().getName(), "consumeBatch");
+    assertTrue(endpoint instanceof BatchKafkaListenerEndpoint);
+    assertTrue(endpoint.getBatchListener());
   }
 
   @Test
@@ -201,14 +201,15 @@ public class MCLKafkaListenerRegistrarTest {
   }
 
   @Test
-  public void testCreateEndpointBeanIsBatchListenerWhenBatchEnabled() {
+  public void testCreateEndpointIsBatchEndpointWhenBatchEnabled() {
     when(mockBatchConfig.isEnabled()).thenReturn(true);
 
     KafkaListenerEndpoint endpoint =
         registrar.createListenerEndpoint("test-consumer-group", List.of("topic1"), hooks);
 
-    MethodKafkaListenerEndpoint<?, ?> methodEndpoint = (MethodKafkaListenerEndpoint<?, ?>) endpoint;
-    assertTrue(methodEndpoint.getBean() instanceof MCLBatchKafkaListener);
+    assertTrue(endpoint instanceof BatchKafkaListenerEndpoint);
+    assertEquals(endpoint.getId(), "test-consumer-group");
+    assertEquals(endpoint.getGroupId(), "test-consumer-group");
   }
 
   @Test
@@ -243,8 +244,10 @@ public class MCLKafkaListenerRegistrarTest {
     KafkaListenerEndpoint endpoint =
         registrar.createListenerEndpoint("my-batch-group", List.of("topic-a", "topic-b"), hooks);
 
-    MethodKafkaListenerEndpoint<?, ?> methodEndpoint = (MethodKafkaListenerEndpoint<?, ?>) endpoint;
-    assertEquals(methodEndpoint.getId(), "my-batch-group");
-    assertEquals(methodEndpoint.getGroupId(), "my-batch-group");
+    assertTrue(endpoint instanceof BatchKafkaListenerEndpoint);
+    assertEquals(endpoint.getId(), "my-batch-group");
+    assertEquals(endpoint.getGroupId(), "my-batch-group");
+    assertTrue(endpoint.getTopics().contains("topic-a"));
+    assertTrue(endpoint.getTopics().contains("topic-b"));
   }
 }

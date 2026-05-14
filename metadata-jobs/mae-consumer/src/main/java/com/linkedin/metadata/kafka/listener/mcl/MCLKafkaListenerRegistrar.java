@@ -8,11 +8,11 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.metadata.kafka.listener.AbstractKafkaListenerRegistrar;
+import com.linkedin.metadata.kafka.listener.BatchKafkaListenerEndpoint;
 import com.linkedin.metadata.kafka.listener.GenericKafkaListener;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,8 +25,6 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.kafka.config.KafkaListenerContainerFactory;
 import org.springframework.kafka.config.KafkaListenerEndpoint;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.config.MethodKafkaListenerEndpoint;
-import org.springframework.messaging.handler.annotation.support.DefaultMessageHandlerMethodFactory;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -123,29 +121,13 @@ public class MCLKafkaListenerRegistrar
       return super.createListenerEndpoint(consumerGroupId, topics, groupHooks);
     }
 
-    MethodKafkaListenerEndpoint<String, GenericRecord> kafkaListenerEndpoint =
-        new MethodKafkaListenerEndpoint<>();
-    kafkaListenerEndpoint.setId(consumerGroupId);
-    kafkaListenerEndpoint.setGroupId(consumerGroupId);
-    kafkaListenerEndpoint.setAutoStartup(false);
-    kafkaListenerEndpoint.setTopics(topics.toArray(new String[0]));
-    kafkaListenerEndpoint.setMessageHandlerMethodFactory(new DefaultMessageHandlerMethodFactory());
-
     Map<String, Set<String>> aspectsToDrop = parseAspectsToDrop();
 
     GenericKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> listener =
         createListener(consumerGroupId, groupHooks, isFineGrainedLoggingEnabled(), aspectsToDrop);
 
-    kafkaListenerEndpoint.setBean(listener);
-
-    try {
-      Method batchConsumeMethod = MCLBatchKafkaListener.class.getMethod("consumeBatch", List.class);
-      kafkaListenerEndpoint.setMethod(batchConsumeMethod);
-    } catch (NoSuchMethodException e) {
-      throw new RuntimeException(e);
-    }
-
-    return kafkaListenerEndpoint;
+    return new BatchKafkaListenerEndpoint<>(
+        consumerGroupId, consumerGroupId, topics, listener::consumeBatch);
   }
 
   @Override
