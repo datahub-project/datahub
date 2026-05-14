@@ -63,15 +63,18 @@ jobs:
       - name: Build Playwright sharding matrix
         id: set-matrix
         run: |
-          shard_count=${{ steps.set-shard-count.outputs.shard_count }}
+          shard_count=$(( ${{ steps.set-shard-count.outputs.shard_count }} ))
           matrix=''
-          for ((i = 1; i <= shard_count; i++)); do
+          for i in $(seq 1 "$shard_count"); do
             if [[ -n "$matrix" ]]; then
               matrix="$matrix,"
             fi
             matrix="${matrix}{\"shard\":\"$i\",\"shard_count\":\"$shard_count\"}"
           done
-          echo "matrix={\"include\":[$matrix]}" >> "$GITHUB_OUTPUT"
+          matrix_json="{\"include\":[$matrix]}"
+          echo "matrix=$matrix_json" >> "$GITHUB_OUTPUT"
+          # Validate JSON before proceeding so fromJson() failures are caught early
+          echo "$matrix_json" | python3 -m json.tool > /dev/null
           {
             echo "## Playwright Test Matrix"
             echo ""
@@ -197,6 +200,8 @@ jobs:
           BASE_URL: "http://localhost:9002"
           # Tells playwright.config.ts to reuse the DataHub instance started by
           # run-quickstart.sh rather than launching via quickstartDebug.
+          # Safe in sharded CI: each shard runs on its own isolated VM with its
+          # own DataHub instance — no shared state between shards.
           PLAYWRIGHT_REUSE_SERVER: "1"
         run: |
           npx playwright test \
@@ -259,7 +264,7 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
+        if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
@@ -284,7 +289,8 @@ jobs:
           path: playwright-blob-reports
 
       - name: Install Playwright
-        run: npm install -g @playwright/test
+        # Pin to the version resolved by yarn.lock in the test shards so merge-reports is compatible.
+        run: npm install -g @playwright/test@1.59.1
 
       - name: Merge blob reports into unified HTML report
         run: |
@@ -292,6 +298,7 @@ jobs:
           # playwright-blob-reports/. Flatten all .zip files into a single dir so
           # `playwright merge-reports` can find them.
           mkdir -p playwright-blobs-flat
+          # Playwright blob filenames include the shard index, so cp overwrites are safe.
           find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
           if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
             npx playwright merge-reports --reporter html ./playwright-blobs-flat
