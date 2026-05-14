@@ -49,6 +49,11 @@ on:
         required: true
         type: boolean
         default: true
+      upload_trivy_to_github:
+        description: "Upload Trivy SARIF results to the GitHub Security tab"
+        required: true
+        type: boolean
+        default: false
       scan_artifact_retention_days:
         description: "Retention (days) for raw scan result artifacts."
         required: true
@@ -64,6 +69,7 @@ on:
 permissions:
   actions: write
   contents: read
+  security-events: write
 
 concurrency:
   group: security-scan-linear-${{ github.run_id }}
@@ -77,6 +83,7 @@ env:
   RESOLVED_SCAN_SEVERITY_LEVELS: ${{ github.event_name == 'workflow_run' && 'CRITICAL,HIGH' || github.event.inputs.scan_severity_levels }}
   RESOLVED_SCAN_WITH_TRIVY: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_trivy && 'true' || 'false') }}
   RESOLVED_SCAN_WITH_GRYPE: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_grype && 'true' || 'false') }}
+  RESOLVED_UPLOAD_TRIVY_TO_GITHUB: ${{ (github.event_name == 'workflow_run' && github.ref_name == 'master' && 'true') || (inputs.upload_trivy_to_github && 'true' || 'false') }}
   RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS: ${{ github.event_name == 'workflow_run' && '5' || github.event.inputs.scan_artifact_retention_days }}
 
 jobs:
@@ -551,6 +558,38 @@ jobs:
           path: scan-reports/trivy
           if-no-files-found: warn
           retention-days: ${{ env.RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS }}
+
+      - name: Generate Trivy SARIF reports
+        if: success() && env.RESOLVED_UPLOAD_TRIVY_TO_GITHUB == 'true'
+        env:
+          SCAN_SEVERITY_LEVELS: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
+          IMAGES_JSON: ${{ toJson(matrix.images) }}
+        run: |
+          set -euo pipefail
+          mkdir -p scan-reports/trivy-sarif
+          mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
+          for img in "${imgs[@]}"; do
+            [[ -z "${img}" ]] && continue
+            img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
+            trivy image \
+              --config trivy.yaml \
+              --ignore-unfixed \
+              --scanners vuln \
+              --pkg-types os,library \
+              --severity "${SCAN_SEVERITY_LEVELS}" \
+              --skip-db-update \
+              --skip-java-db-update \
+              --format sarif \
+              --output "scan-reports/trivy-sarif/trivy-${img_key}.sarif" \
+              "${img}" || true
+          done
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: success() && env.RESOLVED_UPLOAD_TRIVY_TO_GITHUB == 'true'
+        uses: github/codeql-action/upload-sarif@0e9f55954318745b37b7933c693bc093f7336125 # v4.35.1
+        with:
+          sarif_file: scan-reports/trivy-sarif
+          category: trivy-${{ matrix.label }}
 
   scan-grype:
     name: Grype (${{ matrix.label }})
