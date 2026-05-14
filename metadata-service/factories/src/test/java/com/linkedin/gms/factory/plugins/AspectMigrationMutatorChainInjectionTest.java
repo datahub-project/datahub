@@ -58,8 +58,10 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
 
   @Test
   public void testChain_withRegisteredMutator_populatesChainByAspect() {
+    // SpringStandardPluginConfiguration registers production mutators alongside
+    // the test mutator. Verify the test's ownership mutator is wired through the chain — not the
+    // overall map size, which depends on what other production beans are in scope.
     AspectMigrationMutatorChain chain = chain();
-    assertEquals(chain.getChainByAspect().size(), 1);
     assertTrue(chain.getChainByAspect().containsKey("ownership"));
     assertEquals(chain.getChainByAspect().get("ownership").size(), 1);
   }
@@ -69,10 +71,9 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
     // Concrete mutators must appear only as AspectMigrationMutator beans, never as standalone
     // MutationHook beans. AspectMigrationMutator does not extend MutationHook, so the type
     // system enforces this — the chain is the sole MutationHook in the migration system.
-    assertEquals(
-        context.getBeansOfType(AspectMigrationMutator.class).size(),
-        1,
-        "Exactly one AspectMigrationMutator bean expected");
+    assertFalse(
+        context.getBeansOfType(AspectMigrationMutator.class).isEmpty(),
+        "At least one AspectMigrationMutator bean expected");
     long migrationChainCount =
         context.getBeansOfType(MutationHook.class).values().stream()
             .filter(b -> b instanceof AspectMigrationMutatorChain)
