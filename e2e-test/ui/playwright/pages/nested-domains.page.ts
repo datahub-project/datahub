@@ -303,7 +303,8 @@ export class NestedDomainsPage extends BasePage {
   }
 
   async unsetDomainFromAsset(): Promise<void> {
-    const domainButton = this.page.locator('[class*="dropdown-trigger"], [role="button"]')
+    const domainButton = this.page
+      .locator('[class*="dropdown-trigger"], [role="button"]')
       .filter({ hasText: 'Domain' })
       .nth(0);
     try {

@@ -27,7 +27,7 @@ test.describe('Domains V2 Nested Domains', () => {
       await page.waitForLoadState('networkidle');
 
       const domainLink = domainsPage.getDomainOptionByName(domainName);
-      if (await domainLink.count() > 0) {
+      if ((await domainLink.count()) > 0) {
         try {
           await domainLink.click();
           await domainsPage.deleteDomain();
