@@ -299,7 +299,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                             className="delete-action"
                             onClick={() => setSecretUrnToDelete(record.urn)}
                             aria-label="Delete secret"
-                            data-test-id="delete-secret-action"
+                            data-testid="delete-secret-action"
                             data-icon="delete"
                         >
                             <Icon icon={Trash} color="red" />
@@ -343,6 +343,7 @@ export const SecretsList = ({ showCreateModal: isCreatingSecret, setShowCreateMo
                                 isScrollable
                                 style={{ tableLayout: 'fixed' }}
                                 isLoading={loading}
+                                rowDataTestId={(record) => `secret-row-${record.urn}`}
                             />
                         </TableContainer>
                         <Pagination
