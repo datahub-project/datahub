@@ -26,9 +26,9 @@ def test_emits_patch_not_upsert() -> None:
     )
     assert wus, "Expected at least one workunit"
     for wu in wus:
-        mcp = wu.get_metadata()
-        assert mcp["changeType"] == "PATCH", (
-            f"Expected PATCH but got {mcp['changeType']} — "
+        mcp = wu.get_metadata()["metadata"]
+        assert mcp.changeType == "PATCH", (
+            f"Expected PATCH but got {mcp.changeType} — "
             "add_structured_properties_to_entity_wu must not replace the whole aspect"
         )
 
@@ -45,7 +45,7 @@ def test_patch_targets_only_specified_property() -> None:
     )
     assert wus
 
-    aspect_json = _parse_mcp_aspect(wus[0].get_metadata()["aspect"])
+    aspect_json = _parse_mcp_aspect(wus[0].get_metadata()["metadata"])
     patch_ops = aspect_json.get("patch", aspect_json)
     if isinstance(patch_ops, dict):
         patch_ops = patch_ops.get("patch", [])
@@ -72,7 +72,7 @@ def test_multiple_properties_emit_separate_ops() -> None:
 
     all_patch_ops = []
     for wu in wus:
-        aspect_json = _parse_mcp_aspect(wu.get_metadata()["aspect"])
+        aspect_json = _parse_mcp_aspect(wu.get_metadata()["metadata"])
         ops = aspect_json.get("patch", aspect_json)
         if isinstance(ops, dict):
             ops = ops.get("patch", [])
@@ -97,7 +97,7 @@ def test_patch_value_is_set(value: str) -> None:
     wus = list(add_structured_properties_to_entity_wu(ENTITY_URN, {PROP_A: value}))
     assert wus
 
-    aspect_json = _parse_mcp_aspect(wus[0].get_metadata()["aspect"])
+    aspect_json = _parse_mcp_aspect(wus[0].get_metadata()["metadata"])
     ops = aspect_json.get("patch", aspect_json)
     if isinstance(ops, dict):
         ops = ops.get("patch", [])
