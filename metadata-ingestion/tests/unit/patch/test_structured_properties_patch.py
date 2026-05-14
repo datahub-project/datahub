@@ -1,11 +1,3 @@
-"""Tests verifying that add_structured_properties_to_entity_wu emits PATCH MCPs.
-
-The key property under test: each call only touches the targeted
-(propertyUrn, source) keys and leaves all other structured properties intact.
-This protects against regression to the old UPSERT behaviour, which silently
-erased any property set by the UI or another pipeline.
-"""
-
 import json
 
 import pytest
