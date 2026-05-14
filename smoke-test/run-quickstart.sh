@@ -24,6 +24,16 @@ XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
 
+EXECUTOR_SCALE_ARGS=()
+if [[ "${SKIP_EXECUTOR_CONTAINERS:-}" == "true" ]] || [[ "${SKIP_EXECUTOR_CONTAINERS:-}" == "1" ]]; then
+  EXECUTOR_SCALE_ARGS=(
+    "--scale" "datahub-executor-quickstart-setup=0"
+    "--scale" "datahub-executor-quickstart-consumers=0"
+    "--scale" "datahub-executor-worker-quickstart-setup=0"
+    "--scale" "datahub-executor-worker-quickstart-consumers=0"
+  )
+fi
+
 THEME_V2_DEFAULT=false \
 SHOW_HAS_SIBLINGS_FILTER=false \
 SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN=false \
@@ -43,5 +53,5 @@ DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
 DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY} \
 DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT} \
 DATAHUB_LOCAL_ACTIONS_ENV=`pwd`/test_resources/actions/actions.env  \
-docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900
+docker compose --project-directory ../docker/profiles --profile ${PROFILE_NAME:-quickstart-consumers} up -d --quiet-pull --wait --wait-timeout 900 "${EXECUTOR_SCALE_ARGS[@]}"
 
