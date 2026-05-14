@@ -312,9 +312,16 @@ jobs:
           fi
 
           : > image-list.txt
+          skip_count=0
           for repo in ${IMAGE_REPOS}; do
             if [[ "${VARIANT_SCOPE}" == "primary" ]]; then
-              echo "${prefix}${repo}:${scan_tag}" >> image-list.txt
+              _ref="${prefix}${repo}:${scan_tag}"
+              if probe "${_ref}"; then
+                echo "${_ref}" >> image-list.txt
+              else
+                echo "::warning::Skipping ${_ref}: image not found in registry."
+                skip_count=$((skip_count + 1))
+              fi
               continue
             fi
             _use=()
@@ -343,16 +350,31 @@ jobs:
           ' "${CFG}" || true)
             if [[ ${#_use[@]} -eq 0 ]]; then
               if [[ "${VARIANT_SCOPE}" == "all" ]]; then
-                echo "${prefix}${repo}:${scan_tag}" >> image-list.txt
+                _ref="${prefix}${repo}:${scan_tag}"
+                if probe "${_ref}"; then
+                  echo "${_ref}" >> image-list.txt
+                else
+                  echo "::warning::Skipping ${_ref}: image not found in registry."
+                  skip_count=$((skip_count + 1))
+                fi
               else
                 echo "::warning::Skip ${repo}: no \"${VARIANT_SCOPE}\" match for registry.repos.${repo}.variant_suffixes (profile ${SCAN_PROFILE})."
               fi
               continue
             fi
             for _suf in "${_use[@]}"; do
-              echo "${prefix}${repo}:${scan_tag}${_suf}" >> image-list.txt
+              _ref="${prefix}${repo}:${scan_tag}${_suf}"
+              if probe "${_ref}"; then
+                echo "${_ref}" >> image-list.txt
+              else
+                echo "::warning::Skipping ${_ref}: variant image not found in registry."
+                skip_count=$((skip_count + 1))
+              fi
             done
           done
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Skipped ${skip_count} image(s) not found in registry."
+          fi
 
           if [[ ! -s image-list.txt ]]; then
             echo "::error::No images to pull: VARIANT_SCOPE=${VARIANT_SCOPE} did not match any repo (check registry.repos and variant_suffixes)."
@@ -522,9 +544,14 @@ jobs:
           trivy image --download-java-db-only
           echo "::endgroup::"
           mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
-          fail_count=0
+          fail_count=0 skip_count=0
           for img in "${imgs[@]}"; do
             [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping Trivy scan for ${img}: image not found in registry."
+              skip_count=$((skip_count + 1))
+              continue
+            fi
             if ! trivy image \
               --config trivy.yaml \
               --ignore-unfixed \
@@ -545,6 +572,9 @@ jobs:
           done
           rm -f scan-reports/trivy/trivy-tmp.json
           ls -la scan-reports/trivy/
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Trivy skipped ${skip_count} image(s) not found in registry (group ${REPO_GROUP})."
+          fi
           if [[ "${fail_count}" -gt 0 ]]; then
             echo "::error::Trivy failed for ${fail_count} image(s) in group ${REPO_GROUP}"
             exit 1
@@ -570,6 +600,10 @@ jobs:
           mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
           for img in "${imgs[@]}"; do
             [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping SARIF generation for ${img}: image not found in registry."
+              continue
+            fi
             img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
             trivy image \
               --config trivy.yaml \
@@ -637,9 +671,14 @@ jobs:
             exit 1
           fi
           mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
-          fail_count=0
+          fail_count=0 skip_count=0
           for img in "${imgs[@]}"; do
             [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping Grype scan for ${img}: image not found in registry."
+              skip_count=$((skip_count + 1))
+              continue
+            fi
             img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
             out_raw="scan-reports-raw/grype/grype-${img_key}.json"
             out="scan-reports/grype/grype-${img_key}.json"
@@ -662,6 +701,9 @@ jobs:
             ' "${out_raw}" > "${out}"
           done
           ls -la scan-reports/grype/
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Grype skipped ${skip_count} image(s) not found in registry (group ${REPO_GROUP})."
+          fi
           if [[ "${fail_count}" -gt 0 ]]; then
             echo "::error::Grype failed for ${fail_count} image(s) in group ${REPO_GROUP}"
             exit 1
