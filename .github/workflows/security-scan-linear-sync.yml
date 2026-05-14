@@ -101,6 +101,7 @@ jobs:
       ref_kind: ${{ steps.git-ref.outputs.kind }}
       ref_name: ${{ steps.git-ref.outputs.name }}
       ref_sha: ${{ steps.git-ref.outputs.sha }}
+      github_ref: ${{ steps.git-ref.outputs.github_ref }}
       variant_suffix_labels: ${{ steps.scan-profile.outputs.variant_suffix_labels }}
     steps:
       - name: Validate inputs
@@ -659,6 +660,8 @@ jobs:
         with:
           sarif_file: scan-reports/trivy-merged.sarif
           category: trivy-${{ matrix.label }}
+          ref: ${{ needs.select-runner.outputs.github_ref }}
+          sha: ${{ needs.select-runner.outputs.ref_sha }}
 
   scan-grype:
     name: Grype (${{ matrix.label }})
