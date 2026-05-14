@@ -151,12 +151,17 @@ jobs:
             aws configure set region us-west-2
             aws ecr get-login-password --region us-west-2 | \
               docker login --username AWS --password-stdin "$ECR_REGISTRY"
-            echo "DATAHUB_REPO=${ECR_REGISTRY}" >> "$GITHUB_ENV"
-            echo "DATAHUB_VERSION=${IMAGE_TAG}" >> "$GITHUB_ENV"
+            {
+              echo "DATAHUB_REPO=${ECR_REGISTRY}"
+              echo "DATAHUB_VERSION=${IMAGE_TAG}"
+              echo "SKIP_EXECUTOR_CONTAINERS=true"
+            } >> "$GITHUB_ENV"
           else
             echo "ECR credentials not configured — using OSS Docker Hub images"
-            echo "DATAHUB_REPO=acryldata" >> "$GITHUB_ENV"
-            echo "DATAHUB_VERSION=head" >> "$GITHUB_ENV"
+            {
+              echo "DATAHUB_REPO=acryldata"
+              echo "DATAHUB_VERSION=head"
+            } >> "$GITHUB_ENV"
           fi
 
       - name: Run quickstart
@@ -165,7 +170,6 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-          SKIP_EXECUTOR_CONTAINERS: "true"
         run: ./smoke-test/run-quickstart.sh
 
       - name: Disable ES Disk Threshold
