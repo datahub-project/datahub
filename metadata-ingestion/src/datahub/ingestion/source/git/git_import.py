@@ -67,7 +67,7 @@ class GitClone:
             git_ssh_cmd += f" -o ConnectTimeout={timeout}"
         logger.debug(f"ssh_command={git_ssh_cmd}")
 
-        git_env = dict(GIT_SSH_COMMAND=git_ssh_cmd)
+        git_env = {"GIT_SSH_COMMAND": git_ssh_cmd}
 
         try:
             if branch is None:

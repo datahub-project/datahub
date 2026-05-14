@@ -543,7 +543,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 except Exception as e:
                     self.reporter.failure(
                         title="Failed to clone LookML repository",
-                        message="Unable to clone the git repository. Check network connectivity, SSH/deploy key configuration, and repository access.",
+                        message="Unable to clone the git repository.",
                         context=self.source_config.git_info.repo,
                         exc=e,
                     )

@@ -1,6 +1,8 @@
 import os
 import pathlib
-from unittest.mock import MagicMock, patch
+import socket
+import threading
+import time
 
 import git
 import pytest
@@ -112,34 +114,40 @@ def test_url_subdir() -> None:
     )
 
 
-def test_clone_timeout_field() -> None:
-    config = GitInfo(
-        repo="https://github.com/org/repo", branch="main", clone_timeout=60
-    )
-    assert config.clone_timeout == 60
+def test_clone_timeout_actually_enforced(tmp_path: pathlib.Path) -> None:
+    """Verify the clone timeout is actually enforced end-to-end.
 
-    config_default = GitInfo(repo="https://github.com/org/repo", branch="main")
-    assert config_default.clone_timeout == 300
+    Spins up a TCP server that accepts connections but never speaks SSH,
+    simulating a hung or firewalled port. The SSH ConnectTimeout should
+    cause the clone to fail within the configured timeout.
+    """
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    port = server.getsockname()[1]
 
+    def accept_and_hang() -> None:
+        try:
+            conn, _ = server.accept()
+            time.sleep(30)
+        except Exception:
+            pass
+        finally:
+            server.close()
 
-def test_clone_passes_timeout_to_git(tmp_path: pathlib.Path) -> None:
-    mock_repo = MagicMock()
-    with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
-        git_clone = GitClone(str(tmp_path))
+    threading.Thread(target=accept_and_hang, daemon=True).start()
+
+    git_clone = GitClone(str(tmp_path))
+    start = time.monotonic()
+    with pytest.raises((RuntimeError, git.GitCommandError)):
         git_clone.clone(
             ssh_key=None,
-            repo_url="https://github.com/org/repo",
-            timeout=30,
+            repo_url=f"ssh://git@127.0.0.1:{port}/org/repo.git",
+            timeout=3,
         )
-        assert mock_clone.call_args.kwargs.get("kill_after_timeout") == 30
-
-    with patch("git.Repo.clone_from", return_value=mock_repo) as mock_clone:
-        git_clone = GitClone(str(tmp_path))
-        git_clone.clone(
-            ssh_key=None,
-            repo_url="https://github.com/org/repo",
-        )
-        assert mock_clone.call_args.kwargs.get("kill_after_timeout") is None
+    elapsed = time.monotonic() - start
+    assert elapsed < 10, f"Clone took {elapsed:.1f}s — timeout was not enforced"
 
 
 def test_clone_error_messages() -> None:
