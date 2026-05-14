@@ -47,6 +47,7 @@ from datahub.emitter.mcp_builder import (
     add_domain_to_entity_wu,
     gen_containers,
 )
+from datahub.emitter.rest_emitter import EmitMode
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -2048,7 +2049,9 @@ class GlueSource(StatefulIngestionSourceBase):
                             # before the structuredProperties MCP below is
                             # validated — GMS rejects assignments that reference
                             # a definition not yet in the database.
-                            self.ctx.graph.emit_mcp(definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+                            self.ctx.graph.emit_mcp(
+                                definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY
+                            )
                         else:
                             yield definition_mcp.as_workunit()
                         self._seen_column_param_urns.add(property_urn)
