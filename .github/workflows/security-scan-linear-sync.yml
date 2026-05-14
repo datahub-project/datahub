@@ -629,23 +629,26 @@ jobs:
             exit 0
           fi
           jq -s '
+            .[0].runs[0] as $base_run |
             {
               "$schema": .[0]["$schema"],
               version: .[0].version,
               runs: [{
                 tool: {
                   driver: {
-                    fullName: .[0].runs[0].tool.driver.fullName,
-                    informationUri: .[0].runs[0].tool.driver.informationUri,
-                    name: .[0].runs[0].tool.driver.name,
-                    version: .[0].runs[0].tool.driver.version,
+                    fullName: $base_run.tool.driver.fullName,
+                    informationUri: $base_run.tool.driver.informationUri,
+                    name: $base_run.tool.driver.name,
+                    version: $base_run.tool.driver.version,
                     rules: [.[].runs[0].tool.driver.rules // [] | .[]] | unique_by(.id)
                   }
                 },
                 results: [.[].runs[0].results // [] | .[]],
-                columnKind: .[0].runs[0].columnKind,
-                originalUriBaseIds: .[0].runs[0].originalUriBaseIds
-              }]
+                columnKind: $base_run.columnKind
+              } + if $base_run.originalUriBaseIds then
+                    {originalUriBaseIds: $base_run.originalUriBaseIds}
+                  else {} end
+              ]
             }
           ' "${sarif_files[@]}" > scan-reports/trivy-merged.sarif
           echo "Merged ${#sarif_files[@]} SARIF file(s) into scan-reports/trivy-merged.sarif"
