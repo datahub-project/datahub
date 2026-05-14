@@ -58,8 +58,10 @@ from utils.linear_sync_utils import (
     attach_file_to_issue as _attach_file_to_issue_util,
     create_comment as _create_comment_util,
     create_issue as _create_issue_util,
+    create_team_label as _create_team_label_util,
     dedupe_preserve_order as _dedupe_preserve_order,
     find_issue_by_title as _find_issue_by_title_util,
+    find_team_label_by_name as _find_team_label_by_name_util,
     get_issue_identifier_url as _get_issue_identifier_url_util,
     get_or_create_workspace_label_id as _get_or_create_workspace_label_id_util,
     get_marker_comment_id as _get_marker_comment_id_util,
@@ -68,6 +70,7 @@ from utils.linear_sync_utils import (
     link_issue_related_best_effort as _link_issue_related_best_effort_util,
     linear_due_date_for_scan_severity as _linear_due_date_for_scan_severity,
     linear_priority_for_scan_severity as _linear_priority_for_scan_severity,
+    random_label_color_hex as _random_label_color_hex_util,
     repo_label_ids_for_occurrences as _repo_label_ids_for_occurrences_util,
     resolve_issue_create_state_id as _resolve_issue_create_state_id_from_linear_util,
     resolve_linear_repo_label_map as _resolve_linear_repo_label_map_util,
@@ -930,6 +933,36 @@ def _create_issue_relations_cve_or_pkg(
     )
 
 
+def _is_label_group_collision(err: RuntimeError) -> bool:
+    msg = str(err).lower()
+    return "not exclusive child labels" in msg or "same group" in msg
+
+
+def _get_or_create_fallback_ref_label_id(
+    api_key: str, team_id: str, ref_name: str
+) -> str:
+    """Team-scoped label ``{ref_name}-sec`` to avoid workspace label group collisions."""
+    fallback_name = f"{ref_name}-sec"
+    existing = _find_team_label_by_name_util(api_key, team_id, fallback_name)
+    if existing:
+        return existing
+    try:
+        return _create_team_label_util(
+            api_key, team_id, fallback_name, _random_label_color_hex_util()
+        )
+    except RuntimeError as e:
+        em = str(e).lower()
+        if any(
+            x in em for x in ("existing", "already", "duplicate", " unique", "constraint")
+        ):
+            existing_after = _find_team_label_by_name_util(
+                api_key, team_id, fallback_name
+            )
+            if existing_after:
+                return existing_after
+        raise
+
+
 def _comment_has_refs_anchor(body: str) -> bool:
     return _comment_has_refs_anchor_util(body)
 
@@ -1197,20 +1230,51 @@ def main() -> int:
                 current = _issue_graphql_label_ids_util(api_key, issue_id)
                 merged = _dedupe_preserve_order([*current, *desired_sync_label_ids])
                 if set(merged) != set(current):
-                    _issue_update_label_ids_util(api_key, issue_id, merged)
+                    try:
+                        _issue_update_label_ids_util(api_key, issue_id, merged)
+                    except RuntimeError as e:
+                        if not _is_label_group_collision(e):
+                            raise
+                        fallback_id = _get_or_create_fallback_ref_label_id(
+                            api_key, team_id, scan_ref.name
+                        )
+                        merged_fb = _dedupe_preserve_order(
+                            [*current, fallback_id, *repo_lids]
+                        )
+                        _issue_update_label_ids_util(api_key, issue_id, merged_fb)
             updated += 1
             print(f"Updated refs comment: {linear_title} ({issue_id})")
         else:
-            issue_id = _create_issue_util(
-                api_key,
-                team_id,
-                linear_title,
-                description,
-                create_labels_arg,
-                linear_priority,
-                initial_state_id,
-                linear_due_date,
-            )
+            try:
+                issue_id = _create_issue_util(
+                    api_key,
+                    team_id,
+                    linear_title,
+                    description,
+                    create_labels_arg,
+                    linear_priority,
+                    initial_state_id,
+                    linear_due_date,
+                )
+            except RuntimeError as e:
+                if not _is_label_group_collision(e):
+                    raise
+                fallback_id = _get_or_create_fallback_ref_label_id(
+                    api_key, team_id, scan_ref.name
+                )
+                fb_labels = _dedupe_preserve_order(
+                    [*base_label_ids, fallback_id, *repo_lids]
+                )
+                issue_id = _create_issue_util(
+                    api_key,
+                    team_id,
+                    linear_title,
+                    description,
+                    fb_labels or None,
+                    linear_priority,
+                    initial_state_id,
+                    linear_due_date,
+                )
             identifier, url = "", ""
             if args.output_summary_json is not None:
                 identifier, url = _get_issue_identifier_url_util(api_key, issue_id)

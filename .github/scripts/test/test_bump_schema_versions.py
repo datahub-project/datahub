@@ -370,6 +370,265 @@ def test_changed_file_with_no_dependents_not_in_result_if_not_aspect(tmp_path, m
 
 
 # ---------------------------------------------------------------------------
+# parse_field_types  /  resolve_dependencies
+# ---------------------------------------------------------------------------
+
+
+def test_parse_field_types_picks_up_short_name():
+    content = (
+        "namespace com.linkedin.ingestion\n"
+        "record Foo { schedule: optional Bar }"
+    )
+    # Both the record's own name and the referenced type are PascalCase tokens
+    assert "Bar" in bsv.parse_field_types(content)
+
+
+def test_parse_field_types_handles_generic_params():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo {\n"
+        "  arr: array[Bar]\n"
+        "  m: map[string, Baz]\n"
+        "  u: union[Qux, Quux]\n"
+        "}"
+    )
+    tokens = bsv.parse_field_types(content)
+    for name in ("Bar", "Baz", "Qux", "Quux"):
+        assert name in tokens
+
+
+def test_parse_field_types_strips_annotation_blocks():
+    # Field type `realRef` should be picked up, but identifier `Searchable`
+    # inside `@Searchable = { ... }` must not.
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo {\n"
+        '  @Searchable = { "fieldType": "TEXT" }\n'
+        "  realRef: SomeRecord\n"
+        "}"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "SomeRecord" in tokens
+    assert "Searchable" not in tokens
+
+
+def test_parse_field_types_strips_doc_comments():
+    content = (
+        "namespace com.linkedin.x\n"
+        "/** This refers to BogusType in prose */\n"
+        "record Foo { field: RealType }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "RealType" in tokens
+    assert "BogusType" not in tokens
+
+
+def test_parse_field_types_strips_import_lines():
+    # Identifiers from `import` lines should not be treated as field references
+    content = (
+        "namespace com.linkedin.x\n"
+        "import com.linkedin.common.OnlyImported\n"
+        "record Foo { used: ActuallyUsed }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "ActuallyUsed" in tokens
+    assert "OnlyImported" not in tokens
+    assert "com.linkedin.common.OnlyImported" not in tokens
+
+
+def test_parse_field_types_captures_inline_fqn_ref():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo { field: com.linkedin.common.Bar }"
+    )
+    tokens = bsv.parse_field_types(content)
+    assert "com.linkedin.common.Bar" in tokens
+
+
+def test_resolve_dependencies_same_namespace_field_ref():
+    # The original bug: schedule field uses a record in the SAME namespace,
+    # with no import. Must still resolve to the right FQN via namespace fallback.
+    content = (
+        "namespace com.linkedin.ingestion\n"
+        "import com.linkedin.common.Urn\n"
+        "@Aspect = { \"name\": \"info\" }\n"
+        "record DataHubIngestionSourceInfo {\n"
+        "  platform: optional Urn\n"
+        "  schedule: optional DataHubIngestionSourceSchedule\n"
+        "}"
+    )
+    deps = bsv.resolve_dependencies(content)
+    assert "com.linkedin.ingestion.DataHubIngestionSourceSchedule" in deps
+    assert "com.linkedin.common.Urn" in deps
+
+
+def test_resolve_dependencies_inline_fqn_is_passed_through():
+    content = (
+        "namespace com.linkedin.x\n"
+        "record Foo { field: com.linkedin.common.Bar }"
+    )
+    assert "com.linkedin.common.Bar" in bsv.resolve_dependencies(content)
+
+
+def test_resolve_dependencies_unresolved_short_name_dropped():
+    # No namespace, no imports — bare PascalCase token can't be resolved
+    content = "record Foo { field: Unknown }"
+    assert bsv.resolve_dependencies(content) == []
+
+
+# ---------------------------------------------------------------------------
+# field-type propagation end-to-end (the user's reported bug)
+# ---------------------------------------------------------------------------
+
+
+def test_changed_non_aspect_field_type_bumps_using_aspect(tmp_path, monkeypatch):
+    """
+    Replicates the DataHubIngestionSourceInfo / DataHubIngestionSourceSchedule case:
+    a non-aspect record is referenced as a field type (not via `includes`) inside
+    an aspect, and lives in the SAME namespace (no import).
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    schedule = write_pdl(
+        tmp_path,
+        "com/linkedin/ingestion/DataHubIngestionSourceSchedule.pdl",
+        record_pdl("com.linkedin.ingestion", "DataHubIngestionSourceSchedule"),
+    )
+    info = write_pdl(
+        tmp_path,
+        "com/linkedin/ingestion/DataHubIngestionSourceInfo.pdl",
+        "namespace com.linkedin.ingestion\n"
+        '@Aspect = { "name": "dataHubIngestionSourceInfo" }\n'
+        "record DataHubIngestionSourceInfo {\n"
+        "  schedule: optional DataHubIngestionSourceSchedule\n"
+        "}",
+    )
+
+    graph = bsv.build_reverse_include_graph([schedule, info])
+    assert str(info) in graph["com.linkedin.ingestion.DataHubIngestionSourceSchedule"]
+
+    result = bsv.find_transitively_affected_aspects(
+        [str(schedule)], graph, [schedule, info]
+    )
+    assert str(info) in result          # aspect that uses it gets bumped
+    assert str(schedule) not in result  # non-aspect itself is never bumped
+
+
+def test_changed_enum_field_type_bumps_using_aspect(tmp_path, monkeypatch):
+    """
+    Mirrors the AssertionAssignmentRuleInfo case where the field type is an
+    enum in the same namespace (e.g. `mode: AssertionAssignmentRuleMode`).
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    mode = write_pdl(
+        tmp_path,
+        "com/linkedin/a/Mode.pdl",
+        "namespace com.linkedin.a\nenum Mode { ENABLED, DISABLED }",
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/a/RuleInfo.pdl",
+        "namespace com.linkedin.a\n"
+        '@Aspect = { "name": "ruleInfo" }\n'
+        'record RuleInfo { mode: Mode = "ENABLED" }',
+    )
+
+    graph = bsv.build_reverse_include_graph([mode, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(mode)], graph, [mode, aspect]
+    )
+    assert str(aspect) in result
+
+
+def test_field_type_propagates_through_non_aspect_chain(tmp_path, monkeypatch):
+    """
+    Multi-hop chain via field types only (no `includes` at any step):
+       leaf (non-aspect)  ←  middle (non-aspect)  ←  aspect
+    Changing the leaf must bump the aspect.
+    """
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    leaf = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Leaf.pdl",
+        record_pdl("com.linkedin.x", "Leaf"),
+    )
+    middle = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Middle.pdl",
+        "namespace com.linkedin.x\nrecord Middle { l: Leaf }",
+    )
+    top = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Top.pdl",
+        "namespace com.linkedin.x\n"
+        '@Aspect = { "name": "top" }\n'
+        "record Top { m: Middle }",
+    )
+
+    graph = bsv.build_reverse_include_graph([leaf, middle, top])
+    result = bsv.find_transitively_affected_aspects(
+        [str(leaf)], graph, [leaf, middle, top]
+    )
+    assert str(top) in result
+    assert str(middle) not in result  # not an aspect
+    assert str(leaf) not in result    # not an aspect
+
+
+def test_field_type_imported_cross_namespace(tmp_path, monkeypatch):
+    """A changed record referenced via `import` from another namespace must
+    bump the using aspect."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    audit = write_pdl(
+        tmp_path,
+        "com/linkedin/common/AuditStamp.pdl",
+        record_pdl("com.linkedin.common", "AuditStamp"),
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Info.pdl",
+        "namespace com.linkedin.x\n"
+        "import com.linkedin.common.AuditStamp\n"
+        '@Aspect = { "name": "info" }\n'
+        "record Info { created: optional AuditStamp }",
+    )
+
+    graph = bsv.build_reverse_include_graph([audit, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(audit)], graph, [audit, aspect]
+    )
+    assert str(aspect) in result
+
+
+def test_unrelated_same_namespace_record_is_not_a_dependency(tmp_path, monkeypatch):
+    """Two records in the same namespace that don't reference each other must
+    NOT trigger a bump — this is what makes the field-type scan worth doing
+    over the simpler 'any same-namespace file is a dep' heuristic."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+
+    unrelated = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Unrelated.pdl",
+        record_pdl("com.linkedin.x", "Unrelated"),
+    )
+    aspect = write_pdl(
+        tmp_path,
+        "com/linkedin/x/Other.pdl",
+        "namespace com.linkedin.x\n"
+        '@Aspect = { "name": "other" }\n'
+        "record Other { field: string }",
+    )
+
+    graph = bsv.build_reverse_include_graph([unrelated, aspect])
+    result = bsv.find_transitively_affected_aspects(
+        [str(unrelated)], graph, [unrelated, aspect]
+    )
+    assert str(aspect) not in result
+
+
+# ---------------------------------------------------------------------------
 # detect_default_branch
 # ---------------------------------------------------------------------------
 
