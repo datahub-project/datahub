@@ -166,6 +166,7 @@ def _patch_lineage() -> None:
     spec = importlib.util.spec_from_file_location(
         "sqlglot._lineage_py", lineage_py_path
     )
+    assert spec is not None
     lineage_py = importlib.util.module_from_spec(spec)
     # Register in sys.modules before exec so @dataclass can resolve type annotations.
     sys.modules["sqlglot._lineage_py"] = lineage_py
@@ -176,7 +177,7 @@ def _patch_lineage() -> None:
     # Unfortunately, mypy won't pick up on the new field, so we need to
     # use type ignores everywhere we use subfield.
     @dataclasses.dataclass(frozen=True)
-    class Node(lineage_py.Node):
+    class Node(lineage_py.Node):  # type: ignore[name-defined]
         subfield: str = ""
 
     lineage_py.Node = Node  # type: ignore
