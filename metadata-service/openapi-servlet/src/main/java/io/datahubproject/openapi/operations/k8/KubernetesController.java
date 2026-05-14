@@ -88,7 +88,7 @@ public class KubernetesController {
 
   private static final String KEDA_PAUSED_REPLICAS_ANNOTATION =
       "autoscaling.keda.sh/paused-replicas";
-  private static final String AUTO_SCALING_PAUSED = "paused";
+  private static final String AUTO_SCALING_PAUSE = "pause";
   private static final String AUTO_SCALING_ACTIVE = "active";
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
@@ -204,7 +204,8 @@ public class KubernetesController {
       description =
           "Scale replicas and/or update resource limits/requests for a deployment. "
               + "Pass autoscalingMode=active (without replicas) to resume autoscaling. "
-              + "Pass replicas to pause autoscaling at a fixed replica count. "
+              + "Pass autoscalingMode=pause to pause autoscaling at the current replica count, "
+              + "or combine with replicas to pause at a specific count. "
               + "⚠️ WARNING: This can cause service disruptions.",
       responses = {
         @ApiResponse(responseCode = "200", description = "Deployment scaled successfully"),
@@ -221,17 +222,18 @@ public class KubernetesController {
         request,
         "scaleDeployment",
         () -> {
-          boolean isResume = AUTO_SCALING_ACTIVE.equalsIgnoreCase(req.getAutoscalingMode());
+          boolean isActive = AUTO_SCALING_ACTIVE.equalsIgnoreCase(req.getAutoscalingMode());
+          boolean isPause = AUTO_SCALING_PAUSE.equalsIgnoreCase(req.getAutoscalingMode());
 
-          if (!isResume && req.getReplicas() == null && req.getResources() == null) {
+          if (!isActive && !isPause && req.getReplicas() == null && req.getResources() == null) {
             return ResponseEntity.badRequest()
                 .body(
                     Map.of(
                         "error",
-                        "At least one of replicas, resources, or autoscalingMode=active must be provided"));
+                        "At least one of replicas, resources, autoscalingMode=active, or autoscalingMode=pause must be provided"));
           }
 
-          if (isResume && req.getReplicas() != null) {
+          if (isActive && req.getReplicas() != null) {
             return ResponseEntity.badRequest()
                 .body(Map.of("error", "replicas must not be set when autoscalingMode is active"));
           }
@@ -245,51 +247,41 @@ public class KubernetesController {
           var d = deployments.withName(name).get();
           if (d == null) return notFound("Deployment", name);
 
-          // Resume autoscaling: remove the KEDA pause annotation.
-          if (isResume) {
-            Optional<GenericKubernetesResource> scaledObject = findScaledObjectForDeployment(name);
-            if (scaledObject.isEmpty()) {
-              return ResponseEntity.badRequest()
-                  .body(Map.of("error", "Deployment " + name + " does not have autoscaling configured"));
-            }
-            Map<String, String> annotations = scaledObject.get().getMetadata().getAnnotations();
-            boolean wasPaused =
-                annotations != null && annotations.containsKey(KEDA_PAUSED_REPLICAS_ANNOTATION);
-            if (wasPaused) {
-              kubernetesClient
-                  .genericKubernetesResources(KEDA_SCALED_OBJECT_CONTEXT)
-                  .inNamespace(ns())
-                  .withName(scaledObject.get().getMetadata().getName())
-                  .edit(
-                      so -> {
-                        if (so.getMetadata().getAnnotations() != null) {
-                          so.getMetadata().getAnnotations().remove(KEDA_PAUSED_REPLICAS_ANNOTATION);
-                        }
-                        return so;
-                      });
-              log.info("Resumed KEDA autoscaling for deployment {}", name);
-            }
-            return buildKedaResponse(deployments.withName(name).get(), AUTO_SCALING_ACTIVE);
-          }
+          String resultingMode = null;
 
-          // Pause autoscaling or direct scale.
-          if (req.getReplicas() != null) {
+          if (isActive) {
+            Optional<ResponseEntity<?>> resumeError = resumeAutoscaling(name);
+            if (resumeError.isPresent()) return resumeError.get();
+            resultingMode = AUTO_SCALING_ACTIVE;
+          } else if (req.getReplicas() != null || isPause) {
+            // When pausing explicitly without a replica count, freeze at the current spec count.
+            int replicasToUse =
+                req.getReplicas() != null
+                    ? req.getReplicas()
+                    : (d.getSpec().getReplicas() != null ? d.getSpec().getReplicas() : 1);
             Optional<GenericKubernetesResource> scaledObject = findScaledObjectForDeployment(name);
             if (scaledObject.isPresent()) {
-              // KEDA manages this deployment — pause via annotation instead of direct scale.
-              pauseKedaScaledObject(scaledObject.get(), req.getReplicas());
+              // Autoscaling manages this deployment — pause via annotation instead of direct scale.
+              pauseKedaScaledObject(scaledObject.get(), replicasToUse);
               log.info(
-                  "KEDA ScaledObject found for deployment {}. Pausing at {} replicas via annotation.",
+                  "Autoscaling found for deployment {}. Pausing at {} replicas via annotation.",
                   name,
-                  req.getReplicas());
+                  replicasToUse);
+              resultingMode = AUTO_SCALING_PAUSE;
+            } else if (isPause) {
+              // Explicit pause requested but no autoscaler found.
+              return ResponseEntity.badRequest()
+                  .body(
+                      Map.of(
+                          "error", "Deployment " + name + " does not have autoscaling configured"));
             } else {
-              deployments.withName(name).scale(req.getReplicas());
-              log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
+              deployments.withName(name).scale(replicasToUse);
+              log.info("Scaled deployment {} to {} replicas", name, replicasToUse);
             }
           }
 
           if (req.getResources() != null) {
-            d = deployments.withName(name).get(); // Refetch after scale
+            d = deployments.withName(name).get(); // Refetch after any replica changes
             var cr =
                 resolveContainer(
                     d.getSpec().getTemplate().getSpec().getContainers(),
@@ -311,10 +303,8 @@ public class KubernetesController {
           }
 
           var updatedDeployment = deployments.withName(name).get();
-          // When replicas are set, always include autoScalingMode so callers know whether the
-          // change went through KEDA or directly to the deployment.
-          if (req.getReplicas() != null) {
-            return buildKedaResponse(updatedDeployment, AUTO_SCALING_PAUSED);
+          if (resultingMode != null) {
+            return buildKedaResponse(updatedDeployment, resultingMode);
           }
           return k8sResponse(updatedDeployment);
         });
@@ -903,6 +893,42 @@ public class KubernetesController {
       return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
           .body("{\"error\": \"Serialization failed\"}");
     }
+  }
+
+  /**
+   * Resumes autoscaling for the given deployment by removing the pause annotation from its
+   * ScaledObject. Returns an error response if no ScaledObject targeting the deployment is found.
+   * Returns empty if the resume succeeded (annotation removed or was already absent).
+   */
+  private Optional<ResponseEntity<?>> resumeAutoscaling(@Nonnull final String deploymentName) {
+    Optional<GenericKubernetesResource> scaledObject =
+        findScaledObjectForDeployment(deploymentName);
+    if (scaledObject.isEmpty()) {
+      return Optional.of(
+          ResponseEntity.badRequest()
+              .body(
+                  Map.of(
+                      "error",
+                      "Deployment " + deploymentName + " does not have autoscaling configured")));
+    }
+    Map<String, String> annotations = scaledObject.get().getMetadata().getAnnotations();
+    boolean wasPaused =
+        annotations != null && annotations.containsKey(KEDA_PAUSED_REPLICAS_ANNOTATION);
+    if (wasPaused) {
+      kubernetesClient
+          .genericKubernetesResources(KEDA_SCALED_OBJECT_CONTEXT)
+          .inNamespace(ns())
+          .withName(scaledObject.get().getMetadata().getName())
+          .edit(
+              so -> {
+                if (so.getMetadata().getAnnotations() != null) {
+                  so.getMetadata().getAnnotations().remove(KEDA_PAUSED_REPLICAS_ANNOTATION);
+                }
+                return so;
+              });
+      log.info("Resumed autoscaling for deployment {}", deploymentName);
+    }
+    return Optional.empty();
   }
 
   /**
