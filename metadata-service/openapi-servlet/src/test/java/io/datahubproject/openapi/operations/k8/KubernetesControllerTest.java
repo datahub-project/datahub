@@ -1756,7 +1756,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testScaleDeploymentPropagatesKedaAuthFailure() throws Exception {
+  public void testScaleDeploymentFallsBackToDirectScaleOnKedaAuthFailure() throws Exception {
     Deployment deployment = createTestDeployment("regular-deployment");
     DeploymentScaleRequest request = DeploymentScaleRequest.builder().replicas(3).build();
 
@@ -1770,7 +1770,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     when(deployNsOp.withName("regular-deployment")).thenReturn(deploymentResource);
     when(deploymentResource.get()).thenReturn(deployment);
 
-    // KEDA lookup fails with 403 — should surface error, not fall back to direct scale
+    // A 403 on the ScaledObject list is treated as "KEDA not installed" (namespaces without KEDA
+    // typically have no RBAC grant for scaledobjects), so we fall back to direct scale.
     when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
         .thenThrow(new KubernetesClientException("Forbidden", 403, null));
 
@@ -1783,7 +1784,6 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.autoScalingMode").doesNotExist());
 
-    // Falls back to direct scale — Kubernetes errors are treated as KEDA unavailable
     verify(deploymentResource).scale(3);
   }
 
