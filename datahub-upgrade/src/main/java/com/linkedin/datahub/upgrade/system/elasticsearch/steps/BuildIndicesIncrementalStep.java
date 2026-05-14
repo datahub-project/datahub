@@ -86,7 +86,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return (context) -> {
       try {
         List<ReindexConfig> configsNeedingReindex =
-            IndexUtils.getIndicesNeedingReindex(
+            IndexUtils.getIndicesNeedingReindexOrBuild(
                 context.opContext(), indexedServices, structuredProperties);
         if (configsNeedingReindex.isEmpty()) {
           log.info("No indices require incremental reindex");
