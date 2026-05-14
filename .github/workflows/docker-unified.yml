@@ -957,7 +957,6 @@ jobs:
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
-          SKIP_EXECUTOR_CONTAINERS: "true"
         run: ./smoke-test/run-quickstart.sh
 
       - name: Disable ES Disk Threshold
