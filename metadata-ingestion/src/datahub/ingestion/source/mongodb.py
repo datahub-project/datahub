@@ -6,10 +6,9 @@ from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesVie
 import bson.timestamp
 import pymongo.collection
 from packaging import version
-from pydantic import PositiveInt, field_validator, model_validator
+from pydantic import PositiveInt, field_validator
 from pydantic.fields import Field
 from pymongo.mongo_client import MongoClient
-from typing_extensions import Self
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -72,7 +71,6 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.utilities.global_warning_util import add_global_warning
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
@@ -172,19 +170,6 @@ class MongoDBConfig(
         if doc_size_filter_value > 16793600:
             raise ValueError("maxDocumentSize must be a positive value <= 16793600.")
         return doc_size_filter_value
-
-    @model_validator(mode="after")
-    def warn_if_documentdb_emission_misconfigured(self) -> Self:
-        if (
-            self.emit_as_documentdb
-            and self.hostingEnvironment != HostingEnvironment.AWS_DOCUMENTDB
-        ):
-            add_global_warning(
-                "emit_as_documentdb is True but hostingEnvironment is not "
-                "AWS_DOCUMENTDB — the flag is being ignored and entities will "
-                "continue to be emitted under the mongodb data platform. "
-            )
-        return self
 
 
 @dataclass
@@ -327,6 +312,16 @@ class MongoDBSource(StatefulIngestionSourceBase):
             if (config.emit_as_documentdb and self.is_hosted_on_aws_documentdb())
             else "mongodb"
         )
+        if config.emit_as_documentdb and not self.is_hosted_on_aws_documentdb():
+            self.report.warning(
+                title="emit_as_documentdb requires AWS_DOCUMENTDB hosting",
+                message=(
+                    "emit_as_documentdb is True but hostingEnvironment is not "
+                    "AWS_DOCUMENTDB. The flag is being ignored and entities will "
+                    "continue to be emitted under the mongodb data platform. "
+                    "Set hostingEnvironment: AWS_DOCUMENTDB to emit documentdb URNs."
+                ),
+            )
 
         options = {}
         if self.config.username is not None:
