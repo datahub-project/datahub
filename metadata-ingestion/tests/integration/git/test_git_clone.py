@@ -114,7 +114,7 @@ def test_url_subdir() -> None:
     )
 
 
-def test_clone_timeout_actually_enforced(tmp_path: pathlib.Path) -> None:
+def test_clone_timeout_integration(tmp_path: pathlib.Path) -> None:
     """Verify the clone timeout is actually enforced end-to-end.
 
     Spins up a TCP server that accepts connections but never speaks SSH,
