@@ -18,10 +18,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SchemaMetadataClass,
 )
-from datahub.utilities.global_warning_util import (
-    clear_global_warnings,
-    get_global_warnings,
-)
 from datahub.utilities.urns.urn import guess_entity_type
 
 
@@ -37,13 +33,6 @@ def mock_mongo_client():
 @pytest.fixture
 def pipeline_context():
     return PipelineContext(run_id="test-mongodb-run")
-
-
-@pytest.fixture(autouse=True)
-def reset_global_warnings():
-    clear_global_warnings()
-    yield
-    clear_global_warnings()
 
 
 def get_schema_metadata_aspects(
@@ -578,7 +567,9 @@ def test_default_emits_mongodb_platform_urns(mock_mongo_client, pipeline_context
     assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:mongodb"
 
     # Default configuration is fully coherent — no warning should be surfaced.
-    assert not any("emit_as_documentdb" in w for w in get_global_warnings())
+    assert not any(
+        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
+    )
 
 
 def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
@@ -622,8 +613,10 @@ def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
     assert len(schema_metadata_aspects) == 1
     assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:documentdb"
 
-    # When both flags are coherent, no global warning is surfaced.
-    assert not any("emit_as_documentdb" in w for w in get_global_warnings())
+    # When both flags are coherent, no warning is surfaced.
+    assert not any(
+        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
+    )
 
 
 def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
@@ -662,7 +655,9 @@ def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
     }
 
     # No misconfiguration → no warning.
-    assert not any("emit_as_documentdb" in w for w in get_global_warnings())
+    assert not any(
+        "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
+    )
 
 
 def test_emit_as_documentdb_without_aws_hosting_is_noop_and_warns(
@@ -671,8 +666,8 @@ def test_emit_as_documentdb_without_aws_hosting_is_noop_and_warns(
     """
     Test that emit_as_documentdb without AWS_DOCUMENTDB hosting is a no-op.
 
-    The platform stays mongodb and the validator surfaces a global warning
-    so the misconfiguration is visible in the ingestion report.
+    The platform stays mongodb and the source surfaces a warning in its
+    ingestion report so the misconfiguration is visible to the user.
     """
     mock_mongo_client.list_database_names.return_value = ["mydb"]
 
@@ -690,13 +685,6 @@ def test_emit_as_documentdb_without_aws_hosting_is_noop_and_warns(
         emit_as_documentdb=True,
         # hostingEnvironment left at default (SELF_HOSTED)
     )
-
-    # The validator should surface a warning at config-construction time.
-    warnings = get_global_warnings()
-    assert any("emit_as_documentdb" in w and "AWS_DOCUMENTDB" in w for w in warnings), (
-        f"Expected emit_as_documentdb/AWS_DOCUMENTDB warning, got: {warnings}"
-    )
-
     source = MongoDBSource(ctx=pipeline_context, config=config)
     # Platform stays mongodb — flag is a no-op without the gating condition.
     assert source.platform == "mongodb"
@@ -707,3 +695,6 @@ def test_emit_as_documentdb_without_aws_hosting_is_noop_and_warns(
     assert dataset_urns == {
         "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)"
     }
+
+    # Misconfiguration → warning surfaced in source report.
+    assert any("emit_as_documentdb" in (w.title or "") for w in source.report.warnings)
