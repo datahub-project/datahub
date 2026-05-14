@@ -82,6 +82,10 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
 
   @BeforeMethod
   public void setupMocks() {
+    // Reset the shared Spring-managed mock so invocations from previous tests don't
+    // bleed into verify(never()) assertions in subsequent tests.
+    reset(kubernetesClient);
+
     // Setup authentication
     Authentication authentication = mock(Authentication.class);
     when(authentication.getActor()).thenReturn(new Actor(ActorType.USER, "datahub"));
@@ -1645,7 +1649,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
         createTestScaledObject("mae-consumer-so", "mae-consumer");
     DeploymentScaleRequest request = DeploymentScaleRequest.builder().replicas(2).build();
 
-    mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
+    Resource scaledObjectResource =
+        mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
 
     mockMvc
         .perform(
@@ -1661,13 +1666,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
             kubernetesClient.apps().deployments().inNamespace(NAMESPACE).withName("mae-consumer"),
             never())
         .scale(anyInt());
-    // Must call edit on ScaledObject to add pause annotation
-    verify(
-            kubernetesClient
-                .genericKubernetesResources(any(ResourceDefinitionContext.class))
-                .inNamespace(NAMESPACE)
-                .withName("mae-consumer-so"))
-        .edit(any(java.util.function.UnaryOperator.class));
+    // Must call edit on the ScaledObject resource to add the pause annotation
+    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
   }
 
   @Test
@@ -1925,9 +1925,11 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
 
   /**
    * Wires up the full mock chain for a KEDA-managed deployment. Avoids repeating 12+ when() calls
-   * across tests that share the same setup.
+   * across tests that share the same setup. Returns the ScaledObject resource mock so callers can
+   * run verify() against it directly (chaining verify through the client mock is unreliable because
+   * Mockito matchers resolve to null outside of a when()/verify() wrapper).
    */
-  private void mockKedaManagedDeployment(
+  private Resource mockKedaManagedDeployment(
       String deploymentName,
       String scaledObjectName,
       Deployment deployment,
@@ -1955,6 +1957,8 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     when(genericNsOp.withName(scaledObjectName)).thenReturn(scaledObjectResource);
     when(scaledObjectResource.edit(any(java.util.function.UnaryOperator.class)))
         .thenReturn(scaledObject);
+
+    return scaledObjectResource;
   }
 
   private GenericKubernetesResource createTestScaledObject(String name, String targetDeployment) {
