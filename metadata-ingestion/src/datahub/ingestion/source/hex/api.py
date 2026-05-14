@@ -402,6 +402,9 @@ class HexApi:
                 context=str(params),
                 exc=e,
             )
+            # Clear cursor so the outer pagination loop terminates instead of
+            # retrying the same failing page forever (Retry only auto-retries 429s).
+            params["after"] = None
             return
 
         try:
@@ -413,6 +416,7 @@ class HexApi:
                 context=str(response.json()),
                 exc=e,
             )
+            params["after"] = None
             return
 
         logger.info(f"Fetched {len(api_response.values)} items")

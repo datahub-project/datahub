@@ -113,7 +113,9 @@ class HexSourceConfig(
         ge=1,
         description="Maximum number of projects to process. Useful for testing or staged rollouts. "
         "Components discovered during project processing are not counted. "
-        "Defaults to None (process all projects).",
+        "Defaults to None (process all projects). "
+        "WARNING: with stateful ingestion enabled, projects beyond this limit are soft-deleted "
+        "on the next run.",
     )
 
     # Removed fields — emit a clear warning rather than silently ignoring.
