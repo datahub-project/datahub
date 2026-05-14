@@ -1,0 +1,19 @@
+{
+  "results": [
+    {
+      "id": "sp-1",
+      "name": "Postgres CDC Stream",
+      "projectId": "proj-1",
+      "environmentId": "env-1",
+      "sourceType": "postgres",
+      "targetType": "s3",
+      "sourceConnectionId": "conn-pg-1",
+      "targetConnectionId": "conn-s3-1",
+      "status": "running",
+      "createdAt": "2024-01-01T00:00:00Z"
+    }
+  ],
+  "total": 1,
+  "page": 0,
+  "size": 25
+}

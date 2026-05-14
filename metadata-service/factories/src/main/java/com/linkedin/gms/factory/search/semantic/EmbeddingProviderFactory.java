@@ -165,20 +165,8 @@ public class EmbeddingProviderFactory {
 
     String model =
         v.getModel() != null && !v.getModel().isBlank() ? v.getModel() : "gemini-embedding-001";
-    // outputDimensionality: 0 means "use model native"; for gemini-embedding-001 native is 768.
-    // Until the ingestion-side client supports propagating non-default dimensions
-    // (https://github.com/datahub-project/datahub/pull/17255), reject any non-default value
-    // to prevent server/client embedding-dimension mismatch that would break kNN search.
-    int dims = v.getOutputDimensionality() > 0 ? v.getOutputDimensionality() : 768;
-    if (dims != 768) {
-      throw new IllegalStateException(
-          "Vertex AI outputDimensionality="
-              + dims
-              + " is not currently supported. Only the default (768, gemini-embedding-001 native) "
-              + "is allowed because the ingestion-side client does not yet propagate this setting. "
-              + "Mismatched dimensions between search and ingestion would break kNN search. "
-              + "Either remove VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY or set it to 768.");
-    }
+    // outputDimensionality: 0 means "use model native"; for gemini-embedding-001 native is 3072.
+    int dims = v.getOutputDimensionality() > 0 ? v.getOutputDimensionality() : 3072;
 
     log.info(
         "Configuring Vertex AI embedding provider: project={}, location={}, model={}, dims={}",

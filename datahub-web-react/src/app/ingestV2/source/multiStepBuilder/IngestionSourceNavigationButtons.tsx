@@ -52,7 +52,14 @@ export default function IngestionSourceNavigationButtons() {
         const buttons: React.ReactNode[] = [];
 
         buttons.push(
-            <ButtonWithoutWrapping key="cancel" size="sm" variant="text" color="gray" onClick={cancel}>
+            <ButtonWithoutWrapping
+                key="cancel"
+                size="sm"
+                variant="text"
+                color="gray"
+                onClick={cancel}
+                data-testid="cancel-ingestion-source-button"
+            >
                 Cancel
             </ButtonWithoutWrapping>,
         );
