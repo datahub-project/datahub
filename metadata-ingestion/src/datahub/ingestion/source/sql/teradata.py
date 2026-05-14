@@ -2,11 +2,16 @@ import logging
 import re
 import time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import (
+    FIRST_COMPLETED,
+    Future,
+    ThreadPoolExecutor,
+    wait,
+)
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from functools import lru_cache
-from threading import Lock
+from threading import Event, Lock, Thread
 from typing import (
     Any,
     Dict,
@@ -489,10 +494,12 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
+    num_view_processing_timeouts: int = 0
     view_extraction_total_time_seconds: float = 0.0
     view_extraction_average_time_seconds: float = 0.0
     slowest_view_processing_time_seconds: float = 0.0
     slowest_view_name: TopKDict[str, float] = field(default_factory=TopKDict)
+    stalled_views: TopKDict[str, float] = field(default_factory=TopKDict)
 
     # Connection pool performance metrics (actively used)
     connection_pool_wait_time_seconds: float = 0.0
@@ -676,6 +683,37 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         description=(
             "Connection timeout in milliseconds when establishing Teradata connections. "
             "Default is 30000 (30 seconds)."
+        ),
+    )
+
+    view_processing_timeout_seconds: int = Field(
+        default=1800,
+        description=(
+            "Maximum wall-clock time, in seconds, that a single view may spend in the "
+            "parallel view-processing pool before the connector abandons it and moves on. "
+            "Set to 0 to disable. Stalled views are reported as warnings and counted in "
+            "`num_view_processing_timeouts`. This protects bulk ingestion from silent hangs "
+            "when a Teradata query blocks indefinitely (e.g., on a dropped TCP connection). "
+            "Default is 1800 (30 minutes)."
+        ),
+    )
+
+    view_processing_heartbeat_seconds: int = Field(
+        default=30,
+        description=(
+            "How often, in seconds, to emit a 'view processing heartbeat' log line during "
+            "parallel view processing. The heartbeat reports completed/in-progress counts "
+            "and the longest-running view, making it possible to diagnose silent halts in "
+            "the executor. Set to 0 to disable. Default is 30 seconds."
+        ),
+    )
+
+    lineage_fetch_stall_warning_seconds: int = Field(
+        default=300,
+        description=(
+            "If no lineage row batch arrives from DBC.QryLogV within this many seconds, "
+            "emit a warning identifying the stalled phase. Set to 0 to disable. "
+            "Default is 300 (5 minutes)."
         ),
     )
 
@@ -1430,29 +1468,135 @@ ORDER by DataBaseName, TableName;
 
                 return results
 
-            # Use ThreadPoolExecutor for concurrent processing
-            with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-                # Submit all view processing tasks
-                future_to_view = {
-                    executor.submit(process_single_view, view_name): view_name
-                    for view_name in view_names
-                }
+            # Concurrent view processing with hang protection.
+            #
+            # The ThreadPoolExecutor is intentionally NOT used as a context manager:
+            # its __exit__ calls shutdown(wait=True), which blocks indefinitely if any
+            # worker thread is stuck (e.g., in a hung DB call). Instead we drive the
+            # executor explicitly so a stalled view is abandoned after
+            # view_processing_timeout_seconds and the ingestion continues. Abandoned
+            # threads will exit when their underlying I/O returns or when the process
+            # terminates.
+            executor = ThreadPoolExecutor(
+                max_workers=self.config.max_workers,
+                thread_name_prefix="teradata-view",
+            )
+            try:
+                started_at_by_future: Dict[Future, Tuple[str, float]] = {}
+                remaining_futures: Set[Future] = set()
+                for view_name in view_names:
+                    fut = executor.submit(process_single_view, view_name)
+                    started_at_by_future[fut] = (view_name, time.time())
+                    remaining_futures.add(fut)
 
-                # Process completed tasks as they finish
-                for future in as_completed(future_to_view):
-                    view_name = future_to_view[future]
-                    try:
-                        results = future.result()
-                        # Yield all results from this view
-                        for result in results:
-                            yield result
-                    except Exception as e:
-                        with report_lock:
-                            self.report.warning(
-                                "Error in thread processing view",
-                                context=f"{schema}.{view_name}",
-                                exc=e,
+                total_views = len(remaining_futures)
+                completed_count = 0
+                abandoned_count = 0
+                per_view_timeout = self.config.view_processing_timeout_seconds
+                heartbeat_interval = self.config.view_processing_heartbeat_seconds
+                # If heartbeat is disabled, still wake periodically so we can
+                # detect stalled futures within per_view_timeout granularity.
+                wait_step = (
+                    heartbeat_interval
+                    if heartbeat_interval > 0
+                    else max(min(per_view_timeout, 60), 5)
+                    if per_view_timeout > 0
+                    else None
+                )
+                last_heartbeat_at = time.time()
+
+                while remaining_futures:
+                    done_set, _ = wait(
+                        remaining_futures,
+                        timeout=wait_step,
+                        return_when=FIRST_COMPLETED,
+                    )
+
+                    for fut in done_set:
+                        view_name, _started = started_at_by_future.pop(fut)
+                        remaining_futures.discard(fut)
+                        try:
+                            # Future is already complete here, but use a small
+                            # timeout as a belt-and-suspenders guard.
+                            results = fut.result(timeout=1)
+                            for result in results:
+                                yield result
+                        except Exception as e:
+                            with report_lock:
+                                self.report.warning(
+                                    "Error in thread processing view",
+                                    context=f"{schema}.{view_name}",
+                                    exc=e,
+                                )
+                        completed_count += 1
+
+                    # Abandon any view that has exceeded the per-view timeout.
+                    if per_view_timeout > 0 and started_at_by_future:
+                        now = time.time()
+                        stalled = [
+                            (fut, name, now - started)
+                            for fut, (name, started) in list(
+                                started_at_by_future.items()
                             )
+                            if now - started > per_view_timeout
+                        ]
+                        for fut, name, elapsed in stalled:
+                            logger.error(
+                                f"Abandoning view {schema}.{name} after "
+                                f"{elapsed:.0f}s (view_processing_timeout_seconds="
+                                f"{per_view_timeout}). The worker thread may still "
+                                f"be blocked in I/O; it will be released when the "
+                                f"underlying call returns or the process exits."
+                            )
+                            with report_lock:
+                                self.report.num_view_processing_timeouts += 1
+                                self.report.stalled_views[f"{schema}.{name}"] = elapsed
+                                self.report.warning(
+                                    "View processing timed out",
+                                    context=(
+                                        f"{schema}.{name} did not complete within "
+                                        f"{per_view_timeout}s (ran for "
+                                        f"{elapsed:.0f}s)"
+                                    ),
+                                )
+                            fut.cancel()
+                            started_at_by_future.pop(fut, None)
+                            remaining_futures.discard(fut)
+                            abandoned_count += 1
+
+                    # Periodic heartbeat so silent halts surface in logs.
+                    now = time.time()
+                    if (
+                        heartbeat_interval > 0
+                        and remaining_futures
+                        and now - last_heartbeat_at >= heartbeat_interval
+                    ):
+                        in_progress = len(started_at_by_future)
+                        longest_name: Optional[str] = None
+                        longest_elapsed = 0.0
+                        for name, started in started_at_by_future.values():
+                            elapsed = now - started
+                            if elapsed > longest_elapsed:
+                                longest_elapsed = elapsed
+                                longest_name = name
+                        longest_suffix = (
+                            f", longest_running={schema}.{longest_name} "
+                            f"({longest_elapsed:.0f}s)"
+                            if longest_name is not None
+                            else ""
+                        )
+                        logger.info(
+                            f"View processing heartbeat: schema={schema}, "
+                            f"completed={completed_count}/{total_views}, "
+                            f"in_progress={in_progress}, "
+                            f"abandoned={abandoned_count}{longest_suffix}"
+                        )
+                        last_heartbeat_at = now
+            finally:
+                # cancel_futures=True cancels pending (not-yet-started) tasks.
+                # wait=False ensures we never block on a hung worker thread —
+                # essential for the hang-protection guarantee above.
+                executor.shutdown(wait=False, cancel_futures=True)
 
         finally:
             # Don't dispose the reusable engine here - it will be cleaned up in close()
@@ -1784,6 +1928,53 @@ ORDER by DataBaseName, TableName;
         """Fetch lineage entries using server-side cursor to handle large result sets efficiently."""
         queries = self._make_lineage_queries()
 
+        # Stall-detection watchdog. Running fetchmany() against DBC.QryLogV can
+        # hang silently on large installations (server-side query stuck, dropped
+        # TCP connection, etc.); without this the connector goes dark with no
+        # log output between batches. The watchdog runs on a daemon thread and
+        # only writes log lines — it does not interrupt the fetch.
+        stall_seconds = self.config.lineage_fetch_stall_warning_seconds
+        phase_state: Dict[str, Any] = {
+            "phase": "starting",
+            "query_index": 0,
+            "last_event_at": time.time(),
+        }
+        phase_state_lock = Lock()
+        watchdog_stop = Event()
+
+        def _watchdog() -> None:
+            check_interval = max(min(stall_seconds, 60), 10)
+            while not watchdog_stop.wait(check_interval):
+                with phase_state_lock:
+                    phase = phase_state["phase"]
+                    query_index = phase_state["query_index"]
+                    elapsed = time.time() - phase_state["last_event_at"]
+                if phase == "completed":
+                    return
+                if elapsed > stall_seconds:
+                    logger.warning(
+                        f"Lineage fetch stall: no progress in {elapsed:.0f}s "
+                        f"(phase={phase}, query_index={query_index}). The "
+                        f"Teradata cursor may be blocked or the query is still "
+                        f"executing on the server. Investigate "
+                        f"DBC.SessionInfoV / network keepalive if this persists."
+                    )
+
+        watchdog_thread: Optional[Thread] = None
+        if stall_seconds > 0:
+            watchdog_thread = Thread(
+                target=_watchdog,
+                daemon=True,
+                name="teradata-lineage-watchdog",
+            )
+            watchdog_thread.start()
+
+        def _mark_phase(phase: str, query_index: int = 0) -> None:
+            with phase_state_lock:
+                phase_state["phase"] = phase
+                phase_state["query_index"] = query_index
+                phase_state["last_event_at"] = time.time()
+
         fetch_engine = self.get_metadata_engine()
         try:
             with fetch_engine.connect() as conn:
@@ -1799,9 +1990,11 @@ ORDER by DataBaseName, TableName;
                     logger.info(
                         f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
                     )
+                    _mark_phase("executing_query", query_index)
 
                     # Use helper method to try server-side cursor with fallback
                     result = self._execute_with_cursor_fallback(conn, query)
+                    _mark_phase("awaiting_first_batch", query_index)
 
                     # Stream results in batches to avoid memory issues
                     batch_size = 5000
@@ -1817,6 +2010,7 @@ ORDER by DataBaseName, TableName;
                         batch_count += 1
                         query_total_count += len(batch)
                         total_count_all_queries += len(batch)
+                        _mark_phase("fetching_batches", query_index)
 
                         logger.info(
                             f"Query {query_index} - Fetched batch {batch_count}: {len(batch)} lineage entries (query total: {query_total_count})"
@@ -1830,11 +2024,15 @@ ORDER by DataBaseName, TableName;
                 logger.info(
                     f"Completed fetching all queries: {total_count_all_queries} total lineage entries from {len(queries)} queries"
                 )
+                _mark_phase("completed")
 
         except Exception as e:
             logger.error(f"Error fetching lineage entries: {e}")
             raise
         finally:
+            watchdog_stop.set()
+            if watchdog_thread is not None:
+                watchdog_thread.join(timeout=5)
             fetch_engine.dispose()
 
     def _check_historical_table_exists(self) -> bool:

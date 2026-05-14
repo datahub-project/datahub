@@ -5,6 +5,8 @@ These tests focus on end-to-end workflows, complex interactions,
 and integration between different components.
 """
 
+import threading
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Any, Dict
@@ -678,3 +680,121 @@ class TestResourceManagement:
 
                     # Engine should still be disposed
                     mock_engine.dispose.assert_called_once()
+
+
+class TestViewProcessingHangProtection:
+    """Verify the parallel view-processing executor cannot block on a hung view."""
+
+    def _make_source_with_views(self, view_names, **overrides):
+        config_dict = {
+            **_base_config(),
+            "max_workers": 4,
+            "view_processing_timeout_seconds": 1,
+            # heartbeat_seconds also drives how often the inner wait() wakes up
+            # to check for stalled futures — keep it small so the test completes
+            # within a couple of seconds, well under the < 10s assertion below.
+            "view_processing_heartbeat_seconds": 1,
+            **overrides,
+        }
+        config = TeradataConfig.model_validate(config_dict)
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.SqlParsingAggregator"
+        ) as mock_aggregator_class:
+            mock_aggregator_class.return_value = MagicMock()
+            with patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ):
+                source = TeradataSource(config, PipelineContext(run_id="test"))
+
+        source._tables_cache["test_schema"] = [
+            TeradataTable(
+                database="test_schema",
+                name=name,
+                description=None,
+                object_type="View",
+                create_timestamp=datetime.now(),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+                request_text=f"SELECT * FROM {name}",
+            )
+            for name in view_names
+        ]
+        return source
+
+    def test_hung_view_is_abandoned_and_others_complete(self):
+        """A single hung view must not stall the executor — the other views still complete."""
+        # The first view blocks until the test releases it. The others return immediately.
+        release = threading.Event()
+
+        def fake_process_view(dataset_name, inspector, schema, view, sql_config):
+            if view == "hung_view":
+                # Simulate a hung DB call. The hang-protection timeout
+                # (1s in this test) must abandon this before the test releases it.
+                release.wait(timeout=30)
+            yield MagicMock(spec=[])
+
+        source = self._make_source_with_views(["fast_a", "hung_view", "fast_b"])
+        mock_sql_config = MagicMock()
+        mock_sql_config.view_pattern.allowed.return_value = True
+
+        try:
+            with (
+                patch.object(source, "_process_view", side_effect=fake_process_view),
+                patch.object(source, "_get_or_create_pooled_engine") as mock_engine,
+                patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect,
+            ):
+                mock_engine.return_value.connect.return_value.__enter__.return_value = (
+                    MagicMock()
+                )
+                mock_inspect.return_value = MagicMock()
+
+                started = time.time()
+                work_units = list(
+                    source.cached_loop_views(
+                        MagicMock(), "test_schema", mock_sql_config
+                    )
+                )
+                elapsed = time.time() - started
+
+            # Must not be blocked by the hung view: should return within a few
+            # seconds (timeout=1s + slack), nowhere near release.wait()'s 30s.
+            assert elapsed < 10, (
+                f"Executor blocked on hung view for {elapsed:.1f}s — hang protection failed"
+            )
+            # The two fast views must have produced their work units.
+            assert len(work_units) == 2
+            # The hung view must be counted as a timeout.
+            assert source.report.num_view_processing_timeouts == 1
+            assert "test_schema.hung_view" in source.report.stalled_views
+        finally:
+            # Always release the hung thread so it doesn't outlive the test.
+            release.set()
+
+    def test_all_views_complete_when_none_hang(self):
+        """Baseline: when no view hangs, all work units are produced and no timeouts are recorded."""
+
+        def fake_process_view(dataset_name, inspector, schema, view, sql_config):
+            yield MagicMock(spec=[])
+
+        source = self._make_source_with_views(["a", "b", "c"])
+        mock_sql_config = MagicMock()
+        mock_sql_config.view_pattern.allowed.return_value = True
+
+        with (
+            patch.object(source, "_process_view", side_effect=fake_process_view),
+            patch.object(source, "_get_or_create_pooled_engine") as mock_engine,
+            patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect,
+        ):
+            mock_engine.return_value.connect.return_value.__enter__.return_value = (
+                MagicMock()
+            )
+            mock_inspect.return_value = MagicMock()
+
+            work_units = list(
+                source.cached_loop_views(MagicMock(), "test_schema", mock_sql_config)
+            )
+
+        assert len(work_units) == 3
+        assert source.report.num_view_processing_timeouts == 0
+        assert len(source.report.stalled_views) == 0

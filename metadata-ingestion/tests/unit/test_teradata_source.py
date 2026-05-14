@@ -120,6 +120,27 @@ class TestTeradataConfig:
         config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 5
 
+    def test_hang_protection_defaults(self):
+        """Default hang-protection knobs are enabled with sensible values."""
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.view_processing_timeout_seconds == 1800
+        assert config.view_processing_heartbeat_seconds == 30
+        assert config.lineage_fetch_stall_warning_seconds == 300
+
+    def test_hang_protection_can_be_disabled(self):
+        """All hang-protection knobs accept 0 to disable."""
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "view_processing_timeout_seconds": 0,
+                "view_processing_heartbeat_seconds": 0,
+                "lineage_fetch_stall_warning_seconds": 0,
+            }
+        )
+        assert config.view_processing_timeout_seconds == 0
+        assert config.view_processing_heartbeat_seconds == 0
+        assert config.lineage_fetch_stall_warning_seconds == 0
+
     def test_include_queries_default(self):
         """Test include_queries defaults to True."""
         config_dict = _base_config()
