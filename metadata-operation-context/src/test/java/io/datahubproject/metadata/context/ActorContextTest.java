@@ -1,15 +1,28 @@
 package io.datahubproject.metadata.context;
 
+import static com.linkedin.metadata.Constants.CORP_USER_STATUS_SUSPENDED;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.Status;
 import com.linkedin.common.UrnArray;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.Aspect;
+import com.linkedin.identity.CorpUserStatus;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -18,6 +31,7 @@ import com.linkedin.policy.PolicyMatchCriterion;
 import com.linkedin.policy.PolicyMatchCriterionArray;
 import com.linkedin.policy.PolicyMatchFilter;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.testng.annotations.Test;
 
@@ -126,5 +140,75 @@ public class ActorContextTest {
         ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with ownership type policy");
+  }
+
+  @Test
+  public void isActiveSkipsLookupForSystemActor() {
+    Authentication systemAuth =
+        new Authentication(new Actor(ActorType.USER, "__datahub_system"), "");
+    ActorContext ctx = ActorContext.asSessionRestricted(systemAuth, Set.of(), List.of(), true);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    assertTrue(ctx.isActive(retriever));
+    verifyNoInteractions(retriever);
+  }
+
+  @Test
+  public void isActiveFalseWhenEnforcingExistenceAndCorpUserKeyMissing() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
+    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(), any()))
+        .thenReturn(
+            Map.of(userUrn, Map.of("status", new Aspect(new Status().setRemoved(false).data()))));
+    assertFalse(ctx.isActive(retriever));
+  }
+
+  @Test
+  public void isActiveTrueWhenNotEnforcingExistenceAndCorpUserKeyMissing() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:nobody");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "nobody"), "");
+    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), false);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(), any())).thenReturn(Map.of(userUrn, Map.of()));
+    assertTrue(ctx.isActive(retriever));
+  }
+
+  @Test
+  public void isActiveTrueWithCorpUserKeyAndNoFlags() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:activeone");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "activeone"), "");
+    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    CorpUserKey key = new CorpUserKey().setUsername("activeone");
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(), any()))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                Map.of(
+                    "corpUserKey", new Aspect(key.data()),
+                    "status", new Aspect(new Status().setRemoved(false).data()),
+                    "corpUserStatus",
+                        new Aspect(new CorpUserStatus().setStatus("ACTIVE").data()))));
+    assertTrue(ctx.isActive(retriever));
+  }
+
+  @Test
+  public void isActiveFalseWhenCorpUserSuspended() {
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:suspended");
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "suspended"), "");
+    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
+    CorpUserKey key = new CorpUserKey().setUsername("suspended");
+    CorpUserStatus suspended = new CorpUserStatus().setStatus(CORP_USER_STATUS_SUSPENDED);
+    AspectRetriever retriever = mock(AspectRetriever.class);
+    when(retriever.getLatestAspectObjects(any(), any()))
+        .thenReturn(
+            Map.of(
+                userUrn,
+                Map.of(
+                    "corpUserKey", new Aspect(key.data()),
+                    "status", new Aspect(new Status().setRemoved(false).data()),
+                    "corpUserStatus", new Aspect(suspended.data()))));
+    assertFalse(ctx.isActive(retriever));
   }
 }

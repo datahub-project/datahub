@@ -55,6 +55,7 @@ export const CHART_ALLOW: FilterRecipeField = {
     fieldPath: chartAllowFieldPath,
     rules: null,
     section: 'Charts',
+    filteringResource: 'Chart',
     placeholder: '12',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, chartAllowFieldPath),
@@ -73,6 +74,7 @@ export const CHART_DENY: FilterRecipeField = {
     fieldPath: chartDenyFieldPath,
     rules: null,
     section: 'Charts',
+    filteringResource: 'Chart',
     placeholder: '12',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, chartDenyFieldPath),
@@ -91,6 +93,7 @@ export const DASHBOARD_ALLOW: FilterRecipeField = {
     fieldPath: dashboardAllowFieldPath,
     rules: null,
     section: 'Dashboards',
+    filteringResource: 'Dashboard',
     placeholder: '1232',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardAllowFieldPath),
@@ -109,6 +112,7 @@ export const DASHBOARD_DENY: FilterRecipeField = {
     fieldPath: dashboardDenyFieldPath,
     rules: null,
     section: 'Dashboards',
+    filteringResource: 'Dashboard',
     placeholder: '1232',
     setValueOnRecipeOverride: (recipe: any, values: string[]) =>
         setListValuesOnRecipe(recipe, values, dashboardDenyFieldPath),

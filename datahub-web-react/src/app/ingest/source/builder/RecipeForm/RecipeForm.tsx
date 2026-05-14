@@ -20,7 +20,7 @@ import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 
 import { useListSecretsQuery } from '@graphql/ingestion.generated';
 
-export const ControlsContainer = styled.div`
+const ControlsContainer = styled.div`
     display: flex;
     justify-content: space-between;
     margin-top: 12px;
@@ -53,7 +53,7 @@ const TestConnectionWrapper = styled.div`
 const HeaderTooltipWrapper = styled(QuestionCircleOutlined)`
     margin-left: 5px;
     font-size: 12px;
-    color: rgba(0, 0, 0, 0.45);
+    color: ${(props) => props.theme.colors.icon};
     cursor: help;
 `;
 
@@ -126,6 +126,9 @@ function RecipeForm(props: Props) {
         data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
+    // Watch form values for conditional field visibility (e.g., Snowflake authentication type)
+    const formValues = Form.useWatch([], form) || {};
+
     function updateFormValues(changedValues: any, allValues: any) {
         let updatedValues = YAML.parse(displayRecipe);
 
@@ -161,16 +164,23 @@ function RecipeForm(props: Props) {
                         header={<SectionHeader icon={<ApiOutlined />} text="Connection" />}
                         key="0"
                     >
-                        {fields.map((field, i) => (
-                            <FormField
-                                key={field.name}
-                                field={field}
-                                secrets={secrets}
-                                refetchSecrets={refetchSecrets}
-                                removeMargin={i === fields.length - 1}
-                                updateFormValue={updateFormValue}
-                            />
-                        ))}
+                        {fields.map((field, i) => {
+                            // Check if field has conditional visibility logic
+                            if (field.shouldShow && !field.shouldShow(formValues)) {
+                                return null;
+                            }
+
+                            return (
+                                <FormField
+                                    key={field.name}
+                                    field={field}
+                                    secrets={secrets}
+                                    refetchSecrets={refetchSecrets}
+                                    removeMargin={i === fields.length - 1}
+                                    updateFormValue={updateFormValue}
+                                />
+                            );
+                        })}
                         {CONNECTORS_WITH_TEST_CONNECTION.has(type as string) && (
                             <TestConnectionWrapper>
                                 <TestConnectionButton
@@ -247,7 +257,9 @@ function RecipeForm(props: Props) {
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button onClick={onClickNext}>Next</Button>
+                <Button onClick={onClickNext} data-testid="recipe-builder-next-button">
+                    Next
+                </Button>
             </ControlsContainer>
         </>
     );

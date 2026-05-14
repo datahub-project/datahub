@@ -1,0 +1,34 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "64bb843674e3dc2af43cf13654d763caba131068f5306f9506b22aff0bcb7522",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "total_revenue",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,sales_data,PROD)",
+                    "column": "total_revenue"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"_0\".\"TOTAL_REVENUE\" AS \"TOTAL_REVENUE\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT total_revenue FROM SEMANTIC_VIEW(sales_data METRICS total_revenue)"
+    }
+}

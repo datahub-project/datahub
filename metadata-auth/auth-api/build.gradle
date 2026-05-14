@@ -18,6 +18,10 @@ shadowJar {
   zip64 true
   archiveClassifier = ""
   exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
+  // metadata-utils pulls Hazelcast; GMS WAR already ships hazelcast-*.jar — bundling duplicates SPI (NodeExtension).
+  dependencies {
+    exclude(dependency('com.hazelcast:hazelcast:.*'))
+  }
 }
 
 dependencies() {
@@ -26,6 +30,7 @@ dependencies() {
   api project(path: ':metadata-utils')
  
   implementation externalDependency.guava
+  implementation externalDependency.commonsLang3  // CVE-2025-48924; shadow jar was bundling 3.12.0
   compileOnly externalDependency.lombok
   compileOnly externalDependency.springContext
 

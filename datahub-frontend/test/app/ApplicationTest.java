@@ -1,11 +1,13 @@
 package app;
 
+import static auth.AuthUtils.REDIRECT_URL_COOKIE_NAME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.*;
 import static play.mvc.Http.Status.MOVED_PERMANENTLY;
 import static play.mvc.Http.Status.OK;
+import static play.mvc.Http.Status.SERVICE_UNAVAILABLE;
 import static play.test.Helpers.fakeRequest;
 import static play.test.Helpers.route;
 
@@ -23,6 +25,7 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.JWTParser;
+import config.GracefulShutdownModule;
 import controllers.routes;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -42,6 +45,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import no.nav.security.mock.oauth2.MockOAuth2Server;
 import no.nav.security.mock.oauth2.http.OAuth2HttpRequest;
 import no.nav.security.mock.oauth2.http.OAuth2HttpResponse;
@@ -59,6 +63,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestWatcher;
+import org.junit.jupiter.api.parallel.Execution;
+import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.openqa.selenium.Cookie;
 import org.openqa.selenium.htmlunit.HtmlUnitDriver;
@@ -75,7 +84,12 @@ import play.test.TestBrowser;
 import play.test.WithBrowser;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@SetEnvironmentVariable(key = "DATAHUB_SECRET", value = "test")
+@Execution(ExecutionMode.SAME_THREAD)
+@SetEnvironmentVariable(
+    key = "DATAHUB_SECRET",
+    value =
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef") // 256-bit entropy for
+// Play 3 / HS256
 @SetEnvironmentVariable(key = "KAFKA_BOOTSTRAP_SERVER", value = "")
 @SetEnvironmentVariable(key = "DATAHUB_ANALYTICS_ENABLED", value = "false")
 @SetEnvironmentVariable(key = "AUTH_OIDC_ENABLED", value = "true")
@@ -91,6 +105,24 @@ import play.test.WithBrowser;
 @SetEnvironmentVariable(key = "AUTH_VERBOSE_LOGGING", value = "true")
 @SetEnvironmentVariable(key = "MFE_CONFIG_FILE_PATH", value = "mfe.config.local.yaml")
 public class ApplicationTest extends WithBrowser {
+
+  /**
+   * On failure, logs browser URL, cookies, and mock server ports so CI logs explain OIDC / HtmlUnit
+   * issues without re-running locally.
+   */
+  @RegisterExtension
+  static final TestWatcher BROWSER_FAILURE_DIAGNOSTICS =
+      new TestWatcher() {
+        @Override
+        public void testFailed(ExtensionContext context, Throwable cause) {
+          context
+              .getTestInstance()
+              .filter(ApplicationTest.class::isInstance)
+              .map(ApplicationTest.class::cast)
+              .ifPresent(at -> at.logBrowserFailureDiagnostics(context.getDisplayName(), cause));
+        }
+      };
+
   private static final Logger logger = LoggerFactory.getLogger(ApplicationTest.class);
   private static final String ISSUER_ID = "testIssuer";
 
@@ -100,6 +132,9 @@ public class ApplicationTest extends WithBrowser {
         .configure("metadataService.port", String.valueOf(actualGmsServerPort))
         .configure("metadataService.host", "localhost")
         .configure("datahub.basePath", "")
+        // nav mock-oauth2-server (and some IdPs) do not complete PKCE; Pac4j 6 enables it by
+        // default
+        .configure("auth.oidc.disablePkce", true)
         .configure("auth.baseUrl", "http://localhost:" + providePort())
         .configure(
             "auth.oidc.discoveryUri",
@@ -112,10 +147,18 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Override
+  protected int providePort() {
+    return playTestPort;
+  }
+
+  @Override
   protected TestBrowser provideBrowser(int port) {
     HtmlUnitDriver webClient = new HtmlUnitDriver();
     webClient.setJavascriptEnabled(false);
-    return Helpers.testBrowser(webClient, providePort());
+    // Use the port WithServer passed (running HTTP port), not
+    // play.api.test.Helpers.testServerPort();
+    // they can differ when the server picks an ephemeral port.
+    return Helpers.testBrowser(webClient, port);
   }
 
   /** Find an available port for testing to avoid port conflicts */
@@ -136,6 +179,13 @@ public class ApplicationTest extends WithBrowser {
   private String wellKnownUrl;
   private int actualOauthServerPort;
   private int actualGmsServerPort;
+
+  /**
+   * Fixed port for Play test server so auth.baseUrl matches before bind (Play 3: testServerPort is
+   * 0 until after start).
+   */
+  private int playTestPort;
+
   private String actualGmsServerHost;
 
   private static final String TEST_USER = "urn:li:corpuser:testUser@myCompany.com";
@@ -146,6 +196,7 @@ public class ApplicationTest extends WithBrowser {
     // Store actual ports to avoid dynamic allocation issues
     actualOauthServerPort = findAvailablePort();
     actualGmsServerPort = findAvailablePort();
+    playTestPort = findAvailablePort();
 
     // Start Mock GMS
     gmsServer = new MockWebServer();
@@ -254,7 +305,50 @@ public class ApplicationTest extends WithBrowser {
     if (browser != null) {
       // Clear cookies using the underlying WebDriver
       browser.getDriver().manage().deleteAllCookies();
+      // @BeforeAll leaves the browser on /admin for readiness; reset to app root so each test's
+      // goTo("/authenticate") actually navigates (Fluentlenium 6 + HtmlUnit otherwise kept
+      // "admin").
+      browser.goTo("/");
     }
+  }
+
+  private void logBrowserFailureDiagnostics(String testDisplayName, Throwable cause) {
+    logger.error(
+        "ApplicationTest failure diagnostics [test={}]: {} — {}",
+        testDisplayName,
+        cause.getClass().getName(),
+        cause.getMessage());
+    if (browser == null) {
+      logger.error(
+          "Browser diagnostics: browser is null (not initialized yet or already torn down).");
+      return;
+    }
+    try {
+      logger.error("Browser URL after failure: {}", browser.url());
+      var driver = browser.getDriver();
+      if (driver == null) {
+        logger.error("Browser diagnostics: WebDriver is null.");
+        return;
+      }
+      logger.error("Page title after failure: {}", driver.getTitle());
+      Set<Cookie> cookies = driver.manage().getCookies();
+      String cookieNames =
+          cookies.stream().map(Cookie::getName).sorted().collect(Collectors.joining(", "));
+      boolean hasRedirectCookie =
+          cookies.stream().anyMatch(c -> REDIRECT_URL_COOKIE_NAME.equals(c.getName()));
+      logger.error(
+          "Browser cookies (names only): [{}]; {} present={}",
+          cookieNames,
+          REDIRECT_URL_COOKIE_NAME,
+          hasRedirectCookie);
+    } catch (RuntimeException e) {
+      logger.error("Failed to collect browser diagnostics", e);
+    }
+    logger.error(
+        "Mock server ports: oauth={} gms={} play(app)={}",
+        actualOauthServerPort,
+        actualGmsServerPort,
+        port);
   }
 
   @AfterAll
@@ -498,6 +592,34 @@ public class ApplicationTest extends WithBrowser {
   }
 
   @Test
+  public void testCspHeaderPresent() {
+    Http.RequestBuilder request = fakeRequest(routes.Application.healthcheck());
+    Result result = route(app, request);
+    assertEquals(OK, result.status());
+    boolean hasEnforcing = result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY);
+    boolean hasReportOnly = result.headers().containsKey("Content-Security-Policy-Report-Only");
+    assertTrue(
+        hasEnforcing || hasReportOnly,
+        "Play CSPFilter should set Content-Security-Policy (or -Report-Only when DATAHUB_CSP_REPORT_ONLY=true)");
+  }
+
+  /**
+   * CSPFilter is composed outermost so BasePathRedirectFilter redirect responses (301) still pass
+   * through CSPFilter and include CSP headers — same mechanism as for non-root play.http.context.
+   */
+  @Test
+  public void testCspHeaderPresentOnBasePathRedirectResponse() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    assertEquals("/test", result.redirectLocation().orElse(""));
+    assertTrue(
+        result.headers().containsKey(Http.HeaderNames.CONTENT_SECURITY_POLICY)
+            || result.headers().containsKey("Content-Security-Policy-Report-Only"),
+        "CSP headers must apply to BasePathRedirectFilter redirect responses");
+  }
+
+  @Test
   public void testAppConfigWithBasePath() {
     Http.RequestBuilder request = fakeRequest(routes.Application.appConfig());
 
@@ -612,10 +734,24 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(content.contains("@basePath") || content.contains("href=\"/datahub/\""));
   }
 
+  // BasePathRedirectFilter coverage (integration; context-mounted app requests often 404 before
+  // filter):
+  // - effectiveBase = (basePath == "/") ? "" : basePath: default app has basePath "/" ->
+  // effectiveBase "" (all trailing-slash tests).
+  // - redirectUrl = effectiveBase + "/" + (safePath.isEmpty ? "" : safePath) + querySuffix:
+  // trailing branch: testRedirectTrailingSlash* (non-empty safePath),
+  // testRedirectTrailingSlashOnlySlashes (safePath empty),
+  // testBasePathRedirectFilterTrailingSlashPreservesQueryString (querySuffix); base path branch:
+  // testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath when basePath "/" and path
+  // "//evil.com".
+  // - basePath.nonEmpty && !path.startsWith(basePath): true in
+  // testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath; false branch not asserted
+  // (path-with-context requests pass through).
+
+  /** BasePathRedirectFilter handles trailing-slash redirects before routing. */
   @Test
   public void testRedirectTrailingSlash() {
-    Http.RequestBuilder request = fakeRequest(routes.Application.redirectTrailingSlash("test"));
-
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/");
     Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/test", result.redirectLocation().orElse(""));
@@ -623,60 +759,85 @@ public class ApplicationTest extends WithBrowser {
 
   @Test
   public void testRedirectTrailingSlashNestedPath() {
-    Http.RequestBuilder request =
-        fakeRequest(routes.Application.redirectTrailingSlash("foo/bar/baz"));
-
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "foo/bar/baz/");
     Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/foo/bar/baz", result.redirectLocation().orElse(""));
   }
 
   @Test
-  public void testRedirectTrailingSlashDirectWithLeadingSlash() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash("/evil.com");
+  public void testRedirectTrailingSlashWithLeadingSlash() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "/evil.com/");
+    Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/evil.com", result.redirectLocation().orElse(""));
   }
 
   @Test
-  public void testRedirectTrailingSlashDirectWithMultipleLeadingSlashes() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash("///evil.com/path");
+  public void testRedirectTrailingSlashWithMultipleLeadingSlashes() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "///evil.com/path/");
+    Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/evil.com/path", result.redirectLocation().orElse(""));
   }
 
   @Test
-  public void testRedirectTrailingSlashDirectWithNull() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash(null);
+  public void testRedirectTrailingSlashOnlySlashes() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "////");
+    Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/", result.redirectLocation().orElse(""));
   }
 
   @Test
-  public void testRedirectTrailingSlashDirectWithEmpty() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash("");
-    assertEquals(MOVED_PERMANENTLY, result.status());
-    assertEquals("/", result.redirectLocation().orElse(""));
-  }
-
-  @Test
-  public void testRedirectTrailingSlashDirectWithOnlySlashes() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash("////");
-    assertEquals(MOVED_PERMANENTLY, result.status());
-    assertEquals("/", result.redirectLocation().orElse(""));
-  }
-
-  @Test
-  public void testRedirectTrailingSlashDirectWithNormalPath() {
-    controllers.Application controller = app.injector().instanceOf(controllers.Application.class);
-    Result result = controller.redirectTrailingSlash("dataset/urn:li:dataset:1");
+  public void testRedirectTrailingSlashNormalPath() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "dataset/urn:li:dataset:1/");
+    Result result = route(app, request);
     assertEquals(MOVED_PERMANENTLY, result.status());
     assertEquals("/dataset/urn:li:dataset:1", result.redirectLocation().orElse(""));
+  }
+
+  /**
+   * BasePathRedirectFilter runs before routes; requests to paths like ////google.com/ must redirect
+   * to same-origin /google.com, not to scheme-relative //google.com (open redirect).
+   */
+  @Test
+  public void testBasePathRedirectFilterPreventsOpenRedirectSchemeRelative() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "////google.com/");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    String location = result.redirectLocation().orElse("");
+    assertTrue(
+        location.equals("/google.com") || location.startsWith("/google.com?"),
+        "Redirect must be same-origin path /google.com, not scheme-relative //google.com; got: "
+            + location);
+  }
+
+  /** Double-slash path without trailing slash (base path branch) must also be safe. */
+  @Test
+  public void testBasePathRedirectFilterPreventsOpenRedirectDoubleSlashPath() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "//evil.com");
+    Result result = route(app, request);
+    // Filter may redirect to base path or pass through; redirect location must not be
+    // scheme-relative
+    if (result.status() == MOVED_PERMANENTLY) {
+      String location = result.redirectLocation().orElse("");
+      assertTrue(
+          location.startsWith("/") && !location.startsWith("//"),
+          "Redirect must not be scheme-relative; got: " + location);
+    }
+  }
+
+  /** Trailing-slash redirect preserves query string (redirectUrl + querySuffix). */
+  @Test
+  public void testBasePathRedirectFilterTrailingSlashPreservesQueryString() {
+    Http.RequestBuilder request = fakeRequest(Helpers.GET, "test/?foo=bar&baz=qux");
+    Result result = route(app, request);
+    assertEquals(MOVED_PERMANENTLY, result.status());
+    String location = result.redirectLocation().orElse("");
+    assertTrue(location.startsWith("/test"), "Redirect should start with /test; got: " + location);
+    assertTrue(location.contains("foo=bar"), "Redirect should preserve query; got: " + location);
+    assertTrue(location.contains("baz=qux"), "Redirect should preserve query; got: " + location);
   }
 
   @Test
@@ -985,7 +1146,14 @@ public class ApplicationTest extends WithBrowser {
     assertTrue(TestModule.getCapturedProposals().isEmpty());
 
     browser.goTo("/authenticate");
-    assertEquals("", browser.url());
+    assertEquals(
+        "",
+        browser.url(),
+        () ->
+            "Expected post-OIDC URL to be app root (empty relative path). If actual looks like "
+                + "login?error_msg=..., the SSO callback failed — search logs for "
+                + "\"Caught exception while attempting to handle SSO callback\". actual="
+                + browser.url());
 
     Cookie actorCookie = browser.getCookie("actor");
     assertEquals(TEST_USER, actorCookie.getValue());
@@ -1071,7 +1239,13 @@ public class ApplicationTest extends WithBrowser {
         .until(() -> browser.getDriver() != null);
 
     browser.goTo("/authenticate?redirect_uri=%2Fcontainer%2Furn%3Ali%3Acontainer%3ADATABASE");
-    assertEquals("container/urn:li:container:DATABASE", browser.url());
+    assertEquals(
+        "container/urn:li:container:DATABASE",
+        browser.url(),
+        () ->
+            "Expected post-OIDC redirect to deep link /container/urn:li:container:DATABASE. "
+                + "login?error_msg=... means SsoCallbackController caught a callback exception. actual="
+                + browser.url());
   }
 
   /**
@@ -1082,16 +1256,29 @@ public class ApplicationTest extends WithBrowser {
   @Test
   public void testInvalidRedirectUrl() {
     browser.goTo("/authenticate?redirect_uri=https%3A%2F%2Fwww.google.com");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "https redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=file%3A%2F%2FmyFile");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "file: redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=ftp%3A%2F%2FsomeFtp");
-    assertEquals("", browser.url());
+    assertEquals(
+        "", browser.url(), () -> "ftp: redirect_uri must be rejected; actual=" + browser.url());
 
     browser.goTo("/authenticate?redirect_uri=localhost%3A9002%2Flogin");
-    assertEquals("", browser.url());
+    assertEquals(
+        "",
+        browser.url(),
+        () -> "ambiguous host-like redirect_uri must be rejected; actual=" + browser.url());
+
+    // Protocol-relative URL (///google.com) must not redirect to external host
+    browser.goTo("/authenticate?redirect_uri=%2F%2F%2Fgoogle.com");
+    assertEquals(
+        "",
+        browser.url(),
+        () -> "protocol-relative redirect_uri must be rejected; actual=" + browser.url());
   }
 
   /** Test module that provides comprehensive mocks to handle all GMS interactions */
@@ -1339,6 +1526,25 @@ public class ApplicationTest extends WithBrowser {
     assertEquals("no-cache", result.headers().get("Cache-Control"));
   }
 
+  @Test
+  public void testHealthCheckReturns503WhenShuttingDown() {
+    // Get the singleton GracefulShutdownModule instance from the app injector
+    GracefulShutdownModule shutdownModule = app.injector().instanceOf(GracefulShutdownModule.class);
+    // Set shutdown flag via instance method
+    shutdownModule.setShuttingDown(true);
+
+    try {
+      Http.RequestBuilder request = fakeRequest(Helpers.GET, "/health");
+      Result result = route(app, request);
+      assertEquals(SERVICE_UNAVAILABLE, result.status());
+      String content = Helpers.contentAsString(result);
+      assertEquals("Shutting down", content);
+    } finally {
+      // Reset the shutdown flag after test
+      shutdownModule.setShuttingDown(false);
+    }
+  }
+
   /**
    * Test module that provides a mock Application controller that simulates resource loading failure
    */
@@ -1359,7 +1565,10 @@ public class ApplicationTest extends WithBrowser {
       Environment mockEnvironment = mock(Environment.class);
       when(mockEnvironment.resourceAsStream("public/index.html")).thenReturn(null);
 
-      return new controllers.Application(mockHttpClient, mockEnvironment, config);
+      // Mock GracefulShutdownModule for the test
+      GracefulShutdownModule mockShutdownModule = mock(GracefulShutdownModule.class);
+      return new controllers.Application(
+          mockHttpClient, mockEnvironment, config, mockShutdownModule);
     }
 
     @Provides

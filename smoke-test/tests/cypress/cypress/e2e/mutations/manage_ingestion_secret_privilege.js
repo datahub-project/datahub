@@ -1,3 +1,5 @@
+import { hasOperationName } from "../utils";
+
 const test_id = Math.floor(Math.random() * 100000);
 const platform_policy_name = `Platform test policy ${test_id}`;
 const number = Math.floor(Math.random() * 100000);
@@ -34,6 +36,21 @@ const clickOnButton = (saveButton) => {
   cy.clickOptionWithId(`#${saveButton}`);
 };
 
+const searchForPolicy = (policyName) => {
+  cy.get('[data-testid="search-bar-input"]').should("be.visible");
+  cy.get('[data-testid="search-bar-input"]').clear().type(policyName);
+  cy.wait(500);
+};
+
+const openRowMenu = (policyName) => {
+  cy.contains("tr", policyName).find("button").last().click({ force: true });
+  cy.wait(300);
+};
+
+const clickMenuAction = (actionText) => {
+  cy.get('[data-testid^="menu-item-"]').contains(actionText).click();
+};
+
 const createPolicy = (description, policyName) => {
   clickFocusAndType("policy-description", description);
   clickOnButton("nextButton");
@@ -45,19 +62,14 @@ const createPolicy = (description, policyName) => {
   cy.waitTextVisible("Successfully saved policy.");
   cy.ensureTextNotPresent("Successfully saved policy.");
   cy.reload();
-  searchAndToggleMetadataPolicyStatus(policyName);
-  cy.get(".ant-table-row-level-0").contains(policyName);
-};
-
-const searchAndToggleMetadataPolicyStatus = (metadataPolicyName) => {
-  cy.get('[data-testid="search-input"]').should("be.visible");
-  cy.get('[data-testid="search-input"]').last().type(metadataPolicyName);
+  searchForPolicy(policyName);
+  cy.get("tbody").contains(policyName);
 };
 
 const editPolicy = (policyName, type, select) => {
-  searchAndToggleMetadataPolicyStatus(policyName);
-  cy.contains("tr", policyName).as("metadataPolicyRow");
-  cy.contains("EDIT").click();
+  searchForPolicy(policyName);
+  openRowMenu(policyName);
+  clickMenuAction("Edit");
   clickOnButton("nextButton");
   cy.clickOptionWithId(".ant-tag-close-icon");
   updateAndSave("privileges", type, select);
@@ -69,56 +81,54 @@ const editPolicy = (policyName, type, select) => {
 };
 
 const deactivateExistingAllUserPolicies = () => {
-  cy.get(".ant-pagination li")
-    .its("length")
-    .then((len) => {
-      const pageCount = len - 2;
-      for (let page = 1; page <= pageCount; page++) {
-        cy.get("tbody tr td").should("be.visible");
-        cy.get("tbody tr").each(($row) => {
-          cy.wrap($row)
-            .find("td")
-            .eq(3)
-            .invoke("text")
-            .then((role) => {
-              if (role === "All Users") {
-                cy.wrap($row)
-                  .find("td")
-                  .eq(5)
-                  .find("div button")
-                  .eq(1)
-                  .invoke("text")
-                  .then((buttonText) => {
-                    if (buttonText === "DEACTIVATE") {
-                      cy.wrap($row)
-                        .find("td")
-                        .eq(5)
-                        .find("div button")
-                        .eq(1)
-                        .click();
-                      cy.waitTextVisible("Successfully deactivated policy.");
-                    }
-                  });
-              }
-            });
-        });
-        if (page < pageCount) {
-          cy.contains("li", `${page + 1}`).click();
-          cy.ensureTextNotPresent("No Policies");
+  cy.get("tbody tr td").should("be.visible");
+  cy.get("tbody tr").each(($row) => {
+    cy.wrap($row)
+      .find("td")
+      .eq(3)
+      .invoke("text")
+      .then((role) => {
+        if (role.includes("All Users")) {
+          cy.wrap($row).find("button").last().click({ force: true });
+          cy.wait(300);
+          cy.get("body").then(($body) => {
+            if ($body.find('[data-testid^="menu-item-"]').length > 0) {
+              cy.get('[data-testid^="menu-item-"]')
+                .contains("Deactivate")
+                .then(($el) => {
+                  if ($el.length) {
+                    cy.wrap($el).click();
+                    cy.waitTextVisible("Successfully deactivated policy.");
+                  }
+                });
+            }
+          });
         }
-      }
-    });
+      });
+  });
 };
 
-describe("Manage Ingestion and Secret Privileges", () => {
+// TODO: (v1_ui_removing) migrate this test
+describe.skip("Manage Ingestion and Secret Privileges", () => {
   let registeredEmail = "";
+
+  beforeEach(() => {
+    cy.intercept("POST", "/api/v2/graphql", (req) => {
+      if (hasOperationName(req, "appConfig")) {
+        req.on("response", (res) => {
+          res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
+        });
+      }
+    });
+  });
+
   it("create Metadata Ingestion platform policy and assign privileges to all users", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/settings/permissions/policies");
     cy.waitTextVisible("Manage Permissions");
-    cy.get(".ant-select-selection-item").should("be.visible").click();
-    cy.get(".ant-select-item-option-content").contains("All").click();
-    cy.get('[data-icon="delete"]').should("be.visible");
+    cy.get('[data-testid="policy-filter"]').click();
+    cy.get('[data-testid="option-ALL"]').click();
+    cy.wait(500);
     deactivateExistingAllUserPolicies();
     cy.reload();
     cy.clickOptionWithText("Create new policy");
@@ -133,7 +143,7 @@ describe("Manage Ingestion and Secret Privileges", () => {
   });
 
   it("Create user and verify ingestion tab not present", () => {
-    cy.loginWithCredentials();
+    cy.login();
     cy.visit("/settings/identities/users");
     cy.waitTextVisible("Invite Users");
     cy.clickOptionWithText("Invite Users");

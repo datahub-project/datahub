@@ -1,10 +1,16 @@
-### Setup
+### Overview
 
-This integration pulls metadata directly from Cassandra databases, including both **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
+The `cassandra` module ingests metadata from Cassandra into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
 
-You’ll need to have a Cassandra instance or an Astra DB setup with appropriate access permissions.
+### Prerequisites
 
-#### Steps to Get the Required Information
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Setup
+
+Supports **DataStax Astra DB** and **Cassandra Enterprise Edition (EE)**.
+
+##### Steps to Get the Required Information
 
 1. **Set Up User Credentials**:
 

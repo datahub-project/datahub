@@ -15,6 +15,17 @@ import javax.annotation.Nonnull;
 public abstract class MutationHook extends PluginSpec {
 
   /**
+   * Priority used to order mutation hooks. Higher values run first. The migration chain uses {@link
+   * #MIGRATION_PRIORITY} to guarantee it runs before all other hooks.
+   */
+  public static final int MIGRATION_PRIORITY = Integer.MAX_VALUE;
+
+  /** Override to control execution order. Default {@code 0}; higher runs first. */
+  public int getPriority() {
+    return 0;
+  }
+
+  /**
    * Mutating hook, original objects are potentially modified.
    *
    * @param changeMCPS input upsert items

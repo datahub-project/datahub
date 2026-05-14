@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { documentToTreeNode, sortDocumentsByCreationTime } from '@app/document/utils/documentUtils';
+import {
+    documentToTreeNode,
+    extractUrnsFromMarkdown,
+    hasBalancedParens,
+    isAllowedRelatedAssetUrn,
+    sortDocumentsByCreationTime,
+} from '@app/document/utils/documentUtils';
 
 import { Document } from '@types';
 
@@ -279,6 +285,100 @@ describe('documentUtils', () => {
             expect(result).toHaveLength(2);
             expect(result.map((d) => d.urn)).toContain('urn:li:document:1');
             expect(result.map((d) => d.urn)).toContain('urn:li:document:2');
+        });
+    });
+
+    describe('hasBalancedParens', () => {
+        it('should return true for strings with balanced parentheses', () => {
+            expect(hasBalancedParens('()')).toBe(true);
+            expect(hasBalancedParens('(a,b,c)')).toBe(true);
+            expect(hasBalancedParens('((nested))')).toBe(true);
+            expect(hasBalancedParens('(a,(b,c),d)')).toBe(true);
+        });
+
+        it('should return true for strings without parentheses', () => {
+            expect(hasBalancedParens('')).toBe(true);
+            expect(hasBalancedParens('no parens here')).toBe(true);
+        });
+
+        it('should return false for unbalanced parentheses', () => {
+            expect(hasBalancedParens('(')).toBe(false);
+            expect(hasBalancedParens(')')).toBe(false);
+            expect(hasBalancedParens('(()')).toBe(false);
+            expect(hasBalancedParens('())')).toBe(false);
+            expect(hasBalancedParens(')(')).toBe(false);
+        });
+
+        it('should handle complex nested URN patterns', () => {
+            // Valid DataJob URN pattern
+            expect(hasBalancedParens('(urn:li:dataFlow:(airflow,dag,PROD),task)')).toBe(true);
+            // Missing closing paren (the bug we fixed)
+            expect(hasBalancedParens('(urn:li:dataFlow:(airflow,dag,PROD),task')).toBe(false);
+        });
+    });
+
+    describe('isAllowedRelatedAssetUrn', () => {
+        it('should return true for allowed entity types', () => {
+            expect(isAllowedRelatedAssetUrn('urn:li:dataset:foo')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:dataJob:(urn:li:dataFlow:(a,b,c),task)')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:dashboard:123')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:glossaryTerm:term1')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:container:abc')).toBe(true);
+            expect(isAllowedRelatedAssetUrn('urn:li:tag:myTag')).toBe(true);
+        });
+
+        it('should return false for entity types not in the allow list', () => {
+            expect(isAllowedRelatedAssetUrn('urn:li:corpuser:john')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li:corpgroup:engineering')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li:structuredProperty:prop1')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li:dataPlatform:mysql')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li:schemaField:abc')).toBe(false);
+        });
+
+        it('should return false for malformed URNs', () => {
+            expect(isAllowedRelatedAssetUrn('not-a-urn')).toBe(false);
+            expect(isAllowedRelatedAssetUrn('urn:li')).toBe(false);
+            // Unbalanced parens
+            expect(isAllowedRelatedAssetUrn('urn:li:dataJob:(urn:li:dataFlow:(a,b,c),task')).toBe(false);
+        });
+    });
+
+    describe('extractUrnsFromMarkdown', () => {
+        it('should extract simple URNs from markdown links', () => {
+            const content = '[@Dataset](urn:li:dataset:foo)';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual(['urn:li:dataset:foo']);
+        });
+
+        it('should extract URNs with nested parentheses (DataJob pattern)', () => {
+            const content = '[@Task](urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),mytask))';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual(['urn:li:dataJob:(urn:li:dataFlow:(airflow,dag,PROD),mytask)']);
+        });
+
+        it('should extract multiple URNs from content', () => {
+            const content =
+                'See [@Dataset](urn:li:dataset:a) and [@Task](urn:li:dataJob:(urn:li:dataFlow:(x,y,z),task))';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual(['urn:li:dataset:a', 'urn:li:dataJob:(urn:li:dataFlow:(x,y,z),task)']);
+        });
+
+        it('should not include duplicate URNs', () => {
+            const content = '[@A](urn:li:dataset:foo) and [@B](urn:li:dataset:foo)';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual(['urn:li:dataset:foo']);
+        });
+
+        it('should ignore non-URN links', () => {
+            const content = '[Link](https://example.com) and [@Dataset](urn:li:dataset:foo)';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual(['urn:li:dataset:foo']);
+        });
+
+        it('should return empty array for content without URN links', () => {
+            const content = 'Just some text without any links';
+            const result = extractUrnsFromMarkdown(content);
+            expect(result).toEqual([]);
         });
     });
 });

@@ -1,9 +1,31 @@
 import random
-from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Set,
+    SupportsIndex,
+    TypeVar,
+    Union,
+    overload,
+)
 
 T = TypeVar("T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
+
+
+class LossySentinel(str):
+    """Marks a lossy-collection truncation summary.
+
+    ``str`` subclass so it renders naturally in pprint/JSON but can be
+    distinguished from real entries via ``isinstance``.
+    """
+
+    pass
 
 
 class LossyList(List[T], Generic[T]):
@@ -33,6 +55,27 @@ class LossyList(List[T], Generic[T]):
         for item in __iterable:
             self.append(item)
 
+    @overload
+    def __getitem__(self, index: SupportsIndex) -> T: ...
+
+    @overload
+    def __getitem__(self, index: slice) -> List[T]: ...
+
+    def __getitem__(self, index: Union[SupportsIndex, slice]) -> Union[T, List[T]]:
+        """
+        Override to unwrap stored tuples when accessing by index.
+
+        Internally, items are stored as (index, item) tuples for reservoir sampling.
+        This method unwraps them to return just the item, maintaining the List[T] abstraction.
+        """
+        result: Any = super().__getitem__(index)
+        if isinstance(index, slice):
+            # For slices, unwrap each tuple in the slice
+            return [item[1] for item in result]
+        else:
+            # For single index, unwrap the tuple
+            return result[1]
+
     def __len__(self) -> int:
         return self.total_elements
 
@@ -58,7 +101,9 @@ class LossyList(List[T], Generic[T]):
             Report.to_pure_python_obj(value) for value in list(self.__iter__())
         ]
         if self.sampled:
-            base_list.append(f"... sampled of {self.total_elements} total elements")
+            base_list.append(
+                LossySentinel(f"... sampled of {self.total_elements} total elements")
+            )
         return base_list
 
     def set_total(self, total: int) -> None:
@@ -149,6 +194,18 @@ class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
                 f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
             )
         return base_dict
+
+    def resize(self, max_elements: int) -> None:
+        """Change max_elements, pruning excess entries if needed."""
+        self.max_elements = max_elements
+        excess = super().__len__() - max_elements
+        if excess > 0:
+            keys_to_drop = random.sample(list(super().__iter__()), excess)
+            for k in keys_to_drop:
+                super().pop(k)
+                self._items_removed += 1
+            self._overflow += excess
+            self.sampled = True
 
     def total_key_count(self) -> int:
         """Returns the total number of keys that have been added to this dictionary."""

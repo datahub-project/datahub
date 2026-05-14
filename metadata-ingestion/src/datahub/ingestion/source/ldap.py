@@ -9,7 +9,7 @@ import ldap
 from ldap.controls import SimplePagedResultsControl
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigurationError
+from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.common import PipelineContext
@@ -108,7 +108,7 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     # Server configuration.
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
-    ldap_password: str = Field(description="LDAP password.")
+    ldap_password: TransparentSecretStr = Field(description="LDAP password.")
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -249,7 +249,7 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         try:
             self.ldap_client.simple_bind_s(
-                self.config.ldap_user, self.config.ldap_password
+                self.config.ldap_user, self.config.ldap_password.get_secret_value()
             )
         except ldap.LDAPError as e:
             raise ConfigurationError("LDAP connection failed") from e

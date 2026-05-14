@@ -17,8 +17,9 @@ from sqlglot.expressions import (
     ColumnDef,
     Create,
     Day,
-    Expression,
+    Expr,
     FileFormatProperty,
+    Hour,
     Identifier,
     LocationProperty,
     Month,
@@ -404,9 +405,9 @@ class AthenaPropertiesExtractor:
 
     @staticmethod
     def _handle_time_function(
-        expr: Union[Year, Month, Day], column_types: Dict[str, str]
+        expr: Union[Year, Month, Day, Hour], column_types: Dict[str, str]
     ) -> Tuple[ColumnInfo, TransformInfo]:
-        """Handle time-based functions like year, month, day.
+        """Handle time-based functions like year, month, day, hour.
 
         Args:
             expr: The time function expression to handle
@@ -507,7 +508,7 @@ class AthenaPropertiesExtractor:
             transform_info = TransformInfo(type="unknown", column=column_info)
             return column_info, transform_info
 
-    def _extract_partition_info(self, parsed: Expression) -> PartitionInfo:
+    def _extract_partition_info(self, parsed: Expr) -> PartitionInfo:
         """Extract partitioning information from the parsed SQL statement.
 
         Args:
@@ -579,7 +580,7 @@ class AthenaPropertiesExtractor:
                         )
                         simple_columns.append(column_info)
                         transforms.append(transform_info)
-                    elif isinstance(expr, (Year, Month, Day)):
+                    elif isinstance(expr, (Year, Month, Day, Hour)):
                         column_info, transform_info = self._handle_time_function(
                             expr, column_types
                         )
@@ -588,7 +589,7 @@ class AthenaPropertiesExtractor:
                     elif (
                         isinstance(expr, Anonymous)
                         and expr.this
-                        and str(expr.this).lower() in ["bucket", "hour", "truncate"]
+                        and str(expr.this).lower() in ["bucket", "truncate"]
                     ):
                         column_info, transform_info = self._handle_transform_function(
                             expr, column_types
@@ -618,7 +619,7 @@ class AthenaPropertiesExtractor:
             simple_columns=unique_simple_columns, transforms=transforms
         )
 
-    def _extract_table_properties(self, parsed: Expression) -> TableProperties:
+    def _extract_table_properties(self, parsed: Expr) -> TableProperties:
         """Extract table properties from the parsed SQL statement.
 
         Args:
@@ -764,7 +765,7 @@ class AthenaPropertiesExtractor:
             pass
         return None, None
 
-    def _extract_row_format(self, parsed: Expression) -> RowFormatInfo:
+    def _extract_row_format(self, parsed: Expr) -> RowFormatInfo:
         """Extract and format RowFormatDelimitedProperty.
 
         Args:

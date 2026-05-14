@@ -1,10 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Tuple, Type, cast
+from typing import Callable, Dict, List, Optional, Tuple, Type
 
 import sqlglot
-from lark import Tree
 from sqlglot import ParseError, expressions as exp
 
 from datahub.configuration.source_common import PlatformDetail
@@ -22,7 +21,13 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
-from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
+from datahub.ingestion.source.powerbi.m_query import native_sql_parser
+from datahub.ingestion.source.powerbi.m_query.ast_utils import (
+    find_nodes_by_kind,
+    get_literal_value,
+    get_record_field_values,
+    resolve_identifier,
+)
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     DataPlatformTable,
@@ -48,6 +53,112 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _unwrap_csv(elem: dict) -> dict:
+    """Unwrap a Csv wrapper node, returning the inner node."""
+    if isinstance(elem, dict) and elem.get("kind") == "Csv":
+        return elem.get("node", elem)
+    return elem
+
+
+def _get_invoke_elements(invoke_node: dict) -> List[dict]:
+    """Return the unwrapped argument elements from an InvokeExpression."""
+    content = invoke_node.get("content", {})
+    if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
+        return []
+    return [_unwrap_csv(e) for e in content.get("elements", []) if isinstance(e, dict)]
+
+
+def _get_arg_values(
+    invoke_node: dict,
+    parameters: Dict[str, str],
+) -> List[Optional[str]]:
+    """Extract positional string arguments from an InvokeExpression node.
+
+    Returns a list of Optional[str] -- one per argument.
+    RecordExpression arguments return None.
+    IdentifierExpression arguments are resolved via parameters dict.
+    """
+    values: List[Optional[str]] = []
+    for inner in _get_invoke_elements(invoke_node):
+        val = get_literal_value(inner)
+        if val is None and isinstance(inner, dict):
+            if inner.get("kind") == "IdentifierExpression":
+                ref_name = inner.get("identifier", {}).get("literal", "")
+                if ref_name.startswith('#"') and ref_name.endswith('"'):
+                    ref_name = ref_name[2:-1]
+                if ref_name in parameters:
+                    val = parameters[ref_name]
+                else:
+                    logger.debug(
+                        "Argument '%s' is an unresolved parameter reference"
+                        " — not found in dataset parameters",
+                        ref_name,
+                    )
+        values.append(val)
+    return values
+
+
+def _get_record_args(node_map: Dict[int, dict], invoke_node: dict) -> Dict[str, str]:
+    """Extract all key-value pairs from RecordExpression arguments in an InvokeExpression."""
+    result: Dict[str, str] = {}
+    for inner in _get_invoke_elements(invoke_node):
+        if isinstance(inner, dict) and inner.get("kind") == "RecordExpression":
+            result.update(get_record_field_values(node_map, inner))
+    return result
+
+
+def _get_data_source_tokens(node_map: Dict[int, dict], arg_node: dict) -> List[str]:
+    """Extract [platform_name, server, ...other_args] from a data source node.
+
+    If arg_node is an IdentifierExpression, resolves it through the let scope.
+    """
+    # Resolve through let scope if identifier
+    if arg_node.get("kind") == "IdentifierExpression":
+        name = arg_node.get("identifier", {}).get("literal", "")
+        let_nodes = sorted(
+            find_nodes_by_kind(node_map, "LetExpression"),
+            key=lambda n: n.get("id", 0),
+        )
+        if let_nodes:
+            resolved = resolve_identifier(node_map, let_nodes[0], name)
+            if resolved is not None:
+                arg_node = resolved
+
+    if arg_node.get("kind") != "RecursivePrimaryExpression":
+        return []
+
+    head = arg_node.get("head", {})
+    platform_name = ""
+    if head.get("kind") == "IdentifierExpression":
+        platform_name = head.get("identifier", {}).get("literal", "")
+
+    tokens: List[str] = [platform_name]
+
+    rec_exprs = arg_node.get("recursiveExpressions", {})
+    elements = rec_exprs.get("elements", []) if isinstance(rec_exprs, dict) else []
+
+    for elem in elements:
+        if elem.get("kind") != "InvokeExpression":
+            continue
+        content = elem.get("content", {})
+        if not isinstance(content, dict) or content.get("kind") != "ArrayWrapper":
+            continue
+        for arg_elem in content.get("elements", []):
+            inner = _unwrap_csv(arg_elem)
+            if not isinstance(inner, dict):
+                continue
+            val = get_literal_value(inner)
+            if val is not None:
+                tokens.append(val)
+            elif inner.get("kind") == "RecordExpression":
+                kv = get_record_field_values(node_map, inner)
+                for k, v in kv.items():
+                    tokens.append(k)
+                    tokens.append(v)
+
+    return tokens
 
 
 def get_next_item(items: List[str], item: str) -> Optional[str]:
@@ -157,62 +268,65 @@ class AbstractLineage(ABC):
 
     @staticmethod
     def get_db_detail_from_argument(
-        arg_list: Tree,
+        arg_list: dict,
+        parameters: Dict[str, str],
     ) -> Tuple[Optional[str], Optional[str]]:
-        # TODO: tree_function.token_values turns nulls into empty strings,
-        # which then get removed by remove_whitespaces_from_list. We would
-        # prefer to pass them along as None to give callers an accurate view
-        # of the arguments.
-        arguments: List[str] = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(arg_list)
-            ),
-        )
-        logger.debug(f"DB Details: {arguments}")
+        args = _get_arg_values(arg_list, parameters=parameters)
+        logger.debug(f"DB Details: {args}")
 
         return (
-            arguments[0] if len(arguments) > 0 else None,
-            arguments[1] if len(arguments) > 1 else None,
+            args[0] if len(args) > 0 else None,
+            args[1] if len(args) > 1 else None,
         )
 
     @staticmethod
     def create_reference_table(
-        arg_list: Tree,
+        arg_list: dict,
         table_detail: Dict[str, str],
+        parameters: Dict[str, str],
+        node_map: Optional[Dict[int, dict]] = None,
     ) -> Optional[ReferencedTable]:
-        arguments: List[str] = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(arg_list)
-            ),
-        )
+        node_map = node_map or {}
+        args = _get_arg_values(arg_list, parameters=parameters)
+        record_fields = _get_record_args(node_map, arg_list)
 
-        logger.debug(f"Processing arguments {arguments}")
+        logger.debug(f"Processing arguments {args}, record_fields {record_fields}")
 
-        if (
-            len(arguments) >= 4  # [0] is warehouse FQDN.
-            # [1] is endpoint, we are not using it.
-            # [2] is "Catalog" key
-            # [3] is catalog's value
-        ):
+        warehouse = args[0] if args else None
+        if warehouse is None:
+            logger.debug(
+                "No warehouse/host argument resolved from %s — skipping lineage",
+                args,
+            )
+            return None
+
+        catalog = record_fields.get("Catalog")
+        if catalog is not None:
             return ReferencedTable(
-                warehouse=arguments[0],
-                catalog=arguments[3],
-                # As per my observation, database and catalog names are same in M-Query
+                warehouse=warehouse,
+                catalog=catalog,
                 database=table_detail["Database"]
                 if table_detail.get("Database")
-                else arguments[3],
+                else catalog,
                 schema=table_detail["Schema"],
                 table=table_detail.get("Table") or table_detail["View"],
             )
-        elif len(arguments) == 2:
+        elif len(args) >= 2:
             return ReferencedTable(
-                warehouse=arguments[0],
+                warehouse=warehouse,
                 database=table_detail["Database"],
                 schema=table_detail["Schema"],
                 table=table_detail.get("Table") or table_detail["View"],
                 catalog=None,
             )
 
+        logger.debug(
+            "Insufficient arguments to build table reference"
+            " (warehouse=%s, args=%s, record_fields=%s) — skipping lineage",
+            warehouse,
+            args,
+            record_fields,
+        )
         return None
 
     @staticmethod
@@ -248,8 +362,10 @@ class AbstractLineage(ABC):
             )
         )
 
-        query = native_sql_parser.remove_drop_statement(query)
+        # remove_special_characters must run first to expand #(lf) → \n before
+        # remove_drop_statement applies line-anchored patterns (USE, GO, SET, etc.)
         query = native_sql_parser.remove_special_characters(query)
+        query = native_sql_parser.remove_drop_statement(query)
 
         parsed_result: Optional["SqlParsingResult"] = (
             native_sql_parser.parse_custom_sql(
@@ -361,7 +477,10 @@ class AmazonAthenaLineage(AbstractLineage):
             f"Processing AmazonAthena data-access function detail {data_access_func_detail}"
         )
 
-        server, _ = self.get_db_detail_from_argument(data_access_func_detail.arg_list)
+        server, _ = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
+        )
         if server is None:
             logger.debug("Server/region not found in Athena data access function")
             return Lineage.empty()
@@ -481,19 +600,30 @@ class AmazonRedshiftLineage(AbstractLineage):
         )
 
         server, db_name = self.get_db_detail_from_argument(
-            data_access_func_detail.arg_list
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
         if db_name is None or server is None:
-            return Lineage.empty()  # Return an empty list
+            logger.debug(
+                "Server or database argument not resolved for Redshift table %s"
+                " (server=%s, db=%s) — skipping lineage",
+                self.table.full_name,
+                server,
+                db_name,
+            )
+            return Lineage.empty()
 
-        schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Name"]
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None or accessor.next is None:
+            logger.debug(
+                "Incomplete accessor chain for Redshift table %s"
+                " — expected two navigation steps (schema then table)",
+                self.table.full_name,
+            )
+            return Lineage.empty()
 
-        table_name: str = cast(
-            IdentifierAccessor,
-            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
-        ).items["Name"]
+        schema_name: str = accessor.items["Name"]
+        table_name: str = accessor.next.items["Name"]
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -535,7 +665,7 @@ class OracleLineage(AbstractLineage):
 
         db_name = splitter_result[1].split(".")[0]
 
-        return tree_function.strip_char_from_list([splitter_result[0]])[0], db_name
+        return splitter_result[0].strip('"'), db_name
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -544,23 +674,25 @@ class OracleLineage(AbstractLineage):
             f"Processing Oracle data-access function detail {data_access_func_detail}"
         )
 
-        arguments: List[str] = tree_function.remove_whitespaces_from_list(
-            tree_function.token_values(data_access_func_detail.arg_list)
+        args = _get_arg_values(
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
 
-        server, db_name = self._get_server_and_db_name(arguments[0])
+        if not args or args[0] is None:
+            return Lineage.empty()
+
+        server, db_name = self._get_server_and_db_name(args[0])
 
         if db_name is None or server is None:
             return Lineage.empty()
 
-        schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Schema"]
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None or accessor.next is None:
+            return Lineage.empty()
 
-        table_name: str = cast(
-            IdentifierAccessor,
-            cast(IdentifierAccessor, data_access_func_detail.identifier_accessor).next,
-        ).items["Name"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.next.items.get("Name")
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -643,6 +775,8 @@ class DatabricksLineage(AbstractLineage):
         table_reference = self.create_reference_table(
             arg_list=data_access_func_detail.arg_list,
             table_detail=table_detail,
+            node_map=data_access_func_detail.node_map,
+            parameters=data_access_func_detail.parameters,
         )
 
         if table_reference:
@@ -695,18 +829,40 @@ class TwoStepDataAccessPattern(AbstractLineage, ABC):
         )
 
         server, db_name = self.get_db_detail_from_argument(
-            data_access_func_detail.arg_list
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
-        if server is None or db_name is None:
-            return Lineage.empty()  # Return an empty list
+        if db_name is None:
+            logger.debug(
+                "No database argument resolved for %s (%s) — skipping lineage",
+                self.get_platform_pair().powerbi_data_platform_name,
+                self.table.full_name,
+            )
+            return Lineage.empty()
+        if server is None:
+            # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).
+            # Fall back to empty-string server to preserve the pre-v2-parser behavior (partial lineage).
+            logger.info(
+                "Server argument not resolved from dataset parameters for table %s"
+                " — emitting partial lineage without server host."
+                " Add the server parameter to the dataset to resolve fully.",
+                self.table.full_name,
+            )
+            server = ""
 
-        schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Schema"]
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None:
+            logger.debug(
+                "No accessor chain for %s (%s) — expression may reference the source"
+                " directly without a table navigation step (e.g. missing"
+                " Source{[Schema=...,Item=...]}[Data])",
+                self.get_platform_pair().powerbi_data_platform_name,
+                self.table.full_name,
+            )
+            return Lineage.empty()
 
-        table_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Item"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.items.get("Item")
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -744,18 +900,30 @@ class MySQLLineage(AbstractLineage):
         )
 
         server, db_name = self.get_db_detail_from_argument(
-            data_access_func_detail.arg_list
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
         if server is None or db_name is None:
-            return Lineage.empty()  # Return an empty list
+            logger.debug(
+                "Server or database argument not resolved for MySQL table %s"
+                " (server=%s, db=%s) — skipping lineage",
+                self.table.full_name,
+                server,
+                db_name,
+            )
+            return Lineage.empty()
 
-        schema_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Schema"]
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None:
+            logger.debug(
+                "No accessor chain for MySQL table %s"
+                " — expected Source{[Schema=...,Item=...]} navigation step",
+                self.table.full_name,
+            )
+            return Lineage.empty()
 
-        table_name: str = cast(
-            IdentifierAccessor, data_access_func_detail.identifier_accessor
-        ).items["Item"]
+        schema_name: Optional[str] = accessor.items.get("Schema")
+        table_name: Optional[str] = accessor.items.get("Item")
 
         qualified_table_name: str = f"{schema_name}.{table_name}"
 
@@ -853,22 +1021,33 @@ class MSSqlLineage(TwoStepDataAccessPattern):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
-        arguments: List[str] = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(data_access_func_detail.arg_list)
-            ),
-        )
+        node_map = data_access_func_detail.node_map
 
         server, database = self.get_db_detail_from_argument(
-            data_access_func_detail.arg_list
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
-        if server is None or database is None:
-            return Lineage.empty()  # Return an empty list
+        if database is None:
+            logger.debug(
+                "No database argument resolved for MSSql table %s — skipping lineage",
+                self.table.full_name,
+            )
+            return Lineage.empty()
+        if server is None:
+            # Server argument is an unresolved parameter reference (e.g. Sql.Database(ServerName, "db")).
+            # The parameter is not in the dataset's parameters dict, so we can't resolve the host.
+            # Fall back to empty-string server to preserve the pre-v2-parser behavior (partial lineage).
+            logger.info(
+                "Server argument not resolved from dataset parameters for table %s"
+                " — emitting partial lineage without server host."
+                " Add the server parameter to the dataset to resolve fully.",
+                self.table.full_name,
+            )
+            server = ""
 
-        assert server
-        assert database  # to silent the lint
-
-        query: Optional[str] = get_next_item(arguments, "Query")
+        # Check for inline SQL query in record arguments (e.g. [Query="SELECT ..."])
+        record_fields = _get_record_args(node_map, data_access_func_detail.arg_list)
+        query: Optional[str] = record_fields.get("Query")
         if query:
             if self.config.enable_advance_lineage_sql_construct is False:
                 # Use previous parser to generate URN to keep backward compatibility
@@ -893,11 +1072,69 @@ class MSSqlLineage(TwoStepDataAccessPattern):
         return self.two_level_access_pattern(data_access_func_detail)
 
 
+class MSSqlMultiDatabaseLineage(AbstractLineage):
+    # https://learn.microsoft.com/en-us/sql/relational-databases/security/authentication-access/ownership-and-user-schema-separation?view=sql-server-ver16
+    DEFAULT_SCHEMA = "dbo"  # Default schema name in MS-SQL is dbo
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MS_SQL.value
+
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        logger.debug(
+            f"Platform({self.get_platform_pair().datahub_data_platform_name}) function detail {data_access_func_detail}"
+        )
+
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None or accessor.next is None:
+            return Lineage.empty()
+
+        # First is host name
+        server, _ = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
+        )
+        if server is None:
+            logger.debug("Server not found in MSSQL Sql.Databases data access function")
+            return Lineage.empty()
+
+        # Second is database name
+        db_name: str = accessor.items["Name"]
+        # Third is schema name and table name
+        schema_name: str = accessor.next.items["Schema"]
+        table_name: str = accessor.next.items["Item"]
+
+        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+
+        urn = make_urn(
+            config=self.config,
+            platform_instance_resolver=self.platform_instance_resolver,
+            data_platform_pair=self.get_platform_pair(),
+            server=server,
+            qualified_table_name=qualified_table_name,
+        )
+
+        column_lineage = self.create_table_column_lineage(urn)
+
+        return Lineage(
+            upstreams=[
+                DataPlatformTable(
+                    data_platform_pair=self.get_platform_pair(),
+                    urn=urn,
+                )
+            ],
+            column_lineage=column_lineage,
+        )
+
+
 class ThreeStepDataAccessPattern(AbstractLineage, ABC):
     def get_datasource_server(
-        self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail
+        self,
+        args: List[Optional[str]],
+        data_access_func_detail: DataAccessFunctionDetail,
     ) -> str:
-        return tree_function.strip_char_from_list([arguments[0]])[0]
+        return args[0].strip('"') if args and args[0] else ""
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
@@ -906,21 +1143,21 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
         )
 
-        arguments: List[str] = tree_function.remove_whitespaces_from_list(
-            tree_function.token_values(data_access_func_detail.arg_list)
+        args = _get_arg_values(
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
+
+        accessor = data_access_func_detail.identifier_accessor
+        if accessor is None or accessor.next is None or accessor.next.next is None:
+            return Lineage.empty()
+
         # First is database name
-        db_name: str = data_access_func_detail.identifier_accessor.items["Name"]  # type: ignore
+        db_name: str = accessor.items["Name"]
         # Second is schema name
-        schema_name: str = cast(
-            IdentifierAccessor,
-            data_access_func_detail.identifier_accessor.next,  # type: ignore
-        ).items["Name"]
+        schema_name: str = accessor.next.items["Name"]
         # Third is table name
-        table_name: str = cast(
-            IdentifierAccessor,
-            data_access_func_detail.identifier_accessor.next.next,  # type: ignore
-        ).items["Name"]
+        table_name: str = accessor.next.next.items["Name"]
 
         qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
 
@@ -928,7 +1165,7 @@ class ThreeStepDataAccessPattern(AbstractLineage, ABC):
             f"{self.get_platform_pair().datahub_data_platform_name} qualified_table_name {qualified_table_name}"
         )
 
-        server: str = self.get_datasource_server(arguments, data_access_func_detail)
+        server: str = self.get_datasource_server(args, data_access_func_detail)
 
         urn = make_urn(
             config=self.config,
@@ -961,10 +1198,11 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
         return SupportedDataPlatform.GOOGLE_BIGQUERY.value
 
     def get_datasource_server(
-        self, arguments: List[str], data_access_func_detail: DataAccessFunctionDetail
+        self,
+        args: List[Optional[str]],
+        data_access_func_detail: DataAccessFunctionDetail,
     ) -> str:
         # In Google BigQuery server is project-name
-        # condition to silent lint, it is not going to be None
         return (
             data_access_func_detail.identifier_accessor.items["Name"]
             if data_access_func_detail.identifier_accessor is not None
@@ -973,10 +1211,14 @@ class GoogleBigQueryLineage(ThreeStepDataAccessPattern):
 
 
 class NativeQueryLineage(AbstractLineage):
+    # Maps the full data-access function name (e.g. "Snowflake.Databases") to its platform.
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
-        SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name: SupportedDataPlatform.SNOWFLAKE,
-        SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name: SupportedDataPlatform.AMAZON_REDSHIFT,
-        SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.SNOWFLAKE_DATA_ACCESS.value: SupportedDataPlatform.SNOWFLAKE,
+        FunctionName.AMAZON_REDSHIFT_DATA_ACCESS.value: SupportedDataPlatform.AMAZON_REDSHIFT,
+        FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value: SupportedDataPlatform.DatabricksMultiCloud_SQL,
+        FunctionName.MSSQL_DATA_ACCESS.value: SupportedDataPlatform.MS_SQL,
+        FunctionName.POSTGRESQL_DATA_ACCESS.value: SupportedDataPlatform.POSTGRES_SQL,
+        FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value: SupportedDataPlatform.GOOGLE_BIGQUERY,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1027,77 +1269,79 @@ class NativeQueryLineage(AbstractLineage):
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
         if (
             data_access_tokens[0]
-            != SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name
+            == FunctionName.DATABRICK_MULTI_CLOUD_DATA_ACCESS.value
         ):
-            return None
+            database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-        database: Optional[str] = get_next_item(data_access_tokens, "Database")
+            if (
+                database and database != Constant.M_QUERY_NULL
+            ):  # database name is explicitly set
+                return database
 
-        if (
-            database and database != Constant.M_QUERY_NULL
-        ):  # database name is explicitly set
-            return database
-
-        return (
-            get_next_item(  # database name is set in Name argument
-                data_access_tokens, "Name"
+            return (
+                get_next_item(  # database name is set in Name argument
+                    data_access_tokens, "Name"
+                )
+                or get_next_item(  # If both above arguments are not available, then try Catalog
+                    data_access_tokens, "Catalog"
+                )
             )
-            or get_next_item(  # If both above arguments are not available, then try Catalog
-                data_access_tokens, "Catalog"
-            )
-        )
+
+        if data_access_tokens[0] == FunctionName.GOOGLE_BIGQUERY_DATA_ACCESS.value:
+            return get_next_item(data_access_tokens, "BillingProject")
+
+        return None
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
-        t1: Optional[Tree] = tree_function.first_arg_list_func(
-            data_access_func_detail.arg_list
-        )
-        assert t1 is not None
-        flat_argument_list: List[Tree] = tree_function.flat_argument_list(t1)
+        node_map = data_access_func_detail.node_map
+        invoke_node = data_access_func_detail.arg_list
 
-        if len(flat_argument_list) != 2:
+        elements = _get_invoke_elements(invoke_node)
+
+        if len(elements) < 2:
             logger.debug(
-                f"Expecting 2 argument, actual argument count is {len(flat_argument_list)}"
+                "Expecting at least 2 arguments for Value.NativeQuery, got %d",
+                len(elements),
             )
-            logger.debug(f"Flat argument list = {flat_argument_list}")
             return Lineage.empty()
 
-        data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
-            tree_function.token_values(flat_argument_list[0])
-        )
+        source_node = elements[0]
+        sql_node = elements[1]
 
-        if not self.is_native_parsing_supported(data_access_tokens[0]):
-            logger.debug(
-                f"Unsupported native-query data-platform = {data_access_tokens[0]}"
-            )
-            logger.debug(
-                f"NativeQuery is supported only for {self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM}"
-            )
-
+        # Extract SQL query from second arg
+        sql_query = get_literal_value(sql_node)
+        if sql_query is None:
+            logger.debug("Could not extract SQL query from second argument")
             return Lineage.empty()
 
-        if len(data_access_tokens[0]) < 3:
+        # Extract data source tokens from first arg
+        data_access_tokens = _get_data_source_tokens(node_map, source_node)
+
+        if not data_access_tokens or not self.is_native_parsing_supported(
+            data_access_tokens[0]
+        ):
             logger.debug(
-                f"Server is not available in argument list for data-platform {data_access_tokens[0]}. Returning empty "
-                "list"
+                "Unsupported native-query data-platform = %s",
+                data_access_tokens[0] if data_access_tokens else "none",
+            )
+            return Lineage.empty()
+
+        if len(data_access_tokens) < 2:
+            logger.debug(
+                "Server not available in data source tokens for %s",
+                data_access_tokens[0],
             )
             return Lineage.empty()
 
         self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
             data_access_tokens[0]
         ]
-        # The First argument is the query
-        sql_query: str = tree_function.strip_char_from_list(
-            values=tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(flat_argument_list[1])
-            ),
-        )[0]  # Remove any whitespaces and double quotes character
-
-        server = tree_function.strip_char_from_list([data_access_tokens[2]])[0]
+        # data_access_tokens[0] = platform name, [1] = first literal arg = server
+        server = data_access_tokens[1]
 
         if self.config.enable_advance_lineage_sql_construct is False:
-            # Use previous parser to generate URN to keep backward compatibility
             return self.create_urn_using_old_parser(
                 query=sql_query,
                 server=server,
@@ -1123,7 +1367,8 @@ class OdbcLineage(AbstractLineage):
         )
 
         connect_string, query = self.get_db_detail_from_argument(
-            data_access_func_detail.arg_list
+            data_access_func_detail.arg_list,
+            parameters=data_access_func_detail.parameters,
         )
 
         if not connect_string:
@@ -1507,6 +1752,11 @@ class SupportedPattern(Enum):
     MS_SQL = (
         MSSqlLineage,
         FunctionName.MSSQL_DATA_ACCESS,
+    )
+
+    MS_SQL_MULTI_DATABASE = (
+        MSSqlMultiDatabaseLineage,
+        FunctionName.MSSQL_MULTI_DATABASE_DATA_ACCESS,
     )
 
     GOOGLE_BIG_QUERY = (

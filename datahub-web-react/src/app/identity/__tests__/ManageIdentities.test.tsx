@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ManageIdentities } from '@app/identity/ManageIdentities';
+import CustomThemeProvider from '@src/CustomThemeProvider';
 
 // Mock the user context
 const mockUserContext = {
@@ -50,7 +51,11 @@ describe('ManageIdentities', () => {
     });
 
     const renderWithRouter = (component: React.ReactNode) => {
-        return render(<MemoryRouter>{component}</MemoryRouter>);
+        return render(
+            <CustomThemeProvider>
+                <MemoryRouter>{component}</MemoryRouter>
+            </CustomThemeProvider>,
+        );
     };
 
     it('should render the page title', () => {

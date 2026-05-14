@@ -2,7 +2,6 @@ import { Alert, Space, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import RecipeBuilder from '@app/ingestV2/source/builder/RecipeBuilder';
 import { getRecipeJson } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { CONNECTORS_WITH_FORM_NO_DYNAMIC_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
@@ -26,7 +25,7 @@ const Section = styled.div`
 `;
 
 const BorderedSection = styled(Section)`
-    border: solid ${ANTD_GRAY[4]} 0.5px;
+    border: solid ${(props) => props.theme.colors.bgSurface} 0.5px;
 `;
 
 const SelectTemplateHeader = styled(Typography.Title)`
@@ -182,7 +181,7 @@ export const DefineRecipeStep = ({
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button disabled={!stepComplete} onClick={onClickNext}>
+                <Button disabled={!stepComplete} onClick={onClickNext} data-testid="recipe-builder-next-button">
                     Next
                 </Button>
             </ControlsContainer>

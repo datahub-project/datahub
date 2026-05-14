@@ -1,5 +1,6 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Plus } from 'phosphor-react';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -124,7 +125,7 @@ export const IncidentLinkedAssetsList = ({
                                         <Pill
                                             key={asset.urn}
                                             label={entityRegistry.getDisplayName(asset.type, asset)}
-                                            rightIcon="Close"
+                                            rightIcon={X}
                                             color="violet"
                                             variant="outline"
                                             onClickRightIcon={() => {

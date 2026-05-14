@@ -1,4 +1,7 @@
-import { Icon, Tooltip, borders, colors } from '@components';
+import { Icon, Tooltip, borders } from '@components';
+import { GlobeHemisphereWest } from '@phosphor-icons/react/dist/csr/GlobeHemisphereWest';
+import { Lock } from '@phosphor-icons/react/dist/csr/Lock';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
@@ -10,28 +13,28 @@ const Wrapper = styled.div<{ $bordered?: boolean }>`
     display: flex;
     gap: 2px;
     align-items: center;
-    background: ${colors.white};
+    background: ${(props) => props.theme.colors.bg};
     padding: 2px;
     border-radius: 16px;
-    ${(props) => props.$bordered && `border: ${borders['1px']} ${colors.gray[100]};`}
+    ${(props) => props.$bordered && `border: ${borders['1px']} ${props.theme.colors.border};`}
 `;
 
 const IconWrapper = styled.div<{ $active?: boolean }>`
     flex-shrink: 0;
     padding: 2px;
-    background: ${(props) => (props.$active ? colors.primary[500] : colors.white)};
+    background: ${(props) => (props.$active ? props.theme.colors.textBrand : props.theme.colors.bg)};
+    color: ${(props) => (props.$active ? props.theme.colors.textOnFillBrand : 'inherit')};
     border-radius: 100%;
     cursor: pointer;
     width: 20px;
     height: 20px;
 `;
 
-const ICON_ACTIVE_COLOR: FontColorOptions = 'white';
 const ICON_INACTIVE_COLOR: FontColorOptions = 'gray';
 const ICON_INACTIVE_COLOR_LEVEL: FontColorLevelOptions = 1800;
 
 const ACTIVE_ICON_PROPS = {
-    color: ICON_ACTIVE_COLOR,
+    color: 'inherit' as FontColorOptions,
 };
 
 const INACTIVE_ICON_PROPS = {
@@ -52,8 +55,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="All">
                 <IconWrapper onClick={() => onTypeSelect('all')} $active={selectedOption === 'all'}>
                     <Icon
-                        icon="SquaresFour"
-                        source="phosphor"
+                        icon={SquaresFour}
                         size="lg"
                         {...(selectedOption === 'all' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
@@ -63,8 +65,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="Private">
                 <IconWrapper onClick={() => onTypeSelect('private')} $active={selectedOption === 'private'}>
                     <Icon
-                        icon="Lock"
-                        source="phosphor"
+                        icon={Lock}
                         size="lg"
                         {...(selectedOption === 'private' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}
                     />
@@ -74,8 +75,7 @@ export default function ViewTypeSelectV2({ publicViews, privateViews, onTypeSele
             <Tooltip placement="bottom" showArrow title="Public">
                 <IconWrapper onClick={() => onTypeSelect('public')} $active={selectedOption === 'public'}>
                     <Icon
-                        icon="GlobeHemisphereWest"
-                        source="phosphor"
+                        icon={GlobeHemisphereWest}
                         weight="fill"
                         size="lg"
                         {...(selectedOption === 'public' ? ACTIVE_ICON_PROPS : INACTIVE_ICON_PROPS)}

@@ -15,9 +15,9 @@ With sources that support usage statistics, you can collect Dataset, Dashboard, 
 ## Dataset Usage & Query History Setup, Prerequisites, and Permissions
 
 To ingest Dataset Usage & Query History data, you should check first on the specific source doc
-if it is supported by the Datahub source and how to enable it.
+if it is supported by the DataHub source and how to enable it.
 
-You can validate this on the Datahub source's capabilities section:
+You can validate this on the DataHub source's capabilities section:
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/source-snowflake-capabilities.png"/>
@@ -29,7 +29,7 @@ Some sources require a separate, usage-specific recipe to ingest Usage and Query
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/source-redshift-capabilities.png"/>
 </p>
 
-Please, always check the usage prerequisities page if the source has as it can happen you have to add additional
+Please, always check the usage prerequisites page if the source has as it can happen you have to add additional
 permissions which only needs for usage.
 
 ## Using Dataset Usage & Query History

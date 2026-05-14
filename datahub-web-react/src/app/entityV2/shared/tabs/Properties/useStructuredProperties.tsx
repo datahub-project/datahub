@@ -13,7 +13,7 @@ const typeNameToType = {
     NumberValue: { type: 'number', nativeDataType: 'float' },
 };
 
-export function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
+function mapStructuredPropertyValues(structuredPropertiesEntry: StructuredPropertiesEntry) {
     return structuredPropertiesEntry.values
         .filter((value) => !!value)
         .map((value) => ({
@@ -74,7 +74,7 @@ function getFieldStructuredPropertyRows(fieldPath: string, entityData?: GenericE
     return structuredPropertyRows;
 }
 
-export function findAllSubstrings(s: string): Array<string> {
+function findAllSubstrings(s: string): Array<string> {
     const substrings: Array<string> = [];
 
     for (let i = 0; i < s.length; i++) {
@@ -86,7 +86,7 @@ export function findAllSubstrings(s: string): Array<string> {
     return substrings;
 }
 
-export function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
+function createParentPropertyRow(displayName: string, qualifiedName: string): PropertyRow {
     return {
         displayName,
         qualifiedName,
@@ -150,7 +150,7 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
     return finalParents;
 }
 
-export function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
+function groupByParentProperty(rows?: Array<PropertyRow>): Array<PropertyRow> {
     /**
      * This function takes in an array of PropertyRow objects, representing parent and child properties. Parent properties
      * will not have values, but child properties will. It organizes the rows into the parent and child structure and

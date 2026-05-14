@@ -13,8 +13,12 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearch2SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -45,8 +49,11 @@ public class V2MappingsBuilderTest {
     EntityIndexVersionConfiguration v2Config = mock(EntityIndexVersionConfiguration.class);
     when(entityIndexConfiguration.getV2()).thenReturn(v2Config);
 
-    // Create LegacyMappingsBuilder
-    mappingsBuilder = new V2MappingsBuilder(entityIndexConfiguration);
+    // Create LegacyMappingsBuilder. Default to the legacy (OpenSearch2/ES7) profile to match the
+    // historical test expectations — pre-refactor, this constructor produced legacy ngram config.
+    mappingsBuilder =
+        new V2MappingsBuilder(
+            entityIndexConfiguration, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
 
     // Create real OperationContext with test setup
     operationContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -286,6 +293,74 @@ public class V2MappingsBuilderTest {
   }
 
   @Test
+  public void testStructuredPropertiesMappingHasDynamicTrue() throws URISyntaxException {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+    StructuredPropertyDefinition structPropForThisEntity =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("propForThis")
+            .setDisplayName("propForThis")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "testEntity")))
+            .setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    Collection<IndexMapping> result =
+        mappingsBuilder.getIndexMappings(
+            operationContext,
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:propForThis"),
+                    structPropForThisEntity)));
+    IndexMapping mapping =
+        result.stream()
+            .filter(
+                m ->
+                    ((Map<String, Object>) m.getMappings().get("properties"))
+                        .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD))
+            .findFirst()
+            .orElse(null);
+    assertNotNull(mapping, "One mapping should include structuredProperties");
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> structuredPropsMapping =
+        (Map<String, Object>) properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    assertEquals(
+        structuredPropsMapping.get("type"),
+        "object",
+        "structuredProperties root must be type object");
+    assertEquals(
+        structuredPropsMapping.get("dynamic"),
+        true,
+        "structuredProperties root must have dynamic=true for nested indexing");
+  }
+
+  @Test
+  public void testObjectFieldMappingHasDynamicTrue() {
+    when(entityIndexConfiguration.getV2().isCleanup()).thenReturn(true);
+
+    EntitySpec mockEntitySpec = mock(EntitySpec.class);
+    SearchableFieldSpec objectFieldSpec = mock(SearchableFieldSpec.class);
+    SearchableAnnotation objectAnnotation = mock(SearchableAnnotation.class);
+    when(objectAnnotation.getFieldName()).thenReturn("objectField");
+    when(objectAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.OBJECT);
+    when(objectFieldSpec.getSearchableAnnotation()).thenReturn(objectAnnotation);
+    when(mockEntitySpec.getSearchableFieldSpecs()).thenReturn(List.of(objectFieldSpec));
+    when(mockEntitySpec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    when(mockEntitySpec.getSearchableRefFieldSpecs()).thenReturn(Collections.emptyList());
+
+    Map<String, Object> result =
+        mappingsBuilder.getIndexMappings(operationContext.getEntityRegistry(), mockEntitySpec);
+    @SuppressWarnings("unchecked")
+    Map<String, Object> props = (Map<String, Object>) result.get("properties");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectFieldMapping = (Map<String, Object>) props.get("objectField");
+    assertNotNull(objectFieldMapping, "Object field should have a mapping");
+    assertEquals(objectFieldMapping.get("type"), "object", "Object field must have type object");
+    assertEquals(objectFieldMapping.get("dynamic"), true, "Object field must have dynamic=true");
+  }
+
+  @Test
   public void testGetIndexMappingsForStructuredProperty() throws URISyntaxException {
     StructuredPropertyDefinition testStructProp =
         new StructuredPropertyDefinition()
@@ -337,6 +412,103 @@ public class V2MappingsBuilderTest {
     assertEquals("testPropNumber", keyInMap);
     mappings = structuredPropertyFieldMappingsNumber.get(keyInMap);
     assertEquals(Map.of("type", "double"), mappings);
+  }
+
+  /**
+   * Regression test for structured properties with valueType urn:li:dataType:datahub.urn. Without
+   * StructuredPropertyUtils.getLogicalValueType(), getId() returns "datahub.urn" and no branch
+   * matches, producing a mapping with no type and causing mapper_parsing_exception during reindex.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyWithDatahubUrnValueType()
+      throws URISyntaxException {
+    StructuredPropertyDefinition propWithUrnType =
+        new StructuredPropertyDefinition()
+            .setVersion(null, SetMode.REMOVE_IF_NULL)
+            .setQualifiedName("com.example.domain.owner_urn")
+            .setDisplayName("Owner URN")
+            .setEntityTypes(
+                new UrnArray(
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset"),
+                    Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataJob")))
+            .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.urn"));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(
+            List.of(
+                Pair.of(
+                    UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                    propWithUrnType)));
+
+    assertEquals(mappings.size(), 1, "Should have one mapping");
+    String fieldName = "com_example_domain_owner_urn";
+    assertTrue(mappings.containsKey(fieldName), "Should contain sanitized field name");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> fieldMapping = (Map<String, Object>) mappings.get(fieldName);
+    assertNotNull(fieldMapping.get("type"), "URN structured property must have type for reindex");
+    assertEquals(fieldMapping.get("type"), "keyword", "URN type should map to keyword");
+  }
+
+  /**
+   * Ensures every structured property field has a "type" so reindex/putMapping does not fail with
+   * mapper_parsing_exception.
+   */
+  @Test
+  public void testGetIndexMappingsForStructuredPropertyEveryFieldHasTypeForReindex()
+      throws URISyntaxException {
+    List<Pair<Urn, StructuredPropertyDefinition>> properties =
+        List.of(
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:com.example.domain.owner_urn"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("com.example.domain.owner_urn")
+                    .setDisplayName("Owner URN")
+                    .setEntityTypes(
+                        new UrnArray(
+                            Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataJob"),
+                            Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.urn"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:simpleString"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("simpleString")
+                    .setDisplayName("Simple")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.string"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:richTextProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("richTextProp")
+                    .setDisplayName("Rich Text")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(
+                        Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.rich_text"))),
+            Pair.of(
+                UrnUtils.getUrn("urn:li:structuredProperty:dateProp"),
+                new StructuredPropertyDefinition()
+                    .setVersion(null, SetMode.REMOVE_IF_NULL)
+                    .setQualifiedName("dateProp")
+                    .setDisplayName("Date")
+                    .setEntityTypes(
+                        new UrnArray(Urn.createFromString(ENTITY_TYPE_URN_PREFIX + "dataset")))
+                    .setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "datahub.date"))));
+
+    Map<String, Object> mappings =
+        mappingsBuilder.getIndexMappingsForStructuredProperty(properties);
+
+    assertEquals(mappings.size(), 4, "Should have four field mappings");
+    for (Map.Entry<String, Object> entry : mappings.entrySet()) {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> fieldMapping = (Map<String, Object>) entry.getValue();
+      assertNotNull(
+          fieldMapping.get("type"),
+          "Every structured property field must have type for reindex: " + entry.getKey());
+    }
   }
 
   @Test
@@ -542,8 +714,9 @@ public class V2MappingsBuilderTest {
     // Test that constructor properly handles null EntityIndexConfiguration
     // The constructor doesn't actually throw an exception, so this test should pass
     // This is the current behavior of the implementation
-    V2MappingsBuilder builder = new V2MappingsBuilder(null);
-    assertNotNull(builder, "Constructor should create instance even with null input");
+    V2MappingsBuilder builder =
+        new V2MappingsBuilder(null, OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertNotNull(builder, "Constructor should create instance even with null entity index config");
   }
 
   @Test
@@ -567,5 +740,134 @@ public class V2MappingsBuilderTest {
         TestSearchFieldConfig.class
             .getClassLoader()
             .getResourceAsStream("test-entity-registry.yaml"));
+  }
+
+  // ES7 / OpenSearch silently accept and persist doc_values=false on search_as_you_type ngram
+  // subfields,
+  // ES8+ strips it on round-trip, which causes a perpetual mapping diff and reindex loop.
+  /** Recursively collects every value found under any "ngram" key in a mappings tree. */
+  private List<Map<String, Object>> findAllNgramSubfields(Map<String, Object> root) {
+    List<Map<String, Object>> found = new java.util.ArrayList<>();
+    collectNgramSubfields(root, found);
+    return found;
+  }
+
+  @SuppressWarnings("unchecked")
+  private void collectNgramSubfields(Object node, List<Map<String, Object>> found) {
+    if (!(node instanceof Map)) {
+      return;
+    }
+    Map<String, Object> map = (Map<String, Object>) node;
+    for (Map.Entry<String, Object> entry : map.entrySet()) {
+      if ("ngram".equals(entry.getKey()) && entry.getValue() instanceof Map) {
+        found.add((Map<String, Object>) entry.getValue());
+      }
+      collectNgramSubfields(entry.getValue(), found);
+    }
+  }
+
+  private Collection<IndexMapping> buildAllMappings(Map<String, String> partialNgramConfig) {
+    V2MappingsBuilder builder = new V2MappingsBuilder(entityIndexConfiguration, partialNgramConfig);
+    return builder.getIndexMappings(operationContext);
+  }
+
+  private List<Map<String, Object>> collectAllNgramSubfields(
+      Map<String, String> partialNgramConfig) {
+    Collection<IndexMapping> mappings = buildAllMappings(partialNgramConfig);
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Test entity registry must produce at least one mapping");
+
+    List<Map<String, Object>> all = new java.util.ArrayList<>();
+    for (IndexMapping mapping : mappings) {
+      all.addAll(findAllNgramSubfields(mapping.getMappings()));
+    }
+    return all;
+  }
+
+  private void assertLegacyNgramShape(List<Map<String, Object>> ngrams) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for legacy profile — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertEquals(
+          ngram.get("doc_values"),
+          "false",
+          "Legacy profile must continue to emit doc_values=false to avoid a transitional reindex"
+              + " of existing ES7/OpenSearch indexes");
+    }
+  }
+
+  private void assertEs8NgramShape(List<Map<String, Object>> ngrams) {
+    assertFalse(
+        ngrams.isEmpty(),
+        "Expected at least one ngram subfield for ES8 profile — test setup is broken");
+    for (Map<String, Object> ngram : ngrams) {
+      assertEquals(
+          ngram.get("type"), "search_as_you_type", "ngram type should be search_as_you_type");
+      assertEquals(ngram.get("max_shingle_size"), "4", "max_shingle_size should be preserved");
+      assertFalse(
+          ngram.containsKey("doc_values"),
+          "ES8 profile must omit doc_values — ES8 strips it on round-trip and including it causes"
+              + " a perpetual mapping diff (PFP-3594)");
+    }
+  }
+
+  @Test
+  public void testNgramHasDocValuesForLegacyConfig() {
+    // OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG is also used by the ES7 compatibility shim
+    // (Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShim), so this test covers
+    // both ES7 and OpenSearch 2.x behavior.
+    assertLegacyNgramShape(
+        collectAllNgramSubfields(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG));
+  }
+
+  @Test
+  public void testNgramOmitsDocValuesForEs8Config() {
+    // Es8SearchClientShim.PARTIAL_NGRAM_CONFIG is used for both ELASTICSEARCH_8 and
+    // ELASTICSEARCH_9, since both engines strip doc_values from search_as_you_type on round-trip.
+    assertEs8NgramShape(collectAllNgramSubfields(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG));
+  }
+
+  @Test
+  public void testProfileDoesNotChangeOtherStructure() {
+    // Sanity check: switching profile must NOT alter top-level fields like urn, runId,
+    // systemCreated, or the analyzer wiring. We only expect the ngram doc_values flag to differ.
+    Collection<IndexMapping> legacy =
+        buildAllMappings(OpenSearch2SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    Collection<IndexMapping> es8 = buildAllMappings(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertEquals(legacy.size(), es8.size(), "Same number of indexes regardless of profile");
+
+    java.util.Iterator<IndexMapping> legacyIt = legacy.iterator();
+    java.util.Iterator<IndexMapping> es8It = es8.iterator();
+    while (legacyIt.hasNext() && es8It.hasNext()) {
+      Map<String, Object> legacyProps =
+          (Map<String, Object>) legacyIt.next().getMappings().get("properties");
+      Map<String, Object> es8Props =
+          (Map<String, Object>) es8It.next().getMappings().get("properties");
+      assertEquals(
+          legacyProps.keySet(),
+          es8Props.keySet(),
+          "Top-level field set must be identical between profiles");
+    }
+  }
+
+  @Test
+  public void testNgramAnalyzerOverridesAreApplied() {
+    // The fix replaced static config with instance-based config. Verify that overrides
+    // (analyzer name) still apply correctly — different code paths use different analyzers
+    // (PARTIAL_URN_COMPONENT vs PARTIAL_ANALYZER).
+    List<Map<String, Object>> ngrams =
+        collectAllNgramSubfields(Es8SearchClientShim.PARTIAL_NGRAM_CONFIG);
+    assertFalse(ngrams.isEmpty(), "Should produce ngram subfields");
+    for (Map<String, Object> ngram : ngrams) {
+      assertNotNull(ngram.get("analyzer"), "Every ngram subfield must specify an analyzer");
+      String analyzer = (String) ngram.get("analyzer");
+      assertTrue(
+          analyzer.startsWith("partial"),
+          "Analyzer should be a partial analyzer variant, got: " + analyzer);
+    }
   }
 }

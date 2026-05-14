@@ -1,12 +1,11 @@
 import type { ItemType } from 'antd/lib/menu/hooks/useItems';
-import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { FilterValue, TimeBucketFilterField } from '@app/searchV2/filters/types';
 import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import dayjs from '@utils/dayjs';
 
 const FilterOptionWrapper = styled.div`
     display: flex;
@@ -20,7 +19,7 @@ const FilterOptionWrapper = styled.div`
     font-size: 14px;
 
     &:hover {
-        background-color: ${ANTD_GRAY[3]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
@@ -37,9 +36,9 @@ export default function TimeBucketMenu({ field, values, type = 'card', onChangeV
     const filterMenuOptions = useMemo(
         () =>
             field.options.map(({ label, startOffsetMillis }): ItemType => {
-                const timestamp = moment()
+                const timestamp = dayjs()
                     .subtract(startOffsetMillis, 'milliseconds')
-                    .set({ hour: 0, minute: 0, second: 0, millisecond: 0 })
+                    .startOf('day')
                     .valueOf()
                     .toString();
                 return {

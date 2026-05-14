@@ -37,6 +37,9 @@ from datahub.sql_parsing.schema_resolver import (
     SchemaResolverInterface,
     _SchemaResolverWithExtras,
 )
+from datahub.sql_parsing.schema_resolver_provider import (
+    provide_schema_resolver,
+)
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
@@ -458,11 +461,27 @@ class SqlParsingAggregator(Closeable):
             self._schema_resolver = schema_resolver
         elif graph is not None and eager_graph_load and self._need_schemas:
             # Bulk load schemas using the graph client.
-            self._schema_resolver = graph.initialize_schema_resolver_from_datahub(
-                platform=self.platform.urn(),
-                platform_instance=self.platform_instance,
-                env=self.env,
-            )
+            try:
+                self._schema_resolver = provide_schema_resolver(
+                    graph=graph,
+                    platform=self.platform.platform_name,
+                    platform_instance=self.platform_instance,
+                    env=self.env,
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to bulk-load schemas from DataHub. "
+                    "Falling back to lazy-loading schema resolver.",
+                    exc_info=True,
+                )
+                self._schema_resolver = self._exit_stack.enter_context(
+                    SchemaResolver(
+                        platform=self.platform.platform_name,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                        graph=graph,
+                    )
+                )
         else:
             # Otherwise, use a lazy-loading schema resolver.
             self._schema_resolver = self._exit_stack.enter_context(
@@ -1584,7 +1603,7 @@ class SqlParsingAggregator(Closeable):
 
     @classmethod
     def _view_query_id(cls, view_urn: UrnStr) -> str:
-        return f"view_{DatasetUrn.url_encode(view_urn)}"
+        return f"view_{generate_hash(view_urn)}"
 
     @classmethod
     def _known_lineage_query_id(cls) -> str:

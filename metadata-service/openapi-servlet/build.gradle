@@ -25,6 +25,7 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.fabric8KubernetesClient
   implementation externalDependency.swaggerCore
   implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi
@@ -46,6 +47,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkMetrics
 
   testImplementation externalDependency.springBootTest
+  // Spring Boot 4.0: WebMvc test slice moved to separate module
+  testImplementation externalDependency.springBootWebMvcTest
   testImplementation project(':mock-entity-registry')
   testImplementation testFixtures(project(':metadata-io'))
   testImplementation externalDependency.springBoot

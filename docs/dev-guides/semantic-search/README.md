@@ -1,3 +1,7 @@
+---
+description: "Developer documentation for DataHub's semantic search, which uses vector embeddings to enable natural language search over metadata."
+---
+
 # DataHub Semantic Search
 
 This directory contains documentation for DataHub's semantic search capability, which enables natural language search across metadata entities using vector embeddings.
@@ -85,7 +89,7 @@ When a user performs a semantic search:
 ### Prerequisites
 
 - DataHub running with semantic search enabled
-- AWS credentials (for Bedrock) or API key (for Cohere/OpenAI)
+- OpenAI API key (default), or AWS credentials (for Bedrock), or Cohere API key
 
 ### 1. Enable Semantic Search
 

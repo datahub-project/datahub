@@ -165,6 +165,11 @@ type PlatformPrivileges {
   manageGlobalViews: Boolean!
 
   """
+  Whether the user should be able to view and change platform-level settings (e.g. integrations).
+  """
+  manageGlobalSettings: Boolean!
+
+  """
   Whether the user should be able to create, update, and delete ownership types.
   """
   manageOwnershipTypes: Boolean!
@@ -850,9 +855,29 @@ type FeatureFlagsConfig {
   documentationFileUploadV1: Boolean!
 
   """
+  If enabled, allows assets to belong to multiple data products simultaneously.
+  """
+  multipleDataProductsPerAsset: Boolean!
+
+  """
+  If enabled, allows glossary-based policies to be created.
+  """
+  glossaryBasedPoliciesEnabled: Boolean!
+
+  """
   If enabled, shows the context documents feature in the sidebar.
   """
   contextDocumentsEnabled: Boolean!
+
+  """
+  If enabled, hides lineage information in search result cards
+  """
+  hideLineageInSearchCards: Boolean!
+
+  """
+  If enabled, shows tests in the health icon on entity pages.
+  """
+  showTestsInHealthIcon: Boolean!
 }
 
 """

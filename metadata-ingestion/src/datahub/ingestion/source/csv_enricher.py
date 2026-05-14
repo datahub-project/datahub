@@ -43,10 +43,15 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
+)
 from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 DATASET_ENTITY_TYPE = DatasetUrn.ENTITY_TYPE
@@ -92,6 +97,7 @@ class CSVEnricherReport(SourceReport):
     num_description_workunits_produced: int = 0
     num_editable_schema_metadata_workunits_produced: int = 0
     num_domain_workunits_produced: int = 0
+    num_structured_properties_workunits_produced: int = 0
 
 
 @platform_name("CSV Enricher")
@@ -103,39 +109,12 @@ class CSVEnricherReport(SourceReport):
 @capability(SourceCapability.OWNERSHIP, "Supported by default")
 class CSVEnricherSource(Source):
     """
-    :::tip Looking to ingest a CSV data file into DataHub, as an asset?
-    Use the [Local File](./s3.md) ingestion source.
-    The CSV enricher is used for enriching entities already ingested into DataHub.
-    :::
+    Source that bulk uploads metadata from CSV files to enrich existing DataHub entities.
 
-    This plugin is used to bulk upload metadata to Datahub.
-    It will apply glossary terms, tags, description, owners and domain at the entity level. It can also be used to apply tags,
-    glossary terms, and documentation at the column level. These values are read from a CSV file. You have the option to either overwrite
-    or append existing values.
-
-    The format of the CSV is demonstrated below. The header is required and URNs should be surrounded by quotes when they contains commas (most URNs contains commas).
-
-    ```
-    resource,subresource,glossary_terms,tags,owners,ownership_type,description,domain,ownership_type_urn
-    "urn:li:dataset:(urn:li:dataPlatform:snowflake,datahub.growth.users,PROD)",,[urn:li:glossaryTerm:Users],[urn:li:tag:HighQuality],[urn:li:corpuser:lfoe|urn:li:corpuser:jdoe],CUSTOM,"description for users table",urn:li:domain:Engineering,urn:li:ownershipType:a0e9176c-d8cf-4b11-963b-f7a1bc2333c9
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",first_name,[urn:li:glossaryTerm:FirstName],,,,"first_name description",
-    "urn:li:dataset:(urn:li:dataPlatform:hive,datahub.growth.users,PROD)",last_name,[urn:li:glossaryTerm:LastName],,,,"last_name description",
-    ```
-
-    Note that the first row does not have a subresource populated. That means any glossary terms, tags, and owners will
-    be applied at the entity field. If a subresource is populated (as it is for the second and third rows), glossary
-    terms and tags will be applied on the column. Every row MUST have a resource. Also note that owners can only
-    be applied at the resource level.
-
-    If ownership_type_urn is set then ownership_type must be set to CUSTOM.
-
-    Note that you have the option in your recipe config to write as a PATCH or as an OVERRIDE. This choice will apply to
-    all metadata for the entity, not just a single aspect. So OVERRIDE will override all metadata, including performing
-    deletes if a metadata field is empty. The default is PATCH.
-
-    :::note
-    This source will not work on very large csv files that do not fit in memory.
-    :::
+    Implementation notes:
+    - Loads entire CSV into memory (pandas DataFrame)
+    - Supports entity-level and column-level metadata
+    - Uses MetadataChangeProposalWrapper for PATCH/OVERRIDE write modes
     """
 
     def __init__(self, config: CSVEnricherConfig, ctx: PipelineContext):
@@ -247,6 +226,7 @@ class CSVEnricherSource(Source):
                     if (
                         owner.owner == current_owner.owner
                         and owner.type == current_owner.type
+                        and owner.typeUrn == current_owner.typeUrn
                     ):
                         owner_exists = True
                         break
@@ -362,6 +342,107 @@ class CSVEnricherSource(Source):
             aspect=current_editable_properties,
         ).as_workunit()
 
+    def maybe_extract_structured_properties(
+        self,
+        row: Dict[str, str],
+        is_resource_row: bool,
+    ) -> List[StructuredPropertyValueAssignmentClass]:
+        if not is_resource_row:
+            return []
+
+        configured_mappings = self.config.structured_properties or {}
+        if len(configured_mappings) <= 0:
+            return []
+
+        structured_property_columns = {
+            column: value
+            for column, value in row.items()
+            if column in configured_mappings
+        }
+        if len(structured_property_columns) <= 0:
+            return []
+
+        property_values_by_urn: Dict[str, List[str | float]] = {}
+        for column, raw_value in structured_property_columns.items():
+            value = raw_value.strip()
+            if len(value) <= 0:
+                continue
+
+            mapped_property_name = configured_mappings.get(column)
+            if not mapped_property_name:
+                continue
+            raw_property_name = mapped_property_name.strip()
+            if len(raw_property_name) <= 0:
+                resource_urn = row.get("resource", "unknown")
+                self.report.warning(
+                    title="Invalid Structured Property Column",
+                    message="Ignoring column because the property name is empty.",
+                    context=f"resource={resource_urn}, column={column}",
+                )
+                continue
+
+            property_urn = make_structured_property_urn(raw_property_name)
+
+            property_values_by_urn.setdefault(property_urn, [])
+            if value not in property_values_by_urn[property_urn]:
+                property_values_by_urn[property_urn].append(value)
+
+        return [
+            StructuredPropertyValueAssignmentClass(
+                propertyUrn=property_urn,
+                values=property_values,
+            )
+            for property_urn, property_values in property_values_by_urn.items()
+        ]
+
+    def get_resource_structured_properties_work_unit(
+        self,
+        entity_urn: str,
+        structured_properties: List[StructuredPropertyValueAssignmentClass],
+    ) -> Optional[MetadataWorkUnit]:
+        if len(structured_properties) <= 0:
+            return None
+
+        current_structured_properties: Optional[StructuredPropertiesClass] = None
+        if self.ctx.graph and not self.should_overwrite:
+            current_structured_properties = self.ctx.graph.get_aspect(
+                entity_urn=entity_urn,
+                aspect_type=StructuredPropertiesClass,
+            )
+
+        if not current_structured_properties:
+            current_structured_properties = StructuredPropertiesClass(
+                properties=structured_properties,
+            )
+        else:
+            needs_write = False
+            assignments_by_urn = {
+                assignment.propertyUrn: assignment
+                for assignment in current_structured_properties.properties
+            }
+
+            for new_assignment in structured_properties:
+                existing_assignment = assignments_by_urn.get(new_assignment.propertyUrn)
+                if existing_assignment:
+                    existing_values = set(existing_assignment.values)
+                    for value in new_assignment.values:
+                        if value not in existing_values:
+                            existing_assignment.values.append(value)
+                            existing_values.add(value)
+                            needs_write = True
+                else:
+                    current_structured_properties.properties.append(new_assignment)
+                    assignments_by_urn[new_assignment.propertyUrn] = new_assignment
+                    needs_write = True
+
+            if not needs_write:
+                return None
+
+        return MetadataChangeProposalWrapper(
+            entityUrn=entity_urn,
+            aspect=current_structured_properties,
+        ).as_workunit()
+
     def get_resource_workunits(
         self,
         entity_urn: str,
@@ -370,6 +451,7 @@ class CSVEnricherSource(Source):
         owners: List[OwnerClass],
         domain: Optional[str],
         description: Optional[str],
+        structured_properties: List[StructuredPropertyValueAssignmentClass],
     ) -> Iterable[MetadataWorkUnit]:
         maybe_terms_wu: Optional[MetadataWorkUnit] = (
             self.get_resource_glossary_terms_work_unit(
@@ -418,6 +500,16 @@ class CSVEnricherSource(Source):
         if maybe_description_wu:
             self.report.num_description_workunits_produced += 1
             yield maybe_description_wu
+
+        maybe_structured_properties_wu: Optional[MetadataWorkUnit] = (
+            self.get_resource_structured_properties_work_unit(
+                entity_urn=entity_urn,
+                structured_properties=structured_properties,
+            )
+        )
+        if maybe_structured_properties_wu:
+            self.report.num_structured_properties_workunits_produced += 1
+            yield maybe_structured_properties_wu
 
     def process_sub_resource_row(
         self,
@@ -661,6 +753,9 @@ class CSVEnricherSource(Source):
             )
             tag_associations: List[TagAssociationClass] = self.maybe_extract_tags(row)
             owners: List[OwnerClass] = self.maybe_extract_owners(row, is_resource_row)
+            structured_properties: List[StructuredPropertyValueAssignmentClass] = (
+                self.maybe_extract_structured_properties(row, is_resource_row)
+            )
 
             domain: Optional[str] = (
                 row["domain"]
@@ -681,6 +776,7 @@ class CSVEnricherSource(Source):
                     owners=owners,
                     domain=domain,
                     description=description,
+                    structured_properties=structured_properties,
                 )
             elif entity_type == DATASET_ENTITY_TYPE:
                 # Only dataset sub-resources are currently supported.

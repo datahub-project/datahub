@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -109,8 +110,6 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
       @Nonnull VersionProperties versionProperties,
       ChangeMCP changeMCP,
       @Nonnull RetrieverContext retrieverContext) {
-    versionProperties.setIsLatest(true);
-
     Urn entityUrn = changeMCP.getUrn();
     Urn versionSetUrn = versionProperties.getVersionSet();
 
@@ -146,7 +145,14 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
             .systemMetadata(changeMCP.getSystemMetadata())
             .build(retrieverContext.getAspectRetriever());
 
-    return Stream.of(createVersionSetKey, createVersionSetProperties);
+    // Set isLatest=true via a separate ChangeItemImpl rather than mutating versionProperties
+    // in-place. In-place mutation contaminates the shared DataMap on ChangeItemImpl.recordTemplate;
+    // on transaction retry validateProposedAspects re-runs on the same ChangeItemImpl and would
+    // then see isLatest=true and incorrectly reject the proposal.
+    ChangeMCP setIsLatest =
+        buildSetIsLatestChange(entityUrn, versionProperties, changeMCP, retrieverContext);
+
+    return Stream.of(createVersionSetKey, createVersionSetProperties, setIsLatest);
   }
 
   private static Stream<ChangeMCP> updateVersionSetLatest(
@@ -155,8 +161,6 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
       @Nonnull Urn prevLatest,
       ChangeMCP changeMCP,
       @Nonnull RetrieverContext retrieverContext) {
-    versionProperties.setIsLatest(true);
-
     Urn entityUrn = changeMCP.getUrn();
     Urn versionSetUrn = versionProperties.getVersionSet();
 
@@ -174,8 +178,13 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
             .systemMetadata(changeMCP.getSystemMetadata())
             .build(retrieverContext.getAspectRetriever());
 
+    // See createVersionSet for why we use a separate ChangeItemImpl rather than mutating
+    // versionProperties in-place.
+    ChangeMCP setIsLatest =
+        buildSetIsLatestChange(entityUrn, versionProperties, changeMCP, retrieverContext);
+
     if (prevLatestVersionProperties == null) {
-      return Stream.of(updateVersionSetProperties);
+      return Stream.of(updateVersionSetProperties, setIsLatest);
     }
 
     EntitySpec entitySpec =
@@ -199,6 +208,28 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
             .build(retrieverContext.getAspectRetriever().getEntityRegistry())
             .applyPatch(prevLatestVersionProperties, retrieverContext.getAspectRetriever());
 
-    return Stream.of(updateVersionSetProperties, updateOldLatestVersionProperties);
+    return Stream.of(updateVersionSetProperties, updateOldLatestVersionProperties, setIsLatest);
+  }
+
+  /**
+   * Builds a new ChangeItemImpl that writes the entity's versionProperties with isLatest=true,
+   * using a shallow copy of the DataMap so the original ChangeItemImpl.recordTemplate is not
+   * mutated.
+   */
+  private static ChangeMCP buildSetIsLatestChange(
+      @Nonnull Urn entityUrn,
+      @Nonnull VersionProperties versionProperties,
+      @Nonnull ChangeMCP changeMCP,
+      @Nonnull RetrieverContext retrieverContext) {
+    VersionProperties withIsLatest =
+        new VersionProperties(new DataMap(versionProperties.data())).setIsLatest(true);
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(VERSION_PROPERTIES_ASPECT_NAME)
+        .changeType(ChangeType.UPSERT)
+        .recordTemplate(withIsLatest)
+        .auditStamp(changeMCP.getAuditStamp())
+        .systemMetadata(changeMCP.getSystemMetadata())
+        .build(retrieverContext.getAspectRetriever());
   }
 }

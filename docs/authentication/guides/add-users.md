@@ -1,3 +1,7 @@
+---
+description: "Provision new user accounts in DataHub via invite links, JIT SSO provisioning, or direct creation through the metadata APIs."
+---
+
 # Onboarding Users to DataHub
 
 New user accounts can be provisioned on DataHub in 3 ways:
@@ -84,7 +88,7 @@ perform authentication, check out [OIDC Authentication](sso/configure-oidc-react
 > `urn:li:corpuser:<extracted-username>`
 >
 > By default, the email address will be the username extracted from the Identity Provider. For information about customizing
-> the claim should be treated as the username in Datahub, check out the [OIDC Authentication](sso/configure-oidc-react.md) documentation.
+> the claim should be treated as the username in DataHub, check out the [OIDC Authentication](sso/configure-oidc-react.md) documentation.
 
 # Static Credential Configuration File (Self-Hosted Only)
 

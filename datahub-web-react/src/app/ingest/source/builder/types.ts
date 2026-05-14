@@ -1,15 +1,6 @@
 import { IngestionSourceBuilderStep } from '@app/ingest/source/builder/steps';
-import { PendingOwner } from '@app/sharedV2/owners/OwnersSection';
 
 import { IngestionSource } from '@types';
-
-/**
- * The size of the builder modal
- */
-export enum ModalSize {
-    SMALL = 800,
-    LARGE = 1200,
-}
 
 /**
  * The default executor id used for ingestion
@@ -117,7 +108,7 @@ export interface SourceBuilderState {
         extraArgs?: StringMapEntryInput[] | null;
     };
     /**
-     * Owners of the Ingestion source
+     * Owner URNs for the Ingestion source
      */
-    owners?: PendingOwner[];
+    owners?: string[];
 }

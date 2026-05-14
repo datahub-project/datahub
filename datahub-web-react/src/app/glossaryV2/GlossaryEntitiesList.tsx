@@ -3,7 +3,6 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import GlossaryEntityItem from '@app/glossaryV2/GlossaryEntityItem';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -15,7 +14,7 @@ const SectionTitle = styled(Typography)`
     margin: 12px 0 12px 16px;
     font-size: 12px;
     font-weight: 400;
-    color: ${REDESIGN_COLORS.SUBTITLE};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const GlossaryNodes = styled.div<{ isGrid?: boolean }>`

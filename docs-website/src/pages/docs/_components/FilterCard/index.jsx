@@ -15,7 +15,27 @@ const FilterCard = ({
   useTags,
   useFilters,
   filterState,
+  isApiConnector,
+  requestNativeUrl,
 }) => {
+  function handleCardClick() {
+    window.gtag?.("event", "integration_card_click", {
+      integration_name: title,
+      integration_path: to,
+      connection_type: isApiConnector ? "api" : "native",
+      platform_type: filters?.["Platform Type"] || "",
+    });
+  }
+
+  function handleRequestNativeClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    window.gtag?.("event", "native_connector_request", {
+      integration_name: title,
+    });
+    window.open(requestNativeUrl, "_blank", "noopener,noreferrer");
+  }
+
   function renderFilters() {
     const keys = Object.keys(filters);
 
@@ -105,25 +125,75 @@ const FilterCard = ({
     );
   }
 
+  const supportStatus = filters?.["Support Status"] || "";
+
+  function getSupportBadgeClass() {
+    const status = supportStatus.trim().toLowerCase();
+    if (status === "certified") return styles.badgeCertified;
+    if (status === "incubating") return styles.badgeIncubating;
+    if (status === "testing") return styles.badgeTesting;
+    return "";
+  }
+
   return (
     <div className={clsx("col col--4", styles.featureCol)}>
-      <Link to={useBaseUrl(to)} className={clsx("card", styles.feature)}>
+      <Link
+        to={useBaseUrl(to)}
+        className={clsx("card", styles.feature)}
+        onClick={handleCardClick}
+      >
+        {supportStatus && (
+          <div className={clsx(styles.supportBadge, getSupportBadgeClass())}>
+            {supportStatus.trim() === "Certified" && "✓ "}
+            {supportStatus.trim()}
+          </div>
+        )}
         <div className={clsx("card__header", styles.featureHeader)}>
           {image && (
             <div className={styles.featureImage}>
               <img src={useBaseUrl(image)} />
             </div>
           )}
-          <h2>{title}</h2>
+          <h2>
+            {title}
+            {isApiConnector && (
+              <Tag
+                color="blue"
+                style={{
+                  marginLeft: "0.5rem",
+                  fontSize: "0.7rem",
+                  verticalAlign: "middle",
+                }}
+              >
+                API
+              </Tag>
+            )}
+          </h2>
         </div>
         <hr />
         <div className="card__body">
           <div>{description}</div>
         </div>
-        {(useTags || useFilters) && (
+        {(useTags || useFilters || (isApiConnector && requestNativeUrl)) && (
           <div className="card__footer">
             {useTags && renderTags()}
             {useFilters && renderFilters()}
+            {isApiConnector && requestNativeUrl && (
+              <div
+                style={{
+                  marginTop: "0.5rem",
+                  fontSize: "0.8rem",
+                }}
+              >
+                <a
+                  href={requestNativeUrl}
+                  onClick={handleRequestNativeClick}
+                  style={{ fontWeight: 500 }}
+                >
+                  Request Native Connector &rarr;
+                </a>
+              </div>
+            )}
           </div>
         )}
       </Link>

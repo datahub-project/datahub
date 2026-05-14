@@ -42,6 +42,7 @@ public class GlossaryUtilsTest {
   @BeforeMethod
   private void setUpTests() throws Exception {
     Mockito.when(mockContext.getActorUrn()).thenReturn(userUrn);
+    when(mockContext.getMaxParentDepth()).thenReturn(50);
     when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
     GlossaryNodeInfo parentNode1 =

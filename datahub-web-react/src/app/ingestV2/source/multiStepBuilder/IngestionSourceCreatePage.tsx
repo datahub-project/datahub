@@ -5,6 +5,7 @@ import React, { useCallback, useState } from 'react';
 import { useHistory } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
+import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
@@ -13,9 +14,6 @@ import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/st
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
 import { ConnectionDetailsSubTitle } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsSubTitle';
-import { ScheduleStep } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStep';
-import { ScheduleStepSubtitle } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/ScheduleStepSubtitle';
-import { DAILY_MIDNIGHT_CRON_INTERVAL } from '@app/ingestV2/source/multiStepBuilder/steps/step3SyncSchedule/constants';
 import {
     IngestionSourceFormStep,
     MultiStepSourceBuilderState,
@@ -48,28 +46,19 @@ const STEPS: IngestionSourceFormStep[] = [
         key: 'connectionDetails',
         content: <ConnectionDetailsStep />,
     },
-    {
-        label: 'Sync Schedule ',
-        subTitle: <ScheduleStepSubtitle />,
-        key: 'syncSchedule',
-        content: <ScheduleStep />,
-    },
 ];
 
 export function IngestionSourceCreatePage() {
     const history = useHistory();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+    const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
 
     const createIngestionSource = useCreateSource();
 
     const { defaultOwnershipType } = useOwnershipTypes();
 
-    const initialState = {
-        schedule: {
-            interval: DAILY_MIDNIGHT_CRON_INTERVAL,
-        },
-    };
+    const initialState = {};
 
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
@@ -81,6 +70,9 @@ export function IngestionSourceCreatePage() {
             try {
                 const newSourceUrn = await createIngestionSource(input, data.owners);
                 if (!newSourceUrn) return undefined;
+
+                setCreatedOrUpdatedSource(newSourceUrn);
+                setShouldRunCreatedOrUpdatedSource(!!shouldRun);
 
                 const newSourcePlaceholder = getNewIngestionSourcePlaceholder(
                     newSourceUrn ?? PLACEHOLDER_URN,
@@ -117,10 +109,7 @@ export function IngestionSourceCreatePage() {
                     duration: 3,
                 });
 
-                history.push(`${PageRoutes.INGESTION}/sources`, {
-                    createdOrUpdatedSourceUrn: newSourceUrn,
-                    shouldRun,
-                });
+                history.push(`${PageRoutes.INGESTION}/sources`);
             } catch (e: unknown) {
                 message.destroy();
                 if (e instanceof Error) {
@@ -134,7 +123,14 @@ export function IngestionSourceCreatePage() {
             setIsSubmitting(false);
             return undefined;
         },
-        [createIngestionSource, history, client, defaultOwnershipType],
+        [
+            createIngestionSource,
+            setCreatedOrUpdatedSource,
+            setShouldRunCreatedOrUpdatedSource,
+            history,
+            client,
+            defaultOwnershipType,
+        ],
     );
 
     const onCancel = useCallback(() => {

@@ -3,7 +3,6 @@ import { Switch } from 'antd';
 import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { LineageNodesContext, isTransformational, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV3/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
@@ -23,12 +22,12 @@ const ToggleLabel = styled.span`
     display: flex;
     align-items: center;
     gap: 4px;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const StyledInfoPopover = styled(InfoPopover)`
     position: relative;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const PopoverWrapper = styled.div`

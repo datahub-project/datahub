@@ -1,5 +1,3 @@
-import { red } from '@ant-design/colors';
-import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 
@@ -7,8 +5,8 @@ import analytics, { EventType } from '@app/analytics';
 import { AccessTokenModal } from '@app/settingsV2/AccessTokenModal';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from '@app/settingsV2/utils';
 import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Button, Input, Modal, SimpleSelect, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
+import { Button, Input, Modal, SimpleSelect, Text, TextArea, toast } from '@src/alchemy-components';
+import { spacing } from '@src/alchemy-components/theme';
 
 import { useCreateAccessTokenMutation } from '@graphql/auth.generated';
 import { AccessTokenDuration, AccessTokenType, CreateAccessTokenInput } from '@types';
@@ -35,38 +33,24 @@ type Props = {
 const FormContainer = styled.div`
     display: flex;
     flex-direction: column;
-    gap: 24px;
-`;
-
-const FormGroup = styled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-`;
-
-const FormLabel = styled(Text)`
-    color: ${colors.gray[600]};
-`;
-
-const FormDescription = styled(Text)`
-    color: ${colors.gray[1700]};
+    gap: ${spacing.lg};
 `;
 
 const ExpirationContainer = styled.div`
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 const ExpirationText = styled(Text)<{ $isWarning?: boolean }>`
-    ${(props) => props.$isWarning && `color: ${red[5]};`}
+    ${(props) => props.$isWarning && props.theme?.colors?.textError && `color: ${props.theme.colors.textError};`}
 `;
 
 const ModalFooter = styled.div`
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
+    gap: ${spacing.xsm};
 `;
 
 export default function CreateTokenModal({
@@ -152,6 +136,7 @@ export default function CreateTokenModal({
         createAccessToken({ variables: { input } })
             .then(({ errors }) => {
                 if (!errors) {
+                    toast.success('Access token created successfully');
                     setSelectedTokenDuration(selectedDuration);
                     analytics.event({
                         type: EventType.CreateAccessTokenEvent,
@@ -162,8 +147,7 @@ export default function CreateTokenModal({
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error({ content: `Failed to create token: ${e.message || ''}`, duration: 3 });
+                toast.error(`Failed to create token: ${e.message || ''}`);
                 onModalClose();
             });
     };
@@ -225,42 +209,29 @@ export default function CreateTokenModal({
                     }
                 >
                     <FormContainer>
-                        <FormGroup>
-                            <FormLabel size="md" weight="semiBold">
-                                Token Name
-                            </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                Give this token a name to identify it.
-                            </FormDescription>
-                            <Input
-                                value={tokenName}
-                                setValue={setTokenName}
-                                placeholder="A name for the token"
-                                error={tokenNameError}
-                                maxLength={50}
-                                inputTestId="create-access-token-name"
-                            />
-                        </FormGroup>
-                        <FormGroup>
-                            <FormLabel size="md" weight="semiBold">
-                                Description
-                            </FormLabel>
-                            <FormDescription size="sm" color="gray">
-                                An optional description for this token.
-                            </FormDescription>
-                            <Input
-                                value={tokenDescription}
-                                setValue={setTokenDescription}
-                                placeholder="A description for the token"
-                                maxLength={500}
-                                inputTestId="create-access-token-description"
-                            />
-                        </FormGroup>
+                        <Input
+                            label="Token Name"
+                            isRequired
+                            value={tokenName}
+                            setValue={setTokenName}
+                            placeholder="A name for the token"
+                            error={tokenNameError}
+                            maxLength={50}
+                            inputTestId="create-access-token-name"
+                        />
+                        <TextArea
+                            label="Description"
+                            value={tokenDescription}
+                            onChange={(e) => setTokenDescription(e.target.value)}
+                            placeholder="A description for the token"
+                            maxLength={500}
+                            rows={3}
+                            id="create-access-token-description"
+                            data-testid="create-access-token-description"
+                        />
                         <ExpirationContainer>
-                            <FormLabel size="md" weight="semiBold">
-                                Expires in
-                            </FormLabel>
                             <SimpleSelect
+                                label="Expires in"
                                 options={durationOptions}
                                 values={[selectedDuration]}
                                 onUpdate={(values) => {

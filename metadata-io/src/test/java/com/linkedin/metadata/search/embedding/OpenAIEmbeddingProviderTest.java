@@ -106,7 +106,7 @@ public class OpenAIEmbeddingProviderTest {
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testEmbedWithHttpError401() throws Exception {
-    // Mock 401 Unauthorized response
+    // Mock 401 Unauthorized response — not retried
     String errorJson =
         "{\"error\": {\"message\": \"Invalid API key\", \"type\": \"invalid_request_error\"}}";
 
@@ -120,7 +120,7 @@ public class OpenAIEmbeddingProviderTest {
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testEmbedWithHttpError429() throws Exception {
-    // Mock 429 Rate Limit response
+    // Mock 429 Rate Limit response — not retried
     String errorJson =
         "{\"error\": {\"message\": \"Rate limit exceeded\", \"type\": \"rate_limit_error\"}}";
 
@@ -134,7 +134,7 @@ public class OpenAIEmbeddingProviderTest {
 
   @Test(expectedExceptions = RuntimeException.class)
   public void testEmbedWithHttpError500() throws Exception {
-    // Mock 500 Internal Server Error
+    // Mock 500 Internal Server Error — retried
     String errorJson =
         "{\"error\": {\"message\": \"Internal server error\", \"type\": \"server_error\"}}";
 
@@ -143,7 +143,45 @@ public class OpenAIEmbeddingProviderTest {
     when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
         .thenReturn(mockResponse);
 
-    provider.embed("test", null);
+    try {
+      provider.embed("test", null);
+    } finally {
+      verify(mockHttpClient, times(2))
+          .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
+  }
+
+  @Test
+  public void testRetrySucceedsOnSecondAttempt() throws Exception {
+    String successJson =
+        "{\"object\": \"list\", \"data\": [{\"object\": \"embedding\", \"embedding\": [0.1, 0.2, 0.3], \"index\": 0}], \"model\": \"text-embedding-3-small\", \"usage\": {\"prompt_tokens\": 5, \"total_tokens\": 5}}";
+
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new IOException("Connection reset"))
+        .thenReturn(mockResponse);
+    when(mockResponse.statusCode()).thenReturn(200);
+    when(mockResponse.body()).thenReturn(successJson);
+
+    float[] embedding = provider.embed("test query", null);
+
+    assertNotNull(embedding);
+    assertEquals(embedding.length, 3);
+    assertEquals(embedding[0], 0.1f, 0.001);
+    verify(mockHttpClient, times(2))
+        .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+  }
+
+  @Test(expectedExceptions = RuntimeException.class)
+  public void testRetryExhaustedThrowsAfterAllAttempts() throws Exception {
+    when(mockHttpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+        .thenThrow(new IOException("Connection reset"));
+
+    try {
+      provider.embed("test query", null);
+    } finally {
+      verify(mockHttpClient, times(2))
+          .send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
+    }
   }
 
   @Test(expectedExceptions = RuntimeException.class)

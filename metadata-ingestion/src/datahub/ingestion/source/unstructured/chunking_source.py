@@ -3,7 +3,7 @@
 This source:
 1. Fetches documents from DataHub that have stored unstructured_elements
 2. Chunks them using Unstructured's semantic chunking strategies
-3. Generates embeddings using LiteLLM (Cohere/Bedrock)
+3. Generates embeddings via provider-specific SDKs (Bedrock, Cohere, OpenAI, Vertex AI)
 4. Emits SemanticContent aspects to DataHub (first-class metadata)
 
 This provides proper semantic chunking compared to the current Java implementation
@@ -13,6 +13,8 @@ which generates a single embedding for the entire document.
 import hashlib
 import json
 import logging
+import os
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -34,6 +36,14 @@ from datahub.ingestion.source.unstructured.chunking_config import (
     DocumentChunkingSourceConfig,
     get_semantic_search_config,
 )
+from datahub.ingestion.source.unstructured.embedding_providers.base import (
+    EmbeddingProvider,
+)
+from datahub.ingestion.source.unstructured.embedding_providers.factory import (
+    create_embedding_provider,
+    derive_model_id,
+)
+from datahub.utilities.ratelimiter import RateLimiter
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
@@ -52,6 +62,9 @@ class DocumentChunkingReport(SourceReport):
     num_chunks_created: int = 0
     num_embeddings_generated: int = 0
     processing_errors: list[str] = field(default_factory=list)
+
+    # Document limit
+    num_documents_limit_reached: bool = False
 
     # Embedding statistics
     num_documents_with_embeddings: int = 0
@@ -122,7 +135,9 @@ class DocumentChunkingSource(Source):
             # Standalone mode: create our own graph client
             graph_config = DatahubClientConfig(
                 server=self.config.datahub.server,
-                token=self.config.datahub.token,
+                token=self.config.datahub.token.get_secret_value()
+                if self.config.datahub.token
+                else None,
             )
             self.graph = DataHubGraph(config=graph_config)
         else:
@@ -131,6 +146,7 @@ class DocumentChunkingSource(Source):
 
         # Auto-configure embedding using shared resolution logic
         self.embedding_model: Optional[str] = None
+        self._provider: Optional[EmbeddingProvider] = None
         self.config.embedding = DocumentChunkingSource.resolve_embedding_config(
             self.config.embedding, self.graph
         )
@@ -141,48 +157,20 @@ class DocumentChunkingSource(Source):
                 "No embedding provider configured - skipping embedding generation"
             )
         else:
-            try:
-                import litellm  # Lazy import to avoid ModuleNotFoundError during tests
-            except ModuleNotFoundError:
-                # litellm not installed - will fail later if embeddings are actually generated
-                logger.debug(
-                    "litellm not installed - embedding generation will fail if attempted"
-                )
-                litellm = None  # type: ignore
+            self._validate_provider_init_requirements(self.config.embedding)
+            self.embedding_model = derive_model_id(
+                self.config.embedding.provider, self.config.embedding.model
+            )
 
-            # Initialize embedding model name for litellm
-            if self.config.embedding.provider == "bedrock":
-                # Prefix with bedrock/ for litellm
-                assert self.config.embedding.model is not None
-                self.embedding_model = f"bedrock/{self.config.embedding.model}"
-                if litellm is not None:
-                    litellm.set_verbose = False  # Reduce litellm logging
-            elif self.config.embedding.provider == "cohere":
-                # Prefix with cohere/ for litellm
-                model_name = self.config.embedding.model
-                assert model_name is not None
-                if not model_name.startswith("cohere/"):
-                    model_name = f"cohere/{model_name}"
-                self.embedding_model = model_name
-                if not self.config.embedding.api_key:
-                    raise ValueError(
-                        "Cohere API key is required when using cohere provider"
-                    )
-            elif self.config.embedding.provider == "openai":
-                # Prefix with openai/ for litellm
-                model_name = self.config.embedding.model
-                assert model_name is not None
-                if not model_name.startswith("openai/"):
-                    model_name = f"openai/{model_name}"
-                self.embedding_model = model_name
-                if not self.config.embedding.api_key:
-                    raise ValueError(
-                        "OpenAI API key is required when using openai provider"
-                    )
-            else:
-                raise ValueError(
-                    f"Unsupported embedding provider: {self.config.embedding.provider}"
-                )
+        # Initialize rate limiter for embedding calls
+        self.rate_limiter: Optional[RateLimiter] = (
+            RateLimiter(
+                max_calls=config.embedding.documents_per_minute,
+                period=60.0,
+            )
+            if self.embedding_model and config.embedding.rate_limit
+            else None
+        )
 
         # Initialize state tracking for incremental mode
         self.state_file_path: Optional[Path] = None
@@ -195,6 +183,59 @@ class DocumentChunkingSource(Source):
         )
         if self.config.incremental_mode:
             logger.info(f"Incremental mode enabled, state file: {self.state_file_path}")
+
+    @staticmethod
+    def _validate_provider_init_requirements(
+        embedding_config: "EmbeddingConfig",
+    ) -> None:
+        """Fail fast on misconfiguration before any chunks are processed.
+
+        Read-only presence check for config that the provider constructor would
+        otherwise complain about lazily on the first embed call. SDK availability
+        and env-var resolution happen inside the factory / provider constructors.
+        """
+        provider = embedding_config.provider
+        has_key = bool(embedding_config.api_key)
+
+        if provider and not embedding_config.model:
+            raise ValueError(
+                f"embedding.model is required when using the {provider} provider. "
+                "Set embedding.model in your recipe."
+            )
+
+        if (
+            provider == "cohere"
+            and not has_key
+            and not os.environ.get("COHERE_API_KEY")
+        ):
+            raise ValueError(
+                "Cohere API key is required when using cohere provider. "
+                "Set embedding.api_key in your recipe or the COHERE_API_KEY environment variable."
+            )
+        if (
+            provider == "openai"
+            and not has_key
+            and not os.environ.get("OPENAI_API_KEY")
+        ):
+            raise ValueError(
+                "OpenAI API key is required when using openai provider. "
+                "Set embedding.api_key in your recipe or the OPENAI_API_KEY environment variable."
+            )
+        if (
+            provider == "vertex_ai"
+            and not embedding_config.vertex_project_id
+            and not os.environ.get("VERTEX_AI_PROJECT_ID")
+        ):
+            raise ValueError(
+                "vertex_project_id is required when using vertex_ai provider. "
+                "Set embedding.vertex_project_id in your recipe or the VERTEX_AI_PROJECT_ID environment variable."
+            )
+
+    def _get_provider(self) -> EmbeddingProvider:
+        """Lazily instantiate and cache the embedding provider."""
+        if self._provider is None:
+            self._provider = create_embedding_provider(self.config.embedding)
+        return self._provider
 
     def process_elements_inline(
         self, document_urn: str, elements: list[dict[str, Any]]
@@ -221,26 +262,21 @@ class DocumentChunkingSource(Source):
             logger.warning(f"No chunks created for document {document_urn}")
             return
 
-        # Generate embeddings (only if configured)
+        # Generate embeddings (only if configured).
+        # Failures are raised directly so the caller can decide how to handle them.
         embeddings = []
         if self.embedding_model:
             try:
-                embeddings = self._generate_embeddings(chunks)
+                if self.rate_limiter:
+                    with self.rate_limiter:
+                        embeddings = self._generate_embeddings(chunks)
+                else:
+                    embeddings = self._generate_embeddings(chunks)
                 self.report.report_embedding_success()
             except Exception as e:
-                # Embedding generation failed - document still ingested but no search capability
-                short_error = str(e).split("\n")[0][:200]  # First line, max 200 chars
-
+                short_error = str(e).split("\n")[0][:200]
                 self.report.report_embedding_failure(document_urn, short_error)
-
-                # Report as warning so it appears in pipeline summary
-                self.report.report_warning(
-                    title="Embedding generation failed",
-                    message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
-                    context=f"{document_urn}: {short_error}",
-                    exc=e,
-                )
-                # Don't re-raise - allow document to be processed without embeddings
+                raise
         else:
             logger.debug(
                 f"Skipping embedding generation for {document_urn} - no embedding provider configured"
@@ -252,6 +288,20 @@ class DocumentChunkingSource(Source):
 
         self.report.report_document_processed(len(chunks))
         self.report.report_embeddings_generated(len(embeddings))
+
+        # Check document limit (max_documents > 0 means the limit is active; 0 or -1 disables it)
+        if (
+            self.config.max_documents > 0
+            and self.report.num_documents_processed >= self.config.max_documents
+        ):
+            self.report.num_documents_limit_reached = True
+            error_msg = (
+                f"Document limit of {self.config.max_documents} reached. "
+                f"Processed {self.report.num_documents_processed} documents. "
+                "Increase max_documents in the source config to process more."
+            )
+            self.report.report_error(error_msg)
+            raise RuntimeError(error_msg)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Fetch documents, chunk them, generate embeddings, and emit SemanticContent."""
@@ -525,21 +575,14 @@ class DocumentChunkingSource(Source):
                     embeddings = self._generate_embeddings(chunks)
                     self.report.report_embedding_success()
                 except Exception as e:
-                    # Embedding generation failed - document still processed but no search capability
-                    short_error = str(e).split("\n")[0][
-                        :200
-                    ]  # First line, max 200 chars
-
+                    short_error = str(e).split("\n")[0][:200]
                     self.report.report_embedding_failure(doc["urn"], short_error)
-
-                    # Report as warning so it appears in pipeline summary
                     self.report.report_warning(
                         title="Embedding generation failed",
                         message="Document was ingested successfully but embedding generation failed. Semantic search will not work for this document.",
                         context=f"{doc['urn']}: {short_error}",
                         exc=e,
                     )
-                    # Don't re-raise - allow document to be processed without embeddings
             else:
                 logger.debug(
                     f"Skipping embedding generation for {doc['urn']} - no embedding provider configured"
@@ -702,42 +745,21 @@ class DocumentChunkingSource(Source):
             return []
 
     def _generate_embeddings(self, chunks: list[dict[str, Any]]) -> list[list[float]]:
-        """Generate embeddings using litellm (supports Bedrock and Cohere)."""
-        try:
-            import litellm
-        except ModuleNotFoundError as e:
-            raise ModuleNotFoundError(
-                "litellm is required for embedding generation. "
-                "Install with: pip install 'acryl-datahub[unstructured-embedding]'"
-            ) from e
-
+        """Generate embeddings via the configured provider."""
         # Extract text from chunks
         texts = [chunk.get("text", "") for chunk in chunks]
-
-        # Filter out empty texts
         texts = [t for t in texts if t.strip()]
-
         if not texts:
             return []
 
+        provider = self._get_provider()
         try:
-            # Generate embeddings in batches
-            embeddings = []
+            embeddings: list[list[float]] = []
             for i in range(0, len(texts), self.config.embedding.batch_size):
                 batch = texts[i : i + self.config.embedding.batch_size]
-
-                # Use litellm.embedding() which works with both Bedrock and Cohere
-                response = litellm.embedding(
-                    model=self.embedding_model,
-                    input=batch,
-                    api_key=self.config.embedding.api_key,  # Only used for Cohere
-                    aws_region_name=self.config.embedding.aws_region,  # Only used for Bedrock
-                )
-
-                # Extract embeddings from response
-                batch_embeddings = [data["embedding"] for data in response.data]
-                embeddings.extend(batch_embeddings)
-                logger.debug(f"Generated {len(batch_embeddings)} embeddings for batch")
+                result = provider.embed(batch)
+                embeddings.extend(result.embeddings)
+                logger.debug(f"Generated {len(result.embeddings)} embeddings for batch")
 
             logger.info(
                 f"Generated {len(embeddings)} embeddings using {self.embedding_model}"
@@ -761,10 +783,13 @@ class DocumentChunkingSource(Source):
             SemanticContentClass,
         )
 
-        # Build model version string (e.g., "bedrock/cohere.embed-english-v3")
-        model_version = (
-            f"{self.config.embedding.provider}/{self.config.embedding.model}"
+        # Use the provider's canonical model_id (e.g. "bedrock/cohere.embed-english-v3").
+        # Going through derive_model_id keeps the "local" → "openai/..." mapping
+        # consistent with self.embedding_model and the provider instance.
+        model_version = derive_model_id(
+            self.config.embedding.provider, self.config.embedding.model
         )
+        assert model_version is not None
 
         # Build embedding chunks
         embedding_chunks = []
@@ -779,30 +804,38 @@ class DocumentChunkingSource(Source):
                 vector=embedding,
                 characterOffset=current_offset,
                 characterLength=chunk_length,
-                tokenCount=None,  # Optional field - not calculated since it's unused
+                tokenCount=None,
                 text=chunk_text,
             )
             embedding_chunks.append(embedding_chunk)
 
             current_offset += chunk_length
 
-        # Build embedding model data
+        # totalTokens is intentionally omitted: provider responses report token
+        # usage at the batch level (OpenAI usage.prompt_tokens,
+        # Cohere meta.billed_units.input_tokens), not per-chunk, and we don't
+        # currently plumb that aggregate through EmbeddingResult. Emitting 0
+        # would be misleading; the field is optional in the schema.
         embedding_model_data = EmbeddingModelDataClass(
             modelVersion=model_version,
-            generatedAt=int(datetime.utcnow().timestamp() * 1000),  # milliseconds
+            generatedAt=int(datetime.utcnow().timestamp() * 1000),
             chunkingStrategy=self.config.chunking.strategy,
             totalChunks=len(chunks),
-            totalTokens=sum(c.tokenCount or 0 for c in embedding_chunks),
             chunks=embedding_chunks,
         )
 
         # Build SemanticContent aspect
-        # Map key should be model identifier (e.g., cohere_embed_v3)
+        # Prefer the server-sourced key (authoritative); fall back to local derivation.
         assert self.config.embedding.model is not None
-        if "embed-english-v3" in self.config.embedding.model:
+        if self.config.embedding.model_embedding_key:
+            model_key = self.config.embedding.model_embedding_key
+        elif "embed-english-v3" in self.config.embedding.model:
             model_key = "cohere_embed_v3"
         else:
-            model_key = self.config.embedding.model.replace("-", "_").replace(".", "_")
+            # Map any non-alphanumeric character (incl. ':' in Bedrock Titan
+            # IDs like "amazon.titan-embed-text-v2:0") to '_' so the result is
+            # a legal Elasticsearch field name.
+            model_key = re.sub(r"[^a-zA-Z0-9_]", "_", self.config.embedding.model)
 
         semantic_content = SemanticContentClass(
             embeddings={model_key: embedding_model_data}
@@ -997,65 +1030,89 @@ class DocumentChunkingSource(Source):
     def _validate_provider_config(
         embedding_config: "EmbeddingConfig",
     ) -> tuple[Optional[str], Optional[CapabilityReport]]:
-        """Validate provider-specific configuration and return the litellm model string.
+        """Validate provider-specific configuration and return the model id string.
 
         Returns:
-            Tuple of (embedding_model, error_report). If validation passes,
-            embedding_model is set and error_report is None. If validation fails,
-            embedding_model is None and error_report contains the failure details.
+            Tuple of (model_id, error_report). If validation passes, model_id is
+            set and error_report is None. If validation fails, model_id is None
+            and error_report contains the failure details.
         """
-        if embedding_config.provider == "bedrock":
-            if not embedding_config.model:
+        provider = embedding_config.provider
+        model = embedding_config.model
+
+        if provider == "bedrock":
+            if not model:
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="Bedrock model not specified in embedding config",
                     mitigation_message="Set embedding.model to a valid Bedrock model (e.g., 'amazon.titan-embed-text-v1')",
                 )
-            return f"bedrock/{embedding_config.model}", None
+            return f"bedrock/{model}", None
 
-        elif embedding_config.provider == "cohere":
-            if not embedding_config.model:
+        elif provider == "cohere":
+            if not model:
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="Cohere model not specified in embedding config",
                     mitigation_message="Set embedding.model to a valid Cohere model (e.g., 'embed-english-v3.0')",
                 )
-            if not embedding_config.api_key:
+            if not embedding_config.api_key and not os.environ.get("COHERE_API_KEY"):
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="Cohere API key not provided",
-                    mitigation_message="Set embedding.api_key to your Cohere API key. "
-                    "Get one at https://dashboard.cohere.com/api-keys",
+                    mitigation_message="Set embedding.api_key to your Cohere API key or set the COHERE_API_KEY "
+                    "environment variable. Get one at https://dashboard.cohere.com/api-keys",
                 )
-            model_name = embedding_config.model
-            if not model_name.startswith("cohere/"):
-                model_name = f"cohere/{model_name}"
-            return model_name, None
+            return f"cohere/{model}", None
 
-        elif embedding_config.provider == "openai":
-            if not embedding_config.model:
+        elif provider == "openai":
+            if not model:
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="OpenAI model not specified in embedding config",
                     mitigation_message="Set embedding.model to a valid OpenAI model (e.g., 'text-embedding-3-small')",
                 )
-            if not embedding_config.api_key:
+            if not embedding_config.api_key and not os.environ.get("OPENAI_API_KEY"):
                 return None, CapabilityReport(
                     capable=False,
                     failure_reason="OpenAI API key not provided",
-                    mitigation_message="Set embedding.api_key to your OpenAI API key. "
-                    "Get one at https://platform.openai.com/api-keys",
+                    mitigation_message="Set embedding.api_key to your OpenAI API key or set the OPENAI_API_KEY "
+                    "environment variable. Get one at https://platform.openai.com/api-keys",
                 )
-            model_name = embedding_config.model
-            if not model_name.startswith("openai/"):
-                model_name = f"openai/{model_name}"
-            return model_name, None
+            return f"openai/{model}", None
+
+        elif provider == "local":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Local embedding model not specified",
+                    mitigation_message="Set embedding.model to a model available on your local server (e.g., 'nomic-embed-text')",
+                )
+            return f"openai/{model}", None
+
+        elif provider == "vertex_ai":
+            if not model:
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Vertex AI model not specified in embedding config",
+                    mitigation_message="Set embedding.model to a valid Vertex AI model (e.g., 'gemini-embedding-001')",
+                )
+            if not embedding_config.vertex_project_id and not os.environ.get(
+                "VERTEX_AI_PROJECT_ID"
+            ):
+                return None, CapabilityReport(
+                    capable=False,
+                    failure_reason="Vertex AI vertex_project_id not provided",
+                    mitigation_message="Set embedding.vertex_project_id to your GCP project ID or set the VERTEX_AI_PROJECT_ID "
+                    "environment variable.",
+                )
+            return f"vertex_ai/{model}", None
 
         else:
             return None, CapabilityReport(
                 capable=False,
-                failure_reason=f"Unsupported embedding provider: {embedding_config.provider}",
-                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai'",
+                failure_reason=f"Unsupported embedding provider: {provider}",
+                mitigation_message="Supported providers: 'bedrock', 'cohere', 'openai', 'local', 'vertex_ai'",
             )
 
     @staticmethod
@@ -1111,78 +1168,59 @@ class DocumentChunkingSource(Source):
             return CapabilityReport(
                 capable=False,
                 failure_reason="Embedding configuration not provided",
-                mitigation_message="Configure embedding provider (bedrock or cohere) to enable semantic search. "
+                mitigation_message="Configure embedding provider (bedrock, cohere, openai, or vertex_ai) to enable semantic search. "
                 "See https://datahubproject.io/docs/semantic-search/",
             )
 
+        # Validate provider config (no SDK calls yet)
+        embedding_model, error_report = (
+            DocumentChunkingSource._validate_provider_config(embedding_config)
+        )
+        if error_report:
+            return error_report
+
         try:
-            # Try to import litellm
-            try:
-                import litellm
-            except ModuleNotFoundError:
-                return CapabilityReport(
-                    capable=False,
-                    failure_reason="litellm package not installed",
-                    mitigation_message="Install litellm: pip install 'acryl-datahub[unstructured-embedding]'",
-                )
-
-            # Validate provider config and get litellm model string
-            embedding_model, error_report = (
-                DocumentChunkingSource._validate_provider_config(embedding_config)
-            )
-            if error_report:
-                return error_report
-
-            if embedding_config.provider == "bedrock":
-                litellm.set_verbose = False
-
-            # Test embedding generation with a simple text
-            test_text = "DataHub semantic search test"
-
-            try:
-                response = litellm.embedding(
-                    model=embedding_model,
-                    input=[test_text],
-                    api_key=embedding_config.api_key,
-                    aws_region_name=embedding_config.aws_region,
-                )
-
-                # Verify we got an embedding back
-                if not response or not response.data or len(response.data) == 0:
-                    return CapabilityReport(
-                        capable=False,
-                        failure_reason="Embedding API returned empty response",
-                        mitigation_message="Check your embedding configuration and API credentials",
-                    )
-
-                embedding = response.data[0]["embedding"]
-                embedding_dim = len(embedding)
-
-                # Success! Embedding generation works
-                return CapabilityReport(
-                    capable=True,
-                    mitigation_message=f"Semantic search enabled: {embedding_config.provider}/{embedding_config.model} "
-                    f"(dimension: {embedding_dim}). Documents will be searchable in DataHub.",
-                )
-
-            except Exception as e:
-                error_str = str(e)
-                error_class = e.__class__.__name__
-                mitigation = DocumentChunkingSource._get_embedding_error_mitigation(
-                    error_str, embedding_config
-                )
-
-                return CapabilityReport(
-                    capable=False,
-                    failure_reason=f"Embedding generation failed: {error_class}: {error_str[:200]}",
-                    mitigation_message=mitigation,
-                )
-
-        except Exception as e:
+            provider = create_embedding_provider(embedding_config)
+        except ImportError as e:
             return CapabilityReport(
                 capable=False,
-                failure_reason=f"Unexpected error testing embeddings: {e}",
-                mitigation_message="Check logs for more details",
+                failure_reason=f"Provider SDK not installed: {e}",
+                mitigation_message="Install the unstructured extras: pip install 'acryl-datahub[unstructured]'",
+            )
+        except ValueError as e:
+            return CapabilityReport(
+                capable=False,
+                failure_reason=str(e),
+                mitigation_message="Check your embedding configuration and credentials",
+            )
+
+        try:
+            result = provider.embed(["DataHub semantic search test"])
+
+            if not result.embeddings:
+                return CapabilityReport(
+                    capable=False,
+                    failure_reason="Embedding API returned empty response",
+                    mitigation_message="Check your embedding configuration and API credentials",
+                )
+
+            embedding_dim = len(result.embeddings[0])
+            return CapabilityReport(
+                capable=True,
+                mitigation_message=f"Semantic search enabled: {embedding_config.provider}/{embedding_config.model} "
+                f"(dimension: {embedding_dim}). Documents will be searchable in DataHub.",
+            )
+
+        except Exception as e:
+            error_str = str(e)
+            error_class = e.__class__.__name__
+            mitigation = DocumentChunkingSource._get_embedding_error_mitigation(
+                error_str, embedding_config
+            )
+            return CapabilityReport(
+                capable=False,
+                failure_reason=f"Embedding generation failed: {error_class}: {error_str[:200]}",
+                mitigation_message=mitigation,
             )
 
     def get_report(self) -> SourceReport:

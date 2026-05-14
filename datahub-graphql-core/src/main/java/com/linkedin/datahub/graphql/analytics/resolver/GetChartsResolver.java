@@ -405,13 +405,16 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
     }
 
     // Chart 2: Entities per platform
+    // Excludes query entities from this count as they are not expected and over-inflate numbers per
+    // platform
     final List<NamedBar> entitiesPerPlatform =
         _analyticsService.getBarChart(
             _analyticsService.getAllEntityIndexName(),
             Optional.empty(),
             ImmutableList.of("platform.keyword"),
             Collections.emptyMap(),
-            ImmutableMap.of("removed", ImmutableList.of("true")),
+            ImmutableMap.of(
+                "removed", ImmutableList.of("true"), "_index", ImmutableList.of("*queryindex_v2*")),
             Optional.empty(),
             false);
     AnalyticsUtil.hydrateDisplayNameForBars(

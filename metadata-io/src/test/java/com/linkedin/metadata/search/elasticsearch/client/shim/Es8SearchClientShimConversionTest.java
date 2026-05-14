@@ -1,23 +1,39 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim;
 
+import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
+import java.util.Collections;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.search.SearchRequest;
+import org.opensearch.action.search.SearchResponse;
+import org.opensearch.common.xcontent.LoggingDeprecationHandler;
+import org.opensearch.common.xcontent.XContentType;
+import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.opensearch.search.suggest.Suggest;
 import org.opensearch.search.suggest.SuggestBuilder;
 import org.opensearch.search.suggest.SuggestBuilders;
 import org.opensearch.search.suggest.SuggestionBuilder;
+import org.opensearch.search.suggest.completion.CompletionSuggestion;
+import org.opensearch.search.suggest.phrase.PhraseSuggestion;
+import org.opensearch.search.suggest.term.TermSuggestion;
 import org.opensearch.search.suggest.term.TermSuggestionBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -40,6 +56,7 @@ public class Es8SearchClientShimConversionTest {
     when(mockConfig.isUseAwsIamAuth()).thenReturn(false);
     when(mockConfig.getThreadCount()).thenReturn(1);
     when(mockConfig.getConnectionRequestTimeout()).thenReturn(5000);
+    when(mockConfig.getSocketTimeout()).thenReturn(30000);
 
     ObjectMapper objectMapper = new ObjectMapper();
 
@@ -150,6 +167,190 @@ public class Es8SearchClientShimConversionTest {
     Action result = invokeConvertAliasAction(addActionWithRouting);
 
     assertNotNull(result, "Converted Action with routing should not be null");
+  }
+
+  /**
+   * When IndexRequest has opType CREATE (e.g. for data streams), addToProcessor must send a
+   * CreateOperation so Elasticsearch accepts the bulk request.
+   */
+  @Test
+  public void testAddToProcessorWithIndexRequestOpTypeCreateUsesCreateOperation() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    IndexRequest indexRequest =
+        new IndexRequest("datahub_usage_event")
+            .id("event-1")
+            .source(Collections.singletonMap("type", "PageViewEvent"))
+            .opType(DocWriteRequest.OpType.CREATE);
+
+    invokeAddToProcessor(mockProcessor, indexRequest);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture());
+    BulkOperation operation = captor.getValue();
+    assertNotNull(operation, "BulkOperation should be captured");
+    assertTrue(
+        operation.isCreate(),
+        "IndexRequest with OpType.CREATE must produce a CreateOperation for data streams");
+  }
+
+  /** When IndexRequest has default opType INDEX, addToProcessor must send an IndexOperation. */
+  @Test
+  public void testAddToProcessorWithIndexRequestOpTypeIndexUsesIndexOperation() throws Exception {
+    @SuppressWarnings("unchecked")
+    BulkIngester<Object> mockProcessor = mock(BulkIngester.class);
+    IndexRequest indexRequest =
+        new IndexRequest("my_index").id("doc-1").source(Collections.singletonMap("field", "value"));
+
+    invokeAddToProcessor(mockProcessor, indexRequest);
+
+    var captor = forClass(BulkOperation.class);
+    verify(mockProcessor).add(captor.capture());
+    BulkOperation operation = captor.getValue();
+    assertNotNull(operation, "BulkOperation should be captured");
+    assertTrue(
+        operation.isIndex(),
+        "IndexRequest with default OpType.INDEX must produce an IndexOperation");
+  }
+
+  /** Helper to invoke protected addToProcessor(BulkIngester, DocWriteRequest) via reflection. */
+  private void invokeAddToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest)
+      throws Exception {
+    Method addToProcessorMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "addToProcessor", BulkIngester.class, DocWriteRequest.class);
+    addToProcessorMethod.setAccessible(true);
+    addToProcessorMethod.invoke(shim, processor, writeRequest);
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a TermSuggestion from ES8 JSON response. The JSON uses
+   * typed keys format (e.g., "term#suggestion_name") which is how ES8 returns suggestions when
+   * typed_keys=true is set.
+   */
+  @Test
+  public void testXContentRegistryParsesTermSuggestion() throws Exception {
+    String termSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"term#term_suggestion\": [{"
+            + "    \"text\": \"tset\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 4,"
+            + "    \"options\": [{\"text\": \"test\", \"score\": 0.75, \"freq\": 10}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(termSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("term_suggestion");
+    assertNotNull(suggestion, "term_suggestion should be present");
+    assertEquals(suggestion.getClass(), TermSuggestion.class, "Should be a TermSuggestion");
+
+    TermSuggestion termSuggestion = (TermSuggestion) suggestion;
+    assertEquals(termSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        termSuggestion.getEntries().get(0).getText().string(), "tset", "Entry text should match");
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a PhraseSuggestion from ES8 JSON response. The JSON uses
+   * typed keys format (e.g., "phrase#suggestion_name").
+   */
+  @Test
+  public void testXContentRegistryParsesPhraseSuggestion() throws Exception {
+    String phraseSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"phrase#phrase_suggestion\": [{"
+            + "    \"text\": \"nobel prize\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 11,"
+            + "    \"options\": [{\"text\": \"noble prize\", \"score\": 0.85}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(phraseSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("phrase_suggestion");
+    assertNotNull(suggestion, "phrase_suggestion should be present");
+    assertEquals(suggestion.getClass(), PhraseSuggestion.class, "Should be a PhraseSuggestion");
+
+    PhraseSuggestion phraseSuggestion = (PhraseSuggestion) suggestion;
+    assertEquals(phraseSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        phraseSuggestion.getEntries().get(0).getText().string(),
+        "nobel prize",
+        "Entry text should match");
+  }
+
+  /**
+   * Test that X_CONTENT_REGISTRY can parse a CompletionSuggestion from ES8 JSON response. The JSON
+   * uses typed keys format (e.g., "completion#suggestion_name").
+   */
+  @Test
+  public void testXContentRegistryParsesCompletionSuggestion() throws Exception {
+    String completionSuggestionJson =
+        "{"
+            + "\"took\": 5,"
+            + "\"timed_out\": false,"
+            + "\"_shards\": {\"total\": 1, \"successful\": 1, \"skipped\": 0, \"failed\": 0},"
+            + "\"hits\": {\"total\": {\"value\": 0, \"relation\": \"eq\"}, \"max_score\": null, \"hits\": []},"
+            + "\"suggest\": {"
+            + "  \"completion#completion_suggestion\": [{"
+            + "    \"text\": \"dat\","
+            + "    \"offset\": 0,"
+            + "    \"length\": 3,"
+            + "    \"options\": [{\"text\": \"dataset\", \"_index\": \"test\", \"_id\": \"1\", \"_score\": 1.0, \"_source\": {}}]"
+            + "  }]"
+            + "}"
+            + "}";
+
+    SearchResponse response = parseSearchResponse(completionSuggestionJson);
+
+    assertNotNull(response.getSuggest(), "Suggest should not be null");
+    Suggest.Suggestion<
+            ? extends Suggest.Suggestion.Entry<? extends Suggest.Suggestion.Entry.Option>>
+        suggestion = response.getSuggest().getSuggestion("completion_suggestion");
+    assertNotNull(suggestion, "completion_suggestion should be present");
+    assertEquals(
+        suggestion.getClass(), CompletionSuggestion.class, "Should be a CompletionSuggestion");
+
+    CompletionSuggestion completionSuggestion = (CompletionSuggestion) suggestion;
+    assertEquals(completionSuggestion.getEntries().size(), 1, "Should have one entry");
+    assertEquals(
+        completionSuggestion.getEntries().get(0).getText().string(),
+        "dat",
+        "Entry text should match");
+  }
+
+  /** Helper method to parse a JSON string into a SearchResponse using X_CONTENT_REGISTRY. */
+  private SearchResponse parseSearchResponse(String json) throws Exception {
+    try (XContentParser parser =
+        XContentType.JSON
+            .xContent()
+            .createParser(
+                SearchClientShimUtil.X_CONTENT_REGISTRY,
+                LoggingDeprecationHandler.INSTANCE,
+                json)) {
+      return SearchResponse.fromXContent(parser);
+    }
   }
 
   /** Helper method to invoke the private convertSuggestion method via reflection. */

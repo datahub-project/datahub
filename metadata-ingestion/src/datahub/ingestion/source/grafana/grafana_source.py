@@ -78,45 +78,13 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.TAGS, "Enabled by default")
 class GrafanaSource(StatefulIngestionSourceBase):
     """
-    This plugin extracts metadata from Grafana and ingests it into DataHub. It connects to Grafana's API
-    to extract metadata about dashboards, charts, and data sources. The following types of metadata are extracted:
+    Source that extracts dashboards, charts, and datasources from Grafana via REST API.
 
-    - Container Entities:
-        - Folders: Top-level organizational units in Grafana
-        - Dashboards: Collections of panels and charts
-        - The full container hierarchy is preserved (Folders -> Dashboards -> Charts/Datasets)
-
-    - Charts and Visualizations:
-        - All panel types (graphs, tables, stat panels, etc.)
-        - Chart configuration and properties
-        - Links to the original Grafana UI
-        - Custom properties including panel types and data source information
-        - Input fields and schema information when available
-
-    - Data Sources and Datasets:
-        - Physical datasets representing Grafana's data sources
-        - Dataset schema information extracted from queries and panel configurations
-        - Support for various data source types (SQL, Prometheus, etc.)
-        - Custom properties including data source type and configuration
-
-    - Lineage Information:
-        - Dataset-level lineage showing relationships between:
-            - Source data systems and Grafana datasets
-            - Grafana datasets and charts
-        - Column-level lineage for SQL-based data sources
-        - Support for external source systems through configurable platform mappings
-
-    - Tags and Ownership:
-        - Dashboard and chart tags
-        - Ownership information derived from:
-            - Dashboard creators (Technical owner)
-
-    The source supports the following capabilities:
-    - Platform instance support for multi-Grafana deployments
-    - Stateful ingestion with support for soft-deletes
-    - Fine-grained lineage at both dataset and column levels
-    - Automated tag extraction
-    - Support for both HTTP and HTTPS connections with optional SSL verification
+    Implementation notes:
+    - Uses Grafana HTTP API for metadata extraction
+    - Parses SQL queries from panel targets for lineage when possible
+    - Supports two modes: enhanced (requires admin token) and basic (limited permissions)
+    - Uses connection_to_platform_map to map Grafana datasource UIDs to DataHub platforms
     """
 
     config: GrafanaSourceConfig

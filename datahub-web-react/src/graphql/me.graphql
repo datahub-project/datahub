@@ -62,6 +62,7 @@ query getMe {
             createDomains
             createTags
             manageGlobalViews
+            manageGlobalSettings
             manageOwnershipTypes
             manageGlobalAnnouncements
             createBusinessAttributes

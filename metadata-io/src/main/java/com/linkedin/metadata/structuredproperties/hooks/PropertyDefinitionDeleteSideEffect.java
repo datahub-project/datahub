@@ -18,6 +18,8 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.structuredproperties.util.EntityWithPropertyIterator;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import java.util.Collection;
 import java.util.List;
@@ -40,6 +42,7 @@ import lombok.extern.slf4j.Slf4j;
 public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
   public static final Integer SEARCH_SCROLL_SIZE = 1000;
   @Nonnull private AspectPluginConfig config;
+  @Nullable private MetricUtils metricUtils;
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
@@ -53,7 +56,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
     return mclItems.stream().flatMap(item -> generatePatchRemove(item, retrieverContext));
   }
 
-  private static Stream<MCPItem> generatePatchRemove(
+  private Stream<MCPItem> generatePatchRemove(
       MCLItem mclItem, @Nonnull RetrieverContext retrieverContext) {
 
     if (STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(mclItem.getAspectName())) {
@@ -83,7 +86,7 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
     return Stream.empty();
   }
 
-  private static Stream<MCPItem> generatePatchMCPs(
+  private Stream<MCPItem> generatePatchMCPs(
       Urn propertyUrn,
       @Nullable StructuredPropertyDefinition definition,
       @Nullable AuditStamp auditStamp,
@@ -95,6 +98,11 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
             .searchRetriever(retrieverContext.getSearchRetriever())
             .count(SEARCH_SCROLL_SIZE)
             .build();
+
+    CascadeOperationContext cascade =
+        CascadeOperationContext.beginWithoutMDC(
+            metricUtils, "propertyDefinitionDelete", propertyUrn, -1);
+
     return StreamSupport.stream(
             Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false)
         .flatMap(
@@ -111,21 +119,26 @@ public class PropertyDefinitionDeleteSideEffect extends MCPSideEffect {
                                   .getAspectRetriever()
                                   .getEntityRegistry()
                                   .getEntitySpec(entity.getEntity().getEntityType());
-                          return PatchItemImpl.builder()
-                              .urn(entity.getEntity())
-                              .entitySpec(entitySpec)
-                              .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
-                              .aspectSpec(
-                                  entitySpec.getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME))
-                              .patch(
-                                  GenericJsonPatch.builder()
-                                      .arrayPrimaryKeys(
-                                          Map.of("properties", List.of("propertyUrn")))
-                                      .patch(List.of(patchOp))
-                                      .build()
-                                      .getJsonPatch())
-                              .auditStamp(auditStamp)
-                              .build(retrieverContext.getAspectRetriever().getEntityRegistry());
-                        }));
+                          MCPItem item =
+                              PatchItemImpl.builder()
+                                  .urn(entity.getEntity())
+                                  .entitySpec(entitySpec)
+                                  .aspectName(STRUCTURED_PROPERTIES_ASPECT_NAME)
+                                  .aspectSpec(
+                                      entitySpec.getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME))
+                                  .patch(
+                                      GenericJsonPatch.builder()
+                                          .arrayPrimaryKeys(
+                                              Map.of("properties", List.of("propertyUrn")))
+                                          .patch(List.of(patchOp))
+                                          .build()
+                                          .getJsonPatch())
+                                  .auditStamp(auditStamp)
+                                  .build(retrieverContext.getAspectRetriever().getEntityRegistry());
+                          cascade.recordEntityProcessed();
+                          cascade.attachToSystemMetadata(item.getSystemMetadata());
+                          return item;
+                        }))
+        .onClose(cascade::close);
   }
 }

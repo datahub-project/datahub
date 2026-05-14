@@ -25,4 +25,5 @@ Once all services are up, start the DataHub CLI provided by the source project i
 and ingest some sample data into DataHub:
 
     source metadata-ingestion/venv/bin/activate
-    datahub docker ingest-sample-data
+    datahub init --username datahub --password datahub
+    datahub datapack load showcase-ecommerce

@@ -20,6 +20,7 @@ type Props = {
     mode?: 'multiple' | 'single';
     onChangeSelectedUrns: (newUrns: string[]) => void;
     label?: string;
+    placeholder?: string;
 };
 
 const addManyToCache = (cache: Map<string, Entity>, entities: Entity[]) => {
@@ -38,7 +39,14 @@ const isResolutionRequired = (urns: string[], cache: Map<string, Entity>) => {
  *
  * FYI: redesigned version of this component -  src/app/entityV2/shared/EntitySearchInput/EntitySearchInput.tsx
  */
-export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label, onChangeSelectedUrns }: Props) => {
+export const EntitySearchValueInput = ({
+    selectedUrns,
+    entityTypes,
+    mode,
+    label,
+    placeholder,
+    onChangeSelectedUrns,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
 
@@ -110,12 +118,17 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
 
         const mergedEntities = mergeArraysOfObjects(searchedEntities, selectedEntities, (item) => item.urn);
 
-        return mergedEntities.map((entity) => {
-            return {
+        const selectedSet = new Set(selectedUrns);
+        return mergedEntities
+            .map((entity) => ({
                 value: entity.urn,
                 label: entityRegistry.getDisplayName(entity.type, entity),
-            };
-        });
+            }))
+            .sort((a, b) => {
+                const aSelected = selectedSet.has(a.value) ? 0 : 1;
+                const bSelected = selectedSet.has(b.value) ? 0 : 1;
+                return aSelected - bSelected;
+            });
     }, [searchResults, entityCache, selectedUrns, entityRegistry]);
 
     const customOptionRenderer = useCallback(
@@ -159,10 +172,10 @@ export const EntitySearchValueInput = ({ selectedUrns, entityTypes, mode, label,
             isMultiSelect={isMultiSelect}
             onUpdate={onUpdate}
             onSearchChange={onSearch}
-            placeholder="Select entities..."
+            placeholder={placeholder || 'Select a value...'}
             data-testid="entity-search-input"
             selectLabelProps={
-                isMultiSelect
+                isMultiSelect && selectedUrns.length > 0
                     ? {
                           variant: 'labeled',
                           label: label ?? 'Items',

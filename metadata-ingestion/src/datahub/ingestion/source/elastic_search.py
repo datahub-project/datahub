@@ -11,7 +11,11 @@ from elasticsearch import Elasticsearch
 from pydantic import field_validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    ConfigModel,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -259,7 +263,7 @@ class ElasticsearchSourceConfig(
     username: Optional[str] = Field(
         default=None, description="The username credential."
     )
-    password: Optional[str] = Field(
+    password: Optional[TransparentSecretStr] = Field(
         default=None, description="The password credential."
     )
     api_key: Optional[Union[Any, str]] = Field(
@@ -343,7 +347,14 @@ class ElasticsearchSourceConfig(
 
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
-        return None if self.username is None else (self.username, self.password or "")
+        return (
+            None
+            if self.username is None
+            else (
+                self.username,
+                self.password.get_secret_value() if self.password else "",
+            )
+        )
 
 
 @platform_name("Elasticsearch")

@@ -1,0 +1,5 @@
+# setuptools 82.0.0 removed pkg_resources, which breaks building third-party
+# packages (e.g. flatdict via okta) that import pkg_resources in their setup.py.
+# This file is passed via --build-constraint to uv pip install, ensuring the
+# build isolation environments use a compatible setuptools version.
+setuptools<82.0.0

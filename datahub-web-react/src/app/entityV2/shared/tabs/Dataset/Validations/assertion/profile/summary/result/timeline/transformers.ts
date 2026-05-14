@@ -21,7 +21,7 @@ import {
  * @param runEvent
  * @returns {number | undefined}
  */
-export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined => {
+const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined => {
     return tryGetPrimaryMetricValueFromAssertionRunEvent();
 };
 
@@ -30,7 +30,7 @@ export const tryGetYValueForChartFromAssertionRunEvent = (): number | undefined 
  * @param runEvents
  * @returns {AssertionDataPoint[]}
  */
-export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
+const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent[]): AssertionDataPoint[] => {
     return (
         runEvents
             .filter((runEvent) => !!runEvent.result)
@@ -62,7 +62,7 @@ export const getAssertionDataPointsFromRunEvents = (runEvents: AssertionRunEvent
  * @param assertionInfo
  * @returns {number | undefined}
  */
-export const tryGetYAxisLabelForChartFromAssertionInfo = (
+const tryGetYAxisLabelForChartFromAssertionInfo = (
     assertionInfo?: AssertionInfo | Maybe<AssertionInfo>,
 ): string | undefined => {
     let label: string | undefined;

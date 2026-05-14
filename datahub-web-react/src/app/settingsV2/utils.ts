@@ -1,10 +1,4 @@
-import { AccessTokenDuration, AccessTokenType } from '@types';
-
-/** A type of DataHub Access Token. */
-export const ACCESS_TOKEN_TYPES = [
-    { text: 'Personal', type: AccessTokenType.Personal },
-    { text: 'Service Account', type: AccessTokenType.ServiceAccount },
-];
+import { AccessTokenDuration } from '@types';
 
 /** The duration for which an Access Token is valid. */
 export const ACCESS_TOKEN_DURATIONS = [

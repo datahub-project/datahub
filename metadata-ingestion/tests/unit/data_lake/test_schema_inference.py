@@ -98,6 +98,53 @@ def test_infer_schema_json():
         assert_field_types_match(fields, expected_field_types)
 
 
+def test_infer_schema_json_large_array_capped():
+    """Verify that JsonInferrer only reads max_rows records from a large JSON array."""
+    records = [
+        {"integer_field": i, "boolean_field": i % 2 == 0, "string_field": f"val_{i}"}
+        for i in range(1000)
+    ]
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(ujson.dumps(records).encode("utf-8"))
+        file.seek(0)
+
+        fields = json.JsonInferrer(max_rows=10).infer_schema(file)
+
+        assert_field_paths_match(fields, expected_field_paths)
+        assert_field_types_match(fields, expected_field_types)
+
+
+def test_infer_schema_json_single_object():
+    """Verify that a single JSON object (not array) is handled correctly."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            ujson.dumps(
+                {"integer_field": 1, "boolean_field": True, "string_field": "a"}
+            ).encode("utf-8")
+        )
+        file.seek(0)
+
+        fields = json.JsonInferrer().infer_schema(file)
+
+        assert_field_paths_match(fields, expected_field_paths)
+        assert_field_types_match(fields, expected_field_types)
+
+
+def test_infer_schema_json_fallback_to_jsonlines():
+    """Verify that JSONL content with .json extension falls back correctly."""
+    with tempfile.TemporaryFile(mode="w+b") as file:
+        file.write(
+            bytes(test_table.to_json(orient="records", lines=True), encoding="utf-8")
+        )
+        file.seek(0)
+
+        # format="json" (not "jsonl") but content is actually JSONL
+        fields = json.JsonInferrer(max_rows=100, format="json").infer_schema(file)
+
+        assert_field_paths_match(fields, expected_field_paths)
+        assert_field_types_match(fields, expected_field_types)
+
+
 def test_infer_schema_parquet():
     with tempfile.TemporaryFile(mode="w+b") as file:
         test_table.to_parquet(file)

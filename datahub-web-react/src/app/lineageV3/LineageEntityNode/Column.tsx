@@ -1,5 +1,5 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { Tooltip, colors } from '@components';
+import { Tooltip } from '@components';
 import { Spin, Typography } from 'antd';
 import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -12,9 +12,7 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import {
-    HOVER_COLOR,
     LineageNodesContext,
-    SELECT_COLOR,
     createColumnRef,
     onClickPreventSelect,
     useIgnoreSchemaFieldStatus,
@@ -41,19 +39,19 @@ const ColumnWrapper = styled.div<{
 }>`
     border-radius: 6px;
 
-    ${({ selected, highlighted, fromSelect }) => {
+    ${({ selected, highlighted, fromSelect, theme }) => {
         if (selected) {
-            return `border: ${SELECT_COLOR} 1px solid; background-color: ${SELECT_COLOR}20;`;
+            return `border: ${theme.colors.borderSelected} 1px solid; background-color: ${theme.colors.bgSelected};`;
         }
         if (highlighted) {
             if (fromSelect) {
-                return `border: 1px solid ${colors.gray[100]}; background-color: ${SELECT_COLOR}20;`;
+                return `border: 1px solid ${theme.colors.border}; background-color: ${theme.colors.bgSelected};`;
             }
-            return `border: 1px solid ${colors.gray[100]}; background-color: ${HOVER_COLOR}20;`;
+            return `border: 1px solid ${theme.colors.border}; background-color: ${theme.colors.bgHover};`;
         }
-        return `border: 1px solid ${colors.gray[100]};`;
+        return `border: 1px solid ${theme.colors.border};`;
     }}
-    color: ${({ disabled }) => (disabled ? colors.gray[1800] : colors.gray[600])};
+    color: ${({ disabled, theme }) => (disabled ? theme.colors.textDisabled : theme.colors.text)};
     display: flex;
     align-items: center;
     font-size: 12px;
@@ -88,7 +86,7 @@ const CustomHandle = styled(Handle)<{ position: Position }>`
 `;
 
 const TypeWrapper = styled.div`
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textDisabled};
     width: 11px;
 `;
 
@@ -96,10 +94,10 @@ const ColumnLinkWrapper = styled(Link)`
     display: flex;
     margin-left: auto;
 
-    color: ${colors.gray[1800]};
+    color: ${(props) => props.theme.colors.textDisabled};
 
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrand};
     }
 `;
 
@@ -216,6 +214,7 @@ export default function Column({
             }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
+            data-testid={`column-${columnName}`}
         >
             <CustomHandle id={id} type="target" position={Position.Left} isConnectable={false} />
             {type && (

@@ -4,10 +4,12 @@ import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClien
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._helpers.bulk.BulkListener;
 import co.elastic.clients.elasticsearch._types.Conflicts;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.Refresh;
+import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
@@ -31,6 +33,7 @@ import co.elastic.clients.elasticsearch.core.OpenPointInTimeResponse;
 import co.elastic.clients.elasticsearch.core.ReindexResponse;
 import co.elastic.clients.elasticsearch.core.UpdateByQueryResponse;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
+import co.elastic.clients.elasticsearch.core.bulk.CreateOperation;
 import co.elastic.clients.elasticsearch.core.bulk.DeleteOperation;
 import co.elastic.clients.elasticsearch.core.bulk.IndexOperation;
 import co.elastic.clients.elasticsearch.core.bulk.UpdateAction;
@@ -41,6 +44,7 @@ import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.core.search.Highlight;
 import co.elastic.clients.elasticsearch.core.search.HighlightField;
 import co.elastic.clients.elasticsearch.core.search.HighlighterEncoder;
+import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.elasticsearch.core.search.PointInTimeReference;
 import co.elastic.clients.elasticsearch.core.search.Rescore;
 import co.elastic.clients.elasticsearch.core.search.SourceConfig;
@@ -72,27 +76,36 @@ import co.elastic.clients.json.JsonData;
 import co.elastic.clients.json.JsonpUtils;
 import co.elastic.clients.json.LazyDeserializer;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
-import co.elastic.clients.transport.DefaultTransportOptions;
 import co.elastic.clients.transport.TransportOptions;
-import co.elastic.clients.transport.http.HeaderMap;
+import co.elastic.clients.transport.rest_client.RestClientOptions;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.io.Reader;
 import java.io.StringReader;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -107,7 +120,6 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.Header;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -129,6 +141,7 @@ import org.apache.http.nio.conn.ssl.SSLIOSessionStrategy;
 import org.apache.http.nio.reactor.IOReactorException;
 import org.apache.http.nio.reactor.IOReactorExceptionHandler;
 import org.apache.http.ssl.SSLContexts;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestClientBuilder;
 import org.opensearch.action.DocWriteRequest;
@@ -257,6 +270,20 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     log.info("Created ElasticSearch 8.x shim for engine type: {}", engineType);
   }
 
+  /** Package-private constructor for testing; injects a pre-built client. */
+  Es8SearchClientShim(ElasticsearchClient client, ObjectMapper objectMapper) {
+    this.shimConfiguration = null;
+    this.engineType = SearchEngineType.ELASTICSEARCH_8;
+    this.client = client;
+    this.objectMapper = objectMapper;
+    this.jacksonJsonpMapper = new JacksonJsonpMapper(objectMapper);
+  }
+
+  /** Package-private factory for tests; avoids spinning up a real ES connection. */
+  static Es8SearchClientShim forTest(ElasticsearchClient client) {
+    return new Es8SearchClientShim(client, new ObjectMapper());
+  }
+
   private ElasticsearchClient createEs8Client(ShimConfiguration config) throws IOException {
     RestClientBuilder builder = createRestClientBuilder(config);
 
@@ -266,7 +293,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           // SSL configuration
           if (config.isUseSSL()) {
             try {
-              SSLContext sslContext = javax.net.ssl.SSLContext.getDefault();
+              SSLContext sslContext =
+                  config.getSSLContext() != null
+                      ? config.getSSLContext() // custom certs
+                      : SSLContexts.createDefault(); // fallback to JVM default
               httpAsyncClientBuilder
                   .setSSLContext(sslContext)
                   .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
@@ -313,7 +343,9 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder.setConnectionRequestTimeout(config.getConnectionRequestTimeout()));
+            requestConfigBuilder
+                .setConnectionRequestTimeout(config.getConnectionRequestTimeout())
+                .setSocketTimeout(config.getSocketTimeout()));
 
     return builder;
   }
@@ -324,15 +356,24 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
    */
   private NHttpClientConnectionManager createConnectionManager(ShimConfiguration config)
       throws IOReactorException {
-    SSLContext sslContext = SSLContexts.createDefault();
+    SSLContext sslContext =
+        config.getSSLContext() != null
+            ? config.getSSLContext() // custom certs
+            : SSLContexts.createDefault(); // fallback to JVM default
     javax.net.ssl.HostnameVerifier hostnameVerifier =
         new DefaultHostnameVerifier(PublicSuffixMatcherLoader.getDefault());
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info("Creating IOReactorConfig with threadCount: {}", config.getThreadCount());
+    log.info(
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        config.getThreadCount(),
+        config.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom().setIoThreadCount(config.getThreadCount()).build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(config.getThreadCount())
+            .setSoTimeout(config.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
@@ -1383,6 +1424,22 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     return engineType;
   }
 
+  /**
+   * ES8+ silently strips {@code doc_values: false} from {@code search_as_you_type} fields on
+   * round-trip. Including it in the authored mapping creates a permanent diff against what the
+   * cluster returns and triggers a reindex on every system update cycle, so we omit it here.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4");
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
+  }
+
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
@@ -1440,12 +1497,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public RawResponse performLowLevelRequest(Request request) throws IOException {
-    org.elasticsearch.client.Request esRequest =
-        new org.elasticsearch.client.Request(request.getMethod(), request.getEndpoint());
-    esRequest.addParameters(request.getParameters());
-    esRequest.setEntity(request.getEntity());
-    org.elasticsearch.client.Response esResponse =
-        ((RestClientTransport) client._transport()).restClient().performRequest(esRequest);
+    Response esResponse =
+        ElasticsearchRestClientAdapter.performRequest(
+            ((RestClientTransport) client._transport()).restClient(),
+            new OpenSearchRestRequest(request));
 
     return new RawResponse(
         esResponse.getRequestLine(),
@@ -1557,6 +1612,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             .conflicts(Conflicts.Proceed)
             .slices(slices)
             .timeout(time)
+            .waitForCompletion(false)
             .build();
     ReindexResponse esReindexResponse = withTransportOptions(options).reindex(esReindexRequest);
 
@@ -1577,8 +1633,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       int threadCount) {
     Supplier<BulkIngester<?>> processorSupplier =
         () -> {
-          co.elastic.clients.elasticsearch._helpers.bulk.BulkListener<Object> esBulkListener =
-              new Es8BulkListener(metricUtils);
+          BulkListener<Object> esBulkListener = new Es8BulkListener(metricUtils);
 
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
@@ -1677,19 +1732,34 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .build());
     } else { // writeRequest instanceof IndexRequest
       IndexRequest indexRequest = (IndexRequest) writeRequest;
-      operation =
-          new BulkOperation(
-              new IndexOperation.Builder<>()
-                  .ifSeqNo(writeRequest.ifSeqNo())
-                  .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
-                  .requireAlias(writeRequest.isRequireAlias())
-                  .index(writeRequest.index())
-                  .routing(writeRequest.routing())
-                  .id(indexRequest.id())
-                  .document(
-                      XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON)
-                          .v2())
-                  .build());
+      Map<String, Object> document =
+          XContentHelper.convertToMap(indexRequest.source(), true, XContentType.JSON).v2();
+      if (indexRequest.opType() == DocWriteRequest.OpType.CREATE) {
+        // Data streams only allow create (append-only); use CreateOperation
+        operation =
+            new BulkOperation(
+                new CreateOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      } else {
+        operation =
+            new BulkOperation(
+                new IndexOperation.Builder<>()
+                    .ifSeqNo(writeRequest.ifSeqNo())
+                    .ifPrimaryTerm(writeRequest.ifPrimaryTerm())
+                    .requireAlias(writeRequest.isRequireAlias())
+                    .index(writeRequest.index())
+                    .routing(writeRequest.routing())
+                    .id(indexRequest.id())
+                    .document(document)
+                    .build());
+      }
     }
     processor.add(operation);
   }
@@ -1720,15 +1790,20 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     if (RequestOptions.DEFAULT.equals(requestOptions)) {
       return client;
     }
-    HeaderMap headerMap =
-        new HeaderMap(
-            requestOptions.getHeaders().stream()
-                .collect(Collectors.toMap(Header::getName, Header::getValue)));
     TransportOptions transportOptions =
-        new DefaultTransportOptions(headerMap, Collections.emptyMap(), null);
+        new RestClientOptions(
+            ElasticsearchRestClientAdapter.toElasticsearchRequestOptions(
+                new OpenSearchRestRequestOptions(requestOptions)),
+            false);
     return client.withTransportOptions(transportOptions);
   }
 
+  /**
+   * Maps OpenSearch {@link RequestOptions} (shim API) to Elasticsearch {@link
+   * org.elasticsearch.client.RequestOptions} so per-request {@link
+   * org.apache.http.client.config.RequestConfig} (e.g. socket timeout for bulk-by-scroll) is
+   * honored by the ES Java API client.
+   */
   private Query convertQuery(org.opensearch.index.query.QueryBuilder osQuery) {
     if (osQuery == null) {
       return null;
@@ -1775,5 +1850,149 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
             q.withJson(
                 jacksonJsonpMapper.jsonProvider().createParser(new StringReader(jsonString)),
                 jacksonJsonpMapper));
+  }
+
+  public static boolean assertSemanticSearchSupported(String versionNumber) {
+    if (versionNumber == null || versionNumber.isBlank() || "unknown".equals(versionNumber)) {
+      throw new IllegalStateException(
+          "Cannot determine Elasticsearch version; semantic search requires ES 8.18+");
+    }
+    String[] parts = versionNumber.split("\\.");
+    if (parts.length < 2) {
+      throw new IllegalStateException(
+          "Unrecognized Elasticsearch version format: " + versionNumber);
+    }
+    int major;
+    int minor;
+    try {
+      major = Integer.parseInt(parts[0]);
+      minor = Integer.parseInt(parts[1]);
+    } catch (NumberFormatException e) {
+      throw new IllegalStateException(
+          "Unrecognized Elasticsearch version format: " + versionNumber, e);
+    }
+    if (major > 8 || (major == 8 && minor >= 18)) {
+      return true;
+    }
+    throw new IllegalStateException(
+        "Elasticsearch 8.18+ required for semantic search; cluster reports " + versionNumber);
+  }
+
+  public void verifySemanticSearchSupport() throws IOException {
+    String version = client.info().version().number();
+    assertSemanticSearchSupported(version);
+    log.info("Verified Elasticsearch {} supports semantic search", version);
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    Map<String, Object> body = Es8KnnQueryBuilder.build(request);
+
+    // The ES8 typed client treats a comma-joined index string as a single index name and
+    // URL-encodes the commas as %2C, breaking multi-entity searches. Split explicitly.
+    List<String> indexList = Arrays.asList(request.indexName().split(","));
+
+    boolean ignoreUnavailable = request.ignoreUnavailable();
+    co.elastic.clients.elasticsearch.core.SearchRequest searchReq =
+        co.elastic.clients.elasticsearch.core.SearchRequest.of(
+            b ->
+                b.index(indexList)
+                    .ignoreUnavailable(ignoreUnavailable)
+                    // Always allow zero-index resolution; semantic search on partial rollouts
+                    // may target indices that do not yet exist on every node.
+                    .allowNoIndices(true)
+                    .withJson(toJsonReader(body)));
+
+    co.elastic.clients.elasticsearch.core.SearchResponse<Map> resp =
+        client.search(searchReq, Map.class);
+
+    List<KnnSearchResponse.Hit> hits = new ArrayList<>(resp.hits().hits().size());
+    for (Hit<Map> h : resp.hits().hits()) {
+      String id = h.id();
+      if (id == null || id.isEmpty()) {
+        log.warn("Elasticsearch kNN hit missing _id; skipping");
+        continue;
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> source = h.source() == null ? Map.of() : (Map<String, Object>) h.source();
+      double score;
+      if (h.score() == null) {
+        log.warn("Elasticsearch kNN hit {} missing _score; defaulting to 0.0", id);
+        score = 0.0;
+      } else {
+        score = h.score();
+      }
+      hits.add(new KnnSearchResponse.Hit(id, score, source));
+    }
+    return new KnnSearchResponse(hits);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    Map<String, Object> mapping = Es8SemanticIndexMapper.build(spec);
+    Map<String, Object> settings = Es8SemanticIndexSettingsBuilder.build(spec);
+
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest req =
+        co.elastic.clients.elasticsearch.indices.CreateIndexRequest.of(
+            b ->
+                b.index(spec.indexName())
+                    .mappings(m -> m.withJson(toJsonReader(mapping)))
+                    .settings(s -> s.withJson(toJsonReader(settings))));
+
+    co.elastic.clients.elasticsearch.indices.CreateIndexResponse resp =
+        client.indices().create(req);
+    if (!Boolean.TRUE.equals(resp.acknowledged())) {
+      throw new IOException("Index create not acknowledged: " + spec.indexName());
+    }
+    log.info("Created semantic index {}", spec.indexName());
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    Map<String, Object> document = buildEmbeddingsDocument(batch);
+
+    co.elastic.clients.elasticsearch.core.IndexRequest<Map<String, Object>> req =
+        co.elastic.clients.elasticsearch.core.IndexRequest.of(
+            b -> b.index(batch.indexName()).id(batch.documentId()).document(document));
+
+    co.elastic.clients.elasticsearch.core.IndexResponse resp = client.index(req);
+    if (resp.result() != Result.Created && resp.result() != Result.Updated) {
+      throw new IOException(
+          "Embedding index for " + batch.documentId() + " returned " + resp.result());
+    }
+    log.debug(
+        "Indexed {} chunks for {} in {}",
+        batch.chunks().size(),
+        batch.documentId(),
+        batch.indexName());
+  }
+
+  private static Map<String, Object> buildEmbeddingsDocument(EmbeddingBatch batch) {
+    List<Map<String, Object>> chunks = new ArrayList<>(batch.chunks().size());
+    for (EmbeddingBatch.Chunk c : batch.chunks()) {
+      Map<String, Object> chunk = new LinkedHashMap<>();
+      chunk.put("vector", c.vector());
+      chunk.put("text", c.text());
+      chunk.put("position", c.position());
+      chunk.put("characterOffset", c.characterOffset());
+      chunk.put("characterLength", c.characterLength());
+      chunk.put("tokenCount", c.tokenCount());
+      chunks.add(chunk);
+    }
+    Map<String, Object> modelEntry = Map.of("chunks", chunks);
+    Map<String, Object> embeddings = Map.of(batch.modelKey(), modelEntry);
+    Map<String, Object> document = new LinkedHashMap<>();
+    document.put("urn", batch.documentId());
+    document.put("embeddings", embeddings);
+    return document;
+  }
+
+  private Reader toJsonReader(Map<String, Object> body) {
+    try {
+      return new StringReader(objectMapper.writeValueAsString(body));
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException("Failed to serialize JSON body", e);
+    }
   }
 }

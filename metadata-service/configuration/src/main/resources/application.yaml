@@ -8,23 +8,27 @@ spring.application.name: ${APPLICATION_NAME:datahub-gms}
 # The base URL where DataHub is accessible to users.
 baseUrl: ${DATAHUB_BASE_URL:http://localhost:9002}
 
+# Kubernetes environment (global). When the process runs in a K8 pod, the cluster sets KUBERNETES_SERVICE_HOST.
+kubernetes:
+  serviceHost: ${KUBERNETES_SERVICE_HOST:}
+  # Enable the OpenAPI K8 operations controller (deployments, pods, config maps, cron jobs). Default true.
+  operationsApiEnabled: ${KUBERNETES_OPERATIONS_API_ENABLED:true}
+
 # App Layer
 authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
-  excludedPaths: /schema-registry/*,/health,/health/live,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus
+  excludedPaths: /schema-registry/*,/health,/health/live,/health/detailed,/config,/config/search/export,/public-iceberg/*,/actuator/prometheus,/openapi/operations/dev/featureFlags,/openapi/operations/dev/featureFlags/*
 
   # Disable if you want to skip validation of deleted user's tokens
   enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
+
+  verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
 
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
     - type: com.datahub.authentication.authenticator.DataHubTokenAuthenticator
-      configs:
-        # Key used to validate incoming tokens. Should typically be the same as authentication.tokenService.signingKey
-        signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-        salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
     # Required for unauthenticated health check endpoints - best not to remove.
     - type: com.datahub.authentication.authenticator.HealthStatusAuthenticator
     # OAuth/OIDC JWT token authenticator for service accounts
@@ -67,8 +71,8 @@ authentication:
   # Configurations for DataHub token service
   tokenService:
     # Key used to sign new tokens.
-    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:WnEdIeTG/VVCLQqGwC/BAkqyY0k+H8NEAtWGejrBI94=}
-    salt: ${DATAHUB_TOKEN_SERVICE_SALT:ohDVbJBvHHVJh9S/UA4BYF9COuNnqqVhr9MLKEGXk1O=}
+    signingKey: ${DATAHUB_TOKEN_SERVICE_SIGNING_KEY:}
+    salt: ${DATAHUB_TOKEN_SERVICE_SALT:}
     issuer: ${DATAHUB_TOKEN_SERVICE_ISSUER:datahub-metadata-service}
     signingAlgorithm: ${DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM:HS256}
 
@@ -131,6 +135,11 @@ datahub:
       path: ${DATAHUB_GMS_SSL_TRUSTSTORE_PATH:#{null}} # Required if useSSL is true
       password: ${DATAHUB_GMS_SSL_TRUSTSTORE_PASSWORD:#{null}} # Required if useSSL is true
       type: ${DATAHUB_GMS_SSL_TRUSTSTORE_TYPE:PKCS12}
+    keystore:
+      path: ${DATAHUB_GMS_SSL_KEYSTORE_PATH:#{null}}
+      password: ${DATAHUB_GMS_SSL_KEYSTORE_PASSWORD:#{null}}
+      type: ${DATAHUB_GMS_SSL_KEYSTORE_TYPE:PKCS12}
+      keyPassword: ${DATAHUB_GMS_SSL_KEY_PASSWORD:#{null}}
     async:
       request-timeout-ms: ${DATAHUB_GMS_ASYNC_REQUEST_TIMEOUT_MS:55000}
 
@@ -249,6 +258,7 @@ configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
   resource: ${ENTITY_REGISTRY_CONFIG_CLASSPATH:classpath:/entity-registry.yml}
+  useOptimizedLoading: ${CONFIG_ENTITY_REGISTRY_USE_OPTIMIZED_LOADING:true}
 
 platformAnalytics:
   enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
@@ -316,7 +326,7 @@ visualConfig:
   theme:
     themeId: ${REACT_APP_CUSTOM_THEME_ID:} # we have an enum defined on the frontend that this themeId maps to to render a specific custom theme file
   assets:
-    logoUrl: ${REACT_APP_LOGO_URL:assets/platforms/datahublogo.png}
+    logoUrl: ${REACT_APP_LOGO_URL:assets/logos/datahublogo.svg} # we rely on this default constant in frontend - change in datahub-web-react/src/app/homeV2/layout/NavSidebar.tsx if updating
     faviconUrl: ${REACT_APP_FAVICON_URL:assets/icons/favicon.ico}
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
@@ -349,8 +359,8 @@ ebean:
   useIamAuth: ${EBEAN_USE_IAM_AUTH:false} # Generic IAM auth for cross-cloud compatibility
   cloudProvider: ${EBEAN_CLOUD_PROVIDER:auto} # auto, aws, gcp, or traditional
   batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
-
-# Only required if entityService.impl is cassandra
+  queryKeysCountForBatch: ${EBEAN_QUERY_KEYS_COUNT_FOR_BATCH:375} # Chunk size for batch queries (default 375). Set to avoid large IN clauses that exceed range_optimizer_max_mem_size.
+  # Only required if entityService.impl is cassandra
 cassandra:
   datasourceUsername: ${CASSANDRA_DATASOURCE_USERNAME:cassandra}
   datasourcePassword: ${CASSANDRA_DATASOURCE_PASSWORD:cassandra}
@@ -360,11 +370,19 @@ cassandra:
   keyspace: ${CASSANDRA_KEYSPACE:datahub}
   useSsl: ${CASSANDRA_USE_SSL:false}
 
+# MAE consumer (standalone or embedded in GMS): separate ES HTTP tuning from interactive defaults.
+maeConsumer:
+  enabled: ${MAE_CONSUMER_ENABLED:false}
+  elasticsearch:
+    socketTimeoutMs: ${MAE_ELASTICSEARCH_SOCKET_TIMEOUT:120000}
+    connectionRequestTimeoutMs: ${MAE_ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:10000}
+
 elasticsearch:
   host: ${ELASTICSEARCH_HOST:localhost}
   port: ${ELASTICSEARCH_PORT:9200}
   threadCount: ${ELASTICSEARCH_THREAD_COUNT:2}
   connectionRequestTimeout: ${ELASTICSEARCH_CONNECTION_REQUEST_TIMEOUT:5000}
+  socketTimeout: ${ELASTICSEARCH_SOCKET_TIMEOUT:30000}
   username: ${ELASTICSEARCH_USERNAME:#{null}}
   password: ${ELASTICSEARCH_PASSWORD:#{null}}
   pathPrefix: ${ELASTICSEARCH_PATH_PREFIX:}
@@ -376,7 +394,8 @@ elasticsearch:
   entityIndex:
     v2:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED:true}
-      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:false}
+      cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V2_CLEANUP:true}
+      coalesceBatchUpdates: ${ELASTICSEARCH_ENTITY_INDEX_V2_COALESCE_BATCH_UPDATES:false}
     v3:
       enabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED:false}
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
@@ -389,38 +408,54 @@ elasticsearch:
       # Multi-model configuration: map of model name to embedding config
       # Example with multiple models:
       # models:
+      #   text_embedding_3_large:
+      #     vectorDimension: 3072
+      #     knnEngine: faiss
+      #     spaceType: cosinesimil
+      #     efConstruction: 128
+      #     m: 16
       #   cohere_embed_v3:
       #     vectorDimension: 1024
       #     knnEngine: faiss
       #     spaceType: cosinesimil
       #     efConstruction: 128
       #     m: 16
-      #   openai_text_embedding_3_small:
-      #     vectorDimension: 1536
-      #     knnEngine: faiss
-      #     spaceType: cosinesimil
-      #     efConstruction: 128
-      #     m: 16
       models:
-        cohere_embed_v3:
+        text_embedding_3_large:
           vectorDimension: ${ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION:3072}
           knnEngine: ${ELASTICSEARCH_SEMANTIC_KNN_ENGINE:faiss}
           spaceType: ${ELASTICSEARCH_SEMANTIC_SPACE_TYPE:cosinesimil}
           efConstruction: ${ELASTICSEARCH_SEMANTIC_EF_CONSTRUCTION:128}
           m: ${ELASTICSEARCH_SEMANTIC_M:16}
+        # nomic-embed-text (Ollama default, 768 dimensions)
+        nomic_embed_text:
+          vectorDimension: ${LOCAL_EMBEDDING_VECTOR_DIMENSION:768}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
+        # Vertex AI gemini-embedding-001 (3072 dimensions, the model's native output)
+        gemini_embedding_001:
+          vectorDimension: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:3072}
+          knnEngine: faiss
+          spaceType: cosinesimil
+          efConstruction: 128
+          m: 16
       # Embedding provider configuration for generating query embeddings
-      # Supports three providers: "aws-bedrock", "openai", "cohere"
+      # Supports: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
       embeddingProvider:
-        # Provider type: "aws-bedrock", "openai", or "cohere"
+        # Provider type: "aws-bedrock", "openai", "cohere", "local", or "vertex_ai"
         type: ${EMBEDDING_PROVIDER_TYPE:openai}
 
-        # AWS Bedrock configuration (used when type is "aws-bedrock")
-        # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
-        awsRegion: ${EMBEDDING_PROVIDER_AWS_REGION:us-west-2}
-        # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
-        modelId: ${EMBEDDING_PROVIDER_MODEL_ID:cohere.embed-english-v3}
         # Maximum text length before truncation (Cohere enforces 2048 character limit)
         maxCharacterLength: ${EMBEDDING_PROVIDER_MAX_CHAR_LENGTH:2048}
+
+        # AWS Bedrock configuration (used when type is "aws-bedrock")
+        bedrock:
+          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
+          model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 
         # OpenAI configuration (used when type is "openai")
         openai:
@@ -433,6 +468,21 @@ elasticsearch:
           apiKey: ${COHERE_API_KEY:}
           model: ${COHERE_EMBEDDING_MODEL:embed-english-v3.0}
           endpoint: ${COHERE_EMBEDDING_ENDPOINT:https://api.cohere.ai/v1/embed}
+
+        # Local configuration (used when type is "local")
+        # Compatible with Ollama, LM Studio, llama.cpp, or any OpenAI-compatible server.
+        # Quick start: brew install ollama && ollama pull nomic-embed-text && ollama serve
+        # Inside Docker Compose (quickstart-ai profile), use http://ollama:11434/v1/embeddings
+        local:
+          endpoint: ${LOCAL_EMBEDDING_ENDPOINT:http://localhost:11434/v1/embeddings}
+          model: ${LOCAL_EMBEDDING_MODEL:nomic-embed-text}
+
+        # Google Vertex AI configuration (used when type is "vertex_ai")
+        vertexai:
+          projectId: ${VERTEX_AI_PROJECT_ID:}
+          location: ${VERTEX_AI_LOCATION:us-east1}
+          model: ${VERTEX_AI_EMBEDDING_MODEL:gemini-embedding-001}
+          outputDimensionality: ${VERTEX_AI_EMBEDDING_OUTPUT_DIMENSIONALITY:768}
   # Multi-client shim configuration
   shim:
     # Enable the search client shim (false = use legacy RestHighLevelClient)
@@ -467,6 +517,9 @@ elasticsearch:
     retryInterval: ${ES_BULK_RETRY_INTERVAL:1}
     refreshPolicy: ${ES_BULK_REFRESH_POLICY:NONE}
     enableBatchDelete: ${ES_BULK_ENABLE_BATCH_DELETE:false}
+    # By-query HTTP socket timeout (seconds) for delete/update-by-query RequestOptions (DEFAULT tuning).
+    # Distinct from elasticsearch.buildIndices.slowOperationTimeoutSeconds (system-update / ESIndexBuilder jobs).
+    slowByQueryOperationTimeoutSeconds: ${ELASTICSEARCH_BULK_BY_QUERY_SLOW_OPERATION_TIMEOUT_SECONDS:180}
   index:
     prefix: ${INDEX_PREFIX:}
     numShards: ${ELASTICSEARCH_NUM_SHARDS_PER_INDEX:${elasticsearch.dataNodeCount}}
@@ -492,6 +545,46 @@ elasticsearch:
     retentionUnit: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT:DAYS}
     retentionValue: ${ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE:60}
     reindexOptimizationEnabled: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_OPTIMIZATION_ENABLED:true} # Disable when Multi-AZ zone replication is set to required, will prevent index from setting zero replicas during reindexing
+    reindexBatchSize: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_BATCH_SIZE:5000} # documents per scroll batch during reindex
+    reindexMaxSlices: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_MAX_SLICES:256} # max parallel slices (capped from target shard count)
+    reindexNoProgressRetryMinutes: ${ELASTICSEARCH_BUILD_INDICES_REINDEX_NO_PROGRESS_RETRY_MINUTES:5} # minutes without doc-count progress before re-triggering reindex
+    # Parallel reindexing configuration
+    enableParallelReindex: ${ELASTICSEARCH_BUILD_INDICES_ENABLE_PARALLEL_REINDEX:false}
+    taskCheckIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_CHECK_INTERVAL_SECONDS:60}
+    maxReindexHours: ${ELASTICSEARCH_INDEX_BUILDER_MAX_REINDEX_HOURS:8}
+    # Cost-based reindexing configuration (P=2 enhancements)
+    normalIndexCostThreshold: ${ELASTICSEARCH_NORMAL_INDEX_COST_THRESHOLD:1000000} # Cost = (docs * shards) / nodes. Example: 1M docs * 5 shards / 3 nodes = 1.67M
+    maxConcurrentNormalReindex: ${ELASTICSEARCH_MAX_CONCURRENT_NORMAL_REINDEX:4}
+    maxConcurrentLargeReindex: ${ELASTICSEARCH_MAX_CONCURRENT_LARGE_REINDEX:2}
+    # Cluster health monitoring for auto-throttling
+    clusterHealthCheckIntervalSeconds: ${ELASTICSEARCH_CLUSTER_HEALTH_CHECK_INTERVAL_SECONDS:30}
+    clusterHeapThresholdPercent: ${ELASTICSEARCH_CLUSTER_HEAP_THRESHOLD_PERCENT:85}
+    # Replica protection and finalization configuration
+    maxConcurrentFinalizations: ${ELASTICSEARCH_MAX_CONCURRENT_FINALIZATIONS:2} # Maximum concurrent index finalizations (limits replica sync operations to prevent cluster overload)
+    replicaSyncTimeoutMinutes: ${ELASTICSEARCH_REPLICA_SYNC_TIMEOUT_MINUTES:20} # Timeout for waiting on replica synchronization before promoting index to active use (minimum 5 minutes)
+    slowOperationTimeoutSeconds: ${ELASTICSEARCH_BUILD_INDICES_SLOW_OPERATION_TIMEOUT_SECONDS:180} # socket timeout for count, refresh, createIndex, reindex, listTasks
+    countRetryMaxAttempts: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_MAX_ATTEMPTS:2} # getCount retries on timeout/OpenSearchException
+    countRetryWaitSeconds: ${ELASTICSEARCH_BUILD_INDICES_COUNT_RETRY_WAIT_SECONDS:5} # wait between getCount retries
+    createIndexRetryEnabled: ${ELASTICSEARCH_BUILD_INDICES_CREATE_INDEX_RETRY_ENABLED:true} # retry createIndex once on IOException if index does not exist
+    taskPollIntervalSeconds: ${ELASTICSEARCH_BUILD_INDICES_TASK_POLL_INTERVAL_SECONDS:5} # seconds between listTasks polls for timeseries catch-up reindex
+    # Adaptive throttling configuration
+    clusterHeapYellowThresholdPercent: ${ELASTICSEARCH_BUILD_INDICES_CLUSTER_HEAP_YELLOW_THRESHOLD_PERCENT:75} # Heap threshold for YELLOW tier (triggers throttling before RED)
+    docCountValidationRetryCount: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_COUNT:10} # Number of retries for doc count validation
+    docCountValidationRetrySleepMs: ${ELASTICSEARCH_BUILD_INDICES_DOC_COUNT_VALIDATION_RETRY_SLEEP_MS:2000} # Sleep time between doc count validation retries (milliseconds)
+    normalTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REQUESTS_PER_SECOND:500} # Requests per second during NORMAL cluster health tier
+    throttledTierRequestsPerSecond: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REQUESTS_PER_SECOND:100} # Requests per second during THROTTLED (RED) cluster health tier
+    normalTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_NORMAL_TIER_REFRESH_INTERVAL:60s} # Refresh interval during NORMAL cluster health tier (allows periodic flushes to reduce heap pressure)
+    throttledTierRefreshInterval: ${ELASTICSEARCH_BUILD_INDICES_THROTTLED_TIER_REFRESH_INTERVAL:30s} # Refresh interval during THROTTLED (RED) cluster health tier (aggressive flush for heap relief)
+    writeRejectionRedThreshold: ${ELASTICSEARCH_BUILD_INDICES_WRITE_REJECTION_RED_THRESHOLD:50} # Delta threshold for write/bulk thread pool rejections to trigger immediate RED state
+    # Circuit breaker stability window configuration (time-based hysteresis)
+    yellowStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_YELLOW_STABILITY_SECONDS:30} # Time (seconds) for GREEN -> YELLOW transition to be stable before accepting
+    greenStabilitySeconds: ${ELASTICSEARCH_BUILD_INDICES_GREEN_STABILITY_SECONDS:30} # Time (seconds) for YELLOW -> GREEN transition to be stable before accepting
+    redRecoverySeconds: ${ELASTICSEARCH_BUILD_INDICES_RED_RECOVERY_SECONDS:30} # Time (seconds) for RED -> YELLOW transition to be stable before accepting
+    # Parallel reindex execution and monitoring parameters
+    rethrottleExecutorPoolSize: ${ELASTICSEARCH_BUILD_INDICES_RETHROTTLE_EXECUTOR_POOL_SIZE:8} # Thread pool size for concurrent rethrottle operations
+    minimumReplicasForPromotion: ${ELASTICSEARCH_BUILD_INDICES_MINIMUM_REPLICAS_FOR_PROMOTION:1} # Minimum replicas to restore before promotion
+    incrementalReindexEnabled: ${ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED:${ZDU_STAGE_20:false}} # non-blocking incremental reindex with dual-write
+    rollbackDualWriteEnabled: ${ELASTICSEARCH_BUILD_INDICES_ROLLBACK_DUAL_WRITE_ENABLED:${ZDU_STAGE_20:false}} # dual-write to old backing index for rollback safety during incremental reindex
   search:
     maxTermBucketSize: ${ELASTICSEARCH_QUERY_MAX_TERM_BUCKET_SIZE:60}
     pointInTimeCreationEnabled: ${POINT_IN_TIME_CREATION_ENABLED:false} # Enables creation of point in time snapshots for the scroll API, only works with OpenSearch >= 2.4 or ElasticSearch >= 7.10. Regardless of this flag's value, PIT will be created for sliced scrolls.
@@ -534,6 +627,7 @@ elasticsearch:
         searchQueryTimeReservation: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_SEARCH_QUERY_TIME_RESERVATION:0.2} # fraction (0.0-1.0) of total timeout to reserve for second query phase when partialResults is enabled. Default: 0.2 (20%)
       maxThreads: ${ELASTICSEARCH_SEARCH_GRAPH_IMPACT_MAX_THREADS:16} # maximum parallel lineage graph queries
       queryOptimization: ${ELASTICSEARCH_SEARCH_GRAPH_QUERY_OPTIMIZATION:true} # reduce query nesting if possible
+      sliceFutureDrainTimeoutSeconds: ${ELASTICSEARCH_SEARCH_GRAPH_SLICE_FUTURE_DRAIN_TIMEOUT_SECONDS:2} # seconds (single allOf wait) after canceling slice futures before PIT/scroll cleanup
     validation:
       enabled: ${SEARCH_VALIDATION_ENABLED:true}
       maxLengthEnabled: ${SEARCH_VALIDATION_MAX_LENGTH_ENABLED:true}
@@ -559,35 +653,66 @@ kafka:
     # Each topic can be created by iterating through this dictionary
     # The key name matches the programmatic identifier used in code
     metadataChangeProposal:
+      displayName: MetadataChangeProposal_v1
       name: ${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:MetadataChangeProposal_v1}
+      partitions: ${METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     failedMetadataChangeProposal:
+      displayName: FailedMetadataChangeProposal_v1
       name: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:FailedMetadataChangeProposal_v1}
+      partitions: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogVersioned:
       name: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:MetadataChangeLog_Versioned_v1}
+      displayName: MetadataChangeLog_Versioned_v1
+      pollEnabled: true
+      partitions: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     metadataChangeLogTimeseries:
       name: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:MetadataChangeLog_Timeseries_v1}
+      displayName: MetadataChangeLog_Timeseries_v1
+      partitions: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+      pollEnabled: true
       configProperties:
         retention.ms: 7776000000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
+      displayName: PlatformEvent_v1
+      pollEnabled: true
+      partitions: ${PLATFORM_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${PLATFORM_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     datahubUpgradeHistory:
       name: ${DATAHUB_UPGRADE_HISTORY_TOPIC_NAME:DataHubUpgradeHistory_v1}
-      partitions: 1
+      displayName: DataHubUpgradeHistory_v1
+      partitions: ${DATAHUB_UPGRADE_HISTORY_TOPIC_PARTITIONS:1}
+      replicationFactor: ${DATAHUB_UPGRADE_HISTORY_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
       configProperties:
         retention.ms: -1
 
     datahubUsageEvent:
       name: ${DATAHUB_USAGE_EVENT_NAME:DataHubUsageEvent_v1}
+      displayName: DataHubUsageEvent_v1
       enabled: ${DATAHUB_ANALYTICS_ENABLED:true}
+      partitions: ${DATAHUB_USAGE_EVENT_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${DATAHUB_USAGE_EVENT_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+
+    workEvent:
+      name: ${WORK_EVENT_TOPIC_NAME:WorkEvent_v1}
+      displayName: WorkEvent_v1
+      enabled: ${WORK_EVENT_TOPIC_ENABLED:false}
+      pollEnabled: ${WORK_EVENT_TOPIC_POLL_ENABLED:false}
 
     cdcTopic:
       name: ${CDC_TOPIC_NAME:datahub.metadata_aspect_v2}
       enabled: ${CDC_MCL_PROCESSING_ENABLED:false}
+      partitions: ${CDC_TOPIC_PARTITIONS:${PARTITIONS:1}}
+      replicationFactor: ${CDC_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
 
     # Deprecated Topics (maintained for backward compatibility)
     metadataAuditEvent:
@@ -634,6 +759,8 @@ kafka:
 
   producer:
     bootstrapServers: ${KAFKA_PRODUCER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_PRODUCER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_PRODUCER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     retryCount: ${KAFKA_PRODUCER_RETRY_COUNT:3}
     deliveryTimeout: ${KAFKA_PRODUCER_DELIVERY_TIMEOUT:30000}
     requestTimeout: ${KAFKA_PRODUCER_REQUEST_TIMEOUT:3000}
@@ -642,9 +769,13 @@ kafka:
     maxRequestSize: ${KAFKA_PRODUCER_MAX_REQUEST_SIZE:5242880} # the max bytes sent by the producer, also see kafka-setup MAX_MESSAGE_BYTES for matching value
   consumer:
     bootstrapServers: ${KAFKA_CONSUMER_BOOTSTRAP_SERVER:} # Used as an override for the base setting for when split producer/consumer is desired
+    securityProtocol: ${KAFKA_CONSUMER_SECURITY_PROTOCOL:} # Used as an override for the base security protocol setting for when split producer/consumer is desired
+    schemaRegistryUrl: ${KAFKA_CONSUMER_SCHEMAREGISTRY_URL:} # Used as an override for the base schema registry URL for when split producer/consumer is desired
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
+    authExceptionRetryIntervalSeconds: ${KAFKA_CONSUMER_AUTH_EXCEPTION_RETRY_INTERVAL_SECONDS:10} # Seconds to wait before retrying after an authentication/authorization exception (e.g. MSK IAM credential rotation). Set to 0 to disable (fatal on first auth exception).
+    maxAuthExceptionRetries: ${KAFKA_CONSUMER_MAX_AUTH_EXCEPTION_RETRIES:3} # Max consecutive auth exception retries before stopping the container. Prevents silent infinite retry on permanent auth failure.
     mcp:
       autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
     mcl:
@@ -689,6 +820,8 @@ neo4j:
   connectionLivenessCheckTimeout: ${NEO4J_CONNECTION_LIVENESS_CHECK_TIMEOUT_IN_SECONDS:-1}
 
 spring:
+  lifecycle:
+    timeout-per-shutdown-phase: ${GMS_LIFECYCLE_TIMEOUT:65s}
   error:
     include-message: never
     include-stacktrace: never
@@ -709,6 +842,10 @@ spring:
       protocol: ${KAFKA_PROPERTIES_SECURITY_PROTOCOL:PLAINTEXT}
   autoconfigure:
     exclude:
+      # hazelcast-spring 5.6+ registers HazelcastObjectExtractionConfiguration which requires a
+      # HazelcastInstance bean. We only create one when searchService.cacheImplementation=hazelcast
+      # (default is caffeine). Excluding this avoids context failure when Hazelcast cache is not used.
+      - com.hazelcast.spring.HazelcastObjectExtractionConfiguration
       # We don't use these
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraHealthContributorAutoConfiguration
       - org.springframework.boot.actuate.autoconfigure.cassandra.CassandraReactiveHealthContributorAutoConfiguration
@@ -747,6 +884,8 @@ management:
       export:
         enabled: false
   # Micrometer Configuration
+  # management.server.port is not set here: use env MANAGEMENT_SERVER_PORT (Docker start.sh defaults to 4319).
+  # When unset, Actuator stays on the main application port.
   metrics:
     cache:
       enabled: false
@@ -766,13 +905,12 @@ management:
 
 # GMS needs to have its context path, / is used when undefined, DATAHUB_GMS_BASE_PATH otherwise
 server:
+  shutdown: ${SERVER_SHUTDOWN_MODE:immediate}
   server-header: false
   servlet:
     context-path: ${DATAHUB_GMS_BASE_PATH:/}
 
 springdoc:
-  cache:
-    disabled: false
   swagger-ui:
     path: ${path-mappings.${datahub.basePath:}:${datahub.basePath:}}/openapi/swagger-ui
     disable-swagger-default-url: true
@@ -787,12 +925,17 @@ springdoc:
 metadataTests:
   enabled: ${METADATA_TESTS_ENABLED:false}
 
+devTooling:
+  enabled: ${DEV_TOOLING_ENABLED:false}
+
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}
+ingestionMetrics:
+  enabled: ${INGESTION_METRICS_ENABLED:true}
 ingestionScheduler:
   enabled: ${ENABLE_INGESTION_SCHEDULER_HOOK:true} # enable to execute ingestion scheduling
   consumerGroupSuffix: ${INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX:}
@@ -876,6 +1019,16 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_BATCH_SIZE:100}
     reprocess:
       enabled: ${BOOTSTRAP_SYSTEM_UPDATE_LINEAGE_INDEX_FIELDS_REPROCESS:false}
+  migrateAspects:
+    enabled: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED:${ZDU_STAGE_20:false}}
+    batchSize: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_MIGRATE_ASPECTS_LIMIT:0}
+  criterionFilterAspectsBlocking:
+    enabled: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_ENABLED:false}
+    batchSize: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_BATCH_SIZE:500}
+    delayMs: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_DELAY_MS:1000}
+    limit: ${SYSTEM_UPDATE_CRITERION_FILTER_ASPECTS_BLOCKING_LIMIT:0}
   schemaFieldsFromSchemaMetadata:
     enabled: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_ENABLED:false}
     batchSize: ${SYSTEM_UPDATE_SCHEMA_FIELDS_FROM_SCHEMA_METADATA_BATCH_SIZE:500}
@@ -923,6 +1076,27 @@ systemUpdate:
       lePitEpochMs: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_LE_PIT_EPOCH_MS:}  # Only entities modified <= this timestamp (uses aspectModifiedTime/aspectCreatedTime)
       aspectFilters: []  # Only entities with ANY of these aspects (OR semantics)
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
+  ingestEntityTypes:
+    enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
+  kubernetesScaleDown:
+    enabled: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_ENABLED:true}
+    useJavaImplementation: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_JAVA_ENABLED:false}
+    maxRetries: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_MAX_RETRIES:3}
+    stateConfigMapName: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_STATE_CONFIG_MAP:}
+    # Comma-separated label selectors for deployments to scale to zero (e.g. MAE, MCE). Set via Helm.
+    scaleDownDeploymentLabelSelectors: ${DATAHUB_UPGRADE_K8_SCALE_DOWN_LABEL_SELECTORS:}
+    # JSON array: [{"labelSelector":"...","env":{"KEY":"value",...}}]. Deployments matched by each
+    # label selector get env set when scaling down; state stores previous env per deployment for restore.
+    # Override via DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES (e.g. from Helm).
+    deploymentEnvUpdates: '[{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false","MCE_CONSUMER_ENABLED":"false","MAE_CONSUMER_ENABLED":"false","PE_CONSUMER_ENABLED":"false","MCP_CONSUMER_ENABLED":"false"}}]'
+    kedaGroup: ${DATAHUB_UPGRADE_K8_KEDA_GROUP:keda.sh}
+    kedaVersion: ${DATAHUB_UPGRADE_K8_KEDA_VERSION:v1alpha1}
+    kedaScaledObjectsPlural: ${DATAHUB_UPGRADE_K8_KEDA_SCALED_OBJECTS_PLURAL:scaledobjects}
+    rolloutPollSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_POLL_SECONDS:5}
+    # Max wait for each deployment rollout (scale down or rolling restart). Default 30m; increase for many pods or slow strategies.
+    rolloutMaxWaitSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_MAX_WAIT_SECONDS:1800}
+    # Minimum interval between rollout progress INFO logs while waiting. Default 60s; unset or 0 uses default.
+    rolloutProgressLogIntervalSeconds: ${DATAHUB_UPGRADE_K8_ROLLOUT_PROGRESS_LOG_INTERVAL_SECONDS:60}
 
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -972,25 +1146,28 @@ featureFlags:
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
+  hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:true} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   entityVersioning: ${ENTITY_VERSIONING_ENABLED:false} # Enables entity versioning APIs, validators, and side effects
   showHasSiblingsFilter: ${SHOW_HAS_SIBLINGS_FILTER:false} # If turned on, the "has siblings" filter will be visible in search results page
-  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:false} # If turned on, show the redesigned search bar's autocomplete
+  showSearchBarAutocompleteRedesign: ${SHOW_SEARCH_BAR_AUTOCOMPLETE_REDESIGN:true} # If turned on, show the redesigned search bar's autocomplete
   showManageTags: ${SHOW_MANAGE_TAGS:true} # If turned on, allow users to manage tags in the UI
   showIntroducePage: ${SHOW_INTRODUCE_PAGE:true} # If turned on, we will show the introduce page in the V2 UI experience to add a title and select platforms
-  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:false} # If turned on, show the re-designed Ingestion page
+  showIngestionPageRedesign: ${SHOW_INGESTION_PAGE_REDESIGN:true} # If turned on, show the re-designed Ingestion page
   ingestionOnboardingRedesignV1: ${INGESTION_ONBOARDING_REDESIGN_V1:false} # If turned on, show the redesigned ingestion onboarding experience
   showLineageExpandMore: ${SHOW_LINEAGE_EXPAND_MORE:true} # If turned on, show the expand more button (>>) in the lineage graph
   showStatsTabRedesign: ${SHOW_STATS_TAB_REDESIGN:true} # If turned on, show the re-designed Stats tab on the entity page
   showHomePageRedesign: ${SHOW_HOME_PAGE_REDESIGN:true} # If turned on, show the re-designed home page
   lineageGraphV3: ${LINEAGE_GRAPH_V3:true} # Enables the redesign of the lineage v2 graph
   showProductUpdates: ${SHOW_PRODUCT_UPDATES:true} # Whether to show in-product update popover on new updates.
+  # product updates for OSS (master):
   productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-core/} # URL to fetch product updates JSON from remote source.
-  # for Saas:
-  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update.json} # Classpath resource to use as fallback when remote fetch fails.
+  # product updates for Saas (acryl-main):
+  #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
+  #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:false} # Enables logical models feature
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
@@ -999,6 +1176,11 @@ featureFlags:
   showDefaultExternalLinks: ${SHOW_DEFAULT_EXTERNAL_LINKS:true} # If turned on, show the default external links on the entity page
   documentationFileUploadV1: ${DOCUMENTATION_FILE_UPLOAD_V1:false} # Enables uploading of files for documentation
   contextDocumentsEnabled: ${CONTEXT_DOCUMENTS_ENABLED:true} # Enables the context documents feature in the sidebar
+  multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
+  glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
+  showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
+  aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -1009,7 +1191,7 @@ views:
   enabled: ${VIEWS_ENABLED:true}
 
 searchBar:
-  apiVariant: ${SEARCH_BAR_API_VARIANT:AUTOCOMPLETE_FOR_MULTIPLE}
+  apiVariant: ${SEARCH_BAR_API_VARIANT:SEARCH_ACROSS_ENTITIES}
 
 searchCard:
   showDescription: ${SEARCH_CARD_SHOW_DESCRIPTION:false}
@@ -1111,6 +1293,11 @@ graphQL:
     complexityLimit: ${GRAPHQL_QUERY_COMPLEXITY_LIMIT:2000}
     depthLimit: ${GRAPHQL_QUERY_DEPTH_LIMIT:50}
     introspectionEnabled: ${GRAPHQL_QUERY_INTROSPECTION_ENABLED:true}
+    # Parent chain traversal (glossary, domains, containers, documents)
+    maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
+    # Relationship resolution cap per request (cycle/unbounded protection)
+    maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
   metrics:
     # Master switch for all GraphQL metrics collection via Micrometer
     # When false, no GraphQL metrics are collected (request-level or field-level)
@@ -1151,6 +1338,34 @@ graphQL:
     # These are usually very fast and numerous, so excluding them reduces metric volume
     # Only enable if you suspect performance issues with object property access
     trivialDataFetchersEnabled: ${GRAPHQL_METRICS_TRIVIAL_DATA_FETCHERS_ENABLED:false}
+
+  # Shape logging: threshold-based structured logging for GraphQL requests/responses
+  # Monitors query complexity, field counts, duration, response size, and errors
+  # Expensive response analysis only runs when at least one threshold is crossed
+  # All thresholds are overridable via environment variables (examples below)
+  shapeLogging:
+    # Enable/disable shape logging
+    # Override: GRAPHQL_SHAPE_LOGGING_ENABLED=true
+    enabled: ${GRAPHQL_SHAPE_LOGGING_ENABLED:false}
+
+    # Minimum number of GraphQL field selections to trigger logging (proxy for query complexity)
+    # Typical: 10-20 for simple queries, 50-100 for moderate, 150+ for heavy
+    # Override: GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD=50
+    fieldCountThreshold: ${GRAPHQL_SHAPE_LOGGING_FIELD_COUNT_THRESHOLD:100}
+
+    # Minimum request duration in milliseconds to trigger logging (slow-query threshold)
+    # Override: GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS=1000
+    durationThresholdMs: ${GRAPHQL_SHAPE_LOGGING_DURATION_THRESHOLD_MS:3000}
+
+    # Estimated minimum response size in bytes to trigger logging
+    # Estimate: responseFieldCount * 50 bytes
+    # Default: 1048576 (1 MiB), Example overrides: 262144 (256 KiB), 524288 (512 KiB)
+    # Override: GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES=262144
+    responseSizeThresholdBytes: ${GRAPHQL_SHAPE_LOGGING_RESPONSE_SIZE_THRESHOLD_BYTES:1048576}
+
+    # Minimum number of GraphQL errors to trigger logging (set to 1 to log any error)
+    # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
+    errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
@@ -1219,6 +1434,17 @@ metadataChangeLog:
     batch:
       enabled: ${MCL_CONSUMER_BATCH_ENABLED:false}
       size: ${MCL_CONSUMER_BATCH_SIZE:1048576}
+  throttle:
+    timeseries:
+      entityIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED:false}
+      timeseriesIndex:
+        enabled: ${MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED:false}
+      observe:
+        enabled: ${MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED:false}
+      refreshPeriodSeconds: ${MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS:3600}
+      refreshOverrides: ${MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES:{}}
+      maxCacheUrns: ${MCL_TIMESERIES_THROTTLE_MAX_URNS:10000}
 
 eventsApi:
   enabled: ${EVENTS_API_ENABLED:true}

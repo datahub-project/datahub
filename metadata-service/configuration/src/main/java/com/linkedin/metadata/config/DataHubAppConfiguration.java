@@ -55,6 +55,12 @@ public class DataHubAppConfiguration {
   /** ElasticSearch configurations */
   private ElasticSearchConfiguration elasticSearch;
 
+  /**
+   * MAE consumer Elasticsearch tuning ({@code maeConsumer.*}); active when {@code
+   * MAE_CONSUMER_ENABLED=true}.
+   */
+  private MaeConsumerConfiguration maeConsumer;
+
   /** Search Service configurations */
   private SearchServiceConfiguration searchService;
 
@@ -63,6 +69,9 @@ public class DataHubAppConfiguration {
 
   /** System Update configurations */
   private SystemUpdateConfiguration systemUpdate;
+
+  /** Global Kubernetes environment (e.g. serviceHost set when pod runs in K8). */
+  private com.linkedin.metadata.config.kubernetes.KubernetesConfiguration kubernetes;
 
   /** The base URL where DataHub is hosted. */
   private String baseUrl;

@@ -5,8 +5,8 @@ import static com.linkedin.metadata.Constants.*;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.Owner;
-import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.timeline.data.ChangeCategory;
@@ -15,150 +15,55 @@ import com.linkedin.metadata.timeline.data.ChangeOperation;
 import com.linkedin.metadata.timeline.data.ChangeTransaction;
 import com.linkedin.metadata.timeline.data.SemanticChangeType;
 import com.linkedin.metadata.timeline.data.entity.OwnerChangeEvent;
+import com.linkedin.util.Pair;
 import jakarta.json.JsonPatch;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ownership> {
   private static final String OWNER_ADDED_FORMAT = "'%s' added as a `%s` of '%s'.";
   private static final String OWNER_REMOVED_FORMAT = "'%s' removed as a `%s` of '%s'.";
-  private static final String OWNERSHIP_TYPE_CHANGE_FORMAT =
-      "'%s''s ownership type changed from '%s' to '%s' for '%s'.";
 
   private static List<ChangeEvent> computeDiffs(
       Ownership baseOwnership, Ownership targetOwnership, String entityUrn, AuditStamp auditStamp) {
     List<ChangeEvent> changeEvents = new ArrayList<>();
 
-    sortOwnersByUrn(baseOwnership);
-    sortOwnersByUrn(targetOwnership);
-    OwnerArray baseOwners = (baseOwnership != null) ? baseOwnership.getOwners() : new OwnerArray();
-    OwnerArray targetOwners =
-        (targetOwnership != null) ? targetOwnership.getOwners() : new OwnerArray();
+    // Maps (ownership_type, ownership_urn) -> owner urn -> Owner aspect
+    Map<Pair<OwnershipType, Urn>, Map<Urn, Owner>> oldOwnershipMap =
+        buildOwnershipMap(baseOwnership);
+    Map<Pair<OwnershipType, Urn>, Map<Urn, Owner>> newOwnershipMap =
+        buildOwnershipMap(targetOwnership);
 
-    int baseOwnerIdx = 0;
-    int targetOwnerIdx = 0;
-    while (baseOwnerIdx < baseOwners.size() && targetOwnerIdx < targetOwners.size()) {
-      Owner baseOwner = baseOwners.get(baseOwnerIdx);
-      Owner targetOwner = targetOwners.get(targetOwnerIdx);
-      int comparison = baseOwner.getOwner().toString().compareTo(targetOwner.getOwner().toString());
-      if (comparison == 0) {
-        if (!baseOwner.getType().equals(targetOwner.getType())) {
-          // Ownership type has changed.
-          changeEvents.add(
-              OwnerChangeEvent.entityOwnerChangeEventBuilder()
-                  .modifier(targetOwner.getType().name())
-                  .entityUrn(entityUrn)
-                  .category(ChangeCategory.OWNER)
-                  .operation(ChangeOperation.MODIFY)
-                  .semVerChange(SemanticChangeType.PATCH)
-                  .description(
-                      String.format(
-                          OWNERSHIP_TYPE_CHANGE_FORMAT,
-                          baseOwner.getOwner().getId(),
-                          baseOwner.getType(),
-                          targetOwner.getType(),
-                          entityUrn))
-                  .ownerUrn(targetOwner.getOwner())
-                  .ownerType(targetOwner.getType())
-                  .ownerTypeUrn(targetOwner.getTypeUrn())
-                  .auditStamp(auditStamp)
-                  .build());
-        }
-        ++baseOwnerIdx;
-        ++targetOwnerIdx;
-      } else if (comparison < 0) {
-        // Owner got removed
-        changeEvents.add(
-            OwnerChangeEvent.entityOwnerChangeEventBuilder()
-                .modifier(baseOwner.getOwner().toString())
-                .entityUrn(entityUrn)
-                .category(ChangeCategory.OWNER)
-                .operation(ChangeOperation.REMOVE)
-                .semVerChange(SemanticChangeType.MINOR)
-                .description(
-                    String.format(
-                        OWNER_REMOVED_FORMAT,
-                        baseOwner.getOwner().getId(),
-                        baseOwner.getType(),
-                        entityUrn))
-                .ownerUrn(baseOwner.getOwner())
-                .ownerType(baseOwner.getType())
-                .ownerTypeUrn(baseOwner.getTypeUrn())
-                .auditStamp(auditStamp)
-                .build());
-        ++baseOwnerIdx;
-      } else {
-        // Owner got added.
-        changeEvents.add(
-            OwnerChangeEvent.entityOwnerChangeEventBuilder()
-                .modifier(targetOwner.getOwner().toString())
-                .entityUrn(entityUrn)
-                .category(ChangeCategory.OWNER)
-                .operation(ChangeOperation.ADD)
-                .semVerChange(SemanticChangeType.MINOR)
-                .description(
-                    String.format(
-                        OWNER_ADDED_FORMAT,
-                        targetOwner.getOwner().getId(),
-                        targetOwner.getType(),
-                        entityUrn))
-                .ownerUrn(targetOwner.getOwner())
-                .ownerType(targetOwner.getType())
-                .ownerTypeUrn(targetOwner.getTypeUrn())
-                .auditStamp(auditStamp)
-                .build());
-        ++targetOwnerIdx;
-      }
-    }
+    Set<Pair<OwnershipType, Urn>> allTypes = new HashSet<>();
+    allTypes.addAll(oldOwnershipMap.keySet());
+    allTypes.addAll(newOwnershipMap.keySet());
 
-    while (baseOwnerIdx < baseOwners.size()) {
-      // Handle removed owners.
-      Owner baseOwner = baseOwners.get(baseOwnerIdx);
-      changeEvents.add(
-          OwnerChangeEvent.entityOwnerChangeEventBuilder()
-              .modifier(baseOwner.getOwner().toString())
-              .entityUrn(entityUrn)
-              .category(ChangeCategory.OWNER)
-              .operation(ChangeOperation.REMOVE)
-              .semVerChange(SemanticChangeType.MINOR)
-              .description(
-                  String.format(
-                      OWNER_REMOVED_FORMAT,
-                      baseOwner.getOwner().getId(),
-                      baseOwner.getType(),
-                      entityUrn))
-              .ownerUrn(baseOwner.getOwner())
-              .ownerType(baseOwner.getType())
-              .ownerTypeUrn(baseOwner.getTypeUrn())
-              .auditStamp(auditStamp)
-              .build());
-      ++baseOwnerIdx;
-    }
-    while (targetOwnerIdx < targetOwners.size()) {
-      // Newly added owners.
-      Owner targetOwner = targetOwners.get(targetOwnerIdx);
-      changeEvents.add(
-          OwnerChangeEvent.entityOwnerChangeEventBuilder()
-              .modifier(targetOwner.getOwner().toString())
-              .entityUrn(entityUrn)
-              .category(ChangeCategory.OWNER)
-              .operation(ChangeOperation.ADD)
-              .semVerChange(SemanticChangeType.MINOR)
-              .description(
-                  String.format(
-                      OWNER_ADDED_FORMAT,
-                      targetOwner.getOwner().getId(),
-                      targetOwner.getType(),
-                      entityUrn))
-              .ownerUrn(targetOwner.getOwner())
-              .ownerType(targetOwner.getType())
-              .ownerTypeUrn(targetOwner.getTypeUrn())
-              .auditStamp(auditStamp)
-              .build());
-      ++targetOwnerIdx;
-    }
+    allTypes.forEach(
+        key -> {
+          Map<Urn, Owner> oldOwners =
+              Optional.ofNullable(oldOwnershipMap.get(key)).orElse(Map.of());
+          Map<Urn, Owner> newOwners =
+              Optional.ofNullable(newOwnershipMap.get(key)).orElse(Map.of());
+          Set<Urn> ownersAdded = new HashSet<>(newOwners.keySet());
+          ownersAdded.removeAll(oldOwners.keySet());
+          Set<Urn> ownersRemoved = new HashSet<>(oldOwners.keySet());
+          ownersRemoved.removeAll(newOwners.keySet());
+
+          ownersAdded.forEach(
+              urn ->
+                  changeEvents.add(makeAddChangeEvent(newOwners.get(urn), entityUrn, auditStamp)));
+          ownersRemoved.forEach(
+              urn ->
+                  changeEvents.add(
+                      makeRemoveChangeEvent(oldOwners.get(urn), entityUrn, auditStamp)));
+        });
     return changeEvents;
   }
 
@@ -169,13 +74,60 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
     return null;
   }
 
-  private static void sortOwnersByUrn(Ownership ownership) {
-    if (ownership == null) {
-      return;
+  private static Map<Pair<OwnershipType, Urn>, Map<Urn, Owner>> buildOwnershipMap(
+      Ownership ownership) {
+    Map<Pair<OwnershipType, Urn>, Map<Urn, Owner>> map = new HashMap<>();
+
+    if (ownership != null) {
+      ownership
+          .getOwners()
+          .forEach(
+              owner -> {
+                Pair<OwnershipType, Urn> key = new Pair<>(owner.getType(), owner.getTypeUrn());
+                if (!map.containsKey(key)) {
+                  map.put(key, new HashMap<>());
+                }
+                map.get(key).put(owner.getOwner(), owner);
+              });
     }
-    List<Owner> owners = new ArrayList<>(ownership.getOwners());
-    owners.sort(Comparator.comparing(Owner::getOwner, Comparator.comparing(Urn::toString)));
-    ownership.setOwners(new OwnerArray(owners));
+
+    return map;
+  }
+
+  private static OwnerChangeEvent makeAddChangeEvent(
+      Owner newOwner, String entityUrn, AuditStamp auditStamp) {
+    return OwnerChangeEvent.entityOwnerChangeEventBuilder()
+        .modifier(newOwner.getOwner().toString())
+        .entityUrn(entityUrn)
+        .category(ChangeCategory.OWNERSHIP)
+        .operation(ChangeOperation.ADD)
+        .semVerChange(SemanticChangeType.MINOR)
+        .description(
+            String.format(
+                OWNER_ADDED_FORMAT, newOwner.getOwner().getId(), newOwner.getType(), entityUrn))
+        .ownerUrn(newOwner.getOwner())
+        .ownerType(newOwner.getType())
+        .ownerTypeUrn(newOwner.getTypeUrn())
+        .auditStamp(auditStamp)
+        .build();
+  }
+
+  private static OwnerChangeEvent makeRemoveChangeEvent(
+      Owner oldOwner, String entityUrn, AuditStamp auditStamp) {
+    return OwnerChangeEvent.entityOwnerChangeEventBuilder()
+        .modifier(oldOwner.getOwner().toString())
+        .entityUrn(entityUrn)
+        .category(ChangeCategory.OWNERSHIP)
+        .operation(ChangeOperation.REMOVE)
+        .semVerChange(SemanticChangeType.MINOR)
+        .description(
+            String.format(
+                OWNER_REMOVED_FORMAT, oldOwner.getOwner().getId(), oldOwner.getType(), entityUrn))
+        .ownerUrn(oldOwner.getOwner())
+        .ownerType(oldOwner.getType())
+        .ownerTypeUrn(oldOwner.getTypeUrn())
+        .auditStamp(auditStamp)
+        .build();
   }
 
   @Override
@@ -199,7 +151,7 @@ public class OwnershipChangeEventGenerator extends EntityChangeEventGenerator<Ow
     Ownership targetOwnership = getOwnershipFromAspect(currentValue);
 
     List<ChangeEvent> changeEvents = new ArrayList<>();
-    if (element == ChangeCategory.OWNER) {
+    if (element == ChangeCategory.OWNERSHIP) {
       changeEvents.addAll(
           computeDiffs(baseOwnership, targetOwnership, currentValue.getUrn(), null));
     }

@@ -8,6 +8,7 @@ import static com.linkedin.metadata.config.kafka.KafkaConfiguration.PE_EVENT_CON
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
+import io.confluent.kafka.serializers.AbstractKafkaSchemaSerDeConfig;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,7 +19,7 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
@@ -33,6 +34,7 @@ import org.springframework.kafka.support.serializer.DeserializationException;
 @Configuration
 public class KafkaEventConsumerFactory {
   private int kafkaEventConsumerConcurrency;
+  private int authExceptionRetryIntervalSeconds;
 
   @Bean(name = "kafkaConsumerFactory")
   protected DefaultKafkaConsumerFactory<String, GenericRecord> createConsumerFactory(
@@ -41,6 +43,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -57,6 +61,8 @@ public class KafkaEventConsumerFactory {
       @Qualifier("schemaRegistryConfig")
           KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig) {
     kafkaEventConsumerConcurrency = provider.getKafka().getListener().getConcurrency();
+    authExceptionRetryIntervalSeconds =
+        provider.getKafka().getConsumer().getAuthExceptionRetryIntervalSeconds();
 
     KafkaConfiguration kafkaConfiguration = provider.getKafka();
     Map<String, Object> customizedProperties =
@@ -97,7 +103,8 @@ public class KafkaEventConsumerFactory {
    *     for migrating and the producer side is the one we'd be migrating to. Only should share for
    *     topics like Upgrade History which do not need historical data to drain.
    */
-  private static Map<String, Object> buildCustomizedProperties(
+  @com.google.common.annotations.VisibleForTesting
+  static Map<String, Object> buildCustomizedProperties(
       KafkaProperties baseKafkaProperties,
       KafkaConfiguration kafkaConfiguration,
       KafkaConfiguration.SerDeKeyValueConfig schemaRegistryConfig,
@@ -126,13 +133,32 @@ public class KafkaEventConsumerFactory {
       consumerProps.setBootstrapServers(Arrays.asList(bootstrapServers.split(",")));
     } // else we rely on KafkaProperties which defaults to localhost:9092
 
-    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties(null);
+    String securityProtocolOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSecurityProtocol()
+            : kafkaConfiguration.getConsumer().getSecurityProtocol();
+    String securityProtocol =
+        StringUtils.isNotBlank(securityProtocolOverride) ? securityProtocolOverride : null;
+    if (StringUtils.isNotBlank(securityProtocol)) {
+      consumerProps.getSecurity().setProtocol(securityProtocol);
+    }
+
+    Map<String, Object> customizedProperties = baseKafkaProperties.buildConsumerProperties();
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getConsumerProperties(schemaRegistryConfig));
 
     // Override KafkaProperties with SchemaRegistryConfig only for non-empty values
     customizedProperties.putAll(
         kafkaConfiguration.getSerde().getEvent().getProperties(schemaRegistryConfig));
+
+    String schemaRegistryUrlOverride =
+        shareBootstrap
+            ? kafkaConfiguration.getProducer().getSchemaRegistryUrl()
+            : kafkaConfiguration.getConsumer().getSchemaRegistryUrl();
+    if (StringUtils.isNotBlank(schemaRegistryUrlOverride)) {
+      customizedProperties.put(
+          AbstractKafkaSchemaSerDeConfig.SCHEMA_REGISTRY_URL_CONFIG, schemaRegistryUrlOverride);
+    }
 
     customizedProperties.put(
         ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG,
@@ -221,6 +247,16 @@ public class KafkaEventConsumerFactory {
     factory.setConcurrency(kafkaEventConsumerConcurrency);
     factory.setAutoStartup(false);
 
+    // Allow consumer containers to survive transient authentication failures (e.g.,
+    // MSK IAM credential rotation with EKS Pod Identity) instead of stopping fatally.
+    // The Kafka client's NetworkClient automatically reconnects with fresh credentials
+    // on the next poll — the same self-healing that the producer side already has.
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
+
     /*
      * Sets up a delegating error handler for Deserialization errors, if disabled
      * will
@@ -255,6 +291,11 @@ public class KafkaEventConsumerFactory {
     factory.setContainerCustomizer(new ThreadPoolContainerCustomizer());
     factory.setConcurrency(1);
     factory.setAutoStartup(false);
+    if (authExceptionRetryIntervalSeconds > 0) {
+      factory
+          .getContainerProperties()
+          .setAuthExceptionRetryInterval(Duration.ofSeconds(authExceptionRetryIntervalSeconds));
+    }
 
     log.info(
         "Event-based DUHE KafkaListenerContainerFactory built successfully. Consumer concurrency = 1");

@@ -1,0 +1,42 @@
+# Snowplow with Iglu Registry (Open-Source Mode)
+# For self-hosted Snowplow deployments using Iglu schema registry without BDP Console API
+
+source:
+  type: snowplow
+  config:
+    # Iglu Schema Registry connection
+    iglu_connection:
+      # Iglu server URL
+      iglu_server_url: "https://iglu.example.com"
+
+      # API key for private registries (omit for public registries like Iglu Central)
+      api_key: "${IGLU_API_KEY}"
+
+    # Automatic schema discovery via /api/schemas endpoint
+    # Requires Iglu Server 0.6+ with list schemas support
+    # All schemas in the registry will be automatically discovered
+
+    # Schema types to extract (both event and entity)
+    schema_types_to_extract:
+      - "event"
+      - "entity"
+
+    # Optional: Pattern-based filtering
+    schema_pattern:
+      allow:
+        - "com\\.acme\\..*"  # Only extract schemas from com.acme vendor
+      deny:
+        - ".*\\.internal\\..*"  # Skip internal schemas
+
+    # Environment and platform configuration
+    env: "PROD"
+    platform_instance: "snowplow_production"
+
+    # Only extract schemas (no event specs/scenarios in Iglu-only mode)
+    extract_event_specifications: false
+    extract_tracking_scenarios: false
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

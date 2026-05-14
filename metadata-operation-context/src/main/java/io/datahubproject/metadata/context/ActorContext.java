@@ -68,7 +68,8 @@ public class ActorContext implements ContextInterface {
   }
 
   /**
-   * Actor is considered active if the user is not hard-deleted, soft-deleted, and is not suspended
+   * Actor is considered active if a corp user key is present when enforcement is on and the user is
+   * not soft-deleted or suspended.
    *
    * @param aspectRetriever aspect retriever - ideally the SystemEntityClient backed one for caching
    * @return active status
@@ -88,7 +89,7 @@ public class ActorContext implements ContextInterface {
     Map<String, Aspect> aspectMap = urnAspectMap.getOrDefault(selfUrn, Map.of());
 
     if (enforceExistenceEnabled && !aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
-      // user is hard deleted
+      // No corp user key aspect (never provisioned, purged, or inconsistent); not inferrable.
       return false;
     }
 

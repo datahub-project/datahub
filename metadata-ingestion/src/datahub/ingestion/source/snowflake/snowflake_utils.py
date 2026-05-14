@@ -22,6 +22,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
+# Truncate definition strings (e.g. task / pipe SQL bodies) stored in
+# customProperties to stay well within DataHub's aspect size limits.
+MAX_DEFINITION_LENGTH = 4000
+
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
@@ -352,15 +356,26 @@ class SnowflakeIdentifierBuilder:
         )
 
     @staticmethod
+    def _escape_identifier(name: str) -> str:
+        """Escape embedded double-quotes in a Snowflake identifier by doubling them."""
+        return name.replace('"', '""')
+
+    @staticmethod
     def get_quoted_identifier_for_database(db_name):
+        db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
         return f'"{db_name}"'
 
     @staticmethod
     def get_quoted_identifier_for_schema(db_name, schema_name):
+        db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+        schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
         return f'"{db_name}"."{schema_name}"'
 
     @staticmethod
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
+        db_name = SnowflakeIdentifierBuilder._escape_identifier(db_name)
+        schema_name = SnowflakeIdentifierBuilder._escape_identifier(schema_name)
+        table_name = SnowflakeIdentifierBuilder._escape_identifier(table_name)
         return f'"{db_name}"."{schema_name}"."{table_name}"'
 
     # Note - decide how to construct user urns.

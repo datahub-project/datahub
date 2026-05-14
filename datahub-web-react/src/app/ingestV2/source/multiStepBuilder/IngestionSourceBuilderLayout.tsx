@@ -3,10 +3,10 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
-import { BreadcrumbItem } from '@components/components/Breadcrumb/types';
+import { BreadcrumbItemType } from '@components/components/Breadcrumb/types';
 
 import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
-import { IngestionSourceBottomPanel } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBottomPanel';
+import IngestionSourceNavigationButtons from '@app/ingestV2/source/multiStepBuilder/IngestionSourceNavigationButtons';
 import { IngestionSourceFormStep, MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { useMultiStepContext } from '@app/sharedV2/forms/multiStepForm/MultiStepFormContext';
@@ -32,11 +32,12 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
 
-    const breadCrumbStepItems: BreadcrumbItem[] = steps.map((step) => {
-        const breadCrumbItem: BreadcrumbItem = {
+    const breadCrumbStepItems: BreadcrumbItemType[] = steps.map((step) => {
+        const breadCrumbItem: BreadcrumbItemType = {
+            key: step.key,
             label: step.label,
             onClick: isStepVisited(step.key) ? () => goToStep(step.key) : undefined,
-            isCurrent: currentStep === step,
+            isActive: currentStep === step,
         };
 
         return breadCrumbItem;
@@ -52,11 +53,13 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
         <Breadcrumb
             items={[
                 {
+                    key: 'back',
                     label: 'Manage Data Sources',
                     href: tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
                 {
+                    key: 'action',
                     label: isEditing ? 'Update Source' : 'Create Source',
                     separator: <VerticalDivider type="vertical" />,
                 },
@@ -70,8 +73,8 @@ export function IngestionSourceBuilderLayout({ children }: Props) {
             title={currentStep?.label}
             subTitle={currentStep?.subTitle}
             rightPanelContent={currentStep?.hideRightPanel ? null : <AIChat />}
-            bottomPanelContent={currentStep?.hideBottomPanel ? null : <IngestionSourceBottomPanel />}
             topBreadcrumb={breadCrumb}
+            topRightContent={<IngestionSourceNavigationButtons />}
         >
             <ContentWrapper ref={scrollContainerRef}>{children}</ContentWrapper>
         </PageLayout>

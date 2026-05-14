@@ -1,3 +1,4 @@
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
@@ -65,7 +66,7 @@ export default function ColumnsModule(props: ModuleProps) {
         return (
             <LargeModule {...props} loading={false} dataTestId="schema-table-module">
                 <EmptyContent
-                    icon="Database"
+                    icon={Database}
                     title="Schema Not Available"
                     description="There was an error loading the schema for this dataset"
                 />
@@ -77,7 +78,7 @@ export default function ColumnsModule(props: ModuleProps) {
         return (
             <LargeModule {...props} loading={loading} dataTestId="schema-table-module">
                 <EmptyContent
-                    icon="Database"
+                    icon={Database}
                     title="No Schema Fields"
                     description="This dataset has no schema fields to display"
                 />

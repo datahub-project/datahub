@@ -8,25 +8,31 @@ import com.linkedin.datahub.upgrade.system.dataprocessinstances.BackfillDataProc
 import com.linkedin.datahub.upgrade.system.entities.RemoveQueryEdges;
 import com.linkedin.datahub.upgrade.system.entityconsistency.FixEntityConsistency;
 import com.linkedin.datahub.upgrade.system.ingestion.BackfillIngestionSourceInfoIndices;
+import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
+import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.RetentionService;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
+import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
@@ -180,5 +186,49 @@ public class NonBlockingConfigs {
         entityService,
         consistencyService,
         configurationProvider.getSystemUpdate().getEntityConsistency());
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestRetentionPolicies(
+      @Qualifier("retentionService") final RetentionService<?> retentionService,
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${entityService.retention.enabled}") final boolean enabled,
+      @Value("${entityService.retention.applyOnBootstrap}") final boolean applyAfterIngest,
+      @Value("${datahub.plugin.retention.path}") final String pluginPath) {
+    return new IngestRetentionPolicies(
+        retentionService, entityService, enabled, applyAfterIngest, pluginPath);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade ingestEntityTypes(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      @Value("${systemUpdate.ingestEntityTypes.enabled}") final boolean enabled) {
+    return new IngestEntityTypes(opContext, entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade migrateAspects(
+      @Qualifier("systemOperationContext") final OperationContext opContext,
+      final EntityService<?> entityService,
+      final AspectDao aspectDao,
+      final AspectMigrationMutatorChain aspectMigrationMutatorChain,
+      final GitVersion gitVersion,
+      @Qualifier("revision") final String revision,
+      @Value("${systemUpdate.migrateAspects.enabled}") final boolean enabled,
+      @Value("${systemUpdate.migrateAspects.batchSize}") final Integer batchSize,
+      @Value("${systemUpdate.migrateAspects.delayMs}") final Integer delayMs,
+      @Value("${systemUpdate.migrateAspects.limit}") final Integer limit) {
+    String upgradeVersion = String.format("%s-%s", gitVersion.getVersion(), revision);
+    return new MigrateAspects(
+        opContext,
+        entityService,
+        aspectDao,
+        aspectMigrationMutatorChain,
+        upgradeVersion,
+        enabled,
+        batchSize,
+        delayMs,
+        limit);
   }
 }
