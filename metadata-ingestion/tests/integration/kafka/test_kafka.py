@@ -12,7 +12,6 @@ import yaml
 from confluent_kafka import Consumer
 from confluent_kafka.avro import AvroProducer
 from confluent_kafka.schema_registry import SchemaRegistryClient
-from freezegun import freeze_time
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.source import SourceCapability
@@ -702,7 +701,7 @@ def _validate_event_granularity(profile):
         "schema_profiling",  # Use key_value_topic
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_kafka_profiling(
     mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time, test_case
