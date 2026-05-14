@@ -8,7 +8,7 @@ from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.sdk.definitions.asset import Asset
+from airflow.sdk import Asset
 
 # Reference to the decorated asset for use as inlet
 # This Asset object matches the URI created by @asset decorator in decorated_asset_producer.py

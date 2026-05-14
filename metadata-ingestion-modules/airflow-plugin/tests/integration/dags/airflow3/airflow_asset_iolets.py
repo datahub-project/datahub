@@ -11,7 +11,7 @@ from datetime import datetime
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-from airflow.sdk.definitions.asset import Asset
+from airflow.sdk import Asset
 
 from datahub_airflow_plugin.entities import Dataset as DataHubDataset
 

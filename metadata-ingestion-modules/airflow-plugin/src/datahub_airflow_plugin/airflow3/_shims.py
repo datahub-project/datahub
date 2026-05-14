@@ -14,8 +14,7 @@ except ModuleNotFoundError:
         SerializedMappedOperator as MappedOperator,
     )
 
-# Airflow 3.x SDK imports - these always exist in Airflow 3.x
-from airflow.sdk.bases.operator import BaseOperator
+from airflow.sdk import BaseOperator
 
 # Operator type represents any operator (regular or mapped)
 Operator = Union[BaseOperator, MappedOperator]

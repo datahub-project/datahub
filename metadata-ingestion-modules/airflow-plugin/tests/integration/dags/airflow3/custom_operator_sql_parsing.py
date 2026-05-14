@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, List, Sequence, Tuple, Union
 
 from airflow import DAG
-from airflow.models.baseoperator import BaseOperator
+from airflow.sdk import BaseOperator
 
 from datahub_airflow_plugin._config import get_enable_multi_statement
 from datahub_airflow_plugin._sql_parsing_common import parse_sql_with_datahub

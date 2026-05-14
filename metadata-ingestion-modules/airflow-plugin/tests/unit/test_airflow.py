@@ -60,22 +60,11 @@ def test_airflow_provider_info():
 
 @pytest.mark.filterwarnings("ignore:.*is deprecated.*")
 def test_dags_load_with_no_errors(pytestconfig: pytest.Config) -> None:
-    from packaging import version
-
-    from datahub_airflow_plugin._airflow_shims import AIRFLOW_VERSION
-
     airflow_examples_folder = (
         pytestconfig.rootpath / "src/datahub_airflow_plugin/example_dags"
     )
 
-    # Root-level example DAGs use Airflow 2 APIs and don't work on Airflow 3
-    # Airflow 3 should use the airflow3/ subdirectory
-    if AIRFLOW_VERSION >= version.parse("3.0.0"):
-        pytest.skip(
-            "Example DAGs in this folder use Airflow 2 APIs. Airflow 3 uses airflow3/ subdirectory."
-        )
-
-    # Note: the .airflowignore file skips the snowflake DAG and version-specific subdirectories.
+    # Note: the .airflowignore file skips the snowflake DAG.
     dag_bag = DagBag(dag_folder=str(airflow_examples_folder), include_examples=False)
 
     import_errors = dag_bag.import_errors
@@ -179,6 +168,22 @@ def test_hook_airflow_ui(hook):
     # is wrong.
     hook.get_connection_form_widgets()
     hook.get_ui_field_behaviour()
+
+
+def test_datajob_url_link_taskinstance_rejected_with_migration_message():
+    """Users upgrading from Airflow 2 may still have `datajob_url_link=taskinstance`
+    in airflow.cfg — the removed Airflow 2 URL format. Confirm the plugin fails fast
+    with a migration-friendly error rather than an opaque pydantic enum error."""
+    from datahub_airflow_plugin._config import get_lineage_config
+
+    with mock.patch(
+        "datahub_airflow_plugin._config.conf.get",
+        side_effect=lambda section, key, fallback=None: (
+            "taskinstance" if key == "datajob_url_link" else fallback
+        ),
+    ):
+        with pytest.raises(ValueError, match="taskinstance"):
+            get_lineage_config()
 
 
 def test_entities():
