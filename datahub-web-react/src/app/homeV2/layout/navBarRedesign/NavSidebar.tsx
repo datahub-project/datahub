@@ -182,7 +182,7 @@ export const NavSidebar = () => {
             mfeSection = [
                 {
                     type: NavBarMenuItemTypes.Dropdown,
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || 'MFE Apps',
                     icon: <AppWindow />,
                     key: 'mfe-dropdown',
                     items: getMfeMenuDropdownItems(mfeConfig),
@@ -193,7 +193,7 @@ export const NavSidebar = () => {
                 {
                     type: NavBarMenuItemTypes.Group,
                     key: 'mfe-group',
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || 'MFE Apps',
                     items: getMfeMenuItems(mfeConfig),
                 } as NavBarMenuGroup,
             ];

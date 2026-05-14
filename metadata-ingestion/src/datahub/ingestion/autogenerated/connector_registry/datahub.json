@@ -30,6 +30,12 @@
           "description": "Can extract ABS object/container tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from blob timestamps",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.abs.source.ABSSource",
@@ -82,7 +88,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
@@ -129,7 +135,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
@@ -261,6 +267,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PARTITION_SUPPORT",
           "description": "Enabled by default, partition keys and clustering keys are supported.",
           "subtype_modifier": null,
@@ -378,6 +390,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_log_operations`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -678,6 +696,12 @@
           "supported": true
         },
         {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via configuration `include_glossaries`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Project containers are generated instead",
           "subtype_modifier": null,
@@ -704,7 +728,7 @@
       ],
       "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
       "platform_id": "dataplex",
-      "platform_name": "Dataplex",
+      "platform_name": "Google Cloud Knowledge Catalog (Dataplex)",
       "support_status": "INCUBATING"
     },
     "db2": {
@@ -873,6 +897,12 @@
           "description": "Can extract S3 object/bucket tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Delta table history",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.delta_lake.source.DeltaLakeSource",
@@ -886,6 +916,38 @@
       "platform_id": "demo-data",
       "platform_name": "Demo Data",
       "support_status": null
+    },
+    "dlt": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Emitted when dlt pipeline state contains owner information",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Emits outlet lineage from dlt DataJobs to destination Dataset URNs. Configure destination_platform_map to match your destination connector's env/instance.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dlt.dlt.DltSource",
+      "platform_id": "dlt",
+      "platform_name": "dlt",
+      "support_status": "INCUBATING"
     },
     "doris": {
       "capabilities": [
@@ -1020,6 +1082,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1243,8 +1311,26 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Extracted from queryinsights.exec_requests_history (30-day retention) when `usage.include_usage_statistics` is enabled. Column-level usage is derived via SQL parsing of the query text.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1430,6 +1516,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Glue table created and last modified timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1824,6 +1916,56 @@
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
+      "support_status": "INCUBATING"
+    },
+    "informatica": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Projects and folders as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "From IDMC object createdBy/updatedBy",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "IDMC object tags emitted as DataHub GlobalTags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Table-level lineage via v3 Export API",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.informatica.source.InformaticaSource",
+      "platform_id": "informatica",
+      "platform_name": "Informatica",
       "support_status": "INCUBATING"
     },
     "json-schema": {
@@ -2691,6 +2833,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_usage` and `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3349,6 +3497,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3404,6 +3558,12 @@
         {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from object timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3506,6 +3666,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Salesforce object created and last modified timestamps",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Can be equivalent to Salesforce organization",
           "subtype_modifier": null,
@@ -3538,8 +3704,15 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Sigma Workspace"
+            "Sigma Workspace",
+            "Sigma Data Model"
           ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3702,6 +3875,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default, can be disabled via configuration `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3780,6 +3959,12 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Parsed from SQL queries",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Parsed from non-SELECT SQL queries",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4137,6 +4322,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4293,6 +4484,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Supported via the `include_ownership` config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
           "subtype_modifier": null,
           "supported": true
         },

@@ -653,17 +653,21 @@ class TestGraphqlWhitespaceTokenOverflow:
     def test_adapted_query_fits_within_gms_whitespace_token_limit(
         self, entity_details_gql: str
     ) -> None:
-        """entity_details.gql adapted for GMS ≤v1.1.0 must stay under 200 K whitespace tokens.
+        """If _inline_fragments() is ever reintroduced into the adapt_query pipeline,
+        the minification step must keep the result under 200 K whitespace tokens.
 
-        Mirrors the production pipeline in adapt_query(): inline fragments, then
-        minify with ' '.join(print_ast(...).split()).  Without the minification step
-        the inlined query has ~438 K tokens, triggering the graphql-java DoS protection
-        and causing the customer-visible error:
+        adapt_query() no longer inlines by default (fragment defs and spreads are
+        preserved), so this test exercises the legacy _inline_fragments helper
+        directly to document the historical regression and ensure the minification
+        guard still works should inlining return.
+
+        Without minification the inlined query has ~438 K tokens, triggering
+        graphql-java's DoS protection:
           'More than 200,000 whitespace tokens have been presented …'
         """
         modified = _disable_version_tags(entity_details_gql)
         inlined_doc = _inline_fragments(parse(modified))
-        # Mirror what adapt_query() now does: minify whitespace after print_ast.
+        # Apply the same minification adapt_query() uses.
         adapted_query = " ".join(print_ast(inlined_doc).split())
 
         ws_tokens = sum(1 for c in adapted_query if c in " \t\n\r")
@@ -698,6 +702,116 @@ class TestGraphqlWhitespaceTokenOverflow:
             f"Minified query still has {ws_after:,} whitespace tokens "
             f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}) — minification is no longer sufficient."
         )
+
+
+# DataHub Cloud edges reject request bodies above ~100KB with 413 Payload Too
+# Large. With fragment inlining, entity_details.gql expanded to ~183KB; with
+# fragments preserved it stays well under 60KB.
+_CLOUD_REQUEST_BODY_BUDGET_BYTES = 60_000
+
+
+class TestAdaptQueryPreservesFragments:
+    """Regression: adapt_query() must preserve named fragments rather than inlining.
+
+    Reported by Ayush Sharma on DataHub Cloud (acryl.acryl.io): GetEntity calls
+    against documents failed with 413 Payload Too Large because the projector
+    inlined every named fragment in entity_details.gql, ballooning the request
+    body from 43KB to 183KB.
+    """
+
+    def test_entity_details_minified_size_under_cloud_body_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """The minified entity_details.gql with fragments preserved must fit the cloud body budget.
+
+        Mirrors what adapt_query() emits when projection removes nothing: minified
+        AST with fragments intact. A regression that re-introduces _inline_fragments()
+        into adapt_query() would push this past the budget.
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        adapted_query = " ".join(print_ast(parse(modified)).split())
+
+        assert len(adapted_query) < _CLOUD_REQUEST_BODY_BUDGET_BYTES, (
+            f"Adapted query is {len(adapted_query):,} bytes — exceeds the "
+            f"{_CLOUD_REQUEST_BODY_BUDGET_BYTES:,}-byte cloud edge body budget. "
+            "Most likely cause: adapt_query() is inlining fragments again."
+        )
+
+    def test_adapt_query_does_not_inline_supported_fragments(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """When every fragment's type_condition is supported, defs and spreads survive."""
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment DatasetFields on Dataset { urn name }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...DatasetFields } }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        assert removed == []
+        assert "fragment DatasetFields on Dataset" in adapted
+        assert "...DatasetFields" in adapted
+
+    def test_adapt_query_prunes_fragments_orphaned_by_unsupported_type(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """Fragments whose only spread sites disappear via type pruning are dropped.
+
+        graphql-java's NoUnusedFragments validation rule would reject the query
+        otherwise. Reproduces the medium-severity case raised in PR #17385 review.
+        """
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment DocFields on Dataset { urn name }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Document { ...DocFields }
+                        }
+                    }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        # The inline fragment on Document is removed (Document is unsupported),
+        # which leaves DocFields unreferenced — the orphan-prune pass drops it.
+        assert "fragment DocFields" not in adapted
+        assert "...DocFields" not in adapted
+        assert "Document" not in adapted
+        assert any("DocFields" in r and "orphan" in r for r in removed)
+
+    def test_adapt_query_prunes_transitive_orphan_fragments(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """Chains of fragments referencing each other are cleaned to a fixed point."""
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment Inner on Dataset { urn }
+            fragment Outer on Dataset { name ...Inner }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Document { ...Outer }
+                        }
+                    }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        assert "fragment Outer" not in adapted
+        assert "fragment Inner" not in adapted
+        orphan_names = {
+            r.split("(", 1)[1].split(",", 1)[0] for r in removed if "orphan" in r
+        }
+        assert orphan_names == {"Outer", "Inner"}
 
 
 class TestQueryResultCache:
@@ -1775,7 +1889,12 @@ class TestFragmentInlining:
         assert "urn" in adapted
 
     def test_real_world_multi_fragment_query(self, mock_graph_old_schema):
-        """Multi-fragment concatenated query with mixed supported/unsupported types."""
+        """Multi-fragment concatenated query with mixed supported/unsupported types.
+
+        Projection preserves named fragments rather than inlining them — only the
+        fragment whose type_condition references an unsupported type (DocInfo on
+        Document) is removed, along with its spread.
+        """
         query = """
             fragment DatasetInfo on Dataset { urn name }
             fragment ChartInfo on Chart { urn title }
@@ -1794,15 +1913,20 @@ class TestFragmentInlining:
         """
         projector = QueryProjector()
         adapted, removed = projector.adapt_query(query, mock_graph_old_schema)
-        # Document doesn't exist in old schema
+        # DocInfo (on Document) and its spread are removed
+        assert "DocInfo" not in adapted
         assert "Document" not in adapted
-        # Dataset and Chart survive
-        assert "... on Dataset" in adapted
-        assert "... on Chart" in adapted
-        assert len(removed) == 1
+        # Supported fragments and their spreads survive
+        assert "fragment DatasetInfo on Dataset" in adapted
+        assert "fragment ChartInfo on Chart" in adapted
+        assert "...DatasetInfo" in adapted
+        assert "...ChartInfo" in adapted
+        # FragmentDefinition + FragmentSpread both reported as removed
+        assert len(removed) == 2
+        assert any("DocInfo" in r for r in removed)
 
-    def test_inline_cache_reused_across_schema_generations(self):
-        """Same query string reuses the inlined DocumentNode even after schema change."""
+    def test_parse_cache_reused_across_schema_generations(self):
+        """Same query string reuses the parsed DocumentNode even after schema change."""
         schema = build_schema("""
             type Query { searchAcrossEntities(input: SearchInput!): SearchResults }
             input SearchInput { query: String! }
@@ -1821,23 +1945,24 @@ class TestFragmentInlining:
         """
         projector = QueryProjector()
         projector.adapt_query(query, graph)
-        assert len(projector._inline_cache) == 1
+        assert len(projector._parse_cache) == 1
 
         # Force schema refresh
         graph.server_config.commit_hash = "v2"
         projector._schema_fetched_at = 0.0
 
         projector.adapt_query(query, graph)
-        # Inline cache still has exactly 1 entry — reused, not re-parsed
-        assert len(projector._inline_cache) == 1
+        # Parse cache still has exactly 1 entry — reused, not re-parsed
+        assert len(projector._parse_cache) == 1
         assert projector._schema_generation == 2
 
 
 class TestRealSearchGqlFragments:
     """Tests using the actual .gql files from datahub.cli.gql.
 
-    These exercise the full pipeline (inline → project → prune) against the
-    same concatenated query that the search CLI sends to execute_graphql.
+    These exercise the full projection pipeline (parse → project → prune
+    orphan fragments) against the same concatenated query that the search CLI
+    sends to execute_graphql.
     """
 
     @pytest.fixture
@@ -2116,11 +2241,13 @@ class TestRealSearchGqlFragments:
         projector = QueryProjector()
         adapted, removed = projector.adapt_query(search_query, graph)
 
-        # Document was the only missing type — exactly 1 removal
+        # The only unsupported reference is `... on Document` (inline fragment)
+        # inside the SearchEntityInfo fragment definition — exactly 1 removal.
         assert len(removed) == 1
         assert "Document" in removed[0]
 
-        # All other entity types survive
+        # All other entity types survive as inline fragments inside the named
+        # fragment definitions (fragments themselves are preserved, not inlined).
         for entity_type in [
             "Dataset",
             "Chart",
@@ -2139,13 +2266,12 @@ class TestRealSearchGqlFragments:
                 f"{entity_type} should survive projection"
             )
 
-        # Named fragments should be fully inlined — no fragment defs or spreads
-        assert "fragment " not in adapted
-        assert "...SearchEntityInfo" not in adapted
-        assert "...FacetEntityInfo" not in adapted
-        assert "...PlatformFields" not in adapted
+        # Named fragments are preserved (not inlined) so the request body stays small.
+        assert "fragment SearchEntityInfo" in adapted
+        assert "fragment PlatformFields" in adapted
+        assert "...PlatformFields" in adapted
 
-        # PlatformFields content was inlined (displayName appears in platform blocks)
+        # PlatformFields content still reachable via its definition
         assert "displayName" in adapted
         assert "logoUrl" in adapted
 

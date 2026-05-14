@@ -18,6 +18,7 @@ import yaml
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "scripts"))
 from selective_ci_checks import (
     CIDecisions,
+    EntryPointInfo,
     _find_source_dir,
     _narrow_ep_tests,
     _register_plugin_variants,
@@ -618,16 +619,22 @@ class TestSQLNarrowing:
 class TestNarrowEpTests:
     """Direct unit tests for _narrow_ep_tests."""
 
-    EP_MODULE_TO_TEST = {
-        "datahub.ingestion.source.sql.clickhouse": "tests/integration/clickhouse/",
-        "datahub.ingestion.source.sql.mysql": "tests/integration/mysql/",
+    EP_MODULES = {
+        "datahub.ingestion.source.sql.clickhouse": EntryPointInfo(
+            source_dir="src/datahub/ingestion/source/sql",
+            test_path="tests/integration/clickhouse/",
+        ),
+        "datahub.ingestion.source.sql.mysql": EntryPointInfo(
+            source_dir="src/datahub/ingestion/source/sql",
+            test_path="tests/integration/mysql/",
+        ),
     }
 
     def test_specific_file_returns_its_test(self):
         result = _narrow_ep_tests(
             "src/datahub/ingestion/source/sql",
             ["metadata-ingestion/src/datahub/ingestion/source/sql/clickhouse.py"],
-            self.EP_MODULE_TO_TEST,
+            self.EP_MODULES,
         )
         assert result == {"tests/integration/clickhouse/"}
 
@@ -635,7 +642,7 @@ class TestNarrowEpTests:
         result = _narrow_ep_tests(
             "src/datahub/ingestion/source/sql",
             ["metadata-ingestion/src/datahub/ingestion/source/sql/sql_common.py"],
-            self.EP_MODULE_TO_TEST,
+            self.EP_MODULES,
         )
         assert result is None
 
@@ -643,7 +650,7 @@ class TestNarrowEpTests:
         result = _narrow_ep_tests(
             "src/datahub/ingestion/source/sql",
             ["metadata-ingestion/src/datahub/ingestion/source/powerbi/powerbi.py"],
-            self.EP_MODULE_TO_TEST,
+            self.EP_MODULES,
         )
         assert result is None
 
@@ -654,7 +661,7 @@ class TestNarrowEpTests:
                 "metadata-ingestion/src/datahub/ingestion/source/sql/clickhouse.py",
                 "metadata-ingestion/src/datahub/ingestion/source/sql/mysql.py",
             ],
-            self.EP_MODULE_TO_TEST,
+            self.EP_MODULES,
         )
         assert result == {
             "tests/integration/clickhouse/",
@@ -669,7 +676,7 @@ class TestNarrowEpTests:
                 "metadata-ingestion/src/datahub/ingestion/source/sql/clickhouse.py",
                 "metadata-ingestion/src/datahub/ingestion/source/sql/sql_common.py",
             ],
-            self.EP_MODULE_TO_TEST,
+            self.EP_MODULES,
         )
         assert result is None
 
@@ -685,31 +692,19 @@ class TestBuildSourceToTestDirs:
         )
         assert "tests/integration/clickhouse/" in sql_tests
 
-    def test_ep_module_to_test_populated(self, repo_root):
+    def test_ep_modules_populated(self, repo_root):
         registry = load_connector_registry(repo_root)
         ep_mapping = build_source_to_test_dirs(repo_root, registry)
-        assert "datahub.ingestion.source.sql.clickhouse" in ep_mapping.ep_module_to_test
-        assert (
-            ep_mapping.ep_module_to_test["datahub.ingestion.source.sql.clickhouse"]
-            == "tests/integration/clickhouse/"
-        )
-
-    def test_ep_module_to_test_includes_testless_connectors(self, repo_root):
-        """ep_module_to_test includes ALL entry points, with None for testless ones."""
-        registry = load_connector_registry(repo_root)
-        ep_mapping = build_source_to_test_dirs(repo_root, registry)
-        # clickhouse has a test dir → mapped to its test path
-        assert (
-            ep_mapping.ep_module_to_test["datahub.ingestion.source.sql.clickhouse"]
-            == "tests/integration/clickhouse/"
-        )
+        info = ep_mapping.ep_modules["datahub.ingestion.source.sql.clickhouse"]
+        assert info.test_path == "tests/integration/clickhouse/"
+        assert info.source_dir == "src/datahub/ingestion/source/sql"
 
     def test_missing_setup_py_returns_empty(self, repo_root):
         (repo_root / "metadata-ingestion" / "setup.py").unlink()
         registry = load_connector_registry(repo_root)
         ep_mapping = build_source_to_test_dirs(repo_root, registry)
         assert ep_mapping.source_to_tests == {}
-        assert ep_mapping.ep_module_to_test == {}
+        assert ep_mapping.ep_modules == {}
 
 
 class TestSourcePathToModule:
@@ -911,13 +906,16 @@ class TestNarrowEpParentPackage:
 
     def test_init_file_matches_child_ep(self):
         """Changing sql/__init__.py matches the clickhouse EP via parent-package rule."""
-        ep_module_to_test = {
-            "datahub.ingestion.source.sql.clickhouse": "tests/integration/clickhouse/",
+        ep_modules = {
+            "datahub.ingestion.source.sql.clickhouse": EntryPointInfo(
+                source_dir="src/datahub/ingestion/source/sql",
+                test_path="tests/integration/clickhouse/",
+            ),
         }
         result = _narrow_ep_tests(
             "src/datahub/ingestion/source/sql",
             ["metadata-ingestion/src/datahub/ingestion/source/sql/__init__.py"],
-            ep_module_to_test,
+            ep_modules,
         )
         # __init__.py module is datahub.ingestion.source.sql.__init__
         # This does NOT match clickhouse EP via parent-package rule because
@@ -1027,29 +1025,37 @@ class TestKnownConnectorWithoutTests:
 
     def test_narrow_ep_tests_with_known_ep_no_tests(self):
         """Direct test: _narrow_ep_tests returns empty set for known EP without tests."""
-        ep_module_to_test: dict[str, str | None] = {
-            "datahub.ingestion.source.aws.s3_util": "tests/integration/s3/",
-            "datahub.ingestion.source.aws.glue": None,
-            "datahub.ingestion.source.aws.sagemaker": None,
+        aws_dir = "src/datahub/ingestion/source/aws"
+        ep_modules = {
+            "datahub.ingestion.source.aws.s3_util": EntryPointInfo(
+                source_dir=aws_dir, test_path="tests/integration/s3/"
+            ),
+            "datahub.ingestion.source.aws.glue": EntryPointInfo(source_dir=aws_dir),
+            "datahub.ingestion.source.aws.sagemaker": EntryPointInfo(
+                source_dir=aws_dir
+            ),
         }
         result = _narrow_ep_tests(
-            "src/datahub/ingestion/source/aws",
+            aws_dir,
             ["metadata-ingestion/src/datahub/ingestion/source/aws/glue.py"],
-            ep_module_to_test,
+            ep_modules,
         )
-        # glue is a known EP (value=None) — narrowing succeeds with empty set
+        # glue is a known EP (test_path=None) — narrowing succeeds with empty set
         assert result == set()
 
     def test_narrow_ep_tests_shared_utility_returns_none(self):
         """Direct test: _narrow_ep_tests returns None for shared utility."""
-        ep_module_to_test: dict[str, str | None] = {
-            "datahub.ingestion.source.aws.s3_util": "tests/integration/s3/",
-            "datahub.ingestion.source.aws.glue": None,
+        aws_dir = "src/datahub/ingestion/source/aws"
+        ep_modules = {
+            "datahub.ingestion.source.aws.s3_util": EntryPointInfo(
+                source_dir=aws_dir, test_path="tests/integration/s3/"
+            ),
+            "datahub.ingestion.source.aws.glue": EntryPointInfo(source_dir=aws_dir),
         }
         result = _narrow_ep_tests(
-            "src/datahub/ingestion/source/aws",
+            aws_dir,
             ["metadata-ingestion/src/datahub/ingestion/source/aws/aws_common.py"],
-            ep_module_to_test,
+            ep_modules,
         )
-        # aws_common is NOT a key in ep_module_to_test — narrowing fails
+        # aws_common is NOT a key in ep_modules — narrowing fails
         assert result is None

@@ -90,7 +90,13 @@ public class TimelineControllerV2 {
                 new ConjunctivePrivilegeGroup(
                     ImmutableList.of(PoliciesConfig.GET_TIMELINE_PRIVILEGE.getType()))));
     if (restApiAuthorizationEnabled && !AuthUtil.isAuthorized(opContext, orGroup, resourceSpec)) {
-      throw new UnauthorizedException(actorUrnStr + " is unauthorized to edit entities.");
+      throw new UnauthorizedException(
+          actorUrnStr + " is unauthorized to get the timeline for entity " + urn);
+    }
+    // Entity-level view authorization (independent of restApiAuthorization flag):
+    // a caller without view privileges on the target URN must not read its history.
+    if (!AuthUtil.canViewEntity(opContext, urn)) {
+      throw new UnauthorizedException(actorUrnStr + " is unauthorized to view entity " + urn);
     }
     return ResponseEntity.ok(
         _timelineService.getTimeline(

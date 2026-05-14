@@ -192,6 +192,8 @@ export default function SchemaFieldDrawer({
                 usageStats,
                 fieldProfile,
                 profiles,
+                fetchDataWithLookbackWindow,
+                profilesDataLoading,
                 notes,
                 setSelectedTabName,
                 refetch,

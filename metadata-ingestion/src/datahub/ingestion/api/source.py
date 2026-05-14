@@ -76,6 +76,7 @@ class SourceCapability(Enum):
     DOMAINS = "Domains"
     DATA_PROFILING = "Data Profiling"
     USAGE_STATS = "Dataset Usage"
+    OPERATION_CAPTURE = "Operation Capture"
     PARTITION_SUPPORT = "Partition Support"
     DESCRIPTIONS = "Descriptions"
     LINEAGE_COARSE = "Table-Level Lineage"
@@ -87,6 +88,7 @@ class SourceCapability(Enum):
     CONTAINERS = "Asset Containers"
     CLASSIFICATION = "Classification"
     TEST_CONNECTION = "Test Connection"
+    GLOSSARY_TERMS = "Glossary Terms"
 
 
 class StructuredLogLevel(Enum):

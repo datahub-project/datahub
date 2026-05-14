@@ -138,7 +138,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: single no-op",
@@ -165,7 +165,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: multiple no-ops. expected no additional interactions vs single no-op",
@@ -187,7 +187,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: single change",
@@ -215,7 +215,7 @@ public class EbeanEntityServiceOptimizationTest {
                         .auditStamp(TEST_AUDIT_STAMP)
                         .build(opContext.getAspectRetriever())))
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "existing: multiple change. expected no additional statements over single change",
@@ -274,7 +274,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         0,
         1,
         "with retention: existing no-op",
@@ -295,7 +295,7 @@ public class EbeanEntityServiceOptimizationTest {
                     .build(opContext.getAspectRetriever()),
                 opContext.getRetrieverContext())
             .build(opContext),
-        existingBaseCount + 2,
+        existingBaseCount + 1,
         1,
         1,
         "with retention: existing single change (expect version-history INSERT + UPDATE)",

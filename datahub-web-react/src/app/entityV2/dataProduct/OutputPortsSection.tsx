@@ -53,7 +53,7 @@ export const OutputPortsSection = () => {
             query: '*',
             start: 0,
             count: COUNT,
-            filters: [{ field: OUTPUT_PORTS_FIELD, value: 'true' }], // we use this filter hardcoded in list data product assets resolver
+            filters: [{ field: OUTPUT_PORTS_FIELD, values: ['true'] }], // we use this filter hardcoded in list data product assets resolver
         },
     };
 

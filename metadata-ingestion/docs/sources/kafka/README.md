@@ -2,7 +2,7 @@
 
 [Apache Kafka](https://kafka.apache.org/) is a distributed event streaming platform used for high-throughput, fault-tolerant messaging and real-time data pipelines. Confluent Cloud provides a fully managed Kafka service with an integrated Schema Registry.
 
-The DataHub Kafka connector extracts topic metadata and schemas from Kafka clusters and Confluent Schema Registry. It supports Avro, Protobuf, and JSON schemas, multi-stage schema resolution with automatic fallback and inference for topics not registered in the schema registry, and optional data profiling to generate field-level statistics and sample values from message content.
+The DataHub Kafka connector extracts topic metadata and schemas from Kafka clusters and Confluent Schema Registry. It supports Avro, Protobuf, and JSON schemas, multi-stage schema resolution with automatic fallback and inference for topics not registered in the schema registry, and optional data profiling to generate field-level statistics and sample values from message content. The integration also captures stateful deletion detection.
 
 ## Concept Mapping
 

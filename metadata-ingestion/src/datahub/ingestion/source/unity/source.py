@@ -160,6 +160,10 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_FINE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(

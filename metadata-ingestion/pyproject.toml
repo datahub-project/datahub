@@ -131,12 +131,19 @@ athena = [
     "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity!=8.4.0,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
+]
+
+aws-secret-manager = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
+    "urllib3>=1.26,<3.0",
 ]
 
 azure-ad = []
@@ -166,9 +173,9 @@ bigquery = [
     "protobuf>=5.0.0,<7.0.0",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "wcmatch<11.0.0",
@@ -192,9 +199,9 @@ bigquery-queries = [
     "pip",
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "wcmatch<11.0.0",
@@ -207,7 +214,7 @@ bigquery-slim = [
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "wcmatch<11.0.0",
 ]
 
@@ -235,7 +242,7 @@ clickhouse = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "zstd<1.5.6.8",
@@ -255,7 +262,7 @@ clickhouse-usage = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "zstd<1.5.6.8",
@@ -279,7 +286,7 @@ cockroachdb = [
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "urllib3>=1.26,<3.0",
@@ -289,8 +296,8 @@ confluence = [
     "atlassian-python-api>=3.41.0,<5.0.0",
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -314,7 +321,7 @@ databricks = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -335,7 +342,7 @@ datahub = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -350,8 +357,8 @@ datahub-debug = [
 datahub-documents = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -380,6 +387,7 @@ datahub-rest = [
 dataplex = [
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
     "google-cloud-dataplex<3.0.0",
+    "google-cloud-resource-manager<2.0.0",
     "protobuf>=5.0.0,<7.0.0",
     "tenacity>=8.0.1,<9.0.0",
 ]
@@ -399,7 +407,7 @@ db2 = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -410,7 +418,7 @@ dbt = [
     "more-itertools<11.0.0",
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "urllib3>=1.26,<3.0",
 ]
 
@@ -418,7 +426,7 @@ dbt-cloud = [
     "more-itertools<11.0.0",
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 debug-recording = [
@@ -438,7 +446,6 @@ delta-lake = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "pydeequ>=1.1.0,<2.0.0",
@@ -448,6 +455,10 @@ delta-lake = [
     "ujson>=5.12.0,<6.0.0",
     "urllib3>=1.26,<3.0",
     "wcmatch<11.0.0",
+]
+
+dlt = [
+    "dlt>=1.0.0,<2.0.0",
 ]
 
 doris = [
@@ -466,7 +477,7 @@ doris = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "urllib3>=1.26,<3.0",
@@ -486,7 +497,7 @@ dremio = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -505,7 +516,7 @@ druid = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -555,9 +566,12 @@ fabric-data-factory = [
 
 fabric-onelake = [
     "azure-identity>=1.21.0,<2.0",
+    "patchy==2.8.0",
     "pyodbc>=4.0,<6.0.0",
     "requests>=2.28.0,<3.0",
     "sqlalchemy>=1.4,<3.0",
+    "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 feast = [
@@ -570,7 +584,7 @@ feast = [
 fivetran = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "google-cloud-bigquery<4.0.0",
@@ -587,9 +601,9 @@ fivetran = [
     "schwifty<2026.0.0",
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "tenacity>=8.0.1,<9.0.0",
     "wcmatch<11.0.0",
 ]
@@ -599,12 +613,16 @@ flink = [
     "tenacity>=8.0.1,<9.0.0",
 ]
 
+gcp-secret-manager = [
+    "cachetools<6.0.0",
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
+]
+
 gcs = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "pydeequ>=1.1.0,<2.0.0",
@@ -621,7 +639,6 @@ gcs-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
@@ -636,14 +653,14 @@ glue = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "patchy==2.8.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "urllib3>=1.26,<3.0",
 ]
 
 grafana = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 hana = [
@@ -661,7 +678,7 @@ hana = [
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -681,7 +698,7 @@ hive = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -704,7 +721,7 @@ hive-metastore = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -720,6 +737,11 @@ iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "urllib3>=1.26,<3.0",
+]
+
+informatica = [
+    "defusedxml>=0.7.1,<0.8.0",
+    "requests<3.0.0",
 ]
 
 json-schema = [
@@ -750,7 +772,7 @@ kafka-connect = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -766,7 +788,7 @@ looker = [
     "looker-sdk>=23.0.0,<26.0.0",
     "patchy==2.8.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 lookml = [
@@ -776,7 +798,7 @@ lookml = [
     "looker-sdk>=23.0.0,<26.0.0",
     "patchy==2.8.0",
     "python-liquid>=2.0.0,<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 mariadb = [
@@ -795,7 +817,7 @@ mariadb = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "urllib3>=1.26,<3.0",
@@ -804,7 +826,7 @@ mariadb = [
 metabase = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 mlflow = [
@@ -817,7 +839,7 @@ mode = [
     "patchy==2.8.0",
     "python-liquid>=2.0.0,<3.0.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "tenacity>=8.0.1,<9.0.0",
 ]
 
@@ -840,7 +862,7 @@ mssql = [
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -861,7 +883,7 @@ mssql-odbc = [
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -882,7 +904,7 @@ mysql = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "urllib3>=1.26,<3.0",
@@ -901,8 +923,8 @@ nifi = [
 notion = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -933,7 +955,7 @@ oracle = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -959,7 +981,7 @@ postgres = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "urllib3>=1.26,<3.0",
@@ -971,7 +993,7 @@ powerbi = [
     "msal>=1.31.1,<2.0.0",
     "patchy==2.8.0",
     "setuptools<82",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<1.0.0",
     "stopit==1.1.2",
 ]
@@ -984,7 +1006,7 @@ powerbi-report-server = [
 preset = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 presto = [
@@ -1001,7 +1023,7 @@ presto = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1025,7 +1047,7 @@ presto-on-hive = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1038,7 +1060,7 @@ pulsar = [
 qlik-sense = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "websocket-client<2.0.0",
 ]
 
@@ -1052,7 +1074,7 @@ redash = [
     "patchy==2.8.0",
     "redash-toolbelt<0.2.0",
     "sql-metadata<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 redshift = [
@@ -1073,7 +1095,7 @@ redshift = [
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "wcmatch<11.0.0",
@@ -1091,7 +1113,7 @@ redshift-slim = [
     "redshift-connector>=2.1.5,<3.0.0",
     "schwifty<2026.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "wcmatch<11.0.0",
 ]
@@ -1101,7 +1123,6 @@ s3 = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "pydeequ>=1.1.0,<2.0.0",
@@ -1118,7 +1139,6 @@ s3-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
@@ -1129,7 +1149,7 @@ s3-slim = [
 ]
 
 sac = [
-    "Authlib>=1.6.7,<2.0.0",
+    "Authlib>=1.6.11,<2.0.0",
     "pyodata>=1.11.1,<2.0.0",
     "requests<3.0.0",
 ]
@@ -1148,7 +1168,8 @@ salesforce = [
 sigma = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
+    "sqlparse<0.6.0",
 ]
 
 slack = [
@@ -1162,7 +1183,7 @@ snowflake = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "cachetools<6.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
@@ -1176,7 +1197,7 @@ snowflake = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1186,7 +1207,7 @@ snowflake-queries = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "cachetools<6.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
@@ -1200,7 +1221,7 @@ snowflake-queries = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1209,7 +1230,7 @@ snowflake-queries = [
 snowflake-slim = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "msal<2.0.0",
     "numpy<2",
     "pandas<3.0.0",
@@ -1224,7 +1245,7 @@ snowflake-summary = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
     "cachetools<6.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "greenlet<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
@@ -1238,7 +1259,7 @@ snowflake-summary = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "tenacity>=8.0.1,<9.0.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1250,7 +1271,7 @@ snowplow = [
 
 sql-parser = [
     "patchy==2.8.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 sql-queries = [
@@ -1258,7 +1279,7 @@ sql-queries = [
     "botocore!=1.23.0,<2.0.0",
     "patchy==2.8.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "urllib3>=1.26,<3.0",
 ]
@@ -1276,7 +1297,7 @@ sqlalchemy = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -1294,7 +1315,7 @@ starburst-trino-usage = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1314,7 +1335,7 @@ starrocks = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "traitlets!=5.2.2,<6.0.0",
@@ -1323,7 +1344,7 @@ starrocks = [
 superset = [
     "patchy==2.8.0",
     "requests<3.0.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
 ]
 
 sync-file-emitter = [
@@ -1332,7 +1353,7 @@ sync-file-emitter = [
 
 tableau = [
     "patchy==2.8.0",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "tableauserverclient>=0.24.0,<=0.40",
 ]
 
@@ -1349,7 +1370,7 @@ teradata = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     "traitlets!=5.2.2,<6.0.0",
@@ -1368,7 +1389,7 @@ trino = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1392,7 +1413,7 @@ unity-catalog = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
 ]
@@ -1400,8 +1421,8 @@ unity-catalog = [
 unstructured = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "jsonpath-ng==1.7.0",
-    "litellm==1.83.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
     "urllib3>=1.26,<3.0",
@@ -1424,7 +1445,7 @@ vertica = [
     "schwifty<2026.0.0",
     "scipy>=1.7.2,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
@@ -1437,7 +1458,7 @@ all = [
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    "Authlib>=1.6.11,<2.0.0",
     "azure-core>=1.38.0,<2.0.0",
     "azure-identity>=1.21.0,<2.0.0",
     "azure-mgmt-datafactory>=9.0.0,<10.0.0",
@@ -1449,14 +1470,16 @@ all = [
     "cassandra-driver>=3.28.0,<4.0.0",
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[avro,schemaregistry]>=2.10.1,!=2.8.1,<2.13.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
     "databricks-sql-connector>=2.8.0,<3.0.0",
     "db-dtypes",
     "deepmerge>=1.1.1,<3.0.0",
+    "defusedxml>=0.7.1,<0.8.0",
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
+    "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "elasticsearch==7.13.4",
     "fastavro>=1.2.0,<2.0.0",
@@ -1464,6 +1487,7 @@ all = [
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1471,6 +1495,7 @@ all = [
     "google-cloud-dataplex<3.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
     "gql[requests]>=4.0.0",
     "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
@@ -1485,13 +1510,11 @@ all = [
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
     "mlflow-skinny>=2.3.0,<2.21.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "msal>=1.31.1,<2.0.0",
     "neo4j<7.0.0",
     "nest-asyncio<2.0.0",
@@ -1539,13 +1562,13 @@ all = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
     "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
@@ -1574,7 +1597,7 @@ dev = [
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    "Authlib>=1.6.11,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1594,7 +1617,7 @@ dev = [
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1605,6 +1628,7 @@ dev = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -1615,9 +1639,9 @@ dev = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
-    "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1625,11 +1649,13 @@ dev = [
     "google-cloud-dataplex<3.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
     "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
     "humanfriendly<11.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "ijson<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jdk4py>=21.0,<22.0",
@@ -1640,7 +1666,6 @@ dev = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1684,7 +1709,6 @@ dev = [
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
-    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
     "pytest>=6.2.2,<10.0.0",
@@ -1713,13 +1737,13 @@ dev = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy2-stubs<0.1.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
@@ -1768,7 +1792,7 @@ docs = [
     "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    "Authlib>=1.6.11,<2.0.0",
     "avro-gen3==0.7.16",
     "avro>=1.11.3,<1.13",
     "azure-core>=1.38.0,<2.0.0",
@@ -1788,7 +1812,7 @@ docs = [
     "clickhouse-sqlalchemy>=0.2.0,<0.2.5",
     "confluent_kafka[schemaregistry,avro]>=2.10.1,<2.13.0",
     "coverage>=5.1,<8.0.0",
-    "cryptography>=46.0.5,<47.0.0",
+    "cryptography>=46.0.7,<47.0.0",
     "dask[dataframe]<2024.7.0",
     "databricks-dbapi<0.7.0",
     "databricks-sdk>=0.30.0,<1.0.0",
@@ -1799,6 +1823,7 @@ docs = [
     "deltalake>=0.6.3, != 0.6.4, != 0.18.0, <1.0.0; platform_system == 'Darwin' and platform_machine == 'arm64'",
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "Deprecated<2.0.0",
+    "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
     "elasticsearch==7.13.4",
@@ -1809,9 +1834,9 @@ docs = [
     "feast>=0.34.0,<1",
     "flask-openid>=1.3.0,<2.0.0",
     "flatdict!=4.0.1",
-    "freezegun<2.0.0",
     "GeoAlchemy2<0.19.0",
     "GitPython>2,<4.0.0",
+    "google-auth>=2.0.0,<3.0.0",
     "google-cloud-aiplatform>=1.80.0,<2.0.0",
     "google-cloud-bigquery<4.0.0",
     "google-cloud-datacatalog-lineage>=0.5.0,<1.0.0",
@@ -1819,11 +1844,13 @@ docs = [
     "google-cloud-dataplex<3.0.0",
     "google-cloud-logging<4.0.0",
     "google-cloud-resource-manager<2.0.0",
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
     "graphql-core>=3.0.0,<4.0.0",
     "greenlet<4.0.0",
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.44.0,<2.0.0",
     "humanfriendly<11.0.0",
+    "hypothesis>=6.0.0,<7.0.0",
     "ijson<4.0.0",
     "IPython!=8.22.0,<9.0.0",
     "jdk4py>=21.0,<22.0",
@@ -1834,7 +1861,6 @@ docs = [
     "jsonschema<5.0.0",
     "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
-    "litellm==1.83.0",
     "lkml>=1.3.4,<2.0.0",
     "looker-sdk>=23.0.0,<26.0.0",
     "mini-racer==0.14.1",
@@ -1878,7 +1904,6 @@ docs = [
     "pytest-cov>=2.8.1,<8.0.0",
     "pytest-docker>=1.1.0,<4.0.0",
     "pytest-random-order~=1.1.0,<2.0.0",
-    "hypothesis>=6.0.0,<7.0.0",
     "pytest-rerunfailures<17.0",
     "pytest-timeout<3.0.0",
     "pytest>=6.2.2,<10.0.0",
@@ -1907,13 +1932,13 @@ docs = [
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "snowflake-sqlalchemy>=1.8.0,<2.0.0",
     "sql-metadata<3.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-cockroachdb<2.0.0",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy2-stubs<0.1.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
     "tableauserverclient>=0.24.0,<=0.40",
@@ -2000,7 +2025,6 @@ integration-tests = [
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     "numpy<2",
     "openpyxl>=3.1.5,<4.0.0",
     "pandas<3.0.0",
@@ -2031,11 +2055,11 @@ integration-tests = [
     "slack-sdk==3.18.1",
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "sql-metadata<3.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "sqlalchemy-pytds>=0.3,<2.0.0",
     "sqlalchemy>=1.4.39,<2",
-    "sqlglot[c]==30.0.3",
+    "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "tableschema>=1.20.2,<2.0.0",
@@ -2140,6 +2164,7 @@ nifi = "datahub.ingestion.source.nifi:NifiSource"
 powerbi = "datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource"
 powerbi-report-server = "datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource"
 iceberg = "datahub.ingestion.source.iceberg.iceberg:IcebergSource"
+informatica = "datahub.ingestion.source.informatica.source:InformaticaSource"
 vertica = "datahub.ingestion.source.sql.vertica:VerticaSource"
 presto = "datahub.ingestion.source.sql.presto:PrestoSource"
 presto-on-hive = "datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource"
@@ -2150,6 +2175,7 @@ unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
+dlt = "datahub.ingestion.source.dlt.dlt:DltSource"
 fivetran = "datahub.ingestion.source.fivetran.fivetran:FivetranSource"
 snaplogic = "datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource"
 qlik-sense = "datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource"
@@ -2246,8 +2272,12 @@ datahub = ["py.typed", "constraints.txt"]
 [tool.uv]
 # flatdict 4.0.1 uses pkg_resources but doesn't declare setuptools as build dep
 extra-build-dependencies = { flatdict = ["setuptools<82"] }
-# Security: GHSA-58pv-8j8x-9vj2 (path traversal vulnerability)
-constraint-dependencies = ["jaraco-context>=6.1.0,<7"]
+# Security constraints applied during resolution (see each comment).
+constraint-dependencies = [
+    "jaraco-context>=6.1.0,<7",  # GHSA-58pv-8j8x-9vj2 (path traversal)
+    "pypdf>=6.10.2",  # GHSA-4pxv-j86v-mhcw (incremental trailer /Size DoS)
+    "authlib>=1.6.11,<2.0.0",  # GHSA-jj8c-mmj3-mmgv (OAuth cache CSRF)
+]
 
 [tool.ruff]
 target-version = "py310"
@@ -2302,6 +2332,9 @@ ban-relative-imports = "all"
 # pydantic v2 deprecations
 "pydantic.validator" = { msg = "Use pydantic.field_validator instead of deprecated validator" }
 "pydantic.root_validator" = { msg = "Use pydantic.model_validator instead of deprecated root_validator" }
+# freezegun does not support pydantic v2: https://github.com/spulec/freezegun/issues/480
+"freezegun" = { msg = "Use time-machine instead: @time_machine.travel(TIME, tick=False). See https://github.com/spulec/freezegun/issues/480" }
+"freezegun.api" = { msg = "Use time-machine instead: @time_machine.travel(TIME, tick=False). See https://github.com/spulec/freezegun/issues/480" }
 
 [tool.ruff.lint.isort]
 section-order = ["future", "patch", "standard-library", "third-party", "first-party", "local-folder"]

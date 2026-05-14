@@ -14,6 +14,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import TagUrn, Urn
 
 DEFAULT_TAG_KEY_FIELDS = ["tag", f"attribution{UNIT_SEPARATOR}source"]
+_TAGS_APK = {"tags": DEFAULT_TAG_KEY_FIELDS}
 
 
 class HasTagsPatch(MetadataPatchProposal):
@@ -37,6 +38,7 @@ class HasTagsPatch(MetadataPatchProposal):
             "add",
             path=("tags", tag.tag, source),
             value=tag,
+            array_primary_keys=_TAGS_APK,
         )
         return self
 

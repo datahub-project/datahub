@@ -214,17 +214,29 @@ class SnowflakeSinkConnector(BaseConnector):
         # Get topics the connector subscribes to from its configuration
         subscribed_topics = set(self.get_topics_from_config())
 
-        # Filter available topics to only those the connector subscribes to
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
-            logger.debug(
-                f"Filtered to {len(topic_list)} subscribed topics for {connector_manifest.name}: {topic_list}"
-            )
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
-            # If no subscription config, use all available topics (OSS behavior)
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
             logger.debug(
-                f"No subscription filter found, using all {len(topic_list)} available topics"
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
             )
         transform_result = get_transform_pipeline().apply_forward(
             topic_list, connector_manifest.config
@@ -307,10 +319,8 @@ class SnowflakeSinkConnector(BaseConnector):
         for topic, table in parser.topics_to_tables.items():
             target_dataset: str = f"{parser.database_name}.{parser.schema_name}.{table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=topic,
                 target_dataset=target_dataset,
                 target_platform="snowflake",
             )
@@ -374,12 +384,31 @@ class ClickHouseSinkConnector(BaseConnector):
             self.all_cluster_topics or connector_manifest.topic_names
         )
 
-        # Filter to subscribed topics
         subscribed_topics = set(self.get_topics_from_config())
         if subscribed_topics:
-            topic_list = list(available_topics.intersection(subscribed_topics))
+            if available_topics:
+                # Runtime topic data available — intersect to exclude stale topics
+                topic_list = list(available_topics.intersection(subscribed_topics))
+                logger.debug(
+                    f"Resolved {len(topic_list)} topics for {connector_manifest.name} "
+                    f"(intersection of {len(available_topics)} runtime topics and "
+                    f"{len(subscribed_topics)} configured topics)"
+                )
+            else:
+                # Runtime /topics API returned nothing (connector hasn't processed
+                # messages yet, or topics were reset) — trust the config directly
+                topic_list = list(subscribed_topics)
+                logger.debug(
+                    f"Runtime topics empty for {connector_manifest.name}, "
+                    f"using {len(topic_list)} topics from connector config"
+                )
         else:
+            # No subscription config found — use whatever the runtime API returned
             topic_list = list(available_topics)
+            logger.debug(
+                f"No subscription config found for {connector_manifest.name}, "
+                f"using all {len(topic_list)} available topics"
+            )
 
         # Apply transforms
         transform_result = get_transform_pipeline().apply_forward(
@@ -720,10 +749,8 @@ class BigQuerySinkConnector(BaseConnector):
                 continue
             target_dataset: str = f"{project}.{dataset_table}"
 
-            # Extract column-level lineage if enabled (uses base class method)
-            fine_grained = self._extract_fine_grained_lineage(
-                source_dataset=original_topic,
-                source_platform=KAFKA,
+            fine_grained = self._extract_sink_fine_grained_lineage(
+                source_topic=original_topic,
                 target_dataset=target_dataset,
                 target_platform=target_platform,
             )
@@ -1225,10 +1252,8 @@ class JdbcSinkConnector(BaseConnector):
                     # Platform doesn't use schemas: database.table
                     target_dataset = get_dataset_name(parser.database_name, table_name)
 
-                # Extract column-level lineage if enabled (uses base class method)
-                fine_grained = self._extract_fine_grained_lineage(
-                    source_dataset=original_topic,
-                    source_platform=KAFKA,
+                fine_grained = self._extract_sink_fine_grained_lineage(
+                    source_topic=original_topic,
                     target_dataset=target_dataset,
                     target_platform=parser.target_platform,
                 )
