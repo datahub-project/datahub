@@ -707,6 +707,7 @@ neo4j:
 
 spring:
   error:
+    # CWE-200: Never include internal details in Spring error responses.
     include-message: never
     include-stacktrace: never
     include-exception: false
