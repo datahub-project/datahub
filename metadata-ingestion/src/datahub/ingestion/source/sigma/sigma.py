@@ -3221,6 +3221,31 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         self._wb_url_id_to_conn_id = {
             url_id: ref.connection_id for url_id, ref in transient_map.items()
         }
+
+        if trace_logger.isEnabledFor(logging.DEBUG):
+            # Distribution of tables by owning connection — lets the
+            # operator see whether a particular connection is over- or
+            # under-represented in the workbook-wide lineage payload.
+            # Mismatch vs. the BFS-level set (see kind=chart-table-unmatched)
+            # is the smoking gun for OAuth-scope-driven payload redaction.
+            conn_counts: Dict[str, int] = {}
+            for ref in transient_map.values():
+                key = ref.connection_id or "<no-connection-id>"
+                conn_counts[key] = conn_counts.get(key, 0) + 1
+            sample_names = list(by_name.keys())[:8]
+            sample_url_ids = list(by_url_id.keys())[:8]
+            trace_logger.debug(
+                "kind=workbook-table-index workbookId=%s "
+                "total_url_ids=%d total_name_keys=%d "
+                "by_connection=%s sample_name_keys=%s sample_url_ids=%s",
+                workbook.workbookId,
+                len(by_url_id),
+                len(by_name),
+                conn_counts,
+                sample_names,
+                sample_url_ids,
+            )
+
         return _WorkbookWarehouseIndex(by_url_id=by_url_id, by_name=by_name)
 
     @staticmethod
@@ -3540,6 +3565,35 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                     upstream.url_id,
                     element.elementId,
                 )
+                if trace_logger.isEnabledFor(logging.DEBUG):
+                    # Deterministic diagnostic: combined with
+                    # kind=workbook-table-index this lets the operator answer
+                    # "is the missing table on a connection the workbook
+                    # index simply doesn't carry?" If bfs_connection_id is
+                    # NOT in the workbook index's by_connection breakdown,
+                    # the workbook-wide payload omitted everything from that
+                    # connection — strong signal of OAuth-scope-driven
+                    # redaction (vs. a connector-side lookup miss).
+                    sample_index_keys = list(wb_warehouse_table_index.by_name.keys())[
+                        :8
+                    ]
+                    trace_logger.debug(
+                        "kind=chart-table-unmatched elementId=%s "
+                        "table_name=%r table_url_id=%s "
+                        "bfs_connection_id=%r "
+                        "workbook_index_total_names=%d "
+                        "workbook_index_total_url_ids=%d "
+                        "workbook_has_any_tables=%s "
+                        "sample_index_name_keys=%s",
+                        element.elementId,
+                        upstream.name,
+                        upstream.url_id,
+                        upstream.connection_id,
+                        len(wb_warehouse_table_index.by_name),
+                        len(wb_warehouse_table_index.by_url_id),
+                        bool(wb_warehouse_table_index.by_name),
+                        sample_index_keys,
+                    )
                 return
             if len(candidates) > 1:
                 self.reporter.chart_warehouse_table_name_ambiguous += 1

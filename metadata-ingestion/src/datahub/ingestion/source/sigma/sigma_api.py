@@ -365,13 +365,19 @@ class SigmaAPI:
         if trace_logger.isEnabledFor(logging.DEBUG):
             trace_logger.debug(
                 "kind=lineage-node workbookId=%s elementId=%s node_id=%s "
-                "source_type=%r node_name=%r node_element_id=%r",
+                "source_type=%r node_name=%r node_element_id=%r "
+                "node_connection_id=%r",
                 workbook.workbookId,
                 element.elementId,
                 source_node_id,
                 source_type,
                 source_node.get(Constant.NAME),
                 source_node.get(Constant.ELEMENTID),
+                # Surface connectionId for type=table / customSQL nodes so
+                # operators can correlate unresolved warehouse tables back
+                # to the owning Sigma connection (and to /v2/connections
+                # OAuth scope gaps).
+                source_node.get("connectionId"),
             )
         if source_type == "dataset":
             try:
@@ -474,6 +480,11 @@ class SigmaAPI:
             upstream_sources[source_node_id] = WarehouseTableUpstream(
                 url_id=url_id,
                 name=name,
+                # Diagnostic-only: carried through to the lookup-failure
+                # site so the operator can attribute an unresolved BFS
+                # table back to the owning Sigma connection.  Empty string
+                # when the BFS payload omits the field for this node.
+                connection_id=str(source_node.get("connectionId") or ""),
             )
         elif source_type == "customSQL":
             pass  # handled by _build_workbook_customsql_registry via the workbook-level lineage endpoint
