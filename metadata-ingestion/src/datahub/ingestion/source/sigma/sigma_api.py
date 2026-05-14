@@ -540,6 +540,14 @@ class SigmaAPI:
                     f"Lineage not supported for element {element.name} of workbook '{workbook.name}' (400 Bad Request)"
                 )
                 return upstream_sources
+            if response.status_code == 409:
+                # Transient server-side conflict (e.g. concurrent edit /
+                # version mismatch on the workbook). Skip this element's
+                # lineage and continue; next run will pick it up.
+                logger.debug(
+                    f"Lineage temporarily unavailable for element {element.name} of workbook '{workbook.name}' (409 Conflict)"
+                )
+                return upstream_sources
             response.raise_for_status()
             response_dict = response.json()
         except requests.exceptions.RequestException as e:
