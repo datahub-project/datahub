@@ -276,7 +276,8 @@ jobs:
           CFG=".github/security-scan-profiles.resolved.json"
           SCAN_PROFILE="${SCAN_PROFILE//[[:space:]]/}"
           export IMAGE_REPOS
-          CANARY_REPO="datahub-gms"
+          CANARY_REPO="$(jq -re --arg p "${SCAN_PROFILE}" '.[$p].canary_repo' "${CFG}")" \
+            || { echo "::error::Profile ${SCAN_PROFILE} is missing required field 'canary_repo' in ${CFG}"; exit 1; }
           REGISTRY_PREFIX="${DOCKER_REGISTRY}"
           probe() { docker manifest inspect "$1" >/dev/null 2>&1; }
 
@@ -299,7 +300,7 @@ jobs:
 
           set_reg_prefix
           if ! probe "${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag}"; then
-            echo "::error::No manifest ${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag} (datahub-gms canary; check the tag, pull permissions, and DOCKER_REGISTRY)."
+            echo "::error::No manifest ${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag} (${CANARY_REPO} canary; check the tag, pull permissions, and DOCKER_REGISTRY)."
             exit 1
           fi
 
