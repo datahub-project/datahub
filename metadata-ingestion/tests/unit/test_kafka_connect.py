@@ -939,6 +939,94 @@ class TestMongoSourceConnector:
         assert len(lineages) == 2
         assert all(lin.fine_grained_lineages is None for lin in lineages)
 
+    def test_mongo_source_asset_lineage_preserved_when_schema_missing(self) -> None:
+        """Asset-level lineage must survive a schema-resolver miss (URN absent from cache)."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo",
+            },
+            tasks=[],
+            topic_names=["prod.mongo.mydb.users"],
+        )
+
+        # Resolver returns the URN string but no schema (URN missing from DataHub cache).
+        mock_resolver = Mock()
+        mock_resolver.resolve_table.return_value = (
+            "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+            None,
+        )
+
+        connector = MongoSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,
+        )
+
+        lineages = connector.extract_lineages()
+
+        # Asset-level lineage MUST be emitted even when CLL extraction has nothing to work with.
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].target_dataset == "prod.mongo.mydb.users"
+        assert lineages[0].fine_grained_lineages is None
+
+    def test_mongo_source_asset_lineage_preserved_when_resolver_raises(self) -> None:
+        """Exceptions in schema resolution must not block asset-level lineage."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://test:8083",
+            cluster_name="test",
+            use_schema_resolver=True,
+            schema_resolver_finegrained_lineage=True,
+        )
+        report = KafkaConnectSourceReport()
+
+        manifest = ConnectorManifest(
+            name="mongo-source-connector",
+            type="source",
+            config={
+                "connector.class": "com.mongodb.kafka.connect.MongoSourceConnector",
+                "topic.prefix": "prod.mongo",
+            },
+            tasks=[],
+            topic_names=["prod.mongo.mydb.users"],
+        )
+
+        mock_resolver = Mock()
+        mock_resolver.resolve_table.side_effect = RuntimeError("simulated GMS hiccup")
+
+        connector = MongoSourceConnector(
+            connector_manifest=manifest,
+            config=config,
+            report=report,
+            schema_resolver=mock_resolver,
+        )
+
+        lineages = connector.extract_lineages()
+
+        # Asset-level lineage survives the exception.
+        assert len(lineages) == 1
+        assert lineages[0].source_dataset == "mydb.users"
+        assert lineages[0].fine_grained_lineages is None
+
+        # The CLL failure is surfaced as a structured warning, not silently dropped.
+        warnings = list(report.warnings)
+        assert len(warnings) == 1
+        assert any("mydb.users" in ctx for ctx in warnings[0].context), (
+            f"Expected warning context to include the failing table; got: {warnings[0].context}"
+        )
+
 
 class TestConfluentCloudConnectors:
     """Test Confluent Cloud connector compatibility with Platform connectors."""

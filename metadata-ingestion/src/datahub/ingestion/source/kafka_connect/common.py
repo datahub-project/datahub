@@ -999,9 +999,21 @@ class BaseConnector:
                 return fine_grained_lineages
 
         except Exception as e:
-            logger.debug(
-                f"Failed to extract fine-grained lineage for "
-                f"{source_dataset} → {target_dataset}: {e}"
+            # Surface as a structured warning so per-collection failures show up in the
+            # ingestion report. Asset-level lineage is unaffected (the caller still
+            # appends the KafkaConnectLineage entry; only fine_grained_lineages is None).
+            self.report.warning(
+                title="Failed to extract column-level lineage",
+                message=(
+                    "An error occurred while resolving schema for column-level "
+                    "lineage. Asset-level lineage is unaffected."
+                ),
+                context=(
+                    f"connector={self.connector_manifest.name}, "
+                    f"source_platform={source_platform}, source={source_dataset}, "
+                    f"target={target_dataset}, error_type={type(e).__name__}"
+                ),
+                exc=e,
             )
 
         return None
