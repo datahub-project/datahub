@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import pytest
 
@@ -14,7 +15,7 @@ PROP_B = StructuredPropertyUrn.from_string(
 )
 
 
-def _parse_mcp_aspect(mcp_raw) -> dict:  # type: ignore[return]
+def _parse_mcp_aspect(mcp_raw: Any) -> dict:  # type: ignore[return]
     return json.loads(mcp_raw.aspect.value)
 
 
