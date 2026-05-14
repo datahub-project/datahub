@@ -2048,7 +2048,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             # before the structuredProperties MCP below is
                             # validated — GMS rejects assignments that reference
                             # a definition not yet in the database.
-                            self.ctx.graph.emit_mcp(definition_mcp)
+                            self.ctx.graph.emit_mcp(definition_mcp, emit_mode=EmitMode.SYNC_PRIMARY)
                         else:
                             yield definition_mcp.as_workunit()
                         self._seen_column_param_urns.add(property_urn)
