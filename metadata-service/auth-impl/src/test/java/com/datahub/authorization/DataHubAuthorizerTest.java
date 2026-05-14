@@ -1288,7 +1288,7 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
-  public void testDenyPolicyOnlyDeniesSpecificUser() throws Exception {
+  public void testDenyPolicyDoesNotAffectNonMatchingActor() throws Exception {
     final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
 
     final Urn deniedUser = Urn.createFromString("urn:li:corpuser:denieduser");
@@ -1436,7 +1436,7 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
-  public void testDenyPolicyDoesNotBlockUnrelatedPrivilege() throws Exception {
+  public void testDenyPolicyForDifferentPrivilegeDoesNotBlock() throws Exception {
     final EntitySpec resourceSpec = new EntitySpec("dataset", "urn:li:dataset:test");
     final Urn userUrn = Urn.createFromString("urn:li:corpuser:testuser");
 
