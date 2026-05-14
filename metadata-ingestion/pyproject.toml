@@ -1386,6 +1386,8 @@ teradata = [
 timescaledb = [
     "acryl-datahub-classify==0.0.11",
     "acryl-great-expectations==0.15.50.1",
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "GeoAlchemy2<0.19.0",
     "greenlet<4.0.0",
@@ -1401,6 +1403,7 @@ timescaledb = [
     "sqlglot==30.0.3",
     "sqlparse<0.6.0",
     "traitlets!=5.2.2,<6.0.0",
+    "urllib3>=1.26,<3.0",
 ]
 
 trino = [

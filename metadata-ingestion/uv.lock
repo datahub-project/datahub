@@ -1899,6 +1899,8 @@ testing-utils = [
 timescaledb = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-great-expectations" },
+    { name = "boto3" },
+    { name = "botocore" },
     { name = "cachetools" },
     { name = "geoalchemy2" },
     { name = "greenlet" },
@@ -1915,6 +1917,7 @@ timescaledb = [
     { name = "sqlglot" },
     { name = "sqlparse" },
     { name = "traitlets" },
+    { name = "urllib3" },
 ]
 trino = [
     { name = "acryl-datahub-classify" },
@@ -2170,6 +2173,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 's3-slim'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sql-queries'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'timescaledb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
@@ -2198,6 +2202,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 's3-slim'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sagemaker'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'sql-queries'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'timescaledb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'unstructured'", specifier = "!=1.23.0,<2.0.0" },
     { name = "build", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "build", marker = "extra == 'docs'", specifier = "<2.0.0" },
@@ -3633,6 +3638,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'sql-queries'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'timescaledb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'unstructured'", specifier = ">=1.26,<3.0" },
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = "<0.41.0" },
