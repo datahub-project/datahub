@@ -6,12 +6,12 @@ The DataHub integration for Hex covers BI entities such as dashboards, charts, d
 
 ## Concept Mapping
 
-| Hex Concept | DataHub Concept                                                                           | Notes               |
-| ----------- | ----------------------------------------------------------------------------------------- | ------------------- |
-| `"hex"`     | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                     |
-| Workspace   | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        |                     |
-| Project     | [Dashboard](https://docs.datahub.com/docs/generated/metamodel/entities/dashboard/)        | Subtype `Project`   |
-| Component   | [Chart](https://docs.datahub.com/docs/generated/metamodel/entities/chart/)                 | Subtype `Component`. Reusable shared cell group; defines its own visualisation. Linked to importing projects via `DashboardInfo.charts`. |
-| Collection  | [Tag](https://docs.datahub.com/docs/generated/metamodel/entities/Tag/)                    |                     |
+| Hex Concept | DataHub Concept                                                                           | Notes                                                                                                                                    |
+| ----------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `"hex"`     | [Data Platform](https://docs.datahub.com/docs/generated/metamodel/entities/dataplatform/) |                                                                                                                                          |
+| Workspace   | [Container](https://docs.datahub.com/docs/generated/metamodel/entities/container/)        |                                                                                                                                          |
+| Project     | [Dashboard](https://docs.datahub.com/docs/generated/metamodel/entities/dashboard/)        | Subtype `Project`                                                                                                                        |
+| Component   | [Chart](https://docs.datahub.com/docs/generated/metamodel/entities/chart/)                | Subtype `Component`. Reusable shared cell group; defines its own visualisation. Linked to importing projects via `DashboardInfo.charts`. |
+| Collection  | [Tag](https://docs.datahub.com/docs/generated/metamodel/entities/Tag/)                    |                                                                                                                                          |
 
 Other Hex concepts are not mapped to DataHub entities yet.

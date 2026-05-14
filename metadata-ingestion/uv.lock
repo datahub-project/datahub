@@ -1083,6 +1083,11 @@ hana = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
+hex = [
+    { name = "patchy" },
+    { name = "requests" },
+    { name = "sqlglot", extra = ["c"] },
+]
 hive = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
@@ -2533,6 +2538,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'glue'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'grafana'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'hana'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'hex'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'hive'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'hive-metastore'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'integration-tests'", specifier = "==2.8.0" },
@@ -2803,6 +2809,7 @@ requires-dist = [
     { name = "requests", marker = "extra == 'fabric-onelake'", specifier = ">=2.28.0,<3.0" },
     { name = "requests", marker = "extra == 'flink'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'grafana'", specifier = "<3.0.0" },
+    { name = "requests", marker = "extra == 'hex'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'informatica'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'integration-tests'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'json-schema'", specifier = "<3.0.0" },
@@ -3036,6 +3043,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'glue'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'grafana'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hana'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hex'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.8.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.8.0" },
