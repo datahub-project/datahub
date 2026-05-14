@@ -3,6 +3,8 @@ package com.linkedin.datahub.graphql.authorization;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -99,5 +101,20 @@ public class AuthorizationUtilsTest {
     // This test validates the method exists and can be called
     boolean result = AuthorizationUtils.canManageDocuments(mockContext);
     // Result depends on the mock context setup
+  }
+
+  @Test
+  public void testCanManageRolesAllowed() {
+    // canManageRoles is the gate used by all three role-CRUD resolvers and by MeResolver to
+    // populate platformPrivileges.manageRoles. Failing this assertion would simultaneously break
+    // the Create/Update/Delete role flows and the UI "Create Role" affordance.
+    QueryContext mockContext = getMockAllowContext();
+    assertTrue(AuthorizationUtils.canManageRoles(mockContext));
+  }
+
+  @Test
+  public void testCanManageRolesDenied() {
+    QueryContext mockContext = getMockDenyContext();
+    assertFalse(AuthorizationUtils.canManageRoles(mockContext));
   }
 }
