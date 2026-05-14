@@ -391,10 +391,10 @@ Docker images for `datahub-ingestion`, `datahub-executor`, and `datahub-actions`
 packages at build time. Override these URLs to point to an internal PyPI mirror or add a secondary
 index for airgapped or corporate environments:
 
-| Property                                          | Default                              | Purpose                                        |
-| ------------------------------------------------- | ------------------------------------ | ---------------------------------------------- |
-| `datahub.dependencies.python.pipMirrorUrl`        | `https://pypi.python.org/simple`     | Replace PyPI entirely (e.g. airgapped mirrors) |
-| `datahub.dependencies.python.pipExtraIndexUrl`    | _(empty)_                            | Add a secondary index alongside the main one   |
+| Property                                       | Default                          | Purpose                                        |
+| ---------------------------------------------- | -------------------------------- | ---------------------------------------------- |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Replace PyPI entirely (e.g. airgapped mirrors) |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Add a secondary index alongside the main one   |
 
 The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
 
