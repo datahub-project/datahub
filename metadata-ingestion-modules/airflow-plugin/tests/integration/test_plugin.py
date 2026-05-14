@@ -40,7 +40,7 @@ def _make_api_request(
 logger = logging.getLogger(__name__)
 IS_LOCAL = os.environ.get("CI", "false") == "false"
 
-DAGS_FOLDER = pathlib.Path(__file__).parent / "dags" / "airflow3"
+DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"

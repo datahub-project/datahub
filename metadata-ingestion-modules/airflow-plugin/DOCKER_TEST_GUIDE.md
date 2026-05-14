@@ -112,14 +112,14 @@ using raw Docker CLI (the wrapper does this for you).
 
 ## When to use Docker
 
-| Aspect              | Docker                         | Local Tox                   |
-| ------------------- | ------------------------------ | --------------------------- |
-| Setup               | Build once, run anywhere       | Requires local Python setup |
-| Reproducibility     | Guaranteed                     | Varies                      |
-| CI/CD               | Native                         | Needs Python preinstalled   |
-| First-run speed     | Slower (image build)           | Faster                      |
-| Subsequent runs     | Fast if cached                 | Fast if cached              |
-| Disk usage          | Higher                         | Lower                       |
+| Aspect          | Docker                   | Local Tox                   |
+| --------------- | ------------------------ | --------------------------- |
+| Setup           | Build once, run anywhere | Requires local Python setup |
+| Reproducibility | Guaranteed               | Varies                      |
+| CI/CD           | Native                   | Needs Python preinstalled   |
+| First-run speed | Slower (image build)     | Faster                      |
+| Subsequent runs | Fast if cached           | Fast if cached              |
+| Disk usage      | Higher                   | Lower                       |
 
 Use Docker for CI, cross-platform testing, or sharing a reproducible
 environment. Use local tox for day-to-day development.

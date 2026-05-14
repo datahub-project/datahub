@@ -29,8 +29,10 @@ base_requirements = {
     # which was added in Airflow 3.1.0. Earlier 3.0.x releases shipped the
     # task-SDK without that module. See hooks/datahub.py.
     "apache-airflow>=3.1.0,<4.0.0",
-    # 2.8.0 is the version exercised by CI against Airflow 3.1.0's constraints file.
-    "apache-airflow-providers-openlineage>=2.8.0",
+    # 2.1.0 added Airflow 3 listener interface support; we deliberately stay at
+    # or below the version pinned by Airflow 3.1.0's constraints file (2.7.1) so
+    # `pip install acryl-datahub-airflow-plugin` works under those constraints.
+    "apache-airflow-providers-openlineage>=2.1.0",
 }
 
 plugins: Dict[str, Set[str]] = {

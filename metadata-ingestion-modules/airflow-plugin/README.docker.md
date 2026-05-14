@@ -51,11 +51,11 @@ The image runs tests via `tox -e py311-airflow31`, which installs
 
 ## When to use Docker
 
-| Use Case                     | Recommended Approach            |
-| ---------------------------- | ------------------------------- |
-| Local development            | Local tox (faster iteration)    |
-| CI/CD pipelines              | Docker (complete isolation)     |
-| Cross-platform testing       | Docker (consistent environment) |
+| Use Case               | Recommended Approach            |
+| ---------------------- | ------------------------------- |
+| Local development      | Local tox (faster iteration)    |
+| CI/CD pipelines        | Docker (complete isolation)     |
+| Cross-platform testing | Docker (consistent environment) |
 
 ## More
 
