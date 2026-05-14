@@ -36,8 +36,8 @@ def _service_account_dict() -> Dict[str, str]:
 def _isolate_google_credentials_env(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Iterator[None]:
-    """BigQueryConnectionConfig mutates GOOGLE_APPLICATION_CREDENTIALS;
-    snapshot and restore so it does not leak between tests."""
+    """Clear GOOGLE_APPLICATION_CREDENTIALS so tests can assert it is NOT set
+    by BigQueryConnectionConfig (the config keeps credentials in memory)."""
     monkeypatch.delenv("GOOGLE_APPLICATION_CREDENTIALS", raising=False)
     yield
 
@@ -62,13 +62,10 @@ class TestBigQueryWIFCredentialSetup:
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
-    def test_wif_loads_credentials_and_writes_temp_file(
+    def test_wif_loads_credentials_in_memory(
         self,
         mock_load: MagicMock,
-        monkeypatch: pytest.MonkeyPatch,
-        tmp_path: Path,
     ) -> None:
-        monkeypatch.setenv("TMPDIR", str(tmp_path))
         fake_creds = MagicMock()
         mock_load.return_value = (fake_creds, "wif-project")
 
@@ -77,13 +74,14 @@ class TestBigQueryWIFCredentialSetup:
             gcp_wif_configuration_json=_wif_dict(),
         )
 
+        # WIF credentials are held in memory only — no temp file, no env var.
+        # SQLAlchemy callers receive the bigquery.Client via connect_args
+        # (see profiler.py) rather than picking up creds from the environment.
         assert config._credentials is fake_creds
-        assert config._credentials_path is not None
-
-        with open(config._credentials_path) as f:
-            assert json.load(f) == _wif_dict()
-
-        assert os.environ["GOOGLE_APPLICATION_CREDENTIALS"] == config._credentials_path
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+        mock_load.assert_called_once()
+        passed_dict, _ = mock_load.call_args.args
+        assert passed_dict == _wif_dict()
 
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
@@ -145,14 +143,14 @@ class TestBigQueryWIFCredentialSetup:
     def test_wif_sql_alchemy_url(self, mock_load: MagicMock) -> None:
         mock_load.return_value = (MagicMock(), None)
 
+        # Without project_on_behalf, the URL is project-less; SQLAlchemy picks
+        # up the project from the explicit bigquery.Client the profiler passes
+        # via connect_args.
         config_default = BigQueryConnectionConfig(
             auth_type="workload_identity_federation",
             gcp_wif_configuration_json=_wif_dict(),
         )
-        # Without project_on_behalf, the SQLAlchemy dialect picks up the
-        # project from GOOGLE_APPLICATION_CREDENTIALS (which we set above).
         assert config_default.get_sql_alchemy_url() == "bigquery://"
-        assert "GOOGLE_APPLICATION_CREDENTIALS" in os.environ
 
         config_with_project = BigQueryConnectionConfig(
             auth_type="workload_identity_federation",
@@ -224,8 +222,7 @@ class TestBigQueryServiceAccountCredentialSetup:
 
         assert config.auth_type == BigQueryAuthType.SERVICE_ACCOUNT
         assert config._credentials is fake_creds
-        # SA path keeps credentials only in memory — no temp file, no env var.
-        assert config._credentials_path is None
+        # SA path keeps credentials only in memory — no env var leak.
         assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
 
         # Verify the explicit credentials were built from the SA info
@@ -265,7 +262,6 @@ class TestBigQueryServiceAccountCredentialSetup:
 
         assert config.auth_type == BigQueryAuthType.SERVICE_ACCOUNT
         assert config._credentials is None
-        assert config._credentials_path is None
         assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
 
 
@@ -276,7 +272,7 @@ class TestBigQueryWIFFilePathSetup:
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
-    def test_wif_file_path_writes_temp_file_from_file_contents(
+    def test_wif_file_path_reads_and_builds_credentials(
         self,
         mock_build: MagicMock,
         tmp_path: Path,
@@ -285,7 +281,7 @@ class TestBigQueryWIFFilePathSetup:
         mock_build.return_value = (fake_creds, None)
 
         wif_file = tmp_path / "wif.json"
-        wif_file.write_text(__import__("json").dumps(_wif_dict()))
+        wif_file.write_text(json.dumps(_wif_dict()))
 
         config = BigQueryConnectionConfig(
             auth_type="workload_identity_federation",
@@ -293,14 +289,8 @@ class TestBigQueryWIFFilePathSetup:
         )
 
         assert config._credentials is fake_creds
-        assert config._credentials_path is not None
-        # The temp file written to disk must contain the WIF JSON read from the
-        # source file, proving only a single read occurred.
-        import json as _json
-
-        with open(config._credentials_path) as f:
-            assert _json.load(f) == _wif_dict()
-
+        # The dict passed to the credential builder must match the source file,
+        # proving the file is read and parsed correctly.
         mock_build.assert_called_once()
         passed_dict = mock_build.call_args.args[0]
         assert passed_dict == _wif_dict()

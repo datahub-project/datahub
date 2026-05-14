@@ -1,7 +1,4 @@
-import json
 import logging
-import os
-import tempfile
 from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
@@ -67,7 +64,6 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         ),
     )
 
-    _credentials_path: Optional[str] = PrivateAttr(None)
     _credentials: Optional[Credentials] = PrivateAttr(None)
 
     extra_client_options: Dict[str, Any] = Field(
@@ -124,32 +120,14 @@ class BigQueryConnectionConfig(GCPWIFConfig):
         )
 
     def _setup_wif_credentials(self) -> None:
-        # Resolve the WIF config dict once.  We reuse it for both credential
-        # loading and the temp-file write below, avoiding a second file read.
         # project_id from the WIF config is intentionally ignored — users must
         # set project_on_behalf explicitly when targeting a specific project.
-        wif_dict = self.to_wif_dict()
+        # Keep credentials only in memory. SQLAlchemy callers pass the explicit
+        # bigquery.Client via connect_args (see profiler.py), so the
+        # GOOGLE_APPLICATION_CREDENTIALS env var is not written.
         self._credentials, _ = _build_credentials_from_wif_dict(
-            wif_dict, self.wif_config_source()
+            self.to_wif_dict(), self.wif_config_source()
         )
-
-        # Persist the WIF JSON to a temp file so callers that rely on the
-        # GOOGLE_APPLICATION_CREDENTIALS env var (e.g. the SQLAlchemy BigQuery
-        # dialect) can pick it up. google-auth auto-detects external_account
-        # credentials from the JSON file.
-        #
-        # Caveat: this env var is process-wide. Concurrent BigQuery configs
-        # with different WIF identities will trample each other for SQLAlchemy
-        # callers (the explicit `_credentials` object handles this for direct
-        # GCP client calls). This temp file is also never explicitly deleted.
-        # Track at: https://linear.app/acryl-data/issue/ING-2376
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as fp:
-            json.dump(wif_dict, fp)
-            self._credentials_path = fp.name
-        logger.debug(
-            f"Wrote WIF configuration to temporary file at {self._credentials_path}"
-        )
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
 
     def get_bigquery_client(self) -> bigquery.Client:
         client_options = self.extra_client_options
