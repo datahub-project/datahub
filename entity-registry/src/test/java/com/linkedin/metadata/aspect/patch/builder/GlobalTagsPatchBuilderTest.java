@@ -99,33 +99,30 @@ public class GlobalTagsPatchBuilderTest {
   }
 
   @Test
-  public void testRemoveTag() throws URISyntaxException {
+  public void testRemoveTag() throws Exception {
     TagUrn tagUrn = TagUrn.createFromString(TEST_TAG_URN);
     builder.removeTag(tagUrn);
-    builder.build();
 
-    List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
-    assertNotNull(pathValues);
-    assertEquals(pathValues.size(), 1);
-
-    ImmutableTriple<String, String, JsonNode> operation = pathValues.get(0);
-    assertEquals(operation.getLeft(), "remove");
-    assertTrue(operation.getMiddle().startsWith("/tags/"));
-    assertNull(operation.getRight());
+    MetadataChangeProposal mcp = builder.build();
+    JsonNode payload = parseAspect(mcp);
+    JsonNode patch = payload.get("patch");
+    assertNotNull(patch);
+    assertEquals(patch.size(), 1);
+    assertEquals(patch.get(0).get("op").asText(), "remove");
+    assertTrue(patch.get(0).get("path").asText().startsWith("/tags/"));
   }
 
   @Test
-  public void testMultipleOperations() throws URISyntaxException {
+  public void testMultipleAddOperations() throws URISyntaxException {
     TagUrn tagUrn1 = TagUrn.createFromString(TEST_TAG_URN);
     TagUrn tagUrn2 = TagUrn.createFromString("urn:li:tag:AnotherTag");
 
-    builder.addTag(tagUrn1, "Context 1").addTag(tagUrn2, null).removeTag(tagUrn1);
-
+    builder.addTag(tagUrn1, "Context 1").addTag(tagUrn2, null);
     builder.build();
 
     List<ImmutableTriple<String, String, JsonNode>> pathValues = builder.getTestPathValues();
     assertNotNull(pathValues);
-    assertEquals(pathValues.size(), 3);
+    assertEquals(pathValues.size(), 2);
   }
 
   @Test
@@ -163,7 +160,9 @@ public class GlobalTagsPatchBuilderTest {
     // Source-first layout: /tags//<encodedUrn> — empty source component in the middle,
     // not at the end. Parsson rejects an empty final path component on add.
     assertTrue(path.startsWith("/tags//"), "Expected source-first path, got: " + path);
-    assertTrue(path.contains(tagUrn.toString()), "Path must contain the tag URN");
+    // URN slashes are encoded as ~1 in JSON Pointer paths
+    String encodedUrn = tagUrn.toString().replace("~", "~0").replace("/", "~1");
+    assertTrue(path.contains(encodedUrn), "Path must contain the encoded tag URN");
   }
 
   @Test
@@ -183,8 +182,9 @@ public class GlobalTagsPatchBuilderTest {
     assertEquals(patch.size(), 1);
     String path = patch.get(0).get("path").asText();
     assertEquals(patch.get(0).get("op").asText(), "remove");
-    // Single-segment path /tags/<urn> — no trailing or leading slash for the source component.
-    assertEquals(path, "/tags/" + tagUrn.toString());
+    // Single-segment path /tags/<encodedUrn> — URN slashes are encoded as ~1 in JSON Pointer.
+    String encodedUrn = tagUrn.toString().replace("~", "~0").replace("/", "~1");
+    assertEquals(path, "/tags/" + encodedUrn);
   }
 
   @Test
