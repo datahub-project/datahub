@@ -25,6 +25,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    new_powerbi_dashboards,
     new_powerbi_dataset,
     new_powerbi_reports,
 )
@@ -209,14 +210,40 @@ class PowerBiAPI:
         """
         reports: Dict[str, Report] = {}
         if workspace.scan_result:
-            reports = {
-                report.id: report
-                for report in new_powerbi_reports(
-                    workspace,
-                    workspace.scan_result.get(Constant.REPORTS, []),
-                    extract_ownership=self.__config.extract_ownership,
+            # Pre-filter None and App duplicates so the count-diff below reflects only
+            # malformed entries (missing id/name/reportType), not duplicates.
+            # new_powerbi_reports applies the same filters internally for safety when called
+            # from non-scan paths (data_resolver.get_reports) that don't pre-filter.
+            raw_reports = [
+                r
+                for r in workspace.scan_result.get(Constant.REPORTS, [])
+                if r is not None and Constant.APP_ID not in r
+            ]
+            reports_list = new_powerbi_reports(workspace, raw_reports)
+            if len(reports_list) < len(raw_reports):
+                self.reporter.warning(
+                    title="Skipped Reports",
+                    message=f"Skipped {len(raw_reports) - len(reports_list)} report(s) with missing required fields (id, name, or reportType). Check logs for details.",
+                    context=f"workspace={workspace.name}",
                 )
-            }
+            reports = {r.id: r for r in reports_list}
+            # Warn when ownership is requested but scan result has no user data for any report.
+            # Covers both missing key (None) and present-but-empty list ([]).
+            if (
+                self.__config.extract_ownership
+                and reports_list
+                and not any(r.users for r in reports_list)
+                and not any(raw.get(Constant.USERS) for raw in raw_reports)
+            ):
+                self.reporter.info(
+                    title="Report Users Not in Scan Result",
+                    message=(
+                        "No user data found in scan result for any report. "
+                        "If ownership is expected, ensure the scan job is configured "
+                        "with getArtifactUsers=True."
+                    ),
+                    context=f"workspace={workspace.name}",
+                )
         else:
             self.reporter.info(
                 title="Report Scan Fallback Active",
@@ -233,13 +260,14 @@ class PowerBiAPI:
                     message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
                 self.reporter.warning(
-                    title="Reports Not Fetched",
-                    message="Unable to fetch the bulk reports list for a workspace.",
+                    title="Reports Fetch Failed",
+                    message="Unable to fetch reports for workspace; reports will be empty.",
                     context=f"workspace={workspace.name}",
                 )
-            if self.__config.extract_ownership:
-                for report in reports.values():
-                    report.users = self.get_report_users(workspace.id, report.id)
+            for report in reports.values():
+                # _get_entity_users (called by get_report_users) already handles and swallows
+                # HTTP/network exceptions internally, so no outer try/except is needed here.
+                report.users = self.get_report_users(workspace.id, report.id)
 
         for report in reports.values():
             try:
@@ -248,7 +276,7 @@ class PowerBiAPI:
                 )
             except Exception:
                 self.log_http_error(
-                    message=f"Unable to fetch pages for report {report.name} in workspace {workspace.name}"
+                    message=f"Unable to fetch pages for report {report.name}({report.id}) in workspace {workspace.name}"
                 )
                 self.reporter.warning(
                     title="Report Pages Not Fetched",
@@ -787,15 +815,72 @@ class PowerBiAPI:
 
     def fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = {
-                dashboard.id: dashboard
-                for dashboard in self._get_resolver().get_dashboards(workspace)
-            }
+            if workspace.scan_result:
+                # Pre-filter None and App duplicates here so the count-diff below
+                # reflects only malformed entries (missing id/displayName), not duplicates.
+                # new_powerbi_dashboards applies the same filters internally for safety
+                # when called from non-scan paths that don't pre-filter.
+                raw_dashboards = [
+                    r
+                    for r in workspace.scan_result.get(Constant.DASHBOARDS, [])
+                    if r is not None and Constant.APP_ID not in r
+                ]
+                dashboards_list = new_powerbi_dashboards(workspace, raw_dashboards)
+                if len(dashboards_list) < len(raw_dashboards):
+                    self.__reporter.warning(
+                        title="Skipped Dashboards",
+                        message=f"Skipped {len(raw_dashboards) - len(dashboards_list)} dashboard(s) with missing required fields (id or displayName). Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                # Warn when ownership is requested but scan result has no user data for any
+                # dashboard. Checks for both missing key (None) and present-but-empty list ([]).
+                if (
+                    self.__config.extract_ownership
+                    and dashboards_list
+                    and not any(d.users for d in dashboards_list)
+                    and not any(r.get(Constant.USERS) for r in raw_dashboards)
+                ):
+                    self.__reporter.info(
+                        title="Dashboard Users Not in Scan Result",
+                        message=(
+                            "No user data found in scan result for any dashboard. "
+                            "If ownership is expected, ensure the scan job is configured "
+                            "with getArtifactUsers=True."
+                        ),
+                        context=f"workspace={workspace.name}",
+                    )
+                # Surface tile skips caused by missing id fields in the scan result.
+                total_raw_tiles = sum(
+                    len([t for t in r.get(Constant.TILES) or [] if t is not None])
+                    for r in raw_dashboards
+                    if r.get(Constant.ID) in {d.id for d in dashboards_list}
+                )
+                total_built_tiles = sum(len(d.tiles) for d in dashboards_list)
+                if total_built_tiles < total_raw_tiles:
+                    self.__reporter.warning(
+                        title="Skipped Tiles",
+                        message=f"Skipped {total_raw_tiles - total_built_tiles} tile(s) with missing id field in scan result. Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                workspace.dashboards = {d.id: d for d in dashboards_list}
+            else:
+                self.__reporter.info(
+                    title="Dashboard Scan Fallback Active",
+                    message="Workspace scan returned no data; falling back to per-dashboard get_dashboards/get_tiles/get_dashboard_users calls.",
+                    context=f"workspace={workspace.name}",
+                )
+                workspace.dashboards = {
+                    dashboard.id: dashboard
+                    for dashboard in self._get_resolver().get_dashboards(workspace)
+                }
+                for dashboard in workspace.dashboards.values():
+                    dashboard.tiles = self._get_resolver().get_tiles(
+                        workspace, dashboard=dashboard
+                    )
+                    dashboard.users = self.get_dashboard_users(dashboard)
+
             # set tiles of Dashboard
             for dashboard in workspace.dashboards.values():
-                dashboard.tiles = self._get_resolver().get_tiles(
-                    workspace, dashboard=dashboard
-                )
                 # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
                     # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.

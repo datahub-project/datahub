@@ -198,6 +198,11 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_input_fields_skipped_parameter: int = 0
     # Column whose formula refs are exclusively bare sibling refs (e.g. [col]).
     chart_input_fields_skipped_sibling: int = 0
+    # Extra InputFields emitted for columns whose formula resolves to more than
+    # one distinct (upstream_urn, upstream_field) pair. The first resolved pair
+    # is counted in chart_input_fields_resolved; each additional pair increments
+    # this counter. Non-zero means some chart columns have multi-upstream lineage.
+    chart_input_fields_multi_ref_extra: int = 0
     # Sub-bucket of self_ref_fallback: source name that is a case-only mismatch
     # against a workbook element name (warehouse fallback intentionally skipped).
     chart_input_fields_case_mismatch: int = 0
@@ -234,6 +239,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     chart_warehouse_table_name_unmatched: int = 0
     chart_warehouse_table_node_skipped: int = 0
     chart_warehouse_table_name_ambiguous: int = 0
+    # Column-name bridge: Sigma display name -> warehouse-native name.
+    chart_input_fields_warehouse_column_bridged: int = 0
+    # Warehouse upstream resolved but no native name found; fell back to display name.
+    chart_input_fields_warehouse_column_bridge_unresolved: int = 0
+    # Two warehouse upstreams on the same element exposed the same display name
+    # with different native names; first-written value is kept.
+    chart_input_fields_column_native_names_collision: int = 0
+    # Two DataModelElementUpstream entries on the same element share a display name
+    # mapping to different DM URNs; first-resolved value is kept.
+    chart_input_fields_dm_upstream_name_collision: int = 0
 
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
@@ -319,7 +334,8 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage; dropped to avoid orphan FGL the UI silently rejects.
+    # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
+    # also found no match; dropped to avoid orphan FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
@@ -360,6 +376,16 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # FGL downstream fields dropped because the SQL column name had no matching
     # Sigma display column (formula ref absent or element name mismatch).
     dm_customsql_fgl_downstream_unmapped: int = 0
+    # Elements whose col mapping was populated (at least partially) via the
+    # columnId path rather than formula bracket refs alone.  Non-zero confirms
+    # the passthrough-column bridge is active.
+    dm_customsql_col_mapping_via_columnid: int = 0
+    # columnIds that could not be used as SQL column names (per-column encounter).
+    # Fired for bare non-UPPER_SNAKE identifiers, non-inode slash-shaped IDs, and
+    # inode entries with an empty native part.  Non-zero on Snowflake means the DM
+    # has composition-formula columns (expected); non-zero on other warehouses may
+    # indicate unrecognised columnId formats.  Falls back to formula-ref path.
+    dm_customsql_col_mapping_columnid_rejected: int = 0
 
     # Workbook customSQL chart SQL parsing counters (mirrors dm_customsql_* set).
     workbook_customsql_skipped: int = 0

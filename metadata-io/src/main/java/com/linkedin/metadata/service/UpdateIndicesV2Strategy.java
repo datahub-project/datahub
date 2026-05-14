@@ -83,6 +83,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   // Cache for semantic index existence checks to avoid repeated HEAD requests
   private final Cache<String, Boolean> semanticIndexExistsCache;
 
+  // Throttle cache for timeseries aspect writes
+  @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
+
   /**
    * Creates an UpdateIndicesV2Strategy with optional semantic search support.
    *
@@ -97,6 +100,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    *     batch to a single update with the last state. This is a performance optimization that can
    *     be disabled for more granular updates at the cost of more writes. Note: timeseries aspects
    *     are always processed per-event and not coalesced.
+   * @param mappingsBuilder Pre-built V2 mappings builder. Engine-specific mapping quirks (e.g.
+   *     ES8's stripping of {@code doc_values: false} on round-trip) are supplied to the builder by
+   *     its factory via {@link
+   *     com.linkedin.metadata.utils.elasticsearch.SearchClientShim#partialNgramConfig()}, keeping
+   *     engine-version knowledge out of this strategy.
    */
   public UpdateIndicesV2Strategy(
       @Nonnull EntityIndexVersionConfiguration v2Config,
@@ -106,7 +114,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull String idHashAlgo,
       @Nullable SemanticSearchConfiguration semanticSearchConfig,
       @Nonnull IndexConvention indexConvention,
-      boolean coalesceBatchUpdates) {
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -115,11 +125,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.semanticSearchConfig = semanticSearchConfig;
     this.indexConvention = indexConvention;
     this.coalesceBatchUpdates = coalesceBatchUpdates;
-    this.mappingsBuilder =
-        new V2MappingsBuilder(
-            com.linkedin.metadata.config.search.EntityIndexConfiguration.builder()
-                .v2(v2Config)
-                .build());
+    this.mappingsBuilder = mappingsBuilder;
+    this.timeseriesThrottleCache = timeseriesThrottleCache;
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
@@ -144,6 +151,9 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       @Nonnull Map<Urn, List<MCLItem>> groupedEvents,
       boolean structuredPropertiesHookEnabled) {
 
+    TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary =
+        timeseriesThrottleCache != null ? timeseriesThrottleCache.newSummary() : null;
+
     // Process each group of events for the same URN
     for (List<MCLItem> urnEvents : groupedEvents.values()) {
 
@@ -160,7 +170,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
           LinkedHashMap<String, List<MCLItem>> byAspect =
               UpdateIndicesUtil.groupUpdatesByAspect(updateEvents);
           for (List<MCLItem> aspectEvents : byAspect.values()) {
-            processAspectGroup(opContext, aspectEvents, structuredPropertiesHookEnabled);
+            processAspectGroup(
+                opContext, aspectEvents, structuredPropertiesHookEnabled, throttleSummary);
           }
         } else {
           // Legacy per-event behavior preserved for rollback via flag.
@@ -168,8 +179,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
             if (structuredPropertiesHookEnabled) {
               updateIndexMappings(opContext, event);
             }
-            updateSearchIndicesForEvent(opContext, event);
-            updateTimeseriesFieldsForEvent(opContext, event);
+            processTimeseriesThrottled(
+                opContext,
+                event,
+                throttleSummary,
+                () -> updateSearchIndicesForEvent(opContext, event),
+                () -> updateTimeseriesFieldsForEvent(opContext, event));
           }
         }
       }
@@ -196,6 +211,10 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         }
       }
     }
+
+    if (throttleSummary != null) {
+      throttleSummary.logIfSuppressed();
+    }
   }
 
   /**
@@ -207,7 +226,8 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   private void processAspectGroup(
       @Nonnull OperationContext opContext,
       @Nonnull List<MCLItem> aspectEvents,
-      boolean structuredPropertiesHookEnabled) {
+      boolean structuredPropertiesHookEnabled,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary) {
     if (aspectEvents.isEmpty()) {
       return;
     }
@@ -216,8 +236,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
         if (structuredPropertiesHookEnabled) {
           updateIndexMappings(opContext, event);
         }
-        updateSearchIndicesForEvent(opContext, event);
-        updateTimeseriesFieldsForEvent(opContext, event);
+        processTimeseriesThrottled(
+            opContext,
+            event,
+            throttleSummary,
+            () -> updateSearchIndicesForEvent(opContext, event),
+            () -> updateTimeseriesFieldsForEvent(opContext, event));
       }
       return;
     }
@@ -242,6 +266,77 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     updateSearchIndicesForEvent(opContext, survivor, baseline);
     updateTimeseriesFieldsForEvent(opContext, survivor);
     appendCoalescedRunIds(opContext, survivor, aspectEvents);
+  }
+
+  /**
+   * Applies timeseries throttle checks around entity-index and timeseries-index writes. For
+   * non-timeseries aspects, both writes execute unconditionally.
+   */
+  private void processTimeseriesThrottled(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nullable TimeseriesWriteThrottleCache.ThrottleSummary throttleSummary,
+      @Nonnull Runnable entityIndexWrite,
+      @Nonnull Runnable timeseriesIndexWrite) {
+
+    if (!event.getAspectSpec().isTimeseries() || timeseriesThrottleCache == null) {
+      entityIndexWrite.run();
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    boolean entityEnabled = timeseriesThrottleCache.isEntityIndexEnabled();
+    boolean tsEnabled = timeseriesThrottleCache.isTimeseriesIndexEnabled();
+    boolean observeEnabled = timeseriesThrottleCache.isObserveEnabled();
+
+    // Short-circuit: if no throttle paths are active, skip the cache lookup entirely
+    if (!entityEnabled && !tsEnabled && !observeEnabled) {
+      entityIndexWrite.run();
+      timeseriesIndexWrite.run();
+      return;
+    }
+
+    String entityName = event.getEntitySpec().getName();
+    String urnStr = event.getUrn().toString();
+    String aspectName = event.getAspectName();
+    long eventTimeMs =
+        event.getAuditStamp() != null
+            ? event.getAuditStamp().getTime()
+            : System.currentTimeMillis();
+
+    boolean throttled =
+        timeseriesThrottleCache.shouldThrottle(entityName, urnStr, aspectName, eventTimeMs);
+
+    // Entity index path
+    if (throttled && entityEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+      }
+    } else {
+      entityIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.ENTITY_INDEX);
+      }
+    }
+
+    // Timeseries index path
+    if (throttled && tsEnabled) {
+      if (throttleSummary != null) {
+        throttleSummary.recordSuppressed(
+            TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    } else {
+      timeseriesIndexWrite.run();
+      if (throttleSummary != null) {
+        throttleSummary.recordWritten(TimeseriesWriteThrottleCache.ThrottleTarget.TIMESERIES_INDEX);
+      }
+    }
+
+    // Observe mode: log what would have been throttled without suppressing
+    if (throttled && observeEnabled && throttleSummary != null) {
+      throttleSummary.recordObserved();
+    }
+    // recordWrite is handled by UpdateIndicesService after all strategies have processed
   }
 
   /**
