@@ -16,9 +16,18 @@ export class DatasetPage extends BasePage {
   // ── Glossary term sidebar ──────────────────────────────────────────────────
   readonly sidebarGlossarySection: Locator;
   readonly addTermsButton: Locator;
-  readonly tagTermModalInput: Locator;
   readonly tagTermOption: Locator;
   readonly addTagTermConfirmButton: Locator;
+
+  // ── Sidebar Tags section ──────────────────────────────────────────────────
+  readonly tagsSectionContainer: Locator;
+  readonly addTagsButton: Locator;
+  readonly tagTermModalInput: Locator;
+  readonly tagTermInput: Locator;
+  readonly addTagFromModalButton: Locator;
+  readonly tagUnassignConfirmButton: Locator;
+  readonly tagAddedToast: Locator;
+  readonly tagRemovedToast: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -33,15 +42,38 @@ export class DatasetPage extends BasePage {
 
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
     this.addTermsButton = this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]');
-    // AntD Select renders a div wrapper; target the inner search input for typing.
-    this.tagTermModalInput = page.locator('[data-testid="tag-term-modal-input"] input');
     this.tagTermOption = page.locator('[data-testid="tag-term-option"]').first();
     this.addTagTermConfirmButton = page.locator('[data-testid="add-tag-term-from-modal-btn"]');
+
+    this.tagsSectionContainer = page.locator('#entity-profile-tags');
+    this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
+    this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
+    this.tagTermInput = this.tagTermModalInput.locator('input');
+    this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
+    this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
+    this.tagAddedToast = page.getByText('Added Tags!');
+    this.tagRemovedToast = page.getByText('Removed Tag!');
   }
+
+  // ── Dynamic locators ──────────────────────────────────────────────────────
+
+  getTagChip(tagName: string): Locator {
+    return this.page.getByTestId(`tag-${tagName}`);
+  }
+
+  getTagOption(tagName: string): Locator {
+    return this.page.locator(`[name="${tagName}"]`);
+  }
+
+  getTagRemoveIcon(tagName: string): Locator {
+    return this.getTagChip(tagName).getByTestId('remove-icon');
+  }
+
+  // ── Navigation ────────────────────────────────────────────────────────────
 
   async navigateToDataset(urn: string): Promise<void> {
     await this.navigate(`/dataset/${encodeURIComponent(urn)}`);
-    await this.page.waitForLoadState('networkidle');
+    await this.waitForPageLoad();
   }
 
   getGlossaryTermLocator(termName: string): Locator {
@@ -57,7 +89,7 @@ export class DatasetPage extends BasePage {
     await this.addTermsButton.click();
     await expect(this.tagTermModalInput).toBeVisible();
     // AntD Select triggers search via keyboard events; pressSequentially (not fill) is required.
-    await this.tagTermModalInput.pressSequentially(termName);
+    await this.tagTermInput.pressSequentially(termName);
     await this.tagTermOption.click();
     // Click the header to close the terms select dropdown if it stayed open.
     await this.modalComponent.title.click();
@@ -234,5 +266,48 @@ export class DatasetPage extends BasePage {
     await this.page.getByText('Yes').click();
     await expect(this.page.getByText('Owner Removed')).toBeVisible({ timeout: 15000 });
     await expect(this.page.getByText(owner)).not.toBeVisible({ timeout: 10000 });
+  }
+
+  // ── Tags ──────────────────────────────────────────────────────────────────
+
+  async assignTag(tagName: string): Promise<void> {
+    this.logger?.step('assignTag', { tagName });
+    await expect(this.addTagsButton).toBeVisible();
+    await expect(this.addTagsButton).toBeEnabled();
+    await this.addTagsButton.click();
+
+    await expect(this.tagTermModalInput).toBeVisible();
+    await this.tagTermInput.focus();
+    await this.tagTermInput.fill(tagName);
+
+    const tagOption = this.getTagOption(tagName);
+    await tagOption.waitFor({ state: 'visible' });
+    await tagOption.click();
+
+    await this.page.keyboard.press('Escape');
+
+    await expect(this.addTagFromModalButton).toBeEnabled();
+    await this.addTagFromModalButton.click();
+
+    await expect(this.tagAddedToast).toBeVisible();
+  }
+
+  async unassignTag(tagName: string): Promise<void> {
+    this.logger?.step('unassignTag', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible();
+    await this.getTagRemoveIcon(tagName).click();
+    await expect(this.tagUnassignConfirmButton).toBeVisible();
+    await this.tagUnassignConfirmButton.click();
+    await expect(this.tagRemovedToast).toBeVisible();
+  }
+
+  async expectTagAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeVisible();
+  }
+
+  async expectTagNotAssigned(tagName: string): Promise<void> {
+    this.logger?.step('expectTagNotAssigned', { tagName });
+    await expect(this.getTagChip(tagName)).toBeHidden();
   }
 }

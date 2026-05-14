@@ -146,7 +146,8 @@ public class UpdateIndicesHookTest {
             null,
             mock(IndexConvention.class),
             false,
-            mock(V2MappingsBuilder.class));
+            mock(V2MappingsBuilder.class),
+            null);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -154,6 +155,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(v2Strategy),
+            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled
@@ -265,7 +267,8 @@ public class UpdateIndicesHookTest {
             null,
             mock(IndexConvention.class),
             false,
-            mock(V2MappingsBuilder.class));
+            mock(V2MappingsBuilder.class),
+            null);
 
     updateIndicesService =
         new UpdateIndicesService(
@@ -273,6 +276,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             java.util.Collections.singletonList(testV2Strategy),
+            null,
             true,
             true,
             true);
@@ -899,7 +903,8 @@ public class UpdateIndicesHookTest {
               null, // No semantic search config for this test
               mock(IndexConvention.class),
               false,
-              mock(V2MappingsBuilder.class));
+              mock(V2MappingsBuilder.class),
+              null);
       strategies.add(v2Strategy);
     }
 
@@ -911,7 +916,8 @@ public class UpdateIndicesHookTest {
               searchDocumentTransformer,
               mockTimeseriesAspectService,
               "MD5",
-              v2Enabled); // v2Enabled parameter
+              v2Enabled, // v2Enabled parameter
+              null);
       strategies.add(v3Strategy);
     }
 
@@ -922,6 +928,7 @@ public class UpdateIndicesHookTest {
             mockEntitySearchService,
             mockSystemMetadataService,
             strategies,
+            null,
             true, // searchDiffMode
             true, // structuredPropertiesHookEnabled
             true); // structuredPropertiesWriteEnabled

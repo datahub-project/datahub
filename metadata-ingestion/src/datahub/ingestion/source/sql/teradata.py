@@ -282,7 +282,7 @@ def optimized_get_columns(
     # Incremental extraction: skip column fetch for tables unchanged since the watermark
     if (
         tables_needing_extraction is not None
-        and (schema, table_name) not in tables_needing_extraction
+        and (schema.lower(), table_name) not in tables_needing_extraction
     ):
         logger.debug(
             f"Skipping column extraction for {schema}.{table_name} (unchanged since watermark)"
@@ -295,7 +295,7 @@ def optimized_get_columns(
 
     td_table: Optional[TeradataTable] = None
     # Check if the object is a view
-    for t in tables_cache[schema]:
+    for t in tables_cache.get(schema.lower(), []):
         if t.name == table_name:
             td_table = t
             break
@@ -478,10 +478,11 @@ def optimized_get_view_definition(
     if schema is None:
         schema = self.default_schema_name
 
-    if schema not in tables_cache:
+    schema_key = schema.lower()
+    if schema_key not in tables_cache:
         return None
 
-    for table in tables_cache[schema]:
+    for table in tables_cache[schema_key]:
         if table.name == view_name:
             return self.normalize_name(table.request_text)
 
@@ -907,8 +908,11 @@ ORDER by DataBaseName, TableName;
         if self.config.databases:
             # Teradata identifiers cannot contain single quotes; strip defensively.
             safe_names = [db.replace("'", "") for db in self.config.databases]
-            db_allowlist = "\nAND DataBaseName IN ({})".format(
-                ",".join(f"'{db}'" for db in safe_names)
+            # (NOT CASESPECIFIC) on both sides so the filter works even if the
+            # session collation is set to CASESPECIFIC (rare but seen in compliance-
+            # configured installations); the audit-log query below uses the same idiom.
+            db_allowlist = "\nAND DataBaseName (NOT CASESPECIFIC) IN ({})".format(
+                ",".join(f"'{db}' (NOT CASESPECIFIC)" for db in safe_names)
             )
 
         return self._TABLES_AND_VIEWS_QUERY_TEMPLATE.format(
@@ -1129,13 +1133,48 @@ ORDER by DataBaseName, TableName;
             else:
                 databases = inspector.get_schema_names()
 
+        # When the user supplied an explicit database list, validate each entry
+        # against dbc.TablesV (populated into _tables_cache during discovery).
+        # Without this, a typo in `databases` silently emits a container URN for
+        # a database that does not exist on the source. Only applies when
+        # discovery actually ran (include_tables or include_views).
+        user_supplied_databases = bool(
+            (self.config.database and self.config.database != "")
+            or self.config.databases
+        )
+        # Only validate when discovery actually produced an inventory we can
+        # check against. An empty cache means either discovery was disabled
+        # (include_tables/include_views both False) or it ran and genuinely
+        # found nothing — in both cases there is no oracle to validate against
+        # and we fall back to trusting the user's list.
+        have_db_inventory = (
+            self.config.include_tables or self.config.include_views
+        ) and bool(self._tables_cache)
+
         # Create separate connections for each database to avoid connection lifecycle issues
         for db in databases:
-            if self.config.database_pattern.allowed(db):
-                with engine.connect() as conn:
-                    db_inspector = inspect(conn)
-                    db_inspector._datahub_database = db
-                    yield db_inspector
+            if not self.config.database_pattern.allowed(db):
+                continue
+            if (
+                user_supplied_databases
+                and have_db_inventory
+                and db.lower() not in self._tables_cache
+            ):
+                self.report.warning(
+                    title="Configured database not found on source",
+                    message=(
+                        f"Database {db!r} is listed in the connector config but no "
+                        "tables or views were found for it in dbc.TablesV. Skipping "
+                        "to avoid emitting a container URN for a database that does "
+                        "not exist (or that exists but is empty). Check for typos or "
+                        "remove the entry."
+                    ),
+                )
+                continue
+            with engine.connect() as conn:
+                db_inspector = inspect(conn)
+                db_inspector._datahub_database = db
+                yield db_inspector
 
     def get_db_name(self, inspector: Inspector) -> str:
         if hasattr(inspector, "_datahub_database"):
@@ -1161,7 +1200,7 @@ ORDER by DataBaseName, TableName;
                 i.name
                 for i in filter(
                     lambda t: t.object_type != "View",
-                    self._tables_cache.get(schema, []),
+                    self._tables_cache.get(schema.lower(), []),
                 )
             ],
         )
@@ -1177,7 +1216,7 @@ ORDER by DataBaseName, TableName;
         # this method and provide a location.
         location: Optional[str] = None
 
-        cache_entries = self._tables_cache.get(schema, [])
+        cache_entries = self._tables_cache.get(schema.lower(), [])
         for entry in cache_entries:
             if entry.name == table:
                 description = entry.description
@@ -1189,7 +1228,7 @@ ORDER by DataBaseName, TableName;
     def _get_creator_for_entity(self, schema: str, entity_name: str) -> Optional[str]:
         """Get creator name for a table or view."""
         with self._tables_cache_lock:
-            return self._table_creator_cache.get((schema, entity_name))
+            return self._table_creator_cache.get((schema.lower(), entity_name))
 
     def _emit_ownership_if_available(
         self,
@@ -1257,7 +1296,8 @@ ORDER by DataBaseName, TableName;
         view_names = [
             i.name
             for i in filter(
-                lambda t: t.object_type == "View", self._tables_cache.get(schema, [])
+                lambda t: t.object_type == "View",
+                self._tables_cache.get(schema.lower(), []),
             )
         ]
         actual_view_count = len(view_names)
@@ -1748,12 +1788,15 @@ ORDER by DataBaseName, TableName;
                         database_counts[table.database]["tables"] += 1
 
                     with self._tables_cache_lock:
-                        self._tables_cache[table.database].append(table)
+                        # Cache key is lowercased so lookups by schema name from
+                        # config.databases (case as the user typed it) match entries
+                        # populated from dbc.TablesV (returned in Teradata's stored case).
+                        self._tables_cache[table.database.lower()].append(table)
                         creator_name = (entry.CreatorName or "").strip()
                         if creator_name:
-                            self._table_creator_cache[(table.database, table.name)] = (
-                                creator_name
-                            )
+                            self._table_creator_cache[
+                                (table.database.lower(), table.name)
+                            ] = creator_name
 
                     # Track which tables need column extraction under incremental mode
                     if (
@@ -1764,7 +1807,7 @@ ORDER by DataBaseName, TableName;
                         # Include when timestamp is missing (conservative) or at/after watermark
                         if last_alter is None or last_alter >= watermark:
                             self._tables_needing_column_extraction.add(
-                                (table.database, table.name)
+                                (table.database.lower(), table.name)
                             )
 
                 if self._tables_needing_column_extraction is not None:

@@ -799,6 +799,7 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
+    "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -958,6 +959,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "matillion-dpc",
             "okta",
             "oracle",
             "postgres",
@@ -1119,6 +1121,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
