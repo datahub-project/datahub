@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Set
 from unittest.mock import MagicMock, patch
 
 import bson
@@ -38,6 +38,7 @@ def pipeline_context():
 def get_schema_metadata_aspects(
     workunits: List[MetadataWorkUnit],
 ) -> List[SchemaMetadataClass]:
+    """Extract all SchemaMetadata aspects from a list of workunits."""
     return [
         aspect
         for wu in workunits
@@ -45,7 +46,8 @@ def get_schema_metadata_aspects(
     ]
 
 
-def get_dataset_urns(workunits: List[MetadataWorkUnit]) -> set[str]:
+def get_dataset_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    """Extract the set of dataset entity URNs emitted by a list of workunits."""
     return {
         wu.metadata.entityUrn
         for wu in workunits
