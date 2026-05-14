@@ -19,11 +19,9 @@ concurrency:
 
 env:
   PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
-  ECR_REGISTRY: "795586375822.dkr.ecr.us-west-2.amazonaws.com"
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
   setup:
@@ -33,7 +31,6 @@ jobs:
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
-      image_tag: ${{ steps.resolve-tag.outputs.image_tag }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -89,22 +86,6 @@ jobs:
           echo "yarn_cache_key=playwright-e2e-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=playwright-e2e-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
-      - name: Resolve ECR image tag
-        id: resolve-tag
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
-          # shellcheck disable=SC2016
-          QUERY='.[] | select(.headRefName == $branch) | .number'
-          PR_NUMBER=$(gh pr list --json number,headRefName | jq -r --arg branch "$BRANCH" "$QUERY" | head -1)
-          if [[ -n "$PR_NUMBER" ]]; then
-            echo "image_tag=pr${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-          else
-            SANITIZED="${BRANCH//\//-}"
-            echo "image_tag=${SANITIZED}" >> "$GITHUB_OUTPUT"
-          fi
-
   playwright_test:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
@@ -142,37 +123,13 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Configure ECR or fall back to OSS images
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          IMAGE_TAG: ${{ needs.setup.outputs.image_tag }}
-        run: |
-          if [[ -n "${AWS_ACCESS_KEY_ID:-}" ]]; then
-            aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-            aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-            aws configure set region us-west-2
-            aws ecr get-login-password --region us-west-2 | \
-              docker login --username AWS --password-stdin "$ECR_REGISTRY"
-            {
-              echo "DATAHUB_REPO=${ECR_REGISTRY}"
-              echo "DATAHUB_VERSION=${IMAGE_TAG}"
-              echo "SKIP_EXECUTOR_CONTAINERS=true"
-            } >> "$GITHUB_ENV"
-          else
-            echo "ECR credentials not configured — using OSS Docker Hub images"
-            {
-              echo "DATAHUB_REPO=acryldata"
-              echo "DATAHUB_VERSION=head"
-            } >> "$GITHUB_ENV"
-          fi
-
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_REPO: acryldata
+          DATAHUB_VERSION: head
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-          UV_EXTRA_INDEX_URL: ${{ secrets.UV_EXTRA_INDEX_URL }}
         run: ./smoke-test/run-quickstart.sh
 
       - name: Disable ES Disk Threshold

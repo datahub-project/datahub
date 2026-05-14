@@ -117,9 +117,6 @@ runs:
             - "docker/kafka-setup/**"
           smoke-test:
             - "smoke-test/**"
-            - "e2e-test/**"
-            - ".github/workflows/docker-unified.yml"
-            - ".github/actions/ci-optimization/**"
           actions:
             - "datahub-actions/**"
             - "docker/datahub-actions/**"
@@ -127,4 +124,4 @@ runs:
             - "metadata-integration/java/datahub-client/**"
             - "metadata-models/**"
           e2e-test:
-            - "e2e-test/**"
+            - "e2e-test/ui/playwright/**"

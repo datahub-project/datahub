@@ -214,26 +214,17 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
+        if: ${{ steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' || github.event_name != 'pull_request' }}
         run: |
-          shard_count=${{ github.event.inputs.playwright_shard_count || '4' }}
-          includes=''
-          # Run playwright on backend/frontend/smoke-test changes, or on any non-PR event.
-          # backend_change and frontend_change already embed the || github.event_name != 'pull_request' expansion.
-          if [[ "${{ steps.ci-optimize.outputs.backend-change }}" == 'true' || \
-                "${{ steps.ci-optimize.outputs.frontend-change }}" == 'true' || \
-                "${{ steps.ci-optimize.outputs.smoke-test-change }}" == 'true' || \
-                "${{ steps.ci-optimize.outputs.playwright-change }}" == 'true' || \
-                "${{ github.event_name }}" != 'pull_request' ]]; then
-            matrix=''
-            for ((i = 1; i <= shard_count; i++)); do
-              if [[ -n "$matrix" ]]; then
-                matrix="$matrix,"
-              fi
-              matrix="${matrix}{\"shard\":\"$i\",\"shard_count\":\"$shard_count\"}"
-            done
-            includes="$matrix"
-          fi
-          echo "matrix={\"include\":[$includes]}" >> "$GITHUB_OUTPUT"
+          shard_count=$(( ${{ github.event.inputs.playwright_shard_count || '4' }} ))
+          matrix=''
+          for i in $(seq 1 "$shard_count"); do
+            if [[ -n "$matrix" ]]; then
+              matrix="$matrix,"
+            fi
+            matrix="${matrix}{\"shard\":\"$i\",\"shard_count\":\"$shard_count\"}"
+          done
+          echo "matrix={\"include\":[$matrix]}" >> "$GITHUB_OUTPUT"
           {
             echo "## Playwright Test Matrix"
             echo ""
@@ -891,10 +882,11 @@ jobs:
     name: Playwright E2E Tests (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup, base_build]
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
-    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    if: ${{ always() && !failure() && !cancelled() && github.event_name != 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
     steps:
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
