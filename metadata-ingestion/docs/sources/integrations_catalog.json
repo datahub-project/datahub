@@ -112,6 +112,12 @@
     "description": "Demo Data is a data tool that provides sample data sets for demonstration and testing purposes.",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
+  "dlt": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Push",
+    "description": "Open-source Python library for building data pipelines. Ingest pipeline metadata and lineage from dlt runs into DataHub.",
+    "img_path": "img/logos/platforms/dltlogo.svg"
+  },
   "druid": {
     "platform_type": "Database",
     "connection_type": "Pull",
