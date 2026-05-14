@@ -15,6 +15,7 @@ from datahub.ingestion.source.mongodb import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     SchemaMetadataClass,
 )
@@ -619,6 +620,60 @@ def test_emit_as_documentdb_with_aws_hosting_uses_documentdb_platform(
     assert not any(
         "emit_as_documentdb" in (w.title or "") for w in source.report.warnings
     )
+
+
+def test_emit_as_documentdb_with_platform_instance_propagates_to_all_urns(
+    mock_mongo_client, pipeline_context
+):
+    """
+    Test that emit_as_documentdb flows through to the DataPlatformInstance aspect.
+
+    DataPlatformInstance is only emitted when platform_instance is configured,
+    so this is the only path that exercises self.platform inside
+    make_data_platform_urn(...) and make_dataplatform_instance_urn(...).
+    """
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["users"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=False,
+        emit_as_documentdb=True,
+        hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
+        platform_instance="prod-docdb",
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+    assert source.platform == "documentdb"
+
+    workunits = list(source.get_workunits_internal())
+
+    # Dataset URN carries both the documentdb platform and the platform_instance segment.
+    dataset_urns = get_dataset_urns(workunits)
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:documentdb,prod-docdb.mydb.users,PROD)"
+    }
+
+    # DataPlatformInstance aspects use self.platform in both URN fields. Two
+    # are emitted (database container + dataset); both must carry the documentdb
+    # URN — a regression that flipped only one would otherwise pass.
+    data_platform_instance_aspects = [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(DataPlatformInstanceClass))
+    ]
+    assert {a.platform for a in data_platform_instance_aspects} == {
+        "urn:li:dataPlatform:documentdb"
+    }
+    assert {a.instance for a in data_platform_instance_aspects} == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:documentdb,prod-docdb)"
+    }
 
 
 def test_aws_documentdb_hosting_without_emit_flag_stays_mongodb(
