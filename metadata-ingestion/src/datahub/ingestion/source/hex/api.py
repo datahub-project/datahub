@@ -4,7 +4,7 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any, Callable, Deque, Dict, Generator, List, Optional, TypeVar, Union
 
 import requests
@@ -97,12 +97,8 @@ class HexApiProjectAnalytics(BaseModel):
     @field_validator("last_viewed_at", "published_results_updated_at", mode="before")
     @classmethod
     def parse_datetime(cls, value):
-        if value is None:
-            return None
         if isinstance(value, str):
-            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-                tzinfo=timezone.utc
-            )
+            return _parse_iso(value)
         return value
 
 
@@ -220,12 +216,8 @@ class HexApiProjectApiResource(BaseModel):
     )
     @classmethod
     def parse_datetime(cls, value):
-        if value is None:
-            return None
         if isinstance(value, str):
-            return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-                tzinfo=timezone.utc
-            )
+            return _parse_iso(value)
         return value
 
 

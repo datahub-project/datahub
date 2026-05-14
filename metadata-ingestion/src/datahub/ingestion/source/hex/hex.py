@@ -148,9 +148,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.project_registry: Dict[str, Project] = {}
         self.component_registry: Dict[str, Component] = {}
-        # Cache of raw cells per entity ID, populated during lineage enrichment and
-        # reused by context document generation to avoid fetching twice per project.
-        self._cells_cache: Dict[str, List[dict]] = {}
         # Timestamp of the last successful checkpoint (millis). Used to guard
         # against re-emitting run history that was already captured.
         self._last_ingested_at_ms: Optional[int] = None
@@ -672,14 +669,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             return True
         return False
 
-    def _fetch_and_cache_cells(self, entity_id: str) -> List[dict]:
-        """Export-first cell fetch with cells-API fallback, cached."""
-        if entity_id in self._cells_cache:
-            return self._cells_cache[entity_id]
+    def _fetch_cells(self, entity_id: str) -> List[dict]:
+        """Export-first cell fetch with cells-API fallback."""
         all_cells, _ = self.hex_api.fetch_project_export(entity_id)
         if not all_cells:
             all_cells = self.hex_api.fetch_cells(entity_id)
-        self._cells_cache[entity_id] = all_cells
         return all_cells
 
     def _build_project_lineage(
@@ -747,7 +741,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self.component_registry[component.id] = component
 
         # Component lineage from its own cells
-        comp_cells = self._fetch_and_cache_cells(component.id)
+        comp_cells = self._fetch_cells(component.id)
         comp_sql_cells = _extract_sql_cells(comp_cells)
         if comp_sql_cells:
             lineage_builder.set_project_id(component.id)
@@ -812,7 +806,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         if not all_cells:
             all_cells = self.hex_api.fetch_cells(project.id)
             comp_ids = []
-        self._cells_cache[project.id] = all_cells
 
         # Resolve component imports — fetch on-demand if not yet in registry
         for comp_id in comp_ids:
