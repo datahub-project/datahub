@@ -1,6 +1,9 @@
 import pytest
 
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import (
+    GEProfilingConfig,
+    ProfilingMethodConfig,
+)
 
 
 def test_profile_table_level_only():
@@ -34,8 +37,6 @@ def test_profile_table_level_only_fails_with_field_metric_enabled():
 
 
 def test_profiling_method_defaults_to_sqlalchemy() -> None:
-    """The default profiler is SQLAlchemy, not Great Expectations (since 2026-05-15)."""
-    from datahub.ingestion.source.ge_profiling_config import ProfilingMethodConfig
-
+    """The default profiler is SQLAlchemy, not Great Expectations."""
     config = ProfilingMethodConfig()
     assert config.method == "sqlalchemy"
