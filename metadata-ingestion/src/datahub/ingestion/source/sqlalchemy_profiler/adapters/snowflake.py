@@ -201,39 +201,34 @@ class SnowflakeAdapter(PlatformAdapter):
         quantiles: Optional[List[float]] = None,
     ) -> List[Optional[float]]:
         """
-        Snowflake quantiles via exact PERCENTILE_DISC.
+        Get quantile values for a column using Snowflake's APPROX_PERCENTILE.
 
-        Matches GE behavior (sqlalchemy_dataset.py:_get_column_quantiles_generic_sqlalchemy)
-        which uses PERCENTILE_DISC(q) WITHIN GROUP (ORDER BY col ASC) on Snowflake.
-        Previously this adapter used APPROX_PERCENTILE which is approximate and produces
-        different values. All quantiles computed in a single SELECT for efficiency.
+        Snowflake: APPROX_PERCENTILE(col, quantile) computes a single percentile.
+        We execute one query per quantile.
+
+        Args:
+            table: SQLAlchemy table object
+            column: Column name
+            conn: Active database connection
+            quantiles: List of quantile values (default: DEFAULT_QUANTILES)
+
+        Returns:
+            List of quantile values (None for unavailable quantiles)
         """
         if quantiles is None:
             quantiles = DEFAULT_QUANTILES
 
+        # Snowflake: APPROX_PERCENTILE(col, quantile)
+        results = []
         for q in quantiles:
-            if not (0 <= q <= 1):
-                raise ValueError(
-                    f"Quantiles must be in [0, 1], got {q}. "
-                    f"Quantiles represent percentiles as decimals (e.g., 0.5 for median)."
+            try:
+                snowflake_expr = sa.func.approx_percentile(sa.column(column), q)
+                query = sa.select([snowflake_expr]).select_from(table)
+                result = conn.execute(query).scalar()
+                results.append(float(result) if result is not None else None)
+            except SQLAlchemyError as e:
+                logger.warning(
+                    f"Failed to compute quantile {q} for {column}: {type(e).__name__}: {str(e)}"
                 )
-
-        quoted_column = self.quote_identifier(column)
-        try:
-            cols = [
-                sa.literal_column(
-                    f"PERCENTILE_DISC({q}) WITHIN GROUP (ORDER BY {quoted_column})"
-                ).label(f"q_{int(q * 100)}")
-                for q in quantiles
-            ]
-            query = sa.select(cols).select_from(table)
-            row = conn.execute(query).fetchone()
-            if row is None:
-                return [None] * len(quantiles)
-            return [float(v) if v is not None else None for v in row]
-        except SQLAlchemyError as e:
-            logger.warning(
-                f"Failed to compute Snowflake quantiles for {column}: "
-                f"{type(e).__name__}: {str(e)}"
-            )
-            return [None] * len(quantiles)
+                results.append(None)
+        return results

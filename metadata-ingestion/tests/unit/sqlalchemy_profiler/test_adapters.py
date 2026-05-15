@@ -593,15 +593,12 @@ class TestRedshiftAdapter:
         return RedshiftAdapter(config, report, mock_redshift_engine)
 
     def test_get_approx_unique_count_expr(self, adapter, mock_redshift_engine):
-        """Test Redshift uses APPROXIMATE count(distinct ...)."""
+        """Test Redshift uses COUNT(DISTINCT)."""
         expr = adapter.get_approx_unique_count_expr("customer_id")
         sql = compile_expr_to_sql(expr, mock_redshift_engine.dialect)
 
-        # Validate APPROXIMATE count(distinct "customer_id") - matches GE behavior
-        pattern = (
-            r"\bAPPROXIMATE\s+count\s*\(\s*distinct\s+"
-            r'"?customer_id"?\s*\)'
-        )
+        # Validate COUNT(DISTINCT(column)) structure
+        pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*customer_id\s*\)\s*\)"
         assert_sql_matches_pattern(sql, pattern)
 
     def test_get_median_expr(self, adapter, mock_redshift_engine):
