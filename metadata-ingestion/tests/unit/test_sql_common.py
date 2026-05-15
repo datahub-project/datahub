@@ -41,7 +41,11 @@ def get_test_sql_alchemy_source():
 
 
 class _TestTwoTierSQLAlchemyConfig(TwoTierSQLAlchemyConfig):
-    def get_sql_alchemy_url(self):
+    # Test stub returning a fixed URL. The MRO has two different signatures
+    # for `get_sql_alchemy_url` (TwoTierSQLAlchemyConfig uses `current_db`,
+    # SQLAlchemyConnectionConfig uses `database`), so we silence the override
+    # check rather than pick one and break the other.
+    def get_sql_alchemy_url(self, *args: object, **kwargs: object) -> str:  # type: ignore[override]
         return "mysql+pymysql://user:pass@localhost:5330"
 
 
