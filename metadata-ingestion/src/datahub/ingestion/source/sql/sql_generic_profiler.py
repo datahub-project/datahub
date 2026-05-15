@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     )
 from sqlalchemy.engine.reflection import Inspector
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     parse_ts_millis,
@@ -243,8 +244,6 @@ class GenericProfiler:
             try:
                 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
             except ImportError as e:
-                from datahub.configuration.common import ConfigurationError
-
                 raise ConfigurationError(
                     "The Great Expectations profiler is not installed. Either install "
                     "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
