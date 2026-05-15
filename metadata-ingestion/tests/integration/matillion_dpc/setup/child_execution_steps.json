@@ -1,0 +1,26 @@
+{
+  "results": [
+    {
+      "id": "child-step-1",
+      "name": "Child Extract",
+      "type": "extract",
+      "result": {
+        "status": "SUCCESS",
+        "message": "Child extraction complete",
+        "startedAt": "2024-01-01T00:02:30Z",
+        "finishedAt": "2024-01-01T00:03:00Z"
+      }
+    },
+    {
+      "id": "child-step-2",
+      "name": "Child Transform",
+      "type": "transformation",
+      "result": {
+        "status": "SUCCESS",
+        "message": "Child transformation complete",
+        "startedAt": "2024-01-01T00:03:00Z",
+        "finishedAt": "2024-01-01T00:03:30Z"
+      }
+    }
+  ]
+}

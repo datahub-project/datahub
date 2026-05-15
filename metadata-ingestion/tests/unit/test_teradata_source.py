@@ -18,6 +18,7 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
     optimized_get_columns,
+    optimized_get_view_definition,
 )
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import ObservedQuery
@@ -118,6 +119,27 @@ class TestTeradataConfig:
         }
         config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 5
+
+    def test_hang_protection_defaults(self):
+        """Default hang-protection knobs are enabled with sensible values."""
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.view_processing_timeout_seconds == 1800
+        assert config.view_processing_heartbeat_seconds == 30
+        assert config.lineage_fetch_stall_warning_seconds == 300
+
+    def test_hang_protection_can_be_disabled(self):
+        """All hang-protection knobs accept 0 to disable."""
+        config = TeradataConfig.model_validate(
+            {
+                **_base_config(),
+                "view_processing_timeout_seconds": 0,
+                "view_processing_heartbeat_seconds": 0,
+                "lineage_fetch_stall_warning_seconds": 0,
+            }
+        )
+        assert config.view_processing_timeout_seconds == 0
+        assert config.view_processing_heartbeat_seconds == 0
+        assert config.lineage_fetch_stall_warning_seconds == 0
 
     def test_include_queries_default(self):
         """Test include_queries defaults to True."""
@@ -2484,3 +2506,296 @@ class TestConfigurableTimeouts:
         )
         assert connect_args["request_timeout"] == "300000"
         assert connect_args["connect_timeout"] == "60000"
+
+
+class TestCacheCaseInsensitivity:
+    """Cache must hit regardless of whether config and Teradata report the database
+    name in the same case. dbc.TablesV returns Teradata's stored case (typically
+    uppercase) while users commonly write `databases: [my_db]` in lowercase — the
+    pre-fix lookup missed and the run silently produced zero datasets.
+    """
+
+    def _make_table(
+        self, database: str, name: str, object_type: str = "Table"
+    ) -> TeradataTable:
+        return TeradataTable(
+            database=database,
+            name=name,
+            description=None,
+            object_type=object_type,
+            create_timestamp=datetime(2024, 1, 1),
+            last_alter_name=None,
+            last_alter_timestamp=None,
+            request_text="SELECT 1" if object_type == "View" else None,
+        )
+
+    def test_cache_write_lowercases_database_key(self) -> None:
+        """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
+        source = _create_source_patched()
+        mock_engine = MagicMock()
+        mock_engine.execute.return_value = [
+            _create_mock_table_entry("MY_DB", "MY_TABLE")
+        ]
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert "my_db" in source._tables_cache
+        assert "MY_DB" not in source._tables_cache
+
+    def test_cached_loop_tables_finds_uppercase_entries_with_lowercase_schema(
+        self,
+    ) -> None:
+        """Lookup with a lowercase schema must hit cache entries written in
+        Teradata's stored (typically uppercase) case."""
+        source = _create_source_patched()
+        source._tables_cache["my_db"] = [self._make_table("MY_DB", "MY_TABLE")]
+
+        with patch(
+            "datahub.ingestion.source.sql.two_tier_sql_source.TwoTierSQLAlchemySource.loop_tables"
+        ) as mock_super:
+            mock_super.return_value = []
+            list(source.cached_loop_tables(MagicMock(), "my_db", MagicMock()))
+
+        # super().loop_tables sees the patched get_table_names — invoke it and check
+        # that the schema lookup hits the cache despite case mismatch.
+        inspector = mock_super.call_args.args[0]
+        assert inspector.get_table_names("my_db") == ["MY_TABLE"]
+
+    def test_cached_loop_views_finds_uppercase_entries_with_lowercase_schema(
+        self,
+    ) -> None:
+        source = _create_source_patched()
+        source._tables_cache["my_db"] = [
+            self._make_table("MY_DB", "MY_VIEW", object_type="View")
+        ]
+
+        with patch.object(
+            source, "_loop_views_with_connection_pool", return_value=iter([])
+        ) as mock_pool:
+            list(source.cached_loop_views(MagicMock(), "my_db", MagicMock()))
+
+        # Pre-fix the view list would be empty and the pool never invoked.
+        mock_pool.assert_called_once()
+        view_names = mock_pool.call_args.args[0]
+        assert view_names == ["MY_VIEW"]
+
+    def test_cached_get_table_properties_finds_entry_with_lowercase_schema(
+        self,
+    ) -> None:
+        source = _create_source_patched()
+        entry = self._make_table("MY_DB", "MY_TABLE", object_type="View")
+        entry.description = "promo mart"
+        source._tables_cache["my_db"] = [entry]
+
+        description, properties, _ = source.cached_get_table_properties(
+            MagicMock(), "my_db", "MY_TABLE"
+        )
+
+        assert description == "promo mart"
+        assert properties["view_definition"] == "SELECT 1"
+
+    def test_optimized_get_columns_lowercases_schema_lookup(self) -> None:
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "MY_DB"
+        mock_dialect.get_schema_columns.return_value = {"MY_TABLE": []}
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "my_db": [self._make_table("MY_DB", "MY_TABLE")]
+        }
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "MY_TABLE",
+            "MY_DB",
+            tables_cache=tables_cache,
+        )
+
+        # Reaches column extraction only if the cache lookup hits.
+        mock_dialect.get_schema_columns.assert_called_once()
+
+    def test_optimized_get_view_definition_lowercases_schema_lookup(self) -> None:
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "MY_DB"
+        mock_dialect.normalize_name = lambda s: s
+
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "my_db": [self._make_table("MY_DB", "MY_VIEW", object_type="View")]
+        }
+
+        view_def = optimized_get_view_definition(
+            mock_dialect,
+            MagicMock(),
+            "MY_VIEW",
+            "MY_DB",
+            tables_cache=tables_cache,
+        )
+
+        assert view_def == "SELECT 1"
+
+    def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
+        """extract_ownership: True + lowercase databases must still find creators."""
+        source = _create_source_patched()
+        mock_engine = MagicMock()
+        mock_engine.execute.return_value = [
+            _create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")
+        ]
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert source._get_creator_for_entity("my_db", "MY_TABLE") == "creator_user"
+
+    def test_column_extraction_set_lookup_is_case_insensitive_on_database(
+        self,
+    ) -> None:
+        """Incremental column extraction must hit the set when the watermark-populated
+        rows are uppercase but the SQLAlchemy reflection passes the user's lowercase
+        schema. Pre-fix this skipped every table with a "unchanged since watermark"
+        debug log.
+        """
+        watermark = datetime(2024, 6, 1)
+        source = _create_source_patched(
+            {"column_extraction_watermark": watermark.isoformat()}
+        )
+        mock_engine = MagicMock()
+        mock_engine.execute.return_value = [
+            _create_mock_table_entry(
+                "MY_DB",
+                "MY_TABLE",
+                alter_time=datetime(2024, 6, 2),
+            )
+        ]
+        with patch.object(source, "get_metadata_engine", return_value=mock_engine):
+            source.cache_tables_and_views()
+
+        assert source._tables_needing_column_extraction == {("my_db", "MY_TABLE")}
+
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "MY_DB"
+        mock_dialect.get_schema_columns.return_value = {"MY_TABLE": []}
+
+        optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "MY_TABLE",
+            "MY_DB",
+            tables_cache=dict(source._tables_cache),
+            tables_needing_extraction=source._tables_needing_column_extraction,
+        )
+
+        # Reaches column extraction only if the (schema, table) tuple matched the set.
+        mock_dialect.get_schema_columns.assert_called_once()
+
+    def test_tables_query_uses_not_casespecific_on_database_filter(self) -> None:
+        """Guards against installations whose default session collation is
+        CASESPECIFIC — without (NOT CASESPECIFIC) the IN-list would not match the
+        uppercase DataBaseName rows in dbc.TablesV.
+        """
+        source = _create_source_patched({"databases": ["my_db"]})
+        query = source._build_tables_and_views_query()
+        assert "DataBaseName (NOT CASESPECIFIC) IN" in query
+        assert "'my_db' (NOT CASESPECIFIC)" in query
+
+
+class TestConfiguredDatabasesValidation:
+    """When the user supplies an explicit `databases` list, entries that don't
+    exist on the source must not produce a container URN. Pre-fix, every name
+    in the list was yielded by get_inspectors() and the base SQL source emitted
+    a container for it — so a typo polluted the platform with phantom entities.
+    """
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_nonexistent_database_skipped_with_warning(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        source = _create_source_patched({"databases": ["real_db", "typo_db"]})
+        # Discovery populates the cache for "real_db" only (uppercase from
+        # Teradata → lowercased by the cache fix).
+        source._tables_cache["real_db"] = [
+            TeradataTable(
+                database="REAL_DB",
+                name="T",
+                description=None,
+                object_type="Table",
+                create_timestamp=datetime(2024, 1, 1),
+                last_alter_name=None,
+                last_alter_timestamp=None,
+                request_text=None,
+            )
+        ]
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
+            mock_inspect.return_value = MagicMock()
+            inspectors = list(source.get_inspectors())
+
+        # Only the database that actually has entries in the cache gets an
+        # inspector yielded; the typo is dropped before a container is emitted.
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["real_db"]
+
+        warning_titles = [w.title for w in source.report.warnings]
+        assert "Configured database not found on source" in warning_titles
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_no_validation_when_discovery_disabled(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        """include_tables=False and include_views=False means the cache was
+        never populated, so we have no oracle to validate against. Fall back
+        to trusting the user's list.
+        """
+        source = _create_source_patched(
+            {
+                "databases": ["any_db"],
+                "include_tables": False,
+                "include_views": False,
+            }
+        )
+        # _tables_cache is empty in this scenario.
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
+            mock_inspect.return_value = MagicMock()
+            inspectors = list(source.get_inspectors())
+
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["any_db"]
+        assert source.report.warnings == []
+
+    @patch("datahub.ingestion.source.sql.teradata.create_engine")
+    def test_no_validation_when_databases_not_user_supplied(
+        self, mock_create_engine: MagicMock
+    ) -> None:
+        """When the user did not supply config.database(s), the database list
+        comes from inspector.get_schema_names() which is already authoritative.
+        Validation against the cache would be redundant (and would wrongly
+        suppress empty-but-real databases).
+        """
+        source = _create_source_patched()  # no `databases` set
+
+        mock_inspector = MagicMock()
+        mock_inspector.get_schema_names.return_value = ["from_inspector"]
+        # _tables_cache is empty (no discovery in this minimal test setup),
+        # but we still expect "from_inspector" to be yielded because it came
+        # from the authoritative source.
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_create_engine.return_value = mock_engine
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.inspect",
+            return_value=mock_inspector,
+        ):
+            inspectors = list(source.get_inspectors())
+
+        yielded = [i._datahub_database for i in inspectors]
+        assert yielded == ["from_inspector"]
+        assert source.report.warnings == []

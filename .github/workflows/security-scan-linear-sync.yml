@@ -49,6 +49,11 @@ on:
         required: true
         type: boolean
         default: true
+      upload_trivy_to_github:
+        description: "Upload Trivy SARIF results to the GitHub Security tab"
+        required: true
+        type: boolean
+        default: false
       scan_artifact_retention_days:
         description: "Retention (days) for raw scan result artifacts."
         required: true
@@ -64,6 +69,7 @@ on:
 permissions:
   actions: write
   contents: read
+  security-events: write
 
 concurrency:
   group: security-scan-linear-${{ github.run_id }}
@@ -77,6 +83,7 @@ env:
   RESOLVED_SCAN_SEVERITY_LEVELS: ${{ github.event_name == 'workflow_run' && 'CRITICAL,HIGH' || github.event.inputs.scan_severity_levels }}
   RESOLVED_SCAN_WITH_TRIVY: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_trivy && 'true' || 'false') }}
   RESOLVED_SCAN_WITH_GRYPE: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_grype && 'true' || 'false') }}
+  RESOLVED_UPLOAD_TRIVY_TO_GITHUB: ${{ (github.event_name == 'workflow_run' && github.ref_name == 'master' && 'true') || (inputs.upload_trivy_to_github && 'true' || 'false') }}
   RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS: ${{ github.event_name == 'workflow_run' && '5' || github.event.inputs.scan_artifact_retention_days }}
 
 jobs:
@@ -94,6 +101,7 @@ jobs:
       ref_kind: ${{ steps.git-ref.outputs.kind }}
       ref_name: ${{ steps.git-ref.outputs.name }}
       ref_sha: ${{ steps.git-ref.outputs.sha }}
+      github_ref: ${{ steps.git-ref.outputs.github_ref }}
       variant_suffix_labels: ${{ steps.scan-profile.outputs.variant_suffix_labels }}
     steps:
       - name: Validate inputs
@@ -276,7 +284,8 @@ jobs:
           CFG=".github/security-scan-profiles.resolved.json"
           SCAN_PROFILE="${SCAN_PROFILE//[[:space:]]/}"
           export IMAGE_REPOS
-          CANARY_REPO="datahub-gms"
+          CANARY_REPO="$(jq -re --arg p "${SCAN_PROFILE}" '.[$p].canary_repo' "${CFG}")" \
+            || { echo "::error::Profile ${SCAN_PROFILE} is missing required field 'canary_repo' in ${CFG}"; exit 1; }
           REGISTRY_PREFIX="${DOCKER_REGISTRY}"
           probe() { docker manifest inspect "$1" >/dev/null 2>&1; }
 
@@ -299,14 +308,21 @@ jobs:
 
           set_reg_prefix
           if ! probe "${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag}"; then
-            echo "::error::No manifest ${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag} (datahub-gms canary; check the tag, pull permissions, and DOCKER_REGISTRY)."
+            echo "::error::No manifest ${REGISTRY_PREFIX}/${CANARY_REPO}:${scan_tag} (${CANARY_REPO} canary; check the tag, pull permissions, and DOCKER_REGISTRY)."
             exit 1
           fi
 
           : > image-list.txt
+          skip_count=0
           for repo in ${IMAGE_REPOS}; do
             if [[ "${VARIANT_SCOPE}" == "primary" ]]; then
-              echo "${prefix}${repo}:${scan_tag}" >> image-list.txt
+              _ref="${prefix}${repo}:${scan_tag}"
+              if probe "${_ref}"; then
+                echo "${_ref}" >> image-list.txt
+              else
+                echo "::warning::Skipping ${_ref}: image not found in registry."
+                skip_count=$((skip_count + 1))
+              fi
               continue
             fi
             _use=()
@@ -335,16 +351,31 @@ jobs:
           ' "${CFG}" || true)
             if [[ ${#_use[@]} -eq 0 ]]; then
               if [[ "${VARIANT_SCOPE}" == "all" ]]; then
-                echo "${prefix}${repo}:${scan_tag}" >> image-list.txt
+                _ref="${prefix}${repo}:${scan_tag}"
+                if probe "${_ref}"; then
+                  echo "${_ref}" >> image-list.txt
+                else
+                  echo "::warning::Skipping ${_ref}: image not found in registry."
+                  skip_count=$((skip_count + 1))
+                fi
               else
                 echo "::warning::Skip ${repo}: no \"${VARIANT_SCOPE}\" match for registry.repos.${repo}.variant_suffixes (profile ${SCAN_PROFILE})."
               fi
               continue
             fi
             for _suf in "${_use[@]}"; do
-              echo "${prefix}${repo}:${scan_tag}${_suf}" >> image-list.txt
+              _ref="${prefix}${repo}:${scan_tag}${_suf}"
+              if probe "${_ref}"; then
+                echo "${_ref}" >> image-list.txt
+              else
+                echo "::warning::Skipping ${_ref}: variant image not found in registry."
+                skip_count=$((skip_count + 1))
+              fi
             done
           done
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Skipped ${skip_count} image(s) not found in registry."
+          fi
 
           if [[ ! -s image-list.txt ]]; then
             echo "::error::No images to pull: VARIANT_SCOPE=${VARIANT_SCOPE} did not match any repo (check registry.repos and variant_suffixes)."
@@ -514,9 +545,14 @@ jobs:
           trivy image --download-java-db-only
           echo "::endgroup::"
           mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
-          fail_count=0
+          fail_count=0 skip_count=0
           for img in "${imgs[@]}"; do
             [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping Trivy scan for ${img}: image not found in registry."
+              skip_count=$((skip_count + 1))
+              continue
+            fi
             if ! trivy image \
               --config trivy.yaml \
               --ignore-unfixed \
@@ -537,6 +573,9 @@ jobs:
           done
           rm -f scan-reports/trivy/trivy-tmp.json
           ls -la scan-reports/trivy/
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Trivy skipped ${skip_count} image(s) not found in registry (group ${REPO_GROUP})."
+          fi
           if [[ "${fail_count}" -gt 0 ]]; then
             echo "::error::Trivy failed for ${fail_count} image(s) in group ${REPO_GROUP}"
             exit 1
@@ -550,6 +589,79 @@ jobs:
           path: scan-reports/trivy
           if-no-files-found: warn
           retention-days: ${{ env.RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS }}
+
+      - name: Generate Trivy SARIF reports
+        if: success() && env.RESOLVED_UPLOAD_TRIVY_TO_GITHUB == 'true'
+        env:
+          SCAN_SEVERITY_LEVELS: ${{ env.RESOLVED_SCAN_SEVERITY_LEVELS }}
+          IMAGES_JSON: ${{ toJson(matrix.images) }}
+        run: |
+          set -euo pipefail
+          mkdir -p scan-reports/trivy-sarif
+          mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
+          for img in "${imgs[@]}"; do
+            [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping SARIF generation for ${img}: image not found in registry."
+              continue
+            fi
+            img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
+            trivy image \
+              --config trivy.yaml \
+              --ignore-unfixed \
+              --scanners vuln \
+              --pkg-types os,library \
+              --severity "${SCAN_SEVERITY_LEVELS}" \
+              --skip-db-update \
+              --skip-java-db-update \
+              --format sarif \
+              --output "scan-reports/trivy-sarif/trivy-${img_key}.sarif" \
+              "${img}" || true
+          done
+
+      - name: Merge Trivy SARIF files into single run
+        if: success() && env.RESOLVED_UPLOAD_TRIVY_TO_GITHUB == 'true'
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          sarif_files=(scan-reports/trivy-sarif/*.sarif)
+          if [[ ${#sarif_files[@]} -eq 0 ]]; then
+            echo "::warning::No SARIF files to merge."
+            exit 0
+          fi
+          jq -s '
+            .[0].runs[0] as $base_run |
+            {
+              "$schema": .[0]["$schema"],
+              version: .[0].version,
+              runs: [{
+                tool: {
+                  driver: {
+                    fullName: $base_run.tool.driver.fullName,
+                    informationUri: $base_run.tool.driver.informationUri,
+                    name: $base_run.tool.driver.name,
+                    version: $base_run.tool.driver.version,
+                    rules: [.[].runs[0].tool.driver.rules // [] | .[]] | unique_by(.id)
+                  }
+                },
+                results: [.[].runs[0].results // [] | .[]],
+                columnKind: $base_run.columnKind
+              } + if $base_run.originalUriBaseIds then
+                    {originalUriBaseIds: $base_run.originalUriBaseIds}
+                  else {} end
+              ]
+            }
+          ' "${sarif_files[@]}" > scan-reports/trivy-merged.sarif
+          echo "Merged ${#sarif_files[@]} SARIF file(s) into scan-reports/trivy-merged.sarif"
+
+      - name: Upload Trivy SARIF to GitHub Security tab
+        if: success() && env.RESOLVED_UPLOAD_TRIVY_TO_GITHUB == 'true'
+        uses: github/codeql-action/upload-sarif@0e9f55954318745b37b7933c693bc093f7336125 # v4.35.1
+        with:
+          sarif_file: scan-reports/trivy-merged.sarif
+          category: trivy-${{ matrix.label }}
+          ref: ${{ needs.select-runner.outputs.github_ref }}
+          sha: ${{ needs.select-runner.outputs.ref_sha }}
 
   scan-grype:
     name: Grype (${{ matrix.label }})
@@ -597,9 +709,14 @@ jobs:
             exit 1
           fi
           mapfile -t imgs < <(jq -r '.[]' <<< "${IMAGES_JSON}")
-          fail_count=0
+          fail_count=0 skip_count=0
           for img in "${imgs[@]}"; do
             [[ -z "${img}" ]] && continue
+            if ! docker manifest inspect "${img}" >/dev/null 2>&1; then
+              echo "::warning::Skipping Grype scan for ${img}: image not found in registry."
+              skip_count=$((skip_count + 1))
+              continue
+            fi
             img_key="$(echo "${img}" | sed -E 's#[^A-Za-z0-9._-]+#_#g')"
             out_raw="scan-reports-raw/grype/grype-${img_key}.json"
             out="scan-reports/grype/grype-${img_key}.json"
@@ -622,6 +739,9 @@ jobs:
             ' "${out_raw}" > "${out}"
           done
           ls -la scan-reports/grype/
+          if [[ "${skip_count}" -gt 0 ]]; then
+            echo "::warning::Grype skipped ${skip_count} image(s) not found in registry (group ${REPO_GROUP})."
+          fi
           if [[ "${fail_count}" -gt 0 ]]; then
             echo "::error::Grype failed for ${fail_count} image(s) in group ${REPO_GROUP}"
             exit 1
