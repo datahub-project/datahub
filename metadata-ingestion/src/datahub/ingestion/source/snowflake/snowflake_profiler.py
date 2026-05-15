@@ -4,14 +4,15 @@ from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Unio
 from snowflake.sqlalchemy import snowdialect
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.sql import sqltypes
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -171,6 +172,15 @@ class SnowflakeProfiler(GenericProfiler, SnowflakeCommonMixin):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
+            try:
+                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+            except ImportError as e:
+                raise ConfigurationError(
+                    "The Great Expectations profiler is not installed. Either install "
+                    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
+                    "or switch to the SQLAlchemy profiler by setting "
+                    "`profiling.method: sqlalchemy` in your recipe."
+                ) from e
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,
