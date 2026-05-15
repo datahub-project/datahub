@@ -93,7 +93,7 @@ class TestS3SlimNoPySpark:
             S3Source.create(config_dict, ctx)
 
         error_msg = str(exc_info.value)
-        assert "PySpark is not installed" in error_msg
+        assert "missing module:" in error_msg
         assert "S3 profiling" in error_msg
         assert "acryl-datahub[s3,pyspark]" in error_msg
 

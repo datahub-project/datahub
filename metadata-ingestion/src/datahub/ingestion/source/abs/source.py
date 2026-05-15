@@ -173,7 +173,8 @@ class ABSSource(StatefulIngestionSourceBase):
                 import pyspark  # noqa: F401
             except (ImportError, ModuleNotFoundError) as e:
                 raise ConfigurationError(
-                    "PySpark is not installed but is required for ABS profiling. "
+                    "ABS profiling dependencies are not installed "
+                    f"(missing module: {e.name!r}). "
                     "Install with: pip install 'acryl-datahub[abs,pyspark]'"
                 ) from e
 
