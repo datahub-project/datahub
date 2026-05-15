@@ -279,7 +279,7 @@ ext {
                         ':datahub-actions',
                         ':docker:datahub-ingestion',
                     ]
-            ],
+            ]
     ]
 
     // only for debug variants of quickstart to enable <variant>Reload tasks.

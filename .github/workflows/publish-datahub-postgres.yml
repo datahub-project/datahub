@@ -33,7 +33,7 @@ permissions:
 
 env:
   DOCKER_CACHE: DEPOT
-  DEPOT_PROJECT_ID: s0gr1cr3jd
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
 
 jobs:
