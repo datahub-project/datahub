@@ -1,4 +1,4 @@
-import { BookmarksSimple } from '@phosphor-icons/react';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
 import React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

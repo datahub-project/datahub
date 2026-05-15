@@ -33,7 +33,6 @@ import {
     ENV,
     EXTRACT_OWNERS,
     EXTRACT_USAGE_HISTORY,
-    FieldType,
     FilterRecipeField,
     INCLUDE_LINEAGE,
     INCLUDE_TABLES,
@@ -176,6 +175,24 @@ import {
     MARIADB_PASSWORD,
     MARIADB_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/mariadb';
+import {
+    MATILLION_CLIENT_ID,
+    MATILLION_CLIENT_SECRET,
+    MATILLION_ENV,
+    MATILLION_ENVIRONMENT_ALLOW,
+    MATILLION_ENVIRONMENT_DENY,
+    MATILLION_INCLUDE_EXECUTIONS,
+    MATILLION_INCLUDE_UNPUBLISHED,
+    MATILLION_PIPELINE_ALLOW,
+    MATILLION_PIPELINE_DENY,
+    MATILLION_PLATFORM_INSTANCE,
+    MATILLION_PROJECT_ALLOW,
+    MATILLION_PROJECT_DENY,
+    MATILLION_REGION,
+    MATILLION_STATEFUL_INGESTION,
+    MATILLION_STREAMING_ALLOW,
+    MATILLION_STREAMING_DENY,
+} from '@app/ingestV2/source/builder/RecipeForm/matillion-dpc';
 import {
     MSSQL,
     MSSQL_DATABASE,
@@ -325,6 +342,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    MATILLION_DPC,
     MYSQL,
     NOTION,
     OKTA,
@@ -360,28 +378,6 @@ interface RecipeFields {
         hasDynamicFields?: boolean;
     };
 }
-
-export const PLATFORM: RecipeField = {
-    name: 'platform',
-    label: 'Platform',
-    helper: 'Data Platform ID in DataHub',
-    tooltip: 'The Data Platform ID in DataHub (e.g. snowflake, bigquery, redshift, mysql, postgres)',
-    type: FieldType.TEXT,
-    fieldPath: 'platform',
-    placeholder: 'snowflake',
-    rules: [{ required: true, message: 'Platform is required' }],
-};
-
-export const DEFAULT_DB: RecipeField = {
-    name: 'default_db',
-    label: 'Default Database',
-    helper: 'Database for assets from connection',
-    tooltip: 'The Database associated with assets from the Looker connection.',
-    type: FieldType.TEXT,
-    fieldPath: 'default_db',
-    placeholder: 'default_db',
-    rules: [{ required: true, message: 'Default Database is required' }],
-};
 
 export const RECIPE_FIELDS: RecipeFields = {
     [SNOWFLAKE]: {
@@ -643,6 +639,28 @@ export const RECIPE_FIELDS: RecipeFields = {
             STATEFUL_INGESTION_ENABLED,
         ],
         filterSectionTooltip: 'Include or exclude specific dbt Node (resources) from ingestion.',
+    },
+    [MATILLION_DPC]: {
+        fields: [
+            MATILLION_CLIENT_ID,
+            MATILLION_CLIENT_SECRET,
+            MATILLION_REGION,
+            MATILLION_ENV,
+            MATILLION_PLATFORM_INSTANCE,
+        ],
+        filterFields: [
+            MATILLION_PROJECT_ALLOW,
+            MATILLION_PROJECT_DENY,
+            MATILLION_ENVIRONMENT_ALLOW,
+            MATILLION_ENVIRONMENT_DENY,
+            MATILLION_PIPELINE_ALLOW,
+            MATILLION_PIPELINE_DENY,
+            MATILLION_STREAMING_ALLOW,
+            MATILLION_STREAMING_DENY,
+        ],
+        advancedFields: [MATILLION_INCLUDE_EXECUTIONS, MATILLION_INCLUDE_UNPUBLISHED, MATILLION_STATEFUL_INGESTION],
+        filterSectionTooltip:
+            'Include or exclude specific Projects, Environments, Pipelines, and Streaming Pipelines from ingestion.',
     },
     [POWER_BI]: {
         fields: [POWERBI_TENANT_ID, POWERBI_CLIENT_ID, POWERBI_CLIENT_SECRET],

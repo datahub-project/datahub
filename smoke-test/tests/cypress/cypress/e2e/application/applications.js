@@ -2,7 +2,6 @@ import { aliasQuery, hasOperationName } from "../utils";
 
 describe("applications", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     Cypress.on("uncaught:exception", (err, runnable) => false);
     cy.intercept("POST", "/api/v2/graphql", (req) => {
       aliasQuery(req, "appConfig");

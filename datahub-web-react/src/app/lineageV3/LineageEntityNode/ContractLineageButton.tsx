@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
 import React, { useContext } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -41,7 +42,7 @@ export function ContractLineageButton({ urn, direction }: Props) {
                 onMouseLeave={(e) => e.stopPropagation()}
                 data-testid={`contract-${urn}-button`}
             >
-                <Icon icon="CaretLeft" source="phosphor" size="lg" />
+                <Icon icon={CaretLeft} size="lg" />
             </Button>
         </Wrapper>
     );

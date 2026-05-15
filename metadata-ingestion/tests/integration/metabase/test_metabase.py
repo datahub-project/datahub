@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 import pytest
 import time_machine
-from freezegun import freeze_time
 from requests.models import HTTPError
 
 from datahub.configuration.common import PipelineExecutionError
@@ -175,7 +174,7 @@ def test_pipeline(pytestconfig, tmp_path):
     }
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_metabase_ingest_success(
     pytestconfig, tmp_path, test_pipeline, mock_datahub_graph, default_json_response_map
 ):
@@ -217,7 +216,7 @@ def test_metabase_ingest_success(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_stateful_ingestion(
     test_pipeline, mock_datahub_graph, default_json_response_map
 ):
@@ -284,7 +283,7 @@ def test_stateful_ingestion(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_metabase_ingest_failure(pytestconfig, tmp_path, default_json_response_map):
     with (
         patch(

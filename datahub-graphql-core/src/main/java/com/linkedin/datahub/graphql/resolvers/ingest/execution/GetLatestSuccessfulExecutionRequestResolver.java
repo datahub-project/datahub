@@ -88,13 +88,11 @@ public class GetLatestSuccessfulExecutionRequestResolver
                     List.of(
                         new FacetFilterInput(
                             INGESTION_SOURCE_FIELD,
-                            null,
                             List.of(ingestionSourceUrn),
                             false,
                             FilterOperator.EQUAL),
                         new FacetFilterInput(
                             RESULT_STATUS_FIELD,
-                            null,
                             List.of(STATUS_SUCCESS),
                             false,
                             FilterOperator.EQUAL)),

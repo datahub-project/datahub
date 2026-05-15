@@ -277,7 +277,7 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates and Callouts by Shirshanka
-  - GraphQL Public API Annoucement
+  - GraphQL Public API Announcement
 - Demo: Faceted Search by Gabe Lyons (DataHub)
 - Stateful Ingestion by Shirshanka Das & Surya Lanka (DataHub)
 - Case-Study: DataHub @ Adevinta by Martinez de Apellaniz

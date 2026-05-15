@@ -15,7 +15,7 @@ export const ImpactAnalysisIcon = styled(VscGraphLeft)`
     font-size: 18px;
 `;
 
-export const CopyOutlinedIcon = styled(CopyOutlined)`
+const CopyOutlinedIcon = styled(CopyOutlined)`
     transform: scaleX(-1);
     font-size: 16px;
 `;
@@ -25,7 +25,7 @@ const MenuItem = styled.div`
     display: flex;
     font-size: 12px;
     padding: 0 4px;
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
 `;
 
 interface Props {

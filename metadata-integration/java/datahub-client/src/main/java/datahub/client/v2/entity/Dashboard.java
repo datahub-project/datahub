@@ -61,7 +61,8 @@ public class Dashboard extends Entity
         HasOwners<Dashboard>,
         HasDomains<Dashboard>,
         HasSubTypes<Dashboard>,
-        HasStructuredProperties<Dashboard> {
+        HasStructuredProperties<Dashboard>,
+        HasDocumentation<Dashboard> {
 
   private static final String ENTITY_TYPE = "dashboard";
 

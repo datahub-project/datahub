@@ -17,11 +17,11 @@ const LoadingContainer = styled.div`
     justify-content: center;
     align-items: center;
     padding: 12px;
-    border-top: 1px solid #f0f0f0;
-    background: white;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    background: ${(props) => props.theme.colors.bg};
 `;
 
-export interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption = NestedSelectOption>
+interface InfiniteScrollNestedSelectProps<OptionType extends NestedSelectOption = NestedSelectOption>
     extends Omit<SelectProps<OptionType>, 'options'> {
     options: OptionType[];
     loading?: boolean;

@@ -1,0 +1,706 @@
+#!/usr/bin/env python3
+"""
+CLI tool to bump schemaVersion annotations on changed PDL aspect files.
+
+Compares PDL files against a base branch and increments the schemaVersion
+annotation on any aspect that has changed — including aspects that transitively
+depend on a changed record via PDL `includes` or field-type references.
+
+Rules:
+  - Only aspects (files with @Aspect annotation) are versioned
+  - Default version if not specified is 1
+  - Any change bumps to base_branch_version + 1
+  - New files (not on base branch) already default to version 1; no write needed
+  - If a non-aspect record A is included by aspect B and A changes, B is bumped
+  - If a non-aspect record A is referenced as a field type in aspect B
+    (e.g. `schedule: optional A`) and A changes, B is bumped
+
+Environment variables:
+  PDL_ROOTS    Colon-separated list of PDL source roots to scan.
+               Default: metadata-models/src/main/pegasus
+  MAIN_BRANCH  Base branch fallback when origin/HEAD is not configured locally.
+               Default: master
+
+Usage:
+    python3 scripts/bump_schema_versions.py
+    python3 scripts/bump_schema_versions.py --base-branch master
+    python3 scripts/bump_schema_versions.py --dry-run --verbose
+    PDL_ROOTS="metadata-models/src/main/pegasus:other/src/main/pegasus" python3 scripts/bump_schema_versions.py
+"""
+
+import argparse
+import json
+import os
+import re
+import subprocess
+import sys
+from collections import defaultdict, deque
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Git helpers
+# ---------------------------------------------------------------------------
+
+
+def detect_default_branch() -> str:
+    """
+    Detect the repo's default branch.
+
+    Resolution order:
+    1. git symbolic-ref refs/remotes/origin/HEAD  (fast, offline)
+    2. MAIN_BRANCH environment variable
+    3. Hard fallback to 'master'
+    """
+    result = subprocess.run(
+        ["git", "symbolic-ref", "refs/remotes/origin/HEAD"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return result.stdout.strip().split("/")[-1]
+
+    if env_branch := os.environ.get("MAIN_BRANCH"):
+        return env_branch
+
+    return "master"
+
+
+def get_merge_base(remote_ref: str) -> str:
+    """Return the merge-base commit SHA between HEAD and remote_ref."""
+    result = subprocess.run(
+        ["git", "merge-base", "HEAD", remote_ref],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error finding merge-base with {remote_ref}: {result.stderr}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return result.stdout.strip()
+
+
+def get_base_pdl_changes(merge_base: str, remote_ref: str) -> list[str]:
+    """Return PDL files that changed on remote_ref since merge_base.
+
+    Used to detect whether any of the PDL files touched on this branch have
+    also moved on the base branch — if so, the branch must be rebased before
+    schemaVersion can be bumped correctly.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=ACM",
+                merge_base,
+                remote_ref,
+                "--",
+                "*.pdl",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting base branch PDL changes: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_changed_pdl_files(base_ref: str) -> list[str]:
+    """Return repo-relative paths of PDL files that differ between base_ref and the working tree.
+
+    Compares base_ref against the working tree (not HEAD) so that uncommitted
+    changes are included — this function runs inside a pre-commit hook.
+    base_ref may be a branch name, remote tracking ref, or commit SHA.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=ACM",
+                base_ref,
+                "--",
+                "*.pdl",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting changed files: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_file_at_branch(filepath: str, branch: str) -> str | None:
+    """Return file content at branch, or None if the file doesn't exist there."""
+    result = subprocess.run(
+        ["git", "show", f"{branch}:{filepath}"],
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
+# ---------------------------------------------------------------------------
+# PDL parsing
+# ---------------------------------------------------------------------------
+
+# Default PDL source root relative to the repo root
+_DEFAULT_PDL_ROOT = Path("metadata-models/src/main/pegasus")
+
+
+def get_pdl_roots() -> list[Path]:
+    """
+    Return the list of PDL source roots to scan.
+
+    Reads the PDL_ROOTS environment variable (colon-separated paths).
+    Falls back to the single default root if the variable is not set.
+    """
+    raw = os.environ.get("PDL_ROOTS")
+    if raw:
+        return [Path(p.strip()) for p in raw.split(":") if p.strip()]
+    return [_DEFAULT_PDL_ROOT]
+
+
+def _relative_to_any_root(path: Path, roots: list[Path]) -> Path | None:
+    """Return path relative to the first matching root, or None if it matches none."""
+    for root in roots:
+        try:
+            return path.relative_to(root)
+        except ValueError:
+            continue
+    return None
+
+
+def find_all_pdl_files() -> list[Path]:
+    return [f for root in get_pdl_roots() for f in root.rglob("*.pdl")]
+
+
+def fqn_to_path(fqn: str) -> Path | None:
+    """Convert a fully-qualified PDL name (com.linkedin.X.Foo) to a file path."""
+    return _DEFAULT_PDL_ROOT / Path(fqn.replace(".", "/")).with_suffix(".pdl")
+
+
+def parse_pdl_header(content: str) -> tuple[str, dict[str, str]]:
+    """
+    Return (namespace, imports) where imports maps short name → FQN.
+    e.g. ("com.linkedin.dataset", {"TimeseriesAspectBase": "com.linkedin.timeseries.TimeseriesAspectBase"})
+    """
+    ns_match = re.search(r"^\s*namespace\s+([\w.]+)", content, re.MULTILINE)
+    namespace = ns_match.group(1) if ns_match else ""
+
+    imports: dict[str, str] = {}
+    for m in re.finditer(r"^\s*import\s+([\w.]+)", content, re.MULTILINE):
+        fqn = m.group(1)
+        short = fqn.rsplit(".", 1)[-1]
+        imports[short] = fqn
+
+    return namespace, imports
+
+
+def parse_includes(content: str) -> list[str]:
+    """
+    Return the short names listed in all `record X includes A, B, C` clauses.
+    """
+    names: list[str] = []
+    for match in re.finditer(r"\brecord\s+\w+\s+includes\s+([^{]+)", content):
+        names.extend(name.strip() for name in match.group(1).split(",") if name.strip())
+    return names
+
+
+def resolve_includes(content: str) -> list[str]:
+    """
+    Return FQNs for all records this PDL file includes.
+    Short names are resolved via import statements, with namespace as fallback.
+    """
+    namespace, imports = parse_pdl_header(content)
+    short_names = parse_includes(content)
+    fqns: list[str] = []
+    for name in short_names:
+        if name in imports:
+            fqns.append(imports[name])
+        elif namespace:
+            fqns.append(f"{namespace}.{name}")
+    return fqns
+
+
+# ---------------------------------------------------------------------------
+# Field-type reference parsing
+#
+# `includes` alone is not enough: a non-aspect record referenced as a *field
+# type* (e.g. `schedule: optional DataHubIngestionSourceSchedule`) creates a
+# real schema dependency. When the referenced record changes, every aspect
+# that uses it must be bumped, even though no `includes` relationship exists.
+# ---------------------------------------------------------------------------
+
+_STRING_LITERAL_RE = re.compile(r'"(?:[^"\\]|\\.)*"')
+_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+_LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+_IMPORT_LINE_RE = re.compile(r"^\s*import\s+[\w.]+\s*$", re.MULTILINE)
+_ANNOTATION_PREFIX_RE = re.compile(r"@\w+\s*=\s*\{")
+# `pkg.subpkg.PascalName` — lowercase package parts joined by dots, ending in a PascalCase type
+_FQN_REF_RE = re.compile(r"\b(?:[a-z][\w]*\.)+[A-Z]\w*\b")
+_PASCAL_CASE_RE = re.compile(r"\b[A-Z]\w*\b")
+
+_PDL_KEYWORDS = frozenset(
+    {
+        "namespace",
+        "import",
+        "package",
+        "record",
+        "enum",
+        "union",
+        "array",
+        "map",
+        "typeref",
+        "fixed",
+        "optional",
+        "includes",
+    }
+)
+
+
+def _strip_strings_and_comments(content: str) -> str:
+    # Strings first — guards against comment markers (`/*`, `*/`, `//`) embedded
+    # inside string literals being mis-recognized as real comments.
+    content = _STRING_LITERAL_RE.sub('""', content)
+    content = _BLOCK_COMMENT_RE.sub(" ", content)
+    content = _LINE_COMMENT_RE.sub(" ", content)
+    return content
+
+
+def _strip_annotation_blocks(content: str) -> str:
+    """
+    Remove `@Foo = { ... }` annotation values.
+
+    Annotation values are JSON-like, not PDL — identifiers inside are never type
+    references. Brace-balanced so nested objects are handled correctly.
+    """
+    out: list[str] = []
+    i = 0
+    while True:
+        m = _ANNOTATION_PREFIX_RE.search(content, i)
+        if m is None:
+            out.append(content[i:])
+            return "".join(out)
+        out.append(content[i : m.start()])
+        depth = 0
+        j = m.end() - 1  # position of the opening '{'
+        while j < len(content):
+            ch = content[j]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    j += 1
+                    break
+            j += 1
+        i = j
+
+
+def parse_field_types(content: str) -> list[str]:
+    """
+    Return tokens used as field types in this PDL file. Each token is either:
+      - a fully-qualified name (`com.linkedin.common.AuditStamp`), already
+        resolved; or
+      - a PascalCase short name (`AuditStamp`), to be resolved later via the
+        file's imports or namespace.
+
+    The scan masks strings, comments, import lines, and `@Annotation = {...}`
+    blocks first, so only real field-type references remain. It catches:
+
+      - direct references:   `field: Foo`
+      - optional fields:     `field: optional Foo`
+      - generic params:      `field: array[Foo]`, `field: map[string, Foo]`
+      - union members:       `field: union[Foo, Bar]`
+      - nested fields inside inline `record { ... }` definitions
+      - inline FQN refs:     `field: com.linkedin.common.Foo`
+
+    Unresolved short names (no matching import, no matching namespace record)
+    are dropped by `resolve_dependencies`, so any false positives are harmless.
+    """
+    cleaned = _strip_strings_and_comments(content)
+    cleaned = _IMPORT_LINE_RE.sub(" ", cleaned)
+    cleaned = _strip_annotation_blocks(cleaned)
+
+    out: list[str] = []
+    seen: set[str] = set()
+
+    for m in _FQN_REF_RE.finditer(cleaned):
+        ref = m.group(0)
+        if ref not in seen:
+            seen.add(ref)
+            out.append(ref)
+
+    # Mask the FQN matches so their trailing PascalCase tokens aren't counted twice
+    cleaned_no_fqn = _FQN_REF_RE.sub(" ", cleaned)
+
+    for token in _PASCAL_CASE_RE.findall(cleaned_no_fqn):
+        if token in _PDL_KEYWORDS or token in seen:
+            continue
+        seen.add(token)
+        out.append(token)
+
+    return out
+
+
+def resolve_dependencies(content: str) -> list[str]:
+    """
+    Return FQNs for every record / enum / typeref this PDL file depends on,
+    via either `includes` clauses or field-type references.
+
+    Short names are resolved via import statements, with namespace as fallback.
+    Tokens already containing dots are treated as fully-qualified.
+    Unresolvable names (no namespace, not imported) are silently dropped.
+    """
+    namespace, imports = parse_pdl_header(content)
+
+    tokens: list[str] = []
+    seen: set[str] = set()
+    for name in parse_includes(content) + parse_field_types(content):
+        if name not in seen:
+            seen.add(name)
+            tokens.append(name)
+
+    fqns: list[str] = []
+    for name in tokens:
+        if "." in name:
+            fqns.append(name)
+        elif name in imports:
+            fqns.append(imports[name])
+        elif namespace:
+            fqns.append(f"{namespace}.{name}")
+    return fqns
+
+
+def find_aspect_annotation_bounds(content: str) -> tuple[int, int] | None:
+    """Locate the @Aspect annotation object. Returns (start, end) or None."""
+    match = re.search(r"@Aspect\s*=\s*(\{)", content)
+    if not match:
+        return None
+
+    start = match.start(1)
+    depth = 0
+    for i in range(start, len(content)):
+        if content[i] == "{":
+            depth += 1
+        elif content[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return (start, i + 1)
+    return None
+
+
+def parse_annotation(annotation_str: str) -> dict:
+    """Parse a PDL annotation object (JSON with optional trailing commas)."""
+    cleaned = re.sub(r",\s*([}\]])", r"\1", annotation_str)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Cannot parse @Aspect annotation: {e}\nContent: {annotation_str}"
+        )
+
+
+def get_schema_version(content: str) -> int:
+    """Extract schemaVersion from PDL content. Returns 1 if not present."""
+    bounds = find_aspect_annotation_bounds(content)
+    if bounds is None:
+        return 1
+    try:
+        data = parse_annotation(content[bounds[0] : bounds[1]])
+        return int(data.get("schemaVersion", 1))
+    except (ValueError, KeyError):
+        return 1
+
+
+def is_aspect(content: str) -> bool:
+    """Return True if the PDL file defines an aspect."""
+    return bool(re.search(r"@Aspect\s*=\s*\{", content))
+
+
+def update_schema_version(content: str, new_version: int) -> str:
+    """
+    Update or insert schemaVersion in the @Aspect annotation.
+    Preserves the original formatting style of the annotation block.
+    """
+    bounds = find_aspect_annotation_bounds(content)
+    if bounds is None:
+        return content
+
+    start, end = bounds
+    annotation = content[start:end]
+
+    if re.search(r'"schemaVersion"\s*:', annotation):
+        new_annotation = re.sub(
+            r'"schemaVersion"\s*:\s*\d+',
+            f'"schemaVersion": {new_version}',
+            annotation,
+        )
+    else:
+        indent_match = re.search(r"\n(\s+)", annotation)
+        indent = indent_match.group(1) if indent_match else "  "
+
+        close_pos = annotation.rfind("}")
+        before_close = annotation[:close_pos]
+        before_stripped = before_close.rstrip()
+        if before_stripped and not before_stripped.endswith(","):
+            before_stripped += ","
+
+        new_annotation = (
+            before_stripped
+            + f'\n{indent}"schemaVersion": {new_version}\n'
+            + annotation[close_pos:]
+        )
+
+    return content[:start] + new_annotation + content[end:]
+
+
+# ---------------------------------------------------------------------------
+# Include graph
+# ---------------------------------------------------------------------------
+
+
+def build_reverse_include_graph(
+    all_pdl_files: list[Path],
+) -> dict[str, set[str]]:
+    """
+    Build a reverse map: fqn → set of file paths that depend on it.
+
+    A "depends on" edge is recorded both for `record X includes Y` clauses and
+    for field-type references like `field: Y` or `field: optional Y`.
+
+    Given that A.pdl includes B and references C as a field type, the graph
+    will have:
+      fqn(B) → { path(A.pdl) }
+      fqn(C) → { path(A.pdl) }
+    """
+    reverse: dict[str, set[str]] = defaultdict(set)
+    roots = get_pdl_roots()
+
+    for pdl_path in all_pdl_files:
+        try:
+            content = pdl_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+
+        rel = _relative_to_any_root(pdl_path, roots)
+        if rel is None:
+            continue
+
+        # The PascalCase field-type scan will pick up the record's own name
+        # (`record Foo { ... }` → `Foo`). Drop that self-reference here.
+        own_fqn = ".".join(rel.with_suffix("").parts)
+
+        for dep_fqn in resolve_dependencies(content):
+            if dep_fqn == own_fqn:
+                continue
+            reverse[dep_fqn].add(str(pdl_path))
+
+    return reverse
+
+
+def find_transitively_affected_aspects(
+    directly_changed: list[str],
+    reverse_graph: dict[str, set[str]],
+    all_pdl_files: list[Path],
+) -> set[str]:
+    """
+    BFS from the set of directly changed files through the reverse dependency
+    graph. Returns all *aspect* files (including the originals) that need a
+    version bump.
+
+    'directly changed' files don't need to be aspects themselves — a changed
+    non-aspect record (whether referenced via `includes` or as a field type)
+    can trigger bumps in aspects that depend on it.
+    """
+    # Build fqn → path index for fast lookup
+    roots = get_pdl_roots()
+    fqn_to_file: dict[str, str] = {}
+    for pdl_path in all_pdl_files:
+        rel = _relative_to_any_root(pdl_path, roots)
+        if rel is None:
+            continue
+        fqn = ".".join(rel.with_suffix("").parts)
+        fqn_to_file[fqn] = str(pdl_path)
+
+    # Also index by repo-relative path → fqn
+    file_to_fqn: dict[str, str] = {v: k for k, v in fqn_to_file.items()}
+
+    queue: deque[str] = deque(directly_changed)
+    visited: set[str] = set(directly_changed)
+    affected_aspects: set[str] = set()
+
+    while queue:
+        filepath = queue.popleft()
+        path = Path(filepath)
+        if not path.exists():
+            continue
+
+        content = path.read_text(encoding="utf-8")
+        if is_aspect(content):
+            affected_aspects.add(filepath)
+
+        # Walk up the reverse graph: find everything that includes this file
+        fqn = file_to_fqn.get(filepath)
+        if fqn is None:
+            continue
+
+        for parent_path in reverse_graph.get(fqn, set()):
+            if parent_path not in visited:
+                visited.add(parent_path)
+                queue.append(parent_path)
+
+    return affected_aspects
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+
+def main() -> int:
+    default_branch = detect_default_branch()
+
+    parser = argparse.ArgumentParser(
+        description="Bump schemaVersion on changed PDL aspect files.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    parser.add_argument(
+        "--base-branch",
+        default=default_branch,
+        help=f"Branch to compare against (default: auto-detected '{default_branch}')",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print what would change without writing files",
+    )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed per-file output",
+    )
+    args = parser.parse_args()
+
+    remote_ref = f"refs/remotes/origin/{args.base_branch}"
+    merge_base = get_merge_base(remote_ref)
+
+    directly_changed = get_changed_pdl_files(merge_base)
+
+    if not directly_changed:
+        print("No changed PDL files found.")
+        return 0
+
+    # Check whether any PDL files changed on this branch also changed on the
+    # base branch since divergence. If so, the branch must be rebased or
+    # merged before schemaVersion can be bumped correctly.
+    # Unrelated PDL changes on the base branch do not block.
+    base_pdl_changes = get_base_pdl_changes(merge_base, remote_ref)
+    conflicting = sorted(set(directly_changed) & set(base_pdl_changes))
+    if conflicting:
+        files_list = "\n".join(f"  {f}" for f in conflicting)
+        print(
+            f"ERROR: The following PDL file(s) also changed on {args.base_branch} "
+            f"since this branch diverged. Please merge or rebase from "
+            f"{args.base_branch} first:\n{files_list}",
+            file=sys.stderr,
+        )
+        return 1
+
+    if args.verbose:
+        print(f"Comparing against branch: {args.base_branch} (merge-base: {merge_base[:12]})")
+        print(f"Found {len(directly_changed)} directly changed PDL file(s):")
+        for f in directly_changed:
+            print(f"  {f}")
+        print()
+
+    # Build the include graph once across all PDL files
+    all_pdl_files = find_all_pdl_files()
+    reverse_graph = build_reverse_include_graph(all_pdl_files)
+
+    # Expand to all transitively affected aspects
+    to_bump = find_transitively_affected_aspects(
+        directly_changed, reverse_graph, all_pdl_files
+    )
+
+    if not to_bump:
+        print("No aspect files affected.")
+        return 0
+
+    # Separate directly changed aspects from implicitly affected ones for logging
+    directly_changed_set = set(directly_changed)
+
+    bumped: list[str] = []
+    skipped: list[str] = []
+    errors: list[str] = []
+
+    for filepath in sorted(to_bump):
+        path = Path(filepath)
+        current_content = path.read_text(encoding="utf-8")
+
+        # Use remote_ref (refs/remotes/origin/…) rather than the bare branch
+        # name — local checkouts of the base branch may not exist.
+        base_content = get_file_at_branch(filepath, remote_ref)
+        base_version = get_schema_version(base_content) if base_content else 0
+        current_version = get_schema_version(current_content)
+        new_version = base_version + 1
+
+        if current_version >= new_version:
+            if args.verbose:
+                reason = (
+                    "direct change"
+                    if filepath in directly_changed_set
+                    else "implicit (depends on changed record)"
+                )
+                print(
+                    f"SKIP  {filepath}  "
+                    f"(already at v{current_version} >= v{new_version})  [{reason}]"
+                )
+            skipped.append(filepath)
+            continue
+
+        reason = (
+            "direct change"
+            if filepath in directly_changed_set
+            else "implicit (depends on changed record)"
+        )
+
+        try:
+            new_content = update_schema_version(current_content, new_version)
+        except Exception as e:
+            print(f"ERROR {filepath}: {e}", file=sys.stderr)
+            errors.append(filepath)
+            continue
+
+        if args.dry_run:
+            print(
+                f"BUMP  {filepath}  v{base_version} → v{new_version}"
+                f"  [{reason}]  [dry-run]"
+            )
+            bumped.append(filepath)
+        else:
+            path.write_text(new_content, encoding="utf-8")
+            print(f"BUMP  {filepath}  v{base_version} → v{new_version}  [{reason}]")
+            bumped.append(filepath)
+
+    print(
+        f"\nSummary: {len(bumped)} bumped, {len(skipped)} skipped, {len(errors)} errors"
+    )
+
+    return 1 if errors else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

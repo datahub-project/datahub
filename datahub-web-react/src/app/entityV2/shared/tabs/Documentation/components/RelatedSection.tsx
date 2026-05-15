@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { List } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
@@ -22,6 +23,7 @@ import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Tooltip } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -181,7 +183,7 @@ export const RelatedSection: React.FC = () => {
                                     <Button
                                         variant="text"
                                         isCircle
-                                        icon={{ icon: 'Plus', source: 'phosphor' }}
+                                        icon={{ icon: Plus }}
                                         aria-label="Add related link or context"
                                         data-testid="add-related-button"
                                     />

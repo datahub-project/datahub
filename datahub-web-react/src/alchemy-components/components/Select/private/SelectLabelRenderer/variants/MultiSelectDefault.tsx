@@ -1,3 +1,4 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import React from 'react';
 
 import { LabelsWrapper, Placeholder } from '@components/components/Select/components';
@@ -23,7 +24,7 @@ export default function MultiSelectDefault<OptionType extends SelectOption>({
                     return (
                         <Pill
                             label={o.label}
-                            rightIcon={!isDisabled ? 'Close' : ''}
+                            rightIcon={!isDisabled ? X : undefined}
                             size="sm"
                             key={o.value}
                             onClickRightIcon={(e) => {

@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { ANTD_GRAY } from '@app/entity/shared/constants';
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
-export const ShowMoreButton = styled.div`
+const ShowMoreButton = styled.div`
     padding: 4px;
     color: ${colors.gray[1700]};
     text-align: left;

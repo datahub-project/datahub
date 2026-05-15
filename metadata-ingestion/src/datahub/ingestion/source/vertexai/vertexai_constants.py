@@ -1,5 +1,7 @@
 import re
-from typing import Literal, Set
+from typing import List, Literal, Set, Type
+
+from google.cloud import aiplatform
 
 # Platform identifier
 PLATFORM: Literal["vertexai"] = "vertexai"
@@ -326,6 +328,20 @@ class MLMetadataDefaults:
     RETRY_DEADLINE_SECS = 120.0
 
 
+SDK_CLASSES_TO_PATCH_FOR_RETRY: List[Type] = [
+    aiplatform.Model,
+    aiplatform.Experiment,
+    aiplatform.ExperimentRun,
+    aiplatform.PipelineJob,
+    aiplatform.Endpoint,
+    aiplatform.TabularDataset,
+    aiplatform.ImageDataset,
+    aiplatform.TextDataset,
+    aiplatform.VideoDataset,
+    aiplatform.TimeSeriesDataset,
+]
+
+
 class IngestionLimits:
     """Safety limits for ingestion to prevent resource exhaustion."""
 
@@ -408,7 +424,7 @@ class TrainingJobTypes:
     AUTOML_FORECASTING_TRAINING_JOB = "AutoMLForecastingTrainingJob"
 
     @classmethod
-    def all(cls) -> list[str]:
+    def all(cls) -> List[str]:
         """Return all training job type names."""
         return [
             cls.CUSTOM_JOB,
@@ -433,7 +449,7 @@ class DatasetTypes:
     VIDEO_DATASET = "VideoDataset"
 
     @classmethod
-    def all(cls) -> list[str]:
+    def all(cls) -> List[str]:
         """Return all dataset type names."""
         return [
             cls.TEXT_DATASET,

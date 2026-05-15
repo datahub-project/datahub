@@ -29,7 +29,7 @@ Some sources require a separate, usage-specific recipe to ingest Usage and Query
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/source-redshift-capabilities.png"/>
 </p>
 
-Please, always check the usage prerequisities page if the source has as it can happen you have to add additional
+Please, always check the usage prerequisites page if the source has as it can happen you have to add additional
 permissions which only needs for usage.
 
 ## Using Dataset Usage & Query History

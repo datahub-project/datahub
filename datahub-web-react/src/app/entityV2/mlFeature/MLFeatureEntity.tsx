@@ -1,4 +1,9 @@
-import { Infinity, ChartScatter, FileText, ListBullets, TreeStructure, WarningCircle } from '@phosphor-icons/react';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Infinity } from '@phosphor-icons/react/dist/csr/Infinity';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import * as React from 'react';
 
 import { IncidentTab } from '@app/entity/shared/tabs/Incident/IncidentTab';

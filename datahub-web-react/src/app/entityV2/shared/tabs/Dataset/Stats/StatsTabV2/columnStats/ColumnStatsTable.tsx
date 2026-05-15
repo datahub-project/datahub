@@ -128,9 +128,7 @@ function ColumnStatsTable({ columnStats, searchQuery }: Props) {
     if (filteredData.length === 0) {
         return (
             <EmptyContainer>
-                <Text color="gray" weight="bold">
-                    No search results!
-                </Text>
+                <Text weight="bold">No search results!</Text>
             </EmptyContainer>
         );
     }

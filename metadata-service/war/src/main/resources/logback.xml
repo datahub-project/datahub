@@ -91,6 +91,8 @@
     <logger name="org.apache.kafka.clients" level="INFO">
         <appender-ref ref="STDOUT" />
     </logger>
+    <logger name="org.apache.kafka.clients.consumer.ClassicKafkaConsumer" level="WARN"/>
+    <logger name="org.apache.kafka.clients.consumer.internals.ConsumerCoordinator" level="WARN"/>
 
     <logger name="org.reflections.Reflections" level="ERROR">
         <appender-ref ref="STDOUT" />

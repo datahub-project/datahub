@@ -1,4 +1,5 @@
 import { Icon, spacing } from '@components';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -15,7 +16,7 @@ interface Props {
 export function SelectedMark({ className }: Props) {
     return (
         <Wrapper className={className}>
-            <Icon source="phosphor" icon="Check" size="xl" />
+            <Icon icon={Check} size="xl" />
         </Wrapper>
     );
 }

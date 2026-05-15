@@ -1,3 +1,4 @@
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 
 import OperatorSelect from '@app/sharedV2/queryBuilder/OperatorSelect';
@@ -89,7 +90,7 @@ const Condition = ({ selectedPredicate, onDeletePredicate, onChangePredicate, pr
             </SelectContainer>
             <IconsContainer>
                 <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => onDeletePredicate(index)} />
+                    <Icon icon={Trash} size="md" onClick={() => onDeletePredicate(index)} />
                 </CardIcons>
             </IconsContainer>
         </ConditionContainer>

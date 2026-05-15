@@ -2,34 +2,17 @@ import { aliasQuery, hasOperationName } from "../utils";
 
 describe("WelcomeToDataHubModal", () => {
   const SKIP_WELCOME_MODAL_KEY = "skipWelcomeModal";
-  const THEME_V2_STATUS_KEY = "isThemeV2Enabled";
 
   beforeEach(() => {
     cy.window().then((win) => {
       win.localStorage.removeItem(SKIP_WELCOME_MODAL_KEY);
       cy.skipIntroducePage();
-      win.localStorage.setItem(THEME_V2_STATUS_KEY, "true");
-    });
-
-    // Intercept GraphQL requests if needed
-    cy.intercept("POST", "/api/v2/graphql", (req) => {
-      aliasQuery(req, "appConfig");
-
-      // Mock app config to enable theme V2
-      if (hasOperationName(req, "appConfig")) {
-        req.alias = "gqlappConfigQuery";
-        req.continue((res) => {
-          res.body.data.appConfig.featureFlags.themeV2Enabled = true;
-          res.body.data.appConfig.featureFlags.themeV2Default = true;
-        });
-      }
     });
   });
 
   afterEach(() => {
     cy.window().then((win) => {
       win.localStorage.removeItem(SKIP_WELCOME_MODAL_KEY);
-      win.localStorage.removeItem(THEME_V2_STATUS_KEY);
     });
   });
 

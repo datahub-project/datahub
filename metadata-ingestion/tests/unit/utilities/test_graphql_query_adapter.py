@@ -587,6 +587,353 @@ class TestSchemaInvalidation:
         assert len(introspection_calls) == 1
 
 
+# ---------------------------------------------------------------------------
+# Regression: graphql-java whitespace-token DoS limit (DataHub GMS ≤v1.1.0)
+# ---------------------------------------------------------------------------
+# When datahub-agent-context calls execute_graphql with entity_details.gql,
+# the SDK's QueryProjector.adapt_query() inlines all named fragments via
+# _inline_fragments() and re-serialises with print_ast().
+#
+# entity_details.gql has ~30 named fragments (entityPreview, ownershipFields,
+# globalTagsFields, …) referenced across 205 spread sites.  After full
+# recursive inlining the 1,735-line file expands to ~18,500 lines.  The
+# deeply-nested indentation produced by print_ast() yields ~438 000 whitespace
+# characters — 2.2× the 200 000-token DoS protection limit enforced by the
+# graphql-java version shipped with DataHub GMS ≤v1.1.0, resulting in:
+#
+#   "More than 200,000 'whitespace' tokens have been presented.
+#    To prevent Denial Of Service attacks, parsing has been cancelled."
+#
+# Reported by Ayush Sharma (datahub-agent-context==1.4.0.9, DataHub v1.1.0).
+# Nick Adams confirmed v1.3.0 is unaffected.
+#
+# Fix: replace `print_ast(modified_ast)` with
+#   " ".join(print_ast(modified_ast).split())
+# in QueryProjector.adapt_query().  This collapses whitespace from ~438 K to
+# ~28 K tokens with no semantic change (all string literals in the GQL are
+# single words with no internal whitespace).
+
+_ENTITY_DETAILS_GQL_PATH = (
+    Path(__file__).resolve().parents[4]
+    / "datahub-agent-context"
+    / "src"
+    / "datahub_agent_context"
+    / "mcp_tools"
+    / "gql"
+    / "entity_details.gql"
+)
+
+# graphql-java enforces this limit to prevent DoS via excessively large queries.
+_GMS_WHITESPACE_TOKEN_LIMIT = 200_000
+
+
+def _disable_version_tags(query: str) -> str:
+    """Mirror base.py _disable_cloud_fields + _disable_newer_gms_fields for a
+    non-cloud DataHub ≤v1.1.0 instance (both tag types commented out)."""
+    return "\n".join(
+        ("# " + line) if ("#[CLOUD]" in line or "#[NEWER_GMS]" in line) else line
+        for line in query.split("\n")
+    )
+
+
+@pytest.fixture
+def entity_details_gql() -> str:
+    if not _ENTITY_DETAILS_GQL_PATH.exists():
+        pytest.skip(
+            f"entity_details.gql not found at {_ENTITY_DETAILS_GQL_PATH}. "
+            "Run tests from within the datahub monorepo."
+        )
+    return _ENTITY_DETAILS_GQL_PATH.read_text()
+
+
+class TestGraphqlWhitespaceTokenOverflow:
+    """Regression: fragment inlining + print_ast overflows graphql-java's 200 K
+    whitespace-token limit when entity_details.gql is sent to GMS ≤v1.1.0."""
+
+    def test_adapted_query_fits_within_gms_whitespace_token_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """If _inline_fragments() is ever reintroduced into the adapt_query pipeline,
+        the minification step must keep the result under 200 K whitespace tokens.
+
+        adapt_query() no longer inlines by default (fragment defs and spreads are
+        preserved), so this test exercises the legacy _inline_fragments helper
+        directly to document the historical regression and ensure the minification
+        guard still works should inlining return.
+
+        Without minification the inlined query has ~438 K tokens, triggering
+        graphql-java's DoS protection:
+          'More than 200,000 whitespace tokens have been presented …'
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        inlined_doc = _inline_fragments(parse(modified))
+        # Apply the same minification adapt_query() uses.
+        adapted_query = " ".join(print_ast(inlined_doc).split())
+
+        ws_tokens = sum(1 for c in adapted_query if c in " \t\n\r")
+        assert ws_tokens < _GMS_WHITESPACE_TOKEN_LIMIT, (
+            f"Adapted query has {ws_tokens:,} whitespace tokens "
+            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}). "
+            "The minification step in adapt_query() may have been removed or changed."
+        )
+
+    def test_without_minification_print_ast_exceeds_gms_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """Documents why the fix is necessary: raw print_ast output far exceeds the limit.
+
+        ' '.join(query.split()) reduces ~438 K tokens to ~28 K — well within the
+        200 K graphql-java limit — with no semantic change (all string literals in
+        entity_details.gql are single words containing no internal whitespace).
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        inlined_doc = _inline_fragments(parse(modified))
+        raw_query = print_ast(inlined_doc)
+
+        ws_before = sum(1 for c in raw_query if c in " \t\n\r")
+        assert ws_before > _GMS_WHITESPACE_TOKEN_LIMIT, (
+            "Pre-condition failed: unminified print_ast() output should exceed the "
+            "server limit — the fragment expansion may have changed significantly."
+        )
+
+        minified = " ".join(raw_query.split())
+        ws_after = sum(1 for c in minified if c in " \t\n\r")
+        assert ws_after < _GMS_WHITESPACE_TOKEN_LIMIT, (
+            f"Minified query still has {ws_after:,} whitespace tokens "
+            f"(limit {_GMS_WHITESPACE_TOKEN_LIMIT:,}) — minification is no longer sufficient."
+        )
+
+
+# DataHub Cloud edges reject request bodies above ~100KB with 413 Payload Too
+# Large. With fragment inlining, entity_details.gql expanded to ~183KB; with
+# fragments preserved it stays well under 60KB.
+_CLOUD_REQUEST_BODY_BUDGET_BYTES = 60_000
+
+
+class TestAdaptQueryPreservesFragments:
+    """Regression: adapt_query() must preserve named fragments rather than inlining.
+
+    Reported by Ayush Sharma on DataHub Cloud (acryl.acryl.io): GetEntity calls
+    against documents failed with 413 Payload Too Large because the projector
+    inlined every named fragment in entity_details.gql, ballooning the request
+    body from 43KB to 183KB.
+    """
+
+    def test_entity_details_minified_size_under_cloud_body_limit(
+        self, entity_details_gql: str
+    ) -> None:
+        """The minified entity_details.gql with fragments preserved must fit the cloud body budget.
+
+        Mirrors what adapt_query() emits when projection removes nothing: minified
+        AST with fragments intact. A regression that re-introduces _inline_fragments()
+        into adapt_query() would push this past the budget.
+        """
+        modified = _disable_version_tags(entity_details_gql)
+        adapted_query = " ".join(print_ast(parse(modified)).split())
+
+        assert len(adapted_query) < _CLOUD_REQUEST_BODY_BUDGET_BYTES, (
+            f"Adapted query is {len(adapted_query):,} bytes — exceeds the "
+            f"{_CLOUD_REQUEST_BODY_BUDGET_BYTES:,}-byte cloud edge body budget. "
+            "Most likely cause: adapt_query() is inlining fragments again."
+        )
+
+    def test_adapt_query_does_not_inline_supported_fragments(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """When every fragment's type_condition is supported, defs and spreads survive."""
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment DatasetFields on Dataset { urn name }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults { entity { ...DatasetFields } }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        assert removed == []
+        assert "fragment DatasetFields on Dataset" in adapted
+        assert "...DatasetFields" in adapted
+
+    def test_adapt_query_prunes_fragments_orphaned_by_unsupported_type(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """Fragments whose only spread sites disappear via type pruning are dropped.
+
+        graphql-java's NoUnusedFragments validation rule would reject the query
+        otherwise. Reproduces the medium-severity case raised in PR #17385 review.
+        """
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment DocFields on Dataset { urn name }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Document { ...DocFields }
+                        }
+                    }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        # The inline fragment on Document is removed (Document is unsupported),
+        # which leaves DocFields unreferenced — the orphan-prune pass drops it.
+        assert "fragment DocFields" not in adapted
+        assert "...DocFields" not in adapted
+        assert "Document" not in adapted
+        assert any("DocFields" in r and "orphan" in r for r in removed)
+
+    def test_adapt_query_prunes_transitive_orphan_fragments(
+        self, mock_graph_old_schema: Mock
+    ) -> None:
+        """Chains of fragments referencing each other are cleaned to a fixed point."""
+        from datahub.utilities.graphql_query_adapter import QueryProjector
+
+        query = """
+            fragment Inner on Dataset { urn }
+            fragment Outer on Dataset { name ...Inner }
+            query Q {
+                searchAcrossEntities(input: {query: "*"}) {
+                    searchResults {
+                        entity {
+                            ... on Document { ...Outer }
+                        }
+                    }
+                }
+            }
+        """
+        adapted, removed = QueryProjector().adapt_query(query, mock_graph_old_schema)
+        assert "fragment Outer" not in adapted
+        assert "fragment Inner" not in adapted
+        orphan_names = {
+            r.split("(", 1)[1].split(",", 1)[0] for r in removed if "orphan" in r
+        }
+        assert orphan_names == {"Outer", "Inner"}
+
+
+class TestMinifyGraphqlQuery:
+    """Tests for the token-aware minifier used to shrink wire payloads."""
+
+    def test_collapses_indentation_outside_strings(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        pretty = """
+            query Q {
+                me {
+                    corpUser {
+                        urn
+                        username
+                    }
+                }
+            }
+        """
+        minified = minify_graphql_query(pretty)
+        assert minified == "query Q { me { corpUser { urn username } } }"
+        assert "\n" not in minified
+        assert "  " not in minified
+
+    def test_preserves_whitespace_inside_string_literals(self) -> None:
+        """Naive ' '.join(q.split()) would corrupt 'hello   world' → 'hello world'."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        # GraphQL string literal with interior runs of whitespace and a tab.
+        q = 'query Q { search(input: {query: "hello   world\\tfoo"}) { total } }'
+        minified = minify_graphql_query(q)
+        assert '"hello   world\\tfoo"' in minified
+
+    def test_preserves_block_string_contents(self) -> None:
+        """Block strings — even after graphql-core's print_ast re-formats them
+        with surrounding newlines — retain their semantic content (block-string
+        de-indentation is part of the GraphQL spec). The minifier MUST NOT
+        touch anything between the triple quotes."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = 'query Q { search(input: {query: """multi\n  line\n  query"""}) { total } }'
+        minified = minify_graphql_query(q)
+        # Block string must arrive intact at the AST level.
+        assert print_ast(parse(minified)) == print_ast(parse(q))
+        # Triple quotes must still bound the literal — minifier didn't split it.
+        assert minified.count('"""') == 2
+
+    def test_idempotent(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = "query Q { me { corpUser { urn } } }"
+        once = minify_graphql_query(q)
+        twice = minify_graphql_query(once)
+        assert once == twice
+
+    def test_invalid_query_returned_verbatim(self) -> None:
+        """Unparseable input must not raise — callers rely on graceful degradation."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        garbage = "this is not graphql {{{"
+        assert minify_graphql_query(garbage) == garbage
+
+    def test_semantic_equivalence(self) -> None:
+        """Parsed AST of the minified output equals the original's AST."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = """
+            fragment F on Dataset { urn name }
+            query Q($urn: String!) {
+                entity(urn: $urn) {
+                    ... on Dataset { ...F platform { urn } }
+                }
+            }
+        """
+        assert print_ast(parse(minify_graphql_query(q))) == print_ast(parse(q))
+
+
+class TestExecuteGraphqlMinifiesWireBody:
+    """Tests that execute_graphql sends a minified body regardless of strip mode."""
+
+    @staticmethod
+    def _captured_body(graph: Any, query: str, strip: bool) -> str:
+        sent: Dict[str, Any] = {}
+
+        def fake_post(url: str, body: Dict) -> Dict:
+            sent.update(body)
+            return {"data": {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}}
+
+        with patch.object(graph, "_post_generic", fake_post):
+            graph.execute_graphql(query, strip_unsupported_fields=strip)
+        return sent["query"]
+
+    def _make_graph(self) -> Any:
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        with patch.object(DataHubGraph, "__init__", lambda self, *a, **kw: None):
+            graph = DataHubGraph.__new__(DataHubGraph)
+            graph._gms_server = "http://localhost:8080"
+            graph._query_projector = None
+            return graph
+
+    def test_strip_false_minifies_before_send(self) -> None:
+        pretty = "query Q {\n    me {\n        corpUser {\n            urn\n        }\n    }\n}"
+        body = self._captured_body(self._make_graph(), pretty, strip=False)
+        assert "\n" not in body
+        assert body.count("    ") == 0
+        # Semantic equivalence preserved.
+        from graphql import parse, print_ast
+
+        assert print_ast(parse(body)) == print_ast(parse(pretty))
+
+    def test_invalid_query_passes_through_when_strip_false(self) -> None:
+        """If minification can't parse the query, send it as-is so the server
+        can produce a meaningful error rather than silently rewriting input."""
+        bad = "this is not graphql {{{"
+        body = self._captured_body(self._make_graph(), bad, strip=False)
+        assert body == bad
+
+
 class TestQueryResultCache:
     """Tests for the per-query result cache."""
 
@@ -840,8 +1187,15 @@ class TestExecuteGraphqlFailSafe:
                     original_query, strip_unsupported_fields=True
                 )
 
-                # The original query should have been sent (not a projected one)
-                assert sent_body["query"] == original_query
+                # The original query (semantically) should have been sent —
+                # no projection was applied. The body is whitespace-minified
+                # before transmission, so compare on parsed AST equivalence
+                # rather than byte-for-byte.
+                from graphql import parse, print_ast
+
+                assert print_ast(parse(sent_body["query"])) == print_ast(
+                    parse(original_query)
+                )
                 assert result == {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}
 
     def test_import_error_falls_back_gracefully(self):
@@ -1662,7 +2016,12 @@ class TestFragmentInlining:
         assert "urn" in adapted
 
     def test_real_world_multi_fragment_query(self, mock_graph_old_schema):
-        """Multi-fragment concatenated query with mixed supported/unsupported types."""
+        """Multi-fragment concatenated query with mixed supported/unsupported types.
+
+        Projection preserves named fragments rather than inlining them — only the
+        fragment whose type_condition references an unsupported type (DocInfo on
+        Document) is removed, along with its spread.
+        """
         query = """
             fragment DatasetInfo on Dataset { urn name }
             fragment ChartInfo on Chart { urn title }
@@ -1681,15 +2040,20 @@ class TestFragmentInlining:
         """
         projector = QueryProjector()
         adapted, removed = projector.adapt_query(query, mock_graph_old_schema)
-        # Document doesn't exist in old schema
+        # DocInfo (on Document) and its spread are removed
+        assert "DocInfo" not in adapted
         assert "Document" not in adapted
-        # Dataset and Chart survive
-        assert "... on Dataset" in adapted
-        assert "... on Chart" in adapted
-        assert len(removed) == 1
+        # Supported fragments and their spreads survive
+        assert "fragment DatasetInfo on Dataset" in adapted
+        assert "fragment ChartInfo on Chart" in adapted
+        assert "...DatasetInfo" in adapted
+        assert "...ChartInfo" in adapted
+        # FragmentDefinition + FragmentSpread both reported as removed
+        assert len(removed) == 2
+        assert any("DocInfo" in r for r in removed)
 
-    def test_inline_cache_reused_across_schema_generations(self):
-        """Same query string reuses the inlined DocumentNode even after schema change."""
+    def test_parse_cache_reused_across_schema_generations(self):
+        """Same query string reuses the parsed DocumentNode even after schema change."""
         schema = build_schema("""
             type Query { searchAcrossEntities(input: SearchInput!): SearchResults }
             input SearchInput { query: String! }
@@ -1708,23 +2072,24 @@ class TestFragmentInlining:
         """
         projector = QueryProjector()
         projector.adapt_query(query, graph)
-        assert len(projector._inline_cache) == 1
+        assert len(projector._parse_cache) == 1
 
         # Force schema refresh
         graph.server_config.commit_hash = "v2"
         projector._schema_fetched_at = 0.0
 
         projector.adapt_query(query, graph)
-        # Inline cache still has exactly 1 entry — reused, not re-parsed
-        assert len(projector._inline_cache) == 1
+        # Parse cache still has exactly 1 entry — reused, not re-parsed
+        assert len(projector._parse_cache) == 1
         assert projector._schema_generation == 2
 
 
 class TestRealSearchGqlFragments:
     """Tests using the actual .gql files from datahub.cli.gql.
 
-    These exercise the full pipeline (inline → project → prune) against the
-    same concatenated query that the search CLI sends to execute_graphql.
+    These exercise the full projection pipeline (parse → project → prune
+    orphan fragments) against the same concatenated query that the search CLI
+    sends to execute_graphql.
     """
 
     @pytest.fixture
@@ -2003,11 +2368,13 @@ class TestRealSearchGqlFragments:
         projector = QueryProjector()
         adapted, removed = projector.adapt_query(search_query, graph)
 
-        # Document was the only missing type — exactly 1 removal
+        # The only unsupported reference is `... on Document` (inline fragment)
+        # inside the SearchEntityInfo fragment definition — exactly 1 removal.
         assert len(removed) == 1
         assert "Document" in removed[0]
 
-        # All other entity types survive
+        # All other entity types survive as inline fragments inside the named
+        # fragment definitions (fragments themselves are preserved, not inlined).
         for entity_type in [
             "Dataset",
             "Chart",
@@ -2026,13 +2393,12 @@ class TestRealSearchGqlFragments:
                 f"{entity_type} should survive projection"
             )
 
-        # Named fragments should be fully inlined — no fragment defs or spreads
-        assert "fragment " not in adapted
-        assert "...SearchEntityInfo" not in adapted
-        assert "...FacetEntityInfo" not in adapted
-        assert "...PlatformFields" not in adapted
+        # Named fragments are preserved (not inlined) so the request body stays small.
+        assert "fragment SearchEntityInfo" in adapted
+        assert "fragment PlatformFields" in adapted
+        assert "...PlatformFields" in adapted
 
-        # PlatformFields content was inlined (displayName appears in platform blocks)
+        # PlatformFields content still reachable via its definition
         assert "displayName" in adapted
         assert "logoUrl" in adapted
 

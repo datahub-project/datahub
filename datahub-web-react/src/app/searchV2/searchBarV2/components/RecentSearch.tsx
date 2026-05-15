@@ -1,4 +1,4 @@
-import { MagnifyingGlass } from '@phosphor-icons/react';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
 import styled from 'styled-components/macro';
 

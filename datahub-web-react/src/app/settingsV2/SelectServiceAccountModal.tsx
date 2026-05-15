@@ -1,3 +1,4 @@
+import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
 import React, { useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import styled from 'styled-components/macro';
@@ -133,7 +134,7 @@ export default function SelectServiceAccountModal({ visible, onClose, onSelectSe
             <ModalContent>
                 {hasNoAccounts ? (
                     <EmptyState
-                        icon="Robot"
+                        icon={Robot}
                         title="No service accounts found"
                         description="Create a service account first."
                         size="sm"

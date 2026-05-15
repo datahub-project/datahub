@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 // Tag details section props
-export interface TagDetailsProps {
+interface TagDetailsProps {
     tagName: string;
     setTagName: React.Dispatch<React.SetStateAction<string>>;
     tagDescription: string;

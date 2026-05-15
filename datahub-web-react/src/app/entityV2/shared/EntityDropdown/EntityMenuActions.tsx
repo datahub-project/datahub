@@ -4,6 +4,7 @@ import styled from 'styled-components';
 
 import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
 import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
+import ChangeHistoryMenuAction from '@app/entityV2/shared/EntityDropdown/ChangeHistoryMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
 import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
@@ -27,6 +28,7 @@ export enum EntityMenuItems {
     RAISE_INCIDENT,
     LINK_VERSION,
     CLONE,
+    CHANGE_HISTORY,
 }
 
 export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
@@ -48,7 +50,7 @@ const MenuItems = styled.div<{ $shouldFillAllAvailableSpace?: boolean }>`
 
 const MoreOptionsContainer = styled.div``;
 
-export interface Options {
+interface Options {
     hideDeleteMessage?: boolean;
     skipDeleteWait?: boolean;
 }
@@ -88,6 +90,7 @@ function EntityMenuActions(props: Props) {
                         <DeleteEntityMenuItem onDelete={onDelete} options={options} />
                     )}
                     {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
+                    {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && <ChangeHistoryMenuAction />}
                     {entityVersioningEnabled && hasVersioningActions && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction

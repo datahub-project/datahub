@@ -4,7 +4,6 @@ import styled, { css } from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 import { Text } from '@components/components/Text';
-import { colors } from '@components/theme';
 
 const sharedTruncationStyles = css`
     overflow: hidden;
@@ -46,7 +45,7 @@ export const BreadcrumbButton = styled(Text)`
     ${sharedTruncationStyles}
 
     :hover {
-        color: ${colors.primary[500]};
+        color: ${(props) => props.theme.colors.textHover};
     }
 `;
 

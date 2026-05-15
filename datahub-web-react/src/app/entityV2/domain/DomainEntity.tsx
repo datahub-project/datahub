@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Globe, ListBullets } from '@phosphor-icons/react';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -31,6 +32,7 @@ import { useGetDomainQuery } from '@graphql/domain.generated';
 import { Domain, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,

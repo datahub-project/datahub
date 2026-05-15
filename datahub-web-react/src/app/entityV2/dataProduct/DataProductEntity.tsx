@@ -1,5 +1,6 @@
 import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { ListBullets, Storefront } from '@phosphor-icons/react';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
@@ -34,6 +35,7 @@ import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '@types';
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,

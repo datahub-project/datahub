@@ -1,6 +1,7 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator.*;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableMap;
@@ -21,11 +22,6 @@ import javax.annotation.Nonnull;
 
 public class EditableDatasetPropertiesChangeEventGenerator
     extends EntityChangeEventGenerator<EditableDatasetProperties> {
-
-  public static final String DESCRIPTION_ADDED = "Documentation for '%s' has been added: '%s'.";
-  public static final String DESCRIPTION_REMOVED = "Documentation for '%s' has been removed: '%s'.";
-  public static final String DESCRIPTION_CHANGED =
-      "Documentation of '%s' has been changed from '%s' to '%s'.";
 
   private static List<ChangeEvent> computeDiffs(
       EditableDatasetProperties baseDatasetProperties,

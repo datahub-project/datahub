@@ -4,7 +4,6 @@ const test_id = `manage_tagsV2_${new Date().getTime()}`;
 
 describe("tags - create/edit/remove", () => {
   beforeEach(() => {
-    cy.setIsThemeV2Enabled(true);
     cy.login();
   });
 

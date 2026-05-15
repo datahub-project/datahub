@@ -1,6 +1,6 @@
 describe("managing secrets for ingestion creation", () => {
   beforeEach(() => {
-    cy.setFeatureFlags(true, (res) => {
+    cy.setFeatureFlags((res) => {
       res.body.data.appConfig.featureFlags.showIngestionPageRedesign = false;
     });
   });
@@ -13,8 +13,7 @@ describe("managing secrets for ingestion creation", () => {
     const ingestion_source_name = `ingestion source ${number}`;
 
     // Navigate to the manage ingestion page → secrets
-    cy.loginWithCredentials();
-    cy.skipIntroducePage();
+    cy.login();
     cy.goToIngestionPage();
     // cy.openEntityTab("Secrets");
 
@@ -147,7 +146,7 @@ describe("managing secrets for ingestion creation", () => {
     // delete secret
     cy.openEntityTab("Secrets");
     cy.waitTextVisible(`secretname${number}`);
-    cy.get('[data-test-id="delete-secret-action"]').first().click();
+    cy.get('[data-testid="delete-secret-action"]').first().click();
     cy.waitTextVisible("Confirm Secret Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed secret.");

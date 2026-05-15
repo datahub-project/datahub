@@ -148,8 +148,112 @@ Execute the ingestion recipe:
 datahub ingest -c delta.s3.dhub.yaml
 ```
 
+##### Required IAM Permissions
+
+The IAM principal used by the source needs the following S3 actions:
+
+| Action                | Required                              | Purpose                                                                                                                    |
+| --------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `s3:ListBucket`       | Always                                | Auto-discovering table folders under `base_path` and listing entries under `_delta_log/` to find transaction log versions. |
+| `s3:GetObject`        | Always                                | Reading `_delta_log/*.json` and checkpoint parquet files to extract schema and table properties.                           |
+| `s3:GetBucketTagging` | Only if `s3.use_s3_bucket_tags: true` | Fetching bucket tags to attach to the dataset.                                                                             |
+| `s3:GetObjectTagging` | Only if `s3.use_s3_object_tags: true` | Fetching object tags to attach to the dataset.                                                                             |
+
+If the bucket is encrypted with a customer-managed KMS key, the principal also needs `kms:Decrypt` on that key.
+
+A minimal policy scoped to a single bucket and prefix looks like this:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": ["s3:ListBucket"],
+      "Resource": "arn:aws:s3:::your-bucket",
+      "Condition": { "StringLike": { "s3:prefix": ["your/delta/prefix/*"] } }
+    },
+    {
+      "Effect": "Allow",
+      "Action": ["s3:GetObject"],
+      "Resource": "arn:aws:s3:::your-bucket/your/delta/prefix/*"
+    }
+  ]
+}
+```
+
+#### Delta Table on Azure Data Lake Storage (ADLS Gen2 / Blob)
+
+You can ingest Delta tables stored in Azure using `abfss://`, `abfs://`, `az://`, `adl://`, or Azure HTTPS paths.
+
+Azure folder discovery reuses shared Azure Blob helpers from the Azure ingestion module.
+As a result, recursive folder scanning requires static credentials in `source.config.azure`
+(`account_key`, `sas_token`, or `client_id` + `client_secret` + `tenant_id`).
+
+#### Example using account key
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "abfss://my-container@myaccount.dfs.core.windows.net/delta/sales"
+    azure:
+      account_key: ${AZURE_STORAGE_ACCOUNT_KEY}
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+##### Example using service principal
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "az://my-container/delta/sales"
+    azure:
+      account_name: "myaccount"
+      client_id: ${AZURE_CLIENT_ID}
+      client_secret: ${AZURE_CLIENT_SECRET}
+      tenant_id: ${AZURE_TENANT_ID}
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"
+```
+
+If you use `az://` or `adl://` URIs, set `azure.account_name` explicitly.
+
+If you use `azure.credential` (unified token-based auth), use `base_path` that points directly
+to a Delta table. Token-based credential is not used for recursive folder listing.
+
+#### Assigning domains with a transformer
+
+Delta Lake source does not provide connector-specific `domain` config.
+To assign domains, use the dataset transformer `simple_add_dataset_domain`.
+
+```yaml
+source:
+  type: "delta-lake"
+  config:
+    base_path: "abfss://my-container@myaccount.dfs.core.windows.net/delta/sales"
+
+transformers:
+  - type: "simple_add_dataset_domain"
+    config:
+      domains:
+        - ${DATAHUB_DOMAIN_URN}
+```
+
+For additional options (`PATCH`, `replace_existing`, multiple domains), see
+[Simple Add Dataset Domains](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-domains).
+
 ### Limitations
 
+The above recipes are minimal recipes. Please refer to [Config Details](#config-details) section for the full configuration.
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
 ### Troubleshooting

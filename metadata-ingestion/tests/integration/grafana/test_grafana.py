@@ -6,7 +6,7 @@ import pytest
 import pytest_docker.plugin
 import requests
 import tenacity
-from freezegun import freeze_time
+import time_machine
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -15,7 +15,7 @@ from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
 
-pytestmark = pytest.mark.integration_batch_2
+pytestmark = pytest.mark.integration_batch_5
 
 FROZEN_TIME = "2024-07-12 12:00:00"
 
@@ -255,7 +255,7 @@ def verify_grafana_entities_provisioned(timeout: int = 180) -> None:
             return
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_basic_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):
@@ -294,7 +294,7 @@ def test_grafana_basic_ingest(
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_grafana_ingest(
     loaded_grafana, pytestconfig, tmp_path, test_resources_dir, test_api_key
 ):

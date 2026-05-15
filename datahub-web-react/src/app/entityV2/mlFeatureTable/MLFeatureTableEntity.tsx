@@ -1,4 +1,8 @@
-import { ChartScatter, Database, FileText, ListBullets, Table } from '@phosphor-icons/react';
+import { ChartScatter } from '@phosphor-icons/react/dist/csr/ChartScatter';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { Table } from '@phosphor-icons/react/dist/csr/Table';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

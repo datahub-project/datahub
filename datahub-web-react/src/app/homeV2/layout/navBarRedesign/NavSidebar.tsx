@@ -1,20 +1,18 @@
-import {
-    AppWindow,
-    BookBookmark,
-    FileText,
-    Gear,
-    Globe,
-    HardDrives,
-    Plugs,
-    Question,
-    SignOut,
-    SquaresFour,
-    Tag,
-    TextColumns,
-    TrendUp,
-    UserCircle,
-} from '@phosphor-icons/react';
-import React, { useContext, useEffect } from 'react';
+import { AppWindow } from '@phosphor-icons/react/dist/csr/AppWindow';
+import { BookBookmark } from '@phosphor-icons/react/dist/csr/BookBookmark';
+import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { HardDrives } from '@phosphor-icons/react/dist/csr/HardDrives';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { SignOut } from '@phosphor-icons/react/dist/csr/SignOut';
+import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
+import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
+import React, { useContext, useEffect, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -39,8 +37,6 @@ import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { useIsHomePage } from '@app/shared/useIsHomePage';
 import { useAppConfig, useBusinessAttributesFlag, useIsContextDocumentsEnabled } from '@app/useAppConfig';
-import { colors } from '@src/alchemy-components';
-import { getColor } from '@src/alchemy-components/theme/utils';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
@@ -50,11 +46,11 @@ import { HelpLinkRoutes, PageRoutes } from '@src/conf/Global';
 import { EntityType } from '@src/types.generated';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
-import AcrylIcon from '@images/acryl-light-mark.svg?react';
+import AcrylIcon from '@images/datahublogo.svg?react';
 
 const Container = styled.div`
     height: 100vh;
-    background-color: ${colors.gray[1600]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceNewNav};
     display: flex;
     flex: column;
     align-items: center;
@@ -71,7 +67,7 @@ const Content = styled.div<{ isCollapsed: boolean }>`
 
 const Header = styled.div`
     padding: 17px 8px 8px 16px;
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const ScrollableContent = styled.div`
@@ -107,7 +103,7 @@ const ScrollableContent = styled.div`
 
 const Footer = styled.div`
     padding: 8px 8px 17px 16px;
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const CustomLogo = styled.img`
@@ -118,7 +114,7 @@ const CustomLogo = styled.img`
     min-width: 20px;
 `;
 
-const DEFAULT_LOGO = 'assets/logos/acryl-dark-mark.svg';
+const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
 const MenuWrapper = styled.div`
     margin-top: 14px;
@@ -139,7 +135,7 @@ export const NavSidebar = () => {
     const showHomepageRedesign = useShowHomePageRedesign();
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
 
-    const { isUserInitializing } = useContext(OnboardingContext);
+    const { isUserInitializing, isOnboardingAvailable } = useContext(OnboardingContext);
     const { triggerModalTour } = useOnboardingTour();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
@@ -186,7 +182,7 @@ export const NavSidebar = () => {
             mfeSection = [
                 {
                     type: NavBarMenuItemTypes.Dropdown,
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || 'MFE Apps',
                     icon: <AppWindow />,
                     key: 'mfe-dropdown',
                     items: getMfeMenuDropdownItems(mfeConfig),
@@ -197,7 +193,7 @@ export const NavSidebar = () => {
                 {
                     type: NavBarMenuItemTypes.Group,
                     key: 'mfe-group',
-                    title: 'MFE Apps',
+                    title: mfeConfig.topLevelMenuTitle || 'MFE Apps',
                     items: getMfeMenuItems(mfeConfig),
                 } as NavBarMenuGroup,
             ];
@@ -341,6 +337,35 @@ export const NavSidebar = () => {
         ],
     };
 
+    const isProductTourAvailable = useMemo(() => {
+        if (isHomePage) return true;
+        return isOnboardingAvailable;
+    }, [isOnboardingAvailable, isHomePage]);
+
+    const productTourMenuItems: NavBarMenuDropdownItemElement[] = isProductTourAvailable
+        ? [
+              {
+                  type: NavBarMenuItemTypes.DropdownElement,
+                  title: 'Product Tour',
+                  description: 'Take a quick tour of this page',
+                  disabled: !isProductTourAvailable,
+                  key: 'helpProductTour',
+                  onClick: () => {
+                      if (isHomePage) {
+                          triggerModalTour();
+                      } else {
+                          // Track Product Tour button click for non-home pages
+                          analytics.event({
+                              type: EventType.ProductTourButtonClickEvent,
+                              originPage: location.pathname,
+                          });
+                          showOnboardingTour();
+                      }
+                  },
+              },
+          ]
+        : [];
+
     const footerMenu: NavBarMenuItems = {
         items: [
             {
@@ -361,29 +386,12 @@ export const NavSidebar = () => {
             },
             {
                 type: NavBarMenuItemTypes.Dropdown,
-                title: 'Help',
+                title: 'Resources',
                 icon: <Question />,
                 selectedIcon: <Question weight="fill" />,
                 key: 'help',
                 items: [
-                    {
-                        type: NavBarMenuItemTypes.DropdownElement,
-                        title: 'Product Tour',
-                        description: 'Take a quick tour of this page',
-                        key: 'helpProductTour',
-                        onClick: () => {
-                            if (isHomePage) {
-                                triggerModalTour();
-                            } else {
-                                // Track Product Tour button click for non-home pages
-                                analytics.event({
-                                    type: EventType.ProductTourButtonClickEvent,
-                                    originPage: location.pathname,
-                                });
-                                showOnboardingTour();
-                            }
-                        },
-                    },
+                    ...productTourMenuItems,
                     {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: 'GraphQL',
@@ -441,8 +449,8 @@ export const NavSidebar = () => {
                 focusable="false"
             >
                 <linearGradient id="menu-item-selected-gradient" x2="1" y2="1">
-                    <stop offset="1%" stopColor={getColor('primary', 300, themeConfig)} />
-                    <stop offset="99%" stopColor={getColor('primary', 500, themeConfig)} />
+                    <stop offset="1%" stopColor={themeConfig.colors.textBrand} />
+                    <stop offset="99%" stopColor={themeConfig.colors.buttonFillBrand} />
                 </linearGradient>
             </svg>
         );

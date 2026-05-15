@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:aerospike
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: aerospike
+    displayName: Aerospike
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/aerospike.png"
 - entityUrn: urn:li:dataPlatform:azure-data-factory
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -60,6 +70,16 @@
     displayName: ClickHouse
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/clickhouselogo.png"
+- entityUrn: urn:li:dataPlatform:cloudsql
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: cloudsql
+    displayName: Cloud SQL
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/cloudsqllogo.png"
 - entityUrn: urn:li:dataPlatform:cockroachdb
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -259,6 +279,16 @@
     displayName: MariaDB
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mariadblogo.svg"
+- entityUrn: urn:li:dataPlatform:matillion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -368,6 +398,16 @@
     displayName: Snowflake
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/snowflakelogo.png"
+- entityUrn: urn:li:dataPlatform:spanner
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: spanner
+    displayName: Cloud Spanner
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/spannerlogo.png"
 - entityUrn: urn:li:dataPlatform:snowplow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -398,6 +438,16 @@
     displayName: SQL Server
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mssqllogo.png"
+- entityUrn: urn:li:dataPlatform:bigtable
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: bigtable
+    displayName: Cloud Bigtable
+    type: KEY_VALUE_STORE
+    logoUrl: "assets/platforms/bigtablelogo.png"
 - entityUrn: urn:li:dataPlatform:bigquery
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -438,6 +488,16 @@
     displayName: Feast
     type: OTHERS
     logoUrl: "assets/platforms/feastlogo.png"
+- entityUrn: urn:li:dataPlatform:flink
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: flink
+    displayName: Flink
+    type: OTHERS
+    logoUrl: "assets/platforms/flinklogo.svg"
 - entityUrn: urn:li:dataPlatform:sagemaker
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -608,6 +668,16 @@
     displayName: Pulsar
     type: MESSAGE_BROKER
     logoUrl: "assets/platforms/pulsarlogo.png"
+- entityUrn: urn:li:dataPlatform:pubsub
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: pubsub
+    displayName: Cloud Pub/Sub
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/pubsublogo.png"
 - entityUrn: urn:li:dataPlatform:salesforce
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -697,6 +767,16 @@
     displayName: DynamoDB
     type: KEY_VALUE_STORE
     logoUrl: "assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:dlt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dlt
+    displayName: dlt
+    type: OTHERS
+    logoUrl: "assets/platforms/dltlogo.svg"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -887,6 +967,16 @@
     displayName: Streamlit
     type: OTHERS
     logoUrl: "assets/platforms/streamlitlogo.png"
+- entityUrn: urn:li:dataPlatform:omni
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: omni
+    displayName: Omni
+    type: OTHERS
+    logoUrl: "assets/platforms/omnilogo.svg"
 - entityUrn: urn:li:dataPlatform:notion
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -897,6 +987,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:fabric
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric
+    displayName: Microsoft Fabric
+    type: OTHERS
+    logoUrl: "assets/platforms/fabriclogo.svg"
 - entityUrn: urn:li:dataPlatform:fabric-onelake
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -907,6 +1007,16 @@
     displayName: Fabric OneLake
     type: OTHERS
     logoUrl: "assets/platforms/fabriconelakelogo.png"
+- entityUrn: urn:li:dataPlatform:fabric-data-factory
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: fabric-data-factory
+    displayName: Fabric Data Factory
+    type: OTHERS
+    logoUrl: "assets/platforms/fabricdatafactorylogo.svg"
 - entityUrn: urn:li:dataPlatform:datahub
   entityType: dataPlatform
   aspectName: dataPlatformInfo

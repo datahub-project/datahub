@@ -271,7 +271,7 @@ project.afterEvaluate {
           }).toList()
         }
         if (extension.buildArgs.get()) {
-          bake_spec_target.args = extension.buildArgs.get()
+          bake_spec_target.args = new HashMap(extension.buildArgs.get())
         } else {
           bake_spec_target.args = [:]
         }

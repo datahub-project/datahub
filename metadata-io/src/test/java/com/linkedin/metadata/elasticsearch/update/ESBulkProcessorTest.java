@@ -102,7 +102,7 @@ public class ESBulkProcessorTest {
     ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
 
     IndexRequest indexRequest = new IndexRequest("test-index").id("1");
-    processor.add(indexRequest);
+    processor.add("1", indexRequest);
 
     verify(mockMetricUtils, times(1))
         .increment(eq(processor.getClass()), eq("num_elasticSearch_writes"), eq(1d));
@@ -114,7 +114,7 @@ public class ESBulkProcessorTest {
 
     IndexRequest indexRequest = new IndexRequest("test-index").id("1");
     // Should not throw exception even with null metrics
-    processor.add(indexRequest);
+    processor.add("1", indexRequest);
   }
 
   @Test
@@ -347,9 +347,9 @@ public class ESBulkProcessorTest {
     ESBulkProcessor processor = ESBulkProcessor.builder(mockSearchClient, mockMetricUtils).build();
 
     // Add various types of requests
-    processor.add(new IndexRequest("index1").id("1"));
-    processor.add(new UpdateRequest("index1", "2"));
-    processor.add(new DeleteRequest("index1", "3"));
+    processor.add("1", new IndexRequest("index1").id("1"));
+    processor.add("2", new UpdateRequest("index1", "2"));
+    processor.add("3", new DeleteRequest("index1", "3"));
 
     verify(mockMetricUtils, times(3))
         .increment(eq(processor.getClass()), eq("num_elasticSearch_writes"), eq(1d));

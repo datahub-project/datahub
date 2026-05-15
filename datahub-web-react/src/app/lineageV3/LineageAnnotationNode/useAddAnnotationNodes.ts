@@ -6,7 +6,7 @@ import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/Linea
 import type { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
 
-export function useAddAnnotationNodes() {
+function useAddAnnotationNodes() {
     return useCallback(
         (filteredNodes: LineageVisualizationNode[], levelsInfo: LevelsInfo, levelsMap: Map<string, number>) => {
             const nodesWithLevel = filteredNodes.map((node) => {

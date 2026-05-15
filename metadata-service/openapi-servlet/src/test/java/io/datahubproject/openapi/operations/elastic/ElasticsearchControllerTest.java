@@ -21,18 +21,27 @@ import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringMap;
+import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesResult;
+import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.request.AutocompleteRequestHandler;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
+import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -64,16 +73,16 @@ import org.opensearch.tasks.TaskInfo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.SpringBootConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureWebMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureWebMvc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -95,21 +104,18 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
   private static final Urn TEST_URN_2 =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,test.table,PROD)");
 
+  @MockitoBean private SystemMetadataService mockSystemMetadataService;
+  @MockitoBean private TimeseriesAspectService mockTimeseriesAspectService;
+  @MockitoBean private EntitySearchService mockSearchService;
+  @MockitoBean private EntityService<?> mockEntityService;
+  @MockitoBean private GraphService graphService;
+  @MockitoBean private ESSearchDAO mockESSearchDAO;
+
   @Autowired private ElasticsearchController elasticsearchController;
 
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private SystemMetadataService mockSystemMetadataService;
-
-  @Autowired private TimeseriesAspectService mockTimeseriesAspectService;
-
-  @Autowired private EntitySearchService mockSearchService;
-
-  @Autowired private EntityService<?> mockEntityService;
-
   @Autowired private AuthorizerChain authorizerChain;
-
-  @Autowired private ESSearchDAO mockESSearchDAO;
 
   @BeforeMethod
   public void setupMocks() {
@@ -763,6 +769,79 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
         .andExpect(status().isOk());
   }
 
+  @Test
+  public void testDisableDualWriteSuccess() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.COMPLETED);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+  }
+
+  @Test
+  public void testDisableDualWriteIdempotent() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.DUAL_WRITE_DISABLED);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true));
+  }
+
+  @Test
+  public void testDisableDualWriteConflictNotCompleted() throws Exception {
+    stubPhase1ForDisableDualWrite(IncrementalReindexState.Status.IN_PROGRESS);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    "/openapi/operations/elasticSearch/incrementalReindex/entity/dataset/dualWrite/disable")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isConflict())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(false));
+  }
+
+  private void stubPhase1ForDisableDualWrite(IncrementalReindexState.Status status)
+      throws Exception {
+    Urn upgradeUrn =
+        BootstrapStep.getUpgradeUrn(IncrementalReindexState.UPGRADE_ID_PREFIX + "_0.0.0-test-0");
+    Map<String, String> phase1Map =
+        IncrementalReindexState.setPhase1State(
+            null,
+            "datasetindex_v2",
+            "datasetindex_v2_next_123",
+            "datasetindex_v2_current_123",
+            1L,
+            0L,
+            null,
+            true,
+            status);
+    DataHubUpgradeResult dur = new DataHubUpgradeResult();
+    dur.setState(DataHubUpgradeState.SUCCEEDED);
+    dur.setResult(new StringMap(phase1Map));
+    when(mockEntityService.getLatestAspect(
+            any(), eq(upgradeUrn), eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)))
+        .thenReturn(dur);
+    when(mockEntityService.getLatestEnvelopedAspect(
+            any(),
+            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
+            eq(upgradeUrn),
+            eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME)))
+        .thenReturn(DataHubUpgradeResultConditionalPersist.toEnveloped(dur, "1"));
+    when(mockEntityService.ingestProposal(any(), any(), any(), anyBoolean()))
+        .thenReturn(mock(IngestResult.class));
+  }
+
   @SpringBootConfiguration
   @Import({ElasticsearchControllerTestConfig.class, TracingInterceptor.class})
   @ComponentScan(basePackages = {"io.datahubproject.openapi.operations.elastic"})
@@ -770,12 +849,6 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
 
   @TestConfiguration
   public static class ElasticsearchControllerTestConfig {
-    @MockBean public SystemMetadataService systemMetadataService;
-    @MockBean public TimeseriesAspectService timeseriesAspectService;
-    @MockBean public EntitySearchService searchService;
-    @MockBean public EntityService<?> entityService;
-    @MockBean public GraphService graphService;
-    @MockBean public ESSearchDAO mockESSearchDAO;
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -826,9 +899,19 @@ public class ElasticsearchControllerTest extends AbstractTestNGSpringContextTest
     }
 
     @Bean
+    public GitVersion gitVersion() {
+      return new GitVersion("0.0.0-test", "abc123", Optional.empty());
+    }
+
+    @Bean(name = "revision")
+    public String revision() {
+      return "0";
+    }
+
+    @Bean
     @Primary
     public GraphService graphService() {
-      return graphService;
+      return mock(GraphService.class);
     }
   }
 }

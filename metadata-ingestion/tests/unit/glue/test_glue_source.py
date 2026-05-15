@@ -1,12 +1,12 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
+import time_machine
 from botocore.stub import Stubber
-from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -14,9 +14,13 @@ from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.aws.glue import (
+    GLUE_NATIVE_CONNECTION_TYPE_MAP,
+    JDBC_PLATFORM_MAP,
     GlueProfilingConfig,
     GlueSource,
     GlueSourceConfig,
+    _redact_secret_fields_in_dataflow_script,
+    _sanitize_jdbc_url,
 )
 from datahub.ingestion.source.state.sql_common_state import (
     BaseSQLAlchemyCheckpointState,
@@ -42,24 +46,32 @@ from tests.unit.glue.test_glue_source_stubs import (
     get_databases_response,
     get_databases_response_for_lineage,
     get_databases_response_profiling,
+    get_databases_response_with_mixed_database,
     get_databases_response_with_resource_link,
     get_dataflow_graph_response_1,
     get_dataflow_graph_response_2,
+    get_dataflow_graph_response_3,
     get_delta_tables_response_1,
     get_delta_tables_response_2,
     get_jobs_response,
     get_jobs_response_empty,
     get_object_body_1,
     get_object_body_2,
+    get_object_body_3,
     get_object_response_1,
     get_object_response_2,
+    get_object_response_3,
     get_object_tagging,
     get_tables_lineage_response_1,
     get_tables_response_1,
     get_tables_response_2,
+    get_tables_response_for_mixed_database,
     get_tables_response_for_target_database,
     get_tables_response_profiling_1,
+    mixed_database,
+    normal_table_in_mixed_database,
     resource_link_database,
+    resource_link_table_in_mixed_database,
     tables_1,
     tables_2,
     tables_profiling_1,
@@ -174,7 +186,7 @@ def test_column_type(hive_column_type: str, expected_type: Type) -> None:
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -213,6 +225,11 @@ def test_glue_ingest(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -242,6 +259,14 @@ def test_glue_ingest(
                 {
                     "Bucket": "aws-glue-assets-123412341234-us-west-2",
                     "Key": "scripts/job-2.py",
+                },
+            )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
                 },
             )
 
@@ -299,6 +324,55 @@ def test_ignore_resource_links(ignore_resource_links, all_databases_and_tables_r
         assert source.get_all_databases_and_tables() == all_databases_and_tables_result
 
 
+@pytest.mark.parametrize(
+    "ignore_resource_links, expected_tables",
+    [
+        # When ignore_resource_links is True, the table-level resource link
+        # (TargetTable) is dropped and only the normal table is yielded.
+        (True, [normal_table_in_mixed_database]),
+        # When ignore_resource_links is False, both tables are yielded.
+        (
+            False,
+            [normal_table_in_mixed_database, resource_link_table_in_mixed_database],
+        ),
+    ],
+)
+def test_ignore_resource_links_filters_table_level_links(
+    ignore_resource_links, expected_tables
+):
+    """Regression test for CUS-8715.
+
+    Lake Formation supports table-granularity sharing where a regular database
+    contains tables that are resource links (i.e. tables with a TargetTable
+    field). Database-level filtering does not catch these, so the table-level
+    filter must drop them when ignore_resource_links is enabled.
+    """
+    source = GlueSource(
+        ctx=PipelineContext(run_id="glue-source-test"),
+        config=GlueSourceConfig(
+            aws_region="eu-west-1",
+            ignore_resource_links=ignore_resource_links,
+        ),
+    )
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response(
+            "get_databases",
+            get_databases_response_with_mixed_database,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_for_mixed_database,
+            {"DatabaseName": "mixed-database"},
+        )
+
+        databases, tables = source.get_all_databases_and_tables()
+
+    assert databases == [mixed_database]
+    assert tables == expected_tables
+
+
 def test_platform_must_be_valid():
     with pytest.raises(pydantic.ValidationError):
         GlueSource(
@@ -349,7 +423,7 @@ def test_get_databases_filters_by_catalog():
         ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     deleted_actor_golden_mcs = "{}/glue_deleted_actor_mces_golden.json".format(
         test_resources_dir
@@ -383,6 +457,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
             "type": "console"
         },
         "pipeline_name": "statefulpipeline",
+        "run_id": "glue-2020_04_14-07_00_00-xds5dj",
     }
 
     with patch(
@@ -524,7 +599,7 @@ def test_glue_with_malformed_delta_schema_ingest(
         (None, "glue_mces.json", "glue_mces_golden_table_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_table_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -567,6 +642,11 @@ def test_glue_ingest_include_table_lineage(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -598,6 +678,14 @@ def test_glue_ingest_include_table_lineage(
                     "Key": "scripts/job-2.py",
                 },
             )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
+                },
+            )
 
             mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
             glue_stubber.assert_no_pending_responses()
@@ -619,7 +707,7 @@ def test_glue_ingest_include_table_lineage(
         (None, "glue_mces.json", "glue_mces_golden_table_column_lineage.json"),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_include_column_lineage(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -719,7 +807,7 @@ def test_glue_ingest_include_column_lineage(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_profiling(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -766,7 +854,7 @@ def test_glue_ingest_with_profiling(
         ),
     ],
 )
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_glue_ingest_with_lake_formation_tag_extraction(
     tmp_path: Path,
     pytestconfig: pytest.Config,
@@ -904,6 +992,11 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
             get_dataflow_graph_response_2,
             {"PythonScript": get_object_body_2},
         )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": get_object_body_3},
+        )
 
         with Stubber(glue_source_instance.s3_client) as s3_stubber:
             for _ in range(
@@ -935,6 +1028,14 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
                     "Key": "scripts/job-2.py",
                 },
             )
+            s3_stubber.add_response(
+                "get_object",
+                get_object_response_3(),
+                {
+                    "Bucket": "aws-glue-assets-123412341234-us-west-2",
+                    "Key": "scripts/job-3.py",
+                },
+            )
 
             # Execute the source and collect work units
             mce_objects = [wu.metadata for wu in glue_source_instance.get_workunits()]
@@ -950,3 +1051,741 @@ def test_glue_ingest_with_lake_formation_tag_extraction(
         output_path=tmp_path / mce_file,
         golden_path=test_resources_dir / mce_golden_file,
     )
+
+
+def _make_jdbc_node(
+    node_id: str,
+    node_type: str,
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": f'"{connection_type}"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": f'{{"url": "{jdbc_url}", "dbtable": "{dbtable}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "jdbc_url, expected_platform, expected_database",
+    [
+        ("jdbc:postgresql://myhost:5432/mydb", "postgres", "mydb"),
+        ("jdbc:mysql://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:mariadb://myhost:3306/mydb", "mysql", "mydb"),
+        ("jdbc:redshift://myhost:5439/mydb", "redshift", "mydb"),
+        ("jdbc:oracle://myhost:1521/mydb", "oracle", "mydb"),
+        ("jdbc:sqlserver://myhost:1433/mydb", "mssql", "mydb"),
+        ("jdbc:sqlserver://myhost:1433;databaseName=mydb", "mssql", "mydb"),
+        ("jdbc:postgresql://myhost:5432/mydb?sslmode=require", "postgres", "mydb"),
+    ],
+)
+def test_parse_jdbc_url(
+    jdbc_url: str, expected_platform: str, expected_database: str
+) -> None:
+    source = glue_source()
+    platform, database = source._parse_jdbc_url(jdbc_url)
+    assert platform == expected_platform
+    assert database == expected_database
+
+
+def test_parse_jdbc_url_invalid() -> None:
+    source = glue_source()
+    with pytest.raises(ValueError, match="Not a valid JDBC URL"):
+        source._parse_jdbc_url("postgresql://myhost/mydb")
+
+
+@pytest.mark.parametrize(
+    "connection_type, jdbc_url, dbtable, expected_urn",
+    [
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "postgresql",
+            "jdbc:postgresql://myhost:5432/mydb",
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "myschema.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.myschema.orders,PROD)",
+        ),
+        (
+            "mysql",
+            "jdbc:mysql://myhost:3306/mydb",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_jdbc(
+    connection_type: str,
+    jdbc_url: str,
+    dbtable: str,
+    expected_urn: str,
+) -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_jdbc_node(
+        node_id="DataSource0",
+        node_type="DataSource",
+        connection_type=connection_type,
+        jdbc_url=jdbc_url,
+        dbtable=dbtable,
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+def test_process_dataflow_node_jdbc_missing_url() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {"Name": "connection_type", "Value": '"postgresql"', "Param": False},
+            {
+                "Name": "connection_options",
+                "Value": '{"dbtable": "public.customers"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_jdbc_platform_map_coverage() -> None:
+    source = glue_source()
+    for jdbc_protocol, expected_platform in JDBC_PLATFORM_MAP.items():
+        url = f"jdbc:{jdbc_protocol}://host:1234/db"
+        platform, database = source._parse_jdbc_url(url)
+        assert platform == expected_platform, f"Failed for {jdbc_protocol}"
+        assert database == "db"
+
+
+def _make_glue_connection_node(
+    node_id: str,
+    node_type: str,
+    connection_name: str,
+    dbtable: str,
+) -> Dict[str, Any]:
+    return {
+        "Id": node_id,
+        "NodeType": node_type,
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "{connection_name}", "dbtable": "{dbtable}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+
+@pytest.mark.parametrize(
+    "dbtable, expected_urn",
+    [
+        (
+            "public.customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+        (
+            "customers",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_jdbc(
+    dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My PG Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+@pytest.mark.parametrize(
+    "conn_type, dbtable, expected_urn",
+    [
+        (
+            "POSTGRESQL",
+            "public.orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "POSTGRESQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)",
+        ),
+        (
+            "MYSQL",
+            "orders",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,mydb.orders,PROD)",
+        ),
+    ],
+)
+def test_process_dataflow_node_glue_connection_native(
+    conn_type: str, dbtable: str, expected_urn: str
+) -> None:
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": conn_type,
+            "ConnectionProperties": {
+                "HOST": "myhost",
+                "DATABASE": "mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node(
+        "DataSource0", "DataSource", "My Connection", dbtable
+    )
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert result["urn"] == expected_urn
+
+
+def test_process_dataflow_node_glue_connection_missing_dbtable() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": '{"connectionName": "My Connection"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_process_dataflow_node_glue_connection_fetch_failure() -> None:
+    source = glue_source()
+
+    def _raise(**kw: Any) -> None:
+        raise Exception("Connection not found")
+
+    source.glue_client.get_connection = _raise  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = _make_glue_connection_node("DataSource0", "DataSource", "Missing", "mytable")
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is None
+    assert source.report.warnings
+
+
+def test_resolve_glue_connection_caching() -> None:
+    source = glue_source()
+    call_count = 0
+
+    def _get_connection(**kw: Any) -> Dict[str, Any]:
+        nonlocal call_count
+        call_count += 1
+        return {
+            "Connection": {
+                "ConnectionType": "POSTGRESQL",
+                "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+            }
+        }
+
+    source.glue_client.get_connection = _get_connection  # type: ignore[method-assign]
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    source._resolve_glue_connection("My Connection", flow_urn)
+    source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert call_count == 1
+
+
+def test_glue_native_connection_type_map_coverage() -> None:
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    for conn_type, expected_platform in GLUE_NATIVE_CONNECTION_TYPE_MAP.items():
+        source._glue_connection_cache.clear()
+
+        def _make_get_connection(ct: str) -> Any:
+            def _get_connection(**kw: Any) -> Dict[str, Any]:
+                return {
+                    "Connection": {
+                        "ConnectionType": ct,
+                        "ConnectionProperties": {"HOST": "h", "DATABASE": "db"},
+                    }
+                }
+
+            return _get_connection
+
+        source.glue_client.get_connection = _make_get_connection(conn_type)  # type: ignore[method-assign]
+        result = source._resolve_glue_connection(conn_type, flow_urn)
+        assert result is not None, f"Failed for {conn_type}"
+        assert result[0] == expected_platform
+
+
+def test_resolve_glue_connection_spark_properties_fallback() -> None:
+    """SparkProperties (v2 schema) is used when ConnectionProperties has no JDBC_CONNECTION_URL."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {},
+            "SparkProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb"
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+
+    result = source._resolve_glue_connection("My Connection", flow_urn)
+
+    assert result == ("postgres", "mydb")
+
+
+@pytest.mark.parametrize(
+    "query, expected_dbtable",
+    [
+        ("SELECT * FROM public.customers WHERE id = 1", "public.customers"),
+        ("SELECT id, name FROM orders", "orders"),
+    ],
+)
+def test_process_dataflow_node_glue_connection_query_fallback(
+    query: str, expected_dbtable: str
+) -> None:
+    """query ConnectionOption is used when dbtable is absent (single-table queries)."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": f'{{"connectionName": "My PG Connection", "query": "{query}"}}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert expected_dbtable in result["urn"]
+
+
+def test_process_dataflow_node_glue_connection_query_multi_table() -> None:
+    """Multi-table JOIN queries produce multiple dataset URNs via dataset_urns."""
+    source = glue_source()
+    source.glue_client.get_connection = lambda **kw: {  # type: ignore[method-assign]
+        "Connection": {
+            "ConnectionType": "JDBC",
+            "ConnectionProperties": {
+                "JDBC_CONNECTION_URL": "jdbc:postgresql://myhost:5432/mydb",
+            },
+        }
+    }
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_options",
+                "Value": '{"connectionName": "My PG Connection", "query": "SELECT a.id FROM orders a JOIN customers b ON a.cid = b.id"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert not source.report.warnings
+    orders_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    customers_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.customers,PROD)"
+    )
+    assert result["urn"] in (orders_urn, customers_urn)
+    assert set(result["dataset_urns"]) == {orders_urn, customers_urn}
+
+
+def test_process_dataflow_node_jdbc_query_fallback() -> None:
+    """query ConnectionOption is used in the direct JDBC path when dbtable is absent."""
+    source = glue_source()
+    flow_urn = "urn:li:dataFlow:(glue,test-job,PROD)"
+    node = {
+        "Id": "DataSource0",
+        "NodeType": "DataSource",
+        "Args": [
+            {
+                "Name": "connection_type",
+                "Value": '"postgresql"',
+                "Param": False,
+            },
+            {
+                "Name": "connection_options",
+                "Value": '{"url": "jdbc:postgresql://myhost:5432/mydb", "query": "SELECT * FROM public.orders"}',
+                "Param": False,
+            },
+        ],
+        "LineNumber": 1,
+    }
+
+    result = source.process_dataflow_node(node, flow_urn)
+
+    assert result is not None
+    assert (
+        result["urn"]
+        == "urn:li:dataset:(urn:li:dataPlatform:postgres,mydb.public.orders,PROD)"
+    )
+
+
+@pytest.mark.parametrize(
+    "raw_url, expected_safe",
+    [
+        (
+            "jdbc:postgresql://myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret123@myhost:5432/mydb",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://myhost:5432/mydb?user=admin&password=secret",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+        (
+            "jdbc:postgresql://admin:secret@myhost:5432/mydb?ssl=true&password=extra",
+            "jdbc:postgresql://myhost:5432/mydb",
+        ),
+    ],
+)
+def test_sanitize_jdbc_url(raw_url: str, expected_safe: str) -> None:
+    assert _sanitize_jdbc_url(raw_url) == expected_safe
+
+
+@pytest.mark.parametrize(
+    "secret_name",
+    [
+        "password",
+        "sfPassword",
+        "PASSWORD",
+        "secret",
+        "client_secret",
+        "aws_secret_access_key",
+    ],
+)
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_glue_redact_job_script_secret_fields(secret_name):
+    secret_value = "kjdsg8uh834jksdnj"
+
+    script = f"""
+        datasource = glueContext.create_dynamic_frame.from_options(
+            frame = transformed,
+            connection_type = "postgresql",
+            connection_options = {{
+                "url": "jdbc:postgresql://your-PostgresqlDB-Endpoint",
+                "dbtable": "your_table",
+                "user": "your-Posgresql-User",
+                "{secret_name}": "{secret_value}"
+            }}
+        )
+    """
+
+    assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
+        secret_value, "*****"
+    )
+
+
+# ── extract_column_parameters (structured properties) ─────────────────────────
+
+
+def _make_glue_source_with_column_params() -> GlueSource:
+    pipeline_context = PipelineContext(run_id="glue-col-params-test")
+    return GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+
+
+def _make_table_with_column_params() -> Dict[str, Any]:
+    return {
+        "Name": "test_table",
+        "DatabaseName": "test_db",
+        "StorageDescriptor": {
+            "Columns": [
+                {
+                    "Name": "col_a",
+                    "Type": "string",
+                    "Parameters": {
+                        "iceberg.field.id": "1",
+                        "iceberg.field.optional": "true",
+                    },
+                },
+                {
+                    "Name": "col_b",
+                    "Type": "int",
+                    "Parameters": {"iceberg.field.id": "2"},
+                },
+                {
+                    "Name": "col_no_params",
+                    "Type": "boolean",
+                },
+            ]
+        },
+        "PartitionKeys": [
+            {
+                "Name": "dt",
+                "Type": "string",
+                "Parameters": {"iceberg.field.id": "3"},
+            }
+        ],
+    }
+
+
+def test_column_param_property_urn_sanitizes_special_chars() -> None:
+    assert GlueSource._column_param_property_urn("iceberg.field.id") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert GlueSource._column_param_property_urn("some-key with spaces!") == (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.some_key_with_spaces_"
+    )
+
+
+def test_get_column_param_workunits_emits_definitions_once() -> None:
+    """Each unique key's StructuredPropertyDefinition should be emitted only once per run."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    definition_urns = [
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    # iceberg.field.id appears on col_a, col_b, and dt — definition should be emitted once
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        )
+        == 1
+    )
+    # iceberg.field.optional only appears on col_a
+    assert (
+        definition_urns.count(
+            "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        )
+        == 1
+    )
+
+
+def test_get_column_param_workunits_skips_columns_without_params() -> None:
+    """Columns with no Parameters should produce no work units."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = {
+        "Name": "t",
+        "DatabaseName": "db",
+        "StorageDescriptor": {
+            "Columns": [{"Name": "col_no_params", "Type": "boolean"}]
+        },
+        "PartitionKeys": [],
+    }
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assert workunits == []
+
+
+def test_get_column_param_workunits_values_assigned_correctly() -> None:
+    """StructuredProperties aspect on each field should carry the correct values."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # Find the StructuredProperties workunit for col_a (v2 typed field path)
+    col_a_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
+    col_a_props_wu = next(
+        (
+            wu
+            for wu in workunits
+            if wu.get_urn() == col_a_urn
+            and wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+        ),
+        None,
+    )
+    assert col_a_props_wu is not None
+    aspect = col_a_props_wu.get_aspect_of_type(models.StructuredPropertiesClass)
+    assert aspect is not None
+    assigned_urns = {a.propertyUrn for a in aspect.properties}
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+        in assigned_urns
+    )
+    assert (
+        "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.optional"
+        in assigned_urns
+    )
+    id_assignment = next(
+        a
+        for a in aspect.properties
+        if a.propertyUrn
+        == "urn:li:structuredProperty:io.datahubproject.glue.column.iceberg.field.id"
+    )
+    assert id_assignment.values == ["1"]
+
+
+def test_seen_definitions_not_re_emitted_across_tables() -> None:
+    """Once a definition has been emitted for a key, it must not appear again for a second table."""
+    source = _make_glue_source_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+    table = _make_table_with_column_params()
+
+    first_run = list(source._get_column_param_workunits(table, dataset_urn))
+    second_run = list(source._get_column_param_workunits(table, dataset_urn))
+
+    first_defs = [
+        wu
+        for wu in first_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    second_defs = [
+        wu
+        for wu in second_run
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert len(first_defs) > 0
+    assert second_defs == []
+
+
+def test_get_column_param_workunits_uses_v2_field_path() -> None:
+    """schemaField URNs must use the v2 typed path from get_schema_fields_for_hive_column."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assignment_urns = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    }
+    # v2 typed paths must be used
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
+        in assignment_urns
+    )
+    # bare column names must not appear as field paths
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),col_a)"
+        not in assignment_urns
+    )
+
+
+def test_get_column_param_definitions_emitted_via_graph() -> None:
+    """When ctx.graph is set, definitions are emitted synchronously via emit_mcp, not as workunits."""
+    pipeline_context = PipelineContext(run_id="test-graph-emit")
+    pipeline_context.graph = MagicMock(spec=DataHubGraph)
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # definitions go to graph.emit_mcp, not into the workunit stream
+    assert pipeline_context.graph.emit_mcp.called
+    definition_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert definition_wus == []
+    # assignment workunits still flow through the pipeline normally
+    assignment_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    ]
+    assert len(assignment_wus) > 0

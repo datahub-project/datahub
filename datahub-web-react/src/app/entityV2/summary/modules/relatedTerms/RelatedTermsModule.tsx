@@ -1,4 +1,5 @@
 import { Text } from '@components';
+import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
 import React from 'react';
 import { useHistory } from 'react-router';
 
@@ -46,7 +47,7 @@ export default function RelatedTermsModule(props: ModuleProps) {
         >
             {!hasData && (
                 <EmptyContent
-                    icon="BookmarkSimple"
+                    icon={BookmarkSimple}
                     title="No Related Terms"
                     description="Add relationship for this glossary term to see them in this list"
                     linkText="Add related terms"

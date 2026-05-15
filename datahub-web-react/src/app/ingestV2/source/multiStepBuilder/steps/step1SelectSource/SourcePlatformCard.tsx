@@ -23,6 +23,7 @@ export default function SourcePlatformCard({ source, onSelect }: Props) {
     const pillLabel = getPillLabel(source);
     return (
         <Card
+            dataTestId={`source-option-${source.name}`}
             title={source.displayName}
             subTitle={source.description}
             icon={<SourceLogo sourceName={source.name} />}
