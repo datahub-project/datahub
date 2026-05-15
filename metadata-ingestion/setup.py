@@ -203,13 +203,15 @@ profiling_ge = {
     # As such, we just need to avoid that version in order to get the
     # dependencies that we need. IPython probably should've yanked 8.22.0.
     "IPython!=8.22.0,<9.0.0",
-    "greenlet<4.0.0",
 }
 
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
+    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
+    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    "greenlet<4.0.0",
 }
 sql_common = (
     {
