@@ -1835,7 +1835,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
             new java.util.HashMap<>(Map.of("autoscaling.keda.sh/paused-replicas", "1")));
 
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
     NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
@@ -1889,7 +1889,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
         new ResourceRequirementsBuilder().addToLimits("memory", new Quantity("2Gi")).build();
 
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").resources(resources).build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").resources(resources).build();
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
     NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
@@ -1938,7 +1938,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
     GenericKubernetesResource scaledObject =
         createTestScaledObject("mae-consumer-so", "mae-consumer");
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
 
     Resource scaledObjectResource =
         mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
@@ -1960,7 +1960,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
   public void testResumeKedaAutoscalingNotKedaManaged() throws Exception {
     Deployment deployment = createTestDeployment("regular-deployment");
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
     NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
@@ -1996,7 +1996,7 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
   public void testResumeWithReplicasReturnsBadRequest() throws Exception {
     // Providing both autoscalingMode=active and replicas is invalid
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").replicas(2).build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").replicas(2).build();
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
     NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
@@ -2019,99 +2019,9 @@ public class KubernetesControllerTest extends AbstractTestNGSpringContextTests {
   }
 
   @Test
-  public void testPauseAutoscalingExplicitlyUsesCurrentReplicas() throws Exception {
-    // autoscalingMode=paused without replicas: should freeze at the deployment's current spec count
-    Deployment deployment = createTestDeployment("mae-consumer"); // spec.replicas = 1
-    GenericKubernetesResource scaledObject =
-        createTestScaledObject("mae-consumer-so", "mae-consumer");
-    DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("paused").build();
-
-    Resource scaledObjectResource =
-        mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.autoScalingMode").value("paused"));
-
-    // Must pause via annotation (not direct scale), using current replica count
-    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
-    verify(
-            kubernetesClient.apps().deployments().inNamespace(NAMESPACE).withName("mae-consumer"),
-            never())
-        .scale(anyInt());
-  }
-
-  @Test
-  public void testPauseAutoscalingExplicitlyWithReplicaCount() throws Exception {
-    // autoscalingMode=paused + replicas: should pause at the given count, not the current one
-    Deployment deployment = createTestDeployment("mae-consumer");
-    GenericKubernetesResource scaledObject =
-        createTestScaledObject("mae-consumer-so", "mae-consumer");
-    DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("paused").replicas(3).build();
-
-    Resource scaledObjectResource =
-        mockKedaManagedDeployment("mae-consumer", "mae-consumer-so", deployment, scaledObject);
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/mae-consumer/scale")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.autoScalingMode").value("paused"));
-
-    verify(scaledObjectResource).edit(any(java.util.function.UnaryOperator.class));
-  }
-
-  @Test
-  public void testPauseAutoscalingExplicitlyNotKedaManagedReturnsBadRequest() throws Exception {
-    // autoscalingMode=paused on a deployment with no ScaledObject — should 400
-    Deployment deployment = createTestDeployment("regular-deployment");
-    DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("paused").build();
-
-    MixedOperation deploymentsOp = mock(MixedOperation.class);
-    NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
-    RollableScalableResource deploymentResource = mock(RollableScalableResource.class);
-
-    when(kubernetesClient.apps()).thenReturn(mock(AppsAPIGroupDSL.class));
-    when(kubernetesClient.apps().deployments()).thenReturn(deploymentsOp);
-    when(deploymentsOp.inNamespace(NAMESPACE)).thenReturn(deployNsOp);
-    when(deployNsOp.withName("regular-deployment")).thenReturn(deploymentResource);
-    when(deploymentResource.get()).thenReturn(deployment);
-
-    MixedOperation genericOp = mock(MixedOperation.class);
-    NonNamespaceOperation genericNsOp = mock(NonNamespaceOperation.class);
-    GenericKubernetesResourceList emptyList = new GenericKubernetesResourceList();
-    emptyList.setItems(List.of());
-
-    when(kubernetesClient.genericKubernetesResources(any(ResourceDefinitionContext.class)))
-        .thenReturn(genericOp);
-    when(genericOp.inNamespace(NAMESPACE)).thenReturn(genericNsOp);
-    when(genericNsOp.list()).thenReturn(emptyList);
-
-    mockMvc
-        .perform(
-            MockMvcRequestBuilders.patch(BASE_PATH + "/deployments/regular-deployment/scale")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(request))
-                .accept(MediaType.APPLICATION_JSON))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").exists());
-  }
-
-  @Test
   public void testScaleDeploymentNotFoundOnResume() throws Exception {
     DeploymentScaleRequest request =
-        DeploymentScaleRequest.builder().autoscalingMode("active").build();
+        DeploymentScaleRequest.builder().autoscalingMode("activate").build();
 
     MixedOperation deploymentsOp = mock(MixedOperation.class);
     NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);

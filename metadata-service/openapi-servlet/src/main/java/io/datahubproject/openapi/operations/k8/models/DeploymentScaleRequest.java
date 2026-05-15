@@ -16,12 +16,9 @@ import lombok.NoArgsConstructor;
  * <p>Autoscaling mode rules:
  *
  * <ul>
- *   <li>{@code replicas} set → pause autoscaling and hold at that exact replica count
- *   <li>{@code autoscalingMode: "pause"} (without replicas) → pause autoscaling, freezing at the
- *       deployment's current replica count. Returns 400 if no autoscaler is configured.
- *   <li>{@code autoscalingMode: "pause"} + {@code replicas} → pause autoscaling at the given count
- *   <li>{@code autoscalingMode: "active"} → resume autoscaling; {@code replicas} must be omitted
- *   <li>{@code autoscalingMode: "active"} + {@code resources} → resume autoscaling and update
+ *   <li>{@code replicas} set → scale the deployment; pauses autoscaling if configured
+ *   <li>{@code autoscalingMode: "activate"} → resume autoscaling; {@code replicas} must be omitted
+ *   <li>{@code autoscalingMode: "activate"} + {@code resources} → resume autoscaling and update
  *       container resource limits/requests in the same call
  *   <li>{@code resources} alone → update container resources without touching autoscaling
  * </ul>
@@ -33,8 +30,7 @@ import lombok.NoArgsConstructor;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Schema(
     description =
-        "Request to scale a deployment. Use replicas to pause autoscaling at a fixed count, "
-            + "autoscalingMode=pause to freeze at the current count, "
+        "Request to scale a deployment. Use replicas to scale (pauses autoscaling if configured), "
             + "autoscalingMode=active to resume autoscaling, "
             + "or resources to update container limits/requests.")
 public class DeploymentScaleRequest {
@@ -47,11 +43,9 @@ public class DeploymentScaleRequest {
   @Nullable
   @Schema(
       description =
-          "Autoscaling mode. Set to \"active\" to resume autoscaling (replicas must be omitted). "
-              + "Set to \"pause\" without replicas to freeze at the current replica count, "
-              + "or combine with replicas to pause at a specific count.",
-      example = "active",
-      allowableValues = {"pause", "active"},
+          "Autoscaling mode. Set to \"activate\" to resume autoscaling (replicas must be omitted).",
+      example = "activate",
+      allowableValues = {"activate"},
       nullable = true)
   private String autoscalingMode;
 

@@ -88,8 +88,9 @@ public class KubernetesController {
 
   private static final String KEDA_PAUSED_REPLICAS_ANNOTATION =
       "autoscaling.keda.sh/paused-replicas";
-  private static final String AUTO_SCALING_PAUSE = "pause";
+  private static final String AUTO_SCALING_ACTIVATE = "activate";
   private static final String AUTO_SCALING_ACTIVE = "active";
+  private static final String AUTO_SCALING_PAUSED = "paused";
   private final OperationContext systemOperationContext;
   private final AuthorizerChain authorizerChain;
   private final KubernetesClient kubernetesClient;
@@ -203,9 +204,8 @@ public class KubernetesController {
       summary = "Scale deployment",
       description =
           "Scale replicas and/or update resource limits/requests for a deployment. "
-              + "Pass autoscalingMode=active (without replicas) to resume autoscaling. "
-              + "Pass autoscalingMode=pause to pause autoscaling at the current replica count, "
-              + "or combine with replicas to pause at a specific count. "
+              + "Pass replicas to scale the deployment (pauses autoscaling if configured). "
+              + "Pass autoscalingMode=activate (without replicas) to resume autoscaling. "
               + "⚠️ WARNING: This can cause service disruptions.",
       responses = {
         @ApiResponse(responseCode = "200", description = "Deployment scaled successfully"),
@@ -222,20 +222,19 @@ public class KubernetesController {
         request,
         "scaleDeployment",
         () -> {
-          boolean isActive = AUTO_SCALING_ACTIVE.equalsIgnoreCase(req.getAutoscalingMode());
-          boolean isPause = AUTO_SCALING_PAUSE.equalsIgnoreCase(req.getAutoscalingMode());
+          boolean isActivate = AUTO_SCALING_ACTIVATE.equalsIgnoreCase(req.getAutoscalingMode());
 
-          if (!isActive && !isPause && req.getReplicas() == null && req.getResources() == null) {
+          if (!isActivate && req.getReplicas() == null && req.getResources() == null) {
             return ResponseEntity.badRequest()
                 .body(
                     Map.of(
                         "error",
-                        "At least one of replicas, resources, autoscalingMode=active, or autoscalingMode=pause must be provided"));
+                        "At least one of replicas, resources, or autoscalingMode=activate must be provided"));
           }
 
-          if (isActive && req.getReplicas() != null) {
+          if (isActivate && req.getReplicas() != null) {
             return ResponseEntity.badRequest()
-                .body(Map.of("error", "replicas must not be set when autoscalingMode is active"));
+                .body(Map.of("error", "replicas must not be set when autoscalingMode is activate"));
           }
 
           if (req.getReplicas() != null && req.getReplicas() < 0) {
@@ -249,34 +248,23 @@ public class KubernetesController {
 
           String resultingMode = null;
 
-          if (isActive) {
+          if (isActivate) {
             Optional<ResponseEntity<?>> resumeError = resumeAutoscaling(name);
             if (resumeError.isPresent()) return resumeError.get();
             resultingMode = AUTO_SCALING_ACTIVE;
-          } else if (req.getReplicas() != null || isPause) {
-            // When pausing explicitly without a replica count, freeze at the current spec count.
-            int replicasToUse =
-                req.getReplicas() != null
-                    ? req.getReplicas()
-                    : (d.getSpec().getReplicas() != null ? d.getSpec().getReplicas() : 1);
+          } else if (req.getReplicas() != null) {
             Optional<GenericKubernetesResource> scaledObject = findScaledObjectForDeployment(name);
             if (scaledObject.isPresent()) {
               // Autoscaling manages this deployment — pause via annotation instead of direct scale.
-              pauseKedaScaledObject(scaledObject.get(), replicasToUse);
+              pauseKedaScaledObject(scaledObject.get(), req.getReplicas());
               log.info(
                   "Autoscaling found for deployment {}. Pausing at {} replicas via annotation.",
                   name,
-                  replicasToUse);
-              resultingMode = AUTO_SCALING_PAUSE;
-            } else if (isPause) {
-              // Explicit pause requested but no autoscaler found.
-              return ResponseEntity.badRequest()
-                  .body(
-                      Map.of(
-                          "error", "Deployment " + name + " does not have autoscaling configured"));
+                  req.getReplicas());
+              resultingMode = AUTO_SCALING_PAUSED;
             } else {
-              deployments.withName(name).scale(replicasToUse);
-              log.info("Scaled deployment {} to {} replicas", name, replicasToUse);
+              deployments.withName(name).scale(req.getReplicas());
+              log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
             }
           }
 
