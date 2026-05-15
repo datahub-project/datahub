@@ -411,9 +411,9 @@ public class IngestionScheduler {
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
         arguments.put(
             VERSION_ARGUMENT_NAME,
-            ingestionSourceInfo.getConfig().hasVersion()
-                ? ingestionSourceInfo.getConfig().getVersion()
-                : ingestionConfiguration.getDefaultCliVersion());
+            IngestionUtils.resolveIngestionCliVersion(
+                ingestionSourceInfo.getConfig().getVersion(),
+                ingestionConfiguration.getDefaultCliVersion()));
         String debugMode = "false";
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";
