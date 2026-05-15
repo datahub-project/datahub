@@ -886,7 +886,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
-    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    if: ${{ always() && !failure() && !cancelled() && github.event_name != 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
     steps:
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
