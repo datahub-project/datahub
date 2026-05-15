@@ -451,18 +451,25 @@ class PlatformAdapter(ABC):
         """
         Get median value for a column.
 
-        When the adapter does not provide a native SQL expression (e.g. MySQL/Doris
-        which have no MEDIAN function), falls back to GE's OFFSET/LIMIT trick:
-        fetch the 1-2 middle rows of the sorted non-null values and compute the
-        median in Python. Adapters that target platforms without a native
-        MEDIAN function should return None from `get_median_expr` to engage this
-        path; the GenericAdapter does so by default.
+        Adapters that target platforms without a native MEDIAN function should
+        return None from `get_median_expr` to engage the Python OFFSET/LIMIT
+        fallback below (the GenericAdapter does so by default). The execution
+        of the native expression is also wrapped in `try/except SQLAlchemyError`
+        as a safety net: if an adapter optimistically returns an expression that
+        turns out to fail on a specific column type, we still produce a median
+        value via the fallback rather than emitting nothing.
         """
         expr = self.get_median_expr(column)
         if expr is not None:
-            query = sa.select([expr]).select_from(table)
-            # Return raw result to preserve database-native formatting (like GE does)
-            return conn.execute(query).scalar()
+            try:
+                query = sa.select([expr]).select_from(table)
+                # Return raw result to preserve database-native formatting.
+                return conn.execute(query).scalar()
+            except SQLAlchemyError as e:
+                logger.debug(
+                    f"Native MEDIAN expression failed for column {column}; "
+                    f"falling back to OFFSET/LIMIT in Python: {e}"
+                )
 
         # Python-side fallback (mirrors GE's get_column_median for dialects
         # without a native MEDIAN function: MySQL, Doris, etc.).
