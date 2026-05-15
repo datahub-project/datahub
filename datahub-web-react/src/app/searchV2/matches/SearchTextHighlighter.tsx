@@ -16,7 +16,7 @@ type Props = {
 const HIGHLIGHT_ALL_PATTERN = /.*/;
 
 const StyledHighlight = styled(Highlight).attrs((props) => ({
-    matchStyle: { background: props.theme.styles['highlight-color'] },
+    matchStyle: { background: props.theme.colors.bgHighlight },
 }))``;
 
 const SearchTextHighlighter = ({ field, text, enableFullHighlight = false }: Props) => {

@@ -5,6 +5,7 @@ from pydantic import Field
 
 from datahub.api.entities.assertion.assertion_trigger import AssertionTrigger
 from datahub.configuration.common import ConfigModel
+from datahub.emitter.mce_builder import make_assertion_source
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionInfo
 
 
@@ -46,6 +47,15 @@ class BaseAssertion(ConfigModel):
     meta: Optional[dict] = None
 
 
+def _ensure_source_created(info: AssertionInfo) -> AssertionInfo:
+    """Ensure AssertionInfo has source.created populated."""
+    if info.source is None:
+        info.source = make_assertion_source()
+    elif info.source.created is None:
+        info.source.created = make_assertion_source().created
+    return info
+
+
 class BaseEntityAssertion(BaseAssertion):
     entity: str = Field(
         description="The entity urn that the assertion is associated with"
@@ -54,3 +64,10 @@ class BaseEntityAssertion(BaseAssertion):
     trigger: Optional[AssertionTrigger] = Field(
         default=None, description="The trigger schedule for assertion", alias="schedule"
     )
+
+    @abstractmethod
+    def get_assertion_info(self) -> AssertionInfo:
+        pass
+
+    def get_assertion_info_aspect(self) -> AssertionInfo:
+        return _ensure_source_created(self.get_assertion_info())

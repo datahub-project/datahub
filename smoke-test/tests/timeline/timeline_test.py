@@ -27,7 +27,7 @@ def test_all(auth_session, graph_client):
 
     res_data = timeline_cli.get_timeline(
         dataset_urn,
-        ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM", "OWNER"],
+        ["TAG", "DOCUMENTATION", "TECHNICAL_SCHEMA", "GLOSSARY_TERM", "OWNERSHIP"],
         None,
         None,
         False,
@@ -231,7 +231,7 @@ def test_ownership(graph_client):
     )
 
     res_data = timeline_cli.get_timeline(
-        dataset_urn, ["OWNER"], None, None, False, graph=graph_client
+        dataset_urn, ["OWNERSHIP"], None, None, False, graph=graph_client
     )
 
     graph_client.hard_delete_entity(urn=dataset_urn)

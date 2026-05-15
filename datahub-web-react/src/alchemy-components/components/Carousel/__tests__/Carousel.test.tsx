@@ -4,13 +4,17 @@ import { describe, expect, it } from 'vitest';
 
 import { Carousel } from '@components/components/Carousel/Carousel';
 
+import CustomThemeProvider from '@src/CustomThemeProvider';
+
+const renderWithTheme = (ui: React.ReactElement) => render(<CustomThemeProvider>{ui}</CustomThemeProvider>);
+
 // Test slides component
 const TestSlide = ({ children }: { children: React.ReactNode }) => <div data-testid="test-slide">{children}</div>;
 
 describe('Carousel', () => {
     describe('Basic functionality', () => {
         it('renders with default props', () => {
-            const { container } = render(
+            const { container } = renderWithTheme(
                 <Carousel>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -27,7 +31,7 @@ describe('Carousel', () => {
                 </button>
             );
 
-            render(
+            renderWithTheme(
                 <Carousel rightComponent={<RightComponent />}>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -43,7 +47,7 @@ describe('Carousel', () => {
                 </button>
             );
 
-            render(
+            renderWithTheme(
                 <Carousel leftComponent={<LeftComponent />}>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -55,7 +59,7 @@ describe('Carousel', () => {
 
     describe('Animation props without rendering styled errors', () => {
         it('accepts animateDot and dotDuration props', () => {
-            const { container } = render(
+            const { container } = renderWithTheme(
                 <Carousel animateDot={false} dotDuration={3000}>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -66,7 +70,7 @@ describe('Carousel', () => {
         });
 
         it('works without animation props', () => {
-            const { container } = render(
+            const { container } = renderWithTheme(
                 <Carousel>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -77,7 +81,7 @@ describe('Carousel', () => {
         });
 
         it('passes through standard Ant Design Carousel props', () => {
-            const { container } = render(
+            const { container } = renderWithTheme(
                 <Carousel autoplay autoplaySpeed={2000} arrows dots={false}>
                     <TestSlide>Slide 1</TestSlide>
                 </Carousel>,
@@ -88,7 +92,7 @@ describe('Carousel', () => {
         });
 
         it('combines all props together', () => {
-            const { container } = render(
+            const { container } = renderWithTheme(
                 <Carousel autoplay={false} dots animateDot={false} dotDuration={4000} arrows={false}>
                     <TestSlide>Slide 1</TestSlide>
                     <TestSlide>Slide 2</TestSlide>
@@ -103,7 +107,7 @@ describe('Carousel', () => {
     describe('Interface coverage', () => {
         it('handles all animateDot prop variations', () => {
             // Test true value
-            const { container: container1 } = render(
+            const { container: container1 } = renderWithTheme(
                 <Carousel animateDot dotDuration={0}>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,
@@ -111,7 +115,7 @@ describe('Carousel', () => {
             expect(container1.querySelector('.slick-slider')).toBeInTheDocument();
 
             // Test false value
-            const { container: container2 } = render(
+            const { container: container2 } = renderWithTheme(
                 <Carousel animateDot={false}>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,
@@ -119,7 +123,7 @@ describe('Carousel', () => {
             expect(container2.querySelector('.slick-slider')).toBeInTheDocument();
 
             // Test undefined (default)
-            const { container: container3 } = render(
+            const { container: container3 } = renderWithTheme(
                 <Carousel dotDuration={5000}>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,
@@ -128,8 +132,7 @@ describe('Carousel', () => {
         });
 
         it('handles all dotDuration prop variations', () => {
-            // Test positive number
-            const { container: container1 } = render(
+            const { container: container1 } = renderWithTheme(
                 <Carousel dotDuration={1000}>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,
@@ -137,7 +140,7 @@ describe('Carousel', () => {
             expect(container1.querySelector('.slick-slider')).toBeInTheDocument();
 
             // Test zero
-            const { container: container2 } = render(
+            const { container: container2 } = renderWithTheme(
                 <Carousel dotDuration={0}>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,
@@ -145,7 +148,7 @@ describe('Carousel', () => {
             expect(container2.querySelector('.slick-slider')).toBeInTheDocument();
 
             // Test undefined (default)
-            const { container: container3 } = render(
+            const { container: container3 } = renderWithTheme(
                 <Carousel animateDot>
                     <TestSlide>Test</TestSlide>
                 </Carousel>,

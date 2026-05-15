@@ -837,7 +837,7 @@ def quickstart(
     click.echo()
     click.secho("✔ DataHub is now running", fg="green")
     click.secho(
-        "Ingest some demo data using `datahub docker ingest-sample-data`,\n"
+        "Load sample data: run `datahub init` then `datahub datapack load showcase-ecommerce`,\n"
         "or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.",
         fg="green",
     )
@@ -920,8 +920,14 @@ def valid_restore_options(
     default=None,
     help="The token to be used when ingesting, used when datahub is deployed with METADATA_SERVICE_AUTH_ENABLED=true",
 )
+@click.option(
+    "--pack",
+    type=str,
+    default=None,
+    help="Data pack to load (e.g. 'showcase-ecommerce'). Default loads bootstrap data.",
+)
 @upgrade.check_upgrade
-def ingest_sample_data(token: Optional[str]) -> None:
+def ingest_sample_data(token: Optional[str], pack: Optional[str]) -> None:
     """Ingest sample data into a running DataHub instance."""
 
     # Verify that docker is up.
@@ -934,10 +940,15 @@ def ingest_sample_data(token: Optional[str]) -> None:
 
     # Run ingestion.
     click.echo("Starting ingestion...")
+    source_config: dict = {}
+    if pack:
+        source_config["pack_name"] = pack
+        source_config["no_time_shift"] = False
+
     recipe: dict = {
         "source": {
             "type": "demo-data",
-            "config": {},
+            "config": source_config,
         },
         "sink": {
             "type": "datahub-rest",

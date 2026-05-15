@@ -3,6 +3,17 @@
 This is the canonical reference for working with the DataHub codebase. It applies to all coding
 agents (Claude Code, Cursor, Codex CLI, Devin, etc.) and human developers alike.
 
+## Code Navigation (LSP)
+
+Prefer LSP tools over Grep for code navigation tasks:
+
+- Use `goToDefinition` to find where something is defined
+- Use `findReferences` to find all call sites
+- Use `workspaceSymbol` to find symbols by name
+- Use diagnostics after any edit to catch type errors immediately
+
+See [docs/lsp-setup.md](docs/lsp-setup.md) for installation and configuration.
+
 ## Essential Commands
 
 **Build and test:**
@@ -237,6 +248,7 @@ Forgetting step 2 means the release note is published but never appears in the s
   - **Data Structures**: Prefer dataclasses/pydantic for internal data, return dataclasses over tuples
   - **Code Quality**: Avoid global state, use named arguments, don't re-export in `__init__.py`, refactor repetitive code
   - **Error Handling**: Robust error handling with layers of protection for known failure points
+  - **Security**: Never pass credentials to third-party SDKs via `os.environ`. Use the SDK's programmatic injection mechanism (a settings object, client constructor argument, or credential provider). Writing secrets to the process environment exposes them via `/proc/<pid>/environ` and to any code in the same process. See [`looker_lib_wrapper.py`](metadata-ingestion/src/datahub/ingestion/source/looker/looker_lib_wrapper.py) (`_DataHubLookerApiSettings`) for the canonical pattern.
 - **TypeScript**: Use Prettier formatting, strict types (no `any`), React Testing Library
 
 ### Frontend Theming (Colors)

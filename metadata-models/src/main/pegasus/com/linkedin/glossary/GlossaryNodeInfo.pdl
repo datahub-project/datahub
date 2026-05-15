@@ -14,7 +14,10 @@ record GlossaryNodeInfo includes CustomProperties {
   /**
    * Definition of business node
    */
-  @Searchable = {}
+  @Searchable = {
+    "fieldType": "TEXT",
+    "searchTier": 2
+  }
   definition: string
 
   /**

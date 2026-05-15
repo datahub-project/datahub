@@ -1,7 +1,6 @@
 import { Typography } from 'antd';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 
 export const MainSection = styled.div`
@@ -12,7 +11,7 @@ export const MainSection = styled.div`
 export const SummaryHeader = styled(Typography.Text)`
     margin-bottom: 20px;
     font-size: 18px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
 `;
 
@@ -20,7 +19,7 @@ export const VerticalDivider = styled.hr`
     align-self: stretch;
     height: auto;
     margin: 0 20px;
-    color: ${REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
+    color: ${(props) => props.theme.colors.border};
     border-width: 1px;
     opacity: 0.2;
 `;
@@ -28,6 +27,6 @@ export const VerticalDivider = styled.hr`
 export const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
     font-size: 14px;
-    color: ${REDESIGN_COLORS.TEXT_HEADING};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 700;
 `;

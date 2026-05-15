@@ -101,6 +101,13 @@ input AssertionResultInput {
   Error details, if type is ERROR
   """
   error: AssertionResultErrorInput
+
+  """
+  The severity of a failure result. Only meaningful when type is FAILURE.
+  Indicates how far the observed value deviated from the expected bounds.
+  Ignored for SUCCESS and ERROR result types.
+  """
+  severity: AssertionResultSeverity
 }
 
 """

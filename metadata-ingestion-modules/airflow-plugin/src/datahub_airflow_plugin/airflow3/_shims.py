@@ -5,7 +5,14 @@ Clean, simple imports without cross-version compatibility complexity.
 
 from typing import List, Union
 
-from airflow.models.mappedoperator import MappedOperator
+# MappedOperator type alias - try airflow.models.mappedoperator first (Airflow 3.0-3.1)
+# Fall back to airflow.serialization.definitions.mappedoperator for Airflow 3.2+
+try:
+    from airflow.models.mappedoperator import MappedOperator
+except ModuleNotFoundError:
+    from airflow.serialization.definitions.mappedoperator import (  # type: ignore[no-redef]
+        SerializedMappedOperator as MappedOperator,
+    )
 
 # Airflow 3.x SDK imports - these always exist in Airflow 3.x
 from airflow.sdk.bases.operator import BaseOperator

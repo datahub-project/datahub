@@ -455,7 +455,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9"
+                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -601,7 +602,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -768,7 +770,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
             "name": "Executive Dashboard",
@@ -914,7 +917,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                "luid": "a059a443-7634-4abf-9e46-d147b99168be"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Workbook published ds",
@@ -14662,7 +14666,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -14670,7 +14674,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -34590,7 +34594,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+            },
             "name": "test publish datasource",
             "description": "description for test publish datasource",
             "tags": []
@@ -35127,7 +35133,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+            },
             "name": "Superstore Datasource",
             "description": "Description for Superstore dataset",
             "tags": []
@@ -45627,44 +45635,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery",
-            "name": "demo-custom-323403.bigquery_demo.order_items",
-            "origin": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_multiple_site_ingestion"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery",
-            "name": "demo-custom-323403.bigquery_demo.sellers",
-            "origin": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_multiple_site_ingestion"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePaths",
@@ -45796,6 +45766,44 @@
                     "id": "test publish datasource"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_multiple_site_ingestion"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.order_items",
+            "origin": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_multiple_site_ingestion"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.sellers",
+            "origin": "PROD"
         }
     },
     "systemMetadata": {
@@ -46195,7 +46203,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9"
+                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
             },
             "externalUrl": "https://do-not-connect/#/site/site2/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -46315,7 +46324,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
             },
             "externalUrl": "https://do-not-connect/#/site/site2/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -46456,7 +46466,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
             },
             "externalUrl": "https://do-not-connect/#/site/site2/workbooks/15605",
             "name": "Executive Dashboard",
@@ -46576,7 +46587,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                "luid": "a059a443-7634-4abf-9e46-d147b99168be"
             },
             "externalUrl": "https://do-not-connect/#/site/site2/workbooks/17904",
             "name": "Workbook published ds",
@@ -59428,7 +59440,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -59436,7 +59448,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -79116,7 +79128,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+            },
             "name": "test publish datasource",
             "description": "description for test publish datasource",
             "tags": []
@@ -79627,7 +79641,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+            },
             "name": "Superstore Datasource",
             "description": "Description for Superstore dataset",
             "tags": []
@@ -89487,44 +89503,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery",
-            "name": "demo-custom-323403.bigquery_demo.order_items",
-            "origin": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_multiple_site_ingestion"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetKey",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:bigquery",
-            "name": "demo-custom-323403.bigquery_demo.sellers",
-            "origin": "PROD"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1638860400000,
-        "runId": "tableau-test",
-        "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_multiple_site_ingestion"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,demo_postgres_instance.dvdrental.public.customer,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePaths",
@@ -89575,6 +89553,44 @@
             "paths": [
                 "/prod/tableau/Site 2/default/test publish datasource"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_multiple_site_ingestion"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.order_items,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.order_items",
+            "origin": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_multiple_site_ingestion"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,demo-custom-323403.bigquery_demo.sellers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetKey",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:bigquery",
+            "name": "demo-custom-323403.bigquery_demo.sellers",
+            "origin": "PROD"
         }
     },
     "systemMetadata": {

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import auth.sso.SsoManager;
 import client.AuthServiceClient;
 import com.datahub.authentication.ActorType;
@@ -13,15 +14,22 @@ import com.google.inject.Guice;
 import com.google.inject.Injector;
 import com.linkedin.metadata.restli.RestliClientSslConfig;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.typesafe.config.ConfigFactory;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.composite.CompositeMeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.jmx.JmxMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junitpioneer.jupiter.ClearEnvironmentVariable;
 import org.mockito.MockedStatic;
 import org.pac4j.core.context.session.SessionStore;
 import org.pac4j.play.store.PlayCacheSessionStore;
-import org.pac4j.play.store.PlayCookieSessionStore;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import play.Environment;
 import play.cache.SyncCacheApi;
 
@@ -37,7 +45,8 @@ public class AuthModuleTest {
   public void setUp() {
     // Create a test configuration
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -78,7 +87,8 @@ public class AuthModuleTest {
   public void testSessionStoreConfigurationWithPlayCacheSessionStore() {
     // Test PlayCacheSessionStore configuration
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -108,7 +118,8 @@ public class AuthModuleTest {
   public void testSessionStoreConfigurationWithPlayCookieSessionStore() {
     // Test PlayCookieSessionStore configuration
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCookieSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -131,7 +142,7 @@ public class AuthModuleTest {
     // Verify SessionStore is bound
     SessionStore sessionStore = injector.getInstance(SessionStore.class);
     assertNotNull(sessionStore);
-    assertTrue(sessionStore instanceof PlayCookieSessionStore);
+    assertTrue(sessionStore instanceof DatahubPlayCookieSessionStore);
   }
 
   @Test
@@ -162,7 +173,8 @@ public class AuthModuleTest {
   public void testSsoManagerProviderWithBasePath() {
     // Test SsoManager provider with basePath configuration
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -191,7 +203,8 @@ public class AuthModuleTest {
   public void testSsoManagerProviderWithoutBasePath() {
     // Test SsoManager provider without basePath configuration
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -218,7 +231,8 @@ public class AuthModuleTest {
   public void testAuthServiceClientProviderWithBasePath() {
     // Test AuthServiceClient provider with basePath
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -247,7 +261,8 @@ public class AuthModuleTest {
   public void testAuthServiceClientProviderWithoutBasePath() {
     // Test AuthServiceClient provider without basePath
     Map<String, Object> configMap = new HashMap<>();
-    configMap.put("play.http.secret.key", "test-secret-key");
+    configMap.put(
+        "play.http.secret.key", "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
     configMap.put("pac4j.sessionStore.provider", "PlayCacheSessionStore");
     configMap.put("metadataService.host", "localhost");
     configMap.put("metadataService.port", 8080);
@@ -487,5 +502,87 @@ public class AuthModuleTest {
     com.typesafe.config.Config config = ConfigFactory.parseMap(new HashMap<>());
     RestliClientSslConfig ssl = AuthModule.buildRestliSslConfigForMetadataService(config);
     assertFalse(ssl.hasCustomSslMaterial());
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_defaultPrometheusAndNoJmx_compositeHasPrometheusAndLegacySimple() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(null);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(null);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    MeterRegistry registry = utils.getRegistry();
+    assertTrue(registry instanceof CompositeMeterRegistry);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) registry;
+    long prom =
+        composite.getRegistries().stream()
+            .filter(PrometheusMeterRegistry.class::isInstance)
+            .count();
+    long simple =
+        composite.getRegistries().stream().filter(SimpleMeterRegistry.class::isInstance).count();
+    assertEquals(1, prom);
+    assertEquals(1, simple);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_prometheusDisabled_usesSingleSimpleRegistry() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(null);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(false);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    assertEquals(1, composite.getRegistries().size());
+    assertTrue(composite.getRegistries().iterator().next() instanceof SimpleMeterRegistry);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_jmxEnabledWithPrometheus_compositeHasPrometheusAndJmx() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(true);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(true);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    long prom =
+        composite.getRegistries().stream()
+            .filter(PrometheusMeterRegistry.class::isInstance)
+            .count();
+    long jmx =
+        composite.getRegistries().stream().filter(JmxMeterRegistry.class::isInstance).count();
+    assertEquals(1, prom);
+    assertEquals(1, jmx);
+  }
+
+  @Test
+  @ClearEnvironmentVariable(key = "MANAGEMENT_SERVER_PORT")
+  public void metricUtils_jmxEnabledPrometheusDisabled_jmxOnly() {
+    AnnotationConfigApplicationContext ctx = mock(AnnotationConfigApplicationContext.class);
+    org.springframework.core.env.ConfigurableEnvironment env =
+        mock(org.springframework.core.env.ConfigurableEnvironment.class);
+    when(ctx.getEnvironment()).thenReturn(env);
+    when(env.getProperty("management.metrics.export.jmx.enabled", Boolean.class)).thenReturn(true);
+    when(env.getProperty("management.metrics.export.prometheus.enabled", Boolean.class))
+        .thenReturn(false);
+
+    MetricUtils utils = authModule.metricUtils(ctx);
+    CompositeMeterRegistry composite = (CompositeMeterRegistry) utils.getRegistry();
+    assertEquals(1, composite.getRegistries().size());
+    assertTrue(composite.getRegistries().iterator().next() instanceof JmxMeterRegistry);
   }
 }

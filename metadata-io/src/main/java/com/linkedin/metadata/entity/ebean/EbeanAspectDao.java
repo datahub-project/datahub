@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
+import static com.linkedin.metadata.Constants.DEFAULT_SCHEMA_VERSION;
 import static com.linkedin.metadata.Constants.READ_ONLY_LOG;
 
 import com.codahale.metrics.MetricRegistry;
@@ -53,6 +54,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -87,7 +89,8 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   // This may be able to be moved up, 375 is a bit conservative. However, we should be careful to
   // tweak this without
   // more testing.
-  private int queryKeysCount = 375; // 0 means no pagination on keys
+  // Can be configured via ebean.queryKeysCountForBatch in application.yaml
+  private int queryKeysCount = EbeanConfiguration.DEFAULT_QUERY_KEYS_COUNT;
 
   private final String batchGetMethod;
   @Nullable private final MetricUtils metricUtils;
@@ -105,6 +108,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         ebeanConfiguration.getBatchGetMethod() != null
             ? ebeanConfiguration.getBatchGetMethod()
             : "IN";
+    Integer configuredKeysCount = ebeanConfiguration.getQueryKeysCountForBatch();
+    if (configuredKeysCount != null) {
+      this.queryKeysCount = configuredKeysCount;
+    }
     this.metricUtils = metricUtils;
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
@@ -204,13 +211,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
                     .thenComparing(EbeanAspectV2.PrimaryKey::getVersion))
             .collect(Collectors.toList());
 
-    final List<EbeanAspectV2> results;
-    if (forUpdate && canWrite) {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).forUpdate().findList();
-    } else {
-      results = server.find(EbeanAspectV2.class).where().idIn(keys).findList();
-    }
-
+    // Use batchGet to chunk large IN clauses and avoid optimizer memory exhaustion
+    // (range_optimizer_max_mem_size)
+    final List<EbeanAspectV2> results =
+        batchGet(new HashSet<>(keys), queryKeysCount, forUpdate && canWrite);
     return toUrnAspectMap(opContext.getEntityRegistry(), results, opContext);
   }
 
@@ -339,6 +343,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   private List<EbeanAspectV2> batchGet(
       @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount, boolean forUpdate) {
+    if (keys.isEmpty()) {
+      return Collections.emptyList();
+    }
     validateConnection();
 
     int position = 0;
@@ -355,7 +362,35 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       finalResult.addAll(oneStatementResult);
     }
 
+    syncKeyScalarsFromEmbeddedId(finalResult);
     return finalResult;
+  }
+
+  /**
+   * Parsed {@link RawSql} keeps one bean property per <em>result column name</em>: a second {@code
+   * columnMapping} for the same column <strong>replaces</strong> the first, so we cannot map both
+   * {@code key.urn} and top-level {@code urn} for {@code urn}. Map only the embedded id; {@link
+   * #syncKeyScalarsFromEmbeddedId} fills the duplicate scalar fields.
+   */
+  @Nonnull
+  private static RawSql parseBatchGetRawSql(String sql) {
+    return RawSqlBuilder.parse(sql)
+        .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
+        .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
+        .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
+        .create();
+  }
+
+  /**
+   * RawSql maps result columns only to {@code key.*}; copy into the denormalized scalar fields so
+   * {@link EbeanAspectV2#getUrn()} and related accessors match the embedded id.
+   */
+  private static void syncKeyScalarsFromEmbeddedId(Iterable<EbeanAspectV2> aspects) {
+    for (EbeanAspectV2 aspect : aspects) {
+      aspect.setUrn(aspect.getKey().getUrn());
+      aspect.setAspect(aspect.getKey().getAspect());
+      aspect.setVersion(aspect.getKey().getVersion());
+    }
   }
 
   @Nonnull
@@ -440,12 +475,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       sb.append(" FOR UPDATE");
     }
 
-    final RawSql rawSql =
-        RawSqlBuilder.parse(sb.toString())
-            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
-            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
-            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
-            .create();
+    final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
 
@@ -499,12 +529,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       sb.append(" FOR UPDATE");
     }
 
-    final RawSql rawSql =
-        RawSqlBuilder.parse(sb.toString())
-            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
-            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
-            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
-            .create();
+    final RawSql rawSql = parseBatchGetRawSql(sb.toString());
 
     final Query<EbeanAspectV2> query = server.find(EbeanAspectV2.class).setRawSql(rawSql);
 
@@ -677,6 +702,79 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       }
     }
     return exp;
+  }
+
+  @Override
+  @Nonnull
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull Map<String, Long> aspectTargetVersions,
+      long afterCreatedOnMs,
+      int batchSize,
+      int limit) {
+    validateConnection();
+
+    // Only include aspects whose target version is above the default — nothing to migrate
+    // otherwise.
+    Map<String, Long> versionedAspects =
+        aspectTargetVersions.entrySet().stream()
+            .filter(e -> e.getValue() > DEFAULT_SCHEMA_VERSION)
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    if (versionedAspects.isEmpty()) {
+      return PartitionedStream.<EbeanAspectV2>builder().delegateStream(Stream.empty()).build();
+    }
+
+    // Build: OR over aspects of (aspect = X AND schemaVersion != targetVersion(X))
+    // "not at target" means: schemaVersion key is absent, OR its value != target.
+    ExpressionList<EbeanAspectV2> base =
+        server
+            .find(EbeanAspectV2.class)
+            .select(EbeanAspectV2.ALL_COLUMNS)
+            .where()
+            .eq(EbeanAspectV2.VERSION_COLUMN, ASPECT_LATEST_VERSION);
+
+    if (afterCreatedOnMs > 0) {
+      base =
+          base.ge(
+              EbeanAspectV2.CREATED_ON_COLUMN,
+              Timestamp.from(Instant.ofEpochMilli(afterCreatedOnMs)));
+    }
+
+    // Use LIKE-based raw() rather than Ebean's jsonEqualTo() / jsonNotEqualTo(): jsonEqualTo() on
+    // Postgres generates "(col ->> 'key')::bigint = ?" where the bind parameter is untyped, causing
+    // "operator does not exist: bigint = unknown" at runtime. NOT LIKE on the serialised JSON
+    // is DB-agnostic; schemaVersion values are small integers that cannot collide with other
+    // JSON key or value substrings (the key name "schemaVersion" is controlled by us).
+    final io.ebean.Junction<EbeanAspectV2> aspectOr = base.or();
+    for (Map.Entry<String, Long> entry : versionedAspects.entrySet()) {
+      long target = entry.getValue();
+      // Per-aspect: (aspect = X) AND (schemaVersion absent OR schemaVersion != target)
+      aspectOr
+          .and()
+          .eq(EbeanAspectV2.ASPECT_COLUMN, entry.getKey())
+          .or()
+          .raw(
+              "("
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " IS NULL OR "
+                  + EbeanAspectV2.SYSTEM_METADATA_COLUMN
+                  + " NOT LIKE '%\"schemaVersion\"%')")
+          .raw(
+              EbeanAspectV2.SYSTEM_METADATA_COLUMN + " NOT LIKE ?",
+              "%" + "\"schemaVersion\":" + target + "%")
+          .endOr()
+          .endAnd();
+    }
+
+    ExpressionList<EbeanAspectV2> exp = aspectOr.endOr();
+
+    if (limit > 0) {
+      exp = exp.setMaxRows(limit);
+    }
+
+    Stream<EbeanAspectV2> stream = exp.orderBy().asc(EbeanAspectV2.CREATED_ON_COLUMN).findStream();
+
+    return PartitionedStream.<EbeanAspectV2>builder().delegateStream(stream).build();
   }
 
   /**

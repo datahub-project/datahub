@@ -1,0 +1,17 @@
+run_id: starrocks-test
+
+source:
+  type: starrocks
+  config:
+    host_port: localhost:59030
+    username: root
+    password: ""
+    include_external_catalogs: false
+    schema_pattern:
+      allow:
+        - "test_db"
+
+sink:
+  type: file
+  config:
+    filename: "./starrocks_mces.json"

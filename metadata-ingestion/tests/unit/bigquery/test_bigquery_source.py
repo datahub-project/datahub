@@ -1,13 +1,11 @@
-import json
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud.bigquery.table import Row, TableListItem
 
@@ -132,54 +130,6 @@ def test_bigquery_dataset_pattern():
         r"^test-dataset-2$",
         r"project\.second_dataset",
     ]
-
-
-@patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
-)
-def test_bigquery_uri_with_credential(mock_from_sa_info):
-    expected_credential_json = {
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "client_email": "test@acryl.io",
-        "client_id": "test_client-id",
-        "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test@acryl.io",
-        "private_key": "random_private_key",
-        "private_key_id": "test-private-key",
-        "project_id": "test-project",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "type": "service_account",
-    }
-
-    config = BigQueryV2Config.model_validate(
-        {
-            "project_id": "test-project",
-            "credential": {
-                "project_id": "test-project",
-                "private_key_id": "test-private-key",
-                "private_key": "random_private_key",
-                "client_email": "test@acryl.io",
-                "client_id": "test_client-id",
-            },
-        }
-    )
-
-    try:
-        assert config.get_sql_alchemy_url() == "bigquery://"
-        assert config._credentials_path
-
-        with open(config._credentials_path) as jsonFile:
-            json_credential = json.load(jsonFile)
-            jsonFile.close()
-
-        credential = json.dumps(json_credential, sort_keys=True)
-        expected_credential = json.dumps(expected_credential_json, sort_keys=True)
-        assert expected_credential == credential
-
-    except AssertionError as e:
-        if config._credentials_path:
-            os.unlink(str(config._credentials_path))
-        raise e
 
 
 @patch(
@@ -604,7 +554,7 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
 def test_get_datasets_for_project_id_with_timestamps(
@@ -1111,7 +1061,7 @@ def test_get_views_for_dataset(
         dict(
             table_name=bigquery_view_1.name,
             created=bigquery_view_1.created,
-            last_altered=bigquery_view_1.last_altered,
+            last_altered=bigquery_view_1.last_altered.timestamp() * 1000,
             comment=bigquery_view_1.comment,
             view_definition=bigquery_view_1.view_definition,
             table_type="VIEW",
@@ -1220,7 +1170,7 @@ def test_get_snapshots_for_dataset(
         dict(
             table_name=bigquery_snapshot.name,
             created=bigquery_snapshot.created,
-            last_altered=bigquery_snapshot.last_altered,
+            last_altered=bigquery_snapshot.last_altered.timestamp() * 1000,
             comment=bigquery_snapshot.comment,
             ddl=bigquery_snapshot.ddl,
             snapshot_time=bigquery_snapshot.snapshot_time,

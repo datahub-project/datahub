@@ -22,7 +22,7 @@ const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
 
 export const Platforms = () => {
     const { user } = useUserContext();
-    const { platforms, loading } = useGetPlatforms(user);
+    const { platforms, loading } = useGetPlatforms();
     const { isUserInitializing } = useContext(OnboardingContext);
 
     useUpdateEducationStepsAllowList(!!platforms.length, HOME_PAGE_PLATFORMS_ID);

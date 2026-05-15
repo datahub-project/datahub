@@ -4,9 +4,41 @@ The `mongodb` module ingests metadata from Mongodb into DataHub. It is intended 
 
 ### Prerequisites
 
-:::info Writer Permissions
+#### Required Permissions
 
-The user account used for MongoDB ingestion must have the `readWrite` role on each database to be ingested. Schema inference and sampling logic executes on system collections (such as `system.profile` and `system.views`), which are not permitted with only `read` or `readAnyDatabase` roles. Without `readWrite`, ingestion will fail with an authorization error.
+The ingestion user must have the `read` role on each database to be ingested, or
+`readAnyDatabase` to ingest all accessible databases:
+
+```js
+// Grant read access to a specific database
+db.grantRolesToUser("datahub_ingest", [{ role: "read", db: "your_database" }]);
+// Or grant read access to all databases
+db.grantRolesToUser("datahub_ingest", [
+  { role: "readAnyDatabase", db: "admin" },
+]);
+```
+
+:::tip Note on system collections
+
+MongoDB `system.*` collections (such as `system.profile` and `system.views`) are excluded
+from ingestion by default via the `excludeSystemCollections` option (enabled by default).
+This means the `read` role is sufficient for all standard ingestion use cases. If you
+disable `excludeSystemCollections`, ingestion of `system.profile` requires the `dbAdmin`
+role — see [Config Details](#config-details) for more information.
+
+If you are upgrading from a version that ingested system collections by default and have
+MongoDB profiling enabled, you may encounter an authorization error during ingestion. As a
+workaround, you can explicitly deny system collections in your recipe:
+
+```yaml
+source:
+  type: mongodb
+  config:
+    collection_pattern:
+      deny:
+        - ".*\\.system\\..*"
+```
+
 :::
 
 #### Authentication

@@ -20,6 +20,26 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:omni",
+        "name": "omni",
+        "displayName": "Omni",
+        "description": "Import Dashboards, Charts, and lineage from Omni.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/omni",
+        "recipe": "source:\n  type: omni\n  config:\n    base_url: https://your-org.omniapp.co/api\n    api_key: ${OMNI_API_KEY}\n    connection_to_platform:\n      conn_abc123: snowflake\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true\n",
+        "category": "BI Tool",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:informatica",
+        "name": "informatica",
+        "displayName": "Informatica",
+        "description": "Import Mappings, Taskflows, lineage, ownership, and tags from Informatica Intelligent Data Management Cloud (IDMC).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informatica",
+        "recipe": "source:\n  type: informatica\n  config:\n    login_url: https://dm-us.informaticacloud.com\n    username: \"${IDMC_USERNAME}\"\n    password: \"${IDMC_PASSWORD}\"\n    extract_lineage: true\n    extract_ownership: true\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:snaplogic",
         "name": "snaplogic",
         "displayName": "SnapLogic",
@@ -35,7 +55,7 @@
         "displayName": "Snowflake",
         "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Snowflake.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview",
-        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        authentication_type: KEY_PAIR_AUTHENTICATOR\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Data Warehouse",
         "isPopular": true
     },
@@ -140,6 +160,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:matillion",
+        "name": "matillion-dpc",
+        "displayName": "Matillion",
+        "description": "Import Pipelines, Streaming Pipelines, Projects, Environments, and lineage from Matillion Data Productivity Cloud.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/matillion-dpc",
+        "recipe": "source:\n  type: matillion-dpc\n  config:\n    api_config:\n      client_id: \"${MATILLION_CLIENT_ID}\"\n      client_secret: \"${MATILLION_CLIENT_SECRET}\"\n      region: \"EU1\"  # EU1 or US1\n\n    env: \"PROD\"\n    extract_projects_to_containers: true\n    parse_sql_for_lineage: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:flink",
         "name": "flink",
         "displayName": "Flink",
@@ -195,7 +225,7 @@
         "displayName": "Microsoft SQL Server",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mssql/",
-        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        convert_urns_to_lowercase: true\n        convert_column_urns_to_lowercase: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": true
     },
@@ -590,5 +620,16 @@
         "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
         "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
+    },
+    {
+        "urn": "urn:li:dataPlatform:snowplow",
+        "name": "snowplow",
+        "displayName": "Snowplow",
+        "description": "Import Schemas, Event Specifications, Tracking Plans, Pipelines, and Enrichments from Snowplow BDP.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/snowplow",
+        "recipe": "source:\n  type: snowplow\n  config:\n    # BDP Console API connection\n    bdp_connection:\n      organization_id: \"YOUR_ORG_UUID\"\n      api_key_id: \"${SNOWPLOW_API_KEY_ID}\"\n      api_key: \"${SNOWPLOW_API_KEY}\"\n\n    # Optional: Filter schemas by Snowplow deployment environment (PROD, DEV)\n    # deployment_environment: PROD\n\n    # Optional: Filter pipelines by Snowplow pipeline label (commonly the env, e.g. prod)\n    # pipeline_label: prod\n\n    # Optional: Filter event specifications by status\n    # event_spec_statuses:\n    #   - published\n\n    # Optional: Filter schemas by vendor/name pattern\n    # schema_pattern:\n    #   allow:\n    #     - \"com\\\\.mycompany\\\\..*\"\n\n    stateful_ingestion:\n      enabled: true",
+        "category": "Data Collector",
+        "isPopular": false,
+        "isNew": true
     }
 ]

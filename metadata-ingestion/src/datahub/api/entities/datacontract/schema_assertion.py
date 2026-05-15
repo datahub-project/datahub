@@ -7,6 +7,7 @@ from pydantic import ConfigDict, Field, RootModel
 from typing_extensions import Literal
 
 from datahub.api.entities.datacontract.assertion import BaseAssertion
+from datahub.emitter.mce_builder import make_assertion_source
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.json_schema_util import get_schema_metadata
 from datahub.metadata.schema_classes import (
@@ -73,6 +74,7 @@ class SchemaAssertion(RootModel[Union[JsonSchemaContract, FieldListSchemaContrac
                 entity=entity_urn,
                 schema=self.root._schema_metadata,
             ),
+            source=make_assertion_source(),
             description=self.root.description,
         )
 

@@ -6,7 +6,6 @@ import { ChangeMessage } from '@app/entityV2/document/changeHistory/changeMessag
 import { extractChangeDetails, getActorDisplayName } from '@app/entityV2/document/changeHistory/utils/changeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Popover, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 import dayjs from '@utils/dayjs';
 
 import { DocumentChange, DocumentChangeType } from '@types';
@@ -25,7 +24,7 @@ const TimeRow = styled.div`
 `;
 
 const TimeText = styled(Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface DocumentChangeTimelineContentProps {

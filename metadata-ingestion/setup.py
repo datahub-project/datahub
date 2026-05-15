@@ -42,6 +42,10 @@ base_requirements = {
     "setuptools<82.0.0",
 }
 
+gcp_sm_common = {
+    "google-cloud-secret-manager>=2.0.0,<3.0.0",
+}
+
 framework_common = {
     # Avoiding click 8.2.0 due to https://github.com/pallets/click/issues/2894
     "click>=7.1.2,!=8.2.0,<9.0.0",
@@ -61,9 +65,10 @@ framework_common = {
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
     "packaging<26.0.0",
-    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling vulnerabilities fixed in 3.13.3
-    # Minimum version enforced in Docker builds via docker/snippets/ingestion/constraints.txt
-    # (not enforced here due to Airflow constraint file conflicts in CI)
+    # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
+    # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
+    # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
+    # airflow-plugin CI installs with -c constraints-3.10.txt (unsatisfiable if we require >=3.13.x).
     "aiohttp<4",
     "cached_property<3.0.0",
     "ijson<4.0.0",
@@ -74,13 +79,13 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
-    # Required for GraphQL query adaptation (used by search CLI)
-    "graphql-core>=3.0.0,<4.0.0",
 }
 
 rest_common = {
     "requests<3.0.0",
     "requests_file<4.0.0",
+    # Required for GraphQL query adaptation and schema introspection
+    "graphql-core>=3.0.0,<4.0.0",
 }
 
 kafka_common = {
@@ -126,7 +131,9 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    "sqlglot[c]==30.0.3",
+    #"sqlglot[c]==30.0.3",
+    # memory leak with sqlglot[c] https://github.com/tobymao/sqlglot/issues/7506
+    "sqlglot==30.0.3",
     "patchy==2.8.0",
 }
 
@@ -248,7 +255,7 @@ bigquery_common = {
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     *path_spec_common,
 }
 
@@ -270,6 +277,7 @@ datacatalog_lineage_common = {
 
 dataplex_common = {
     "google-cloud-dataplex<3.0.0",
+    "google-cloud-resource-manager<2.0.0",
     *datacatalog_lineage_common,
     "tenacity>=8.0.1,<9.0.0",
 }
@@ -313,7 +321,7 @@ snowflake_common = {
     # >= 4.4.0 for pyOpenSSL>=26.0.0 which solves CVE-2024-27459 & CVE-2026-28448
     "snowflake-connector-python>=4.4.0,<5.0.0",
     "pandas<3.0.0",
-    "cryptography>=46.0.5,<47.0.0",  # >=46.0.5 for CVE-2026-26007
+    "cryptography>=46.0.7,<47.0.0",  # >=46.0.7 for CVE-2026-26007
     "msal<2.0.0",
     "tenacity>=8.0.1,<9.0.0",
     *cachetools_lib,
@@ -368,7 +376,7 @@ iceberg_common = {
 mssql_common = {
     # Note: sqlalchemy-pytds>=1.0 requires SQLAlchemy>=2, so constrained to 0.x automatically
     "sqlalchemy-pytds>=0.3,<2.0.0",
-    "pyOpenSSL<26.0.0",
+    "pyOpenSSL>=26.0.0,<27.0.0",
 }
 
 postgres_common = {
@@ -384,10 +392,11 @@ s3_base = {
     "tableschema>=1.20.2,<2.0.0",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     # >=5.12.0: fixes DoS (memory growth on parsing huge integers in 5.4–5.11; dumps() indent
-    # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
-    "ujson>=5.12.0,<6.0.0",
+    # overflow/infinite loop GHSA-c8rr-9gxc-jprv).
+    # >=5.12.1: CVE-2026-44660 — memory leak in ujson.dump() on write failure.
+    # Keep <6 until major API review.
+    "ujson>=5.12.1,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
-    "moto[s3]>=5.0.0,<6.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
     *cachetools_lib,
@@ -412,7 +421,7 @@ abs_base = {
     *pyarrow_common,
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
-    "ujson>=5.12.0,<6.0.0",
+    "ujson>=5.12.1,<6.0.0",
     *path_spec_common,
 }
 
@@ -474,7 +483,8 @@ mysql_common = sql_common | mysql | aws_common
 sac = {
     "requests<3.0.0",
     "pyodata>=1.11.1,<2.0.0",
-    "Authlib>=1.6.7,<2.0.0",
+    # GHSA-jj8c-mmj3-mmgv: OAuth cache CSRF; fixed in >=1.6.11
+    "Authlib>=1.6.11,<2.0.0",
 }
 
 superset_common = {
@@ -483,10 +493,13 @@ superset_common = {
 }
 
 embedding_common = {
-    # LiteLLM for unified embedding API (Bedrock, Cohere, OpenAI)
-    "litellm==1.80.5",
-    # AWS SDK for Bedrock embedding support
+    # AWS SDK for Bedrock embedding support (SigV4 + AWS credential chain).
+    # OpenAI, Cohere, and the local provider all hit raw HTTP endpoints via
+    # `requests` (already required by acryl-datahub) — no SDKs needed.
     *aws_common,
+    # google-auth handles ADC / OAuth refresh for Vertex AI; the Vertex
+    # :predict call itself goes over plain HTTP.
+    "google-auth>=2.0.0,<3.0.0",
 }
 
 unstructured_lib = {
@@ -546,6 +559,7 @@ plugins: Dict[str, Set[str]] = {
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
+    "aerospike": {"aerospike>=15.0.0,<20.0.0"},
     # sqlalchemy-bigquery is included here since it provides an implementation of
     # a SQLalchemy-conform STRUCT type definition
     "athena": sql_common
@@ -554,7 +568,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/jd/tenacity/issues/471
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-        "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+        "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
@@ -566,12 +580,14 @@ plugins: Dict[str, Set[str]] = {
     },
     "fabric-onelake": {
         "sqlalchemy>=1.4,<3.0",
-        "pyodbc>=4.0,<5.0",
+        "pyodbc>=4.0,<6.0.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "azure-identity>=1.21.0,<2.0",
         # upper bound added to pass check-python-deps.yml github workflow
         "requests>=2.28.0,<3.0",
-    },
+    }
+    | sqlglot_lib
+    | usage_common,
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -633,7 +649,8 @@ plugins: Dict[str, Set[str]] = {
     },
     "flink": {"requests<3.0.0", "tenacity>=8.0.1,<9.0.0"},
     "grafana": {"requests<3.0.0", *sqlglot_lib},
-    "glue": aws_common | cachetools_lib,
+    "omni": {"requests<3.0.0", "PyYAML>=5.4"},
+    "glue": aws_common | cachetools_lib | sqlglot_lib,
     # hdbcli is supported officially by SAP, sqlalchemy-hana is built on top but not officially supported
     "hana": sql_common
     | {
@@ -661,6 +678,12 @@ plugins: Dict[str, Set[str]] = {
     },
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
+    "informatica": {
+        "requests<3.0.0",
+        # Safe XML parsing for IDMC v3 Export .TASKFLOW.xml payloads
+        # (blocks billion-laughs / external-entity attacks).
+        "defusedxml>=0.7.1,<0.8.0",
+    },
     "json-schema": {"requests<3.0.0"},
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common
@@ -698,7 +721,13 @@ plugins: Dict[str, Set[str]] = {
     # presto-on-hive is an alias for hive-metastore and needs to be kept in sync
     "presto-on-hive": sql_common
     | pyhive_common
-    | {"psycopg2-binary<3.0.0", "pymysql>=1.0.2,<2.0.0"},
+    | {
+        "psycopg2-binary<3.0.0",
+        "pymysql>=1.0.2,<2.0.0",
+        "pymetastore>=0.4.2,<1.0.0",
+        "tenacity>=8.0.1,<9.0.0",
+        "kerberos>=1.3.0,<2.0.0",
+    },
     "pulsar": {"requests<3.0.0"},
     "redash": {"redash-toolbelt<0.2.0", "sql-metadata<3.0.0"} | sqlglot_lib,
     "rdf": {"rdflib==6.3.2", "requests==2.32.5", "requests_file==3.0.1"},
@@ -708,6 +737,13 @@ plugins: Dict[str, Set[str]] = {
     | sqlglot_lib
     | classification_lib
     | {"db-dtypes"}  # Pandas extension data types
+    | cachetools_lib,
+    # Like snowflake-slim / bigquery-slim: Redshift metadata without sql_common / GE (urllib3 1.x lock-in).
+    "redshift-slim": redshift_common
+    | usage_common
+    | sqlglot_lib
+    | classification_lib
+    | {"db-dtypes"}
     | cachetools_lib,
     # S3 includes PySpark by default for profiling support (backward compatible)
     # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
@@ -744,6 +780,7 @@ plugins: Dict[str, Set[str]] = {
     },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
+    "starrocks": sql_common | {"starrocks>=1.3.3,<2.0", "lark>=1.3.1,<2.0"},
     "nifi": {"requests<3.0.0", "packaging<26.0.0", "requests-gssapi<2.0.0"},
     "powerbi": (
         microsoft_common
@@ -764,12 +801,21 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
+    "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
+    # dlt is the backing client lib used to read pipeline state. The connector
+    # falls back to direct YAML parsing when dlt is not importable, but in
+    # normal use we expect users opting into the dlt extra to want the SDK
+    # path (richer metadata, run history support).
+    "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
     "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
-    "sigma": sqlglot_lib | {"requests<3.0.0"},
+    # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
+    # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
+    "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
         # VCR.py for HTTP recording - industry standard
@@ -785,6 +831,9 @@ plugins: Dict[str, Set[str]] = {
         # are expected to be provided by the source connector itself when needed.
         # The plugin is designed to be installed alongside source connectors, not standalone.
     },
+    # Cloud secret store plugins.
+    "aws-secret-manager": aws_common | cachetools_lib,
+    "gcp-secret-manager": gcp_sm_common | cachetools_lib,
 }
 
 # This is mainly used to exclude plugins from the Docker image.
@@ -830,7 +879,7 @@ mypy_stubs = {
     "types-tabulate<0.10.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
-    "types-pyOpenSSL<26.0.0",
+    "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
     "types-click-spinner>=0.1.13.1,<=0.1.13.20250809",
     "types-ujson>=5.2.0,<6.0.0",
     "types-Deprecated<2.0.0",
@@ -840,6 +889,9 @@ mypy_stubs = {
 
 
 test_api_requirements = {
+    # Do not raise the lower bound to pytest 9.x here: airflow-plugin CI installs
+    # acryl-datahub[testing-utils] with Airflow's constraints-*.txt, which pin pytest 7.x.
+    # Current pytest is pinned in constraints.txt / uv.lock for the standalone dev venv.
     "pytest>=6.2.2,<10.0.0",
     "pytest-timeout<3.0.0",
     # Missing numpy requirement in 8.0.0
@@ -865,6 +917,8 @@ base_dev_requirements = {
     *framework_common,
     *mypy_stubs,
     *s3_base,
+    # moto: AWS mocks for S3 / Dynamo / secrets tests only, not a runtime S3 source dependency
+    "moto[s3]>=5.0.0,<6.0.0",
     *lint_requirements,
     *test_api_requirements,
     "coverage>=5.1,<8.0.0",
@@ -874,8 +928,7 @@ base_dev_requirements = {
     "pytest-random-order~=1.1.0,<2.0.0",
     "pytest-rerunfailures<17.0",
     "requests-mock<2.0.0",
-    "freezegun<2.0.0",  # TODO: fully remove and use time-machine
-    "time-machine<4.0.0",  # better Pydantic v2 compatibility
+    "time-machine<4.0.0",
     "jsonpickle<5.0.0",
     "build<2.0.0",
     "twine<7.0.0",
@@ -883,6 +936,7 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "abs",
+            "aerospike",
             "athena",
             "bigquery",
             "clickhouse",
@@ -892,6 +946,7 @@ base_dev_requirements = {
             "datahub-documents",
             "dataplex",
             "delta-lake",
+            "dlt",
             "dremio",
             "druid",
             "elasticsearch",
@@ -906,6 +961,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "matillion-dpc",
             "okta",
             "oracle",
             "postgres",
@@ -944,7 +1000,11 @@ base_dev_requirements = {
             "cassandra",
             "neo4j",
             "vertexai",
+            "pinecone",
             "mssql-odbc",
+            "omni",
+            "aws-secret-manager",
+            "gcp-secret-manager",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -993,6 +1053,7 @@ full_test_dev_requirements = {
             "mariadb",
             "rdf",
             "redash",
+            "starrocks",
             "vertica",
             "vertexai",
         ]
@@ -1008,6 +1069,7 @@ entry_points = {
     ],
     "datahub.ingestion.source.plugins": [
         "abs = datahub.ingestion.source.abs.source:ABSSource",
+        "aerospike = datahub.ingestion.source.aerospike:AerospikeSource",
         "csv-enricher = datahub.ingestion.source.csv_enricher:CSVEnricherSource",
         "file = datahub.ingestion.source.file:GenericFileSource",
         "datahub = datahub.ingestion.source.datahub.datahub_source:DataHubSource",
@@ -1061,6 +1123,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",
@@ -1079,23 +1142,26 @@ entry_points = {
         "openapi = datahub.ingestion.source.openapi:OpenApiSource",
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
+        "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
         "powerbi = datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource",
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
+        "informatica = datahub.ingestion.source.informatica.source:InformaticaSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
         "presto = datahub.ingestion.source.sql.presto:PrestoSource",
         # This is only here for backward compatibility. Use the `hive-metastore` source instead.
         "presto-on-hive = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "pulsar = datahub.ingestion.source.pulsar:PulsarSource",
         "salesforce = datahub.ingestion.source.salesforce:SalesforceSource",
-        "demo-data = datahub.ingestion.source.demo_data.DemoDataSource",
+        "demo-data = datahub.ingestion.source.demo_data:DemoDataSource",
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
+        "dlt = datahub.ingestion.source.dlt.dlt:DltSource",
         "fivetran = datahub.ingestion.source.fivetran.fivetran:FivetranSource",
         "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
@@ -1105,6 +1171,8 @@ entry_points = {
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "omni = datahub.ingestion.source.omni.omni:OmniSource",
+        "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -1115,9 +1183,17 @@ entry_points = {
         "add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:AddDatasetOwnership",
         "simple_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:SimpleAddDatasetOwnership",
         "pattern_add_dataset_ownership = datahub.ingestion.transformer.add_dataset_ownership:PatternAddDatasetOwnership",
+        # Aliases without "dataset" prefix — support all entity types including container
+        "add_ownership = datahub.ingestion.transformer.add_ownership:AddOwnership",
+        "simple_add_ownership = datahub.ingestion.transformer.add_ownership:SimpleAddOwnership",
+        "pattern_add_ownership = datahub.ingestion.transformer.add_ownership:PatternAddOwnership",
         "add_dataset_domain = datahub.ingestion.transformer.dataset_domain:AddDatasetDomain",
         "simple_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:SimpleAddDatasetDomain",
         "pattern_add_dataset_domain = datahub.ingestion.transformer.dataset_domain:PatternAddDatasetDomain",
+        # Aliases without "dataset" prefix — support all entity types including container
+        "add_domain = datahub.ingestion.transformer.add_domain:AddDomain",
+        "simple_add_domain = datahub.ingestion.transformer.add_domain:SimpleAddDomain",
+        "pattern_add_domain = datahub.ingestion.transformer.add_domain:PatternAddDomain",
         "add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:AddDatasetTags",
         "simple_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:SimpleAddDatasetTags",
         "pattern_add_dataset_tags = datahub.ingestion.transformer.add_dataset_tags:PatternAddDatasetTags",
@@ -1206,7 +1282,7 @@ See the [DataHub docs](https://docs.datahub.com/docs/metadata-ingestion).
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     package_data={
-        "datahub": ["py.typed"],
+        "datahub": ["py.typed", "constraints.txt"],
         "datahub.metadata": ["schema.avsc"],
         "datahub.metadata.schemas": ["*.avsc"],
         "datahub.ingestion.source.powerbi.m_query.mquery_bridge": ["bundle.js.gz"],

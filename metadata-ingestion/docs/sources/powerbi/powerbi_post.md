@@ -49,6 +49,17 @@ ownership:
 
 Valid values depend on the PowerBI access right types for your resources (e.g., dataset, report, dashboard). If `owner_criteria` is not set or is an empty list, all users with `principalType: User` qualify as owners.
 
+#### Admin scan vs. workspace listing
+
+PowerBI ingestion uses two metadata paths per workspace:
+
+| Path                       | When                                                                               | What it fetches                                                                                                                            | API volume                         |
+| -------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------- |
+| Admin scan                 | The configured principal has admin-API access and the workspace scan returns data. | Reports, users, datasets, lineage, endorsements — all from a single workspace scan response.                                               | 1 scan request per workspace batch |
+| Workspace listing fallback | The admin scan returns no data for a workspace (permissions, throttling, etc.).    | Reports via the per-workspace `/reports` endpoint; users via `/admin/reports/{id}/users` per report (only when `extract_ownership: true`). | O(workspaces + reports) requests   |
+
+When the fallback engages, the ingestion report includes a **Report Scan Fallback Active** entry per workspace so you can correlate that workspace's slower ingestion with the missing scan output.
+
 #### Lineage
 
 This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.

@@ -1,4 +1,4 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -27,6 +27,10 @@ const StyledDropdownContainer = styled.div`
     .ant-dropdown-menu {
         border-radius: 12px;
     }
+`;
+
+const DisabledText = styled(Text)`
+    color: ${(props) => props.theme.colors.textDisabled};
 `;
 
 interface Props {
@@ -77,14 +81,10 @@ export default function ModuleMenu({ module, position }: Props) {
                     <>
                         {!canEdit ? (
                             <Tooltip title="Default modules are not editable">
-                                <Text color="gray" colorLevel={300}>
-                                    Edit
-                                </Text>
+                                <DisabledText>Edit</DisabledText>
                             </Tooltip>
                         ) : (
-                            <Text color="gray" colorLevel={600}>
-                                Edit
-                            </Text>
+                            <Text>Edit</Text>
                         )}
                     </>
                 ),
@@ -100,9 +100,9 @@ export default function ModuleMenu({ module, position }: Props) {
                 title: 'Remove',
                 label: 'Remove',
                 key: 'remove',
+                danger: true,
                 style: {
                     ...menuItemStyle,
-                    color: colors.red[500],
                 },
                 onClick: () => setShowRemoveModuleConfirmation(true),
                 'data-testid': 'remove-module',
