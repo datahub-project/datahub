@@ -17,6 +17,7 @@ view / profiling extraction is covered by the Docker-based test.
 """
 
 import datetime as dt
+import pathlib
 from typing import Any, Dict, List
 from unittest import mock
 from unittest.mock import MagicMock
@@ -260,8 +261,8 @@ def _build_empty_inspector(engine: MagicMock) -> MagicMock:
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_hana_calc_views_and_usage_mock(
     pytestconfig: pytest.Config,
-    tmp_path,
-    mock_time,
+    tmp_path: pathlib.Path,
+    mock_time: None,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
     output_file = tmp_path / "hana_mock_mces.json"

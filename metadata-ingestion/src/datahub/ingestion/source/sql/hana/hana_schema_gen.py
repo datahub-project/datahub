@@ -6,7 +6,12 @@ from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.sql.hana.constants import HanaSourceType
+from datahub.ingestion.source.sql.hana.constants import (
+    CALCULATION_VIEW_TYPE_TAG,
+    SYS_BIC_SCHEMA,
+    CalcViewProperty,
+    HanaSourceType,
+)
 from datahub.ingestion.source.sql.hana.hana_calculation_view_parser import (
     SAPCalculationViewParser,
 )
@@ -116,9 +121,7 @@ class HanaCalculationViewExtractor:
             with engine.connect() as conn:
                 data_dict = HanaDataDictionary(conn, self.report)
                 for calc_view in data_dict.get_calculation_views():
-                    qualified = (
-                        f"_sys_bic.{calc_view.package_id}.{calc_view.name}".lower()
-                    )
+                    qualified = calc_view.qualified_identifier
                     if not self.config.view_pattern.allowed(qualified):
                         self.report.report_dropped(qualified)
                         continue
@@ -150,9 +153,9 @@ class HanaCalculationViewExtractor:
                 name=calc_view.name,
                 description=None,
                 customProperties={
-                    "view_type": "CALCULATION_VIEW",
-                    "package_id": calc_view.package_id,
-                    "runtime_view_name": calc_view.runtime_view_name,
+                    CalcViewProperty.VIEW_TYPE: CALCULATION_VIEW_TYPE_TAG,
+                    CalcViewProperty.PACKAGE_ID: calc_view.package_id,
+                    CalcViewProperty.RUNTIME_VIEW_NAME: calc_view.runtime_view_name,
                 },
             ),
         ).as_workunit()
@@ -185,7 +188,7 @@ class HanaCalculationViewExtractor:
             for column in calc_view.columns
         ]
         return SchemaMetadataClass(
-            schemaName=f"_sys_bic.{calc_view.runtime_view_name}",
+            schemaName=f"{SYS_BIC_SCHEMA.lower()}.{calc_view.runtime_view_name}",
             platform=make_data_platform_urn(self.PLATFORM),
             version=0,
             hash="",

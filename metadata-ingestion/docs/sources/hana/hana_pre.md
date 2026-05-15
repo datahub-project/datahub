@@ -8,7 +8,7 @@ The connector extends DataHub's `SQLAlchemySource`, so the standard SQL extracti
 - **Stored Procedures** — enabled by default via `include_stored_procedures: true`. Each procedure becomes a `DataJob` grouped under a per-schema `DataFlow`; lineage is parsed from the procedure body.
 - **Query Usage** — set `include_query_usage: true` to mine `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE` for observed queries and feed them through the SQL parsing aggregator. Combine with `include_usage_stats: true` for `DatasetUsageStatistics` rollups and `include_operational_stats: true` for read operations.
 
-### Deployment compatibility
+#### Deployment compatibility
 
 Most features work on every supported HANA tenant, but **calculation-view extraction is on-premise / self-managed only**:
 

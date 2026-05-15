@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from datahub.ingestion.source.sql.hana.constants import SYS_BIC_SCHEMA
+
 
 @dataclass
 class HanaCalcViewColumn:
@@ -56,4 +58,4 @@ class HanaCalculationView:
     @property
     def qualified_identifier(self) -> str:
         """Dot-separated URN-safe identifier (``_sys_bic.<package>.<name>``)."""
-        return f"_sys_bic.{self.package_id}.{self.name}".lower()
+        return f"{SYS_BIC_SCHEMA}.{self.package_id}.{self.name}".lower()

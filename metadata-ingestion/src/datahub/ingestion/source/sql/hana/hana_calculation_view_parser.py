@@ -1,14 +1,19 @@
 import logging
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Literal, Optional, Set, Tuple
 
 import defusedxml.ElementTree as DET
 from defusedxml.common import DefusedXmlException
 
 from datahub.ingestion.source.sql.hana.constants import (
+    INPUT_NODE_REF_SIGIL,
+    LOGICAL_MODEL_ATTRIBUTES_XPATH,
+    LOGICAL_MODEL_MEASURES_XPATH,
     XSI_TYPE_ATTR,
     CalcViewNodeType,
+    CalcViewXmlAttribute,
+    CalcViewXmlElement,
 )
 from datahub.ingestion.source.sql.hana.models import (
     CalcViewModel,
@@ -24,6 +29,14 @@ from datahub.ingestion.source.sql.hana.models import (
 logger = logging.getLogger(__name__)
 
 _QUOTED_COLUMN_RE = re.compile(r'"([^"]*)"')
+
+# Trailing ``/calculationviews`` or ``/calculation_views`` segment that
+# follows the package path in a resourceUri (e.g.
+# ``/acme.analytics/calculationviews/Sales``); stripped before joining the
+# remaining segments into a dotted package id.
+_RESOURCE_URI_VIEWS_SUFFIX_RE = re.compile(
+    r"/calculation_?views?$", flags=re.IGNORECASE
+)
 
 
 class SAPCalculationViewParser:
@@ -198,49 +211,53 @@ class SAPCalculationViewParser:
 
 
 def _collect_data_sources(xml: ET.Element, model: CalcViewModel) -> None:
-    for child in xml.iter("DataSource"):
-        source = DataSourceRef(type=child.attrib.get("type", ""))
+    for child in xml.iter(CalcViewXmlElement.DATA_SOURCE):
+        source = DataSourceRef(type=child.attrib.get(CalcViewXmlAttribute.TYPE, ""))
         for grandchild in child:
-            if grandchild.tag == "columnObject":
-                source.name = grandchild.attrib.get("columnObjectName", "")
-                source.path = grandchild.attrib.get("schemaName", "")
-            elif grandchild.tag == "resourceUri" and grandchild.text:
+            if grandchild.tag == CalcViewXmlElement.COLUMN_OBJECT:
+                source.name = grandchild.attrib.get(
+                    CalcViewXmlAttribute.COLUMN_OBJECT_NAME, ""
+                )
+                source.path = grandchild.attrib.get(
+                    CalcViewXmlAttribute.SCHEMA_NAME, ""
+                )
+            elif grandchild.tag == CalcViewXmlElement.RESOURCE_URI and grandchild.text:
                 # Reference to a calculation view stored in the design-time
                 # repository: ``/<package>/calculationviews/<view>`` →
                 # ``<view>`` plus the dot-joined package path.
                 leaf, package = _split_resource_uri(grandchild.text)
                 source.name = leaf
                 source.path = package
-        ds_id = child.attrib["id"]
+        ds_id = child.attrib[CalcViewXmlAttribute.ID]
         model.sources[ds_id] = source
         if source.name and source.name != ds_id:
             model.source_aliases.setdefault(source.name, ds_id)
 
 
 def _collect_outputs(xml: ET.Element, model: CalcViewModel) -> None:
-    for attr in xml.findall(".//logicalModel/attributes/attribute"):
-        model.outputs[attr.attrib["id"]] = _build_output_mapping(
-            attr.find("keyMapping"), kind="attribute"
+    for attr in xml.findall(LOGICAL_MODEL_ATTRIBUTES_XPATH):
+        model.outputs[attr.attrib[CalcViewXmlAttribute.ID]] = _build_output_mapping(
+            attr.find(CalcViewXmlElement.KEY_MAPPING), kind="attribute"
         )
-    for measure in xml.findall(".//logicalModel/baseMeasures/measure"):
-        model.outputs[measure.attrib["id"]] = _build_output_mapping(
-            measure.find("measureMapping"), kind="measure"
+    for measure in xml.findall(LOGICAL_MODEL_MEASURES_XPATH):
+        model.outputs[measure.attrib[CalcViewXmlAttribute.ID]] = _build_output_mapping(
+            measure.find(CalcViewXmlElement.MEASURE_MAPPING), kind="measure"
         )
 
 
 def _collect_nodes(xml: ET.Element, model: CalcViewModel) -> None:
-    for child in xml.iter("calculationView"):
+    for child in xml.iter(CalcViewXmlElement.CALCULATION_VIEW):
         # Skip the outer ``<Calculation:scenario>`` (and legacy exports that
         # share the bare ``calculationView`` tag without ``xsi:type``).
         node_type = child.attrib.get(XSI_TYPE_ATTR)
-        node_id = child.attrib.get("id")
+        node_id = child.attrib.get(CalcViewXmlAttribute.ID)
         if not node_type or not node_id:
             continue
 
         if node_type == CalcViewNodeType.SQL_SCRIPT:
             # SqlScript nodes encode lineage in their <definition> body
             # rather than the XML DAG; capture for SQL-based extraction.
-            definition_el = child.find("definition")
+            definition_el = child.find(CalcViewXmlElement.DEFINITION)
             if definition_el is not None and definition_el.text:
                 model.scripts[node_id] = definition_el.text
             continue
@@ -248,42 +265,50 @@ def _collect_nodes(xml: ET.Element, model: CalcViewModel) -> None:
         node = CalcViewNode(id=node_id, type=node_type)
 
         if node_type == CalcViewNodeType.UNION:
-            for input_el in child.iter("input"):
-                branch = input_el.attrib["node"].split("#")[-1]
+            for input_el in child.iter(CalcViewXmlElement.INPUT):
+                branch = input_el.attrib[CalcViewXmlAttribute.NODE].split(
+                    INPUT_NODE_REF_SIGIL
+                )[-1]
                 node.union_branches.append(branch)
                 node.branches[branch] = _read_input_mappings(input_el)
         else:
-            for input_el in child.iter("input"):
-                branch = input_el.attrib["node"].split("#")[-1]
+            for input_el in child.iter(CalcViewXmlElement.INPUT):
+                branch = input_el.attrib[CalcViewXmlAttribute.NODE].split(
+                    INPUT_NODE_REF_SIGIL
+                )[-1]
                 node.branches[branch] = _read_input_mappings(input_el)
 
-        for calc_attr in child.iter("calculatedViewAttribute"):
-            formula = calc_attr.find("formula")
+        for calc_attr in child.iter(CalcViewXmlElement.CALCULATED_VIEW_ATTRIBUTE):
+            formula = calc_attr.find(CalcViewXmlElement.FORMULA)
             if formula is not None and formula.text:
-                node.formulas[calc_attr.attrib["id"]] = formula.text
+                node.formulas[calc_attr.attrib[CalcViewXmlAttribute.ID]] = formula.text
 
         model.nodes[node_id] = node
 
 
 def _read_input_mappings(input_el: ET.Element) -> Dict[str, ColumnEdge]:
     edges: Dict[str, ColumnEdge] = {}
-    for mapping in input_el.iter("mapping"):
-        source = mapping.attrib.get("source")
-        target = mapping.attrib.get("target")
+    for mapping in input_el.iter(CalcViewXmlElement.MAPPING):
+        source = mapping.attrib.get(CalcViewXmlAttribute.SOURCE)
+        target = mapping.attrib.get(CalcViewXmlAttribute.TARGET)
         if source and target:
             edges[target] = ColumnEdge(source=source, kind="column")
     return edges
 
 
 def _build_output_mapping(
-    mapping_element: Optional[ET.Element], *, kind: str
+    mapping_element: Optional[ET.Element],
+    *,
+    kind: Literal["attribute", "measure"],
 ) -> OutputMapping:
     if mapping_element is None:
-        return OutputMapping(source_column="", source_node="", kind=kind)  # type: ignore[arg-type]
+        return OutputMapping(source_column="", source_node="", kind=kind)
     return OutputMapping(
-        source_column=mapping_element.attrib.get("columnName", ""),
-        source_node=mapping_element.attrib.get("columnObjectName", ""),
-        kind=kind,  # type: ignore[arg-type]
+        source_column=mapping_element.attrib.get(CalcViewXmlAttribute.COLUMN_NAME, ""),
+        source_node=mapping_element.attrib.get(
+            CalcViewXmlAttribute.COLUMN_OBJECT_NAME, ""
+        ),
+        kind=kind,
     )
 
 
@@ -294,5 +319,5 @@ def _split_resource_uri(uri: str) -> Tuple[str, str]:
         return "", ""
     leaf = parts[-1]
     parent = "/".join(parts[:-1])
-    parent = re.sub(r"/calculation_?views?$", "", parent, flags=re.IGNORECASE)
+    parent = _RESOURCE_URI_VIEWS_SUFFIX_RE.sub("", parent)
     return leaf, parent.replace("/", ".")
