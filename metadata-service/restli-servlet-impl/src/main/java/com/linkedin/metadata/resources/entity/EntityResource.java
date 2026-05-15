@@ -994,6 +994,10 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
       @Nullable Long startTimeMillis,
       @Nullable Long endTimeMillis,
       @Nonnull List<String> aspectsToDelete) {
+    if (aspectsToDelete.isEmpty()) {
+      return 0L;
+    }
+
     long totalNumberOfDocsDeleted = 0;
 
     final Authentication auth = AuthenticationContext.getAuthentication();

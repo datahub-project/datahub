@@ -18,7 +18,9 @@ def linkedinUrl     = hasProperty('linkedinOpenSourceRepositoryUrl')    ? getPro
 // backward compatibility, then the new namespaced property (default lives in gradle.properties).
 def nodeDistUrl     = hasProperty('nodeDistBaseUrl')         ? getProperty('nodeDistBaseUrl')         : getProperty('datahub.dependencies.node.distBaseUrl')
 def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
-def githubBaseUrl   = hasProperty('githubMirrorUrl') ? getProperty('githubMirrorUrl') : getProperty('datahub.dependencies.github.baseURL')
+def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMirrorUrl')    : getProperty('datahub.dependencies.github.baseURL')
+def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
+def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
@@ -26,6 +28,8 @@ gradle.ext['datahub.dependencies.maven.linkedinOpenSource']   = linkedinUrl
 gradle.ext['datahub.dependencies.node.distBaseUrl']           = nodeDistUrl
 gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
+gradle.ext['datahub.dependencies.python.pipMirrorUrl']        = pipMirrorUrl
+gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']    = pipExtraIndexUrl
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
@@ -75,8 +79,6 @@ include ':docker:datahub-ingestion'
 include ':docker:datahub-ingestion-base'
 include 'metadata-models'
 include 'metadata-models-validator'
-include 'metadata-testing:metadata-models-test-utils'
-include 'metadata-testing:metadata-test-utils'
 include 'entity-registry'
 include 'metadata-io'
 include 'metadata-io:metadata-io-api'
@@ -84,7 +86,6 @@ include 'datahub-upgrade'
 include 'metadata-utils'
 include 'li-utils'
 include 'test-models'
-include 'metadata-perf'
 include 'docs-website'
 include 'metadata-models-custom'
 include 'entity-registry:custom-test-model'
