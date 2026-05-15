@@ -1,5 +1,6 @@
 import subprocess
 from datetime import datetime, timezone
+from typing import List
 
 import pytest
 import time_machine
@@ -56,6 +57,7 @@ def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
             "mysql_profile_table_row_count_estimate_only.yml",
             "mysql_table_row_count_estimate_only.json",
         ),
+        ("mysql_stored_procedures.yml", "mysql_mces_with_stored_procs_golden.json"),
     ],
 )
 @time_machine.travel(FROZEN_TIME_DT, tick=False)
@@ -72,9 +74,22 @@ def test_mysql_ingest_no_db(
     config_file = (test_resources_dir / config_file).resolve()
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
+    # The stored-procedure recipe captures DDL timestamps and randomized
+    # profiling samples that vary between docker runs, so the golden
+    # comparison ignores those paths.
+    ignore_paths: List[str] = [
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['created'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['last_altered'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['distinctValueFrequencies'\]\[\d+\]\['value'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['max'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['min'\]",
+        r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]\[\d+\]",
+    ]
+
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        ignore_paths=ignore_paths,
         output_path=tmp_path / "mysql_mces.json",
         golden_path=test_resources_dir / golden_file,
     )

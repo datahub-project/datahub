@@ -6,6 +6,7 @@ source:
     username: root
     password: example
     host_port: localhost:53307
+    include_stored_procedures: false
     schema_pattern:
       allow:
         - "^metagalaxy"
