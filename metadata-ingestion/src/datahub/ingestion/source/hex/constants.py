@@ -12,8 +12,6 @@ HEX_API_PAGE_SIZE_DEFAULT = 100
 # decorator tech spec — applicable to all connectors, not just hex.
 HEX_INCREMENTAL_JOB_ID = JobId("hex_incremental")
 
-DATAHUB_API_PAGE_SIZE_DEFAULT = 100
-
 # Maps the `type` field returned by Hex's GET /v1/data-connections to
 # DataHub platform names. Enum values are taken from the Hex API reference
 # (https://learn.hex.tech/docs/api/api-reference, operation
