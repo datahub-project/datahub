@@ -96,13 +96,11 @@ def test_ge_method_raises_helpful_error_when_ge_missing() -> None:
         try:
             from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler  # noqa: F401
         except ImportError as e:
+            from datahub.ingestion.source.profiling.ge_profiler_loader import (
+                GE_PROFILER_MISSING_MESSAGE,
+            )
             try:
-                raise ConfigurationError(
-                    "The Great Expectations profiler is not installed. Either install "
-                    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
-                    "or switch to the SQLAlchemy profiler by setting "
-                    "`profiling.method: sqlalchemy` in your recipe."
-                ) from e
+                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
             except ConfigurationError as ce:
                 print(f"CAUGHT:{ce}")
                 sys.exit(0)

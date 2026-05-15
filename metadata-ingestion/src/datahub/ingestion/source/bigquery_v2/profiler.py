@@ -14,6 +14,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
+from datahub.ingestion.source.profiling.ge_profiler_loader import (
+    GE_PROFILER_MISSING_MESSAGE,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -94,12 +97,7 @@ class BigqueryProfiler(GenericProfiler):
             try:
                 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
             except ImportError as e:
-                raise ConfigurationError(
-                    "The Great Expectations profiler is not installed. Either install "
-                    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
-                    "or switch to the SQLAlchemy profiler by setting "
-                    "`profiling.method: sqlalchemy` in your recipe."
-                ) from e
+                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,
