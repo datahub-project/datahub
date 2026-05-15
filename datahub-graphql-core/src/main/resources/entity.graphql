@@ -825,7 +825,9 @@ type Mutation {
   """
   Update the locale settings for a user.
   """
-  updateCorpUserLocaleSettings(input: UpdateCorpUserLocaleSettingsInput!): Boolean
+  updateCorpUserLocaleSettings(
+    input: UpdateCorpUserLocaleSettingsInput!
+  ): Boolean
 
   """
   Update a user setting
