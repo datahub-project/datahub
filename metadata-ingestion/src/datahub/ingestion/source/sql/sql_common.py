@@ -27,7 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -58,6 +58,9 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
+)
+from datahub.ingestion.source.profiling.ge_profiler_loader import (
+    GE_PROFILER_MISSING_MESSAGE,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -127,9 +130,9 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import (
-        DatahubGEProfiler,
-        GEProfilerRequest,
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.profiling.profiler_request import (
+        ProfilerRequest as GEProfilerRequest,
     )
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
@@ -1338,12 +1341,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
         else:
-            # Only import GE profiler if we're actually using it
-            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
+            try:
+                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+            except ImportError as e:
+                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,
@@ -1403,7 +1407,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
-        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+        from datahub.ingestion.source.profiling.profiler_request import (
+            ProfilerRequest as GEProfilerRequest,
+        )
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.

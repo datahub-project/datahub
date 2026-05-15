@@ -214,7 +214,7 @@ def _is_single_row_query_method(query: Any) -> bool:
 
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import ProfilerRequest
+    from datahub.ingestion.source.profiling.profiler_request import ProfilerRequest
 
 logger: logging.Logger = logging.getLogger(__name__)
 

@@ -127,3 +127,55 @@ def test_ge_method_raises_helpful_error_when_ge_missing() -> None:
     assert "profiling.method: sqlalchemy" in result.stdout, (
         f"Error message missing method-switch hint. stdout: {result.stdout}"
     )
+
+
+def test_sql_common_lazy_imports_are_ge_free() -> None:
+    """sql_common.py's lazy imports inside SQLAlchemySource.loop_profiler_requests
+    and SQLAlchemySource.get_profiler_instance must not require great_expectations
+    when profiling.method=sqlalchemy.
+
+    Regression test for a bug discovered in the final review where these
+    imports pulled GE via aliased re-exports from ge_data_profiler.py.
+    """
+    script = textwrap.dedent(
+        """
+        import sys
+
+
+        class GreatExpectationsBlocker:
+            def find_spec(self, name, path=None, target=None):
+                if name == "great_expectations" or name.startswith("great_expectations."):
+                    raise ImportError(f"GE blocked by test: {name}")
+                return None
+
+
+        sys.meta_path.insert(0, GreatExpectationsBlocker())
+
+        # Simulate the exact lazy import that loop_profiler_requests does (post-fix).
+        from datahub.ingestion.source.profiling.profiler_request import (
+            ProfilerRequest as GEProfilerRequest,
+        )
+        assert GEProfilerRequest.__name__ == "ProfilerRequest"
+
+        # Simulate the exact lazy import that get_profiler_instance does (post-fix).
+        try:
+            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler  # noqa: F401
+        except ImportError:
+            pass  # Expected when GE is blocked - that's the whole point.
+        else:
+            print("FAIL: DatahubGEProfiler unexpectedly imported")
+            sys.exit(1)
+
+        print("IMPORT_OK")
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0 and "IMPORT_OK" in result.stdout, (
+        f"sql_common lazy-import path requires great_expectations.\n"
+        f"stdout: {result.stdout}\nstderr: {result.stderr}"
+    )
