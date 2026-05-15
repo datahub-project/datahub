@@ -49,7 +49,13 @@ source:
       enabled: true
 ```
 
-### Optional: Great Expectations Profiler
+### Optional: Great Expectations Profiler (Deprecated)
+
+:::warning
+
+The Great Expectations profiler is **deprecated** and is planned for removal in a future release. The SQLAlchemy profiler above is the recommended replacement and has feature parity for all dataset- and column-level metrics. Existing users still relying on `method: ge` should plan to migrate.
+
+:::
 
 To use the legacy GE profiler, install the optional `profiling-ge` extra and set `profiling.method` explicitly:
 

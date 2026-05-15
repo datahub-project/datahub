@@ -39,7 +39,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - **Structured properties write validation (GMS):** Upserts, patches, and MCP writes to the `structuredProperties` aspect are now handled in GMS by `StructuredPropertiesValidator` (at `validateProposed`) and `StructuredPropertiesAssignmentMutator` (before commit), for all APIs (GraphQL, OpenAPI, ingestion). With the default `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING=true`, assignments whose property definition entity is missing or has no `propertyDefinition` aspect are **removed from the proposal** (server WARN per dropped URN) instead of failing the entire write at definition lookup. If the proposal had assignments but **none** remain valid after filtering, the write is **rejected**. Clearing structured properties (empty aspect) is unchanged. **Action:** Pipelines that must fail when any orphaned assignment is present should set `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING=false` on GMS and restart; otherwise expect stale property URNs to be stripped on the next write. See [Structured Properties — orphaned assignments](https://datahubproject.io/docs/api/tutorials/structured-properties#orphaned-assignments-and-write-behavior) and [`STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING`](https://datahubproject.io/docs/deploy/environment-vars/).
 
-- #PR_NUMBER The default ingestion profiler for SQL connectors is now `sqlalchemy` instead of `ge` (Great Expectations). The SQLAlchemy profiler provides equivalent functionality without requiring the Great Expectations library. To keep using the Great Expectations profiler, install the new optional extra and set the method explicitly in your recipe:
+- #17465 The default ingestion profiler for SQL connectors is now `sqlalchemy` instead of `ge` (Great Expectations). The SQLAlchemy profiler provides equivalent functionality without requiring the Great Expectations library. To keep using the Great Expectations profiler, install the new optional extra and set the method explicitly in your recipe:
 
   ```bash
   pip install 'acryl-datahub[profiling-ge]'
@@ -54,6 +54,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   ```
 
   Note: `acryl-datahub[snowflake]` (and other SQL connector extras) no longer install `acryl-great-expectations` by default. Recipes that previously relied on the GE default profiler will now use the SQLAlchemy profiler automatically (no action needed in most cases). Recipes that explicitly set `profiling.method: ge` without installing `[profiling-ge]` will fail with a `ConfigurationError` pointing at the fix.
+
+  **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
 
 - **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
 
