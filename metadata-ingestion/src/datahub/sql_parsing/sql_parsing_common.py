@@ -34,6 +34,14 @@ def get_dialect_str(platform: str) -> str:
         return "tsql"
     elif platform_lower == "athena":
         return "trino"
+    elif platform_lower == "hana":
+        # sqlglot does not ship a dedicated SAP HANA dialect. HANA SQL is
+        # closest to PostgreSQL among the available dialects (window
+        # functions, ANSI joins, double-quoted identifiers, schema-qualified
+        # names); using "postgres" lets the parser resolve table references
+        # in calculation-view SQL fragments without forcing every query to
+        # be treated as opaque.
+        return "postgres"
     elif platform_lower == "salesforce":
         # TODO: define SalesForce SOQL dialect
         # Temporary workaround is to treat SOQL as databricks dialect
