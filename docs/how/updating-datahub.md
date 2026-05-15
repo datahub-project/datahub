@@ -46,6 +46,23 @@ Requirements:
 
 - **(Docker / local development)** Removed legacy root-level Docker Compose files (`docker/docker-compose*.yml`), shell scripts (`docker/quickstart.sh`, `docker/dev*.sh`, `docker/nuke.sh`), and old generated quickstart bundles under `docker/quickstart/` (except `docker-compose.quickstart-profile.yml`). **Migration:** use `datahub docker quickstart` for CLI installs; use `./gradlew quickstartDebug` or `scripts/dev/datahub-dev.sh start` for contributors; use `datahub docker nuke`, `./gradlew quickstartDebugNuke`, or `scripts/dev/datahub-dev.sh nuke` for teardown; customize installs from `docker/quickstart/docker-compose.quickstart-profile.yml` or profiles in `docker/profiles/`.
 
+- **PySpark is no longer installed by default** with the `s3`, `abs`, or `databricks`/`unity-catalog` extras. PySpark-dependent features now require explicitly opting in:
+
+  - **S3 / ABS column profiling** — previously bundled; now requires the `[pyspark]` extra:
+
+    ```bash
+    pip install 'acryl-datahub[s3,pyspark]'    # S3 with profiling
+    pip install 'acryl-datahub[abs,pyspark]'   # ABS with profiling
+    ```
+
+    Recipes with `profiling.enabled: true` and no `[pyspark]` extra will fail at startup with a `ConfigurationError` pointing at the fix.
+
+  - **Unity Catalog / Databricks** — the Spark SQL plan parser (used as a secondary lineage fallback when sqlglot fails) is now disabled when pyspark is not installed. Queries that cannot be parsed by sqlglot are counted in `num_queries_dropped_parse_failure` instead of being retried via Spark. This affects roughly 0.5% of queries in practice. To restore the Spark fallback:
+
+    ```bash
+    pip install 'acryl-datahub[unity-catalog,pyspark]'
+    ```
+
 ### Known Issues
 
 ### Potential Downtime
