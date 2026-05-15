@@ -91,6 +91,8 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+      smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+      smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -145,6 +147,30 @@ jobs:
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve smoke test profile from PR label
+        id: smoke-profile
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          CONFIG_KEY=$(echo "$PR_LABELS" | jq -r '[.[] | select(startswith("smoke:"))] | first // empty' | sed 's/^smoke://')
+          if [[ -z "$CONFIG_KEY" ]]; then
+            echo "No smoke: label found, using defaults"
+            exit 0
+          fi
+          echo "Found smoke label config key: $CONFIG_KEY"
+          PROFILE_NAME=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
+          if [[ -z "$PROFILE_NAME" ]]; then
+            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY"
+            exit 1
+          fi
+          echo "Resolved compose profile: $PROFILE_NAME"
+          {
+            echo "smoke_build_task=:docker:buildImages${CONFIG_KEY}"
+            echo "smoke_profile_name=${PROFILE_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -242,16 +268,15 @@ jobs:
 
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
-        # If not publishing, just a subset of images required for smoke tests is sufficient.
-        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
-            # we still dont need matrixed builds since this is for smoke test only.
             BUILD_TASK=":docker:buildImagesAll"
+          elif [[ -n "${{ needs.setup.outputs.smoke_build_task }}" ]]; then
+            BUILD_TASK="${{ needs.setup.outputs.smoke_build_task }}"
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
+          echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -576,7 +601,9 @@ jobs:
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -601,8 +628,9 @@ jobs:
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
         run: |
-          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
+          echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check

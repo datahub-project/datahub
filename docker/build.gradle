@@ -374,6 +374,18 @@ ext {
 
 apply from: 'postgres/quickstart-publish.gradle'
 
+// Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=quickstartDebug -q
+tasks.register("resolveQuickstartProfile") {
+    doLast {
+        def configKey = project.findProperty('configKey')
+        if (!configKey) throw new GradleException("Missing -PconfigKey. Valid keys: ${quickstart_configs.keySet()}")
+        def config = quickstart_configs[configKey]
+        if (!config) throw new GradleException("Unknown quickstart config key: ${configKey}. Valid keys: ${quickstart_configs.keySet()}")
+        println(config.profile ?: config.profiles?.join(','))
+    }
+}
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register(taskName) {
