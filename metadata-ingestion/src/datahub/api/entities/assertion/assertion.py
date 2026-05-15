@@ -178,7 +178,9 @@ class BaseEntityAssertion(BaseAssertion):
     trigger: Optional[AssertionTrigger] = Field(
         default=None, description="The trigger schedule for assertion", alias="schedule"
     )
-    failure_severity_config: Optional[AssertionFailureSeverityConfig] = Field(
+    failure_severity_config: Optional[
+        Union[AssertionFailureSeverityConfig, AssertionFailureSeverityDefaultConfig]
+    ] = Field(
         default=None,
         description="Optional configuration for assigning severities to failed assertion results.",
     )

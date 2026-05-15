@@ -63,11 +63,19 @@ def _assert_default_only_severity_config(
     assert len(config.rules or []) == 0
 
 
+def _require_severity_config(
+    config: object,
+) -> models.AssertionFailureSeverityConfigClass:
+    assert isinstance(config, models.AssertionFailureSeverityConfigClass)
+    return config
+
+
 def _assert_severity_config(
     config: models.AssertionFailureSeverityConfigClass,
 ) -> None:
     assert config.defaultSeverity == models.AssertionResultSeverityClass.MEDIUM
     rule = config.rules[0]
+    assert rule.parameters.value is not None
     assert rule.severity == models.AssertionResultSeverityClass.HIGH
     assert rule.operator == models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
     assert rule.parameters.value.value == "10"
@@ -158,7 +166,10 @@ def test_freshness_assertion_emits_failure_severity_config() -> None:
 
     info = assertion.get_assertion_info_aspect()
 
-    _assert_default_only_severity_config(info.freshnessAssertion.failureSeverityConfig)
+    assert info.freshnessAssertion is not None
+    _assert_default_only_severity_config(
+        _require_severity_config(info.freshnessAssertion.failureSeverityConfig)
+    )
 
 
 def test_freshness_assertion_rejects_failure_severity_rules() -> None:
@@ -196,11 +207,20 @@ def test_volume_assertions_emit_failure_severity_config() -> None:
         failure_severity_config=_severity_config(),
     ).get_assertion_info_aspect()
 
+    assert row_count_total.volumeAssertion is not None
+    assert row_count_total.volumeAssertion.rowCountTotal is not None
     _assert_severity_config(
-        row_count_total.volumeAssertion.rowCountTotal.failureSeverityConfig
+        _require_severity_config(
+            row_count_total.volumeAssertion.rowCountTotal.failureSeverityConfig
+        )
     )
+
+    assert row_count_change.volumeAssertion is not None
+    assert row_count_change.volumeAssertion.rowCountChange is not None
     _assert_severity_config(
-        row_count_change.volumeAssertion.rowCountChange.failureSeverityConfig
+        _require_severity_config(
+            row_count_change.volumeAssertion.rowCountChange.failureSeverityConfig
+        )
     )
 
 
@@ -221,8 +241,15 @@ def test_sql_assertions_emit_failure_severity_config() -> None:
         failure_severity_config=_severity_config(),
     ).get_assertion_info_aspect()
 
-    _assert_severity_config(sql_metric.sqlAssertion.failureSeverityConfig)
-    _assert_severity_config(sql_change.sqlAssertion.failureSeverityConfig)
+    assert sql_metric.sqlAssertion is not None
+    _assert_severity_config(
+        _require_severity_config(sql_metric.sqlAssertion.failureSeverityConfig)
+    )
+
+    assert sql_change.sqlAssertion is not None
+    _assert_severity_config(
+        _require_severity_config(sql_change.sqlAssertion.failureSeverityConfig)
+    )
 
 
 def test_field_assertions_emit_failure_severity_config() -> None:
@@ -242,9 +269,18 @@ def test_field_assertions_emit_failure_severity_config() -> None:
         failure_severity_config=_severity_config(),
     ).get_assertion_info_aspect()
 
+    assert field_metric.fieldAssertion is not None
+    assert field_metric.fieldAssertion.fieldMetricAssertion is not None
     _assert_severity_config(
-        field_metric.fieldAssertion.fieldMetricAssertion.failureSeverityConfig
+        _require_severity_config(
+            field_metric.fieldAssertion.fieldMetricAssertion.failureSeverityConfig
+        )
     )
+
+    assert field_values.fieldAssertion is not None
+    assert field_values.fieldAssertion.fieldValuesAssertion is not None
     _assert_severity_config(
-        field_values.fieldAssertion.fieldValuesAssertion.failureSeverityConfig
+        _require_severity_config(
+            field_values.fieldAssertion.fieldValuesAssertion.failureSeverityConfig
+        )
     )
