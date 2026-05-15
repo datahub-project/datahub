@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import sqlalchemy as sa
-from sqlalchemy.dialects import mysql, postgresql
+from sqlalchemy.dialects import mssql, mysql, postgresql
 from sqlalchemy.engine import Dialect
 
 from datahub.ingestion.source.ge_profiling_config import ProfilingConfig
@@ -25,6 +25,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.adapters.databricks import (
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.generic import (
     GenericAdapter,
 )
+from datahub.ingestion.source.sqlalchemy_profiler.adapters.mssql import MSSQLAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.mysql import MySQLAdapter
 from datahub.ingestion.source.sqlalchemy_profiler.adapters.postgres import (
     PostgresAdapter,
@@ -88,6 +89,14 @@ def mock_mysql_engine() -> Any:
     """Mock MySQL engine with correct dialect."""
     engine = MagicMock()
     engine.dialect = mysql.dialect()
+    return engine
+
+
+@pytest.fixture
+def mock_mssql_engine() -> Any:
+    """Mock MSSQL (SQL Server) engine with correct dialect."""
+    engine = MagicMock()
+    engine.dialect = mssql.dialect()
     return engine
 
 
@@ -225,6 +234,16 @@ class TestAdapterFactory:
         """Test factory returns MySQL adapter."""
         adapter = get_adapter("mysql", config, report, mock_mysql_engine)
         assert isinstance(adapter, MySQLAdapter)
+
+    def test_get_adapter_mssql(self, config, report, mock_mssql_engine):
+        """Test factory returns MSSQL adapter for 'mssql' platform name."""
+        adapter = get_adapter("mssql", config, report, mock_mssql_engine)
+        assert isinstance(adapter, MSSQLAdapter)
+
+    def test_get_adapter_sqlserver(self, config, report, mock_mssql_engine):
+        """Test factory returns MSSQL adapter for 'sqlserver' alias."""
+        adapter = get_adapter("sqlserver", config, report, mock_mssql_engine)
+        assert isinstance(adapter, MSSQLAdapter)
 
     def test_get_adapter_generic(self, config, report, mock_generic_engine):
         """Test factory returns GenericAdapter for unknown platform name."""
@@ -408,6 +427,117 @@ class TestMySQLAdapter:
         pattern = r"\binformation_schema\.tables\b.*\btable_rows\b"
         assert_sql_matches_pattern(sql, pattern)
         assert row_count == 12345
+
+
+class TestMSSQLAdapter:
+    """Test cases for MSSQLAdapter."""
+
+    @pytest.fixture
+    def adapter(self, config, report, mock_mssql_engine):
+        """Create MSSQL adapter for testing."""
+        return MSSQLAdapter(config, report, mock_mssql_engine)
+
+    @pytest.fixture
+    def real_table(self) -> Any:
+        """Real sa.Table needed for SQL compilation paths (select_from)."""
+        return sa.Table(
+            "test_table",
+            sa.MetaData(),
+            sa.Column("value_col", sa.Float),
+            schema="dbo",
+        )
+
+    def test_get_approx_unique_count_expr(self, adapter, mock_mssql_engine):
+        """MSSQL has no APPROX function, so falls back to COUNT(DISTINCT)."""
+        expr = adapter.get_approx_unique_count_expr("user_id")
+        sql = compile_expr_to_sql(expr, mock_mssql_engine.dialect)
+
+        pattern = r"\bcount\s*\(\s*distinct\s*\(\s*user_id\s*\)\s*\)"
+        assert_sql_matches_pattern(sql, pattern)
+
+    def test_get_median_expr_returns_none(self, adapter):
+        """MSSQL has no native MEDIAN — None engages base OFFSET/LIMIT fallback."""
+        assert adapter.get_median_expr("value_column") is None
+
+    def test_supports_row_count_estimation(self, adapter):
+        """MSSQL row count estimation not implemented yet (defaults to False)."""
+        assert adapter.supports_row_count_estimation() is False
+
+    def test_stdev_uses_stdev_not_stddev_samp(
+        self, adapter, real_table, mock_mssql_engine
+    ):
+        """MSSQL has no `stddev_samp` — must emit MSSQL's `STDEV()` instead."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.scalar.return_value = 1.5
+        mock_conn.execute.return_value = mock_result
+
+        adapter.get_column_stdev(real_table, "value_col", mock_conn)
+
+        assert mock_conn.execute.called
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+
+        # Must use STDEV (MSSQL's sample stddev function), never stddev_samp.
+        assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
+        assert "stddev_samp" not in sql.lower()
+
+    def test_stdev_single_row_returns_none(self, adapter, real_table):
+        """Single non-null value: stdev mathematically undefined → None."""
+        mock_conn = MagicMock()
+        # First call: STDEV query returns NULL.
+        # Second call: non-null count returns 1.
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 1
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result is None
+
+    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
+        """Multiple non-null equal values: DB returns NULL but stdev is 0.0."""
+        mock_conn = MagicMock()
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 5
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result == 0.0
+
+    def test_quantiles_use_percentile_disc_with_over_window(
+        self, adapter, real_table, mock_mssql_engine
+    ):
+        """MSSQL requires PERCENTILE_DISC with empty OVER () window + DISTINCT."""
+        mock_conn = MagicMock()
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = (1.0, 2.0, 3.0, 4.0, 5.0)
+        mock_conn.execute.return_value = mock_result
+
+        quantiles = adapter.get_column_quantiles(
+            real_table, "value_col", mock_conn, quantiles=DEFAULT_QUANTILES
+        )
+
+        assert quantiles == [1.0, 2.0, 3.0, 4.0, 5.0]
+        executed_query = mock_conn.execute.call_args[0][0]
+        sql = compile_expr_to_sql(executed_query, mock_mssql_engine.dialect)
+
+        # Verify PERCENTILE_DISC, WITHIN GROUP, OVER (), and DISTINCT all present.
+        assert_sql_matches_pattern(sql, r"\bpercentile_disc\s*\(")
+        assert_sql_matches_pattern(sql, r"\bwithin\s+group\b")
+        assert_sql_matches_pattern(sql, r"\bover\s*\(\s*\)")
+        assert_sql_matches_pattern(sql, r"\bselect\s+distinct\b")
+
+    def test_quantiles_invalid_range_raises(self, adapter, real_table):
+        """Quantile values outside [0, 1] must raise ValueError."""
+        mock_conn = MagicMock()
+        with pytest.raises(ValueError, match=r"Quantiles must be in \[0, 1\]"):
+            adapter.get_column_quantiles(
+                real_table, "value_col", mock_conn, quantiles=[1.5]
+            )
 
 
 class TestPostgresAdapter:
