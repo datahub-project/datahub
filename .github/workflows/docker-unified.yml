@@ -214,7 +214,7 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        if: ${{ steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' || github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' && (steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true') }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || '4' }} ))
           matrix=''
