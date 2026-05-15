@@ -34,11 +34,11 @@ Extracts:
 
 ## Profiler Implementation
 
-DataHub uses a custom SQLAlchemy-based profiler by default for all SQL sources. A legacy Great Expectations (GE) profiler is also available for backward compatibility but is opt-in.
+DataHub uses a SQLAlchemy-based profiler by default for all SQL sources.
 
 ### Default: SQLAlchemy Profiler
 
-The SQLAlchemy profiler has no Great Expectations dependency and provides feature parity with the GE profiler for all dataset- and column-level metrics emitted by DataHub.
+The default profiler runs profiling queries directly against your SQL source's existing SQLAlchemy connection and emits the table- and column-level statistics listed under [Capabilities](#capabilities). No additional dependencies are required beyond the SQL connector itself.
 
 No configuration is required to use it — any SQL source with profiling enabled will use the SQLAlchemy profiler automatically:
 
