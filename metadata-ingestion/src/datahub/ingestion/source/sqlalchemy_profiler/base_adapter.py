@@ -226,8 +226,10 @@ class PlatformAdapter(ABC):
         """
         Get platform-specific mean (AVG) expression.
 
-        Default implementation returns AVG(column * 1.0).
-        Some platforms (e.g., Redshift) need to cast columns for full precision.
+        Default implementation returns AVG(column). Most dialects auto-promote
+        integer columns to floating-point during AVG. Dialects that don't
+        (notably MSSQL) override this to add an explicit float promotion;
+        platforms like Redshift override it to CAST for full precision.
 
         Args:
             column: Column name
@@ -235,10 +237,7 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for AVG
         """
-        # GE's get_column_mean uses `col * 1.0` to force float promotion before AVG.
-        # Matters for integer columns on dialects that would otherwise truncate
-        # (notably MSSQL). Cheap; harmless on dialects that already auto-promote.
-        return sa.func.avg(sa.column(column) * 1.0)
+        return sa.func.avg(sa.column(column))
 
     # =========================================================================
     # Row Count Estimation
@@ -450,30 +449,20 @@ class PlatformAdapter(ABC):
 
     def get_column_median(self, table: sa.Table, column: str, conn: Connection) -> Any:
         """
-        Get median value for a column (database-specific).
+        Get median value for a column.
 
-        Returns raw database result to preserve native type formatting. When the
-        adapter does not provide a native SQL expression (e.g. MySQL/Doris which
-        have no MEDIAN function), falls back to GE's OFFSET/LIMIT trick: fetch
-        the 1-2 middle rows of the sorted non-null values and compute the median
-        in Python. The same fallback also kicks in if the native expression
-        exists but fails at execution (e.g. GenericAdapter optimistically emits
-        `MEDIAN()` which Doris/MySQL don't actually support).
+        When the adapter does not provide a native SQL expression (e.g. MySQL/Doris
+        which have no MEDIAN function), falls back to GE's OFFSET/LIMIT trick:
+        fetch the 1-2 middle rows of the sorted non-null values and compute the
+        median in Python. Adapters that target platforms without a native
+        MEDIAN function should return None from `get_median_expr` to engage this
+        path; the GenericAdapter does so by default.
         """
         expr = self.get_median_expr(column)
         if expr is not None:
-            try:
-                query = sa.select([expr]).select_from(table)
-                # Return raw result to preserve database-native formatting (like GE does)
-                return conn.execute(query).scalar()
-            except SQLAlchemyError as e:
-                # Some adapters (notably the GenericAdapter for Doris) optimistically
-                # return a `MEDIAN()` expression that fails at execution. Fall through
-                # to the Python OFFSET/LIMIT fallback below in that case.
-                logger.debug(
-                    f"Native MEDIAN expression failed for column {column}; "
-                    f"falling back to OFFSET/LIMIT in Python: {e}"
-                )
+            query = sa.select([expr]).select_from(table)
+            # Return raw result to preserve database-native formatting (like GE does)
+            return conn.execute(query).scalar()
 
         # Python-side fallback (mirrors GE's get_column_median for dialects
         # without a native MEDIAN function: MySQL, Doris, etc.).

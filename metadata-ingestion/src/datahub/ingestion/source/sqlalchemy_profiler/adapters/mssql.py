@@ -53,6 +53,17 @@ class MSSQLAdapter(PlatformAdapter):
         """
         return None
 
+    def get_mean_expr(self, column: str) -> ColumnElement[Any]:
+        """
+        MSSQL mean - multiplies by 1.0 to force float promotion.
+
+        MSSQL's `AVG(int_col)` returns an integer (truncating the average toward
+        zero). The standard workaround is to multiply by 1.0 before averaging so
+        the column is promoted to float, preserving precision. GE uses the same
+        trick (sqlalchemy_dataset.py:1093-1101).
+        """
+        return sa.func.avg(sa.column(column) * 1.0)
+
     # =========================================================================
     # Query Execution Methods (overrides)
     # =========================================================================

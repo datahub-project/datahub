@@ -350,15 +350,9 @@ class TestGenericAdapter:
         pattern = r"\bCOUNT\s*\(\s*DISTINCT\s*\(\s*test_column\s*\)\s*\)"
         assert_sql_matches_pattern(sql, pattern)
 
-    def test_get_median_expr(self, adapter, mock_generic_engine):
-        """Test generic adapter tries MEDIAN function."""
-        expr = adapter.get_median_expr("test_column")
-        assert expr is not None
-        sql = compile_expr_to_sql(expr, mock_generic_engine.dialect)
-
-        # Validate MEDIAN function
-        pattern = r"\bmedian\b"
-        assert_sql_matches_pattern(sql, pattern)
+    def test_get_median_expr(self, adapter):
+        """Generic adapter returns None — base adapter's Python OFFSET/LIMIT fallback handles it."""
+        assert adapter.get_median_expr("test_column") is None
 
     def test_get_quantiles_expr(self, adapter):
         """Test generic adapter returns None for quantiles (not supported)."""
@@ -458,6 +452,13 @@ class TestMSSQLAdapter:
     def test_get_median_expr_returns_none(self, adapter):
         """MSSQL has no native MEDIAN — None engages base OFFSET/LIMIT fallback."""
         assert adapter.get_median_expr("value_column") is None
+
+    def test_mean_expr_promotes_to_float(self, adapter, mock_mssql_engine):
+        """MSSQL's AVG(int_col) returns int — multiply by 1.0 to force float promotion."""
+        expr = adapter.get_mean_expr("my_col")
+        rendered = compile_expr_to_sql(expr, mock_mssql_engine.dialect)
+        assert "1.0" in rendered
+        assert "avg" in rendered.lower()
 
     def test_supports_row_count_estimation(self, adapter):
         """MSSQL row count estimation not implemented yet (defaults to False)."""
