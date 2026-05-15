@@ -477,7 +477,6 @@ databricks_common = {
 }
 
 databricks = {
-    "pyspark~=3.5.6,<4.0.0",
     "requests<3.0.0",
     # Due to https://github.com/databricks/databricks-sql-python/issues/326
     # databricks-sql-connector<3.0.0 requires pandas<2.2.0
@@ -767,14 +766,15 @@ plugins: Dict[str, Set[str]] = {
     | classification_lib
     | {"db-dtypes"}
     | cachetools_lib,
-    # S3 includes PySpark by default for profiling support (backward compatible)
-    # Standard installation: pip install 'acryl-datahub[s3]' (with PySpark)
-    # Lightweight installation: pip install 'acryl-datahub[s3-slim]' (no PySpark, no profiling)
-    "s3": {*s3_base, *data_lake_profiling},
+    # PySpark + Deequ for data lake profiling. Install alongside a connector:
+    #   pip install 'acryl-datahub[s3,pyspark]'    # S3 with profiling
+    #   pip install 'acryl-datahub[abs,pyspark]'   # ABS with profiling
+    "pyspark": data_lake_profiling,
+    "s3": {*s3_base},
     "s3-slim": {*s3_base},
     "gcs": {*s3_base, *data_lake_profiling, "smart-open[gcs]>=5.2.1,<8.0.0"},
     "gcs-slim": {*s3_base, "smart-open[gcs]>=5.2.1,<8.0.0"},
-    "abs": {*abs_base, *data_lake_profiling},
+    "abs": {*abs_base},
     "abs-slim": {*abs_base},
     "sagemaker": aws_common,
     "salesforce": {"simple-salesforce<2.0.0", *cachetools_lib},
