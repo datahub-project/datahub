@@ -10,18 +10,16 @@ At the center of this framework is the concept of a Metadata Test.
 
 There are two powerful use cases that are uniquely enabled by the Metadata Tests framework:
 
-1. Automated Asset Classification
+1. Automated Actions on Assets
 2. Automated Metadata Completion Monitoring
 
-### Automated Asset Classification
+### Automated Actions on Assets
 
 Metadata Tests allows you to define conditions for selecting a subset of data assets (e.g. datasets, dashboards, etc),
 along with a set of actions to take for entities that are selected. After the test is defined, the actions
 will be applied continuously over time, as the selection set evolves & changes with your data ecosystem.
 
-When defining selection criteria, you'll be able to choose from a range of useful technical signals (e.g. usage, size) that are automatically
-extracted by DataHub (which vary by integration). This makes automatically classifying the "important" assets in your organization quite easy, which
-is in turn critical for running effective Data Governance initiatives within your organization.
+When defining selection criteria, you'll be able to choose from a range of useful technical signals (e.g. usage, size) that are automatically extracted by DataHub (which vary by integration). This makes automatically applying business metadata to the "important" assets in your organization quite easy, which is in turn critical for scaling effective Data Governance initiatives within your organization.
 
 For example, we can define a Metadata Test which selects all Snowflake Tables which are in the top 10% of "most queried"
 for the past 30 days, and then assign those Tables to a special "Tier 1" group using DataHub Tags, Glossary Terms, or Domains.

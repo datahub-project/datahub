@@ -13,7 +13,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { CorpUser, EntityRelationshipsResult } from '@types';
 
 type Props = {
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships?: EntityRelationshipsResult;
     showAddMemberModal: boolean;
     setShowAddMemberModal: (show: boolean) => void;
     urn: string;

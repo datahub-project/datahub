@@ -62,6 +62,16 @@ Each cache entry holds a parsed query result in memory. 50 000 entries typically
 
 Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver timeouts. Increase `request_timeout_ms` (default: 120 000 ms) if lineage queries against large `DBC.QryLogV` tables time out silently.
 
+**Hang protection for bulk parallel runs**
+
+Parallel view processing and audit-log fetching can stall indefinitely if a single Teradata call blocks (for example, when a firewall silently drops an idle TCP connection mid-query). The connector ships with three knobs that prevent this from manifesting as a fully silent halt:
+
+- **`view_processing_timeout_seconds`** (default 1800) — wall-clock cap per view in the parallel pool. A stalled view is abandoned and the run continues. Abandoned views are counted in `report.num_view_processing_timeouts` and listed in `report.stalled_views`. Set to `0` to disable.
+- **`view_processing_heartbeat_seconds`** (default 30) — interval between `View processing heartbeat: ...` log lines that report completed/in-progress counts and the longest-running view. Use this to identify which view is stuck if a run is making no progress. Set to `0` to disable.
+- **`lineage_fetch_stall_warning_seconds`** (default 300) — if no `DBC.QryLogV` batch arrives within this window, a `Lineage fetch stall` warning is logged with the current phase (`executing_query`, `awaiting_first_batch`, or `fetching_batches`). Pure observability — does not interrupt the fetch. Set to `0` to disable.
+
+The defaults are conservative and safe to leave alone. Tighten `view_processing_timeout_seconds` (for example to `300`) on installations where individual views are known to complete quickly and you want stalls to surface sooner.
+
 ### Limitations
 
 - `use_dbc_columns_for_views` falls back to `HELP` for any view that contains derived expression columns. Views with _only_ explicit-type columns benefit most from this option.
@@ -74,3 +84,14 @@ Use `request_timeout_ms` and `connect_timeout_ms` to tune the Teradata driver ti
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
 
 If lineage queries fail silently and return no results, increase `request_timeout_ms`. The default 2-minute timeout can be insufficient for `DBC.QryLogV` on busy systems with large audit logs.
+
+#### Ingestion appears to stop without an error
+
+Bulk parallel runs on large Teradata installations can appear to halt with no error or status update when a single underlying call blocks (hung DB query, dropped TCP connection, exhausted resources). To diagnose:
+
+1. Enable debug logging (`datahub ingest run -c recipe.yml --debug`) and re-run one failing recipe. The last log line before the halt identifies the phase: a `View processing heartbeat` line points to the parallel view pool, a `Lineage fetch stall` warning points to `DBC.QryLogV` streaming, and silence in both points to network or pod-level termination.
+2. Confirm the stalled-view path by checking `report.num_view_processing_timeouts` and `report.stalled_views` in the ingestion report after the run finishes. A non-zero count means the hang-protection logic abandoned one or more views; the listed views are the candidates for further investigation.
+3. To rule out the parallel view pool entirely, re-run with `max_workers: 1`. If the run completes, the issue is confined to the parallel path.
+4. For Kubernetes-hosted runs, check the executor pod for `OOMKilled` / `CrashLoopBackOff` events. Pod-level termination produces identical symptoms but cannot be addressed in the connector — provision more memory or reduce `max_workers`.
+
+The defaults of `view_processing_timeout_seconds: 1800`, `view_processing_heartbeat_seconds: 30`, and `lineage_fetch_stall_warning_seconds: 300` ensure that even an unattended run will surface progress information and recover from stalls on its own. See the **Hang protection for bulk parallel runs** section above for details on tuning these.

@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.migrations;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.data.template.StringMap;
@@ -22,6 +23,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -153,24 +155,6 @@ public class MigrateAspectsStep implements UpgradeStep {
   // ---------------------------------------------------------------------------
 
   @Override
-  public boolean skip(UpgradeContext context) {
-    Optional<DataHubUpgradeResult> prevResult =
-        context.upgrade().getUpgradeResult(opContext, getUpgradeIdUrn(), entityService);
-
-    if (prevResult
-        .filter(
-            r ->
-                DataHubUpgradeState.SUCCEEDED.equals(r.getState())
-                    || DataHubUpgradeState.ABORTED.equals(r.getState()))
-        .isPresent()) {
-      log.info("{}: Previous result was {}; skipping.", id(), prevResult.get().getState());
-      return true;
-    }
-
-    return false;
-  }
-
-  @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     log.info(
         "{}: Starting migration sweep across {} aspect(s).", id(), aspectTargetVersions.size());
@@ -209,6 +193,9 @@ public class MigrateAspectsStep implements UpgradeStep {
                                       .auditStamp(systemAspect.getAuditStamp())
                                       .systemMetadata(
                                           withAppSource(systemAspect.getSystemMetadata()))
+                                      .headers(
+                                          versionHeaders(
+                                              systemAspect.getSystemMetadata().getVersion()))
                                       .build(opContext.getAspectRetriever()))
                           .collect(Collectors.toList());
 
@@ -252,6 +239,15 @@ public class MigrateAspectsStep implements UpgradeStep {
       context.report().addLine("State updated: " + getUpgradeIdUrn());
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
+  }
+
+  private static Map<String, String> versionHeaders(@Nullable String version) {
+    if (version == null) {
+      return Map.of();
+    }
+    Map<String, String> headers = new HashMap<>();
+    headers.put(HTTP_HEADER_IF_VERSION_MATCH, version);
+    return headers;
   }
 
   private static SystemMetadata withAppSource(@Nullable SystemMetadata systemMetadata) {

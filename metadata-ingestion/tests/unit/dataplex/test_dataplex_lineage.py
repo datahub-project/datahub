@@ -2,7 +2,7 @@
 
 import datetime
 from typing import cast
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -947,7 +947,6 @@ def test_streaming_lineage_processing() -> None:
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -1029,117 +1028,12 @@ def test_streaming_lineage_processing() -> None:
     assert extractor.report.num_lineage_entries_scanned == 5
 
 
-def test_streaming_lineage_ignores_large_batch_size_config() -> None:
-    """Test that a large batch_size config does not affect streaming behavior."""
-    config = DataplexConfig(
-        project_ids=["test-project"],
-        include_lineage=True,
-        lineage_locations=["us-central1"],
-        batch_size=100,  # Should be ignored in streaming mode
-    )
-    report = DataplexReport()
-
-    mock_client = MagicMock()
-    # Mock to return some lineage so we can verify entries are processed
-    mock_link = MagicMock()
-    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
-    mock_client.search_links.return_value = [mock_link]
-
-    extractor = DataplexLineageExtractor(
-        config=config,
-        report=report.lineage_report,
-        source_report=Mock(),
-        lineage_client=mock_client,
-    )
-
-    # Create 3 test entries
-    entries = [
-        EntryDataTuple(
-            dataplex_entry_short_name=f"entry_{i}",
-            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
-            dataplex_location="us",
-            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-        for i in range(3)
-    ]
-
-    # Should process all entries in streaming mode
-    workunits = list(
-        extractor.get_lineage_workunits(
-            entries,
-            active_lineage_project_location_pairs=[("test-project", "us-central1")],
-        )
-    )
-
-    # Should generate 3 workunits (one per entry)
-    assert len(workunits) == 3
-    # Verify all entries were scanned
-    assert extractor.report.num_lineage_entries_scanned == 3
-
-
-def test_streaming_lineage_with_batching_disabled_config() -> None:
-    """Test streaming lineage when batch_size is explicitly set to None."""
-    config = DataplexConfig(
-        project_ids=["test-project"],
-        include_lineage=True,
-        lineage_locations=["us-central1"],
-        batch_size=None,  # Still streaming mode
-    )
-    report = DataplexReport()
-
-    mock_client = MagicMock()
-    # Mock to return some lineage so we can verify entries are processed
-    mock_link = MagicMock()
-    mock_link.source.fully_qualified_name = "bigquery:project.dataset.upstream"
-    mock_client.search_links.return_value = [mock_link]
-
-    extractor = DataplexLineageExtractor(
-        config=config,
-        report=report.lineage_report,
-        source_report=Mock(),
-        lineage_client=mock_client,
-    )
-
-    # Create 10 test entries
-    entries = [
-        EntryDataTuple(
-            dataplex_entry_short_name=f"entry_{i}",
-            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry_{i}",
-            dataplex_location="us",
-            dataplex_entry_fqn=f"bigquery:test-project.dataset_{i}.entry_{i}",
-            dataplex_entry_type_short_name="bigquery-table",
-            datahub_platform="bigquery",
-            datahub_dataset_name=f"test-project.dataset_{i}.entry_{i}",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
-        )
-        for i in range(10)
-    ]
-
-    # Should process all entries in streaming mode
-    workunits = list(
-        extractor.get_lineage_workunits(
-            entries,
-            active_lineage_project_location_pairs=[("test-project", "us-central1")],
-        )
-    )
-
-    # Should generate 10 workunits
-    assert len(workunits) == 10
-    # Verify all entries were scanned
-    assert extractor.report.num_lineage_entries_scanned == 10
-
-
 def test_streaming_lineage_memory_cleanup() -> None:
     """Test streaming lineage does not rely on a global lineage map."""
     config = DataplexConfig(
         project_ids=["test-project"],
         include_lineage=True,
         lineage_locations=["us-central1"],
-        batch_size=2,  # Should be ignored in streaming mode
     )
     report = DataplexReport()
 
@@ -1305,7 +1199,6 @@ class TestLineageMapKeyCollision:
             project_ids=["test-project"],
             include_lineage=True,
             lineage_locations=["us-central1"],
-            batch_size=None,  # Disable batching for simplicity
         )
         report = DataplexReport()
         mock_client = MagicMock()
@@ -1523,3 +1416,91 @@ class TestLineageMapKeyCollision:
             upstreams[0].dataset
             == "urn:li:dataset:(urn:li:dataPlatform:bigquery,test-project.abc.users,PROD)"
         )
+
+
+class TestDataplexParallelLineage:
+    """Tests for the parallel lineage workunit path (get_lineage_workunits)."""
+
+    def _make_entry(self, idx: int) -> EntryDataTuple:
+        return EntryDataTuple(
+            dataplex_entry_short_name=f"entry-{idx}",
+            dataplex_entry_name=f"projects/p/locations/us/entryGroups/g/entries/entry-{idx}",
+            dataplex_location="us",
+            dataplex_entry_fqn=f"bigquery:p.ds.table{idx}",
+            dataplex_entry_type_short_name="bigquery-table",
+            datahub_platform="bigquery",
+            datahub_dataset_name=f"p.ds.table{idx}",
+            datahub_dataset_urn=f"urn:li:dataset:(urn:li:dataPlatform:bigquery,p.ds.table{idx},PROD)",
+        )
+
+    def test_get_lineage_workunits_returns_all_workunits(
+        self,
+        lineage_extractor: DataplexLineageExtractor,
+    ) -> None:
+        entries = [self._make_entry(i) for i in range(5)]
+        workunit = Mock()
+
+        with patch.object(
+            lineage_extractor, "_process_entry_lineage", return_value=[workunit]
+        ):
+            workunits = list(
+                lineage_extractor.get_lineage_workunits(
+                    entry_data=entries,
+                    active_lineage_project_location_pairs=[("p", "us-central1")],
+                    max_workers=3,
+                )
+            )
+
+        assert len(workunits) == 5
+        assert all(wu is workunit for wu in workunits)
+
+    def test_get_lineage_workunits_handles_entry_failure(
+        self,
+        lineage_extractor: DataplexLineageExtractor,
+        source_report: Mock,
+    ) -> None:
+        entries = [self._make_entry(i) for i in range(3)]
+        workunit = Mock()
+
+        # Middle entry raises; the other two succeed.
+        with patch.object(
+            lineage_extractor,
+            "_process_entry_lineage",
+            side_effect=[[workunit], Exception("api error"), [workunit]],
+        ):
+            workunits = list(
+                lineage_extractor.get_lineage_workunits(
+                    entry_data=entries,
+                    active_lineage_project_location_pairs=[("p", "us-central1")],
+                    max_workers=3,
+                )
+            )
+
+        assert len(workunits) == 2
+        source_report.warning.assert_called_once()
+
+    def test_get_lineage_workunits_skipped_when_disabled(
+        self,
+        dataplex_report: DataplexReport,
+        source_report: Mock,
+    ) -> None:
+        config = DataplexConfig(
+            project_ids=["p"],
+            lineage_locations=["us-central1"],
+            include_lineage=False,
+        )
+        extractor = DataplexLineageExtractor(
+            config=config,
+            report=dataplex_report.lineage_report,
+            source_report=source_report,
+            lineage_client=None,
+        )
+
+        workunits = list(
+            extractor.get_lineage_workunits(
+                entry_data=[self._make_entry(0)],
+                active_lineage_project_location_pairs=[("p", "us-central1")],
+                max_workers=5,
+            )
+        )
+        assert workunits == []

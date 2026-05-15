@@ -124,13 +124,11 @@ public class GetLatestSuccessfulExecutionRequestResolverTest {
                             List.of(
                                 new FacetFilterInput(
                                     "ingestionSource",
-                                    null,
                                     List.of(TEST_INGESTION_SOURCE_URN),
                                     false,
                                     FilterOperator.EQUAL),
                                 new FacetFilterInput(
                                     "executionResultStatus",
-                                    null,
                                     List.of("SUCCESS"),
                                     false,
                                     FilterOperator.EQUAL)),

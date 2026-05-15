@@ -633,7 +633,8 @@ def get_lineage_paths_between(
 
     Raises:
         ValueError: If column parameters are mismatched or invalid
-        ItemNotFoundError: If no lineage path found
+        ItemNotFoundError: If no lineage path found (converted to a message dict
+            by create_context_wrapper when called through the agent adapter)
     """
     # Normalize column parameters
     if source_column == "null" or source_column == "":

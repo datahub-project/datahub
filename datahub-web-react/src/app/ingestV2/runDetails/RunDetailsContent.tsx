@@ -88,6 +88,7 @@ export default function RunDetailsContent({ urn, data, loading, error, refetch, 
                     label={getExecutionRequestStatusDisplayText(status)}
                     color={resultColor}
                     size="md"
+                    dataTestId="run-details-status-pill"
                 />
             ),
         [ResultIcon, resultColor, status],

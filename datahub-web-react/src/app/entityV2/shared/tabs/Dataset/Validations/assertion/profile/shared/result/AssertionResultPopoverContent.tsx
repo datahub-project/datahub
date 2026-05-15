@@ -8,6 +8,7 @@ import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validatio
 import { toReadableLocalDateTimeString } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/utils';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
 import { AssertionResultPill } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/AssertionResultPill';
+import { getAssertionResultSeverityDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/assertionResultSeverityUtils';
 import {
     ResultStatusType,
     getDetailedErrorMessage,
@@ -15,7 +16,7 @@ import {
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
 
-import { Assertion, AssertionResultType, AssertionRunEvent } from '@types';
+import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent } from '@types';
 
 const HeaderRow = styled.div`
     display: flex;
@@ -101,6 +102,158 @@ type Props = {
     resultStatusType?: ResultStatusType;
 };
 
+type PopoverHeaderProps = {
+    timestamp?: Date;
+    reportedTimestamp?: number;
+    result?: AssertionResult;
+    resultStatusType?: ResultStatusType;
+    showProfileButton?: boolean;
+    onClickProfileButton?: () => void;
+};
+
+const PopoverHeader = ({
+    timestamp,
+    reportedTimestamp,
+    result,
+    resultStatusType,
+    showProfileButton,
+    onClickProfileButton,
+}: PopoverHeaderProps) => {
+    return (
+        <HeaderRow>
+            <TimestampContainer>
+                {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
+                <LastResultsRow>
+                    {(timestamp && (
+                        <>
+                            <StyledClockCircleOutlined /> Ran {toReadableLocalDateTimeString(timestamp.getTime())}{' '}
+                        </>
+                    )) || <>No results yet</>}
+                </LastResultsRow>
+                {reportedTimestamp && (
+                    <LastRunRow>Reported {toReadableLocalDateTimeString(reportedTimestamp)}</LastRunRow>
+                )}
+            </TimestampContainer>
+            <Actions>
+                <AssertionResultPill result={result} type={resultStatusType} />
+                {(showProfileButton && onClickProfileButton && (
+                    <PrimaryButton title="Details" onClick={onClickProfileButton} />
+                )) ||
+                    undefined}
+            </Actions>
+        </HeaderRow>
+    );
+};
+
+const ReasonSection = ({ reasonText }: { reasonText?: string }) => {
+    if (!reasonText) return null;
+    return (
+        <>
+            <ThinDivider />
+            <ReasonRow>
+                <SecondaryHeader>Reason</SecondaryHeader>
+                <ReasonText>{reasonText}</ReasonText>
+            </ReasonRow>
+        </>
+    );
+};
+
+const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
+    if (!expectedText) return null;
+    return (
+        <>
+            <ThinDivider />
+            <ContextRow>
+                <SecondaryHeader>Expected</SecondaryHeader>
+                <ExpectedText>{expectedText}</ExpectedText>
+            </ContextRow>
+        </>
+    );
+};
+
+const SeveritySection = ({ result }: { result?: AssertionResult }) => {
+    const severityDisplay = getAssertionResultSeverityDisplay(result);
+    if (!severityDisplay) return null;
+
+    return (
+        <>
+            <ThinDivider />
+            <ContextRow>
+                <SecondaryHeader>Severity</SecondaryHeader>
+                <ExpectedText>{severityDisplay.label}</ExpectedText>
+            </ContextRow>
+        </>
+    );
+};
+
+const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: boolean }) => {
+    if (!show || !errorMessage) return null;
+    return (
+        <>
+            <ThinDivider />
+            <ContextRow>
+                <SecondaryHeader>Message</SecondaryHeader>
+                <Typography.Paragraph
+                    ellipsis={{
+                        expandable: true,
+                        symbol: 'more',
+                        rows: 3,
+                        onExpand: (e) => e.stopPropagation(),
+                    }}
+                >
+                    {errorMessage}
+                </Typography.Paragraph>
+            </ContextRow>
+        </>
+    );
+};
+
+const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; result?: AssertionResult }) => {
+    if (!isExternalAssertion(assertion)) return null;
+
+    const externalResultsSections: React.ReactNode[] = [];
+    if (result?.nativeResults?.length) {
+        externalResultsSections.push(
+            <ThinDivider key="external-results-divider" />,
+            <PlatformRow key="external-results">
+                {result.nativeResults.map((entry) => (
+                    <div key={entry.key}>
+                        <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
+                    </div>
+                ))}
+            </PlatformRow>,
+        );
+        if (result.externalUrl) {
+            externalResultsSections.push(
+                <ThinDivider key="external-results-link-divider" />,
+                <PlatformRow key="external-results-link">
+                    <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
+                        View results in{' '}
+                        {assertion.platform?.name && assertion.platform?.name?.toLowerCase() !== 'unknown'
+                            ? assertion.platform?.name
+                            : 'source system.'}
+                    </a>
+                </PlatformRow>,
+            );
+        }
+    }
+
+    return (
+        <>
+            {/* Show the native results if it's an external platform, so customers can see source-emitted values. */}
+            {externalResultsSections.length > 0 && externalResultsSections}
+            {assertion.platform && (
+                <>
+                    <ThinDivider />
+                    <PlatformRow>
+                        <ProviderSummarySection assertion={assertion} showDivider={false} />
+                    </PlatformRow>
+                </>
+            )}
+        </>
+    );
+};
+
 // TODO: Add this in the assertion list, as hover on the timeline as well.
 export const AssertionResultPopoverContent = ({
     assertion,
@@ -110,129 +263,36 @@ export const AssertionResultPopoverContent = ({
     onClickProfileButton,
 }: Props) => {
     // Last run time
-    const timestamp = run && new Date(run?.timestampMillis);
-    const reportedTimestamp = run && run?.lastObservedMillis;
+    const timestamp = run?.timestampMillis ? new Date(run.timestampMillis) : undefined;
+    const reportedTimestamp = run?.lastObservedMillis || undefined;
 
     // Reason
-    const result = run?.result ? run.result! : undefined;
+    const result = run?.result || undefined;
     const reasonText = run ? getFormattedReasonText(assertion, run) : undefined;
     const hasReason = !!reasonText;
 
     // Context
-    const expectedText = run ? getFormattedExpectedResultText() : undefined;
-    const hasContext = !!expectedText;
+    const expectedText = run ? getFormattedExpectedResultText(assertion.info, run) : undefined;
 
     // Error
     const errorMessage = (run && getDetailedErrorMessage(run)) || undefined;
     const hasDetailedError = run?.result?.type === AssertionResultType.Error && !!errorMessage;
 
-    // Platform
-    const isExternal = isExternalAssertion(assertion);
-    const hasPlatform = !!assertion.platform;
-
     return (
         <>
-            <HeaderRow>
-                <TimestampContainer>
-                    {/* NOTE: we don't show the assertion title in the header because the assertion's current title may not accurately represent the assertion that actually ran at this point in time. */}
-                    <LastResultsRow>
-                        {(timestamp && (
-                            <>
-                                <StyledClockCircleOutlined /> Ran{' '}
-                                {toReadableLocalDateTimeString(run?.timestampMillis)}{' '}
-                            </>
-                        )) || <>No results yet</>}
-                    </LastResultsRow>
-                    {reportedTimestamp && (
-                        <LastRunRow>
-                            Reported {reportedTimestamp && toReadableLocalDateTimeString(reportedTimestamp)}
-                        </LastRunRow>
-                    )}
-                </TimestampContainer>
-                <Actions>
-                    <AssertionResultPill result={result} type={resultStatusType} />
-                    {(showProfileButton && onClickProfileButton && (
-                        <PrimaryButton title="Details" onClick={onClickProfileButton} />
-                    )) ||
-                        undefined}
-                </Actions>
-            </HeaderRow>
-            {hasReason && (
-                <>
-                    <ThinDivider />
-                    <ReasonRow>
-                        <SecondaryHeader>Reason</SecondaryHeader>
-                        <ReasonText>{reasonText}</ReasonText>
-                    </ReasonRow>
-                </>
-            )}
-            {hasContext && (
-                <>
-                    <ThinDivider />
-                    <ContextRow>
-                        <SecondaryHeader>Expected</SecondaryHeader>
-                        <ExpectedText>{expectedText}</ExpectedText>
-                    </ContextRow>
-                </>
-            )}
-            {hasDetailedError && (
-                <>
-                    <ThinDivider />
-                    <ContextRow>
-                        <SecondaryHeader>Message</SecondaryHeader>
-                        <Typography.Paragraph
-                            ellipsis={{
-                                expandable: true,
-                                symbol: 'more',
-                                rows: 3,
-                                onExpand: (e) => e.stopPropagation(),
-                            }}
-                        >
-                            {errorMessage}
-                        </Typography.Paragraph>
-                    </ContextRow>
-                </>
-            )}
-            {isExternal ? (
-                <>
-                    {/* Show the native results if it's an external platform, so the customers can see things like 'result' that they've emitted into DH */}
-                    {result?.nativeResults?.length
-                        ? [
-                              <ThinDivider />,
-                              <PlatformRow>
-                                  {result.nativeResults.map((entry) => (
-                                      <div>
-                                          <Typography.Text strong>{entry.key}</Typography.Text>: {entry.value}
-                                      </div>
-                                  ))}
-                              </PlatformRow>,
-                              ...(result.externalUrl
-                                  ? [
-                                        <ThinDivider />,
-                                        <PlatformRow>
-                                            <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
-                                                View results in{' '}
-                                                {assertion.platform?.name &&
-                                                assertion.platform?.name?.toLowerCase() !== 'unknown'
-                                                    ? assertion.platform?.name
-                                                    : 'source system.'}
-                                            </a>
-                                        </PlatformRow>,
-                                    ]
-                                  : []),
-                          ]
-                        : null}
-                    {hasPlatform && (
-                        <>
-                            {/* Show the external platform details */}
-                            <ThinDivider />
-                            <PlatformRow>
-                                <ProviderSummarySection assertion={assertion} showDivider={false} />
-                            </PlatformRow>
-                        </>
-                    )}
-                </>
-            ) : null}
+            <PopoverHeader
+                timestamp={timestamp}
+                reportedTimestamp={reportedTimestamp}
+                result={result}
+                resultStatusType={resultStatusType}
+                showProfileButton={showProfileButton}
+                onClickProfileButton={onClickProfileButton}
+            />
+            {hasReason && <ReasonSection reasonText={reasonText} />}
+            <SeveritySection result={result} />
+            <ExpectedSection expectedText={expectedText} />
+            <MessageSection errorMessage={errorMessage} show={hasDetailedError} />
+            <ExternalResultsSection assertion={assertion} result={result} />
         </>
     );
 };

@@ -2,10 +2,12 @@ package com.linkedin.gms;
 
 import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import java.lang.management.ManagementFactory;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Set;
 import javax.management.MBeanServer;
 import lombok.extern.slf4j.Slf4j;
-import org.eclipse.jetty.ee10.servlet.ServletHandler;
+import org.eclipse.jetty.ee11.servlet.ServletHandler;
 import org.eclipse.jetty.http.UriCompliance;
 import org.eclipse.jetty.jmx.MBeanContainer;
 import org.eclipse.jetty.server.Connector;
@@ -15,7 +17,7 @@ import org.eclipse.jetty.server.ServerConnector;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
-import org.springframework.boot.web.embedded.jetty.JettyServletWebServerFactory;
+import org.springframework.boot.jetty.servlet.JettyServletWebServerFactory;
 import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
@@ -90,12 +92,20 @@ public class CommonApplicationConfig {
             httpConfig.setSendDateHeader(false);
 
             // See https://github.com/jetty/jetty.project/issues/11890
-            // Configure URI compliance to allow encoded slashes
+            // DataHub URNs routinely appear URL-encoded in paths (e.g. /aspects/{urn})
+            // with gen-delims like ':', '(', ')', ',' percent-encoded as %3A/%28/%29/%2C,
+            // plus encoded slashes (%2F) for platform-instance segments. Jetty 12's
+            // RFC3986-strict default rejects these as ambiguous and returns 400 before
+            // the request reaches the servlet, so we explicitly allow the ambiguous-path
+            // violations URN-encoded paths can produce.
             httpConfig.setUriCompliance(
                 UriCompliance.from(
                     Set.of(
                         UriCompliance.Violation.AMBIGUOUS_PATH_SEPARATOR,
                         UriCompliance.Violation.AMBIGUOUS_PATH_ENCODING,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_SEGMENT,
+                        UriCompliance.Violation.AMBIGUOUS_PATH_PARAMETER,
+                        UriCompliance.Violation.AMBIGUOUS_EMPTY_SEGMENT,
                         UriCompliance.Violation.SUSPICIOUS_PATH_CHARACTERS)));
             // set this for Servlet 6+
             server
@@ -105,6 +115,9 @@ public class CommonApplicationConfig {
             // --- Ports ---
             int httpPort = environment.getProperty("server.port", Integer.class, 8080);
             int httpsPort = environment.getProperty("server.ssl.port", Integer.class, 8443);
+
+            // --- Listen Interface/IP ---
+            String serverAddress = environment.getProperty("server.address");
 
             // --- SSL Config ---
             String keyStorePath = environment.getProperty("server.ssl.key-store");
@@ -144,6 +157,19 @@ public class CommonApplicationConfig {
               connector = new ServerConnector(server, new HttpConnectionFactory(httpConfig));
               connector.setPort(httpPort);
               log.info("HTTP only enabled on port {}", httpPort);
+            }
+
+            if (serverAddress != null && !serverAddress.isBlank()) {
+              try {
+                // Resolve address to validate it
+                InetAddress unusedResolvedAddress = InetAddress.getByName(serverAddress);
+              } catch (UnknownHostException e) {
+                log.error("Configured server address {} is invalid", serverAddress);
+                throw new IllegalArgumentException(
+                    "Configured server address " + serverAddress + " is invalid");
+              }
+              log.info("Server will listen on address: {}", serverAddress);
+              connector.setHost(serverAddress);
             }
 
             // --- Set connectors (HTTP or HTTPS only) ---

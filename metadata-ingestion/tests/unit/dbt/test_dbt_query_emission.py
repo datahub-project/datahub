@@ -5,7 +5,7 @@ from typing import Dict, Optional
 
 import dateutil.parser
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt.dbt_common import DBTNode, EmitDirective
@@ -87,7 +87,7 @@ def dbt_node() -> DBTNode:
     return _create_dbt_node()
 
 
-@freeze_time("2024-01-01 00:00:00")
+@time_machine.travel("2024-01-01 00:00:00", tick=False)
 def test_emits_query_properties_and_subjects_for_each_meta_query():
     """Test that Query entities are correctly emitted from meta.queries."""
     source = _create_dbt_source()

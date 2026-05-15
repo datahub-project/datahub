@@ -105,17 +105,41 @@ class ConnectorEntry:
 
 
 @dataclass(frozen=True)
-class EntryPointMapping:
-    """Result of resolving setup.py entry points to test directories."""
+class EntryPointInfo:
+    """Info about a single entry-point module from setup.py."""
 
-    # source_dir -> set of test dirs derived from entry points
-    source_to_tests: dict[str, set[str]] = field(default_factory=dict)
-    # ep module -> test dir (or None for known connectors without integration tests).
-    # Keys include ALL entry-point modules from setup.py. A module mapping to None
-    # means it's a known connector that just has no integration test directory —
-    # distinct from a shared utility (not in this dict at all). This distinction
-    # prevents narrowing failures from cascading through the import graph.
-    ep_module_to_test: dict[str, str | None] = field(default_factory=dict)
+    source_dir: str
+    test_path: str | None = None
+
+
+@dataclass(frozen=True)
+class EntryPointMapping:
+    """Result of resolving setup.py entry points to test directories.
+
+    All data is stored in ep_modules: a dict mapping every entry-point module
+    to its EntryPointInfo. Derived views (source_to_tests, ep_source_dirs) are
+    computed from this single source of truth.
+    """
+
+    # ep module -> info (source_dir + optional test_path).
+    # Keys include ALL entry-point modules from setup.py. A module with
+    # test_path=None is a known connector without integration tests —
+    # distinct from a shared utility (not in this dict at all).
+    ep_modules: dict[str, EntryPointInfo] = field(default_factory=dict)
+
+    @property
+    def source_to_tests(self) -> dict[str, set[str]]:
+        """source_dir -> set of test dirs derived from entry points."""
+        result: dict[str, set[str]] = {}
+        for info in self.ep_modules.values():
+            if info.test_path is not None:
+                result.setdefault(info.source_dir, set()).add(info.test_path)
+        return result
+
+    @property
+    def ep_source_dirs(self) -> set[str]:
+        """Source dirs that contain at least one entry-point module."""
+        return {info.source_dir for info in self.ep_modules.values()}
 
 
 @dataclass(frozen=True)
@@ -371,13 +395,14 @@ def build_source_to_test_dirs(
     # Build module-prefix -> source_dir lookup; longest match wins
     sorted_registry = sorted(registry, key=lambda c: len(c.source_dir), reverse=True)
 
-    # Start with all EP modules mapped to None (no tests).
-    # Modules with matching test dirs get updated below.
-    ep_module_to_test: dict[str, str | None] = {
-        module: None for module in set(plugin_to_module.values())
-    }
+    # Start with all EP modules resolved to their source dir (no tests yet).
+    # Modules with matching test dirs get their test_path set below.
+    ep_modules: dict[str, EntryPointInfo] = {}
+    for module in set(plugin_to_module.values()):
+        src_dir = _find_source_dir(module, sorted_registry)
+        if src_dir:
+            ep_modules[module] = EntryPointInfo(source_dir=src_dir)
 
-    source_to_tests: dict[str, set[str]] = {}
     tests_dir = mi / "tests" / "integration"
 
     if not tests_dir.is_dir():
@@ -386,7 +411,7 @@ def build_source_to_test_dirs(
             f"Entry-point-derived test mapping will be empty.",
             file=sys.stderr,
         )
-        return EntryPointMapping(ep_module_to_test=ep_module_to_test)
+        return EntryPointMapping(ep_modules=ep_modules)
 
     for test_dir in sorted(tests_dir.iterdir()):
         if not test_dir.is_dir() or test_dir.name.startswith("_"):
@@ -397,21 +422,17 @@ def build_source_to_test_dirs(
         if not module:
             continue
 
-        ep_module_to_test[module] = test_rel
         src_dir = _find_source_dir(module, sorted_registry)
         if src_dir:
-            source_to_tests.setdefault(src_dir, set()).add(test_rel)
+            ep_modules[module] = EntryPointInfo(source_dir=src_dir, test_path=test_rel)
 
-    return EntryPointMapping(
-        source_to_tests=source_to_tests,
-        ep_module_to_test=ep_module_to_test,
-    )
+    return EntryPointMapping(ep_modules=ep_modules)
 
 
 def _narrow_ep_tests(
     source_dir: str,
     source_files: list[str],
-    ep_module_to_test: dict[str, str | None],
+    ep_modules: dict[str, EntryPointInfo],
 ) -> set[str] | None:
     """For files changed inside a shared-base source dir, return only the entry-point
     test dirs that map to those specific sub-modules.
@@ -420,14 +441,13 @@ def _narrow_ep_tests(
     caller should fall back to the full ep_mapping.source_to_tests set in that case.
     Returns None also if no files in this dir are in source_files (nothing to narrow).
 
-    ep_module_to_test maps ALL known entry-point modules to their test dir (str) or
-    None for connectors without integration tests. A file matching a None-valued EP
-    is a known connector that just lacks tests — safe to skip without cascading.
+    ep_modules maps ALL known entry-point modules to their EntryPointInfo. A file
+    matching an EP with test_path=None is a known connector that just lacks tests —
+    safe to skip without cascading.
 
-    Example: sql/clickhouse.py -> module datahub.ingestion.source.sql.clickhouse
-             -> ep module datahub.ingestion.source.sql.clickhouse -> clickhouse tests only
+    Example: sql/clickhouse.py -> ep has test_path -> clickhouse tests only
              sql/sql_common.py -> no ep match -> returns None -> caller runs all SQL tests
-             aws/glue.py -> matches ep module (value=None) -> narrowed to empty set
+             aws/glue.py -> ep has test_path=None -> narrowed to empty set
     """
     mi_prefix = f"{MI_PREFIX}{source_dir}/"
     files_in_dir = [f for f in source_files if f.startswith(mi_prefix)]
@@ -439,7 +459,7 @@ def _narrow_ep_tests(
         module = _source_path_to_module(f.removeprefix(MI_PREFIX))
         matched: set[str] = set()
         is_known_ep = False
-        for ep_module, test_dir in ep_module_to_test.items():
+        for ep_module, info in ep_modules.items():
             # File is the ep module itself, or a sub-module, or a parent package of it
             if (
                 module == ep_module
@@ -447,8 +467,8 @@ def _narrow_ep_tests(
                 or ep_module.startswith(module + ".")
             ):
                 is_known_ep = True
-                if test_dir is not None:
-                    matched.add(test_dir)
+                if info.test_path is not None:
+                    matched.add(info.test_path)
         if not matched:
             if is_known_ep:
                 continue  # known connector without tests — skip, don't cascade
@@ -537,12 +557,11 @@ def classify(changed_files: list[str], repo_root: Path) -> CIDecisions:
     # Example: sql/sql_common.py -> narrowing fails, source/sql/ stays in
     #   changed_source_dirs, import graph propagates to all sql dependents correctly.
     pre_resolved_tests: set[str] = set()
-    # Any source dir with entry-point-derived tests is a candidate for narrowing.
-    narrowable = set(ep_mapping.source_to_tests.keys())
+    # Any source dir containing entry-point modules is a candidate for narrowing.
+    # This includes dirs like source/aws/ where all EPs lack integration tests.
+    narrowable = ep_mapping.ep_source_dirs
     for source_dir in list(changed_source_dirs & narrowable):
-        narrowed = _narrow_ep_tests(
-            source_dir, source_files, ep_mapping.ep_module_to_test
-        )
+        narrowed = _narrow_ep_tests(source_dir, source_files, ep_mapping.ep_modules)
         if narrowed is not None:
             pre_resolved_tests.update(narrowed)
             changed_source_dirs.discard(source_dir)

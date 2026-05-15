@@ -2,6 +2,7 @@ package utils;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import auth.pac4j.DatahubPlayCookieSessionStore;
 import java.io.ByteArrayOutputStream;
 import java.io.ObjectOutputStream;
 import java.net.URL;
@@ -10,7 +11,6 @@ import java.util.Base64;
 import java.util.HashMap;
 import org.junit.jupiter.api.Test;
 import org.pac4j.core.exception.http.FoundAction;
-import org.pac4j.play.store.PlayCookieSessionStore;
 
 public class SerializationUtilsTest {
 
@@ -93,7 +93,7 @@ public class SerializationUtilsTest {
     maliciousObject.put("exploit", "value");
 
     byte[] serializedBytes = javaSerialize(maliciousObject);
-    byte[] compressed = PlayCookieSessionStore.compressBytes(serializedBytes);
+    byte[] compressed = DatahubPlayCookieSessionStore.compressBytes(serializedBytes);
     String oldFormatPayload = Base64.getEncoder().encodeToString(compressed);
 
     // The new code Base64-decodes, then interprets as UTF-8 string — no ObjectInputStream
@@ -118,7 +118,7 @@ public class SerializationUtilsTest {
     // In the old code, deserializing this would trigger URL.hashCode() → DNS lookup.
     URL url = new URL("http://urldns-test-should-never-resolve.example.com");
     byte[] serializedBytes = javaSerialize(url);
-    byte[] compressed = PlayCookieSessionStore.compressBytes(serializedBytes);
+    byte[] compressed = DatahubPlayCookieSessionStore.compressBytes(serializedBytes);
     String payload = Base64.getEncoder().encodeToString(compressed);
 
     // New code never calls ObjectInputStream.readObject(), so no DNS lookup occurs

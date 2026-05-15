@@ -28,3 +28,5 @@ smoke-test-cypress:
   - "smoke-test/tests/cypress/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
+playwright-e2e:
+  - added|modified: "e2e-test/ui/playwright/**"

@@ -3,7 +3,9 @@
 import logging
 import re
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Iterable, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, cast
+
+from sqlalchemy import create_engine, inspect
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
@@ -29,12 +31,18 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
     validate_bigquery_identifier,
 )
+from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
     TableProfilerRequest,
 )
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +77,60 @@ class BigqueryProfiler(GenericProfiler):
         self._partition_metadata_cache: Dict[Tuple[str, str], Dict[str, Dict]] = {}
         self._cache_hits = 0
         self._cache_misses = 0
+
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        # Override the parent so the SQLAlchemy engine reuses our in-memory
+        # bigquery.Client (built with explicit credentials) instead of letting
+        # the dialect fall back to google.auth.default() — which would require
+        # the GOOGLE_APPLICATION_CREDENTIALS env var to be set and would leak
+        # the service account key through the process environment.
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
+        )
+
+        logger.debug(f"Getting profiler instance from {self.platform}")
+        url = self.config.get_sql_alchemy_url()
+        connect_args: Dict[str, object] = {}
+        if self.config.credential is not None:
+            # user_supplied_client=true tells the BigQuery dialect to short
+            # circuit its own client construction and use the one we pass via
+            # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
+            separator = "&" if "?" in url else "?"
+            url = f"{url}{separator}user_supplied_client=true"
+            connect_args["client"] = self.config.get_bigquery_client()
+        logger.debug(f"sql_alchemy_url={url}")
+
+        engine = create_engine(url, connect_args=connect_args, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        if self.config.profiling.method == "sqlalchemy":
+            logger.info(
+                f"Using SQLAlchemyProfiler for profiling (platform: {self.platform})"
+            )
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        else:
+            # TODO: Remove this branch once Great Expectations is fully
+            # deprecated. The entire if/else then collapses to the
+            # SQLAlchemyProfiler return above.
+            logger.info(
+                f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
+            )
+            return DatahubGEProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
 
     def _populate_partition_metadata_cache(self, project: str, dataset: str) -> None:
         """Pre-fetch partition metadata for all tables in a dataset in one query.
