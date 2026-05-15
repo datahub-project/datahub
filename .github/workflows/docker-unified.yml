@@ -1070,6 +1070,7 @@ jobs:
           # playwright-blob-reports/. Flatten all .zip files into a single dir so
           # `playwright merge-reports` can find them.
           mkdir -p playwright-blobs-flat
+          # Playwright blob filenames include the shard index, so cp overwrites are safe.
           find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
           if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
             npx playwright merge-reports --reporter html ./playwright-blobs-flat
