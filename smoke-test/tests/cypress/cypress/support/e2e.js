@@ -48,7 +48,10 @@ beforeEach(function () {
 
   cy.on("window:before:load", (win) => {
     win.localStorage.setItem(HOME_PAGE_REDESIGN_KEY, "false");
-    win.localStorage.setItem(NAV_BAR_STATE_KEY, JSON.stringify({ state: "COLLAPSED" }));
+    win.localStorage.setItem(
+      NAV_BAR_STATE_KEY,
+      JSON.stringify({ state: "COLLAPSED" }),
+    );
   });
 
   // Skip the introduce page for all tests
