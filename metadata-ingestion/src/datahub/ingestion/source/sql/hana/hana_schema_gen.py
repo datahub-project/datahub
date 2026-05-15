@@ -1,6 +1,3 @@
-"""Generator that emits work units and lineage for SAP HANA calculation views."""
-
-import logging
 from typing import Callable, Iterable, List, Optional
 
 from sqlalchemy.engine import Engine
@@ -9,6 +6,7 @@ from datahub.emitter.mce_builder import make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sql.hana.constants import HanaSourceType
 from datahub.ingestion.source.sql.hana.hana_calculation_view_parser import (
     SAPCalculationViewParser,
 )
@@ -17,6 +15,9 @@ from datahub.ingestion.source.sql.hana.hana_data_dictionary import HanaDataDicti
 from datahub.ingestion.source.sql.hana.hana_schema import (
     HanaCalculationView,
     HanaCalcViewColumn,
+)
+from datahub.ingestion.source.sql.hana.hana_script_lineage import (
+    extract_table_references,
 )
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -49,8 +50,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
-
-logger = logging.getLogger(__name__)
 
 # Mapping from SAP HANA native type names (as they appear in
 # ``SYS.VIEW_COLUMNS.DATA_TYPE_NAME``) to DataHub schema type classes.
@@ -88,12 +87,9 @@ _HANA_TYPE_MAP: dict = {
 class HanaCalculationViewExtractor:
     """Emit dataset work units and column-level lineage for HANA calc views.
 
-    The extractor is invoked from
-    :meth:`HanaSource.get_workunits_internal` after
-    :class:`SQLAlchemySource` has finished populating the parsing
-    aggregator's schema resolver with every regular table and view we already
-    know about. That ordering matters because :meth:`add_known_query_lineage`
-    enriches column-level lineage from the resolver's schemas.
+    Invoked after :class:`SQLAlchemySource` has populated the aggregator's
+    schema resolver with regular tables and views — ordering matters because
+    :meth:`add_known_query_lineage` enriches column lineage from the resolver.
     """
 
     PLATFORM = "hana"
@@ -163,7 +159,7 @@ class HanaCalculationViewExtractor:
 
         yield MetadataChangeProposalWrapper(
             entityUrn=urn,
-            aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
+            aspect=SubTypesClass(typeNames=[DatasetSubTypes.SAP_HANA_CALCULATION_VIEW]),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
@@ -198,67 +194,71 @@ class HanaCalculationViewExtractor:
         )
 
     def _populate_lineage(self, calc_view: HanaCalculationView) -> None:
-        """Translate parser output into ``KnownQueryLineageInfo`` for the aggregator.
-
-        We hand the aggregator a ``KnownQueryLineageInfo`` rather than a plain
-        ``KnownLineageMapping`` because we have explicit column-to-column
-        mappings (from the calc-view XML) and want them surfaced as
-        ``FineGrainedLineage`` rather than identity-only column lineage.
-        """
+        """Feed XML-derived column lineage and SQLScript-derived table lineage to the aggregator."""
         downstream_urn = self.identifiers.calc_view_urn(calc_view)
         column_lineage: List[ColumnLineageInfo] = []
         upstreams: set[str] = set()
 
         try:
-            parser_output = self.parser.column_lineage(
+            xml_lineage = self.parser.column_lineage(
+                calc_view.runtime_view_name, calc_view.definition
+            )
+            script_defs = self.parser.script_view_definitions(
                 calc_view.runtime_view_name, calc_view.definition
             )
         except Exception as e:
-            logger.warning(
-                "Failed to parse calculation view %s for lineage: %s",
-                calc_view.runtime_view_name,
-                e,
-            )
-            self.report.report_warning(
-                "calc-view-parse",
-                f"Could not parse {calc_view.runtime_view_name}: {e}",
+            self.report.warning(
+                title="Calculation view lineage parse failed",
+                message="Could not parse a calculation view XML for lineage. "
+                "The dataset will still be emitted, but without upstream lineage.",
+                context=calc_view.runtime_view_name,
+                exc=e,
             )
             return
 
-        for entry in parser_output:
+        for entry in xml_lineage:
             column_refs: List[ColumnRef] = []
-            for upstream in entry.get("upstreams") or []:
+            for upstream in entry.upstreams:
                 upstream_urn = self.identifiers.upstream_urn_for_calc_view_source(
-                    source_type=upstream.get("source_type", ""),
-                    source_name=upstream.get("source_name", ""),
-                    source_path=upstream.get("source_path") or None,
+                    source_type=upstream.source_type,
+                    source_name=upstream.source_name,
+                    source_path=upstream.source_path or None,
                 )
-                upstream_col = upstream.get("column") or ""
-                if not upstream_urn or not upstream_col:
+                if not upstream_urn or not upstream.column:
                     continue
                 upstreams.add(upstream_urn)
-                column_refs.append(ColumnRef(table=upstream_urn, column=upstream_col))
+                column_refs.append(
+                    ColumnRef(table=upstream_urn, column=upstream.column)
+                )
             if column_refs:
                 column_lineage.append(
                     ColumnLineageInfo(
                         downstream=DownstreamColumnRef(
                             table=downstream_urn,
-                            column=entry["downstream_column"],
+                            column=entry.downstream_column,
                         ),
                         upstreams=column_refs,
                     )
                 )
 
+        for script in script_defs:
+            for ref in extract_table_references(script.definition):
+                upstream_urn = self.identifiers.upstream_urn_for_calc_view_source(
+                    source_type=HanaSourceType.DATA_BASE_TABLE,
+                    source_name=ref.name,
+                    source_path=ref.schema_name,
+                )
+                if upstream_urn:
+                    upstreams.add(upstream_urn)
+
         if not upstreams:
-            # No usable upstream references; the parser may have returned
-            # rows with empty source names (e.g. unresolved formula
-            # references). Skip lineage rather than emitting a downstream
-            # with no upstreams attached.
+            # No usable upstream refs (e.g. SqlScriptView that only CALLs
+            # another procedure). Skip rather than emit an empty downstream.
             return
 
-        # ``query_text`` is required by KnownQueryLineageInfo; the XML is the
-        # closest thing to a "query" we have, and storing it lets reviewers
-        # trace lineage back to the source artefact.
+        # query_text is required by KnownQueryLineageInfo; the XML doubles
+        # as the closest thing to a "query" and lets reviewers trace
+        # lineage back to the source artefact.
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
                 query_text=calc_view.definition,

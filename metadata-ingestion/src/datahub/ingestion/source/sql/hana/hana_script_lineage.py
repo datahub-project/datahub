@@ -1,0 +1,47 @@
+import logging
+import re
+from typing import List
+
+from datahub.ingestion.source.sql.hana.models import ScriptTableRef
+
+logger = logging.getLogger(__name__)
+
+# Matches ``FROM "schema"."name"`` / ``JOIN "schema"."name"``. HANA SQLScript
+# always quotes schema-qualified references, so we ignore unquoted forms to
+# avoid false positives on SQLScript-local table variables (``T_FREQ``) and
+# column references.
+_QUALIFIED_TABLE_RE = re.compile(
+    r'\b(?:FROM|JOIN)\s+"([^"]+)"\."([^"]+)"',
+    re.IGNORECASE,
+)
+
+# HANA's ``DUMMY`` is the analogue of Oracle's ``DUAL`` — a single-row
+# pseudo-table that carries no lineage value.
+_PSEUDO_TABLES = frozenset({"DUMMY"})
+
+
+def extract_table_references(sql: str) -> List[ScriptTableRef]:
+    """Return the de-duplicated set of schema-qualified table references in ``sql``."""
+    if not sql:
+        return []
+
+    seen: set[tuple[str, str]] = set()
+    refs: List[ScriptTableRef] = []
+    try:
+        for match in _QUALIFIED_TABLE_RE.finditer(sql):
+            schema, name = match.group(1), match.group(2)
+            if not schema or not name:
+                continue
+            if name.upper() in _PSEUDO_TABLES:
+                continue
+            key = (schema, name)
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append(ScriptTableRef(schema_name=schema, name=name))
+    except Exception:
+        logger.warning(
+            "Failed to extract table refs from SQLScript body", exc_info=True
+        )
+        return []
+    return refs

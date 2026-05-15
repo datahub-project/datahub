@@ -1,12 +1,4 @@
-"""SAP HANA data dictionary for the calculation-view extraction path.
-
-Regular tables and views are extracted via SQLAlchemy reflection in
-:class:`SQLAlchemySource`, so this module deliberately stays narrow: it only
-covers the calculation-view metadata that lives in ``_SYS_REPO`` and
-``SYS.VIEW_COLUMNS``.
-"""
-
-import logging
+from datetime import datetime
 from typing import Iterator, List
 
 from sqlalchemy.engine import Connection
@@ -16,18 +8,17 @@ from datahub.ingestion.source.sql.hana.hana_schema import (
     HanaCalculationView,
     HanaCalcViewColumn,
 )
+from datahub.ingestion.source.sql.hana.models import HanaObservedQueryRow
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-
-logger = logging.getLogger(__name__)
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 
 
 class HanaDataDictionary:
-    """Issue SQL against an existing connection to retrieve calc-view metadata.
+    """Issue catalog queries on a HANA connection.
 
-    The dictionary takes a :class:`sqlalchemy.engine.Connection` (not an
-    ``Engine``) so callers stay in control of the transaction lifecycle.
-    Engine-level ``.execute`` was removed in SQLAlchemy 2.0; this design
-    matches the modern style used elsewhere in the codebase.
+    Takes a :class:`Connection` (not an ``Engine``) so callers stay in
+    control of the transaction lifecycle; engine-level ``.execute`` was
+    removed in SQLAlchemy 2.0.
     """
 
     def __init__(self, connection: Connection, report: SQLSourceReport):
@@ -37,29 +28,28 @@ class HanaDataDictionary:
     def get_calculation_views(self) -> Iterator[HanaCalculationView]:
         """Yield every activated calculation view in ``_SYS_REPO.ACTIVE_OBJECT``.
 
-        Errors are logged as a warning and reported via
-        :meth:`SQLSourceReport.report_warning` rather than raised, because
-        ``_SYS_REPO`` is missing on some HANA deployments (it requires the
-        XS classic repository) and the user may not have ``SELECT`` on it.
-        Returning an empty iterator on failure lets ingestion continue with
-        the regular table/view path.
+        Returns an empty iterator on failure (e.g. ``_SYS_REPO`` missing on
+        non-XS-classic deployments, or no SELECT grant) so ingestion can
+        continue along the regular table/view path.
         """
         try:
-            rows = self.connection.execute(hana_query.list_calculation_views())
+            rows = self.connection.execute(hana_query.LIST_CALCULATION_VIEWS)
         except Exception as e:
-            logger.warning("Failed to list calculation views: %s", e)
-            self.report.report_warning(
-                "calc-view-list",
-                f"Could not query _SYS_REPO.ACTIVE_OBJECT: {e}",
+            self.report.warning(
+                title="Calculation view discovery failed",
+                message="Could not query _SYS_REPO.ACTIVE_OBJECT. "
+                "This is expected on HANA Cloud / HDI-only deployments; "
+                "calculation-view ingestion will be skipped.",
+                exc=e,
             )
             return
 
         for row in rows:
             mapping = row._mapping
             definition = mapping["CDATA"]
+            # CDATA can be NULL for tombstoned-but-not-GC'd repository
+            # objects; skip them silently.
             if definition is None:
-                # CDATA can be NULL for objects that have been deleted from
-                # the repository but never garbage-collected; skip silently.
                 continue
             yield HanaCalculationView(
                 package_id=mapping["PACKAGE_ID"],
@@ -70,22 +60,18 @@ class HanaDataDictionary:
     def get_columns_for_calculation_view(
         self, calc_view: HanaCalculationView
     ) -> List[HanaCalcViewColumn]:
-        """Look up the column list for an activated calculation view."""
         try:
             rows = self.connection.execute(
-                hana_query.columns_for_calculation_view(),
+                hana_query.COLUMNS_FOR_CALCULATION_VIEW,
                 {"view_name": calc_view.runtime_view_name},
             ).all()
         except Exception as e:
-            logger.warning(
-                "Failed to load columns for calculation view %s: %s",
-                calc_view.runtime_view_name,
-                e,
-            )
-            self.report.report_warning(
-                "calc-view-columns",
-                f"Could not read SYS.VIEW_COLUMNS for "
-                f"{calc_view.runtime_view_name}: {e}",
+            self.report.warning(
+                title="Calculation view column lookup failed",
+                message="Could not read SYS.VIEW_COLUMNS for a calculation view; "
+                "the dataset will be emitted without a column schema.",
+                context=calc_view.runtime_view_name,
+                exc=e,
             )
             return []
 
@@ -107,3 +93,103 @@ class HanaDataDictionary:
                 )
             )
         return columns
+
+    def get_stored_procedures(self, schema: str) -> Iterator[BaseProcedure]:
+        """Yield ``BaseProcedure`` rows for every procedure in ``schema``.
+
+        Reads ``SYS.PROCEDURES`` plus a left join to ``SYS.PROCEDURE_PARAMETERS``
+        to build a parenthesised argument signature compatible with the
+        stored-procedures common module. Failures degrade to an empty iterator
+        so missing-grant errors don't tank the rest of ingestion.
+        """
+        try:
+            rows = self.connection.execute(
+                hana_query.LIST_STORED_PROCEDURES,
+                {"schema": schema},
+            ).all()
+        except Exception as e:
+            self.report.warning(
+                title="Stored procedure discovery failed",
+                message="Could not query SYS.PROCEDURES for a schema; "
+                "stored procedures from this schema will not be ingested.",
+                context=schema,
+                exc=e,
+            )
+            return
+
+        for row in rows:
+            mapping = row._mapping
+            yield BaseProcedure(
+                name=mapping["PROCEDURE_NAME"],
+                procedure_definition=mapping.get("DEFINITION"),
+                created=mapping.get("CREATE_TIME"),
+                last_altered=None,
+                comment=None,
+                argument_signature=mapping.get("ARGUMENT_SIGNATURE"),
+                return_type=None,
+                # HANA exposes both ``SQLSCRIPT`` (the dialect we want
+                # sqlglot to ignore) and ``RUNTIME`` for L-language
+                # procedures; we expose them as-is and let the lineage
+                # parser short-circuit non-SQL languages.
+                language=str(mapping.get("LANGUAGE") or "SQLSCRIPT"),
+                extra_properties=None,
+                default_schema=schema,
+            )
+
+    def iter_observed_queries(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        top_n: int,
+    ) -> Iterator[HanaObservedQueryRow]:
+        """Yield one ``HanaObservedQueryRow`` per distinct execution moment.
+
+        Queries ``_SYS_STATISTICS.HOST_SQL_PLAN_CACHE``. Two prerequisites
+        on the HANA side that we cannot enforce from here:
+
+        - The statistics service must be running (it is by default; see
+          SAP note 2147247 for diagnostics).
+        - The ingestion user needs ``MONITORING`` (or ``CATALOG READ``
+          system privilege).
+
+        Failures degrade to an empty iterator with a single report
+        warning so usage extraction never blocks metadata ingestion.
+        """
+        try:
+            rows = self.connection.execute(
+                hana_query.usage_query_from_host_sql_plan_cache(top_n),
+                {"start_time": start_time, "end_time": end_time},
+            ).all()
+        except Exception as e:
+            self.report.warning(
+                title="Query usage extraction failed",
+                message="Could not query _SYS_STATISTICS.HOST_SQL_PLAN_CACHE. "
+                "Verify that the statistics service is running and that the "
+                "ingestion user holds MONITORING (or CATALOG READ). Usage "
+                "extraction is disabled for this run.",
+                exc=e,
+            )
+            return
+
+        for row in rows:
+            mapping = row._mapping
+            statement_string = mapping.get("STATEMENT_STRING")
+            statement_hash = mapping.get("STATEMENT_HASH")
+            if not statement_string or not statement_hash:
+                continue
+            yield HanaObservedQueryRow(
+                statement_hash=str(statement_hash),
+                statement_string=str(statement_string),
+                user_name=(
+                    str(mapping["USER_NAME"]) if mapping.get("USER_NAME") else None
+                ),
+                schema_name=(
+                    str(mapping["SCHEMA_NAME"]) if mapping.get("SCHEMA_NAME") else None
+                ),
+                application_name=(
+                    str(mapping["APPLICATION_NAME"])
+                    if mapping.get("APPLICATION_NAME")
+                    else None
+                ),
+                last_execution_timestamp=mapping.get("LAST_EXECUTION_TIMESTAMP"),
+            )

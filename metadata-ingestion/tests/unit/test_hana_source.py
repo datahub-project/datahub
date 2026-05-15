@@ -1,15 +1,18 @@
-"""Unit tests for the SAP HANA ingestion source."""
-
-from typing import List, cast
+from typing import Any, Dict, List, cast
 from unittest.mock import MagicMock
+
+import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.hana import HanaConfig, HanaSource
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sql.hana.constants import HanaSourceType
+from datahub.ingestion.source.sql.hana.hana import HanaSource
 from datahub.ingestion.source.sql.hana.hana_calculation_view_parser import (
     SAPCalculationViewParser,
 )
+from datahub.ingestion.source.sql.hana.hana_config import HanaConfig
 from datahub.ingestion.source.sql.hana.hana_schema import (
     HanaCalculationView,
     HanaCalcViewColumn,
@@ -17,7 +20,15 @@ from datahub.ingestion.source.sql.hana.hana_schema import (
 from datahub.ingestion.source.sql.hana.hana_schema_gen import (
     HanaCalculationViewExtractor,
 )
+from datahub.ingestion.source.sql.hana.hana_script_lineage import (
+    extract_table_references,
+)
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
+from datahub.ingestion.source.sql.hana.models import (
+    ColumnLineage,
+    ScriptViewDefinition,
+    UpstreamColumnRef,
+)
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     SchemaMetadataClass,
@@ -25,14 +36,6 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     ViewPropertiesClass,
 )
-
-# The sqlalchemy-hana driver is unavailable on aarch64 / arm64 wheels, but
-# none of the tests below actually open a connection — they only construct
-# config objects and source objects and exercise pure-Python helpers, all of
-# which work without the driver. We only need to skip if a future test
-# starts calling get_sql_alchemy_url() in a context that requires dialect
-# registration.
-
 
 # ---------------------------------------------------------------------------
 # Config / source wiring
@@ -77,19 +80,15 @@ def test_hana_uri_native_db():
 
 def test_default_schema_pattern_denies_system_schemas():
     config = HanaConfig()
-    # System schemas should be denied by default.
     assert not config.schema_pattern.allowed("SYS")
     assert not config.schema_pattern.allowed("_SYS_STATISTICS")
     assert not config.schema_pattern.allowed("_SYS_REPO")
-    # _SYS_BIC is the runtime schema for activated calculation views and
-    # must remain accessible so the calc-view extractor can discover them.
+    # _SYS_BIC must stay accessible — it exposes activated calc views.
     assert config.schema_pattern.allowed("_SYS_BIC")
-    # User schemas pass through.
     assert config.schema_pattern.allowed("REPORTING")
 
 
 def test_include_calculation_views_is_off_by_default():
-    """Opt-in: the calc-view extractor must not run on a vanilla config."""
     source = HanaSource(
         ctx=PipelineContext(run_id="hana-default-config"),
         config=HanaConfig(),
@@ -98,12 +97,15 @@ def test_include_calculation_views_is_off_by_default():
 
 
 def test_calc_view_extractor_constructed_when_enabled():
-    config = HanaConfig.model_validate({"include_calculation_views": True})
     source = HanaSource(
         ctx=PipelineContext(run_id="hana-calc-views"),
-        config=config,
+        config=HanaConfig.model_validate({"include_calculation_views": True}),
     )
     assert source.calc_view_extractor is not None
+
+
+def test_stored_procedure_extraction_is_on_by_default():
+    assert HanaConfig().include_stored_procedures is True
 
 
 # ---------------------------------------------------------------------------
@@ -111,34 +113,19 @@ def test_calc_view_extractor_constructed_when_enabled():
 # ---------------------------------------------------------------------------
 
 
-def test_calc_view_column_precise_decimal():
-    column = HanaCalcViewColumn(
-        name="AMOUNT",
-        data_type="DECIMAL",
-        nullable=True,
-        ordinal_position=1,
-        length=15,
-        scale=2,
-    )
-    assert column.get_precise_native_type() == "DECIMAL(15,2)"
-
-
-def test_calc_view_column_precise_varchar():
-    column = HanaCalcViewColumn(
-        name="NAME",
-        data_type="NVARCHAR",
-        nullable=False,
-        ordinal_position=1,
-        length=100,
-    )
-    assert column.get_precise_native_type() == "NVARCHAR(100)"
-
-
-def test_calc_view_column_basic_type_unchanged():
-    column = HanaCalcViewColumn(
-        name="ID", data_type="INTEGER", nullable=False, ordinal_position=1
-    )
-    assert column.get_precise_native_type() == "INTEGER"
+@pytest.mark.parametrize(
+    "kwargs,expected",
+    [
+        ({"data_type": "DECIMAL", "length": 15, "scale": 2}, "DECIMAL(15,2)"),
+        ({"data_type": "NVARCHAR", "length": 100}, "NVARCHAR(100)"),
+        ({"data_type": "INTEGER"}, "INTEGER"),
+    ],
+)
+def test_calc_view_column_precise_native_type(
+    kwargs: Dict[str, Any], expected: str
+) -> None:
+    column = HanaCalcViewColumn(name="C", nullable=True, ordinal_position=1, **kwargs)
+    assert column.get_precise_native_type() == expected
 
 
 # ---------------------------------------------------------------------------
@@ -147,12 +134,12 @@ def test_calc_view_column_basic_type_unchanged():
 
 
 def test_calc_view_urn_lower_cased_and_uses_sys_bic_prefix():
-    config = HanaConfig(host_port="localhost:39041")
-    builder = HanaIdentifierBuilder(config)
-    calc_view = HanaCalculationView(
-        package_id="Acme.Analytics", name="SalesOverview", definition="<x/>"
+    builder = HanaIdentifierBuilder(HanaConfig(host_port="localhost:39041"))
+    urn = builder.calc_view_urn(
+        HanaCalculationView(
+            package_id="Acme.Analytics", name="SalesOverview", definition="<x/>"
+        )
     )
-    urn = builder.calc_view_urn(calc_view)
     assert urn == (
         "urn:li:dataset:(urn:li:dataPlatform:hana,"
         "_sys_bic.acme.analytics.salesoverview,PROD)"
@@ -162,7 +149,7 @@ def test_calc_view_urn_lower_cased_and_uses_sys_bic_prefix():
 def test_upstream_urn_for_data_base_table():
     builder = HanaIdentifierBuilder(HanaConfig(host_port="h:1"))
     urn = builder.upstream_urn_for_calc_view_source(
-        source_type="DATA_BASE_TABLE",
+        source_type=HanaSourceType.DATA_BASE_TABLE,
         source_name="CUSTOMERS",
         source_path="REPORTING",
     )
@@ -184,7 +171,9 @@ def test_upstream_urn_for_calc_view_drops_empty_source_name():
     builder = HanaIdentifierBuilder(HanaConfig(host_port="h:1"))
     assert (
         builder.upstream_urn_for_calc_view_source(
-            source_type="DATA_BASE_TABLE", source_name="", source_path="REPORTING"
+            source_type=HanaSourceType.DATA_BASE_TABLE,
+            source_name="",
+            source_path="REPORTING",
         )
         is None
     )
@@ -193,7 +182,7 @@ def test_upstream_urn_for_calc_view_drops_empty_source_name():
 def test_upstream_urn_for_nested_calculation_view():
     builder = HanaIdentifierBuilder(HanaConfig(host_port="h:1"))
     urn = builder.upstream_urn_for_calc_view_source(
-        source_type="CALCULATION_VIEW",
+        source_type=HanaSourceType.CALCULATION_VIEW,
         source_name="ProductRollup",
         source_path="acme.analytics.products",
     )
@@ -201,8 +190,19 @@ def test_upstream_urn_for_nested_calculation_view():
     assert "_sys_bic.acme.analytics.products.productrollup" in urn
 
 
+def test_upstream_urn_for_table_function_flattens_namespace():
+    builder = HanaIdentifierBuilder(HanaConfig(host_port="h:1"))
+    urn = builder.upstream_urn_for_calc_view_source(
+        source_type=HanaSourceType.TABLE_FUNCTION,
+        source_name="acme.analytics::tf_sales",
+        source_path=None,
+    )
+    assert urn is not None
+    assert "_sys_bic.acme.analytics.tf_sales" in urn
+
+
 # ---------------------------------------------------------------------------
-# SAPCalculationViewParser — XML fixtures
+# SAPCalculationViewParser fixtures + tests
 # ---------------------------------------------------------------------------
 
 
@@ -238,20 +238,27 @@ _SIMPLE_CALC_VIEW_XML = """
 """
 
 
+def _lineage_by_column(
+    lineage: List[ColumnLineage],
+) -> Dict[str, ColumnLineage]:
+    return {entry.downstream_column: entry for entry in lineage}
+
+
 def test_parser_extracts_simple_projection_lineage():
-    parser = SAPCalculationViewParser()
-    lineage = parser.column_lineage("SalesOverview", _SIMPLE_CALC_VIEW_XML)
+    lineage = SAPCalculationViewParser().column_lineage(
+        "SalesOverview", _SIMPLE_CALC_VIEW_XML
+    )
+    by_col = _lineage_by_column(lineage)
+    assert set(by_col) == {"CUSTOMER_ID", "CUSTOMER_NAME"}
 
-    by_column = {entry["downstream_column"]: entry for entry in lineage}
-    assert set(by_column) == {"CUSTOMER_ID", "CUSTOMER_NAME"}
-
-    cust_id = by_column["CUSTOMER_ID"]
-    assert len(cust_id["upstreams"]) == 1
-    upstream = cust_id["upstreams"][0]
-    assert upstream["column"] == "ID"
-    assert upstream["source_name"] == "CUSTOMERS"
-    assert upstream["source_path"] == "REPORTING"
-    assert upstream["source_type"] == "DATA_BASE_TABLE"
+    cust_id = by_col["CUSTOMER_ID"]
+    assert len(cust_id.upstreams) == 1
+    assert cust_id.upstreams[0] == UpstreamColumnRef(
+        column="ID",
+        source_name="CUSTOMERS",
+        source_path="REPORTING",
+        source_type=HanaSourceType.DATA_BASE_TABLE,
+    )
 
 
 _UNION_CALC_VIEW_XML = """
@@ -289,45 +296,264 @@ _UNION_CALC_VIEW_XML = """
 
 
 def test_parser_extracts_union_lineage_from_both_branches():
-    parser = SAPCalculationViewParser()
-    lineage = parser.column_lineage("RevenueRollup", _UNION_CALC_VIEW_XML)
+    lineage = SAPCalculationViewParser().column_lineage(
+        "RevenueRollup", _UNION_CALC_VIEW_XML
+    )
     assert len(lineage) == 1
-    upstream_pairs = {
-        (upstream["source_name"], upstream["column"])
-        for upstream in lineage[0]["upstreams"]
-    }
-    assert upstream_pairs == {
-        ("ONLINE_SALES", "AMOUNT"),
-        ("STORE_SALES", "TOTAL"),
-    }
+    pairs = {(u.source_name, u.column) for u in lineage[0].upstreams}
+    assert pairs == {("ONLINE_SALES", "AMOUNT"), ("STORE_SALES", "TOTAL")}
 
 
 def test_parser_returns_empty_list_for_invalid_xml():
-    parser = SAPCalculationViewParser()
-    assert parser.column_lineage("Broken", "<not valid xml") == []
+    assert SAPCalculationViewParser().column_lineage("Broken", "<not valid xml") == []
+
+
+def test_parser_rejects_xml_bomb():
+    """defusedxml must reject XML with billion-laughs / entity expansion."""
+    xml_bomb = (
+        '<?xml version="1.0"?>\n'
+        "<!DOCTYPE lolz [\n"
+        '  <!ENTITY lol "lol">\n'
+        '  <!ENTITY lol2 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">\n'
+        "]>\n"
+        '<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore">\n'
+        "  <name>&lol2;</name>\n"
+        "</Calculation:scenario>"
+    )
+    assert SAPCalculationViewParser().column_lineage("Bomb", xml_bomb) == []
 
 
 def test_parser_extracts_columns_from_formula():
-    parser = SAPCalculationViewParser()
-    columns = parser._extract_columns_from_formula(
+    columns = SAPCalculationViewParser._extract_columns_from_formula(
         'if("SALES_AMOUNT" > 1000, "HIGH", "LOW")'
     )
     assert "SALES_AMOUNT" in columns
 
 
+# TREE_BASED dimension views expose a DataSource directly through the
+# logicalModel; keyMappings reference it by columnObjectName, not by id.
+_TREE_BASED_NO_INNER_NODE_XML = """
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      calculationScenarioType="TREE_BASED" dataCategory="DIMENSION">
+  <dataSources>
+    <DataSource id="DIM_SRC" type="DATA_BASE_TABLE">
+      <columnObject schemaName="REPORTING" columnObjectName="DIM_CUSTOMERS"/>
+    </DataSource>
+  </dataSources>
+  <calculationViews/>
+  <logicalModel id="DIM_CUSTOMERS">
+    <attributes>
+      <attribute id="CUST_ID">
+        <keyMapping columnObjectName="DIM_CUSTOMERS" columnName="ID"/>
+      </attribute>
+      <attribute id="CUST_NAME">
+        <keyMapping columnObjectName="DIM_CUSTOMERS" columnName="NAME"/>
+      </attribute>
+    </attributes>
+  </logicalModel>
+</Calculation:scenario>
+"""
+
+
+def test_parser_resolves_data_source_by_column_object_name_alias():
+    lineage = SAPCalculationViewParser().column_lineage(
+        "DimCustomers", _TREE_BASED_NO_INNER_NODE_XML
+    )
+    by_col = _lineage_by_column(lineage)
+    assert set(by_col) == {"CUST_ID", "CUST_NAME"}
+    upstream = by_col["CUST_ID"].upstreams[0]
+    assert upstream.column == "ID"
+    assert upstream.source_name == "DIM_CUSTOMERS"
+    assert upstream.source_path == "REPORTING"
+
+
+_FORMULA_IN_SAME_NODE_XML = """
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dataSources>
+    <DataSource id="CUSTOMERS" type="DATA_BASE_TABLE">
+      <columnObject schemaName="REPORTING" columnObjectName="CUSTOMERS"/>
+    </DataSource>
+  </dataSources>
+  <calculationViews>
+    <calculationView xsi:type="Calculation:ProjectionView" id="Projection_1">
+      <calculatedViewAttributes>
+        <calculatedViewAttribute id="UPPER_NAME">
+          <formula>upper("ORIG_NAME")</formula>
+        </calculatedViewAttribute>
+      </calculatedViewAttributes>
+      <input node="#CUSTOMERS">
+        <mapping xsi:type="Calculation:AttributeMapping"
+                 source="NAME" target="ORIG_NAME"/>
+      </input>
+    </calculationView>
+  </calculationViews>
+  <logicalModel>
+    <attributes>
+      <attribute id="UPPER_CUSTOMER_NAME">
+        <keyMapping columnObjectName="Projection_1" columnName="UPPER_NAME"/>
+      </attribute>
+    </attributes>
+  </logicalModel>
+</Calculation:scenario>
+"""
+
+
+def test_parser_traces_formula_referencing_input_column_in_same_node():
+    lineage = SAPCalculationViewParser().column_lineage(
+        "Upper", _FORMULA_IN_SAME_NODE_XML
+    )
+    assert len(lineage) == 1
+    upstream = lineage[0].upstreams[0]
+    assert upstream.source_name == "CUSTOMERS"
+    # Formula referenced ORIG_NAME, mapped from CUSTOMERS.NAME.
+    assert upstream.column == "NAME"
+
+
+# Calc views in the wild often map a column literally named ``type``; the
+# previous formula-vs-branch discriminator collided on this name and dropped
+# every column in the affected node.
+_COLUMN_NAMED_TYPE_XML = """
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dataSources>
+    <DataSource id="EVENTS" type="DATA_BASE_TABLE">
+      <columnObject schemaName="REPORTING" columnObjectName="EVENTS"/>
+    </DataSource>
+  </dataSources>
+  <calculationViews>
+    <calculationView xsi:type="Calculation:ProjectionView" id="Projection_1">
+      <input node="#EVENTS">
+        <mapping xsi:type="Calculation:AttributeMapping"
+                 source="EVENT_TYPE" target="type"/>
+        <mapping xsi:type="Calculation:AttributeMapping"
+                 source="EVENT_TS"   target="ts"/>
+      </input>
+    </calculationView>
+  </calculationViews>
+  <logicalModel>
+    <attributes>
+      <attribute id="event_kind">
+        <keyMapping columnObjectName="Projection_1" columnName="type"/>
+      </attribute>
+      <attribute id="event_time">
+        <keyMapping columnObjectName="Projection_1" columnName="ts"/>
+      </attribute>
+    </attributes>
+  </logicalModel>
+</Calculation:scenario>
+"""
+
+
+def test_parser_handles_column_literally_named_type():
+    lineage = SAPCalculationViewParser().column_lineage(
+        "Events", _COLUMN_NAMED_TYPE_XML
+    )
+    by_col = _lineage_by_column(lineage)
+    assert by_col["event_kind"].upstreams[0].column == "EVENT_TYPE"
+    assert by_col["event_time"].upstreams[0].column == "EVENT_TS"
+
+
+_SQL_SCRIPT_VIEW_XML = """
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                      calculationScenarioType="SCRIPT_BASED">
+  <dataSources/>
+  <calculationViews>
+    <calculationView xsi:type="Calculation:SqlScriptView" id="Script_View">
+      <viewAttributes>
+        <viewAttribute id="CUST_ID"/>
+        <viewAttribute id="REVENUE"/>
+      </viewAttributes>
+      <definition>BEGIN
+  RESULT_SET = SELECT "ID" AS "CUST_ID", "TOTAL" AS "REVENUE"
+               FROM "REPORTING"."SALES"
+               JOIN "REPORTING"."CUSTOMERS" ON "SALES"."CUST_ID" = "CUSTOMERS"."ID";
+END</definition>
+    </calculationView>
+  </calculationViews>
+  <logicalModel id="Script_View">
+    <attributes>
+      <attribute id="CUST_ID">
+        <keyMapping columnObjectName="Script_View" columnName="CUST_ID"/>
+      </attribute>
+    </attributes>
+    <baseMeasures>
+      <measure id="REVENUE">
+        <measureMapping columnObjectName="Script_View" columnName="REVENUE"/>
+      </measure>
+    </baseMeasures>
+  </logicalModel>
+</Calculation:scenario>
+"""
+
+
+def test_parser_captures_sql_script_view_definitions():
+    scripts = SAPCalculationViewParser().script_view_definitions(
+        "SalesScript", _SQL_SCRIPT_VIEW_XML
+    )
+    assert len(scripts) == 1
+    assert isinstance(scripts[0], ScriptViewDefinition)
+    assert scripts[0].node_id == "Script_View"
+    assert 'FROM "REPORTING"."SALES"' in scripts[0].definition
+
+
+def test_parser_does_not_walk_sql_script_view_as_xml_node():
+    lineage = SAPCalculationViewParser().column_lineage(
+        "SalesScript", _SQL_SCRIPT_VIEW_XML
+    )
+    # SqlScriptView columns have no resolvable XML-DAG upstreams.
+    for entry in lineage:
+        assert entry.upstreams == []
+
+
 # ---------------------------------------------------------------------------
-# HanaCalculationViewExtractor — workunit shape and aggregator wiring
+# hana_script_lineage
+# ---------------------------------------------------------------------------
+
+
+def test_extract_table_references_finds_from_and_join_refs():
+    sql = """
+    BEGIN
+        T_X = SELECT * FROM "REPORTING"."SALES"
+              JOIN "REPORTING"."CUSTOMERS" ON "SALES"."ID" = "CUSTOMERS"."ID";
+        T_Y = SELECT * FROM "REPORTING"."ORDERS";
+    END
+    """
+    refs = extract_table_references(sql)
+    assert {(r.schema_name, r.name) for r in refs} == {
+        ("REPORTING", "SALES"),
+        ("REPORTING", "CUSTOMERS"),
+        ("REPORTING", "ORDERS"),
+    }
+
+
+def test_extract_table_references_skips_dummy():
+    assert extract_table_references('SELECT 1 FROM "DUMMY"; SELECT 1 FROM DUMMY;') == []
+
+
+def test_extract_table_references_dedupes_repeated_references():
+    sql = (
+        'SELECT * FROM "X"."A" JOIN "X"."B" ON "A"."k" = "B"."k" '
+        'UNION ALL SELECT * FROM "X"."A";'
+    )
+    refs = extract_table_references(sql)
+    assert [(r.schema_name, r.name) for r in refs] == [("X", "A"), ("X", "B")]
+
+
+def test_extract_table_references_empty_for_call_only_script():
+    sql = 'BEGIN call "UIS"."sap.hana.uis.db/GET_NAVIGATION_URL"(IN_TAG, var_out); END'
+    assert extract_table_references(sql) == []
+
+
+# ---------------------------------------------------------------------------
+# HanaCalculationViewExtractor
 # ---------------------------------------------------------------------------
 
 
 def _build_fake_engine(calc_view_rows: list, column_rows: list) -> MagicMock:
-    """Wire a MagicMock SQLAlchemy engine that returns canned rows.
-
-    We hand-roll this rather than reaching for a sqlite in-memory engine
-    because the extractor's queries reference SAP HANA-specific catalog
-    objects (``_SYS_REPO.ACTIVE_OBJECT``, ``SYS.VIEW_COLUMNS``) that don't
-    exist in any portable engine.
-    """
+    """MagicMock engine that returns canned _SYS_REPO / SYS.VIEW_COLUMNS rows."""
 
     def make_row(mapping: dict) -> MagicMock:
         row = MagicMock()
@@ -359,14 +585,8 @@ def _build_fake_engine(calc_view_rows: list, column_rows: list) -> MagicMock:
 
 
 def test_calc_view_extractor_emits_expected_aspects_and_lineage():
-    """Verify the extractor emits one full set of aspects per calc view and
-    feeds column-level lineage into the SQL parsing aggregator."""
-
     config = HanaConfig.model_validate({"include_calculation_views": True})
-    identifiers = HanaIdentifierBuilder(config)
-    report = MagicMock()
     aggregator = MagicMock()
-
     calc_view_row = {
         "PACKAGE_ID": "acme.analytics",
         "OBJECT_NAME": "SalesOverview",
@@ -393,11 +613,10 @@ def test_calc_view_extractor_emits_expected_aspects_and_lineage():
         },
     ]
     engine = _build_fake_engine([calc_view_row], column_rows)
-
     extractor = HanaCalculationViewExtractor(
         config=config,
-        report=report,
-        identifiers=identifiers,
+        report=MagicMock(),
+        identifiers=HanaIdentifierBuilder(config),
         engine_factory=lambda: engine,
         aggregator=aggregator,
     )
@@ -405,7 +624,7 @@ def test_calc_view_extractor_emits_expected_aspects_and_lineage():
     workunits: List[MetadataWorkUnit] = list(extractor.get_workunits_internal())
 
     # Five aspects per calc view: status, schemaMetadata, datasetProperties,
-    # subType, viewProperties. They share the same entityUrn.
+    # subType, viewProperties.
     assert len(workunits) == 5
     mcps = [cast(MetadataChangeProposalWrapper, wu.metadata) for wu in workunits]
     aspects_by_type = {type(mcp.aspect).__name__: mcp.aspect for mcp in mcps}
@@ -421,11 +640,12 @@ def test_calc_view_extractor_emits_expected_aspects_and_lineage():
         "urn:li:dataset:(urn:li:dataPlatform:hana,"
         "_sys_bic.acme.analytics.salesoverview,PROD)"
     )
-    for mcp in mcps:
-        assert mcp.entityUrn == expected_urn
+    assert all(mcp.entityUrn == expected_urn for mcp in mcps)
 
-    # Custom properties expose the SAP-side identifiers so consumers can
-    # cross-reference DataHub URNs with HANA repository content.
+    subtypes = aspects_by_type[SubTypesClass.__name__]
+    assert isinstance(subtypes, SubTypesClass)
+    assert subtypes.typeNames == [DatasetSubTypes.SAP_HANA_CALCULATION_VIEW]
+
     dataset_props = aspects_by_type[DatasetPropertiesClass.__name__]
     assert isinstance(dataset_props, DatasetPropertiesClass)
     assert dataset_props.customProperties["package_id"] == "acme.analytics"
@@ -436,27 +656,213 @@ def test_calc_view_extractor_emits_expected_aspects_and_lineage():
 
     schema_metadata = aspects_by_type[SchemaMetadataClass.__name__]
     assert isinstance(schema_metadata, SchemaMetadataClass)
-    assert [field.fieldPath for field in schema_metadata.fields] == [
+    assert [f.fieldPath for f in schema_metadata.fields] == [
         "CUSTOMER_ID",
         "CUSTOMER_NAME",
     ]
-    # NVARCHAR(100) should be reflected in the native type spelling.
     name_field = next(
         f for f in schema_metadata.fields if f.fieldPath == "CUSTOMER_NAME"
     )
     assert name_field.nativeDataType == "NVARCHAR(100)"
 
-    # Aggregator must have been fed the column-level lineage we parsed out
-    # of the calc view's XML. The exact ColumnLineageInfo shape is unit-
-    # tested via the parser; here we only verify the wiring.
     assert aggregator.add_known_query_lineage.call_count == 1
-    known_lineage = aggregator.add_known_query_lineage.call_args.args[0]
-    assert known_lineage.downstream == expected_urn
-    assert known_lineage.upstreams == [
+    known = aggregator.add_known_query_lineage.call_args.args[0]
+    assert known.downstream == expected_urn
+    assert known.upstreams == [
         "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)"
     ]
-    assert len(known_lineage.column_lineage) == 2
-
-    # The extractor must dispose of the engine it opened, even on the
-    # happy path — verifies the try/finally around the inner ``with``.
+    assert len(known.column_lineage) == 2
     engine.dispose.assert_called_once()
+
+
+def test_calc_view_extractor_emits_table_lineage_from_sql_script_view():
+    config = HanaConfig.model_validate({"include_calculation_views": True})
+    aggregator = MagicMock()
+    calc_view_row = {
+        "PACKAGE_ID": "acme.scripts",
+        "OBJECT_NAME": "SalesScript",
+        "CDATA": _SQL_SCRIPT_VIEW_XML,
+    }
+    column_rows = [
+        {
+            "COLUMN_NAME": "CUST_ID",
+            "COMMENTS": None,
+            "DATA_TYPE_NAME": "INTEGER",
+            "IS_NULLABLE": "TRUE",
+            "POSITION": 1,
+            "LENGTH": None,
+            "SCALE": None,
+        },
+        {
+            "COLUMN_NAME": "REVENUE",
+            "COMMENTS": None,
+            "DATA_TYPE_NAME": "DECIMAL",
+            "IS_NULLABLE": "TRUE",
+            "POSITION": 2,
+            "LENGTH": 15,
+            "SCALE": 2,
+        },
+    ]
+    engine = _build_fake_engine([calc_view_row], column_rows)
+    extractor = HanaCalculationViewExtractor(
+        config=config,
+        report=MagicMock(),
+        identifiers=HanaIdentifierBuilder(config),
+        engine_factory=lambda: engine,
+        aggregator=aggregator,
+    )
+    list(extractor.get_workunits_internal())
+
+    assert aggregator.add_known_query_lineage.call_count == 1
+    known = aggregator.add_known_query_lineage.call_args.args[0]
+    # SqlScriptView has no XML column lineage, only table-level upstreams.
+    assert known.column_lineage == []
+    assert sorted(known.upstreams) == [
+        "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.sales,PROD)",
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Stored procedure extraction
+# ---------------------------------------------------------------------------
+
+
+def test_get_procedures_for_schema_yields_base_procedures():
+    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
+        HanaDataDictionary,
+    )
+
+    proc_row = {
+        "SCHEMA_NAME": "REPORTING",
+        "PROCEDURE_NAME": "REFRESH_SALES",
+        "DEFINITION": (
+            'BEGIN\n  INSERT INTO "REPORTING"."SALES_AGG" '
+            'SELECT * FROM "REPORTING"."SALES";\nEND'
+        ),
+        "PROCEDURE_TYPE": "PROCEDURE",
+        "CREATE_TIME": None,
+        "LANGUAGE": "SQLSCRIPT",
+        "ARGUMENT_SIGNATURE": "()",
+    }
+
+    def make_row(mapping):
+        row = MagicMock()
+        row._mapping = mapping
+        return row
+
+    result = MagicMock()
+    result.all.return_value = [make_row(proc_row)]
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    data_dict = HanaDataDictionary(conn, MagicMock())
+    procs = list(data_dict.get_stored_procedures("REPORTING"))
+    assert len(procs) == 1
+    assert procs[0].name == "REFRESH_SALES"
+    assert procs[0].default_schema == "REPORTING"
+    assert procs[0].language == "SQLSCRIPT"
+    assert procs[0].procedure_definition is not None
+    assert 'INSERT INTO "REPORTING"."SALES_AGG"' in procs[0].procedure_definition
+
+
+# ---------------------------------------------------------------------------
+# Query usage extraction
+# ---------------------------------------------------------------------------
+
+
+def test_iter_observed_queries_yields_typed_rows_and_skips_empty_text():
+    import datetime as _dt
+
+    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
+        HanaDataDictionary,
+    )
+    from datahub.ingestion.source.sql.hana.models import HanaObservedQueryRow
+
+    ts = _dt.datetime(2025, 1, 1, 12, 30, 0, tzinfo=_dt.timezone.utc)
+    valid_row = {
+        "STATEMENT_HASH": "abc123",
+        "STATEMENT_STRING": 'SELECT * FROM "REPORTING"."CUSTOMERS"',
+        "USER_NAME": "ALICE",
+        "SCHEMA_NAME": "REPORTING",
+        "APPLICATION_NAME": "HANA_STUDIO",
+        "LAST_EXECUTION_TIMESTAMP": ts,
+    }
+    empty_text_row = {
+        "STATEMENT_HASH": "def456",
+        "STATEMENT_STRING": None,
+        "USER_NAME": "BOB",
+        "SCHEMA_NAME": "REPORTING",
+        "APPLICATION_NAME": None,
+        "LAST_EXECUTION_TIMESTAMP": ts,
+    }
+
+    def make_row(mapping):
+        row = MagicMock()
+        row._mapping = mapping
+        return row
+
+    result = MagicMock()
+    result.all.return_value = [make_row(valid_row), make_row(empty_text_row)]
+    conn = MagicMock()
+    conn.execute.return_value = result
+
+    data_dict = HanaDataDictionary(conn, MagicMock())
+    rows = list(
+        data_dict.iter_observed_queries(
+            start_time=ts - _dt.timedelta(hours=1),
+            end_time=ts + _dt.timedelta(hours=1),
+            top_n=100,
+        )
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert isinstance(row, HanaObservedQueryRow)
+    assert row.statement_hash == "abc123"
+    assert row.user_name == "ALICE"
+    assert row.schema_name == "REPORTING"
+    assert row.last_execution_timestamp == ts
+
+
+def test_iter_observed_queries_reports_warning_on_failure():
+    import datetime as _dt
+
+    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
+        HanaDataDictionary,
+    )
+
+    conn = MagicMock()
+    conn.execute.side_effect = RuntimeError("statistics service not running")
+    report = MagicMock()
+
+    data_dict = HanaDataDictionary(conn, report)
+    rows = list(
+        data_dict.iter_observed_queries(
+            start_time=_dt.datetime(2025, 1, 1, tzinfo=_dt.timezone.utc),
+            end_time=_dt.datetime(2025, 1, 2, tzinfo=_dt.timezone.utc),
+            top_n=100,
+        )
+    )
+    assert rows == []
+    report.warning.assert_called_once()
+
+
+def test_hana_source_aggregator_has_usage_hooks_when_enabled():
+    config = HanaConfig.model_validate(
+        {
+            "include_query_usage": True,
+            "include_usage_stats": True,
+        }
+    )
+    source = HanaSource(ctx=PipelineContext(run_id="hana-usage-test"), config=config)
+    assert source.aggregator.generate_usage_statistics is True
+    assert source.aggregator.usage_config is config
+
+
+def test_hana_source_aggregator_disables_usage_when_query_usage_off():
+    source = HanaSource(
+        ctx=PipelineContext(run_id="hana-usage-off-test"),
+        config=HanaConfig(),
+    )
+    assert source.aggregator.generate_usage_statistics is False
+    assert source.aggregator.usage_config is None
