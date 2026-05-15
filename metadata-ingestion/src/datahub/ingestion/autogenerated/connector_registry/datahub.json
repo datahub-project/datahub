@@ -1674,7 +1674,7 @@
       "classname": "datahub.ingestion.source.sql.hana.hana.HanaSource",
       "platform_id": "hana",
       "platform_name": "SAP HANA",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hex": {
       "capabilities": [

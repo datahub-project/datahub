@@ -110,9 +110,16 @@ def usage_query_from_host_sql_plan_cache(top_n: int) -> TextClause:
     ``SYS.*`` upstream URN that downstream consumers can filter on.
 
     ``top_n`` is interpolated into ``LIMIT`` because HANA's ``LIMIT``
-    clause does not accept bind parameters; the caller validates it as
-    a positive integer before reaching this function.
+    clause does not accept bind parameters (the SAP HANA SQL grammar
+    requires a literal ``<unsigned_integer>``). To rule out SQL
+    injection regardless of caller, we re-coerce to a Python ``int``
+    and reject non-positive values *inside* this function — so even
+    callers that bypass the Pydantic ``PositiveInt`` config boundary
+    cannot smuggle a SQL string through the interpolation.
     """
+    safe_top_n = int(top_n)
+    if safe_top_n <= 0:
+        raise ValueError(f"top_n must be a positive integer, got {top_n!r}")
     return text(
         f"""
         SELECT STATEMENT_HASH,
@@ -130,6 +137,6 @@ def usage_query_from_host_sql_plan_cache(top_n: int) -> TextClause:
           AND LEFT(UPPER(USER_NAME), 5) != '_SYS_'
         GROUP BY STATEMENT_HASH, LAST_EXECUTION_TIMESTAMP
         ORDER BY LAST_EXECUTION_TIMESTAMP DESC
-        LIMIT {top_n}
+        LIMIT {safe_top_n}
         """
     )
