@@ -156,6 +156,58 @@ def test_abs_profiling_raises_helpful_error_when_pyspark_missing() -> None:
     assert "acryl-datahub[abs,pyspark]" in result.stdout
 
 
+def test_s3_profiling_error_shows_pandas_when_pandas_missing() -> None:
+    script = textwrap.dedent(
+        """
+        import sys
+
+
+        class PandasBlocker:
+            def find_spec(self, name, path=None, target=None):
+                if name == "pandas" or name.startswith("pandas."):
+                    raise ModuleNotFoundError(f"pandas blocked by test: {name}", name=name)
+                return None
+
+
+        sys.meta_path.insert(0, PandasBlocker())
+
+        from datahub.configuration.common import ConfigurationError
+        from datahub.ingestion.source.s3.config import DataLakeSourceConfig
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.s3.source import S3Source
+
+        config = DataLakeSourceConfig.model_validate(
+            {"path_specs": [{"include": "s3://bucket/{table}"}], "profiling": {"enabled": True}}
+        )
+        ctx = PipelineContext(run_id="test")
+
+        try:
+            S3Source(config, ctx)
+        except ConfigurationError as e:
+            print(f"CAUGHT:{e}")
+            sys.exit(0)
+        except Exception as e:
+            print(f"WRONG_EXCEPTION:{type(e).__name__}:{e}")
+            sys.exit(1)
+
+        sys.exit(2)
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"Expected ConfigurationError.\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
+    assert "CAUGHT:" in result.stdout
+    assert "acryl-datahub[s3,pyspark]" in result.stdout
+    assert "'pandas'" in result.stdout
+
+
 def test_unity_usage_drops_to_dropped_metric_when_pyspark_missing() -> None:
     script = textwrap.dedent(
         """
