@@ -3,7 +3,6 @@ package controllers;
 import static auth.AuthUtils.ACTOR;
 import static auth.AuthUtils.SESSION_COOKIE_GMS_TOKEN_NAME;
 
-import akka.util.ByteString;
 import auth.Authenticator;
 import com.datahub.authentication.AuthenticationConstants;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,6 +27,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
+import org.apache.pekko.util.ByteString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import play.Environment;
@@ -254,7 +254,7 @@ public class Application extends Controller {
     HttpEntity body =
         useStreaming
             ? new HttpEntity.Streamed(
-                akka.stream.javadsl.StreamConverters.fromInputStream(
+                org.apache.pekko.stream.javadsl.StreamConverters.fromInputStream(
                     () -> (InputStream) apiResponse.body()),
                 Optional.empty(),
                 contentType)

@@ -98,7 +98,7 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, TEST_DOC_ID);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor).add(eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.index(), TEST_INDEX);
@@ -117,7 +117,7 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, TEST_DOC_ID);
 
     ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor).add(eq(TEST_DOC_ID), requestCaptor.capture());
 
     DeleteRequest capturedRequest = requestCaptor.getValue();
     assertEquals(capturedRequest.index(), TEST_INDEX);
@@ -136,7 +136,7 @@ public class ESWriteDAOTest {
         opContext, TEST_ENTITY, TEST_DOC_ID, scriptSource, scriptParams, upsert);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor).add(eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals(TEST_INDEX, capturedRequest.index());
@@ -173,7 +173,7 @@ public class ESWriteDAOTest {
         opContext, searchGroup, TEST_DOC_ID, scriptSource, scriptParams, upsert);
 
     ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
-    verify(mockBulkProcessor).add(requestCaptor.capture());
+    verify(mockBulkProcessor).add(eq(TEST_DOC_ID), requestCaptor.capture());
 
     UpdateRequest capturedRequest = requestCaptor.getValue();
     assertEquals("datasetindex_v3", capturedRequest.index());
@@ -917,10 +917,10 @@ public class ESWriteDAOTest {
 
     if (canWrite) {
       // When writable, bulkProcessor.add should be called
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
     } else {
       // When not writable, bulkProcessor.add should not be called
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -936,9 +936,9 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocumentByIndexName(indexName, document, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -952,9 +952,9 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -969,9 +969,9 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocumentByIndexName(indexName, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -986,9 +986,9 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocumentBySearchGroup(opContext, searchGroup, document, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -1002,9 +1002,9 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocumentBySearchGroup(opContext, searchGroup, docId);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
     }
   }
 
@@ -1022,9 +1022,9 @@ public class ESWriteDAOTest {
         opContext, TEST_ENTITY, TEST_DOC_ID + description, scriptSource, scriptParams, upsert);
 
     if (canWrite) {
-      verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
     } else {
-      verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+      verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
     }
   }
 
@@ -1143,20 +1143,20 @@ public class ESWriteDAOTest {
 
     String document1 = "{\"field\":\"value1\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document1, "doc1");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(false);
 
     String document2 = "{\"field\":\"value2\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document2, "doc2");
     // Still only 1 call
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(true);
 
     String document3 = "{\"field\":\"value3\"}";
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document3, "doc3");
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1168,32 +1168,32 @@ public class ESWriteDAOTest {
 
     // 1. upsertDocument
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "doc1");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     // 2. upsertDocumentByIndexName
     esWriteDAO.upsertDocumentByIndexName("test_index", document, "doc2");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     // 3. deleteDocument
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "doc3");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
 
     // 4. deleteDocumentByIndexName
     esWriteDAO.deleteDocumentByIndexName("test_index", "doc4");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
 
     // 5. upsertDocumentBySearchGroup
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "group", document, "doc5");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     // 6. deleteDocumentBySearchGroup
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "group", "doc6");
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
 
     // 7. applyScriptUpdate
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "doc7", "script", new HashMap<>(), new HashMap<>());
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     // 8. clear
     String[] indices = new String[] {"index1"};
@@ -1258,7 +1258,7 @@ public class ESWriteDAOTest {
     assertFalse(syncResult.isSuccess());
 
     // No operations should have been executed
-    verify(mockBulkProcessor, never()).add(any());
+    verify(mockBulkProcessor, never()).add(any(String.class), any());
     verify(mockBulkProcessor, never()).deleteByQuery(any(), any());
     verify(mockSearchClient, never()).submitDeleteByQueryTask(any(), any());
     verify(mockSearchClient, never()).count(any(), any());
@@ -1267,7 +1267,7 @@ public class ESWriteDAOTest {
 
     // Writes should work again
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "postMigrationDoc");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1280,8 +1280,8 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocumentByIndexName("test_index", document, "seq2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq3");
 
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(false);
 
@@ -1289,14 +1289,14 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq5");
 
     // Counts should not increase
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
-    verify(mockBulkProcessor, times(1)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(true);
 
     // Operations should work again
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "seq6");
-    verify(mockBulkProcessor, times(3)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(3)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1368,11 +1368,11 @@ public class ESWriteDAOTest {
 
     // First instance operations blocked
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "doc1");
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     // Second instance operations work
     secondDao.upsertDocument(opContext, TEST_ENTITY, document, "doc2");
-    verify(mockBulkProcessor, times(1)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(1)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1386,14 +1386,14 @@ public class ESWriteDAOTest {
     esWriteDAO.upsertDocumentByIndexName("test_index", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
 
     esWriteDAO.setWritable(true);
 
     esWriteDAO.upsertDocumentByIndexName("test_index", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
-    verify(mockBulkProcessor, times(2)).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test
@@ -1406,14 +1406,14 @@ public class ESWriteDAOTest {
     esWriteDAO.deleteDocumentByIndexName("test_index", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
-    verify(mockBulkProcessor, never()).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(DeleteRequest.class));
 
     esWriteDAO.setWritable(true);
 
     esWriteDAO.deleteDocumentByIndexName("test_index", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
-    verify(mockBulkProcessor, times(2)).add(any(DeleteRequest.class));
+    verify(mockBulkProcessor, times(2)).add(any(String.class), any(DeleteRequest.class));
   }
 
   @Test
@@ -1429,7 +1429,7 @@ public class ESWriteDAOTest {
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "scriptDoc", scriptSource, scriptParams, upsert);
 
-    verify(mockBulkProcessor, never()).add(any(UpdateRequest.class));
+    verify(mockBulkProcessor, never()).add(any(String.class), any(UpdateRequest.class));
   }
 
   @Test

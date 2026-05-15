@@ -53,7 +53,7 @@ def test_enabled_converts_dataset_ownership_to_patch():
     assert mcp.aspectName == "ownership"
 
     payload = json.loads(mcp.aspect.value)
-    paths = [op["path"] for op in payload]
+    paths = [op["path"] for op in payload["patch"]]
     assert any("user1" in p for p in paths)
     assert any("user2" in p for p in paths)
 

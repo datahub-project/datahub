@@ -26,12 +26,7 @@ node {
   // Version of Yarn to use.
   yarnVersion = '1.22.22'
 
-  // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
-  if (project.hasProperty('nodeDistBaseUrl')) {
-    distBaseUrl = project.getProperty('nodeDistBaseUrl')
-  } else {
-    distBaseUrl = 'https://nodejs.org/dist'
-  }
+  distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
 
   // Set the work directory for unpacking node
   workDir = file("${project.projectDir}/.gradle/nodejs")
@@ -121,7 +116,14 @@ task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // Explicitly runs in non-watch mode.
-  args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+  def testArgs = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
+
+  // Support vitest sharding for CI parallelism (e.g. -PvitestShard=1/3)
+  if (project.hasProperty('vitestShard')) {
+    testArgs.addAll(['--shard', project.property('vitestShard')])
+  }
+
+  args = testArgs
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))

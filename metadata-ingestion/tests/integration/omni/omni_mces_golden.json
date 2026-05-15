@@ -1,20 +1,5 @@
 [
 {
-    "entityType": "dataPlatform",
-    "entityUrn": "urn:li:dataPlatform:omni",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInfo",
-    "aspect": {
-        "json": {
-            "name": "omni",
-            "displayName": "Omni",
-            "type": "OTHERS",
-            "datasetNameDelimiter": ".",
-            "logoUrl": "https://avatars.githubusercontent.com/u/100505341?s=200&v=4"
-        }
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:omni,connection.conn-snow-prod,PROD)",
     "changeType": "UPSERT",

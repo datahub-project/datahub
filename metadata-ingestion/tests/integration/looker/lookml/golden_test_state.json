@@ -1,0 +1,26 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(file,lookml_stateful,prod),lookml_stale_entity_removal)",
+    "changeType": "UPSERT",
+    "aspectName": "datahubIngestionCheckpoint",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1586847600000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "pipelineName": "lookml_stateful",
+            "platformInstanceId": "",
+            "config": "",
+            "state": {
+                "formatVersion": "1.0",
+                "serde": "base85-bz2-json",
+                "payload": "LRx4!F+o`-Q&|c|CrbbVS08{-Wq$Ak0MH7*@BivB0eYGYMxtm0z#2`YU;qF#nwc~c0yG!^089v^Op^q9spy_Zq&-QaARbY2JSc}qe-X;4_NqPT;Em_@FpzeX&)PQx4hR}F)mg1dlR?!%<1`3Dk!w<L2uX+pH2{X7hpIlv?2o!XRCddW(@#C+sVlxK`K%*!r4_!^N8j(|wsfoXM`@#wj%eeo^6oao^tIc(<`)R3fYEH#kx*|MAcy~y15u606KD)9l$DSpSprL<uq1JgQ7WSwscmsl&=NV{g>t2zlCnpwk*}gS^+%GAOM0U;ckr*l!5oe@=8Vz2qK(nG$ksNCr${-;Sgu{*7DpcBduxgXF_Q@SD9R&T-6Ck{jfII;5w08RjNu!yG@3WxedlXf_UeoaTqx#fnTrwxv^+STdFZ>6DZ+$+QZYJM"
+            },
+            "runId": "lookml-test"
+        }
+    }
+}
+]

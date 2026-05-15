@@ -1,3 +1,8 @@
+---
+title: Domains Overview
+description: "Use DataHub Domains to group related data assets into curated, top-level collections owned by business units or teams."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Domains
@@ -112,7 +117,7 @@ source:
 
 :::note
 
-When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceeed until the domain is provisioned on DataHub.
+When bare domain names like `Analytics` is used, the ingestion system will first check if a domain like `urn:li:domain:Analytics` is provisioned, failing that; it will check for a provisioned domain that has the same name. If we are unable to resolve bare domain names to provisioned domains, then ingestion will refuse to proceed until the domain is provisioned on DataHub.
 
 :::
 

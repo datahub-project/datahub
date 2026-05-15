@@ -32,8 +32,16 @@ def _make_source(async_commit_enabled: bool) -> KafkaEventSource:
             return KafkaEventSource(config, ctx)
 
 
+class TestAsyncCommitDefault:
+    """async_commit_enabled defaults to True."""
+
+    def test_default_is_async(self) -> None:
+        config = KafkaEventSourceConfig()
+        assert config.async_commit_enabled is True
+
+
 class TestAckSyncMode:
-    """When async_commit_enabled=False (default), ack always does sync commits."""
+    """When async_commit_enabled=False, ack always does sync commits."""
 
     def test_sync_mode_commits_on_processed_true(self) -> None:
         source = _make_source(async_commit_enabled=False)
@@ -63,8 +71,8 @@ class TestAckSyncMode:
 
 
 class TestAckAsyncMode:
-    """When async_commit_enabled=True, ack should always store offsets for
-    periodic autocommit — never do synchronous commits."""
+    """When async_commit_enabled=True (default), ack stores offsets for
+    periodic autocommit — never does synchronous commits."""
 
     def test_async_mode_stores_offset_on_processed_true(self) -> None:
         source = _make_source(async_commit_enabled=True)

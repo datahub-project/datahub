@@ -1,3 +1,7 @@
+---
+description: "Capture organizational tribal knowledge in DataHub with Context Documents — runbooks, FAQs, decision logs, and process guides."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Context Documents
@@ -62,7 +66,7 @@ Find documents using DataHub's primary search bar alongside your data assets, an
 
 ## Document History
 
-Track changes, view previous versions, and restore document contents by visting the document history timeline.
+Track changes, view previous versions, and restore document contents by visiting the document history timeline.
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-history-log.png"/>

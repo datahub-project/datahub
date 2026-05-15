@@ -1,4 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Skeleton } from 'antd';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -40,7 +39,7 @@ const SubSearchSection = styled.div`
 const CurrentSection = styled.div`
     flex: 1;
     width: 40%;
-    border-left: 1px solid #f0f0f0;
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
 `;
@@ -69,7 +68,7 @@ const SelectedItem = styled.div`
     justify-content: space-between;
 
     &:hover {
-        background-color: #fafafa;
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 

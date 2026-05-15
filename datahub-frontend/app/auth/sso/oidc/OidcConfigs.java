@@ -47,6 +47,7 @@ public class OidcConfigs extends SsoConfigs {
   public static final String OIDC_HTTP_RETRY_ATTEMPTS = "auth.oidc.httpRetryAttempts";
   public static final String OIDC_HTTP_RETRY_DELAY = "auth.oidc.httpRetryDelay";
   public static final String OIDC_ACCESS_DENIED_REDIRECT_URL = "auth.oidc.accessDeniedRedirectUrl";
+  public static final String OIDC_DISABLE_PKCE = "auth.oidc.disablePkce";
 
   /** Default values */
   private static final String DEFAULT_OIDC_USERNAME_CLAIM = "email";
@@ -91,6 +92,7 @@ public class OidcConfigs extends SsoConfigs {
   private final String httpRetryAttempts;
   private final String httpRetryDelay;
   private final Optional<String> accessDeniedRedirectUrl;
+  private final boolean disablePkce;
 
   public OidcConfigs(Builder builder) {
     super(builder);
@@ -119,6 +121,7 @@ public class OidcConfigs extends SsoConfigs {
     this.httpRetryAttempts = builder.httpRetryAttempts;
     this.httpRetryDelay = builder.httpRetryDelay;
     this.accessDeniedRedirectUrl = builder.accessDeniedRedirectUrl;
+    this.disablePkce = builder.disablePkce;
   }
 
   public String getHttpRetryAttempts() {
@@ -158,6 +161,7 @@ public class OidcConfigs extends SsoConfigs {
     private String httpRetryAttempts = DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS;
     private String httpRetryDelay = DEFAULT_OIDC_HTTP_RETRY_DELAY;
     private Optional<String> accessDeniedRedirectUrl = Optional.empty();
+    private boolean disablePkce = false;
 
     public Builder from(final com.typesafe.config.Config configs) {
       super.from(configs);
@@ -211,6 +215,9 @@ public class OidcConfigs extends SsoConfigs {
           getOptional(configs, OIDC_HTTP_RETRY_ATTEMPTS, DEFAULT_OIDC_HTTP_RETRY_ATTEMPTS);
       httpRetryDelay = getOptional(configs, OIDC_HTTP_RETRY_DELAY, DEFAULT_OIDC_HTTP_RETRY_DELAY);
       accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
+      if (configs.hasPath(OIDC_DISABLE_PKCE)) {
+        disablePkce = configs.getBoolean(OIDC_DISABLE_PKCE);
+      }
       return this;
     }
 

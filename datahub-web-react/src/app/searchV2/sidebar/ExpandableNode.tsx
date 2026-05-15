@@ -4,8 +4,6 @@ import { Typography } from 'antd';
 import React, { MouseEventHandler, ReactNode } from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import { BaseButton, BodyContainer, BodyGridExpander, RotatingButton } from '@app/shared/components';
 
 const Layout = styled.div`
@@ -44,19 +42,20 @@ ExpandableNode.Header = styled.div<{
     user-select: none;
     padding: 4px;
     gap: 4px;
-    border-bottom: 1px solid ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : ANTD_GRAY[4])};
+    border-bottom: 1px solid
+        ${(props) => (props.isOpen || !props.showBorder ? 'transparent' : props.theme.colors.bgHover)};
 `;
 
 ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: boolean }>`
     & {
-        border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
-        background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
+        border: 1px solid ${(props) => (props.$isSelected ? props.theme.colors.borderSelected : 'transparent')};
+        background-color: ${(props) => (props.$isSelected ? props.theme.colors.bgSelected : 'transparent')};
         border-radius: 8px;
         overflow: hidden;
     }
 
     &:hover {
-        background-color: ${SEARCH_COLORS.BACKGROUND_PURPLE};
+        background-color: ${(props) => props.theme.colors.bgSelected};
     }
 `;
 
@@ -76,7 +75,7 @@ ExpandableNode.HeaderLeft = styled.div`
 
 const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
     &&& {
-        color: ${ANTD_GRAY[6]};
+        color: ${(props) => props.theme.colors.icon};
         visibility: ${(props) => (props.isVisible ? 'visible' : 'hidden')};
         font-size: 18px;
     }
