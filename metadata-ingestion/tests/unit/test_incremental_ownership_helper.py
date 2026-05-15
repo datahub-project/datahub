@@ -26,7 +26,9 @@ OWNERS = [
 SYS_META = SystemMetadataClass(lastObserved=1700000000000, runId="test-run-id")
 
 
-def _ownership_wu(urn: str = DATASET_URN, entity_type: str = "dataset"):
+def _ownership_wu(
+    urn: str = DATASET_URN, entity_type: str = "dataset"
+) -> MetadataWorkUnit:
     return MetadataChangeProposalWrapper(
         entityUrn=urn, entityType=entity_type, aspect=OwnershipClass(owners=OWNERS)
     ).as_workunit()
@@ -51,6 +53,7 @@ def test_enabled_converts_dataset_ownership_to_patch():
     assert isinstance(mcp, MetadataChangeProposalClass)
     assert mcp.changeType == "PATCH"
     assert mcp.aspectName == "ownership"
+    assert mcp.aspect is not None
 
     payload = json.loads(mcp.aspect.value)
     paths = [op["path"] for op in payload["patch"]]
