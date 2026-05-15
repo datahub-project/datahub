@@ -482,28 +482,15 @@ class TestMSSQLAdapter:
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
         assert "stddev_samp" not in sql.lower()
 
-    def test_stdev_single_row_returns_none(self, adapter, real_table):
-        """Single non-null value: stdev mathematically undefined → None."""
-        mock_conn = MagicMock()
-        # First call: STDEV query returns NULL.
-        # Second call: non-null count returns 1.
-        stdev_result = MagicMock()
-        stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 1
-        mock_conn.execute.side_effect = [stdev_result, count_result]
-
-        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
-        assert result is None
-
-    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
-        """Multiple non-null equal values: DB returns NULL but stdev is 0.0."""
+    def test_stdev_null_result_returns_zero(self, adapter, real_table):
+        """
+        STDEV() returning NULL → 0.0 to match GE's `float(None)` TypeError
+        fallback. Covers single-value, all-equal-values, and all-NULL columns.
+        """
         mock_conn = MagicMock()
         stdev_result = MagicMock()
         stdev_result.scalar.return_value = None
-        count_result = MagicMock()
-        count_result.scalar.return_value = 5
-        mock_conn.execute.side_effect = [stdev_result, count_result]
+        mock_conn.execute.return_value = stdev_result
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
@@ -644,11 +631,6 @@ class TestRedshiftAdapter:
             r".*\bAS\s+FLOAT\b"
         )
         assert_sql_matches_pattern(sql, pattern)
-
-    def test_get_stdev_null_value(self, adapter):
-        """Test Redshift returns 0.0 for STDDEV on NULL columns."""
-        null_value = adapter.get_stdev_null_value()
-        assert null_value == 0.0
 
     def test_supports_row_count_estimation(self, adapter):
         """Test Redshift supports fast row count estimation."""

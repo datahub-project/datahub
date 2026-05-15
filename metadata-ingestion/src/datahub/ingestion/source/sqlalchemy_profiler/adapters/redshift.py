@@ -23,9 +23,8 @@ class RedshiftAdapter(PlatformAdapter):
     Redshift features:
     1. Fast row count estimation via system tables
     2. AVG on INTEGER returns integer (need CAST for precision)
-    3. STDDEV on all-NULL columns returns 0.0 (not NULL)
-    4. APPROXIMATE COUNT DISTINCT for fast unique counts
-    5. PERCENTILE_CONT for median and quantiles
+    3. APPROXIMATE COUNT DISTINCT for fast unique counts
+    4. PERCENTILE_CONT for median and quantiles
 
     Uses default setup_profiling and cleanup from PlatformAdapter.
     """
@@ -131,17 +130,6 @@ class RedshiftAdapter(PlatformAdapter):
         # Cast column to float to ensure AVG returns float with full precision
         # This matches GE behavior (e.g., '8.478238501903489')
         return sa.func.avg(sa.cast(sa.column(column), sa.Float))
-
-    def get_stdev_null_value(self) -> Optional[float]:
-        """
-        Redshift returns 0.0 for STDDEV on all-NULL columns.
-
-        This matches Redshift's actual behavior and GE golden file expectations.
-
-        Returns:
-            0.0 for Redshift (not None)
-        """
-        return 0.0
 
     # =========================================================================
     # Row Count Estimation

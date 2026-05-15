@@ -240,19 +240,6 @@ class PlatformAdapter(ABC):
         # (notably MSSQL). Cheap; harmless on dialects that already auto-promote.
         return sa.func.avg(sa.column(column) * 1.0)
 
-    def get_stdev_null_value(self) -> Optional[float]:
-        """
-        Get value to return for standard deviation when all values are NULL.
-
-        Different platforms have different behaviors:
-        - Most platforms: return None (NULL)
-        - Redshift: return 0.0 (to match GE behavior)
-
-        Returns:
-            Value to use for all-NULL columns (None or 0.0)
-        """
-        return None
-
     # =========================================================================
     # Row Count Estimation
     # =========================================================================
@@ -421,38 +408,20 @@ class PlatformAdapter(ABC):
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting.
-        For all-null columns, behavior is database-specific (handled by adapter).
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Standard deviation
+        Returns the raw database result to preserve native type formatting. When
+        the dialect returns NULL (single-value column, all-NULL column, or all-equal
+        rows on some dialects), returns 0.0 to match GE's behavior: GE's
+        `get_column_stdev` catches the `TypeError` from `float(None)` and returns
+        `0.0`, treating "undefined stddev" as zero variance for profile emission.
         """
         # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
         # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
         # explicitly keeps semantics consistent across dialects.
         query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
-        # Some databases return NULL for STDDEV when there's only one row
-        # For a single value, standard deviation is mathematically undefined (None)
-        # For multiple values with no variation, stdev is 0.0
         if result is None:
-            # Check if there's at least one non-null value
-            non_null_count = self.get_column_non_null_count(table, column, conn)
-            if non_null_count == 1:
-                # Single value: stdev is undefined, return None (matches GE behavior)
-                return None
-            elif non_null_count > 1:
-                # Multiple values but database returned NULL (all same value): stdev is 0.0
-                return 0.0
-            # No non-null values: use adapter to get platform-specific behavior
-            # (e.g., Redshift returns 0.0, PostgreSQL returns None)
-            return self.get_stdev_null_value()
-        # Return raw result to preserve database-native formatting (like GE does)
+            # GE returns 0.0 for any NULL stddev result (via float(None) TypeError).
+            return 0.0
         return result
 
     def get_column_unique_count(
@@ -487,14 +456,24 @@ class PlatformAdapter(ABC):
         adapter does not provide a native SQL expression (e.g. MySQL/Doris which
         have no MEDIAN function), falls back to GE's OFFSET/LIMIT trick: fetch
         the 1-2 middle rows of the sorted non-null values and compute the median
-        in Python.
+        in Python. The same fallback also kicks in if the native expression
+        exists but fails at execution (e.g. GenericAdapter optimistically emits
+        `MEDIAN()` which Doris/MySQL don't actually support).
         """
         expr = self.get_median_expr(column)
         if expr is not None:
-            query = sa.select([expr]).select_from(table)
-            result = conn.execute(query).scalar()
-            # Return raw result to preserve database-native formatting (like GE does)
-            return result
+            try:
+                query = sa.select([expr]).select_from(table)
+                # Return raw result to preserve database-native formatting (like GE does)
+                return conn.execute(query).scalar()
+            except SQLAlchemyError as e:
+                # Some adapters (notably the GenericAdapter for Doris) optimistically
+                # return a `MEDIAN()` expression that fails at execution. Fall through
+                # to the Python OFFSET/LIMIT fallback below in that case.
+                logger.debug(
+                    f"Native MEDIAN expression failed for column {column}; "
+                    f"falling back to OFFSET/LIMIT in Python: {e}"
+                )
 
         # Python-side fallback (mirrors GE's get_column_median for dialects
         # without a native MEDIAN function: MySQL, Doris, etc.).
