@@ -75,15 +75,19 @@ class MSSQLAdapter(PlatformAdapter):
         Get sample standard deviation using MSSQL's `STDEV()` function.
 
         MSSQL doesn't have `stddev_samp` — its sample-stddev function is named
-        `STDEV` (population variant is `STDEVP`). Matches the base adapter's
-        GE-parity behavior: any NULL stddev result (single value, all-NULL,
-        all-equal rows) returns 0.0, mirroring GE's `float(None)` TypeError
-        fallback path.
+        `STDEV` (population variant is `STDEVP`). NULL disambiguation mirrors
+        the base adapter: single value → None, multiple-equal rows → 0.0,
+        all-null → adapter-specific `get_stdev_null_value()` hook.
         """
         query = sa.select([sa.func.stdev(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
         if result is None:
-            return 0.0
+            non_null_count = self.get_column_non_null_count(table, column, conn)
+            if non_null_count == 1:
+                return None
+            if non_null_count > 1:
+                return 0.0
+            return self.get_stdev_null_value()
         return result
 
     def get_column_quantiles(

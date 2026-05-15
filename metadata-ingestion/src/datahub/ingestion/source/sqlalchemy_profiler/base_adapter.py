@@ -407,11 +407,12 @@ class PlatformAdapter(ABC):
         """
         Get standard deviation for a column.
 
-        Returns the raw database result to preserve native type formatting. When
-        the dialect returns NULL (single-value column, all-NULL column, or all-equal
-        rows on some dialects), returns 0.0 to match GE's behavior: GE's
-        `get_column_stdev` catches the `TypeError` from `float(None)` and returns
-        `0.0`, treating "undefined stddev" as zero variance for profile emission.
+        Returns the raw database result to preserve native type formatting. We use
+        `stddev_samp` explicitly (some dialects' bare `stddev()` defaults to
+        population stddev). When the dialect returns NULL we disambiguate the cause:
+          - exactly one non-null value: stddev is mathematically undefined → return None
+          - multiple rows but all-equal: zero variance → return 0.0
+          - all-null column: dialect-specific (most return None, Redshift returns 0.0)
         """
         # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
         # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
@@ -419,9 +420,24 @@ class PlatformAdapter(ABC):
         query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
         if result is None:
-            # GE returns 0.0 for any NULL stddev result (via float(None) TypeError).
-            return 0.0
+            non_null_count = self.get_column_non_null_count(table, column, conn)
+            if non_null_count == 1:
+                # Single value: stddev is mathematically undefined.
+                return None
+            if non_null_count > 1:
+                # Multiple values, all equal: zero variance.
+                return 0.0
+            # No non-null values: defer to adapter-specific behavior.
+            return self.get_stdev_null_value()
         return result
+
+    def get_stdev_null_value(self) -> Optional[Any]:
+        """
+        Value to return when stddev_samp returns NULL and the column has no
+        non-null values. Most dialects return None (matches GE for all-null
+        columns); Redshift returns 0.0 (it returns 0.0 from STDDEV on all-null).
+        """
+        return None
 
     def get_column_unique_count(
         self, table: sa.Table, column: str, conn: Connection, use_approx: bool = True

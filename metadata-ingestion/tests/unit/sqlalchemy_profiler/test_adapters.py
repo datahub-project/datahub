@@ -483,18 +483,52 @@ class TestMSSQLAdapter:
         assert_sql_matches_pattern(sql, r"\bstdev\s*\(")
         assert "stddev_samp" not in sql.lower()
 
-    def test_stdev_null_result_returns_zero(self, adapter, real_table):
+    def test_stdev_single_row_returns_none(self, adapter, real_table):
         """
-        STDEV() returning NULL → 0.0 to match GE's `float(None)` TypeError
-        fallback. Covers single-value, all-equal-values, and all-NULL columns.
+        STDEV() returns NULL on a single-value column. Stddev of one value is
+        mathematically undefined, so we return None (not 0.0).
+        """
+        mock_conn = MagicMock()
+        # First execute: STDEV(...) returns NULL.
+        # Second execute: COUNT(value_col) for the non-null disambiguation returns 1.
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 1
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result is None
+
+    def test_stdev_multiple_equal_rows_returns_zero(self, adapter, real_table):
+        """
+        STDEV() returns NULL when all values are equal (zero variance). With
+        multiple non-null rows, the well-defined answer is 0.0.
         """
         mock_conn = MagicMock()
         stdev_result = MagicMock()
         stdev_result.scalar.return_value = None
-        mock_conn.execute.return_value = stdev_result
+        count_result = MagicMock()
+        count_result.scalar.return_value = 5
+        mock_conn.execute.side_effect = [stdev_result, count_result]
 
         result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
         assert result == 0.0
+
+    def test_stdev_all_null_returns_default(self, adapter, real_table):
+        """
+        STDEV() on an all-null column falls through to the
+        `get_stdev_null_value` hook. MSSQL inherits the base default (None).
+        """
+        mock_conn = MagicMock()
+        stdev_result = MagicMock()
+        stdev_result.scalar.return_value = None
+        count_result = MagicMock()
+        count_result.scalar.return_value = 0
+        mock_conn.execute.side_effect = [stdev_result, count_result]
+
+        result = adapter.get_column_stdev(real_table, "value_col", mock_conn)
+        assert result is None
 
     def test_quantiles_use_percentile_disc_with_over_window(
         self, adapter, real_table, mock_mssql_engine
