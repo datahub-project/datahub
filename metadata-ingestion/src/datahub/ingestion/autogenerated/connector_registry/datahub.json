@@ -1606,15 +1606,19 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
-          "subtype_modifier": [
-            "View"
-          ],
+          "description": "Column-level lineage emitted for calculation views when `include_calculation_views` is enabled",
+          "subtype_modifier": null,
           "supported": true
         },
         {
           "capability": "DATA_PROFILING",
           "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_query_usage` (queries) and `include_usage_stats` (rollup) \u2014 mines `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1637,6 +1641,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Derived from observed queries when `include_operational_stats` and `include_query_usage` are enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1650,10 +1660,8 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
-          "subtype_modifier": [
-            "View"
-          ],
+          "description": "Emitted for calculation views when `include_calculation_views` is enabled",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -1663,7 +1671,7 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hana.HanaSource",
+      "classname": "datahub.ingestion.source.sql.hana.hana.HanaSource",
       "platform_id": "hana",
       "platform_name": "SAP HANA",
       "support_status": "TESTING"
