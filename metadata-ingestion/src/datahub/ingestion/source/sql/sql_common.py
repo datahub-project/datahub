@@ -59,7 +59,7 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.profiling.ge_profiler_loader import (
+from datahub.ingestion.source.profiling.common import (
     GE_PROFILER_MISSING_MESSAGE,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
@@ -131,7 +131,7 @@ from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_fie
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-    from datahub.ingestion.source.profiling.profiler_request import (
+    from datahub.ingestion.source.profiling.common import (
         ProfilerRequest as GEProfilerRequest,
     )
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
@@ -1407,7 +1407,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
-        from datahub.ingestion.source.profiling.profiler_request import (
+        from datahub.ingestion.source.profiling.common import (
             ProfilerRequest as GEProfilerRequest,
         )
 

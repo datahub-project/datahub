@@ -1,5 +1,5 @@
 def test_profiler_request_importable_from_new_location():
-    from datahub.ingestion.source.profiling.profiler_request import ProfilerRequest
+    from datahub.ingestion.source.profiling.common import ProfilerRequest
 
     req = ProfilerRequest(pretty_name="my_table", batch_kwargs={"schema": "s"})
     assert req.pretty_name == "my_table"
@@ -11,7 +11,7 @@ def test_ge_data_profiler_reexports_for_backcompat():
         GEProfilerRequest,
         ProfilerRequest,
     )
-    from datahub.ingestion.source.profiling.profiler_request import (
+    from datahub.ingestion.source.profiling.common import (
         ProfilerRequest as NewProfilerRequest,
     )
 

@@ -96,7 +96,7 @@ def test_ge_method_raises_helpful_error_when_ge_missing() -> None:
         try:
             from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler  # noqa: F401
         except ImportError as e:
-            from datahub.ingestion.source.profiling.ge_profiler_loader import (
+            from datahub.ingestion.source.profiling.common import (
                 GE_PROFILER_MISSING_MESSAGE,
             )
             try:
@@ -152,7 +152,7 @@ def test_sql_common_lazy_imports_are_ge_free() -> None:
         sys.meta_path.insert(0, GreatExpectationsBlocker())
 
         # Simulate the exact lazy import that loop_profiler_requests does (post-fix).
-        from datahub.ingestion.source.profiling.profiler_request import (
+        from datahub.ingestion.source.profiling.common import (
             ProfilerRequest as GEProfilerRequest,
         )
         assert GEProfilerRequest.__name__ == "ProfilerRequest"

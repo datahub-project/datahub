@@ -14,7 +14,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.profiling.ge_profiler_loader import (
+from datahub.ingestion.source.profiling.common import (
     GE_PROFILER_MISSING_MESSAGE,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseTable

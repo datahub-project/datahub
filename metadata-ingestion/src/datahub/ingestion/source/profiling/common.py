@@ -1,5 +1,6 @@
+import dataclasses
 from enum import Enum
-from typing import Optional
+from typing import Any, Dict, Optional
 
 
 class Cardinality(Enum):
@@ -50,3 +51,19 @@ def convert_to_cardinality(
     else:
         cardinality = Cardinality.MANY
     return cardinality
+
+
+@dataclasses.dataclass
+class ProfilerRequest:
+    """Generic profiling request shared by SQLAlchemy and GE profilers."""
+
+    pretty_name: str
+    batch_kwargs: Dict[str, Any]
+
+
+GE_PROFILER_MISSING_MESSAGE = (
+    "The Great Expectations profiler is not installed. Either install "
+    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
+    "or switch to the SQLAlchemy profiler by setting "
+    "`profiling.method: sqlalchemy` in your recipe."
+)

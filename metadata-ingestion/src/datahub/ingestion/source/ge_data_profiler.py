@@ -56,9 +56,9 @@ from datahub.ingestion.graph.config import ClientMode
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.profiling.common import (
     Cardinality,
+    ProfilerRequest,
     convert_to_cardinality,
 )
-from datahub.ingestion.source.profiling.profiler_request import ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -177,7 +177,7 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
 
 
 # Legacy alias - GEProfilerRequest is the historical name. New code should
-# import ProfilerRequest from datahub.ingestion.source.profiling.profiler_request.
+# import ProfilerRequest from datahub.ingestion.source.profiling.common.
 GEProfilerRequest = ProfilerRequest
 
 

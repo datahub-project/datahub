@@ -13,7 +13,7 @@ from sqlalchemy.sql import sqltypes
 
 from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.profiling.ge_profiler_loader import (
+from datahub.ingestion.source.profiling.common import (
     GE_PROFILER_MISSING_MESSAGE,
 )
 from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config

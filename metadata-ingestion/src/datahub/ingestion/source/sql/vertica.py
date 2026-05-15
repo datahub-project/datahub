@@ -54,7 +54,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities import config_clean
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.profiling.profiler_request import (
+    from datahub.ingestion.source.profiling.common import (
         ProfilerRequest as GEProfilerRequest,
     )
 
@@ -532,7 +532,7 @@ class VerticaSource(SQLAlchemySource):
         Args: schema: schema name
 
         """
-        from datahub.ingestion.source.profiling.profiler_request import (
+        from datahub.ingestion.source.profiling.common import (
             ProfilerRequest as GEProfilerRequest,
         )
 

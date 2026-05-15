@@ -20,10 +20,10 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.profiling.ge_profiler_loader import (
+from datahub.ingestion.source.profiling.common import (
     GE_PROFILER_MISSING_MESSAGE,
+    ProfilerRequest,
 )
-from datahub.ingestion.source.profiling.profiler_request import ProfilerRequest
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
