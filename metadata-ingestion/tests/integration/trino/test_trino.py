@@ -79,10 +79,6 @@ def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
                     ),
                     profiling=GEProfilingConfig(
                         enabled=True,
-                        # Golden file was captured against the GE profiler; pin
-                        # the method so this test stays deterministic after the
-                        # default flipped to SQLAlchemy.
-                        method="ge",
                         include_field_null_count=True,
                         include_field_distinct_count=True,
                         include_field_min_value=True,
