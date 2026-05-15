@@ -696,7 +696,12 @@ class PlatformAdapter(ABC):
         conn: Connection,
     ) -> List[Tuple[Any, int]]:
         """
-        Get all distinct values with their counts (sorted by value).
+        Get all distinct values with their counts, sorted by value (with NULLs last).
+
+        Sorting happens in Python rather than via SQL `ORDER BY` so that column
+        types that aren't natively orderable in some dialects (Trino's JSON, for
+        example) don't crash the query with a "not orderable" error. GROUP BY
+        works for these types; only ORDER BY is restricted.
 
         Args:
             table: SQLAlchemy table object
@@ -711,10 +716,16 @@ class PlatformAdapter(ABC):
             sa.select([sa.column(column), count_expr])
             .select_from(table)
             .group_by(sa.column(column))
-            .order_by(sa.column(column))
         )
 
-        result = conn.execute(query).fetchall()
+        rows = [(row[0], int(row[1])) for row in conn.execute(query).fetchall()]
+        try:
+            rows.sort(key=lambda r: (r[0] is None, r[0]))
+        except TypeError:
+            # Mixed/uncomparable values (e.g., dict vs str from JSON columns) —
+            # fall back to a stringified key so the output is still deterministic.
+            rows.sort(key=lambda r: (r[0] is None, str(r[0])))
+        result = rows
         logger.debug(
             f"get_column_distinct_value_frequencies for {column}: got {len(result)} rows"
         )
