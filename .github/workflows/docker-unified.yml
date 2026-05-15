@@ -1045,7 +1045,7 @@ jobs:
   playwright_report:
     name: Merge Playwright HTML report
     runs-on: ubuntu-latest
-    needs: [playwright_test]
+    needs: [setup, playwright_test]
     if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -1055,14 +1055,21 @@ jobs:
         with:
           node-version: "22"
 
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/yarn
+          key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
+          restore-keys: ${{ needs.setup.outputs.playwright_yarn_cache_key_prefix }}
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+
       - name: Download all Playwright blob reports
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: playwright-blob-report-*
           path: playwright-blob-reports
-
-      - name: Install Playwright
-        run: npm install -g @playwright/test
 
       - name: Merge blob reports into unified HTML report
         run: |
@@ -1073,7 +1080,7 @@ jobs:
           # Playwright blob filenames include the shard index, so cp overwrites are safe.
           find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
           if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
-            npx playwright merge-reports --reporter html ./playwright-blobs-flat
+            ./e2e-test/ui/playwright/node_modules/.bin/playwright merge-reports --reporter html ./playwright-blobs-flat
           else
             echo "No blob reports found — all shards may have been skipped or crashed"
             exit 1
