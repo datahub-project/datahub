@@ -130,6 +130,15 @@ def _get_dagrun_from_task_instance(task_instance: "TaskInstance") -> "DagRun":
             """Get run_id from task instance"""
             return getattr(self.ti, "run_id", None)
 
+        @property
+        def run_type(self) -> Any:
+            from airflow.utils.types import DagRunType
+
+            run_id = str(self.run_id or "")
+            if run_id.startswith("scheduled__"):
+                return DagRunType.SCHEDULED
+            return DagRunType.MANUAL
+
         def __repr__(self) -> str:
             return f"DagRunProxy(dag_id={self.dag_id!r}, run_id={self.run_id!r})"
 
