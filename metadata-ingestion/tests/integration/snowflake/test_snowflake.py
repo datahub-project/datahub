@@ -148,6 +148,10 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         ),
                         profiling=GEProfilingConfig(
                             enabled=True,
+                            # Golden file was captured against the GE profiler;
+                            # pin the method so this test stays deterministic
+                            # after the default flipped to SQLAlchemy.
+                            method="ge",
                             profile_if_updated_since_days=None,
                             profile_table_row_limit=None,
                             profile_table_size_limit=None,
