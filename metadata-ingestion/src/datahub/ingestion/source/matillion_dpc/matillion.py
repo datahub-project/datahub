@@ -101,7 +101,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
 logger = logging.getLogger(__name__)
 
 
-@platform_name("Matillion DPC", id="matillion-dpc")
+@platform_name("Matillion", id="matillion-dpc")
 @config_class(MatillionSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
