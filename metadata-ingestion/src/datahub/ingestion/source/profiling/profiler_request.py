@@ -1,4 +1,5 @@
 import dataclasses
+from typing import Any, Dict
 
 
 @dataclasses.dataclass
@@ -10,4 +11,4 @@ class ProfilerRequest:
     """
 
     pretty_name: str
-    batch_kwargs: dict
+    batch_kwargs: Dict[str, Any]

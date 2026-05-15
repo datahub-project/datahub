@@ -58,6 +58,7 @@ from datahub.ingestion.source.profiling.common import (
     Cardinality,
     convert_to_cardinality,
 )
+from datahub.ingestion.source.profiling.profiler_request import ProfilerRequest
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -174,12 +175,6 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
         ):
             yield
 
-
-# Re-exported for back-compat. The canonical home is
-# datahub.ingestion.source.profiling.profiler_request.
-from datahub.ingestion.source.profiling.profiler_request import (  # noqa: E402
-    ProfilerRequest,
-)
 
 # Legacy alias - GEProfilerRequest is the historical name. New code should
 # import ProfilerRequest from datahub.ingestion.source.profiling.profiler_request.
