@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -121,7 +121,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -137,7 +137,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -153,7 +153,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -171,7 +171,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -192,7 +192,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -208,7 +208,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -267,7 +267,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1646604000000,
+                                        "time": 1646571600000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -350,7 +350,7 @@
                                         }
                                     ],
                                     "auditStamp": {
-                                        "time": 1646604000000,
+                                        "time": 1646571600000,
                                         "actor": "urn:li:corpuser:datahub"
                                     }
                                 },
@@ -387,7 +387,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -405,7 +405,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -430,7 +430,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -531,7 +531,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -549,7 +549,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -574,7 +574,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -590,7 +590,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -675,7 +675,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -693,7 +693,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -718,7 +718,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -734,7 +734,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -810,7 +810,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -828,7 +828,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -846,7 +846,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -871,7 +871,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -888,7 +888,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -906,7 +906,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -922,7 +922,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -943,7 +943,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -963,7 +963,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -981,7 +981,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -997,7 +997,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1020,7 +1020,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1045,7 +1045,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1065,7 +1065,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1083,7 +1083,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1099,7 +1099,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1122,7 +1122,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1181,7 +1181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1206,7 +1206,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1221,7 +1221,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1646604000000,
+                        "time": 1646571600000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -1264,7 +1264,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1287,13 +1287,13 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1646604000000,
+                "time": 1646571600000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1328,7 +1328,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1344,7 +1344,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1360,7 +1360,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1376,7 +1376,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1392,7 +1392,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1408,7 +1408,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1424,7 +1424,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1436,7 +1436,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1646604000000,
+            "timestampMillis": 1646571600000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1448,7 +1448,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1460,19 +1460,18 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1646604000000,
+            "timestampMillis": 1646571600000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
-            "rowCount": -1,
+            "rowCount": 0,
             "columnCount": 3,
-            "fieldProfiles": [],
             "sizeInBytes": 0
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1484,19 +1483,18 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1646604000000,
+            "timestampMillis": 1646571600000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
-            "rowCount": -1,
+            "rowCount": 0,
             "columnCount": 3,
-            "fieldProfiles": [],
             "sizeInBytes": 0
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1512,7 +1510,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1528,7 +1526,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1544,7 +1542,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1646604000000,
+        "lastObserved": 1646571600000,
         "runId": "postgres-test",
         "lastRunId": "no-run-id-provided"
     }
