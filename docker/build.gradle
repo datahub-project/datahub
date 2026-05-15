@@ -372,6 +372,8 @@ ext {
     }
 }
 
+apply from: 'postgres/quickstart-publish.gradle'
+
 // Register all quickstart tasks
 quickstart_configs.each { taskName, config ->
     tasks.register(taskName) {

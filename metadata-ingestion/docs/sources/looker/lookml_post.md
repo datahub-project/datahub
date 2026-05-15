@@ -494,6 +494,36 @@ If you have Looker views with many fields (100+) and are experiencing lineage ex
    - **Many problematic fields:** Enable `enable_individual_field_fallback`
    - **Strict validation needs:** Disable `allow_partial_lineage_results`
 
+#### Repository Clone Fails or Times Out
+
+**Symptoms:**
+
+- Ingestion reports `Failed to clone LookML repository` under **Errors**
+- Error context contains `GitCommandError`, `ssh: not found`, `Connection refused`, or `exit code(128)`
+
+**Solutions:**
+
+1. **SSH/deploy key not configured** — Ensure a deploy key (or personal SSH key) whose public half is added to the repository is provided via `deploy_key` or `deploy_key_file` in `git_info`.
+
+2. **Port 22 blocked** — If your environment blocks outbound SSH (port 22), you cannot clone over `git@github.com`. Use HTTPS with a personal access token via `repo_ssh_locator` or run ingestion from a network that allows SSH.
+
+3. **Clone times out on large repos** — Increase `clone_timeout` (default: 600 s):
+
+   ```yml
+   git_info:
+     repo: https://github.com/your-org/your-lookml-repo
+     deploy_key: ${DEPLOY_KEY}
+     clone_timeout: 900
+   ```
+
+4. **Verify SSH access manually** — On the machine running ingestion, confirm:
+
+   ```sh
+   ssh -T git@github.com
+   ```
+
+   A successful response looks like: `Hi <user>! You've successfully authenticated…`
+
 #### Debugging LookML Parsing Errors
 
 If you see messages like `my_file.view.lkml': "failed to load view file: Unable to find a matching expression for '<literal>' on line 5"` in the failure logs, it indicates a parsing error for the LookML file.
