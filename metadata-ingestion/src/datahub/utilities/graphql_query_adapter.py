@@ -101,6 +101,76 @@ def _inline_fragments(document: DocumentNode) -> DocumentNode:
     return document
 
 
+def _minify_printed_graphql(printed: str) -> str:
+    """Collapse insignificant whitespace in already-serialised GraphQL text.
+
+    Treats ``"..."`` and ``\"\"\"...\"\"\"`` string literals as opaque so
+    whitespace inside them is preserved. Caller is responsible for passing
+    valid GraphQL — typically ``print_ast(ast)``.
+    """
+    out: List[str] = []
+    i = 0
+    n = len(printed)
+    while i < n:
+        # Block string: """ ... """ — pass through verbatim.
+        if printed.startswith('"""', i):
+            j = printed.find('"""', i + 3)
+            if j == -1:
+                out.append(printed[i:])
+                break
+            out.append(printed[i : j + 3])
+            i = j + 3
+            continue
+        # Regular string: " ... " with backslash escapes.
+        if printed[i] == '"':
+            j = i + 1
+            while j < n:
+                c = printed[j]
+                if c == "\\":
+                    j += 2
+                    continue
+                if c == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append(printed[i:j])
+            i = j
+            continue
+        # Outside a string: collapse runs of whitespace to a single space.
+        if printed[i].isspace():
+            out.append(" ")
+            while i < n and printed[i].isspace():
+                i += 1
+            continue
+        out.append(printed[i])
+        i += 1
+
+    return "".join(out).strip()
+
+
+def minify_graphql_query(query: str) -> str:
+    """Collapse insignificant whitespace in a GraphQL query string.
+
+    Reduces wire size — ``entity_details.gql`` shrinks from ~43KB to ~17KB —
+    by removing the indentation that ``print_ast`` (and most hand-authored
+    .gql files) emit. Cheap and lossless: identical AST before/after.
+
+    Both ``"..."`` and ``\"\"\"...\"\"\"`` string literals are passed through
+    untouched, so whitespace inside a literal — e.g. a multi-word search
+    term — is never altered. The naive ``" ".join(query.split())`` trick
+    does not have that property and silently corrupts queries containing
+    strings with interior whitespace.
+
+    Returns the query unchanged if it cannot be parsed; callers do not have
+    to worry about minification breaking malformed input.
+    """
+    try:
+        printed = print_ast(parse(query))
+    except Exception:
+        return query
+    return _minify_printed_graphql(printed)
+
+
 class _SpreadCollector(Visitor):
     """AST visitor that records every fragment-spread name it encounters."""
 
@@ -500,10 +570,10 @@ class QueryProjector:
                 f"FragmentDefinition({name}, orphan)" for name in orphaned
             )
 
-        # Convert the modified AST back to a query string. Minified — collapses
-        # all whitespace to single spaces. Cheap insurance against pretty-printed
-        # bloat; not load-bearing now that we no longer inline fragments.
-        adapted_query = " ".join(print_ast(modified_ast).split())
+        # Serialise the modified AST and minify. The central minifier
+        # preserves string-literal whitespace, so this is safe for any
+        # query, not just ones with no interior whitespace.
+        adapted_query = _minify_printed_graphql(print_ast(modified_ast))
 
         removed_paths = visitor.removed_structural_paths
         result = (adapted_query, visitor.removed_fields, removed_paths)

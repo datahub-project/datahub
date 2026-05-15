@@ -2329,7 +2329,7 @@
       ],
       "classname": "datahub.ingestion.source.matillion_dpc.matillion.MatillionSource",
       "platform_id": "matillion-dpc",
-      "platform_name": "Matillion DPC",
+      "platform_name": "Matillion",
       "support_status": "INCUBATING"
     },
     "metabase": {
