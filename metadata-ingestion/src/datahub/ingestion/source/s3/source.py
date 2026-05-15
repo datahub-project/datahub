@@ -302,7 +302,8 @@ class S3Source(StatefulIngestionSourceBase):
                 )
             except (ImportError, ModuleNotFoundError) as e:
                 raise ConfigurationError(
-                    "PySpark is not installed but is required for S3 profiling. "
+                    "S3 profiling dependencies are not installed "
+                    f"(missing module: {e.name!r}). "
                     "Install with: pip install 'acryl-datahub[s3,pyspark]'"
                 ) from e
 

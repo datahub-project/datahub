@@ -59,9 +59,9 @@ def test_s3_profiling_raises_helpful_error_when_pyspark_missing() -> None:
         class PySparkBlocker:
             def find_spec(self, name, path=None, target=None):
                 if name == "pyspark" or name.startswith("pyspark."):
-                    raise ImportError(f"pyspark blocked by test: {name}")
+                    raise ModuleNotFoundError(f"pyspark blocked by test: {name}", name=name)
                 if name == "pydeequ" or name.startswith("pydeequ."):
-                    raise ImportError(f"pydeequ blocked by test: {name}")
+                    raise ModuleNotFoundError(f"pydeequ blocked by test: {name}", name=name)
                 return None
 
 
@@ -101,6 +101,7 @@ def test_s3_profiling_raises_helpful_error_when_pyspark_missing() -> None:
     )
     assert "CAUGHT:" in result.stdout
     assert "acryl-datahub[s3,pyspark]" in result.stdout
+    assert "missing module:" in result.stdout
 
 
 def test_abs_profiling_raises_helpful_error_when_pyspark_missing() -> None:
@@ -112,9 +113,9 @@ def test_abs_profiling_raises_helpful_error_when_pyspark_missing() -> None:
         class PySparkBlocker:
             def find_spec(self, name, path=None, target=None):
                 if name == "pyspark" or name.startswith("pyspark."):
-                    raise ImportError(f"pyspark blocked by test: {name}")
+                    raise ModuleNotFoundError(f"pyspark blocked by test: {name}", name=name)
                 if name == "pydeequ" or name.startswith("pydeequ."):
-                    raise ImportError(f"pydeequ blocked by test: {name}")
+                    raise ModuleNotFoundError(f"pydeequ blocked by test: {name}", name=name)
                 return None
 
 
@@ -154,6 +155,7 @@ def test_abs_profiling_raises_helpful_error_when_pyspark_missing() -> None:
     )
     assert "CAUGHT:" in result.stdout
     assert "acryl-datahub[abs,pyspark]" in result.stdout
+    assert "missing module:" in result.stdout
 
 
 def test_unity_usage_drops_to_dropped_metric_when_pyspark_missing() -> None:
