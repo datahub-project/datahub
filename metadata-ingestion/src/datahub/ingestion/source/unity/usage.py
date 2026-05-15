@@ -5,7 +5,6 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, TypeVar
 
-import pyspark
 from databricks.sdk.service.sql import QueryStatementType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -54,19 +53,30 @@ class UnityCatalogUsageExtractor:
     user_urn_builder: Callable[[str], str]
     platform: str = "databricks"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         self.usage_aggregator = UsageAggregator[TableReference](self.config)
         self._spark_sql_parser: Optional[Any] = None
+        self._spark_sql_parser_init_attempted: bool = False
 
     @property
-    def spark_sql_parser(self):
-        """Lazily initializes the Spark SQL parser."""
-        if self._spark_sql_parser is None:
-            spark_context = pyspark.SparkContext.getOrCreate()
-            spark_session = pyspark.sql.SparkSession(spark_context)
-            self._spark_sql_parser = (
-                spark_session._jsparkSession.sessionState().sqlParser()
-            )
+    def spark_sql_parser(self) -> Optional[Any]:
+        if not self._spark_sql_parser_init_attempted:
+            self._spark_sql_parser_init_attempted = True
+            try:
+                import pyspark
+
+                spark_context = pyspark.SparkContext.getOrCreate()
+                spark_session = pyspark.sql.SparkSession(spark_context)
+                self._spark_sql_parser = (
+                    spark_session._jsparkSession.sessionState().sqlParser()
+                )
+            except ImportError:
+                logger.warning(
+                    "pyspark is not installed; Spark SQL plan parsing is disabled. "
+                    "Queries that sqlglot cannot parse will be dropped into "
+                    "num_queries_dropped_parse_failure. "
+                    "Install with: pip install 'acryl-datahub[pyspark]'"
+                )
         return self._spark_sql_parser
 
     def get_usage_workunits(
@@ -272,6 +282,8 @@ class UnityCatalogUsageExtractor:
 
     def _parse_query_via_spark_sql_plan(self, query: str) -> Optional[StringTableInfo]:
         """Parse query source tables via Spark SQL plan. This is a fallback option."""
+        if self.spark_sql_parser is None:
+            return None
         # Would be more effective if we upgrade pyspark
         # Does not work with CTEs or non-SELECT statements
         try:
