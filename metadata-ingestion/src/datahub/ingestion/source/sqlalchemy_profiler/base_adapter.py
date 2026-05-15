@@ -429,7 +429,10 @@ class PlatformAdapter(ABC):
         Returns:
             Standard deviation
         """
-        query = sa.select([sa.func.stddev(sa.column(column))]).select_from(table)
+        # GE uses stddev_samp (sample stddev, Bessel-corrected). Some dialects' bare
+        # `stddev()` defaults to STDDEV_POP (MySQL, Doris) — calling stddev_samp
+        # explicitly keeps semantics consistent across dialects.
+        query = sa.select([sa.func.stddev_samp(sa.column(column))]).select_from(table)
         result = conn.execute(query).scalar()
         # Some databases return NULL for STDDEV when there's only one row
         # For a single value, standard deviation is mathematically undefined (None)
@@ -477,24 +480,41 @@ class PlatformAdapter(ABC):
         """
         Get median value for a column (database-specific).
 
-        Returns raw database result to preserve native type formatting.
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            Median value, or None if not supported
+        Returns raw database result to preserve native type formatting. When the
+        adapter does not provide a native SQL expression (e.g. MySQL/Doris which
+        have no MEDIAN function), falls back to GE's OFFSET/LIMIT trick: fetch
+        the 1-2 middle rows of the sorted non-null values and compute the median
+        in Python.
         """
         expr = self.get_median_expr(column)
-        if expr is None:
-            return None
+        if expr is not None:
+            query = sa.select([expr]).select_from(table)
+            result = conn.execute(query).scalar()
+            # Return raw result to preserve database-native formatting (like GE does)
+            return result
 
-        query = sa.select([expr]).select_from(table)
-        result = conn.execute(query).scalar()
-        # Return raw result to preserve database-native formatting (like GE does)
-        return result
+        # Python-side fallback (mirrors GE's get_column_median for dialects
+        # without a native MEDIAN function: MySQL, Doris, etc.).
+        non_null_count = self.get_column_non_null_count(table, column, conn)
+        if non_null_count == 0:
+            return None
+        offset = max(non_null_count // 2 - 1, 0)
+        middle_query = (
+            sa.select([sa.column(column)])
+            .select_from(table)
+            .where(sa.column(column).is_not(None))
+            .order_by(sa.column(column))
+            .offset(offset)
+            .limit(2)
+        )
+        rows = [row[0] for row in conn.execute(middle_query).fetchall()]
+        if not rows:
+            return None
+        if non_null_count % 2 == 0 and len(rows) == 2:
+            # Even count: average the two center values.
+            return (float(rows[0]) + float(rows[1])) / 2.0
+        # Odd count: second row of the [offset, offset+1] window is the true center.
+        return rows[-1]
 
     def get_column_quantiles(
         self,
