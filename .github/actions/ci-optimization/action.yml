@@ -125,5 +125,3 @@ runs:
             - "metadata-models/**"
           e2e-test:
             - "e2e-test/ui/playwright/**"
-            - ".github/workflows/docker-unified.yml"
-            - ".github/workflows/playwright-e2e-tests.yml"
