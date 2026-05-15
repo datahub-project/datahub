@@ -3,6 +3,8 @@ import { colors } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import styled from 'styled-components';
 
+import { NAV_SIDEBAR_COLLAPSE_TRANSITION_MS } from '@app/shared/constants';
+
 export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     display: inline-flex;
     flex-direction: column;
@@ -19,8 +21,8 @@ export const ToastContainer = styled.div<{ $sidebarWidth: number }>`
     box-shadow: 0 4px 28px 0 rgba(9, 1, 61, 0.14);
     z-index: 1000;
     transition:
-        left 250ms ease-in-out,
-        max-width 250ms ease-in-out;
+        left ${NAV_SIDEBAR_COLLAPSE_TRANSITION_MS}ms ease-out,
+        max-width ${NAV_SIDEBAR_COLLAPSE_TRANSITION_MS}ms ease-out;
     animation: slideUpScale 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 
     @keyframes slideUpScale {
