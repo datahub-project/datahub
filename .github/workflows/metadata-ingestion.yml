@@ -148,6 +148,48 @@ jobs:
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install ODBC driver for mssql tests
         run: ./metadata-ingestion/scripts/install_odbc_for_mssql_tests.sh
+      - name: Verify GE-optional packaging contract
+        if: ${{ matrix.command == 'testQuick' && matrix.python-version == '3.11' }}
+        run: |
+          # Protects against setup.py / pyproject.toml drift where a SQL
+          # connector extra accidentally re-introduces a top-level Great
+          # Expectations dependency. Uses [postgres] (lighter than [snowflake])
+          # as a representative SQL extra - both inherit from sql_common, so
+          # the GE-absent contract is equivalent.
+          set -e
+
+          GUARD_VENV=$(mktemp -d)/ge-guard-venv
+          python3 -m venv "$GUARD_VENV"
+          "$GUARD_VENV/bin/pip" install --upgrade pip --quiet
+
+          echo "Installing acryl-datahub[postgres] (must NOT pull Great Expectations)..."
+          "$GUARD_VENV/bin/pip" install -e "./metadata-ingestion[postgres]" --quiet
+
+          if "$GUARD_VENV/bin/pip" show acryl-great-expectations >/dev/null 2>&1; then
+            echo "::error::acryl-great-expectations was installed by [postgres] alone - setup.py or pyproject.toml regressed the GE-optional contract."
+            exit 1
+          fi
+          if "$GUARD_VENV/bin/pip" show great-expectations >/dev/null 2>&1; then
+            echo "::error::great-expectations was installed by [postgres] alone - setup.py or pyproject.toml regressed the GE-optional contract."
+            exit 1
+          fi
+          echo "GE absent without [profiling-ge]"
+
+          "$GUARD_VENV/bin/python" -c "
+          from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import SQLAlchemyProfiler
+          from datahub.ingestion.source.sql.postgres import PostgresSource
+          print('SQLAlchemyProfiler and PostgresSource importable without GE')
+          "
+
+          echo "Installing acryl-datahub[postgres,profiling-ge] (must pull GE)..."
+          "$GUARD_VENV/bin/pip" install -e "./metadata-ingestion[postgres,profiling-ge]" --quiet
+          if ! "$GUARD_VENV/bin/pip" show acryl-great-expectations >/dev/null 2>&1; then
+            echo "::error::[profiling-ge] extra did not install acryl-great-expectations"
+            exit 1
+          fi
+          echo "GE present with [profiling-ge]"
+
+          rm -rf "$GUARD_VENV"
       - name: Install dev environment for selective tests
         if: ${{ !matrix.command }}
         run: ./gradlew :metadata-ingestion:installDevTest
