@@ -80,11 +80,6 @@ def test_default_schema_pattern_denies_system_schemas():
     assert config.schema_pattern.allowed("REPORTING")
 
 
-# ---------------------------------------------------------------------------
-# HanaCalcViewColumn precise native type
-# ---------------------------------------------------------------------------
-
-
 @pytest.mark.parametrize(
     "kwargs,expected",
     [
@@ -98,11 +93,6 @@ def test_calc_view_column_precise_native_type(
 ) -> None:
     column = HanaCalcViewColumn(name="C", nullable=True, ordinal_position=1, **kwargs)
     assert column.get_precise_native_type() == expected
-
-
-# ---------------------------------------------------------------------------
-# HanaIdentifierBuilder
-# ---------------------------------------------------------------------------
 
 
 def test_calc_view_urn_lower_cased_and_uses_sys_bic_prefix():
@@ -171,11 +161,6 @@ def test_upstream_urn_for_table_function_flattens_namespace():
     )
     assert urn is not None
     assert "_sys_bic.acme.analytics.tf_sales" in urn
-
-
-# ---------------------------------------------------------------------------
-# SAPCalculationViewParser fixtures + tests
-# ---------------------------------------------------------------------------
 
 
 _SIMPLE_CALC_VIEW_XML = """
@@ -536,11 +521,6 @@ def test_parser_does_not_walk_sql_script_view_as_xml_node():
         assert entry.upstreams == []
 
 
-# ---------------------------------------------------------------------------
-# hana_script_lineage
-# ---------------------------------------------------------------------------
-
-
 def test_extract_table_references_finds_from_and_join_refs():
     sql = """
     BEGIN
@@ -573,11 +553,6 @@ def test_extract_table_references_dedupes_repeated_references():
 def test_extract_table_references_empty_for_call_only_script():
     sql = 'BEGIN call "UIS"."sap.hana.uis.db/GET_NAVIGATION_URL"(IN_TAG, var_out); END'
     assert extract_table_references(sql) == []
-
-
-# ---------------------------------------------------------------------------
-# HanaCalculationViewExtractor
-# ---------------------------------------------------------------------------
 
 
 def _build_fake_engine(calc_view_rows: list, column_rows: list) -> MagicMock:
@@ -751,11 +726,6 @@ def test_calc_view_extractor_emits_table_lineage_from_sql_script_view():
     ]
 
 
-# ---------------------------------------------------------------------------
-# Stored procedure extraction
-# ---------------------------------------------------------------------------
-
-
 def test_get_procedures_for_schema_yields_base_procedures():
     from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
         HanaDataDictionary,
@@ -792,11 +762,6 @@ def test_get_procedures_for_schema_yields_base_procedures():
     assert procs[0].language == "SQLSCRIPT"
     assert procs[0].procedure_definition is not None
     assert 'INSERT INTO "REPORTING"."SALES_AGG"' in procs[0].procedure_definition
-
-
-# ---------------------------------------------------------------------------
-# Query usage extraction
-# ---------------------------------------------------------------------------
 
 
 def test_iter_observed_queries_yields_typed_rows_and_skips_empty_text():
