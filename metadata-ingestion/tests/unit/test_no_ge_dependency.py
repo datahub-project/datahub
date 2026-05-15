@@ -9,6 +9,7 @@ import pytest
 _MODULES_TO_TEST = [
     "datahub.ingestion.source.sql.sql_generic_profiler",
     "datahub.ingestion.source.snowflake.snowflake_profiler",
+    "datahub.ingestion.source.bigquery_v2.profiler",
 ]
 
 

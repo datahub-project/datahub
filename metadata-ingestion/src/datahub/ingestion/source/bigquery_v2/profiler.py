@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine, inspect
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -13,7 +14,6 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -22,6 +22,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -90,6 +91,15 @@ class BigqueryProfiler(GenericProfiler):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
+            try:
+                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+            except ImportError as e:
+                raise ConfigurationError(
+                    "The Great Expectations profiler is not installed. Either install "
+                    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
+                    "or switch to the SQLAlchemy profiler by setting "
+                    "`profiling.method: sqlalchemy` in your recipe."
+                ) from e
             return DatahubGEProfiler(
                 conn=inspector.bind,
                 report=self.report,
