@@ -28,6 +28,10 @@ class MSSQLAdapter(PlatformAdapter):
         Python fallback. MSSQL 2012+ supports `OFFSET ... ROWS FETCH NEXT ...
         ROWS ONLY`, which SQLAlchemy emits automatically for `.limit().offset()`.
 
+    Mean (AVG) float promotion is handled by the base adapter via `AVG(col * 1.0)`,
+    which works for MSSQL (where it prevents integer truncation) and all other
+    dialects (where it preserves precision).
+
     Mirrors GE's MSSQL handling in great_expectations.dataset.sqlalchemy_dataset:
       - `get_column_stdev` (MSSQL branch uses `sa.func.stdev`).
       - `_get_column_quantiles_mssql` (PERCENTILE_DISC ... WITHIN GROUP OVER ()).
@@ -52,17 +56,6 @@ class MSSQLAdapter(PlatformAdapter):
         `OFFSET ... ROWS FETCH NEXT ... ROWS ONLY`).
         """
         return None
-
-    def get_mean_expr(self, column: str) -> ColumnElement[Any]:
-        """
-        MSSQL mean - multiplies by 1.0 to force float promotion.
-
-        MSSQL's `AVG(int_col)` returns an integer (truncating the average toward
-        zero). The standard workaround is to multiply by 1.0 before averaging so
-        the column is promoted to float, preserving precision. GE uses the same
-        trick (sqlalchemy_dataset.py:1093-1101).
-        """
-        return sa.func.avg(sa.column(column) * 1.0)
 
     # =========================================================================
     # Query Execution Methods (overrides)

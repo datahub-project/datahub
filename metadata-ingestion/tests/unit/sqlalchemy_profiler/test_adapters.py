@@ -354,6 +354,21 @@ class TestGenericAdapter:
         """Generic adapter returns None — base adapter's Python OFFSET/LIMIT fallback handles it."""
         assert adapter.get_median_expr("test_column") is None
 
+    def test_generic_mean_expr_promotes_to_float(self, adapter, mock_generic_engine):
+        """
+        Base/generic AVG must emit `AVG(col * 1.0)` to force float promotion.
+
+        This prevents:
+          - MSSQL integer truncation (`AVG(int_col)` returns int there).
+          - MySQL/Doris precision loss (DECIMAL(N,4) for AVG over int columns).
+        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Catches future
+        regressions that drop `* 1.0` from base or re-add an MSSQL-specific override.
+        """
+        expr = adapter.get_mean_expr("my_col")
+        rendered = compile_expr_to_sql(expr, mock_generic_engine.dialect)
+        assert "1.0" in rendered
+        assert "avg" in rendered.lower()
+
     def test_get_quantiles_expr(self, adapter):
         """Test generic adapter returns None for quantiles (not supported)."""
         expr = adapter.get_quantiles_expr("test_column", [0.25, 0.5, 0.75])
@@ -452,13 +467,6 @@ class TestMSSQLAdapter:
     def test_get_median_expr_returns_none(self, adapter):
         """MSSQL has no native MEDIAN — None engages base OFFSET/LIMIT fallback."""
         assert adapter.get_median_expr("value_column") is None
-
-    def test_mean_expr_promotes_to_float(self, adapter, mock_mssql_engine):
-        """MSSQL's AVG(int_col) returns int — multiply by 1.0 to force float promotion."""
-        expr = adapter.get_mean_expr("my_col")
-        rendered = compile_expr_to_sql(expr, mock_mssql_engine.dialect)
-        assert "1.0" in rendered
-        assert "avg" in rendered.lower()
 
     def test_supports_row_count_estimation(self, adapter):
         """MSSQL row count estimation not implemented yet (defaults to False)."""

@@ -640,7 +640,7 @@ class SQLAlchemyProfiler:
                 exc=e,
             )
 
-    def _process_numeric_column_stats(
+    def _process_numeric_column_stats(  # noqa: C901
         self,
         runner: "QueryCombinerRunner",
         sql_table: "sa.Table",
@@ -770,7 +770,12 @@ class SQLAlchemyProfiler:
                         f"Quantiles for {col_name}: type={type(quantiles)}, "
                         f"len={len(quantiles) if quantiles else 0}, value={quantiles}"
                     )
-                    column_profile.quantiles = [
+                    # Build the filtered list first; only assign if non-empty.
+                    # Adapters that don't support quantiles (e.g. MySQL has no
+                    # PERCENTILE_CONT) return [None, None, ...], which would
+                    # otherwise leak through as `"quantiles": []` in the JSON
+                    # output. GE omits the field entirely in that case.
+                    quantiles_list = [
                         QuantileClass(quantile=str(q), value=str(v))
                         for q, v in zip(
                             [0.05, 0.25, 0.5, 0.75, 0.95],
@@ -779,6 +784,8 @@ class SQLAlchemyProfiler:
                         )
                         if v is not None
                     ]
+                    if quantiles_list:
+                        column_profile.quantiles = quantiles_list
                 except Exception as e:
                     logger.debug(
                         f"Caught exception while attempting to get column quantiles for column {col_name}. {e}"

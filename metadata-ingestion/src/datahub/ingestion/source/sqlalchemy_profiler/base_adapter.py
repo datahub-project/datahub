@@ -226,10 +226,14 @@ class PlatformAdapter(ABC):
         """
         Get platform-specific mean (AVG) expression.
 
-        Default implementation returns AVG(column). Most dialects auto-promote
-        integer columns to floating-point during AVG. Dialects that don't
-        (notably MSSQL) override this to add an explicit float promotion;
-        platforms like Redshift override it to CAST for full precision.
+        Default implementation returns `AVG(column * 1.0)`. The `* 1.0` forces
+        float promotion before AVG, which:
+          - prevents integer truncation on MSSQL (`AVG(int_col)` returns int there);
+          - prevents precision loss on MySQL/Doris (which return DECIMAL(N,4) for
+            AVG over integer columns without the cast).
+
+        GE uses the same trick (sqlalchemy_dataset.py:1093-1101). Redshift adapter
+        overrides this with an explicit CAST for full precision.
 
         Args:
             column: Column name
@@ -237,7 +241,7 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for AVG
         """
-        return sa.func.avg(sa.column(column))
+        return sa.func.avg(sa.column(column) * 1.0)
 
     # =========================================================================
     # Row Count Estimation
