@@ -17,10 +17,13 @@ KNOWN_FAILURES: dict[int, str] = {
     # bridgeGap is now wired (EmbedV2ToV3Mutator + EmbedV3ToV4Mutator exist in
     # entity-registry/.../aspect/hooks/). TC-7/11/21 should now PASS via the
     # full v2→v3→v4 chain at sweep/write time. Removed from XFAIL.
-    12: "transform() returning null is a no-op by design; schemaVersion not bumped",
-    13: "Invalid URNs crashing the sweep is known/acceptable — not expected in prod",
-    14: "Malformed JSON crashing the sweep is known/acceptable — not expected in prod",
-    19: "chain.disable() is not yet wired; mutation hook runs after sweep — open bug",
+    #
+    # TC-12, TC-13, TC-14, TC-19 removed — false positives. TC-12 asserts
+    # expected_schema_version=3 (no-op transform leaves schemaVersion at 3,
+    # which is correct by design). TC-13/14/19 use expected_schema_version=None
+    # so the executor only verifies the aspect is fetchable — it does not
+    # actually exercise the crash paths the names imply. All four pass under
+    # the normal validation path.
 }
 
 

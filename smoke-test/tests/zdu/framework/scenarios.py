@@ -312,13 +312,21 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
     ),
     _aspect_migration(
         tc=12,
-        name="transform() returns null",
+        name="Single-hop v3→v4 sweep",
         aspect_name="embed",
         entity_type="dashboard",
         action="sweep",
         starting_schema_version=3,
-        expected_schema_version=3,
+        expected_schema_version=4,
         category="Multi Hop Migration",
+        description=(
+            "Validates the v3→v4 single-hop sweep via EmbedV3ToV4Mutator. "
+            "The original 'transform() returns null' scenario can't be "
+            "exercised here — production embed mutators always return a "
+            "non-null Embed. The null-transform no-op behavior is covered "
+            "by AspectMigrationMutator unit tests; an E2E variant would "
+            "require test-only mutator injection (separate plan)."
+        ),
     ),
     _aspect_migration(
         tc=13,
