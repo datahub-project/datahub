@@ -121,9 +121,15 @@ class HanaCalculationViewExtractor:
             with engine.connect() as conn:
                 data_dict = HanaDataDictionary(conn, self.report)
                 for calc_view in data_dict.get_calculation_views():
-                    qualified = calc_view.qualified_identifier
-                    if not self.config.view_pattern.allowed(qualified):
-                        self.report.report_dropped(qualified)
+                    # Match against the natural package-prefixed form
+                    # users see in HANA tooling (e.g.
+                    # ``acme.analytics.SalesOverview``) rather than the
+                    # URN-safe lower-cased qualified identifier, so
+                    # config patterns can be copied directly from HANA
+                    # Studio / Web IDE without case juggling.
+                    pattern_key = f"{calc_view.package_id}.{calc_view.name}"
+                    if not self.config.calculation_view_pattern.allowed(pattern_key):
+                        self.report.report_dropped(calc_view.qualified_identifier)
                         continue
                     calc_view.columns = data_dict.get_columns_for_calculation_view(
                         calc_view
@@ -197,7 +203,6 @@ class HanaCalculationViewExtractor:
         )
 
     def _populate_lineage(self, calc_view: HanaCalculationView) -> None:
-        """Feed XML-derived column lineage and SQLScript-derived table lineage to the aggregator."""
         downstream_urn = self.identifiers.calc_view_urn(calc_view)
         column_lineage: List[ColumnLineageInfo] = []
         upstreams: set[str] = set()

@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 @platform_name("SAP HANA", id="hana")
 @config_class(HanaConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")

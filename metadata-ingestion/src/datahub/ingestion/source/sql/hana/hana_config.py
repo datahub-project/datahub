@@ -29,8 +29,6 @@ _DEFAULT_DENY_SCHEMAS = [
 
 
 class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
-    """Configuration for the SAP HANA DataHub source."""
-
     scheme: HiddenFromDocs[str] = Field(
         default="hana+hdbcli",
         description="SQLAlchemy scheme. Defaults to the official SAP `hdbcli` driver.",
@@ -41,64 +39,33 @@ class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=_DEFAULT_DENY_SCHEMAS),
-        description=(
-            "Regex patterns for schemas to filter in ingestion. By default "
-            "every `_SYS_*` schema (except `_SYS_BIC`, which exposes activated "
-            "calculation views) is excluded. Override `deny` to disable this "
-            "default filtering."
-        ),
+        description="Regex patterns for schemas to filter in ingestion. SAP-managed `_SYS_*` schemas (except `_SYS_BIC`) are denied by default.",
     )
     include_calculation_views: bool = Field(
         default=False,
-        description=(
-            "If true, extract SAP HANA calculation views from "
-            "`_SYS_REPO.ACTIVE_OBJECT` and emit column-level lineage from "
-            "their XML definitions. Requires `SELECT` on "
-            "`_SYS_REPO.ACTIVE_OBJECT` and `SYS.VIEW_COLUMNS`. Off by default "
-            "because the calculation-view repository requires SAP HANA XS "
-            "classic / repository content, which is not present on every "
-            "deployment."
-        ),
+        description="If true, ingest SAP HANA calculation views from `_SYS_REPO.ACTIVE_OBJECT` with column-level lineage parsed from their XML. On-premise / self-managed HANA only.",
+    )
+    calculation_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns matched against `<package_id>.<view_name>` (e.g. `acme.analytics.SalesOverview`) to filter calculation views. Use this instead of `view_pattern` for calculation views.",
     )
     include_stored_procedures: bool = Field(
         default=True,
-        description=(
-            "If true, ingest SAP HANA stored procedures as `DataJob` entities "
-            "(grouped by schema under a `DataFlow`) and parse their bodies "
-            "for table-level and procedure-to-procedure lineage."
-        ),
+        description="If true, ingest stored procedures as `DataJob` entities with table-level lineage parsed from their bodies.",
     )
     procedure_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description=(
-            "Regex patterns matched against `<schema>.<procedure_name>` to "
-            "filter which stored procedures are ingested."
-        ),
+        description="Regex patterns matched against `<schema>.<procedure_name>` to filter stored procedures.",
     )
     include_query_usage: bool = Field(
         default=False,
-        description=(
-            "If true, mine query history from "
-            "`_SYS_STATISTICS.HOST_SQL_PLAN_CACHE` and feed it through the "
-            "SQL parsing aggregator. Requires the statistics service to be "
-            "running and the ingestion user to have the `MONITORING` role "
-            "(or `CATALOG READ` system privilege). Off by default because "
-            "neither prerequisite is universally available."
-        ),
+        description="If true, mine query history from `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE`. Requires the `MONITORING` role or `CATALOG READ` system privilege.",
     )
     include_usage_stats: bool = Field(
         default=False,
-        description=(
-            "If true, emit `DatasetUsageStatistics` aspects rolled up from "
-            "the observed queries extracted via `include_query_usage`. "
-            "Has no effect unless `include_query_usage` is also enabled."
-        ),
+        description="If true, emit `DatasetUsageStatistics` aspects. Requires `include_query_usage`.",
     )
     usage_max_queries: PositiveInt = Field(
         default=10000,
-        description=(
-            "Maximum number of distinct `(statement_hash, "
-            "last_execution_timestamp)` rows pulled from "
-            "`HOST_SQL_PLAN_CACHE` per ingestion run."
-        ),
+        description="Maximum number of distinct `(statement_hash, last_execution_timestamp)` rows pulled from `HOST_SQL_PLAN_CACHE` per ingestion run. Distinct from `top_n_queries`, which caps the per-bucket rollup.",
     )

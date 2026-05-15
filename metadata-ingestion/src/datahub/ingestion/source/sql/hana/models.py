@@ -1,7 +1,12 @@
 from datetime import datetime
-from typing import Dict, List, Literal, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+from datahub.ingestion.source.sql.hana.constants import (
+    ColumnEdgeKind,
+    OutputMappingKind,
+)
 
 
 class DataSourceRef(BaseModel):
@@ -16,7 +21,7 @@ class ColumnEdge(BaseModel):
     """An ``<input>``/``<mapping>`` edge inside a calculation node."""
 
     source: str
-    kind: Literal["column", "formula"] = "column"
+    kind: ColumnEdgeKind = ColumnEdgeKind.COLUMN
 
 
 class CalcViewNode(BaseModel):
@@ -34,7 +39,7 @@ class OutputMapping(BaseModel):
 
     source_column: str
     source_node: str
-    kind: Literal["attribute", "measure"]
+    kind: OutputMappingKind
 
 
 class CalcViewModel(BaseModel):
@@ -94,21 +99,3 @@ class HanaObservedQueryRow(BaseModel):
     schema_name: Optional[str] = None
     application_name: Optional[str] = None
     last_execution_timestamp: Optional[datetime] = None
-
-
-class HanaProcedureRow(BaseModel):
-    """A single row from ``SYS.PROCEDURES`` plus its argument signature.
-
-    Carries everything we need to construct a ``BaseProcedure`` without
-    re-querying the catalog.
-    """
-
-    schema_name: str
-    name: str
-    definition: Optional[str] = None
-    language: str = "SQL"
-    procedure_type: Optional[str] = None
-    create_time: Optional[str] = None
-    argument_signature: Optional[str] = None
-    return_type: Optional[str] = None
-    comment: Optional[str] = None

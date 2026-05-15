@@ -1,7 +1,7 @@
 import logging
 import re
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Literal, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import defusedxml.ElementTree as DET
 from defusedxml.common import DefusedXmlException
@@ -14,6 +14,8 @@ from datahub.ingestion.source.sql.hana.constants import (
     CalcViewNodeType,
     CalcViewXmlAttribute,
     CalcViewXmlElement,
+    ColumnEdgeKind,
+    OutputMappingKind,
 )
 from datahub.ingestion.source.sql.hana.models import (
     CalcViewModel,
@@ -45,11 +47,8 @@ class SAPCalculationViewParser:
     def column_lineage(
         self, view_name: str, view_definition: str
     ) -> List[ColumnLineage]:
-        """Return column-level lineage for a calculation view.
-
-        Returns an empty list if the XML cannot be parsed or is rejected by
-        the safe parser; the caller can fall back to table-level lineage.
-        """
+        """Empty list on parse failure or defusedxml rejection — the caller
+        can fall back to table-level lineage in that case."""
         root = self._parse_xml(view_name, view_definition)
         if root is None:
             return []
@@ -79,7 +78,6 @@ class SAPCalculationViewParser:
 
     @staticmethod
     def _extract_columns_from_formula(formula: str) -> List[str]:
-        """Extract quoted column references from a calc-view formula expression."""
         return _QUOTED_COLUMN_RE.findall(formula)
 
     @staticmethod
@@ -111,6 +109,12 @@ class SAPCalculationViewParser:
             logger.warning(
                 "Error parsing calculation view %s: %s", view_name, e, exc_info=True
             )
+            # Return a fresh, empty model on partial-parse failure rather
+            # than the half-populated one. Half-populated models can
+            # mislead the DAG traversal into emitting partial lineage
+            # that looks complete but silently drops branches the parser
+            # never reached.
+            return CalcViewModel(view_name=view_name)
 
         return model
 
@@ -199,7 +203,7 @@ class SAPCalculationViewParser:
         branch: str,
         visited: Set[Tuple[str, str]],
     ) -> List[UpstreamColumnRef]:
-        if edge.kind == "formula":
+        if edge.kind == ColumnEdgeKind.FORMULA:
             return [
                 source
                 for ref_col in self._extract_columns_from_formula(edge.source)
@@ -237,11 +241,13 @@ def _collect_data_sources(xml: ET.Element, model: CalcViewModel) -> None:
 def _collect_outputs(xml: ET.Element, model: CalcViewModel) -> None:
     for attr in xml.findall(LOGICAL_MODEL_ATTRIBUTES_XPATH):
         model.outputs[attr.attrib[CalcViewXmlAttribute.ID]] = _build_output_mapping(
-            attr.find(CalcViewXmlElement.KEY_MAPPING), kind="attribute"
+            attr.find(CalcViewXmlElement.KEY_MAPPING),
+            kind=OutputMappingKind.ATTRIBUTE,
         )
     for measure in xml.findall(LOGICAL_MODEL_MEASURES_XPATH):
         model.outputs[measure.attrib[CalcViewXmlAttribute.ID]] = _build_output_mapping(
-            measure.find(CalcViewXmlElement.MEASURE_MAPPING), kind="measure"
+            measure.find(CalcViewXmlElement.MEASURE_MAPPING),
+            kind=OutputMappingKind.MEASURE,
         )
 
 
@@ -292,14 +298,14 @@ def _read_input_mappings(input_el: ET.Element) -> Dict[str, ColumnEdge]:
         source = mapping.attrib.get(CalcViewXmlAttribute.SOURCE)
         target = mapping.attrib.get(CalcViewXmlAttribute.TARGET)
         if source and target:
-            edges[target] = ColumnEdge(source=source, kind="column")
+            edges[target] = ColumnEdge(source=source, kind=ColumnEdgeKind.COLUMN)
     return edges
 
 
 def _build_output_mapping(
     mapping_element: Optional[ET.Element],
     *,
-    kind: Literal["attribute", "measure"],
+    kind: OutputMappingKind,
 ) -> OutputMapping:
     if mapping_element is None:
         return OutputMapping(source_column="", source_node="", kind=kind)
@@ -313,7 +319,14 @@ def _build_output_mapping(
 
 
 def _split_resource_uri(uri: str) -> Tuple[str, str]:
-    """Return ``(leaf, package)`` for ``/acme.analytics/calculationviews/Sales``."""
+    """Split a HANA design-time resourceUri into ``(leaf_view, dotted_package)``.
+
+    For example ``/acme.analytics/calculationviews/Sales`` →
+    ``("Sales", "acme.analytics")``. The ``/calculationviews`` segment
+    HANA inserts between the package path and the view name is stripped
+    before slashes are converted to dots so the result matches the
+    package-id form stored in ``_SYS_REPO.ACTIVE_OBJECT.PACKAGE_ID``.
+    """
     parts = uri.strip().lstrip("/").split("/")
     if not parts:
         return "", ""

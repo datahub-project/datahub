@@ -20,32 +20,34 @@ class CalcViewNodeType(StrEnum):
     SQL_SCRIPT = "Calculation:SqlScriptView"
 
 
-class HanaObjectType(StrEnum):
-    """``_SYS_REPO.ACTIVE_OBJECT.OBJECT_SUFFIX`` values we ingest."""
+class ColumnEdgeKind(StrEnum):
+    """Discriminator on a ``ColumnEdge`` between literal columns and formulas.
 
-    CALCULATION_VIEW = "calculationview"
-    PROCEDURE = "procedure"
+    Stored verbatim in :class:`ColumnEdge.kind`; the DAG traversal switches
+    between "follow this source column to its leaf" (``COLUMN``) and "parse
+    this expression for referenced columns" (``FORMULA``).
+    """
+
+    COLUMN = "column"
+    FORMULA = "formula"
+
+
+class OutputMappingKind(StrEnum):
+    """Discriminator on a logical-model :class:`OutputMapping`.
+
+    Calculation views expose two kinds of output bindings: dimensional
+    attributes (under ``<attributes>``) and aggregatable measures (under
+    ``<baseMeasures>``). We retain the kind so downstream consumers can tell
+    them apart even after the source XML is gone.
+    """
+
+    ATTRIBUTE = "attribute"
+    MEASURE = "measure"
 
 
 # ``_SYS_BIC`` is the runtime schema HANA materializes activated calculation
 # views into; users query them as ``"_SYS_BIC"."<package>/<view>"``.
 SYS_BIC_SCHEMA = "_SYS_BIC"
-
-# Container name used to group HANA stored procedures into a DataFlow per
-# schema (matches the convention shared with Oracle / MSSQL).
-STORED_PROCEDURES_CONTAINER = "stored_procedures"
-
-# Statistics-service schema that snapshots ``M_SQL_PLAN_CACHE`` over time and
-# the historical view holding those snapshots. Required for usage extraction.
-STATISTICS_SCHEMA = "_SYS_STATISTICS"
-HOST_SQL_PLAN_CACHE_VIEW = "HOST_SQL_PLAN_CACHE"
-
-# HANA technical users we always exclude from usage attribution. ``SYS`` is the
-# system schema owner; ``_SYS_*`` users (``_SYS_REPO``, ``_SYS_STATISTICS``,
-# ``_SYS_TASK``, ``_SYS_XB`` etc.) own internal background work and never
-# represent real query traffic. Match against ``UPPER(USER_NAME)``.
-HANA_SYSTEM_USER_NAME = "SYS"
-HANA_SYSTEM_USER_PREFIX = "_SYS_"
 
 
 # ---------------------------------------------------------------------------

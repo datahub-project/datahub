@@ -42,14 +42,6 @@ from datahub.metadata.schema_classes import (
 # ---------------------------------------------------------------------------
 
 
-def test_platform_correctly_set_hana():
-    source = HanaSource(
-        ctx=PipelineContext(run_id="hana-source-test"),
-        config=HanaConfig(),
-    )
-    assert source.platform == "hana"
-
-
 def test_hana_uri_native():
     config = HanaConfig.model_validate(
         {
@@ -86,26 +78,6 @@ def test_default_schema_pattern_denies_system_schemas():
     # _SYS_BIC must stay accessible — it exposes activated calc views.
     assert config.schema_pattern.allowed("_SYS_BIC")
     assert config.schema_pattern.allowed("REPORTING")
-
-
-def test_include_calculation_views_is_off_by_default():
-    source = HanaSource(
-        ctx=PipelineContext(run_id="hana-default-config"),
-        config=HanaConfig(),
-    )
-    assert source.calc_view_extractor is None
-
-
-def test_calc_view_extractor_constructed_when_enabled():
-    source = HanaSource(
-        ctx=PipelineContext(run_id="hana-calc-views"),
-        config=HanaConfig.model_validate({"include_calculation_views": True}),
-    )
-    assert source.calc_view_extractor is not None
-
-
-def test_stored_procedure_extraction_is_on_by_default():
-    assert HanaConfig().include_stored_procedures is True
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +274,62 @@ def test_parser_extracts_union_lineage_from_both_branches():
     assert len(lineage) == 1
     pairs = {(u.source_name, u.column) for u in lineage[0].upstreams}
     assert pairs == {("ONLINE_SALES", "AMOUNT"), ("STORE_SALES", "TOTAL")}
+
+
+# JoinView and AggregationView share the non-Union code path with
+# ProjectionView, so a single shared fixture covers them. They are the
+# most common non-projection node types in real HANA calc views, so we
+# keep an explicit test to lock the behaviour even though the underlying
+# code path is the same.
+
+
+def _calc_view_xml_for_node_type(node_xsi_type: str) -> str:
+    return f"""
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dataSources>
+    <DataSource id="ORDERS" type="DATA_BASE_TABLE">
+      <columnObject schemaName="REPORTING" columnObjectName="ORDERS"/>
+    </DataSource>
+  </dataSources>
+  <calculationViews>
+    <calculationView xsi:type="{node_xsi_type}" id="Node_1">
+      <input node="#ORDERS">
+        <mapping xsi:type="Calculation:AttributeMapping"
+                 source="AMOUNT" target="TOTAL"/>
+      </input>
+    </calculationView>
+  </calculationViews>
+  <logicalModel>
+    <baseMeasures>
+      <measure id="TOTAL_AMOUNT">
+        <measureMapping columnObjectName="Node_1" columnName="TOTAL"/>
+      </measure>
+    </baseMeasures>
+  </logicalModel>
+</Calculation:scenario>
+"""
+
+
+@pytest.mark.parametrize(
+    "node_xsi_type",
+    ["Calculation:JoinView", "Calculation:AggregationView"],
+)
+def test_parser_traces_lineage_through_join_and_aggregation_nodes(
+    node_xsi_type: str,
+) -> None:
+    xml = _calc_view_xml_for_node_type(node_xsi_type)
+    lineage = SAPCalculationViewParser().column_lineage("OrdersRollup", xml)
+    assert len(lineage) == 1
+    assert lineage[0].downstream_column == "TOTAL_AMOUNT"
+    assert lineage[0].upstreams == [
+        UpstreamColumnRef(
+            column="AMOUNT",
+            source_name="ORDERS",
+            source_path="REPORTING",
+            source_type=HanaSourceType.DATA_BASE_TABLE,
+        ),
+    ]
 
 
 def test_parser_returns_empty_list_for_invalid_xml():

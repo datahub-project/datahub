@@ -90,16 +90,24 @@ def usage_query_from_host_sql_plan_cache(top_n: int) -> TextClause:
 
     Filters:
 
-    - System users (``SYS`` and ``_SYS_*``) and monitoring traffic against
-      ``SYS`` / ``_SYS_*`` schemas are excluded — they never represent
-      real user workload. ``LEFT(UPPER(USER_NAME), 5) != '_SYS_'`` is
-      used instead of LIKE because the underscore is a LIKE wildcard in
-      HANA and the SQL standard ESCAPE clause is painful to round-trip
+    - System users (``SYS`` and ``_SYS_*``) are excluded — they never
+      represent real user workload. ``LEFT(UPPER(USER_NAME), 5) != '_SYS_'``
+      is used instead of LIKE because the underscore is a LIKE wildcard
+      in HANA and the SQL standard ESCAPE clause is painful to round-trip
       cleanly through Python string literals.
     - ``STATEMENT_STRING`` is required (some internal entries have NULL).
     - The window is bound to ``LAST_EXECUTION_TIMESTAMP`` rather than the
       snapshot ``SERVER_TIMESTAMP`` so callers can reason about query
       execution time directly.
+
+    No ``STATEMENT_STRING`` shape filtering is applied: previous versions
+    excluded ``SELECT ... FROM SYS.*`` / ``FROM _SYS_*`` traffic via LIKE,
+    but ``_`` is a single-char LIKE wildcard so ``_SYS_`` over-matched
+    arbitrary 5-char tokens, and the filter only caught ``SELECT``s
+    (missing ``CALL``, ``INSERT INTO ... SELECT``, etc.). The user-name
+    exclusion above is sufficient to drop HANA's own internal traffic;
+    any application that happens to read ``SYS`` views ends up with a
+    ``SYS.*`` upstream URN that downstream consumers can filter on.
 
     ``top_n`` is interpolated into ``LIMIT`` because HANA's ``LIMIT``
     clause does not accept bind parameters; the caller validates it as
@@ -120,10 +128,6 @@ def usage_query_from_host_sql_plan_cache(top_n: int) -> TextClause:
           AND STATEMENT_STRING IS NOT NULL
           AND UPPER(USER_NAME) != 'SYS'
           AND LEFT(UPPER(USER_NAME), 5) != '_SYS_'
-          AND STATEMENT_STRING NOT LIKE 'SELECT%FROM "SYS".%'
-          AND STATEMENT_STRING NOT LIKE 'SELECT%FROM SYS.%'
-          AND STATEMENT_STRING NOT LIKE 'SELECT%FROM "_SYS_%'
-          AND STATEMENT_STRING NOT LIKE 'SELECT%FROM _SYS_%'
         GROUP BY STATEMENT_HASH, LAST_EXECUTION_TIMESTAMP
         ORDER BY LAST_EXECUTION_TIMESTAMP DESC
         LIMIT {top_n}

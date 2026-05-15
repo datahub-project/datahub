@@ -1,21 +1,3 @@
-"""Mock-driven integration test for the HANA calc-view + usage paths.
-
-Stands in for the Docker-based ``test_hana_ingest`` whenever HANA Express
-isn't available (e.g. aarch64 CI runners, or when the SAP image gate
-prevents the pull). Runs unconditionally and snapshots a golden MCE file.
-
-Scope:
-- Calculation-view discovery via mocked ``_SYS_REPO.ACTIVE_OBJECT`` rows
-  (one ProjectionView and one SqlScriptView).
-- Column- and table-level lineage emission through ``SqlParsingAggregator``.
-- Observed-query usage extraction via mocked
-  ``_SYS_STATISTICS.HOST_SQL_PLAN_CACHE`` rows.
-
-The SQLAlchemy reflection path is short-circuited (empty inspector) so the
-golden stays focused on the HANA-specific code paths; standard table /
-view / profiling extraction is covered by the Docker-based test.
-"""
-
 import datetime as dt
 import pathlib
 from typing import Any, Dict, List
@@ -262,8 +244,11 @@ def _build_empty_inspector(engine: MagicMock) -> MagicMock:
 def test_hana_calc_views_and_usage_mock(
     pytestconfig: pytest.Config,
     tmp_path: pathlib.Path,
-    mock_time: None,
 ) -> None:
+    # NOTE: do NOT add ``mock_time`` from the global conftest fixture — it
+    # invokes ``time_machine.travel`` to a different epoch and nesting two
+    # travel contexts produces undefined behaviour. Use the decorator above
+    # as the single source of frozen time for this test.
     test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
     output_file = tmp_path / "hana_mock_mces.json"
     golden_file = test_resources_dir / "hana_mock_calc_views_golden.json"
