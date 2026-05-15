@@ -696,25 +696,25 @@ class PlatformAdapter(ABC):
         conn: Connection,
     ) -> List[Tuple[Any, int]]:
         """
-        Get all distinct values with their counts, sorted by value (with NULLs last).
+        Get all distinct non-null values with their counts, sorted by value in Python.
 
-        Sorting happens in Python rather than via SQL `ORDER BY` so that column
-        types that aren't natively orderable in some dialects (Trino's JSON, for
-        example) don't crash the query with a "not orderable" error. GROUP BY
-        works for these types; only ORDER BY is restricted.
-
-        Args:
-            table: SQLAlchemy table object
-            column: Column name
-            conn: Active database connection
-
-        Returns:
-            List of (value, count) tuples, sorted by value
+        Mirrors the GE profiler's `_get_dataset_column_distinct_value_frequencies`
+        query structure intentionally:
+          - `WHERE col IS NOT NULL` filters nulls and (importantly) changes
+            predicate pushdown for the Trino JDBC connector so the GROUP BY runs
+            Trino-side, where Trino's JSON type supports GROUP BY. Without this
+            clause Trino pushes the whole query down to PostgreSQL, which fails
+            on `GROUP BY <json column>` because Postgres `json` has no equality
+            operator.
+          - `COUNT(<col>)` instead of `COUNT(*)` matches GE's projection exactly.
+          - Sorting is done in Python after fetch because not all column types
+            (Trino/Athena JSON) are orderable in SQL.
         """
-        count_expr = sa.func.count().label("count")
+        count_expr = sa.func.count(sa.column(column)).label("count")
         query = (
             sa.select([sa.column(column), count_expr])
             .select_from(table)
+            .where(sa.column(column).is_not(None))
             .group_by(sa.column(column))
         )
 
