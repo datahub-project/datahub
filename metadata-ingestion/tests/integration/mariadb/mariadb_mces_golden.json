@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400527,
+        "lastObserved": 1713074400668,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400527,
+        "lastObserved": 1713074400668,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400528,
+        "lastObserved": 1713074400668,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400528,
+        "lastObserved": 1713074400668,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400528,
+        "lastObserved": 1713074400668,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,7 +98,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400530,
+        "lastObserved": 1713074400670,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -231,7 +231,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400530,
+        "lastObserved": 1713074400671,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -249,7 +249,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400531,
+        "lastObserved": 1713074400672,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -270,7 +270,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400531,
+        "lastObserved": 1713074400672,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -286,7 +286,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400535,
+        "lastObserved": 1713074400673,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -407,7 +407,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400535,
+        "lastObserved": 1713074400674,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -425,7 +425,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400536,
+        "lastObserved": 1713074400674,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +446,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400536,
+        "lastObserved": 1713074400674,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -462,7 +462,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400537,
+        "lastObserved": 1713074400676,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -559,7 +559,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400538,
+        "lastObserved": 1713074400677,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -577,7 +577,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400538,
+        "lastObserved": 1713074400677,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -598,7 +598,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400538,
+        "lastObserved": 1713074400677,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -614,7 +614,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400547,
+        "lastObserved": 1713074400684,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -723,7 +723,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400547,
+        "lastObserved": 1713074400685,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -741,7 +741,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400685,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -762,7 +762,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400685,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -779,7 +779,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400686,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -797,7 +797,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400686,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -813,7 +813,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400686,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -834,7 +834,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400548,
+        "lastObserved": 1713074400686,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -854,7 +854,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400733,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -872,7 +872,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400733,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -888,7 +888,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400733,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -911,7 +911,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400733,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -983,7 +983,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400733,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1004,7 +1004,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400592,
+        "lastObserved": 1713074400734,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1024,7 +1024,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400602,
+        "lastObserved": 1713074400744,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1042,7 +1042,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400602,
+        "lastObserved": 1713074400744,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1058,7 +1058,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400603,
+        "lastObserved": 1713074400744,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1081,7 +1081,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400603,
+        "lastObserved": 1713074400744,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1140,7 +1140,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400603,
+        "lastObserved": 1713074400744,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1161,7 +1161,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400603,
+        "lastObserved": 1713074400745,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1181,7 +1181,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400606,
+        "lastObserved": 1713074400750,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1199,7 +1199,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400606,
+        "lastObserved": 1713074400750,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1215,7 +1215,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400606,
+        "lastObserved": 1713074400750,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1238,7 +1238,28 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400606,
+        "lastObserved": 1713074400750,
+        "runId": "mariadb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),refresh_customer_analytics)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [],
+            "outputDatasets": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),process_customer_data)",
+                "urn:li:dataJob:(urn:li:dataFlow:(mariadb,test_db.stored_procedures,PROD),generate_order_summaries)"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1713074400750,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1259,7 +1280,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400607,
+        "lastObserved": 1713074400751,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1275,7 +1296,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400607,
+        "lastObserved": 1713074400751,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1291,7 +1312,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400607,
+        "lastObserved": 1713074400751,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1307,7 +1328,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400607,
+        "lastObserved": 1713074400751,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1323,7 +1344,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074400607,
+        "lastObserved": 1713074400751,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1335,7 +1356,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1713074402585,
+            "timestampMillis": 1713074403190,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1377,7 +1398,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402634,
+        "lastObserved": 1713074403460,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1389,7 +1410,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1713074402585,
+            "timestampMillis": 1713074403438,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1426,7 +1447,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402654,
+        "lastObserved": 1713074403758,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1438,7 +1459,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1713074402584,
+            "timestampMillis": 1713074403694,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1493,25 +1514,25 @@
                     "uniqueProportion": 0.3333333333333333,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-05-15T13:56:03",
-                    "max": "2026-05-15T13:56:03",
+                    "min": "2026-05-15T16:08:09",
+                    "max": "2026-05-15T16:08:09",
                     "distinctValueFrequencies": [
                         {
-                            "value": "2026-05-15 13:56:03",
+                            "value": "2026-05-15 16:08:09",
                             "frequency": 3
                         }
                     ],
                     "sampleValues": [
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03"
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09"
                     ]
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402813,
+        "lastObserved": 1713074404173,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1523,7 +1544,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1713074402584,
+            "timestampMillis": 1713074403950,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1608,27 +1629,27 @@
                     "uniqueProportion": 0.2,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-05-15T13:56:03",
-                    "max": "2026-05-15T13:56:03",
+                    "min": "2026-05-15T16:08:09",
+                    "max": "2026-05-15T16:08:09",
                     "distinctValueFrequencies": [
                         {
-                            "value": "2026-05-15 13:56:03",
+                            "value": "2026-05-15 16:08:09",
                             "frequency": 5
                         }
                     ],
                     "sampleValues": [
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03",
-                        "2026-05-15 13:56:03"
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09",
+                        "2026-05-15 16:08:09"
                     ]
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402815,
+        "lastObserved": 1713074404175,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1644,7 +1665,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402815,
+        "lastObserved": 1713074404175,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1660,7 +1681,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402815,
+        "lastObserved": 1713074404175,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1676,7 +1697,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402816,
+        "lastObserved": 1713074404175,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1692,7 +1713,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713074402816,
+        "lastObserved": 1713074404175,
         "runId": "mariadb-test",
         "lastRunId": "no-run-id-provided"
     }
