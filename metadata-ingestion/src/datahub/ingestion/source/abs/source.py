@@ -170,9 +170,7 @@ class ABSSource(StatefulIngestionSourceBase):
         if config.is_profiling_enabled():
             os.environ.setdefault("SPARK_VERSION", "3.5")
             try:
-                from datahub.ingestion.source.abs.profiling import (
-                    SparkProfiler,  # noqa: F401
-                )
+                import pyspark  # noqa: F401
             except (ImportError, ModuleNotFoundError) as e:
                 raise ConfigurationError(
                     "PySpark is not installed but is required for ABS profiling. "
