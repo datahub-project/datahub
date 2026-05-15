@@ -410,7 +410,7 @@ export const AccessTokens = () => {
     };
 
     return (
-        <SourceContainer>
+        <SourceContainer data-testid="manage-access-tokens-page">
             {tokensError && <Alert variant="error" title="Failed to load tokens." />}
             {revokeTokenError && <Alert variant="error" title="Failed to update the token." />}
             <PageHeader>

@@ -252,7 +252,12 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
                             <Button variant="outline" onClick={() => setIsConfirmingDelete(false)}>
                                 Cancel
                             </Button>
-                            <Button variant="filled" color="red" onClick={handleDeleteConfirm}>
+                            <Button
+                                variant="filled"
+                                color="red"
+                                onClick={handleDeleteConfirm}
+                                data-testid="delete-group-confirm-button"
+                            >
                                 Delete
                             </Button>
                         </ModalFooter>

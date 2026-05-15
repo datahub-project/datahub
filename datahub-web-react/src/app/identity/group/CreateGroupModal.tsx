@@ -203,6 +203,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     color: 'gray',
                 }}
                 iconPosition="right"
+                data-testid="create-group-advanced-button"
             >
                 Advanced
             </AdvancedButton>

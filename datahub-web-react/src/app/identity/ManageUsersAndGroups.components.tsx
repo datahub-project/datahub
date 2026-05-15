@@ -100,7 +100,12 @@ export const ManageUsersAndGroupsHeader = ({
                 );
             default:
                 return (
-                    <Button variant="filled" disabled={!canManageUsers} onClick={onInviteUsers}>
+                    <Button
+                        variant="filled"
+                        disabled={!canManageUsers}
+                        onClick={onInviteUsers}
+                        data-testid="invite-users-button"
+                    >
                         Invite Users
                     </Button>
                 );

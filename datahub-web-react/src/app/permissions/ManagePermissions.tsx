@@ -86,7 +86,7 @@ export const ManagePermissions = () => {
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
 
     return (
-        <PageContainer>
+        <PageContainer data-testid="manage-permissions-page">
             <PageHeaderContainer>
                 <HeaderLeft>
                     <PageTitle

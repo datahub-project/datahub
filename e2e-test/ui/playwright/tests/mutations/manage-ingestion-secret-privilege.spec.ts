@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { PoliciesPage } from '../../pages/policies.page';
+import { PoliciesPage } from '../../pages/settings/policies.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const platformPolicyName = `Platform test policy ${testId}`;
