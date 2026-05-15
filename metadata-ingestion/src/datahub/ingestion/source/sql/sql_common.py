@@ -27,7 +27,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
-from datahub.configuration.common import AllowDenyPattern, ConfigurationError
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -60,7 +60,7 @@ from datahub.ingestion.source.common.subtypes import (
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.profiling.common import (
-    GE_PROFILER_MISSING_MESSAGE,
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -1344,11 +1344,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            try:
-                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-            except ImportError as e:
-                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

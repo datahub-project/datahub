@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple, Union, 
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import create_engine, inspect
 
-from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
@@ -15,7 +14,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTable,
 )
 from datahub.ingestion.source.profiling.common import (
-    GE_PROFILER_MISSING_MESSAGE,
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
@@ -94,11 +93,7 @@ class BigqueryProfiler(GenericProfiler):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            try:
-                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-            except ImportError as e:
-                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

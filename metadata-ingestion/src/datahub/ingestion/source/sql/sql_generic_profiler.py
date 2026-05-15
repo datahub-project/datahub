@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     )
 from sqlalchemy.engine.reflection import Inspector
 
-from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     parse_ts_millis,
@@ -21,8 +20,8 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.profiling.common import (
-    GE_PROFILER_MISSING_MESSAGE,
     ProfilerRequest,
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
@@ -244,11 +243,7 @@ class GenericProfiler:
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            try:
-                from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-            except ImportError as e:
-                raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

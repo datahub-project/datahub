@@ -1,6 +1,9 @@
 import dataclasses
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
 
 
 class Cardinality(Enum):
@@ -67,3 +70,20 @@ GE_PROFILER_MISSING_MESSAGE = (
     "or switch to the SQLAlchemy profiler by setting "
     "`profiling.method: sqlalchemy` in your recipe."
 )
+
+
+def create_datahub_ge_profiler(**kwargs: Any) -> "DatahubGEProfiler":
+    """Lazily import and construct a `DatahubGEProfiler` instance.
+
+    Raises a `ConfigurationError` with install guidance if `great_expectations` is
+    not available. Callers pass profiler constructor kwargs verbatim:
+    `conn`, `report`, `config`, `platform`, and (optionally) `env`.
+    """
+    from datahub.configuration.common import ConfigurationError
+
+    try:
+        from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    except ImportError as e:
+        raise ConfigurationError(GE_PROFILER_MISSING_MESSAGE) from e
+
+    return DatahubGEProfiler(**kwargs)
