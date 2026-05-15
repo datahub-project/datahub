@@ -430,6 +430,8 @@ abs_base = {
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
     *path_spec_common,
+    # cachetools is used by operation_config which is imported by profiling config
+    *cachetools_lib,
 }
 
 azure_data_factory = {
