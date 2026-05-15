@@ -5,22 +5,21 @@ from datahub.ingestion.source.hex.lineage_builder import (
     LineageBuilderReport,
     SkippedCell,
 )
-from datahub.ingestion.source.hex.model import SqlCell
+from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 
 SNOWFLAKE_CONN = "conn-snowflake-1"
 BIGQUERY_CONN = "conn-bq-1"
 UNKNOWN_CONN = "conn-unknown-1"
-UNSUPPORTED_TYPE_CONN = "conn-cassandra-1"
 
-CONNECTIONS: Dict[str, str] = {
-    SNOWFLAKE_CONN: "snowflake",
-    BIGQUERY_CONN: "bigquery",
-    UNSUPPORTED_TYPE_CONN: "cassandra",  # not in CONNECTION_TYPE_TO_DATAHUB_PLATFORM
+# {connection_id → HexConnection}, pre-resolved by the caller
+CONNECTIONS: Dict[str, HexConnection] = {
+    SNOWFLAKE_CONN: HexConnection(name="Analytics", platform="snowflake"),
+    BIGQUERY_CONN: HexConnection(name="BQ", platform="bigquery"),
 }
 
 
 def _builder(
-    connections: Optional[Dict[str, str]] = None,
+    connections: Optional[Dict[str, HexConnection]] = None,
     platform_instance: Optional[str] = None,
     env: str = "PROD",
     report: Optional[LineageBuilderReport] = None,
@@ -45,51 +44,43 @@ def _cell(sql: str, conn_id: str = SNOWFLAKE_CONN, label: str = "q") -> SqlCell:
 
 
 # ------------------------------------------------------------------
-# _resolve_platform
+# _lookup_platform
 # ------------------------------------------------------------------
 
 
-def test_resolve_platform_known_snowflake():
+def test_lookup_platform_known_snowflake():
     b = _builder()
-    platform, reason = b._resolve_platform(SNOWFLAKE_CONN)
+    platform, reason = b._lookup_platform(SNOWFLAKE_CONN)
     assert platform == "snowflake"
     assert reason is None
 
 
-def test_resolve_platform_known_bigquery():
+def test_lookup_platform_known_bigquery():
     b = _builder()
-    platform, reason = b._resolve_platform(BIGQUERY_CONN)
+    platform, reason = b._lookup_platform(BIGQUERY_CONN)
     assert platform == "bigquery"
     assert reason is None
 
 
-def test_resolve_platform_none_id():
+def test_lookup_platform_none_id():
     b = _builder()
-    platform, reason = b._resolve_platform(None)
+    platform, reason = b._lookup_platform(None)
     assert platform is None
-    assert reason == "unknown_connection_id"
+    assert reason == "missing_connection_id"
 
 
-def test_resolve_platform_empty_string():
+def test_lookup_platform_empty_string():
     b = _builder()
-    platform, reason = b._resolve_platform("")
+    platform, reason = b._lookup_platform("")
     assert platform is None
-    assert reason == "unknown_connection_id"
+    assert reason == "missing_connection_id"
 
 
-def test_resolve_platform_missing_connection_id():
+def test_lookup_platform_unresolved_connection_id():
     b = _builder()
-    platform, reason = b._resolve_platform(UNKNOWN_CONN)
+    platform, reason = b._lookup_platform(UNKNOWN_CONN)
     assert platform is None
-    assert reason == "unknown_connection_id"
-
-
-def test_resolve_platform_unsupported_connection_type():
-    b = _builder()
-    platform, reason = b._resolve_platform(UNSUPPORTED_TYPE_CONN)
-    assert platform is None
-    assert reason is not None
-    assert "cassandra" in reason
+    assert reason == "unresolved_platform"
 
 
 # ------------------------------------------------------------------
@@ -133,7 +124,7 @@ def test_build_from_queried_tables_unknown_connection_skipped():
     )
     assert urns == []
     assert len(report.skipped_cells) == 1
-    assert report.skipped_cells[0].reason == "unknown_connection_id"
+    assert report.skipped_cells[0].reason == "unresolved_platform"
 
 
 def test_build_from_queried_tables_empty_table_name_skipped():
@@ -191,19 +182,10 @@ def test_build_upstream_urns_unknown_connection_skipped():
     datasets, fields = b.build_upstream_urns([_cell(sql, conn_id=UNKNOWN_CONN)])
     assert datasets == []
     assert fields == []
-    assert report.sql_cells_skipped_unknown_connection == 1
+    assert report.sql_cells_skipped_unresolved_platform == 1
     assert len(report.skipped_cells) == 1
     assert report.skipped_cells[0].connection_id == UNKNOWN_CONN
-
-
-def test_build_upstream_urns_unsupported_type_skipped():
-    report = LineageBuilderReport()
-    b = _builder(report=report)
-    datasets, _ = b.build_upstream_urns(
-        [_cell("SELECT id FROM t", conn_id=UNSUPPORTED_TYPE_CONN)]
-    )
-    assert datasets == []
-    assert report.sql_cells_skipped_unknown_connection == 1
+    assert report.skipped_cells[0].reason == "unresolved_platform"
 
 
 def test_build_upstream_urns_none_connection_skipped():
@@ -214,7 +196,25 @@ def test_build_upstream_urns_none_connection_skipped():
     )
     datasets, _ = b.build_upstream_urns([cell])
     assert datasets == []
-    assert report.sql_cells_skipped_unknown_connection == 1
+    assert report.sql_cells_skipped_unresolved_platform == 1
+    assert report.skipped_cells[0].reason == "missing_connection_id"
+
+
+def test_lookup_platform_user_override_bypasses_canonical_map():
+    """User overrides should resolve to ANY platform name, not just those in
+    CONNECTION_TYPE_TO_DATAHUB_PLATFORM. This test guards the M2 fix at the
+    builder level: the builder must accept any pre-resolved platform string
+    without re-translating it through the canonical map.
+    """
+    b = _builder(
+        connections={
+            **CONNECTIONS,
+            "conn-vertica-1": HexConnection(name="Vertica Prod", platform="vertica"),
+        },
+    )
+    platform, reason = b._lookup_platform("conn-vertica-1")
+    assert platform == "vertica"
+    assert reason is None
 
 
 def test_build_upstream_urns_deduplication_across_cells():
@@ -257,7 +257,7 @@ def test_build_upstream_urns_report_counters():
     )
     assert report.sql_cells_attempted == 2
     assert report.sql_cells_succeeded == 1
-    assert report.sql_cells_skipped_unknown_connection == 1
+    assert report.sql_cells_skipped_unresolved_platform == 1
     assert report.projects_lineage_via_sql_parsing == 1
 
 
@@ -289,7 +289,7 @@ def test_skipped_cell_attributes():
     assert s.project_id == "proj-xyz"
     assert s.connection_id == UNKNOWN_CONN
     assert s.cell_label == "My Query"
-    assert s.reason == "unknown_connection_id"
+    assert s.reason == "unresolved_platform"
 
 
 # ------------------------------------------------------------------

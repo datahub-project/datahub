@@ -6,8 +6,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
 )
-from datahub.ingestion.source.hex.constants import CONNECTION_TYPE_TO_DATAHUB_PLATFORM
-from datahub.ingestion.source.hex.model import SqlCell
+from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 from datahub.metadata.urns import SchemaFieldUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_common import get_dialect_str
@@ -27,7 +26,9 @@ class SkippedCell:
     cell_id: str
     cell_label: Optional[str]
     connection_id: str
-    reason: str  # "unknown_connection_id" | "unknown_connection_type"
+    # "missing_connection_id"  — cell had no dataConnectionId
+    # "unresolved_platform"    — connection_id present but no platform mapping
+    reason: str
 
 
 @dataclass
@@ -56,7 +57,7 @@ class LineageBuilderReport:
     sql_cells_succeeded: int = 0
     sql_cells_failed: int = 0
     sql_cells_no_upstreams: int = 0
-    sql_cells_skipped_unknown_connection: int = 0
+    sql_cells_skipped_unresolved_platform: int = 0
     upstream_datasets_found: int = 0
     skipped_cells: List[SkippedCell] = field(default_factory=list)
     projects_lineage_via_queried_tables: int = 0
@@ -81,18 +82,20 @@ class HexLineageBuilder:
        is unavailable.
 
     Safety contract: lineage is only emitted when the platform can be resolved
-    with confidence. Cells whose connection ID is missing from the connections map
-    (and not covered by connection_platform_map) are skipped and reported —
-    never emitted with a wrong platform.
+    with confidence. Cells whose connection ID is missing from `connections`,
+    or whose HexConnection has platform=None, are skipped and reported — never
+    emitted with a wrong platform.
 
-    The sqlglot dialect is derived from the resolved platform, not from a separate
-    config field. There is no global fallback platform.
+    Type→platform translation is the caller's responsibility: this class accepts
+    a pre-resolved {connection_id → HexConnection} map. The sqlglot dialect is
+    derived from the resolved platform, not from a separate config field. There
+    is no global fallback platform.
     """
 
     def __init__(
         self,
-        # {connection_id → connection_type string, e.g. "snowflake"}
-        connections: Dict[str, str],
+        # {connection_id → HexConnection}, pre-resolved by the caller
+        connections: Dict[str, HexConnection],
         platform_instance: Optional[str],
         env: str,
         report: LineageBuilderReport,
@@ -134,13 +137,13 @@ class HexLineageBuilder:
             if not table_name:
                 continue
 
-            platform, reason = self._resolve_platform(connection_id)
+            platform, reason = self._lookup_platform(connection_id)
             if platform is None:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
                     cell_label=table_name,
-                    reason=reason or "unknown",
+                    reason=reason or "unresolved_platform",
                 )
                 continue
 
@@ -182,14 +185,14 @@ class HexLineageBuilder:
         for cell in sql_cells:
             self._report.sql_cells_attempted += 1
 
-            platform, reason = self._resolve_platform(cell.data_connection_id)
+            platform, reason = self._lookup_platform(cell.data_connection_id)
             if platform is None:
-                self._report.sql_cells_skipped_unknown_connection += 1
+                self._report.sql_cells_skipped_unresolved_platform += 1
                 self._record_skip(
                     connection_id=cell.data_connection_id or "",
                     cell_id=cell.cell_id,
                     cell_label=cell.cell_label,
-                    reason=reason or "unknown",
+                    reason=reason or "unresolved_platform",
                 )
                 continue
 
@@ -234,7 +237,7 @@ class HexLineageBuilder:
         seen_fields: Set[str] = set()
 
         for cell in sql_cells:
-            platform, _ = self._resolve_platform(cell.data_connection_id)
+            platform, _ = self._lookup_platform(cell.data_connection_id)
             if platform is None:
                 continue
 
@@ -285,27 +288,25 @@ class HexLineageBuilder:
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
 
-    def _resolve_platform(
+    def _lookup_platform(
         self, connection_id: Optional[str]
     ) -> Tuple[Optional[str], Optional[str]]:
         """
-        Return (platform, None) on success, or (None, reason) when the platform
-        cannot be confidently determined.
+        Look up the DataHub platform for a connection ID in the pre-resolved
+        connections map (populated once at the source boundary).
 
-        Never returns a fallback platform — callers must skip on None.
+        Returns (platform, None) on hit, or (None, reason) when no platform is
+        available — caller must skip on None. Never falls back to a default
+        platform.
         """
         if not connection_id:
-            return None, "unknown_connection_id"
+            return None, "missing_connection_id"
 
-        conn_type = self._connections.get(connection_id)
-        if not conn_type:
-            return None, "unknown_connection_id"
+        connection = self._connections.get(connection_id)
+        if connection is None or connection.platform is None:
+            return None, "unresolved_platform"
 
-        platform = CONNECTION_TYPE_TO_DATAHUB_PLATFORM.get(conn_type.lower())
-        if not platform:
-            return None, f"unknown_connection_type:{conn_type}"
-
-        return platform, None
+        return connection.platform, None
 
     def _get_resolver(self, platform: str) -> SchemaResolver:
         """Return the cached SchemaResolver for this platform, creating it if needed."""

@@ -14,21 +14,18 @@ HEX_INCREMENTAL_JOB_ID = JobId("hex_incremental")
 
 DATAHUB_API_PAGE_SIZE_DEFAULT = 100
 
-# connection_type values from /v1/data-connections → DataHub platform names.
-# Used for constructing dataset URNs (urn:li:dataPlatform:<name>).
+# Maps the `type` field returned by Hex's GET /v1/data-connections to
+# DataHub platform names. Enum values are taken from the Hex API reference
+# (https://learn.hex.tech/docs/api/api-reference, operation
+# ListDataConnections). Connections of any other type require a user-supplied
+# entry in HexSourceConfig.connection_platform_map (keyed by connection ID).
 CONNECTION_TYPE_TO_DATAHUB_PLATFORM: dict[str, str] = {
-    "snowflake": "snowflake",
-    "bigquery": "bigquery",
-    "redshift": "redshift",
-    "postgres": "postgres",
-    "postgresql": "postgres",
-    "mysql": "mysql",
-    "databricks": "databricks",
-    "duckdb": "duckdb",
-    "spark": "spark",
-    "mssql": "mssql",
-    "trino": "trino",
     "athena": "athena",
+    "bigquery": "bigquery",
     "clickhouse": "clickhouse",
-    "hive": "hive",
+    "databricks": "databricks",
+    "postgres": "postgres",
+    "redshift": "redshift",
+    "snowflake": "snowflake",
+    "trino": "trino",
 }

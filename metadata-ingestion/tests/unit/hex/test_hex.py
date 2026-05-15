@@ -215,6 +215,116 @@ class TestHexSourceConfig(unittest.TestCase):
         assert "4759f33c-1ab9-403d-92e8-9bef48de00cg" in source.component_registry
 
 
+class TestResolveConnections(unittest.TestCase):
+    """Tests for HexSource._resolve_connections — the boundary that resolves
+    raw API output + user overrides into a {conn_id → HexConnection} map.
+    """
+
+    def _make_source(self, **overrides: object) -> HexSource:
+        config = HexSourceConfig.model_validate(
+            {
+                "workspace_name": "ws",
+                "token": "t",
+                **overrides,
+            }
+        )
+        return HexSource(config, PipelineContext(run_id="resolve-conn-test"))
+
+    def test_api_only_known_types_resolve(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": ("Analytics Hub", "snowflake"),
+                "conn-bq": ("BQ Hub", "bigquery"),
+            },
+            platform_overrides={},
+        )
+        assert connections["conn-sf"].name == "Analytics Hub"
+        assert connections["conn-sf"].platform == "snowflake"
+        assert connections["conn-bq"].name == "BQ Hub"
+        assert connections["conn-bq"].platform == "bigquery"
+
+    def test_api_unknown_type_is_unmapped_and_warned(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={"conn-vt": ("Vertica Prod", "vertica")},
+            platform_overrides={},
+        )
+        # Name is retained for the document builder…
+        assert connections["conn-vt"].name == "Vertica Prod"
+        # …but platform is not resolvable, so the lineage builder will skip it.
+        assert connections["conn-vt"].platform is None
+        # A warning is surfaced naming the offending type in its context.
+        assert any(
+            any("vertica" in c.lower() for c in w.context)
+            for w in source.report.warnings
+        )
+
+    def test_user_override_bypasses_canonical_map(self):
+        """An override naming a platform outside CONNECTION_TYPE_TO_DATAHUB_PLATFORM
+        should still resolve — this is the M2 fix."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={"conn-vt": ("Vertica Prod", "vertica")},
+            platform_overrides={"conn-vt": "vertica"},
+        )
+        # Display name from the API is preserved, override supplies platform.
+        assert connections["conn-vt"].name == "Vertica Prod"
+        assert connections["conn-vt"].platform == "vertica"
+        # Override fully resolves the connection — no spurious "unmapped"
+        # warning should fire.
+        assert not source.report.warnings
+
+    def test_partial_override_still_warns_for_remaining_unmapped(self):
+        """When only some connections of an unmapped type are overridden,
+        warn about the rest — but not the overridden ones."""
+        source = self._make_source()
+        source._resolve_connections(
+            api_connections={
+                "conn-vt-1": ("Vertica A", "vertica"),
+                "conn-vt-2": ("Vertica B", "vertica"),
+                "conn-mz": ("Materialize", "materialize"),
+            },
+            platform_overrides={"conn-vt-1": "vertica"},  # rescues one of two
+        )
+        # Both unmapped types appear in the warning context; only the
+        # still-unmapped vertica connection is counted.
+        assert source.report.warnings
+        contexts = [c for w in source.report.warnings for c in w.context]
+        joined = " ".join(contexts).lower()
+        assert "vertica (x1)" in joined
+        assert "materialize (x1)" in joined
+
+    def test_user_override_for_unknown_connection_id(self):
+        """Override applies even when the connection isn't in the API result
+        (deleted connection, permission gap)."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={},
+            platform_overrides={"conn-deleted": "snowflake"},
+        )
+        # Falls back to the conn_id itself when no display name is known.
+        assert connections["conn-deleted"].name == "conn-deleted"
+        assert connections["conn-deleted"].platform == "snowflake"
+
+    def test_user_override_wins_over_api(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={"conn-1": ("Prod SF", "snowflake")},
+            platform_overrides={"conn-1": "redshift"},
+        )
+        assert connections["conn-1"].platform == "redshift"
+        # Display name from the API is preserved on override.
+        assert connections["conn-1"].name == "Prod SF"
+
+    def test_empty_inputs_produce_empty_outputs(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={}, platform_overrides={}
+        )
+        assert connections == {}
+
+
 class TestHexTestConnection(unittest.TestCase):
     """Tests for test_connection() — especially the cells access probe."""
 

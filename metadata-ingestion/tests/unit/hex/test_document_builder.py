@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
 from datahub.ingestion.source.hex.model import (
@@ -7,6 +7,7 @@ from datahub.ingestion.source.hex.model import (
     Collection,
     Component,
     ExploreCell,
+    HexConnection,
     Owner,
     Project,
     SqlCell,
@@ -14,16 +15,16 @@ from datahub.ingestion.source.hex.model import (
 )
 
 WORKSPACE = "test-workspace"
-CONNECTIONS: Dict[str, Tuple[str, str]] = {
-    "conn-sf": ("Analytics Hub", "snowflake"),
-    "conn-bq": ("BQ Hub", "bigquery"),
+CONNECTIONS: Dict[str, HexConnection] = {
+    "conn-sf": HexConnection(name="Analytics Hub", platform="snowflake"),
+    "conn-bq": HexConnection(name="BQ Hub", platform="bigquery"),
 }
 
 
 def _builder(
     workspace_name: str = WORKSPACE,
     platform_instance: Optional[str] = None,
-    connections: Optional[Dict[str, Tuple[str, str]]] = None,
+    connections: Optional[Dict[str, HexConnection]] = None,
 ) -> HexDocumentBuilder:
     return HexDocumentBuilder(
         workspace_name=workspace_name,
@@ -204,8 +205,8 @@ def test_render_markdown_sql_section_with_connection_label():
     text = b._render_markdown(_project(), sql_cells, [], [], "")
     assert "## SQL Queries" in text
     assert "CQ" in text
-    assert "Analytics Hub" in text  # connection name from CONNECTIONS map
-    assert "snowflake" in text
+    assert "Analytics Hub" in text  # display name
+    assert "snowflake" in text  # platform from CONNECTION_PLATFORMS map
     assert "SELECT id FROM customers" in text
 
 

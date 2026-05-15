@@ -7,16 +7,19 @@ to AI agents that have the project in scope.
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.hex.model import Component, ExploreCell, Project, SqlCell
+from datahub.ingestion.source.hex.model import (
+    Component,
+    ExploreCell,
+    HexConnection,
+    Project,
+    SqlCell,
+)
 from datahub.sdk import Document
 
 logger = logging.getLogger(__name__)
-
-# {connection_id: (name, connection_type)}
-ConnectionMap = Dict[str, Tuple[str, str]]
 
 
 class HexDocumentBuilder:
@@ -24,7 +27,9 @@ class HexDocumentBuilder:
         self,
         workspace_name: str,
         platform_instance: Optional[str],
-        connections: ConnectionMap,
+        # {connection_id → HexConnection} for rendering
+        # "**Connection:** <name> (<platform>)" alongside each SQL cell.
+        connections: Dict[str, HexConnection],
     ):
         self._workspace = workspace_name
         self._platform_instance = platform_instance
@@ -76,13 +81,13 @@ class HexDocumentBuilder:
         if sql_cells:
             parts.append("## SQL Queries\n")
             for cell in sql_cells:
-                name, conn_type = self._connections.get(
-                    cell.data_connection_id or "", ("unknown", "unknown")
-                )
+                conn = self._connections.get(cell.data_connection_id or "")
+                name = conn.name if conn else "unknown"
+                platform = conn.platform if conn and conn.platform else "unknown"
                 label = cell.cell_label or cell.cell_id
                 sql = _indent_sql(cell.sql_source)
                 parts.append(
-                    f"### {label}\n\n**Connection:** {name} ({conn_type})\n\n```sql\n{sql}\n```"
+                    f"### {label}\n\n**Connection:** {name} ({platform})\n\n```sql\n{sql}\n```"
                 )
 
         if explore_cells:

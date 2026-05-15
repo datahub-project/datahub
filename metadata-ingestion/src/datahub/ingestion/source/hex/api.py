@@ -5,7 +5,18 @@ import time
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Callable, Deque, Dict, Generator, List, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Deque,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 import requests
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
@@ -505,7 +516,7 @@ class HexApi:
             assert_never(hex_item.type)
 
     @_api_call("list_connections")
-    def fetch_connections(self) -> Dict[str, Any]:
+    def fetch_connections(self) -> Dict[str, Tuple[str, str]]:
         """
         Return {connection_id: (name, connection_type)} for all data connections.
 
@@ -519,7 +530,7 @@ class HexApi:
                 timeout=30,
             )
             resp.raise_for_status()
-            result: Dict[str, Any] = {}
+            result: Dict[str, Tuple[str, str]] = {}
             for conn in resp.json().get("values", []):
                 result[conn["id"]] = (conn.get("name", ""), conn.get("type", ""))
             return result

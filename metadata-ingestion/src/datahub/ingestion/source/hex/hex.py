@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 from typing_extensions import assert_never
 
@@ -28,6 +28,7 @@ from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
 from datahub.ingestion.source.hex.config import HexSourceConfig
 from datahub.ingestion.source.hex.constants import (
+    CONNECTION_TYPE_TO_DATAHUB_PLATFORM,
     HEX_INCREMENTAL_JOB_ID,
     HEX_PLATFORM_NAME,
 )
@@ -40,6 +41,7 @@ from datahub.ingestion.source.hex.mapper import Mapper
 from datahub.ingestion.source.hex.model import (
     Component,
     ExploreCell,
+    HexConnection,
     HexIncrementalCheckpointState,
     Project,
     SqlCell,
@@ -572,22 +574,27 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         with self.report.new_stage("Migrate legacy Component entities"):
             yield from self._migrate_legacy_component_dashboards()
 
-        # Build connections map once — used by lineage and context documents
-        connections_by_id: Dict[str, Any] = {}
+        # Resolve connection IDs to HexConnection records once. After this
+        # point, no further type→platform translation happens anywhere
+        # downstream — the lineage builder and document builder both read this
+        # map directly.
+        connections: Dict[str, HexConnection] = {}
         if (
             self.source_config.include_lineage
             or self.source_config.include_context_documents
         ):
-            connections_by_id = self.hex_api.fetch_connections()
-            for conn_id, platform in self.source_config.connection_platform_map.items():
-                name = (
-                    connections_by_id[conn_id][0]
-                    if conn_id in connections_by_id
-                    else conn_id
-                )
-                connections_by_id[conn_id] = (name, platform)
+            connections = self._resolve_connections(
+                api_connections=self.hex_api.fetch_connections(),
+                platform_overrides=self.source_config.connection_platform_map,
+            )
 
-        lineage_builder = self._make_lineage_builder(connections_by_id)
+        lineage_builder = HexLineageBuilder(
+            connections=connections,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            report=self.report,
+            graph=self.ctx.graph,
+        )
 
         # Emit workspace container once before streaming projects
         yield from self.mapper.map_workspace()
@@ -608,14 +615,12 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if isinstance(item, Component):
                     if item.id not in self.component_registry:
                         yield from self._stream_component(
-                            item, lineage_builder, connections_by_id
+                            item, lineage_builder, connections
                         )
                 elif isinstance(item, Project):
                     if self.source_config.project_title_pattern.allowed(item.title):
                         yield from self._stream_project(
-                            item,
-                            lineage_builder,
-                            connections_by_id,
+                            item, lineage_builder, connections
                         )
                         projects_processed += 1
                         if (
@@ -639,20 +644,63 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 last_ingested_at_millis=run_start_ms
             )
 
-    def _make_lineage_builder(
-        self, connections_by_id: Dict[str, Any]
-    ) -> HexLineageBuilder:
-        conn_types: Dict[str, str] = {
-            cid: ctype for cid, (_, ctype) in connections_by_id.items()
-        }
-        conn_types.update(self.source_config.connection_platform_map)
-        return HexLineageBuilder(
-            connections=conn_types,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
-            report=self.report,
-            graph=self.ctx.graph,
-        )
+    def _resolve_connections(
+        self,
+        api_connections: Dict[str, Tuple[str, str]],
+        platform_overrides: Dict[str, str],
+    ) -> Dict[str, HexConnection]:
+        """
+        Resolve API-discovered connections + user overrides into a map of
+        {conn_id → HexConnection(name, platform)}.
+
+        Override precedence is applied per conn_id. User overrides specify
+        DataHub platform names directly and bypass the
+        CONNECTION_TYPE_TO_DATAHUB_PLATFORM lookup — so connections backed by
+        platforms outside the canonical map (vertica, materialize, custom
+        platform-instance setups) are resolvable.
+
+        Connections that have no override and whose Hex type isn't in the
+        canonical map remain in the result with platform=None (lineage will be
+        skipped, but the display name is still available for the document
+        builder). Their hex_types are summarised in a single warning. Types
+        rescued by an override are NOT counted.
+        """
+        connections: Dict[str, HexConnection] = {}
+        unmapped_type_counts: Dict[str, int] = {}
+
+        for conn_id in api_connections.keys() | platform_overrides.keys():
+            display_name, hex_type = api_connections.get(conn_id, ("", ""))
+            override = platform_overrides.get(conn_id)
+
+            if override is not None:
+                platform: Optional[str] = override
+            else:
+                platform = CONNECTION_TYPE_TO_DATAHUB_PLATFORM.get(hex_type.lower())
+                if platform is None and hex_type:
+                    unmapped_type_counts[hex_type] = (
+                        unmapped_type_counts.get(hex_type, 0) + 1
+                    )
+
+            connections[conn_id] = HexConnection(
+                name=display_name or conn_id,
+                platform=platform,
+            )
+
+        if unmapped_type_counts:
+            unmapped_summary = ", ".join(
+                f"{t} (x{n})" for t, n in sorted(unmapped_type_counts.items())
+            )
+            self.report.warning(
+                title="Unmapped Hex connection types",
+                message=(
+                    "Some Hex connection types are not recognised by the "
+                    "canonical type-to-platform map. Lineage is skipped for "
+                    "cells that reference connections of these types."
+                ),
+                context=f"Unmapped types: {unmapped_summary}",
+            )
+
+        return connections
 
     def _is_filtered(self, item: Union[Project, Component]) -> bool:
         """Return True if the item should be skipped due to category/title filters."""
@@ -733,7 +781,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self,
         component: Component,
         lineage_builder: HexLineageBuilder,
-        connections_by_id: Dict[str, Any],
+        connections: Dict[str, HexConnection],
     ) -> Iterable[MetadataWorkUnit]:
         """Process and emit a component, adding it to component_registry."""
         if not self.source_config.component_title_pattern.allowed(component.title):
@@ -757,7 +805,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             doc_builder = HexDocumentBuilder(
                 workspace_name=self.source_config.workspace_name,
                 platform_instance=self.source_config.platform_instance,
-                connections=connections_by_id,
+                connections=connections,
             )
             yield from doc_builder.build_document(
                 project=component,
@@ -772,7 +820,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self,
         project: Project,
         lineage_builder: HexLineageBuilder,
-        connections_by_id: Dict[str, Any],
+        connections: Dict[str, HexConnection],
     ) -> Iterable[MetadataWorkUnit]:
         """Process and emit a single project immediately."""
         self.project_registry[project.id] = project
@@ -814,7 +862,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if fetched and isinstance(fetched, Component):
                     if not self._is_filtered(fetched):
                         yield from self._stream_component(
-                            fetched, lineage_builder, connections_by_id
+                            fetched, lineage_builder, connections
                         )
         project.used_component_ids = [
             cid for cid in comp_ids if cid in self.component_registry
@@ -846,7 +894,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             doc_builder = HexDocumentBuilder(
                 workspace_name=self.source_config.workspace_name,
                 platform_instance=self.source_config.platform_instance,
-                connections=connections_by_id,
+                connections=connections,
             )
             yield from doc_builder.build_document(
                 project=project,
