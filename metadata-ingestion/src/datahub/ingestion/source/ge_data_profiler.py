@@ -175,24 +175,15 @@ def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
             yield
 
 
-@dataclasses.dataclass
-class GEProfilerRequest:
-    pretty_name: str
-    batch_kwargs: dict
+# Re-exported for back-compat. The canonical home is
+# datahub.ingestion.source.profiling.profiler_request.
+from datahub.ingestion.source.profiling.profiler_request import (  # noqa: E402
+    ProfilerRequest,
+)
 
-
-# Alias for clearer naming in new code
-# GEProfilerRequest is misleadingly named - it's actually a generic profiling request
-# used by both GE and SQLAlchemy profilers. This alias allows new code to use a
-# more appropriate name without breaking existing code.
-#
-# Migration strategy:
-# 1. New code should use ProfilerRequest instead of GEProfilerRequest
-# 2. Once GE profiler is removed, deprecate GEProfilerRequest with a warning
-# 3. Eventually rename the class itself to ProfilerRequest
-# 4. Consider moving to datahub.ingestion.source.profiling.common since it's
-#    generic profiling infrastructure, not source-specific
-ProfilerRequest = GEProfilerRequest
+# Legacy alias - GEProfilerRequest is the historical name. New code should
+# import ProfilerRequest from datahub.ingestion.source.profiling.profiler_request.
+GEProfilerRequest = ProfilerRequest
 
 
 def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> int:
