@@ -56,6 +56,7 @@ You can authenticate with Databricks using OAuth, Azure authentication, a Person
 - To `include_table_constraints` (disabled by default), no additional permissions are required beyond the `SELECT` privilege already listed above. The connector uses the same `tables.get()` API endpoint.
 - To ingest `profiling` information with the default SQLAlchemy profiler (`method: sqlalchemy`), you need `SELECT` privilege on tables and views.
 - To ingest `profiling` information with `method: ge` (requires `pip install 'acryl-datahub[profiling-ge]'`), you need `SELECT` privileges on all profiled tables.
+- The Spark SQL plan parser used as a secondary lineage fallback is no longer installed by default. If you rely on it (it handles roughly 0.5% of queries that sqlglot cannot parse), install the optional extra: `pip install 'acryl-datahub[unity-catalog,pyspark]'`. Without it, those queries are counted in `num_queries_dropped_parse_failure` instead.
 - To ingest `profiling` information with `method: analyze` and `call_analyze: true` (enabled by default), your service principal must have ownership or `MODIFY` privilege on any tables you want to profile.
   - Alternatively, you can run [ANALYZE TABLE](https://docs.databricks.com/sql/language-manual/sql-ref-syntax-aux-analyze-table.html) yourself on any tables you want to profile, then set `call_analyze` to `false`.
     You will still need `SELECT` privilege on those tables to fetch the results.
