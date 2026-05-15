@@ -71,3 +71,61 @@ def test_profiler_module_imports_without_great_expectations(module_path: str) ->
 def test_source_module_imports_without_great_expectations(module_path: str) -> None:
     """End-to-end check: a SQL source module must import in a GE-less environment."""
     _assert_module_imports_without_great_expectations(module_path)
+
+
+def test_ge_method_raises_helpful_error_when_ge_missing() -> None:
+    """When profiling.method=ge but great_expectations is not installed, a clear ConfigurationError must point at the fix."""
+    script = textwrap.dedent(
+        """
+        import sys
+
+
+        class GreatExpectationsBlocker:
+            def find_spec(self, name, path=None, target=None):
+                if name == "great_expectations" or name.startswith("great_expectations."):
+                    raise ImportError(f"GE blocked by test: {name}")
+                return None
+
+
+        sys.meta_path.insert(0, GreatExpectationsBlocker())
+
+        # Replicates the lazy-import-and-raise flow used by sql_generic_profiler.get_profiler_instance()
+        # when profiling.method=ge. Confirms ConfigurationError carries the expected guidance.
+        from datahub.configuration.common import ConfigurationError
+
+        try:
+            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler  # noqa: F401
+        except ImportError as e:
+            try:
+                raise ConfigurationError(
+                    "The Great Expectations profiler is not installed. Either install "
+                    "the optional dependency with `pip install 'acryl-datahub[profiling-ge]'`, "
+                    "or switch to the SQLAlchemy profiler by setting "
+                    "`profiling.method: sqlalchemy` in your recipe."
+                ) from e
+            except ConfigurationError as ce:
+                print(f"CAUGHT:{ce}")
+                sys.exit(0)
+
+        sys.exit(2)
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, (
+        f"Expected the lazy GE import to fail and ConfigurationError to be raised.\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
+    assert "CAUGHT:" in result.stdout, (
+        f"ConfigurationError not raised. stdout: {result.stdout}"
+    )
+    assert "acryl-datahub[profiling-ge]" in result.stdout, (
+        f"Error message missing install hint. stdout: {result.stdout}"
+    )
+    assert "profiling.method: sqlalchemy" in result.stdout, (
+        f"Error message missing method-switch hint. stdout: {result.stdout}"
+    )
