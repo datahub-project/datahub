@@ -5,7 +5,7 @@
 repositories {
     gradlePluginPortal()
     mavenLocal()
-    maven { url gradle.ext['datahub.dependencies.maven.central'] }
-    maven { url gradle.ext['datahub.dependencies.maven.confluent'] }
-    maven { url gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] } // GMA, pegasus
+    maven { url = gradle.ext['datahub.dependencies.maven.central'] }
+    maven { url = gradle.ext['datahub.dependencies.maven.confluent'] }
+    maven { url = gradle.ext['datahub.dependencies.maven.linkedinOpenSource'] } // GMA, pegasus
 }

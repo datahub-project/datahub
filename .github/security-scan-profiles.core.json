@@ -1,8 +1,9 @@
 {
   "_meta": {
-    "shape": "Registry-only for `security-scan-linear-sync`: `registry.repos` lists image names; optional per-repo `variant_suffixes` is the tag suffixes that exist for that image (e.g. \"\", \"-slim\"). For `variant_scope` slim/locked/etc., the workflow matches each repo’s `variant_suffixes` against the suffix `-<variant_scope>` by default. Use `registry.variant_scope_suffixes` only when a scope must map to something other than that single suffix (e.g. multiple suffixes) or use `\"*\"` to mean all of a repo’s suffixes."
+    "shape": "Registry-only for `security-scan-linear-sync`: each profile group requires a `canary_repo` (the image repository probed to verify the tag exists before scanning). `registry.repos` lists image names; optional per-repo `variant_suffixes` is the tag suffixes that exist for that image (e.g. \"\", \"-slim\"). For `variant_scope` slim/locked/etc., the workflow matches each repo's `variant_suffixes` against the suffix `-<variant_scope>` by default. Use `registry.variant_scope_suffixes` only when a scope must map to something other than that single suffix (e.g. multiple suffixes) or use `\"*\"` to mean all of a repo's suffixes."
   },
   "allImages": {
+    "canary_repo": "datahub-gms",
     "registry": {
       "repos": {
         "datahub-gms": {},
@@ -17,6 +18,7 @@
     }
   },
   "javaImages": {
+    "canary_repo": "datahub-gms",
     "registry": {
       "repos": {
         "datahub-gms": {},
@@ -28,6 +30,7 @@
     }
   },
   "actionsImages": {
+    "canary_repo": "datahub-actions",
     "registry": {
       "repos": {
         "datahub-actions": {
