@@ -74,6 +74,7 @@ class TestS3SlimNoPySpark:
         assert config.profiling.enabled is False
 
     def test_s3_source_creation_fails_with_profiling_no_pyspark(self):
+        from datahub.configuration.common import ConfigurationError
         from datahub.ingestion.api.common import PipelineContext
         from datahub.ingestion.source.s3.source import S3Source
 
@@ -88,13 +89,13 @@ class TestS3SlimNoPySpark:
 
         ctx = PipelineContext(run_id="test-s3-slim")
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(ConfigurationError) as exc_info:
             S3Source.create(config_dict, ctx)
 
         error_msg = str(exc_info.value)
         assert "PySpark is not installed" in error_msg
         assert "S3 profiling" in error_msg
-        assert "acryl-datahub[data-lake-profiling]" in error_msg
+        assert "acryl-datahub[s3,pyspark]" in error_msg
 
     def test_s3_source_works_without_profiling(self, tmp_path: Path) -> None:
         from datahub.ingestion.api.common import PipelineContext
@@ -189,15 +190,11 @@ class TestS3SlimInstallation:
             assert result.returncode == 0, f"S3 source failed to load: {result.stderr}"
             assert "SUCCESS" in result.stdout
 
-    def test_s3_full_install_includes_pyspark(self):
-        """Test that installing acryl-datahub[s3] DOES install PySpark.
-
-        Standard s3 extra includes PySpark.
-        """
+    def test_s3_pyspark_extra_includes_pyspark(self):
+        """Test that installing acryl-datahub[s3,pyspark] DOES install PySpark."""
         with tempfile.TemporaryDirectory() as tmpdir:
             venv_path = Path(tmpdir) / "test_venv"
 
-            # Create venv
             result = subprocess.run(
                 [sys.executable, "-m", "venv", str(venv_path)],
                 capture_output=True,
@@ -205,7 +202,6 @@ class TestS3SlimInstallation:
             )
             assert result.returncode == 0
 
-            # Install s3 (full, with PySpark)
             pip_path = venv_path / "bin" / "pip"
             metadata_ingestion_path = Path(__file__).parent.parent.parent.parent
 
@@ -214,7 +210,7 @@ class TestS3SlimInstallation:
                     str(pip_path),
                     "install",
                     "-e",
-                    f"{metadata_ingestion_path}[s3]",
+                    f"{metadata_ingestion_path}[s3,pyspark]",
                 ],
                 capture_output=True,
                 text=True,
@@ -222,7 +218,6 @@ class TestS3SlimInstallation:
             )
             assert result.returncode == 0
 
-            # Verify PySpark IS installed
             python_path = venv_path / "bin" / "python"
             result = subprocess.run(
                 [
@@ -233,5 +228,7 @@ class TestS3SlimInstallation:
                 capture_output=True,
                 text=True,
             )
-            assert result.returncode == 0, "PySpark should be installed with s3 extra"
+            assert result.returncode == 0, (
+                "PySpark should be installed with s3,pyspark extra"
+            )
             assert "SUCCESS" in result.stdout
