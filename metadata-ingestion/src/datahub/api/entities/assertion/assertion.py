@@ -1,5 +1,4 @@
 from abc import abstractmethod
-from enum import Enum
 from typing import Optional, Union
 
 from pydantic import ConfigDict, Field, StrictFloat, StrictInt
@@ -9,6 +8,7 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import make_assertion_source
 from datahub.metadata import schema_classes as models
 from datahub.metadata.com.linkedin.pegasus2avro.assertion import AssertionInfo
+from datahub.utilities.str_enum import StrEnum
 
 
 class BaseAssertionProtocol(ConfigModel):
@@ -49,13 +49,13 @@ class BaseAssertion(ConfigModel):
     meta: Optional[dict] = None
 
 
-class AssertionFailureSeverity(str, Enum):
+class AssertionFailureSeverity(StrEnum):
     LOW = "LOW"
     MEDIUM = "MEDIUM"
     HIGH = "HIGH"
 
 
-class AssertionFailureSeverityOperator(str, Enum):
+class AssertionFailureSeverityOperator(StrEnum):
     GREATER_THAN = models.AssertionStdOperatorClass.GREATER_THAN
     GREATER_THAN_OR_EQUAL_TO = models.AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
     LESS_THAN = models.AssertionStdOperatorClass.LESS_THAN
