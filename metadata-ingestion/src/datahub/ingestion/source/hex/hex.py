@@ -928,25 +928,24 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return run_ms if run_ms > (self._last_ingested_at_ms or 0) else None
 
 
+def _parse_sql_cell(cell: dict) -> Optional[SqlCell]:
+    if cell.get("cellType") != "SQL":
+        return None
+    contents = cell.get("contents") or {}
+    source = (contents.get("sqlCell") or {}).get("source") or ""
+    conn_id = cell.get("dataConnectionId")
+    if not (source and conn_id):
+        return None
+    return SqlCell(
+        cell_id=cell.get("staticId") or cell.get("id", ""),
+        cell_label=cell.get("label") or None,
+        sql_source=source,
+        data_connection_id=conn_id,
+    )
+
+
 def _extract_sql_cells(raw_cells: List[dict]) -> List[SqlCell]:
-    result = []
-    for cell in raw_cells:
-        if cell.get("cellType") != "SQL":
-            continue
-        contents = cell.get("contents") or {}
-        sql_data = contents.get("sqlCell") or {}
-        source = sql_data.get("source") or ""
-        conn_id = cell.get("dataConnectionId")
-        if source and conn_id:
-            result.append(
-                SqlCell(
-                    cell_id=cell.get("staticId") or cell.get("id", ""),
-                    cell_label=cell.get("label"),
-                    sql_source=source,
-                    data_connection_id=conn_id,
-                )
-            )
-    return result
+    return [parsed for cell in raw_cells if (parsed := _parse_sql_cell(cell))]
 
 
 def _parse_cells(
@@ -959,18 +958,9 @@ def _parse_cells(
         label = cell.get("label") or ""
 
         if ct == "SQL":
-            sql_data = contents.get("sqlCell") or {}
-            source = sql_data.get("source") or ""
-            conn_id = cell.get("dataConnectionId")
-            if source and conn_id:
-                sql_cells.append(
-                    SqlCell(
-                        cell_id=cell.get("staticId") or cell.get("id", ""),
-                        cell_label=label or None,
-                        sql_source=source,
-                        data_connection_id=conn_id,
-                    )
-                )
+            parsed_sql = _parse_sql_cell(cell)
+            if parsed_sql:
+                sql_cells.append(parsed_sql)
         elif ct == "EXPLORE":
             explore_cells.append(
                 ExploreCell(
