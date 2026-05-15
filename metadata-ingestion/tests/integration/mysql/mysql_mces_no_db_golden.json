@@ -1566,13 +1566,13 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
         "json": {
             "customProperties": {},
-            "name": "northwind.northwind.stored_procedures"
+            "name": "northwind.stored_procedures"
         }
     },
     "systemMetadata": {
@@ -1583,7 +1583,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1601,7 +1601,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -1617,7 +1617,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
@@ -1638,7 +1638,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -1658,7 +1658,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1676,12 +1676,12 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:7b677d9de1e980494659f0959b716bae"
+            "container": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
         }
     },
     "systemMetadata": {
@@ -1692,7 +1692,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "dataTransformLogic",
     "aspect": {
@@ -1715,15 +1715,15 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:7b677d9de1e980494659f0959b716bae",
-                    "urn": "urn:li:container:7b677d9de1e980494659f0959b716bae"
+                    "id": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f",
+                    "urn": "urn:li:container:dc2ae101b66746b9c2b6df8ee89ca88f"
                 }
             ]
         }
@@ -2179,6 +2179,9 @@
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)"
                 },
                 {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)"
+                },
+                {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
                 },
                 {
@@ -2189,9 +2192,6 @@
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),urn)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)"
                 },
                 {
                     "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),id)"
@@ -2232,7 +2232,7 @@
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD)",
+    "entityUrn": "urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -2248,7 +2248,7 @@
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.northwind.stored_procedures,PROD),AddCustomer)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mysql,northwind.stored_procedures,PROD),AddCustomer)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
