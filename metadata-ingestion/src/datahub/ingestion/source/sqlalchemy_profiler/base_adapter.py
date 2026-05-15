@@ -226,7 +226,7 @@ class PlatformAdapter(ABC):
         """
         Get platform-specific mean (AVG) expression.
 
-        Default implementation returns AVG(column).
+        Default implementation returns AVG(column * 1.0).
         Some platforms (e.g., Redshift) need to cast columns for full precision.
 
         Args:
@@ -235,7 +235,10 @@ class PlatformAdapter(ABC):
         Returns:
             SQLAlchemy expression for AVG
         """
-        return sa.func.avg(sa.column(column))
+        # GE's get_column_mean uses `col * 1.0` to force float promotion before AVG.
+        # Matters for integer columns on dialects that would otherwise truncate
+        # (notably MSSQL). Cheap; harmless on dialects that already auto-promote.
+        return sa.func.avg(sa.column(column) * 1.0)
 
     def get_stdev_null_value(self) -> Optional[float]:
         """
@@ -616,8 +619,16 @@ class PlatformAdapter(ABC):
         if min_val is None or max_val is None:
             return []
 
+        # Constant column: GE's expect_column_kl_divergence_to_be_less_than fails when
+        # min == max (zero variance), and the surrounding try/except in
+        # ge_data_profiler.py results in no histogram being emitted. Match that:
+        # emit nothing rather than a degenerate 10-bucket histogram where bucket 0
+        # holds all rows and buckets 1-9 are empty.
+        if max_val == min_val:
+            return []
+
         # Calculate bucket size
-        bucket_size = (max_val - min_val) / num_buckets if max_val != min_val else 1.0
+        bucket_size = (max_val - min_val) / num_buckets
 
         # Generate SQL to count values in each bucket using CASE WHEN
         buckets = []
