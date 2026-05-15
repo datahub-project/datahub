@@ -13,6 +13,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 import smart_open.compression as so_compression
 from smart_open import open as smart_open
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -300,10 +301,9 @@ class S3Source(StatefulIngestionSourceBase):
                     profiling_config=config.profiling,
                 )
             except (ImportError, ModuleNotFoundError) as e:
-                raise RuntimeError(
+                raise ConfigurationError(
                     "PySpark is not installed but is required for S3 profiling. "
-                    "Please install with profiling support: "
-                    "pip install 'acryl-datahub[data-lake-profiling]' or 'acryl-datahub[s3]'"
+                    "Install with: pip install 'acryl-datahub[s3,pyspark]'"
                 ) from e
 
     @classmethod
