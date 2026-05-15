@@ -20,6 +20,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.IncrementalReindexCatchUpStep;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.boot.BootstrapStep;
+import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -147,6 +148,8 @@ public class IncrementalReindexFlowTest {
             NEXT_INDEX_NAME,
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setReindexCompleteTime(phase1State, INDEX_NAME, 2000L);
@@ -155,7 +158,13 @@ public class IncrementalReindexFlowTest {
 
     IncrementalReindexCatchUpStep catchUpStep =
         new IncrementalReindexCatchUpStep(
-            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(),
+            Set.of(),
+            UPGRADE_VERSION,
+            new BuildIndicesConfiguration());
 
     UpgradeStepResult catchUpResult = catchUpStep.executable().apply(upgradeContext);
     assertEquals(catchUpResult.result(), DataHubUpgradeState.SUCCEEDED);
@@ -180,6 +189,8 @@ public class IncrementalReindexFlowTest {
             NEXT_INDEX_NAME,
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, INDEX_NAME, 2000L);
@@ -190,6 +201,8 @@ public class IncrementalReindexFlowTest {
             "chartindex_v2_0_14_0-0_100",
             null,
             1000L,
+            0L,
+            null,
             true,
             IncrementalReindexState.Status.COMPLETED);
     phase1State = IncrementalReindexState.setDualWriteStartTime(phase1State, index2, 2000L);
@@ -235,7 +248,13 @@ public class IncrementalReindexFlowTest {
 
     IncrementalReindexCatchUpStep catchUpStep =
         new IncrementalReindexCatchUpStep(
-            opContext, entityService, aspectDao, List.of(), Set.of(), UPGRADE_VERSION, false);
+            opContext,
+            entityService,
+            aspectDao,
+            List.of(),
+            Set.of(),
+            UPGRADE_VERSION,
+            new BuildIndicesConfiguration());
 
     UpgradeStepResult result = catchUpStep.executable().apply(upgradeContext);
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);

@@ -1,3 +1,4 @@
+import aerospikeLogo from '@images/aerospike.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
@@ -10,6 +11,7 @@ import csvLogo from '@images/csv-logo.png';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import dltLogo from '@images/dltlogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
@@ -27,6 +29,7 @@ import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
+import matillionLogo from '@images/matillionlogo.png';
 import metabaseLogo from '@images/metabaselogo.png';
 import mlflowLogo2 from '@images/mlflowlogo2.png';
 import modeLogo from '@images/modelogo.png';
@@ -47,6 +50,7 @@ import sacLogo from '@images/saclogo.svg';
 import sigmaLogo from '@images/sigmalogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
+import snowplowLogo from '@images/snowplowlogo.png';
 import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
@@ -55,6 +59,8 @@ import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
 
+const AEROSPIKE = 'aerospike';
+const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -100,6 +106,9 @@ export const LOOK_ML = 'lookml';
 export const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
 const MARIA_DB = 'mariadb';
 const MARIA_DB_URN = `urn:li:dataPlatform:${MARIA_DB}`;
+export const MATILLION = 'matillion';
+export const MATILLION_DPC = 'matillion-dpc';
+export const MATILLION_URN = `urn:li:dataPlatform:${MATILLION}`;
 const METABASE = 'metabase';
 const METABASE_URN = `urn:li:dataPlatform:${METABASE}`;
 const MLFLOW = 'mlflow';
@@ -147,6 +156,8 @@ export const DATABRICKS = 'databricks';
 const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
+export const DLT = 'dlt';
+export const DLT_URN = `urn:li:dataPlatform:${DLT}`;
 export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 const FIVETRAN = 'fivetran';
@@ -174,6 +185,8 @@ export const SNAPLOGIC = 'snaplogic';
 export const SNAPLOGIC_URN = `urn:li:dataPlatform:${SNAPLOGIC}`;
 export const GOOGLE_SHEETS = 'google_sheets';
 export const GOOGLE_SHEETS_URN = `urn:li:dataPlatform:${GOOGLE_SHEETS}`;
+export const SNOWPLOW = 'snowplow';
+export const SNOWPLOW_URN = `urn:li:dataPlatform:${SNOWPLOW}`;
 export const FABRIC = 'fabric';
 export const FABRIC_URN = `urn:li:dataPlatform:${FABRIC}`;
 export const FABRIC_DATA_FACTORY = 'fabric-data-factory';
@@ -186,6 +199,7 @@ export const OMNI = 'omni';
 export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
+    [AEROSPIKE_URN]: aerospikeLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
@@ -206,6 +220,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [KAFKA_URN]: kafkaLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
+    [MATILLION_URN]: matillionLogo,
     [METABASE_URN]: metabaseLogo,
     [MLFLOW_URN]: mlflowLogo2,
     [MODE_URN]: modeLogo,
@@ -220,6 +235,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [PRESET_URN]: presetLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
+    [SNOWPLOW_URN]: snowplowLogo,
     [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
     [TRINO_URN]: trinoLogo,
@@ -227,6 +243,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [UNITY_CATALOG_URN]: databricksLogo,
     [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
+    [DLT_URN]: dltLogo,
     [FIVETRAN_URN]: fivetranLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
@@ -251,6 +268,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
     [FEAST_LEGACY]: FEAST_URN,
     [LOOK_ML]: LOOKER_URN,
+    [MATILLION_DPC]: MATILLION_URN,
     [REDSHIFT_USAGE]: REDSHIFT_URN,
     [SNOWFLAKE_BETA]: SNOWFLAKE_URN,
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,

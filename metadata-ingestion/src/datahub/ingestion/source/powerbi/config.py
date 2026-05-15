@@ -44,11 +44,10 @@ class Constant:
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
-    DATASET_GET = "DATASET_GET"
+    DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
-    DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -142,6 +141,8 @@ class Constant:
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
+    USERS = "users"
+    TILES = "tiles"
 
     # DirectLake / Fabric artifact constants
     RELATIONS = "relations"
@@ -359,6 +360,17 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+# Workspace ``type`` values returned by the PowerBI admin API for personal
+# workspaces. These are not addressable by id in the PowerBI UI - they are
+# reachable only via the ``/groups/me`` alias and only by their owner, so
+# ``/groups/{guid}`` for these types resolves to ``GroupNotAccessible``.
+PERSONAL_WORKSPACE_TYPE = "PersonalGroup"
+LEGACY_PERSONAL_WORKSPACE_TYPE = "Personal"
+NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
+    {PERSONAL_WORKSPACE_TYPE, LEGACY_PERSONAL_WORKSPACE_TYPE}
+)
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -368,6 +380,17 @@ class PowerBiEnvironment(ConfigEnum):
         if self == PowerBiEnvironment.GOVERNMENT:
             return "https://app.powerbigov.us"
         return "https://app.powerbi.com"
+
+    def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
+        """Build a clickable PowerBI UI URL for a workspace.
+
+        Returns ``None`` for personal workspace types (see
+        ``NON_ADDRESSABLE_WORKSPACE_TYPES``); surfacing ``/groups/{guid}``
+        for those would produce a dead ``GroupNotAccessible`` link.
+        """
+        if workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES:
+            return None
+        return f"{self.web_app_base_url}/groups/{workspace_id}"
 
 
 class PowerBiAppUrlPattern(ConfigEnum):

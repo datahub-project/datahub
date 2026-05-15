@@ -87,6 +87,10 @@ public class OidcProvider implements SsoProvider<OidcConfigs> {
               oidcConfiguration.setPreferredJwsAlgorithm(JWSAlgorithm.parse(preferred));
             });
 
+    if (oidcConfigs.isDisablePkce()) {
+      oidcConfiguration.setDisablePkce(true);
+    }
+
     // Enable state parameter validation
     oidcConfiguration.setWithState(true);
 

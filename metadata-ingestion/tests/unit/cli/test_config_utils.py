@@ -235,10 +235,13 @@ class TestConfigUtils:
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
@@ -283,10 +286,13 @@ class TestConfigUtils:
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
                 },
                 "other": {"setting": "value"},
             }
@@ -311,10 +317,13 @@ class TestConfigUtils:
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config

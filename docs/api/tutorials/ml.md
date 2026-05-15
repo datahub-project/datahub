@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for integrating ML systems with DataHub by emitting features, models, runs, and feature tables via API."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

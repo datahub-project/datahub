@@ -4,7 +4,8 @@ import logging
 import re
 import typing
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union, cast
+from functools import cached_property
+from typing import Any, Dict, Iterable, List, Literal, Optional, Tuple, Union, cast
 
 import pydantic
 from pyathena.common import BaseCursor
@@ -18,7 +19,9 @@ from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
     SupportStatus,
@@ -286,6 +289,21 @@ class AthenaConfig(SQLCommonConfig):
     catalog_name: str = pydantic.Field(
         default="awsdatacatalog",
         description="Athena Catalog Name",
+        min_length=1,
+    )
+
+    glue_platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Platform instance of the upstream Glue datasets that Athena "
+        "lineage points to. Set this if your Glue connector is configured with a "
+        "non-default platform_instance; leave unset otherwise.",
+    )
+
+    iceberg_platform_instance: Optional[str] = pydantic.Field(
+        default=None,
+        description="Platform instance of the upstream Iceberg datasets that Athena "
+        "lineage points to. Set this if your Iceberg connector is configured with a "
+        "non-default platform_instance; leave unset otherwise.",
     )
 
     query_result_location: str = pydantic.Field(
@@ -352,7 +370,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Supported for S3 tables",
+    "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -360,7 +378,7 @@ class Partitionitem:
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
-    "Supported for S3 tables",
+    "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
     subtype_modifier=[
         SourceCapabilityModifier.VIEW,
         SourceCapabilityModifier.TABLE,
@@ -371,28 +389,30 @@ class AthenaSource(SQLAlchemySource):
     """
     This plugin supports extracting the following metadata from Athena
     - Tables, schemas etc.
-    - Lineage for S3 tables.
+    - Upstream lineage to Glue entities (Glue catalog), Iceberg entities, or S3 locations.
     - Profiling when enabled.
     """
 
     config: AthenaConfig
     report: SQLSourceReport
 
-    def __init__(self, config, ctx):
+    def __init__(self, config: AthenaConfig, ctx: PipelineContext) -> None:
         super().__init__(config, ctx, "athena")
         self.cursor: Optional[BaseCursor] = None
 
         self.table_partition_cache: Dict[str, Dict[str, Partitionitem]] = {}
 
     @classmethod
-    def create(cls, config_dict, ctx):
+    def create(
+        cls, config_dict: Dict[str, Any], ctx: PipelineContext
+    ) -> "AthenaSource":
         config = AthenaConfig.model_validate(config_dict)
         return cls(config, ctx)
 
     # overwrite this method to allow to specify the usage of a custom dialect
     def get_inspectors(self) -> Iterable[Inspector]:
         url = self.config.get_sql_alchemy_url()
-        logger.debug(f"sql_alchemy_url={url}")
+        logger.debug("sql_alchemy_url=%s", url)
         engine = create_engine(url, **self.config.options)
 
         # set custom dialect to be used by the inspector
@@ -401,16 +421,96 @@ class AthenaSource(SQLAlchemySource):
             inspector = inspect(conn)
             yield inspector
 
+    @cached_property
+    def _catalog_type(
+        self,
+    ) -> Optional[Literal["GLUE", "LAMBDA", "HIVE", "FEDERATED"]]:
+        """Catalog Type from ListDataCatalogs, or None on lookup failure."""
+        if self.cursor is None:
+            raise RuntimeError(
+                "Cursor not initialized; call get_table_properties first"
+            )
+        catalog_name = self.config.catalog_name
+        try:
+            client = self.cursor.connection.client
+            paginator = client.get_paginator("list_data_catalogs")
+            target = catalog_name.lower()
+            for page in paginator.paginate():
+                for catalog in page.get("DataCatalogsSummary", []):
+                    if catalog.get("CatalogName", "").lower() == target:
+                        return catalog.get("Type")
+            logger.debug(
+                "Catalog %s not found in ListDataCatalogs response", catalog_name
+            )
+        except Exception as e:
+            logger.exception(
+                "Failed to determine Athena catalog type for %s", catalog_name
+            )
+            self.report.warning(
+                message="Failed to determine catalog type",
+                context=f"catalog={catalog_name}",
+                exc=e,
+            )
+        return None
+
+    @cached_property
+    def is_glue_catalog(self) -> Optional[bool]:
+        """True if Glue, False if not, None if undetermined (callers should skip Glue/Iceberg URN emission)."""
+        if self._catalog_type is not None:
+            return self._catalog_type == "GLUE"
+        if self.config.catalog_name.lower() == "awsdatacatalog":
+            return True
+        self.report.warning(
+            message="Could not determine catalog type via the Athena API and "
+            "catalog name is not AwsDataCatalog. Skipping upstream lineage to "
+            "Glue/Iceberg entities for tables in this catalog.",
+            context=f"catalog={self.config.catalog_name}",
+        )
+        return None
+
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         schema, _view = dataset_identifier.split(".", 1)
         return None, schema
+
+    def _get_upstream_location(
+        self,
+        schema: str,
+        table: str,
+        metadata: AthenaTableMetadata,
+    ) -> Optional[str]:
+        if self.is_glue_catalog is None:
+            return None
+        if self.is_glue_catalog:
+            return make_dataset_urn_with_platform_instance(
+                platform="glue",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.glue_platform_instance,
+                env=self.config.env,
+            )
+        parameters = metadata.parameters or {}
+        if parameters.get("table_type", "").upper() == "ICEBERG":
+            return make_dataset_urn_with_platform_instance(
+                platform="iceberg",
+                name=f"{schema}.{table}",
+                platform_instance=self.config.iceberg_platform_instance,
+                env=self.config.env,
+            )
+        s3_location = parameters.get("location")
+        if s3_location is None:
+            return None
+        if s3_location.startswith("s3://"):
+            return make_s3_urn(s3_location, self.config.env)
+        self.report.warning(
+            message="Skipping upstream lineage: only s3:// URLs are supported for non-Glue/non-Iceberg locations",
+            context=f"table={schema}.{table}, location={s3_location}",
+        )
+        return None
 
     def get_table_properties(
         self, inspector: Inspector, schema: str, table: str
     ) -> Tuple[Optional[str], Dict[str, str], Optional[str]]:
         if not self.cursor:
             self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
-            assert self.cursor
 
         metadata: AthenaTableMetadata = self.cursor.get_table_metadata(
             table_name=table, schema_name=schema
@@ -427,7 +527,7 @@ class AthenaSource(SQLAlchemySource):
                 for partition in metadata.partition_keys
             ]
         )
-        for key, value in metadata.parameters.items():
+        for key, value in (metadata.parameters or {}).items():
             custom_properties[key] = value if value else ""
 
         custom_properties["create_time"] = (
@@ -440,16 +540,7 @@ class AthenaSource(SQLAlchemySource):
             metadata.table_type if metadata.table_type else ""
         )
 
-        location: Optional[str] = custom_properties.get("location")
-        if location is not None:
-            if location.startswith("s3://"):
-                location = make_s3_urn(location, self.config.env)
-            else:
-                logging.debug(
-                    f"Only s3 url supported for location. Skipping {location}"
-                )
-                location = None
-
+        location = self._get_upstream_location(schema, table, metadata)
         return description, custom_properties, location
 
     def gen_database_containers(

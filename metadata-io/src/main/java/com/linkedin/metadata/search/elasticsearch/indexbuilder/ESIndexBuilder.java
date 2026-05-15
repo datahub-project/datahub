@@ -792,6 +792,7 @@ public class ESIndexBuilder {
       String taskId,
       boolean skippedEmpty,
       int targetShards,
+      long sourceDocCount,
       Map<String, Object> reindexInfo) {}
 
   /**
@@ -816,14 +817,14 @@ public class ESIndexBuilder {
 
     createIndex(nextIndexName, indexState);
 
-    long curDocCount = getSourceDocCount(indexState.name());
-    if (curDocCount == 0) {
+    long sourceDocCount = getSourceDocCount(indexState.name());
+    if (sourceDocCount == 0) {
       log.info(
           "Incremental reindex: skipping _reindex for {} -> {} (0 docs in source)",
           indexState.name(),
           nextIndexName);
       return new IncrementalReindexResult(
-          nextIndexName, startTime, null, true, targetShards, Map.of());
+          nextIndexName, startTime, null, true, targetShards, 0, Map.of());
     }
 
     Map<String, Object> reindexInfo =
@@ -841,10 +842,10 @@ public class ESIndexBuilder {
         taskId,
         indexState.name(),
         nextIndexName,
-        curDocCount);
+        sourceDocCount);
 
     return new IncrementalReindexResult(
-        nextIndexName, startTime, taskId, false, targetShards, reindexInfo);
+        nextIndexName, startTime, taskId, false, targetShards, sourceDocCount, reindexInfo);
   }
 
   /**
@@ -868,11 +869,17 @@ public class ESIndexBuilder {
       Pair<Long, Long> finalDocumentCounts) {}
 
   /**
-   * Polls an in-progress reindex until document counts match or timeout. Includes stall detection
-   * with automatic reindex re-submission and progress estimation.
+   * Polls an in-progress reindex until document counts converge or timeout. Includes stall
+   * detection with automatic reindex re-submission and progress estimation.
    *
-   * @param sourceIndex the source index name
+   * <p>The {@code expectedCountSupplier} controls how the expected document count is resolved each
+   * poll iteration. For the legacy blocked-writes path, pass {@code () -> getCount(sourceIndex)} to
+   * re-query the live source (stable since writes are blocked). For incremental reindex where
+   * writes continue to the source, pass a fixed snapshot: {@code () -> snapshotCount}.
+   *
+   * @param sourceIndex the source index name (for logging and stall-retry resubmission)
    * @param destIndex the destination index name
+   * @param expectedCountSupplier supplies the expected doc count; called each poll iteration
    * @param targetShards target shard count (needed if re-submitting reindex on stall)
    * @param reindexInfo mutable reindex info map from {@code submitReindex}; updated on stall-retry
    * @param taskId ES task ID for log correlation (may be empty if resuming a previous task)
@@ -881,6 +888,7 @@ public class ESIndexBuilder {
   public PollReindexResult pollReindexCompletion(
       String sourceIndex,
       String destIndex,
+      Callable<Long> expectedCountSupplier,
       int targetShards,
       Map<String, Object> reindexInfo,
       String taskId)
@@ -892,7 +900,7 @@ public class ESIndexBuilder {
     Map<String, Object> latestReindexInfo = new HashMap<>(reindexInfo);
     int reindexCount = 1;
     int count = 0;
-    Pair<Long, Long> documentCounts = getDocumentCounts(sourceIndex, destIndex);
+    Pair<Long, Long> documentCounts = getDocumentCounts(expectedCountSupplier, destIndex);
     long documentCountsLastUpdated = System.currentTimeMillis();
     long previousDocCount = documentCounts.getSecond();
     long estimatedMinutesRemaining = 0;
@@ -901,7 +909,7 @@ public class ESIndexBuilder {
       log.info(
           "Task: {} - Reindexing from {} to {} in progress...", taskId, sourceIndex, destIndex);
 
-      Pair<Long, Long> latestCounts = getDocumentCounts(sourceIndex, destIndex);
+      Pair<Long, Long> latestCounts = getDocumentCounts(expectedCountSupplier, destIndex);
 
       if (!latestCounts.equals(documentCounts)) {
         long currentTime = System.currentTimeMillis();
@@ -1026,14 +1034,14 @@ public class ESIndexBuilder {
   }
 
   /** Get doc count for a source index with retry. */
-  private long getSourceDocCount(String indexName) throws Throwable {
+  public long getSourceDocCount(String indexName) throws Throwable {
     return retryRegistry
         .retry("retryCurDocCount", "countRetry")
         .executeCheckedSupplier(() -> getCount(indexName));
   }
 
   /** Compute the timeout timestamp based on maxReindexHours config. */
-  private long computeTimeoutAt() {
+  public long computeTimeoutAt() {
     return indexConfig.getMaxReindexHours() > 0
         ? System.currentTimeMillis() + (1000L * 60 * 60 * indexConfig.getMaxReindexHours())
         : Long.MAX_VALUE;
@@ -1087,7 +1095,12 @@ public class ESIndexBuilder {
       if (!reindexTaskCompleted) {
         PollReindexResult pollResult =
             pollReindexCompletion(
-                indexState.name(), tempIndexName, targetShards, reinfo, parentTaskId);
+                indexState.name(),
+                tempIndexName,
+                () -> getCount(indexState.name()),
+                targetShards,
+                reinfo,
+                parentTaskId);
         reindexTaskCompleted = pollResult.completed();
         reinfo = pollResult.latestReindexInfo();
         Pair<Long, Long> documentCounts = pollResult.finalDocumentCounts();
@@ -1261,22 +1274,36 @@ public class ESIndexBuilder {
   private Map<String, Object> setReindexOptimalSettings(String tempIndexName, int targetShards)
       throws IOException {
     Map<String, Object> res = new HashMap<>();
-    if (config.getBuildIndices().isReindexOptimizationEnabled()) {
-      setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
+    // When reindex optimization is disabled, skip all settings writes and the cluster-level
+    // /_nodes/stats heap query. The latter fails in reduced-permission deployments (e.g.
+    // non-blocking system upgrades) and would otherwise abort the reindex.
+    if (!config.getBuildIndices().isReindexOptimizationEnabled()) {
+      res.put("optimalSlices", calculateOptimalSlices(targetShards));
+      return res;
     }
+    setIndexSetting(tempIndexName, "0", INDEX_NUMBER_OF_REPLICAS);
     setIndexSetting(tempIndexName, "-1", INDEX_REFRESH_INTERVAL);
-    // these depend on jvm max heap...
     // flush_threshold_size: 512MB by def. Increasing to 1gb, if heap at least 16gb (this is more
     // conservative than %25 mentioned
     // https://docs.opensearch.org/docs/2.11/tuning-your-cluster/performance/
     //    "index.translog.flush_threshold_size": "512mb",
-    double jvmheapgb = jvminfo.getAverageDataNodeMaxHeapSizeGB();
-    String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
-    String optimValue = "1024mb";
-    String curval = getIndexSetting(tempIndexName, setting);
-    if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
-      setIndexSetting(tempIndexName, optimValue, setting);
-      res.put(ORIGINALPREFIX + setting, curval);
+    // The heap query hits the cluster-level /_nodes/stats endpoint which may fail in
+    // reduced-permission deployments. Guard the whole flush_threshold optimization so a
+    // failure here only skips this tuning rather than aborting the reindex.
+    try {
+      double jvmheapgb = jvminfo.getAverageDataNodeMaxHeapSizeGB();
+      String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
+      String optimValue = "1024mb";
+      String curval = getIndexSetting(tempIndexName, setting);
+      if (SizeUtils.isGreaterSize(optimValue, curval) && jvmheapgb >= MINJVMHEAP) {
+        setIndexSetting(tempIndexName, optimValue, setting);
+        res.put(ORIGINALPREFIX + setting, curval);
+      }
+    } catch (Exception e) {
+      log.warn(
+          "Failed to optimize translog.flush_threshold_size for {}, keeping current value: {}",
+          tempIndexName,
+          e.getMessage());
     }
     // this is a cluster setting "index_buffer_size": "10%",
     // GET _cluster/settings?include_defaults&filter_path=defaults.indices.memory
@@ -1299,10 +1326,13 @@ public class ESIndexBuilder {
       String refreshinterval,
       Map<String, Object> reinfo)
       throws IOException {
-    // set the original values
-    if (config.getBuildIndices().isReindexOptimizationEnabled()) {
-      setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
+    // Symmetric with setReindexOptimalSettings: if optimization was disabled, nothing was
+    // changed, so there is nothing to restore.
+    if (!config.getBuildIndices().isReindexOptimizationEnabled()) {
+      return;
     }
+    // set the original values
+    setIndexSetting(tempIndexName, targetReplicas, INDEX_NUMBER_OF_REPLICAS);
     setIndexSetting(tempIndexName, refreshinterval, INDEX_REFRESH_INTERVAL);
     // Restore translog settings if they were saved (may be empty if not originally set)
     String setting = INDEX_TRANSLOG_FLUSH_THRESHOLD_SIZE;
@@ -1393,7 +1423,9 @@ public class ESIndexBuilder {
 
     // Add alias for the new index
     AliasActions removeAction =
-        deleteOld ? AliasActions.removeIndex() : AliasActions.remove().alias(originalName);
+        (deleteOld || aliasesResponse.getAliases().isEmpty())
+            ? AliasActions.removeIndex()
+            : AliasActions.remove().alias(originalName);
     removeAction.indices(aliasedIndexDelete.toArray(new String[0]));
     AliasActions addAction = AliasActions.add().alias(originalName).index(newName);
     updateAliasWithRetry(searchClient, removeAction, addAction, delinfo, requestOptions);
@@ -1952,24 +1984,24 @@ public class ESIndexBuilder {
     return reindexInfo;
   }
 
-  private Pair<Long, Long> getDocumentCounts(String sourceIndex, String destinationIndex)
-      throws Throwable {
+  private Pair<Long, Long> getDocumentCounts(
+      Callable<Long> expectedCountSupplier, String destinationIndex) throws Throwable {
     // Check whether reindex succeeded by comparing document count
     // There can be some delay between the reindex finishing and count being fully up to date, so
     // try multiple times
-    long originalCount = 0;
+    long expectedCount = 0;
     long reindexedCount = 0;
     for (int i = 0; i <= indexConfig.getNumRetries(); i++) {
       // Check if reindex succeeded by comparing document counts
-      originalCount =
+      expectedCount =
           retryRegistry
               .retry("retrySourceIndexCount", "countRetry")
-              .executeCheckedSupplier(() -> getCount(sourceIndex));
+              .executeCheckedSupplier(expectedCountSupplier::call);
       reindexedCount =
           retryRegistry
               .retry("retryDestinationIndexCount", "countRetry")
               .executeCheckedSupplier(() -> getCount(destinationIndex));
-      if (originalCount == reindexedCount) {
+      if (expectedCount == reindexedCount) {
         break;
       }
       try {
@@ -1984,10 +2016,10 @@ public class ESIndexBuilder {
       }
     }
 
-    return Pair.of(originalCount, reindexedCount);
+    return Pair.of(expectedCount, reindexedCount);
   }
 
-  private Optional<TaskInfo> getTaskInfoByHeader(String indexName) throws Throwable {
+  public Optional<TaskInfo> getTaskInfoByHeader(String indexName) throws Throwable {
     Retry retryWithDefaultConfig = retryRegistry.retry("getTaskInfoByHeader");
 
     return retryWithDefaultConfig.executeCheckedSupplier(

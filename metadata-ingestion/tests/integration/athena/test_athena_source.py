@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock, patch
 
-from freezegun import freeze_time
+import time_machine
 from sqlalchemy import ARRAY, BIGINT, INTEGER, String
 from sqlalchemy_bigquery import STRUCT
 
@@ -13,7 +13,7 @@ from datahub.utilities.sqlalchemy_type_converter import MapType
 FROZEN_TIME = "2022-12-15 10:00:00"
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_athena_source_ingestion(pytestconfig, tmp_path):
     """Test Athena source ingestion and generate MCP JSON file for validation."""
     output_file_name = "athena_mce_output.json"

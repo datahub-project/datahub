@@ -158,6 +158,7 @@ export default function ExecutionsTable({
                 isScrollable
                 isLoading={loading}
                 onRowClick={(record) => handleViewDetails(record.urn)}
+                rowDataTestId={(record) => `execution-row-${record.urn}`}
                 footer={
                     isLastPage ? (
                         <TableFooter hiddenItemsMessage="Some executions may be hidden" colSpan={tableColumns.length} />

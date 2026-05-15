@@ -301,19 +301,21 @@ class TestAutoDiscoveryEndToEnd:
     @mock.patch.object(DBTCloudSource, "_send_graphql_query")
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discovery_no_jobs_found(
+    def test_auto_discovery_includes_jobs_without_generate_docs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
         mock_graphql: mock.Mock,
+        mock_graphql_response: Dict[str, Any],
     ) -> None:
-        """Should return empty results when no jobs are discovered."""
+        """By default, should ingest jobs even without generate_docs enabled."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
         mock_get_jobs.return_value = [
-            DBTCloudJob(id=100, generate_docs=False),  # Filtered out
+            DBTCloudJob(id=100, generate_docs=False),
         ]
+        mock_graphql.return_value = mock_graphql_response
 
         config = DBTCloudConfig(
             access_url="https://test.getdbt.com",
@@ -329,11 +331,52 @@ class TestAutoDiscoveryEndToEnd:
         # Execute
         nodes, additional_metadata = source.load_nodes()
 
-        # Should have no nodes and empty metadata when no jobs are found
+        # mock_graphql_response fixture returns 1 model + 1 semantic model per job
+        assert len(nodes) == 2
+        assert {n.node_type for n in nodes} == {"model", "semantic_model"}
+        assert additional_metadata["account_id"] == "123456"
+
+        job_ids_queried = {
+            call[1]["variables"]["jobId"] for call in mock_graphql.call_args_list
+        }
+        assert 100 in job_ids_queried
+
+    @mock.patch.object(DBTCloudSource, "_send_graphql_query")
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discovery_no_jobs_with_require_generate_docs(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        mock_graphql: mock.Mock,
+    ) -> None:
+        """Should return empty results when require_generate_docs=True and no jobs have it."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=False),
+        ]
+
+        config = DBTCloudConfig(
+            access_url="https://test.getdbt.com",
+            token="dummy_token",
+            account_id=123456,
+            project_id=1234567,
+            auto_discovery=AutoDiscoveryConfig(
+                enabled=True, require_generate_docs=True
+            ),
+            target_platform="snowflake",
+        )
+        ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
+        source = DBTCloudSource(config, ctx)
+
+        # Execute
+        nodes, additional_metadata = source.load_nodes()
+
         assert len(nodes) == 0
         assert additional_metadata == {}
 
-        # Should not have called GraphQL
         mock_graphql.assert_not_called()
 
 

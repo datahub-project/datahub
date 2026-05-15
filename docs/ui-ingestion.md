@@ -1,3 +1,7 @@
+---
+description: "Set up no-code metadata ingestion in DataHub through the UI to automatically pull metadata from your data sources on a schedule."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Metadata Ingestion

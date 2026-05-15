@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -154,6 +155,20 @@ public interface EntityRegistry {
   @Nonnull
   default List<MCLSideEffect> getAllMCLSideEffects() {
     return getPluginFactory().getMclSideEffects();
+  }
+
+  /**
+   * Returns observers to apply to {@link com.linkedin.mxe.MetadataChangeProposal} before the
+   * database transaction. Observers do not produce additional MCPs or MCLs.
+   *
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
+   * @return MCP observers
+   */
+  @Nonnull
+  default List<MCPObserver> getAllMCPObservers() {
+    return getPluginFactory().getMcpObservers();
   }
 
   /**

@@ -440,6 +440,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_view.id.view_name,
             looker_view.fields,
             self.reporter,
+            tag_measures_and_dimensions=self.source_config.tag_measures_and_dimensions,
         )
 
         custom_properties: DatasetPropertiesClass = self._get_custom_properties(
@@ -533,11 +534,20 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                checkout_dir = self.source_config.git_info.clone(
-                    tmp_path=tmp_dir,
-                )
-                self.reporter.git_clone_latency = datetime.now() - start_time
-                self.source_config.base_folder = checkout_dir.resolve()
+                try:
+                    checkout_dir = self.source_config.git_info.clone(
+                        tmp_path=tmp_dir,
+                    )
+                    self.reporter.git_clone_latency = datetime.now() - start_time
+                    self.source_config.base_folder = checkout_dir.resolve()
+                except Exception as e:
+                    self.reporter.failure(
+                        title="Failed to clone LookML repository",
+                        message="Unable to clone the git repository.",
+                        context=self.source_config.git_info.repo,
+                        exc=e,
+                    )
+                    return
 
             self.base_projects_folder[BASE_PROJECT_NAME] = (
                 self.source_config.base_folder
@@ -777,6 +787,12 @@ class LookMLSource(StatefulIngestionSourceBase):
             for explore_dict in model.explores:
                 try:
                     if LookerRefinementResolver.is_refinement(explore_dict["name"]):
+                        continue
+
+                    # Abstract explores (extension: required) are base templates that
+                    # cannot be queried via the Looker API — skip to avoid 404 errors.
+                    # https://docs.cloud.google.com/looker/docs/reference/param-explore-extension
+                    if explore_dict.get("extension") == "required":
                         continue
 
                     explore_dict = looker_refinement_resolver.apply_explore_refinement(
