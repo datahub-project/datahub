@@ -336,6 +336,21 @@ def test_parser_rejects_xml_bomb():
     assert SAPCalculationViewParser().column_lineage("Bomb", xml_bomb) == []
 
 
+def test_parser_returns_empty_lineage_when_collector_raises(monkeypatch):
+    """A collector raising mid-parse must yield an empty model, not a partial one."""
+    from datahub.ingestion.source.sql.hana import hana_calculation_view_parser
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(hana_calculation_view_parser, "_collect_outputs", explode)
+
+    assert (
+        SAPCalculationViewParser().column_lineage("PartialParse", _SIMPLE_CALC_VIEW_XML)
+        == []
+    )
+
+
 def test_parser_extracts_columns_from_formula():
     columns = SAPCalculationViewParser._extract_columns_from_formula(
         'if("SALES_AMOUNT" > 1000, "HIGH", "LOW")'
@@ -724,6 +739,61 @@ def test_calc_view_extractor_emits_table_lineage_from_sql_script_view():
         "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.sales,PROD)",
     ]
+
+
+def test_calculation_view_pattern_deny_drops_matching_views():
+    config = HanaConfig.model_validate(
+        {
+            "include_calculation_views": True,
+            "calculation_view_pattern": {"deny": [r"^acme\.sandbox\..*"]},
+        }
+    )
+    aggregator = MagicMock()
+    report = MagicMock()
+
+    calc_view_rows = [
+        {
+            "PACKAGE_ID": "acme.analytics",
+            "OBJECT_NAME": "SalesOverview",
+            "CDATA": _SIMPLE_CALC_VIEW_XML,
+        },
+        {
+            "PACKAGE_ID": "acme.sandbox",
+            "OBJECT_NAME": "Experimental",
+            "CDATA": _SIMPLE_CALC_VIEW_XML,
+        },
+    ]
+    column_rows = [
+        {
+            "COLUMN_NAME": "CUSTOMER_ID",
+            "COMMENTS": None,
+            "DATA_TYPE_NAME": "INTEGER",
+            "IS_NULLABLE": "TRUE",
+            "POSITION": 1,
+            "LENGTH": None,
+            "SCALE": None,
+        },
+    ]
+    engine = _build_fake_engine(calc_view_rows, column_rows)
+    extractor = HanaCalculationViewExtractor(
+        config=config,
+        report=report,
+        identifiers=HanaIdentifierBuilder(config),
+        engine_factory=lambda: engine,
+        aggregator=aggregator,
+    )
+
+    workunits: List[MetadataWorkUnit] = list(extractor.get_workunits_internal())
+
+    emitted_urns = {
+        cast(MetadataChangeProposalWrapper, wu.metadata).entityUrn for wu in workunits
+    }
+    assert emitted_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:hana,"
+        "_sys_bic.acme.analytics.salesoverview,PROD)"
+    }
+    report.report_dropped.assert_called_once_with("_sys_bic.acme.sandbox.experimental")
+    assert aggregator.add_known_query_lineage.call_count == 1
 
 
 def test_get_procedures_for_schema_yields_base_procedures():

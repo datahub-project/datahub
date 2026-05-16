@@ -4,7 +4,7 @@ The `hana` module ingests metadata from SAP HANA into DataHub. It targets both S
 
 The connector extends DataHub's `SQLAlchemySource`, so the standard SQL extraction path (tables, regular views, schema reflection, profiling, classification, stateful deletion detection, container hierarchy, test-connection) is the same as for other SQLAlchemy-backed sources. On top of that, three HANA-specific paths can be enabled:
 
-- **Calculation Views** — set `include_calculation_views: true` to pull activated calculation views from `_SYS_REPO.ACTIVE_OBJECT` and parse column-level lineage from their XML definitions.
+- **Calculation Views** — set `include_calculation_views: true` to pull activated calculation views from `_SYS_REPO.ACTIVE_OBJECT` and parse column-level lineage from their XML definitions. Filter the set with `calculation_view_pattern` (matched against `<package_id>.<view_name>`); the inherited `view_pattern` filters regular SQL views and does not apply here.
 - **Stored Procedures** — enabled by default via `include_stored_procedures: true`. Each procedure becomes a `DataJob` grouped under a per-schema `DataFlow`; lineage is parsed from the procedure body.
 - **Query Usage** — set `include_query_usage: true` to mine `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE` for observed queries and feed them through the SQL parsing aggregator. Combine with `include_usage_stats: true` for `DatasetUsageStatistics` rollups and `include_operational_stats: true` for read operations.
 
