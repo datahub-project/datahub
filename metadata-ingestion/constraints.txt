@@ -295,7 +295,9 @@ coverage==7.13.4
     #   acryl-datahub
     #   pytest-cov
 cramjam==2.11.0
-    # via python-snappy
+    # via
+    #   acryl-datahub
+    #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
 cryptography==46.0.7

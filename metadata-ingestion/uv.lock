@@ -34,6 +34,7 @@ dependencies = [
     { name = "click" },
     { name = "click-default-group" },
     { name = "click-spinner" },
+    { name = "cramjam" },
     { name = "deprecated" },
     { name = "docker" },
     { name = "expandvars" },
@@ -474,6 +475,14 @@ datahub-lite = [
     { name = "fastapi" },
     { name = "uvicorn" },
 ]
+datahub-pg-queue = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
+    { name = "fastavro" },
+    { name = "psycopg2-binary" },
+    { name = "urllib3" },
+]
 datahub-rest = [
     { name = "graphql-core" },
     { name = "requests" },
@@ -575,6 +584,7 @@ dev = [
     { name = "clickhouse-sqlalchemy" },
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "coverage" },
+    { name = "cramjam" },
     { name = "cryptography" },
     { name = "dask", extra = ["dataframe"] },
     { name = "databricks-dbapi" },
@@ -772,6 +782,7 @@ docs = [
     { name = "clickhouse-sqlalchemy" },
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "coverage" },
+    { name = "cramjam" },
     { name = "cryptography" },
     { name = "dask", extra = ["dataframe"] },
     { name = "databricks-dbapi" },
@@ -2128,6 +2139,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'cockroachdb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'confluence'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'datahub-documents'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'dbt'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'delta-lake'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'dev'", specifier = ">=1.35.0,<2.0.0" },
@@ -2156,6 +2168,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'confluence'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'datahub-documents'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'datahub-pg-queue'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'dbt'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'delta-lake'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'dev'", specifier = "!=1.23.0,<2.0.0" },
@@ -2262,11 +2275,15 @@ requires-dist = [
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'all'", specifier = "!=2.8.1,>=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub-kafka'", specifier = ">=1.9.0,!=2.8.1,<3.0.0" },
+    { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub-pg-queue'", specifier = ">=1.9.0,!=2.8.1,<3.0.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'dev'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'docs'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'kafka'", specifier = ">=2.10.1,<2.13.0" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=5.1,<8.0.0" },
     { name = "coverage", marker = "extra == 'docs'", specifier = ">=5.1,<8.0.0" },
+    { name = "cramjam", specifier = ">=2.8.0,<3.0.0" },
+    { name = "cramjam", marker = "extra == 'dev'", specifier = ">=2.8.0,<3.0.0" },
+    { name = "cramjam", marker = "extra == 'docs'", specifier = ">=2.8.0,<3.0.0" },
     { name = "cryptography", marker = "extra == 'all'", specifier = ">=46.0.7,<47.0.0" },
     { name = "cryptography", marker = "extra == 'dev'", specifier = ">=46.0.7,<47.0.0" },
     { name = "cryptography", marker = "extra == 'docs'", specifier = ">=46.0.7,<47.0.0" },
@@ -2351,6 +2368,7 @@ requires-dist = [
     { name = "fastavro", marker = "extra == 'all'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub-kafka'", specifier = ">=1.2.0,<2.0.0" },
+    { name = "fastavro", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'dev'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'docs'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'kafka'", specifier = ">=1.2.0,<2.0.0" },
@@ -2892,6 +2910,7 @@ requires-dist = [
     { name = "psutil", marker = "extra == 'docs'", specifier = ">=5.8.0,<8.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'all'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'cockroachdb'", specifier = "<3.0.0" },
+    { name = "psycopg2-binary", marker = "extra == 'datahub-pg-queue'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'dev'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'docs'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'hive-metastore'", specifier = "<3.0.0" },
@@ -3576,6 +3595,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'cockroachdb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'confluence'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'datahub-documents'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'dbt'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'delta-lake'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'dev'", specifier = ">=1.26,<3.0" },
@@ -3636,7 +3656,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
