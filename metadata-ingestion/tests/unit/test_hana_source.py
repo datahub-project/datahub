@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Dict, List, cast
 from unittest.mock import MagicMock
 
@@ -7,12 +8,14 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.sql.hana import hana_calculation_view_parser
 from datahub.ingestion.source.sql.hana.constants import HanaSourceType
 from datahub.ingestion.source.sql.hana.hana import HanaSource
 from datahub.ingestion.source.sql.hana.hana_calculation_view_parser import (
     SAPCalculationViewParser,
 )
 from datahub.ingestion.source.sql.hana.hana_config import HanaConfig
+from datahub.ingestion.source.sql.hana.hana_data_dictionary import HanaDataDictionary
 from datahub.ingestion.source.sql.hana.hana_schema import (
     HanaCalculationView,
     HanaCalcViewColumn,
@@ -26,6 +29,7 @@ from datahub.ingestion.source.sql.hana.hana_script_lineage import (
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
 from datahub.ingestion.source.sql.hana.models import (
     ColumnLineage,
+    HanaObservedQueryRow,
     ScriptViewDefinition,
     UpstreamColumnRef,
 )
@@ -338,7 +342,6 @@ def test_parser_rejects_xml_bomb():
 
 def test_parser_returns_empty_lineage_when_collector_raises(monkeypatch):
     """A collector raising mid-parse must yield an empty model, not a partial one."""
-    from datahub.ingestion.source.sql.hana import hana_calculation_view_parser
 
     def explode(*_args, **_kwargs):
         raise RuntimeError("boom")
@@ -797,10 +800,6 @@ def test_calculation_view_pattern_deny_drops_matching_views():
 
 
 def test_get_procedures_for_schema_yields_base_procedures():
-    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
-        HanaDataDictionary,
-    )
-
     proc_row = {
         "SCHEMA_NAME": "REPORTING",
         "PROCEDURE_NAME": "REFRESH_SALES",
@@ -835,14 +834,7 @@ def test_get_procedures_for_schema_yields_base_procedures():
 
 
 def test_iter_observed_queries_yields_typed_rows_and_skips_empty_text():
-    import datetime as _dt
-
-    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
-        HanaDataDictionary,
-    )
-    from datahub.ingestion.source.sql.hana.models import HanaObservedQueryRow
-
-    ts = _dt.datetime(2025, 1, 1, 12, 30, 0, tzinfo=_dt.timezone.utc)
+    ts = datetime.datetime(2025, 1, 1, 12, 30, 0, tzinfo=datetime.timezone.utc)
     valid_row = {
         "STATEMENT_HASH": "abc123",
         "STATEMENT_STRING": 'SELECT * FROM "REPORTING"."CUSTOMERS"',
@@ -873,8 +865,8 @@ def test_iter_observed_queries_yields_typed_rows_and_skips_empty_text():
     data_dict = HanaDataDictionary(conn, MagicMock())
     rows = list(
         data_dict.iter_observed_queries(
-            start_time=ts - _dt.timedelta(hours=1),
-            end_time=ts + _dt.timedelta(hours=1),
+            start_time=ts - datetime.timedelta(hours=1),
+            end_time=ts + datetime.timedelta(hours=1),
             top_n=100,
         )
     )
@@ -888,12 +880,6 @@ def test_iter_observed_queries_yields_typed_rows_and_skips_empty_text():
 
 
 def test_iter_observed_queries_reports_warning_on_failure():
-    import datetime as _dt
-
-    from datahub.ingestion.source.sql.hana.hana_data_dictionary import (
-        HanaDataDictionary,
-    )
-
     conn = MagicMock()
     conn.execute.side_effect = RuntimeError("statistics service not running")
     report = MagicMock()
@@ -901,8 +887,8 @@ def test_iter_observed_queries_reports_warning_on_failure():
     data_dict = HanaDataDictionary(conn, report)
     rows = list(
         data_dict.iter_observed_queries(
-            start_time=_dt.datetime(2025, 1, 1, tzinfo=_dt.timezone.utc),
-            end_time=_dt.datetime(2025, 1, 2, tzinfo=_dt.timezone.utc),
+            start_time=datetime.datetime(2025, 1, 1, tzinfo=datetime.timezone.utc),
+            end_time=datetime.datetime(2025, 1, 2, tzinfo=datetime.timezone.utc),
             top_n=100,
         )
     )
