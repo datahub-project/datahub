@@ -38,10 +38,11 @@ base_requirements = {
     "sentry-sdk>=1.33.1,<3.0.0",
     # For JSON logging support via DATAHUB_LOG_CONFIG_FILE
     "python-json-logger>=2.0.0,<5.0.0",
-    # setuptools: CVE-2022-40897 (ReDoS), CVE-2024-6345 (command injection),
-    # CVE-2025-47273 (path traversal). All fixed in 78.1.1.
-    # setuptools 82.0.0 deprecated pkg_resources.
-    "setuptools>=78.1.1,<82.0.0",
+    # setuptools 82.0.0 deprecated pkg_resources; cap below that.
+    # Note: setuptools CVEs (CVE-2022-40897, CVE-2024-6345, CVE-2025-47273) are build-time
+    # vulnerabilities. A >=floor here would conflict with transitive deps like gcloud-aio-auth
+    # (apache-airflow-providers-google) which pins setuptools<67. Enforce via build constraints.
+    "setuptools<82.0.0",
 }
 
 gcp_sm_common = {
