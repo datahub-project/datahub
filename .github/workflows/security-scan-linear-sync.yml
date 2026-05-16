@@ -78,13 +78,16 @@ env:
   RESOLVED_SCAN_WITH_TRIVY: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_trivy && 'true' || 'false') }}
   RESOLVED_SCAN_WITH_GRYPE: ${{ github.event_name == 'workflow_run' && 'true' || (inputs.scan_with_grype && 'true' || 'false') }}
   RESOLVED_SCAN_ARTIFACT_RETENTION_DAYS: ${{ github.event_name == 'workflow_run' && '5' || github.event.inputs.scan_artifact_retention_days }}
+  # This workflow resolves published image refs directly (for example `acryldata/datahub-gms:head`),
+  # so Docker Hub uses the namespace prefix rather than `docker.io/...`.
+  RESOLVED_DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY || 'acryldata' }}
 
 jobs:
   select-runner:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_REGISTRY: ${{ env.RESOLVED_DOCKER_REGISTRY }}
       DEPOT_PROJECT_ID: ${{ vars.DEPOT_PROJECT_ID }}
     outputs:
       image_matrix_json: ${{ steps.build-image-matrix.outputs.matrix_json }}
@@ -101,6 +104,7 @@ jobs:
           EVENT_INPUTS_JSON: ${{ toJSON(github.event.inputs) }}
           EVENT_NAME: ${{ github.event_name }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
+          CONFIGURED_DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
           INPUT_DOCKER_TAG: ${{ env.RESOLVED_DOCKER_TAG }}
           INPUT_SCAN_WITH_TRIVY: ${{ env.RESOLVED_SCAN_WITH_TRIVY }}
           INPUT_SCAN_WITH_GRYPE: ${{ env.RESOLVED_SCAN_WITH_GRYPE }}
@@ -117,8 +121,11 @@ jobs:
               exit 1
             fi
           fi
+          if [[ -z "${CONFIGURED_DOCKER_REGISTRY:-}" ]]; then
+            echo "::notice::vars.DOCKER_REGISTRY is unset; defaulting to DockerHub namespace acryldata."
+          fi
           if [[ -z "${DOCKER_REGISTRY:-}" ]]; then
-            echo "::error::Organization / repository var DOCKER_REGISTRY is required; this workflow only pulls images from the registry (no local Gradle build path)."
+            echo "::error::DOCKER_REGISTRY resolved empty. Set vars.DOCKER_REGISTRY or use the default DockerHub namespace fallback."
             exit 1
           fi
           if [[ "${INPUT_SCAN_WITH_TRIVY}" != "true" && "${INPUT_SCAN_WITH_GRYPE}" != "true" ]]; then
@@ -286,7 +293,7 @@ jobs:
           }
 
           if [[ -z "${REGISTRY_PREFIX}" ]]; then
-            echo "::error::vars.DOCKER_REGISTRY is not set. This workflow only resolves images from the container registry (no local build path)."
+            echo "::error::DOCKER_REGISTRY resolved empty. Set vars.DOCKER_REGISTRY or use the default DockerHub namespace fallback."
             exit 1
           fi
 
@@ -430,7 +437,7 @@ jobs:
     runs-on: ${{ needs.select-runner.outputs.runner }}
     timeout-minutes: 300
     env:
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_REGISTRY: ${{ env.RESOLVED_DOCKER_REGISTRY }}
     steps:
       - name: Checkout (Trivy config)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -563,7 +570,7 @@ jobs:
     runs-on: ${{ needs.select-runner.outputs.grype_runner }}
     timeout-minutes: 300
     env:
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_REGISTRY: ${{ env.RESOLVED_DOCKER_REGISTRY }}
     steps:
       - *ecr_login
 
@@ -660,7 +667,7 @@ jobs:
     runs-on: ${{ needs.select-runner.outputs.default_gh_runner }}
     timeout-minutes: 60
     env:
-      DOCKER_REGISTRY: ${{ vars.DOCKER_REGISTRY }}
+      DOCKER_REGISTRY: ${{ env.RESOLVED_DOCKER_REGISTRY }}
     steps:
       # Cone checkout of `.github/scripts` for the sync entrypoint and `utils/` imports.
       - name: Checkout (sync script)
