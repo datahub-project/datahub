@@ -1,0 +1,120 @@
+name: Linear — Ingestion CLI/PyPI Release Tracking
+
+# Tracks ingestion releases in the "Ingestion CLI/PyPI Releases" Linear pipeline.
+#
+# Release lifecycle for acryl-datahub PyPI:
+#   1. PRs merge to master continuously        → issues synced to the current in-progress release
+#   2. RC tag published (e.g. v0.3.17.7rc1)   → Linear release moved to "Testing Release" stage
+#   3. Stable tag published (e.g. v0.3.17.7)  → release completed + Linear LLM generates release notes
+#
+# Manual dispatch supports backfilling past releases and one-off stage overrides.
+#
+# Required secret: LINEAR_ACCESS_KEY
+#   → Copy the pipeline access key from Linear Settings → Releases → "Ingestion CLI/PyPI Releases" → CI setup
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      # Match the path filters already configured in the Linear pipeline settings
+      - 'metadata-ingestion/**'
+      - 'docs/**'
+
+  release:
+    types: [published]  # fires for both RC and stable GitHub releases
+
+  workflow_dispatch:
+    inputs:
+      command:
+        description: 'Release command'
+        required: true
+        type: choice
+        options:
+          - update    # advance to a specific stage (e.g. backfill an RC transition)
+          - complete  # mark released + trigger Linear LLM release note generation
+      stage:
+        description: 'Stage name — only used with "update" (e.g. "testing release")'
+        required: false
+        type: string
+      version:
+        description: 'Release version (e.g. v0.3.17.7 or v0.3.17.7rc1) — required; used to backfill past releases'
+        required: true
+        type: string
+
+jobs:
+  linear-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # required — action scans full commit history to find ING-XXXX references
+
+      # ── 1. MERGE TO MASTER ──────────────────────────────────────────────────
+      # Scans new commits for ING-XXXX references and adds matching issues to
+      # the current in-progress release (no version needed — attaches to latest open release).
+      # Path filter on the trigger above ensures this only runs for ingestion-relevant commits.
+      - name: Sync issues on merge to master
+        if: github.event_name == 'push'
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+
+      # ── 2. RC PUBLISHED ─────────────────────────────────────────────────────
+      # Triggered when a pre-release GitHub release is published (tag contains "rc").
+      # Step 1: associate the version + sync any issues not yet captured.
+      # Step 2: advance the release to "Testing Release" stage (RC is in validation).
+      - name: Extract version from GitHub release tag
+        if: github.event_name == 'release'
+        run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
+
+      - name: Sync issues on RC publish
+        if: github.event_name == 'release' && contains(github.event.release.tag_name, 'rc')
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          version: ${{ env.RELEASE_VERSION }}
+
+      - name: Advance to Testing Release stage on RC
+        if: github.event_name == 'release' && contains(github.event.release.tag_name, 'rc')
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: update
+          stage: testing release  # matches the "Testing Release" stage in the Linear pipeline
+          version: ${{ env.RELEASE_VERSION }}
+
+      # ── 3. STABLE RELEASE PUBLISHED ─────────────────────────────────────────
+      # Triggered when a stable (non-RC) GitHub release is published — same moment
+      # PyPI publish workflows fire. This is the final state of the release.
+      # Step 1: sync any final issues (e.g. last-minute hotfix commits).
+      # Step 2: complete the release → triggers Linear's LLM to auto-generate release notes
+      #         using the release notes template configured in the pipeline settings.
+      - name: Sync issues on stable release
+        if: github.event_name == 'release' && !contains(github.event.release.tag_name, 'rc')
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          version: ${{ env.RELEASE_VERSION }}
+
+      - name: Complete release + generate release notes
+        if: github.event_name == 'release' && !contains(github.event.release.tag_name, 'rc')
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: complete
+          version: ${{ env.RELEASE_VERSION }}
+
+      # ── 4. MANUAL DISPATCH ───────────────────────────────────────────────────
+      # Use cases:
+      #   - Backfill a past release:   command=complete, version=v0.3.17.5
+      #   - Fix a missed RC transition: command=update, stage=testing release, version=v0.3.17.7rc1
+      #   - Manually complete a release that didn't auto-trigger
+      - name: Manual release command
+        if: github.event_name == 'workflow_dispatch'
+        uses: linear/linear-release-action@v0
+        with:
+          access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+          command: ${{ inputs.command }}
+          stage: ${{ inputs.stage }}
+          version: ${{ inputs.version }}
