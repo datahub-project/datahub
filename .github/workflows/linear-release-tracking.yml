@@ -18,27 +18,27 @@ on:
       - master
     paths:
       # Match the path filters already configured in the Linear pipeline settings
-      - 'metadata-ingestion/**'
-      - 'docs/**'
+      - "metadata-ingestion/**"
+      - "docs/**"
 
   release:
-    types: [published]  # fires for both RC and stable GitHub releases
+    types: [published] # fires for both RC and stable GitHub releases
 
   workflow_dispatch:
     inputs:
       command:
-        description: 'Release command'
+        description: "Release command"
         required: true
         type: choice
         options:
-          - update    # advance to a specific stage (e.g. backfill an RC transition)
-          - complete  # mark released + trigger Linear LLM release note generation
+          - update # advance to a specific stage (e.g. backfill an RC transition)
+          - complete # mark released + trigger Linear LLM release note generation
       stage:
         description: 'Stage name — only used with "update" (e.g. "testing release")'
         required: false
         type: string
       version:
-        description: 'Release version (e.g. v0.3.17.7 or v0.3.17.7rc1) — required; used to backfill past releases'
+        description: "Release version (e.g. v0.3.17.7 or v0.3.17.7rc1) — required; used to backfill past releases"
         required: true
         type: string
 
@@ -48,7 +48,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # required — action scans full commit history to find ING-XXXX references
+          fetch-depth: 0 # required — action scans full commit history to find ING-XXXX references
 
       # ── 1. MERGE TO MASTER ──────────────────────────────────────────────────
       # Scans new commits for ING-XXXX references and adds matching issues to
@@ -81,7 +81,7 @@ jobs:
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: update
-          stage: testing release  # matches the "Testing Release" stage in the Linear pipeline
+          stage: testing release # matches the "Testing Release" stage in the Linear pipeline
           version: ${{ env.RELEASE_VERSION }}
 
       # ── 3. STABLE RELEASE PUBLISHED ─────────────────────────────────────────
