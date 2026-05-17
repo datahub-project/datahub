@@ -902,6 +902,12 @@ class DocumentChunkingSource(Source):
                         )
 
                     # Validate local config matches server
+                    if server_config.embedding_config is None:
+                        raise ValueError(
+                            "Server reports semantic search is enabled but has no embedding configuration. "
+                            "This indicates a misconfigured server."
+                        )
+
                     logger.info(
                         "Validating local embedding configuration against server..."
                     )
