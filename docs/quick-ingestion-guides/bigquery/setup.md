@@ -41,7 +41,7 @@ You can always add/remove roles to Service Accounts later on. Please refer to th
 
 ### Permissions for DataHub Cloud Assertions (Observe)
 
-If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions), [Volume](/docs/managed-datahub/observe/volume-assertions), [Column](/docs/managed-datahub/observe/column-assertions), or [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions) Assertions, the required permissions depend on which source type and assertion type you select.
+If you plan to use DataHub Cloud's [Freshness](/docs/managed-datahub/observe/freshness-assertions.md), [Volume](/docs/managed-datahub/observe/volume-assertions.md), [Column](/docs/managed-datahub/observe/column-assertions.md), or [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md) Assertions, the required permissions depend on which source type and assertion type you select.
 
 #### Freshness & Volume Assertions
 
