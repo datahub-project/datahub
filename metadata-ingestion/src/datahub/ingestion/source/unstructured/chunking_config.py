@@ -570,7 +570,10 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    query = """
+    # Full query includes vertexProviderConfig (added in DataHub v0.15+).
+    # Older servers reject it with FieldUndefined; we fall back to the base
+    # query in that case rather than propagating a confusing schema error.
+    _QUERY_FULL = """
         query getSemanticSearchConfig {
           appConfig {
             semanticSearchConfig {
@@ -592,12 +595,43 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
           }
         }
     """
+    _QUERY_BASE = """
+        query getSemanticSearchConfig {
+          appConfig {
+            semanticSearchConfig {
+              enabled
+              enabledEntities
+              embeddingConfig {
+                provider
+                modelId
+                modelEmbeddingKey
+                awsProviderConfig {
+                  region
+                }
+              }
+            }
+          }
+        }
+    """
 
-    response = graph.execute_graphql(
-        query=query,
-        operation_name="getSemanticSearchConfig",
-        strip_unsupported_fields=True,
-    )
+    try:
+        response = graph.execute_graphql(
+            query=_QUERY_FULL,
+            operation_name="getSemanticSearchConfig",
+            strip_unsupported_fields=True,
+        )
+    except GraphError as e:
+        # Older servers don't have vertexProviderConfig in their schema. When the
+        # graphql-core library is absent, strip_unsupported_fields is a no-op and
+        # the full query reaches the server, which rejects it with FieldUndefined.
+        # Retry with the base query — vertex fields will simply be None.
+        if "vertexProviderConfig" in str(e) and "FieldUndefined" in str(e):
+            response = graph.execute_graphql(
+                query=_QUERY_BASE,
+                operation_name="getSemanticSearchConfig",
+            )
+        else:
+            raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
 
