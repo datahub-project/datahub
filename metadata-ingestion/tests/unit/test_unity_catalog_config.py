@@ -4,6 +4,7 @@ import pytest
 import time_machine
 
 from datahub.ingestion.source.unity.config import (
+    UnityCatalogGEProfilerConfig,
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
@@ -501,6 +502,7 @@ def test_usage_data_source_can_be_set_with_warehouse():
 
 
 def test_profiling_default_method_is_sqlalchemy():
+    # profiling absent → SQLAlchemy variant
     config = UnityCatalogSourceConfig.model_validate(
         {
             "token": "token",
@@ -510,3 +512,32 @@ def test_profiling_default_method_is_sqlalchemy():
     )
     assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
     assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_dict_without_method_defaults_to_sqlalchemy():
+    # profiling: {enabled: true} with no method key → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+    assert config.profiling.enabled is True
+
+
+def test_profiling_explicit_ge_method_preserved():
+    # profiling: {method: ge, ...} → GE variant unchanged
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {"method": "ge", "enabled": True, "warehouse_id": "wh"},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogGEProfilerConfig)
+    assert config.profiling.method == "ge"
