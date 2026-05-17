@@ -681,7 +681,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
             if (
                 self.config.is_profiling_enabled()
-                and self.config.is_ge_profiling()
+                and self.config.uses_table_level_profiler()
                 and self.config.profiling.pattern.allowed(
                     table.ref.qualified_table_name
                 )
