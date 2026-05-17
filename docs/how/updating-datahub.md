@@ -97,6 +97,20 @@ Requirements:
 
   **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
 
+- #17469 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+
+  ```bash
+  pip install 'acryl-datahub[unity-catalog,profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
+
 - **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
 
 - #16842: **(Ingestion / Athena) Upstream lineage URNs changed for Glue-backed catalogs.** Athena tables backed by the AWS Glue Data Catalog (i.e. using `awsdatacatalog` or any catalog whose type resolves to `GLUE`) now emit upstream lineage to Glue dataset URNs (`urn:li:dataPlatform:glue`) instead of S3 URNs (`urn:li:dataPlatform:s3`). Iceberg tables in non-Glue catalogs (e.g. Hive Metastore, Lambda, Federated) now emit upstream lineage to Iceberg dataset URNs (`urn:li:dataPlatform:iceberg`). If your upstream Glue or Iceberg connector is configured with a non-default `platform_instance`, set the new `glue_platform_instance` / `iceberg_platform_instance` options on the Athena source so the upstream URNs match. If you have downstream dashboards, saved searches, or lineage queries that reference the old S3 upstream URNs for Athena tables, update them after re-running ingestion.
