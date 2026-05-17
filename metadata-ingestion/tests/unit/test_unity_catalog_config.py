@@ -3,7 +3,10 @@ from datetime import datetime, timedelta
 import pytest
 import time_machine
 
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    UnityCatalogSourceConfig,
+    UnityCatalogSQLAlchemyProfilerConfig,
+)
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 
 FROZEN_TIME = datetime.fromisoformat("2023-01-01 00:00:00+00:00")
@@ -495,3 +498,15 @@ def test_usage_data_source_can_be_set_with_warehouse():
 
     assert config.usage_data_source == UsageDataSource.SYSTEM_TABLES
     assert config.warehouse_id == "test_warehouse"
+
+
+def test_profiling_default_method_is_sqlalchemy():
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
