@@ -104,6 +104,30 @@ def test_panel_macro_body_is_preserved() -> None:
     assert "Note" not in markdown  # parameter value dropped
 
 
+def test_unknown_macro_without_body_is_dropped() -> None:
+    """A passthrough macro with no rich/plain-text-body must be silently dropped."""
+    html = (
+        '<ac:structured-macro ac:name="panel">'
+        '<ac:parameter ac:name="title">Title</ac:parameter>'
+        # no ac:rich-text-body
+        "</ac:structured-macro>"
+        "<p>After macro.</p>"
+    )
+    markdown = html_storage_to_markdown(html)
+    assert "After macro." in markdown
+    assert "Title" not in markdown
+
+
+def test_residual_ac_tags_are_stripped() -> None:
+    """Residual ac:* tags (e.g. ac:image, ac:link) must not appear in output."""
+    html = (
+        "<p>See <ac:link><ri:page ri:content-title='Home'/></ac:link> for details.</p>"
+    )
+    markdown = html_storage_to_markdown(html)
+    assert "for details" in markdown
+    assert "ac:" not in markdown
+
+
 def test_html_storage_to_markdown_empty_input() -> None:
     assert html_storage_to_markdown("") == ""
     assert html_storage_to_markdown("   ") == ""

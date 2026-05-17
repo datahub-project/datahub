@@ -61,7 +61,8 @@ def _preprocess_confluence_storage(html: str) -> str:
     # --- 1. Handle ac:structured-macro -----------------------------------------
     for macro in soup.find_all("ac:structured-macro"):
         assert isinstance(macro, Tag)
-        name = (macro.get("ac:name") or "").lower()
+        name_val = macro.get("ac:name")
+        name = (name_val if isinstance(name_val, str) else "").lower()
 
         if name in _DISCARD_MACROS:
             macro.decompose()
