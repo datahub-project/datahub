@@ -27,7 +27,7 @@ class ServerSemanticSearchConfig(ConfigModel):
 
     enabled: bool
     enabled_entities: list[str]
-    embedding_config: ServerEmbeddingConfig
+    embedding_config: Optional[ServerEmbeddingConfig] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -607,8 +607,16 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             "Ensure DataHub server version supports semantic search config API (v0.14.0+)."
         )
 
-    # Parse into ServerSemanticSearchConfig model
-    embedding_config_dict = semantic_search_config["embeddingConfig"]
+    is_enabled = semantic_search_config["enabled"]
+
+    # embeddingConfig is null when semantic search is disabled on the server.
+    embedding_config_dict = semantic_search_config.get("embeddingConfig")
+    if not embedding_config_dict:
+        return ServerSemanticSearchConfig(
+            enabled=is_enabled,
+            enabled_entities=semantic_search_config["enabledEntities"],
+            embedding_config=None,
+        )
 
     # Extract AWS region from nested awsProviderConfig
     aws_region = None
@@ -647,7 +655,7 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     )
 
     return ServerSemanticSearchConfig(
-        enabled=semantic_search_config["enabled"],
+        enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
     )

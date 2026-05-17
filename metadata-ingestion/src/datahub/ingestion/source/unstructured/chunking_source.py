@@ -994,45 +994,24 @@ class DocumentChunkingSource(Source):
                     )
                     return EmbeddingConfig()
                 else:
-                    # Server reachable but semantic search not yet configured (no embedding_config).
-                    # Fall back to defaults so existing deployments keep working.
+                    # Server reachable but no embedding_config (semantic search enabled
+                    # but not yet configured). Skip embedding rather than guess a provider.
                     logger.info(
-                        "Semantic search not configured on server - using default client-side embedding config (Bedrock/Cohere)"
+                        "Semantic search enabled on server but no embedding provider configured — skipping embedding generation."
                     )
-                    default_config = EmbeddingConfig.get_default_config()
-                    logger.info(
-                        "✓ Using default embedding configuration"
-                        f"\n  Provider: {default_config.provider}"
-                        f"\n  Model: {default_config.model}"
-                        f"\n  AWS Region: {default_config.aws_region}"
-                    )
-                    return default_config
+                    return EmbeddingConfig()
 
             except Exception as e:
                 logger.warning(
-                    f"Failed to load embedding config from server: {e}. Using default client-side embedding config."
+                    f"Failed to load embedding config from server: {e}. Skipping embedding generation."
                 )
-                default_config = EmbeddingConfig.get_default_config()
-                logger.info(
-                    "✓ Using default embedding configuration"
-                    f"\n  Provider: {default_config.provider}"
-                    f"\n  Model: {default_config.model}"
-                    f"\n  AWS Region: {default_config.aws_region}"
-                )
-                return default_config
+                return EmbeddingConfig()
         else:
-            # No graph available - use defaults
+            # No graph available — cannot determine server config, so skip embedding.
             logger.info(
-                "No DataHub server connection available - using default client-side embedding config"
+                "No DataHub server connection available — skipping embedding generation."
             )
-            default_config = EmbeddingConfig.get_default_config()
-            logger.info(
-                "✓ Using default embedding configuration"
-                f"\n  Provider: {default_config.provider}"
-                f"\n  Model: {default_config.model}"
-                f"\n  AWS Region: {default_config.aws_region}"
-            )
-            return default_config
+            return EmbeddingConfig()
 
     @staticmethod
     def _validate_provider_config(
