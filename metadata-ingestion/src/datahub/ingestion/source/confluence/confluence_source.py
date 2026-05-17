@@ -37,6 +37,7 @@ from datahub.ingestion.source.confluence.confluence_config import ConfluenceSour
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
 )
+from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -720,12 +721,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             if isinstance(storage, dict):
                 value = storage.get("value", "")
                 if value:
-                    # Simple HTML tag removal (unstructured will do proper parsing)
-                    import re
-
-                    clean_text = re.sub(r"<[^>]+>", " ", value)
-                    clean_text = re.sub(r"\s+", " ", clean_text).strip()
-                    text_parts.append(clean_text)
+                    text_parts.append(html_storage_to_markdown(value))
 
         return "\n\n".join(text_parts)
 

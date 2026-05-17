@@ -522,6 +522,8 @@ confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
     "unstructured-ingest[confluence]==0.7.2",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
+    # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
+    "markdownify>=0.14.1,<2.0.0",
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.

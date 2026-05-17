@@ -151,6 +151,7 @@ all = [
     { name = "lark" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mlflow-skinny" },
     { name = "more-itertools" },
@@ -404,6 +405,7 @@ confluence = [
     { name = "botocore" },
     { name = "google-auth" },
     { name = "jsonpath-ng" },
+    { name = "markdownify" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["confluence"] },
     { name = "urllib3" },
@@ -624,6 +626,7 @@ dev = [
     { name = "kerberos" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
@@ -821,6 +824,7 @@ docs = [
     { name = "kerberos" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
@@ -2622,6 +2626,10 @@ requires-dist = [
     { name = "looker-sdk", marker = "extra == 'docs'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'looker'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'lookml'", specifier = ">=23.0.0,<26.0.0" },
+    { name = "markdownify", marker = "extra == 'all'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'confluence'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'dev'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'docs'", specifier = ">=0.14.1,<2.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
     { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
@@ -8149,6 +8157,19 @@ wheels = [
 [package.optional-dependencies]
 linkify = [
     { name = "linkify-it-py" },
+]
+
+[[package]]
+name = "markdownify"
+version = "1.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/bc/c8c8eea5335341306b0fa7e1cb33c5e1c8d24ef70ddd684da65f41c49c92/markdownify-1.2.2.tar.gz", hash = "sha256:b274f1b5943180b031b699b199cbaeb1e2ac938b75851849a31fd0c3d6603d09", size = 18816, upload-time = "2025-11-16T19:21:18.565Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/ce/f1e3e9d959db134cedf06825fae8d5b294bd368aacdd0831a3975b7c4d55/markdownify-1.2.2-py3-none-any.whl", hash = "sha256:3f02d3cc52714084d6e589f70397b6fc9f2f3a8531481bf35e8cc39f975e186a", size = 15724, upload-time = "2025-11-16T19:21:17.622Z" },
 ]
 
 [[package]]

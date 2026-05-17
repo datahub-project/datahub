@@ -206,7 +206,11 @@ def test_extract_text_from_page(
     page = {
         "id": "12345",
         "title": "Test Page",
-        "body": {"storage": {"value": "<p>This is <strong>test</strong> content.</p>"}},
+        "body": {
+            "storage": {
+                "value": "<h2>Section</h2><p>This is <strong>test</strong> content.</p>"
+            }
+        },
     }
 
     with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
@@ -214,8 +218,10 @@ def test_extract_text_from_page(
         text = source._extract_text_from_page(page)
 
         assert "Test Page" in text
+        assert "## Section" in text
         assert "test" in text.lower()
         assert "content" in text
+        assert "<" not in text
 
 
 def test_extract_parent_urn_with_parent(
