@@ -524,6 +524,9 @@ confluence_common = {
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
     # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
     "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation (strip_unsupported_fields) when fetching
+    # semantic search config from older DataHub servers that lack vertexProviderConfig.
+    "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
