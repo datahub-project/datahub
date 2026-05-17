@@ -55,10 +55,14 @@ def test_old_server_with_local_config_succeeds(mock_graph_class, mock_get_config
     "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config"
 )
 @patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph")
-def test_old_server_without_local_config_uses_defaults(
+def test_old_server_without_local_config_skips_embedding(
     mock_graph_class, mock_get_config
 ):
-    """Test that source uses defaults when old server and no local config."""
+    """Test that source skips embedding when old server can't provide config and no local config.
+
+    Old behavior fell back to Bedrock defaults, which caused AccessDeniedException on
+    deployments without Bedrock access. The safe default is to skip embedding entirely.
+    """
     # Setup: Old server + NO local embedding config
     config = DocumentChunkingSourceConfig(
         embedding=EmbeddingConfig()  # No provider/model specified
@@ -75,16 +79,12 @@ def test_old_server_without_local_config_uses_defaults(
         "Ensure DataHub server version supports semantic search config API (v0.14.0+)."
     )
 
-    # Should succeed with default config fallback
+    # Should succeed — but skip embedding rather than fall back to Bedrock
     source = DocumentChunkingSource(ctx, config, standalone=True)
 
-    # Verify source was created with default config
+    # provider must be None — no embedding should be attempted
     assert source is not None
-    assert source.config.embedding.provider == "bedrock"
-    assert source.config.embedding.model == "cohere.embed-english-v3"
-    assert source.config.embedding.model_embedding_key == "cohere_embed_v3"
-    assert source.config.embedding.aws_region == "us-west-2"
-    assert source.config.embedding.allow_local_embedding_config is True
+    assert source.config.embedding.provider is None
 
 
 @patch(
