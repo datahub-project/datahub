@@ -60,18 +60,12 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever {
   public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
     if (urns.isEmpty()) {
       return Map.of();
-    } else {
-      return urns.stream()
-          .collect(
-              Collectors.toMap(
-                  urn -> urn,
-                  urn -> {
-                    try {
-                      return entityClient.exists(systemOperationContext, urn);
-                    } catch (RemoteInvocationException e) {
-                      throw new RuntimeException(e);
-                    }
-                  }));
+    }
+    try {
+      final Set<Urn> existing = entityClient.filterExistingUrns(systemOperationContext, urns);
+      return urns.stream().collect(Collectors.toMap(urn -> urn, existing::contains));
+    } catch (RemoteInvocationException e) {
+      throw new RuntimeException(e);
     }
   }
 

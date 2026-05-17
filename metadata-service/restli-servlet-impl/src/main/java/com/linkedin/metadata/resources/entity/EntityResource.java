@@ -39,6 +39,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
+import com.linkedin.entity.FilterExistingUrnsRequest;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -123,6 +124,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String ACTION_FILTER = "filter";
   private static final String ACTION_DELETE = "delete";
   private static final String ACTION_EXISTS = "exists";
+  private static final String ACTION_FILTER_EXISTING_URNS = "filterExistingUrns";
   private static final String PARAM_ENTITY = "entity";
   private static final String PARAM_ENTITIES = "entities";
   private static final String PARAM_COUNT = "count";
@@ -132,6 +134,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
   private static final String PARAM_START_TIME_MILLIS = "startTimeMillis";
   private static final String PARAM_END_TIME_MILLIS = "endTimeMillis";
   private static final String PARAM_URN = "urn";
+  private static final String PARAM_REQUEST = "request";
   private static final String PARAM_INCLUDE_SOFT_DELETE = "includeSoftDelete";
   private static final String SYSTEM_METADATA = "systemMetadata";
   private static final String ES_FIELD_TIMESTAMP = "timestampMillis";
@@ -1276,5 +1279,54 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     final boolean includeRemoved = includeSoftDelete == null || includeSoftDelete;
     return RestliUtils.toTask(systemOperationContext,
         () -> entityService.exists(opContext, urn, includeRemoved), MetricRegistry.name(this.getClass(), "exists"));
+  }
+
+  @Action(name = ACTION_FILTER_EXISTING_URNS)
+  @Nonnull
+  @WithSpan
+  public Task<String[]> filterExistingUrns(
+      @ActionParam(PARAM_REQUEST) @Nonnull FilterExistingUrnsRequest request)
+      throws URISyntaxException {
+    if (!request.hasUrns() || request.getUrns().isEmpty()) {
+      return Task.value(new String[0]);
+    }
+
+    final String[] urnStrs = request.getUrns().toArray(new String[0]);
+    final Set<Urn> urns = new HashSet<>();
+    for (final String urnStr : urnStrs) {
+      urns.add(Urn.createFromString(urnStr));
+    }
+
+    final Authentication auth = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildRestli(
+                    auth.getActor().toUrnStr(),
+                    getContext(),
+                    ACTION_FILTER_EXISTING_URNS,
+                    urnStrs),
+            authorizer,
+            auth,
+            true);
+    if (!isAPIAuthorizedEntityUrns(opContext, EXISTS, urns)) {
+      throw new RestLiServiceException(
+          HttpStatus.S_403_FORBIDDEN,
+          "User is unauthorized to check entity existence for "
+              + urnStrs.length
+              + " urn(s)");
+    }
+
+    log.debug("FILTER_EXISTING_URNS for {} urns", urnStrs.length);
+    final boolean includeRemoved =
+        !request.hasIncludeSoftDelete() || Boolean.TRUE.equals(request.isIncludeSoftDelete());
+    return RestliUtils.toTask(
+        systemOperationContext,
+        () ->
+            entityService.exists(opContext, urns, includeRemoved).stream()
+                .map(Urn::toString)
+                .toArray(String[]::new),
+        MetricRegistry.name(this.getClass(), "filterExistingUrns"));
   }
 }
