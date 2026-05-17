@@ -1191,7 +1191,7 @@ sqlalchemy = [
 ]
 
 sqlmesh = [
-    "sqlmesh>=0.100.0",
+    "sqlmesh>=0.100.0,<0.233",
 ]
 
 starburst-trino-usage = [
@@ -1456,7 +1456,7 @@ all = [
     "sqlalchemy-redshift>=0.8.3,<=0.8.14",
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
-    "sqlmesh>=0.100.0",
+    "sqlmesh>=0.100.0,<0.233",
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",

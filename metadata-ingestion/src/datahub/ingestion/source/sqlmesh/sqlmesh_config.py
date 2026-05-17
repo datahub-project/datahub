@@ -1,10 +1,13 @@
+import threading
 from copy import deepcopy
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Literal, Optional
 
+import cachetools
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -26,6 +29,20 @@ SQLMESH_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "gcp_postgres": "postgres",
     "motherduck": "duckdb",
 }
+
+# Tobiko Cloud token file reads are cached for 60s so projected Kubernetes
+# secret mounts pick up rotated tokens without a process restart, while still
+# avoiding a disk read on every ingest.
+_TOBIKO_TOKEN_FILE_CACHE_TTL_SEC = 60
+_tobiko_token_file_cache: cachetools.TTLCache = cachetools.TTLCache(
+    maxsize=8, ttl=_TOBIKO_TOKEN_FILE_CACHE_TTL_SEC
+)
+_tobiko_token_file_cache_lock = threading.Lock()
+
+
+@cachetools.cached(_tobiko_token_file_cache, lock=_tobiko_token_file_cache_lock)
+def _read_tobiko_cloud_token_file(path: str) -> str:
+    return Path(path).read_text(encoding="utf-8").strip()
 
 
 @dataclass
@@ -74,6 +91,38 @@ class SqlmeshSourceConfig(
     gateway: Optional[str] = Field(
         default=None,
         description="SQLMesh gateway name. Defaults to the project's default gateway.",
+    )
+    tobiko_cloud_token: Optional[TransparentSecretStr] = Field(
+        default=None,
+        description=(
+            "Tobiko Cloud API token. Set this when the SQLMesh project is configured "
+            "against Tobiko Cloud (an ``EnterpriseConfig`` with a cloud state connection) "
+            "and DataHub should read from the real cloud state store. Mutually "
+            "exclusive with ``tobiko_cloud_token_file``. When neither is set, DataHub "
+            "falls back to a local DuckDB stub so Context init succeeds without "
+            "creds — model definitions still come from the project files, but anything "
+            "that depends on remote state (snapshot history, environment promotions) "
+            "is unavailable. Requires ``gateway`` to be set; the gateway name "
+            "determines which ``SQLMESH__GATEWAYS__<gw>__STATE_CONNECTION__*`` "
+            "variables get populated for tobikodata to read."
+        ),
+    )
+    tobiko_cloud_token_file: Optional[str] = Field(
+        default=None,
+        description=(
+            "Path to a file containing the Tobiko Cloud API token (single line). "
+            "Re-read with a 60-second cache TTL so projected Kubernetes secret "
+            "mounts pick up rotated tokens without a process restart. Mutually "
+            "exclusive with ``tobiko_cloud_token``."
+        ),
+    )
+    tobiko_cloud_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Tobiko Cloud state-store URL. Only needed when the project's "
+            "``config.py`` does not already declare it on its cloud state "
+            "connection. Ignored when no token is configured."
+        ),
     )
     environment: str = Field(
         default="prod",
@@ -311,3 +360,31 @@ class SqlmeshSourceConfig(
         if (values.get("target_platform") or "").lower() == "snowflake":
             values.setdefault("convert_urns_to_lowercase", True)
         return values
+
+    @model_validator(mode="after")
+    def validate_tobiko_cloud_token(self) -> "SqlmeshSourceConfig":
+        if self.tobiko_cloud_token and self.tobiko_cloud_token_file:
+            raise ValueError(
+                "Set at most one of tobiko_cloud_token / tobiko_cloud_token_file."
+            )
+        if (
+            self.tobiko_cloud_token or self.tobiko_cloud_token_file
+        ) and not self.gateway:
+            raise ValueError(
+                "gateway is required when tobiko_cloud_token or tobiko_cloud_token_file "
+                "is set; the gateway name determines which "
+                "SQLMESH__GATEWAYS__<gw>__STATE_CONNECTION__* env vars get populated."
+            )
+        return self
+
+    def resolve_tobiko_cloud_token(self) -> Optional[str]:
+        """Resolve the Tobiko Cloud token from inline value or file. None if neither.
+
+        File reads go through the module-level TTL cache so secret rotations
+        take effect within the cache window without a process restart.
+        """
+        if self.tobiko_cloud_token is not None:
+            return self.tobiko_cloud_token.get_secret_value()
+        if self.tobiko_cloud_token_file:
+            return _read_tobiko_cloud_token_file(self.tobiko_cloud_token_file)
+        return None

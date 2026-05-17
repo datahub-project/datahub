@@ -1,12 +1,24 @@
+import contextlib
 import hashlib
 import json
 import logging
+import os
 import re
 import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 try:
     from sqlmesh import Context as SqlmeshContext
@@ -113,6 +125,209 @@ logger = logging.getLogger(__name__)
 _sqlmesh_context_load_lock = threading.Lock()
 
 SQLMESH_PLATFORM = "sqlmesh"
+
+# Exact substring of the ConfigError raised by RemoteCloudSchedulerConfig when
+# no Tobiko Cloud token is available. We match on this so the shim never
+# swallows any other kind of scheduler failure.
+_TOBIKO_CLOUD_NO_CREDS_ERR_FRAGMENT = (
+    "Cloud scheduler requires a cloud state connection"
+)
+
+# Sentinels for the EnterpriseConfig compat patches below.
+_TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL = "_datahub_snowflake_app_literal_relaxed"
+_TOBIKO_CONVERT_PATCH_SENTINEL = "_datahub_convert_config_type_isinstance_patched"
+
+
+def _install_enterprise_config_compat_patches() -> None:
+    """When tobikodata is installed, the project's ``config.py`` may return an
+    ``EnterpriseConfig`` carrying a Snowflake connection with
+    ``application="Tobiko_TobikoCloud"``. Loading that through plain
+    ``sqlmesh.Context`` trips two distinct failures (described by Gen Digital's
+    customer):
+
+    - The OSS ``SnowflakeConnectionConfig`` declares
+      ``application: Literal["Tobiko_SQLMesh"]``, which pydantic rejects the
+      enterprise value against.
+    - ``sqlmesh.core.config.loader`` uses strict ``type(config) != Config``
+      checks in three places; an ``EnterpriseConfig`` subclass fails the
+      check and gets re-instantiated as plain ``Config(extra="forbid")``,
+      dropping enterprise-only fields like ``allow_prod_deploy``.
+
+    Tobiko's own ``tcloud`` sidesteps both by going through ``EnterpriseContext``
+    rather than ``sqlmesh.Context``; we can't import ``EnterpriseContext``
+    without confirming its path, so we apply two targeted runtime patches
+    instead. Both gated on ``tobikodata`` being importable so an OSS-only
+    install is untouched. Idempotent via sentinel attrs.
+    """
+    try:
+        import tobikodata  # noqa: F401
+    except ImportError:
+        return
+
+    # Patch 1: relax SnowflakeConnectionConfig.application Literal so the
+    # enterprise value "Tobiko_TobikoCloud" validates. The field is only used
+    # as a client-identifier string passed to Snowflake's connector — there's
+    # no semantic value in pinning it to a single Literal.
+    try:
+        from sqlmesh.core.config.connection import SnowflakeConnectionConfig
+
+        if not getattr(
+            SnowflakeConnectionConfig, _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL, False
+        ):
+            field = SnowflakeConnectionConfig.model_fields.get("application")
+            if field is not None:
+                field.annotation = str
+                SnowflakeConnectionConfig.model_rebuild(force=True)
+                setattr(
+                    SnowflakeConnectionConfig,
+                    _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
+                    True,
+                )
+    except ImportError:
+        pass
+
+    # Patch 2: short-circuit convert_config_type when the object is already an
+    # instance of the target type. The OSS loader otherwise re-instantiates
+    # any non-exact-type config through ``config_type.parse_obj(obj.dict())``,
+    # which drops enterprise-only fields and chokes on extra="forbid". A
+    # single replacement at this seam covers all three strict-type call sites
+    # in sqlmesh/core/config/loader.py (lines 55, 188, 246).
+    try:
+        import sqlmesh.core.config.loader as _loader_mod
+
+        if not getattr(
+            _loader_mod.convert_config_type, _TOBIKO_CONVERT_PATCH_SENTINEL, False
+        ):
+            _original_convert = _loader_mod.convert_config_type
+
+            def _convert_config_type_isinstance(config_obj, config_type):  # type: ignore[no-untyped-def]
+                if isinstance(config_obj, config_type):
+                    return config_obj
+                return _original_convert(config_obj, config_type)
+
+            _convert_config_type_isinstance._datahub_convert_config_type_isinstance_patched = True  # type: ignore[attr-defined]
+            _loader_mod.convert_config_type = _convert_config_type_isinstance
+    except ImportError:
+        pass
+
+
+# Sentinel attribute used to make _install_tobiko_local_state_fallback_shim()
+# idempotent across multiple ingest runs in the same process.
+_TOBIKO_SHIM_SENTINEL_ATTR = "_datahub_local_state_shim_installed"
+
+
+def _install_tobiko_local_state_fallback_shim() -> None:
+    """When tobikodata is installed but no Tobiko Cloud token is configured,
+    let SQLMesh's Context init succeed against an EnterpriseConfig project by
+    swapping the cloud state sync for an in-memory DuckDB stub.
+
+    The shim only catches the very specific ConfigError raised by
+    ``RemoteCloudSchedulerConfig.get_cloud_connection()`` when creds are
+    absent; any other scheduler failure surfaces. No-op when tobikodata isn't
+    installed (OSS-only projects don't have a cloud scheduler to patch).
+    """
+    try:
+        from tobikodata.sqlmesh_enterprise.config.scheduler import (  # type: ignore[import-not-found]
+            RemoteCloudSchedulerConfig,
+        )
+    except ImportError:
+        return
+
+    if getattr(RemoteCloudSchedulerConfig, _TOBIKO_SHIM_SENTINEL_ATTR, False):
+        return
+
+    from sqlmesh.core.config.connection import DuckDBConnectionConfig
+    from sqlmesh.core.state_sync import EngineAdapterStateSync
+    from sqlmesh.utils.errors import ConfigError
+
+    _original_create = RemoteCloudSchedulerConfig.create_state_sync
+    _original_fingerprint = RemoteCloudSchedulerConfig.state_sync_fingerprint
+
+    def _create_state_sync_with_fallback(self, context):  # type: ignore[no-untyped-def]
+        try:
+            return _original_create(self, context)
+        except ConfigError as e:
+            if _TOBIKO_CLOUD_NO_CREDS_ERR_FRAGMENT not in str(e):
+                raise
+            logger.info(
+                "Tobiko Cloud state store unreachable (no token configured). "
+                "Falling back to an in-memory DuckDB state so the SQLMesh "
+                "Context can initialise from project files. Snapshot history "
+                "and environment promotions read from cloud state are "
+                "unavailable in this mode. Set tobiko_cloud_token / "
+                "tobiko_cloud_token_file to read from the real cloud state."
+            )
+            engine_adapter = DuckDBConnectionConfig().create_engine_adapter()
+            schema = context.config.get_state_schema(context.gateway)
+            return EngineAdapterStateSync(
+                engine_adapter,
+                schema=schema,
+                cache_dir=context.cache_dir,
+                console=context.console,
+            )
+
+    def _state_sync_fingerprint_with_fallback(self, context):  # type: ignore[no-untyped-def]
+        try:
+            return _original_fingerprint(self, context)
+        except ConfigError as e:
+            if _TOBIKO_CLOUD_NO_CREDS_ERR_FRAGMENT not in str(e):
+                raise
+            return "datahub-tobiko-local-state-fallback"
+
+    RemoteCloudSchedulerConfig.create_state_sync = _create_state_sync_with_fallback
+    RemoteCloudSchedulerConfig.state_sync_fingerprint = (
+        _state_sync_fingerprint_with_fallback
+    )
+    setattr(RemoteCloudSchedulerConfig, _TOBIKO_SHIM_SENTINEL_ATTR, True)
+
+
+def _tobiko_state_connection_env_keys(gateway: str) -> Dict[str, str]:
+    """Return the SQLMesh env-var keys that override a gateway's state
+    connection. Matches what tcloud's installer.py does verbatim — this is
+    the only injection channel tobikodata exposes."""
+    prefix = f"SQLMESH__GATEWAYS__{gateway.upper()}__STATE_CONNECTION"
+    return {
+        "TYPE": f"{prefix}__TYPE",
+        "URL": f"{prefix}__URL",
+        "TOKEN": f"{prefix}__TOKEN",
+    }
+
+
+@contextlib.contextmanager
+def _scoped_tobiko_cloud_env(
+    token: Optional[str], gateway: Optional[str], url: Optional[str]
+) -> Iterator[None]:
+    """Scope SQLMESH__GATEWAYS__<gw>__STATE_CONNECTION__{TYPE,URL,TOKEN} env
+    vars to a single block, restoring previous values on exit.
+
+    tobikodata exposes no programmatic injection API for cloud creds — even
+    tcloud itself sets these env vars (see
+    tcloud/installer.py:_configure_state_connection). We mirror tcloud's
+    pattern but narrow the window the token sits in /proc/<pid>/environ to a
+    single SqlmeshContext.__init__ call. No-op when no token is configured.
+    """
+    if token is None or gateway is None:
+        yield
+        return
+
+    keys = _tobiko_state_connection_env_keys(gateway)
+    tracked = [keys["TYPE"], keys["TOKEN"], keys["URL"], "SQLMESH__DEFAULT_GATEWAY"]
+    saved: Dict[str, Optional[str]] = {k: os.environ.get(k) for k in tracked}
+
+    os.environ[keys["TYPE"]] = "cloud"
+    os.environ[keys["TOKEN"]] = token
+    if url:
+        os.environ[keys["URL"]] = url
+    os.environ["SQLMESH__DEFAULT_GATEWAY"] = gateway
+    try:
+        yield
+    finally:
+        for k, original in saved.items():
+            if original is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = original
+
 
 # Maps SQLMesh model kind names to DataHub dataset subtypes.
 _MODEL_KIND_TO_SUBTYPE: Dict[str, str] = {
@@ -365,12 +580,35 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         if effective.gateway:
             init_kwargs["gateway"] = effective.gateway
 
+        # Apply EnterpriseConfig load-time compat patches (Snowflake application
+        # Literal + loader convert_config_type isinstance short-circuit). Both
+        # are gated on tobikodata being installed, so OSS-only projects are
+        # untouched. Idempotent.
+        _install_enterprise_config_compat_patches()
+
+        tobiko_token = self.config.resolve_tobiko_cloud_token()
+        if tobiko_token is None:
+            # No creds configured: let RemoteCloudSchedulerConfig fall back to
+            # a local DuckDB stub on the specific "Cloud scheduler requires a
+            # cloud state connection" ConfigError so Context init succeeds
+            # against an EnterpriseConfig project. Pure no-op when the project
+            # doesn't use Tobiko Cloud.
+            _install_tobiko_local_state_fallback_shim()
+
         try:
             logger.info(
                 "Acquiring SQLMesh context load lock for project: %s",
                 effective.project_path,
             )
-            with self.report.context_load_sec, _sqlmesh_context_load_lock:
+            with (
+                self.report.context_load_sec,
+                _sqlmesh_context_load_lock,
+                _scoped_tobiko_cloud_env(
+                    token=tobiko_token,
+                    gateway=effective.gateway,
+                    url=self.config.tobiko_cloud_url,
+                ),
+            ):
                 sqlmesh_ctx = SqlmeshContext(**init_kwargs)
             logger.info(
                 "SQLMesh context loaded and lock released for project: %s",

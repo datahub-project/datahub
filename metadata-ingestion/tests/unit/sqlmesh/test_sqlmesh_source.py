@@ -1,4 +1,9 @@
+import os
+import sys
+import types
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sqlmesh.sqlmesh_config import SqlmeshSourceConfig
@@ -789,3 +794,383 @@ class TestModelFiltering:
 
         assert workunits == []
         assert source.report.models_scanned == 0
+
+
+# ---------------------------------------------------------------------------
+# Tobiko Cloud token config + state-store fallback
+#
+# These tests cover the no-creds path described by Gen Digital's customer
+# patches: an EnterpriseConfig project whose RemoteCloudSchedulerConfig would
+# normally crash Context init when there's no Tobiko Cloud token. We can't
+# install the real tobikodata package (it's gated behind a cloud account), so
+# the shim is exercised against a fake module tree wired into sys.modules.
+# ---------------------------------------------------------------------------
+
+
+def _install_fake_tobikodata(monkeypatch, error_message: str):
+    """Insert a tobikodata.sqlmesh_enterprise.config.scheduler stand-in into
+    sys.modules whose RemoteCloudSchedulerConfig raises ConfigError on every
+    state-sync call. The shim's contract is independent of tobikodata's real
+    internals — it only needs the class to exist and to raise."""
+    # Skip when sqlmesh's import chain is broken in this venv (e.g. an
+    # sqlglot/sqlmesh version mismatch). The shim's contract is the same in
+    # CI where the deps line up.
+    pytest.importorskip("sqlmesh.utils.errors")
+    from sqlmesh.utils.errors import ConfigError
+
+    class RemoteCloudSchedulerConfig:
+        def create_state_sync(self, context):
+            raise ConfigError(error_message)
+
+        def state_sync_fingerprint(self, context):
+            raise ConfigError(error_message)
+
+    scheduler_mod = types.ModuleType("tobikodata.sqlmesh_enterprise.config.scheduler")
+    scheduler_mod.RemoteCloudSchedulerConfig = RemoteCloudSchedulerConfig
+    for name, mod in [
+        ("tobikodata", types.ModuleType("tobikodata")),
+        (
+            "tobikodata.sqlmesh_enterprise",
+            types.ModuleType("tobikodata.sqlmesh_enterprise"),
+        ),
+        (
+            "tobikodata.sqlmesh_enterprise.config",
+            types.ModuleType("tobikodata.sqlmesh_enterprise.config"),
+        ),
+        ("tobikodata.sqlmesh_enterprise.config.scheduler", scheduler_mod),
+    ]:
+        monkeypatch.setitem(sys.modules, name, mod)
+    return RemoteCloudSchedulerConfig
+
+
+class TestTobikoCloudConfig:
+    def test_token_and_file_both_set_is_rejected(self, tmp_path):
+        token_file = tmp_path / "tok"
+        token_file.write_text("x")
+        with pytest.raises(ValueError, match="at most one"):
+            SqlmeshSourceConfig.model_validate(
+                {
+                    "project_path": "/p",
+                    "gateway": "gw",
+                    "tobiko_cloud_token": "v",
+                    "tobiko_cloud_token_file": str(token_file),
+                }
+            )
+
+    def test_token_without_gateway_is_rejected(self):
+        with pytest.raises(ValueError, match="gateway is required"):
+            SqlmeshSourceConfig.model_validate(
+                {"project_path": "/p", "tobiko_cloud_token": "v"}
+            )
+
+    def test_resolve_inline_token(self):
+        cfg = SqlmeshSourceConfig.model_validate(
+            {"project_path": "/p", "gateway": "gw", "tobiko_cloud_token": "value"}
+        )
+        assert cfg.resolve_tobiko_cloud_token() == "value"
+
+    def test_resolve_no_token_returns_none(self):
+        cfg = SqlmeshSourceConfig.model_validate({"project_path": "/p"})
+        assert cfg.resolve_tobiko_cloud_token() is None
+
+    def test_resolve_file_token_caches_then_picks_up_rotation(self, tmp_path):
+        """Mirrors the k8s projected secret rotation pattern: the file is
+        re-read only after the TTL cache is invalidated."""
+        from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
+            _read_tobiko_cloud_token_file,
+            _tobiko_token_file_cache,
+        )
+
+        _tobiko_token_file_cache.clear()
+        token_file = tmp_path / "tok"
+        token_file.write_text("first\n")
+
+        cfg = SqlmeshSourceConfig.model_validate(
+            {
+                "project_path": "/p",
+                "gateway": "gw",
+                "tobiko_cloud_token_file": str(token_file),
+            }
+        )
+        assert cfg.resolve_tobiko_cloud_token() == "first"
+
+        # Simulating a secret rotation: file content changes, cache hasn't expired.
+        token_file.write_text("second\n")
+        assert cfg.resolve_tobiko_cloud_token() == "first"
+
+        # After TTL expiry (simulated by clearing the cache), the next resolve
+        # observes the new content.
+        _tobiko_token_file_cache.clear()
+        assert _read_tobiko_cloud_token_file(str(token_file)) == "second"
+
+
+class TestTobikoCloudStateFallback:
+    """Contract tests for _install_tobiko_local_state_fallback_shim.
+
+    We can't install the real tobikodata package, so we exercise the shim
+    against a fake module tree. The shim's contract is precise: catch one
+    specific ConfigError message and substitute an in-memory DuckDB state
+    sync. Everything else surfaces.
+    """
+
+    def test_specific_no_creds_error_falls_back_to_local_state(self, monkeypatch):
+        """The user's primary requirement: with no token configured and a
+        project folder, an EnterpriseConfig project that would normally fail
+        on RemoteCloudSchedulerConfig.create_state_sync can still init.
+        """
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_tobiko_local_state_fallback_shim,
+        )
+
+        scheduler_cls = _install_fake_tobikodata(
+            monkeypatch, "Cloud scheduler requires a cloud state connection"
+        )
+        _install_tobiko_local_state_fallback_shim()
+
+        import pathlib
+
+        context = MagicMock()
+        context.gateway = "gw"
+        context.config.get_state_schema.return_value = "sqlmesh_state"
+        context.cache_dir = pathlib.Path("/tmp/state-cache")  # sqlmesh joins via `/`
+        context.console = MagicMock()
+
+        result = scheduler_cls().create_state_sync(context)
+        assert result is not None
+
+    def test_unrelated_config_errors_propagate(self, monkeypatch):
+        """If a token IS configured (or some other failure occurs), we want
+        the real error — never silently swallow."""
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_tobiko_local_state_fallback_shim,
+        )
+
+        scheduler_cls = _install_fake_tobikodata(
+            monkeypatch, "Some entirely different problem"
+        )
+        from sqlmesh.utils.errors import (
+            ConfigError,  # safe: helper above skipped if sqlmesh broken
+        )
+
+        _install_tobiko_local_state_fallback_shim()
+
+        with pytest.raises(ConfigError, match="entirely different"):
+            scheduler_cls().create_state_sync(MagicMock())
+
+    def test_fingerprint_also_falls_back(self, monkeypatch):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_tobiko_local_state_fallback_shim,
+        )
+
+        scheduler_cls = _install_fake_tobikodata(
+            monkeypatch, "Cloud scheduler requires a cloud state connection"
+        )
+        _install_tobiko_local_state_fallback_shim()
+
+        # state_sync_fingerprint is called alongside create_state_sync; both
+        # need the same fallback or Context init still blows up.
+        fingerprint = scheduler_cls().state_sync_fingerprint(MagicMock())
+        assert fingerprint
+
+    def test_shim_is_idempotent(self, monkeypatch):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_tobiko_local_state_fallback_shim,
+        )
+
+        scheduler_cls = _install_fake_tobikodata(
+            monkeypatch, "Cloud scheduler requires a cloud state connection"
+        )
+        _install_tobiko_local_state_fallback_shim()
+        wrapped_once = scheduler_cls.create_state_sync
+        _install_tobiko_local_state_fallback_shim()
+        assert scheduler_cls.create_state_sync is wrapped_once
+
+    def test_noop_when_tobikodata_not_installed(self, monkeypatch):
+        for key in list(sys.modules):
+            if key.startswith("tobikodata"):
+                monkeypatch.delitem(sys.modules, key, raising=False)
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_tobiko_local_state_fallback_shim,
+        )
+
+        _install_tobiko_local_state_fallback_shim()  # must not raise
+
+
+@pytest.fixture
+def _enterprise_compat_patches_isolated(monkeypatch):
+    """Save/restore the global state mutated by the enterprise compat patches
+    so tests don't pollute one another or the rest of the suite."""
+    pytest.importorskip("sqlmesh.core.config.loader")
+    import sqlmesh.core.config.loader as loader_mod
+    from sqlmesh.core.config.connection import SnowflakeConnectionConfig
+
+    from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+        _TOBIKO_CONVERT_PATCH_SENTINEL,
+        _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL,
+    )
+
+    # Save current state
+    saved_convert = loader_mod.convert_config_type
+    saved_app_field = SnowflakeConnectionConfig.model_fields["application"]
+    saved_app_annotation = saved_app_field.annotation
+    saved_convert_sentinel = getattr(
+        loader_mod.convert_config_type, _TOBIKO_CONVERT_PATCH_SENTINEL, False
+    )
+    saved_snowflake_sentinel = getattr(
+        SnowflakeConnectionConfig, _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL, False
+    )
+
+    yield monkeypatch
+
+    # Restore
+    loader_mod.convert_config_type = saved_convert
+    saved_app_field.annotation = saved_app_annotation
+    SnowflakeConnectionConfig.model_rebuild(force=True)
+    if not saved_convert_sentinel and hasattr(
+        loader_mod.convert_config_type, _TOBIKO_CONVERT_PATCH_SENTINEL
+    ):
+        delattr(loader_mod.convert_config_type, _TOBIKO_CONVERT_PATCH_SENTINEL)
+    if not saved_snowflake_sentinel and hasattr(
+        SnowflakeConnectionConfig, _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL
+    ):
+        delattr(SnowflakeConnectionConfig, _TOBIKO_SNOWFLAKE_APP_PATCH_SENTINEL)
+
+
+class TestEnterpriseConfigCompatPatches:
+    """Contract tests for _install_enterprise_config_compat_patches.
+
+    Patches 1 and 2 from Gen Digital's customer description:
+    - Patch 1: relax SnowflakeConnectionConfig.application Literal so the
+      enterprise value "Tobiko_TobikoCloud" validates.
+    - Patch 2: convert_config_type short-circuits on isinstance so an
+      EnterpriseConfig subclass isn't re-instantiated as plain Config and
+      stripped of its enterprise-only fields.
+    """
+
+    @staticmethod
+    def _stub_tobikodata(monkeypatch):
+        """Both patches gate on `import tobikodata` succeeding. We can't
+        install the real package, so stub it into sys.modules."""
+        monkeypatch.setitem(sys.modules, "tobikodata", types.ModuleType("tobikodata"))
+
+    def test_patch1_relaxes_snowflake_application_literal(
+        self, _enterprise_compat_patches_isolated
+    ):
+        from sqlmesh.core.config.connection import SnowflakeConnectionConfig
+
+        self._stub_tobikodata(_enterprise_compat_patches_isolated)
+
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_enterprise_config_compat_patches,
+        )
+
+        _install_enterprise_config_compat_patches()
+
+        # After the patch, the application field is no longer a strict Literal —
+        # the enterprise value "Tobiko_TobikoCloud" would validate alongside
+        # the OSS default. We assert on the annotation rather than constructing
+        # the model (Snowflake engine library may not be installed in CI).
+        field = SnowflakeConnectionConfig.model_fields["application"]
+        assert field.annotation is str
+
+    def test_patch2_convert_config_type_returns_subclass_unchanged(
+        self, _enterprise_compat_patches_isolated
+    ):
+        import sqlmesh.core.config.loader as loader_mod
+        from sqlmesh.core.config import Config
+
+        self._stub_tobikodata(_enterprise_compat_patches_isolated)
+
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_enterprise_config_compat_patches,
+        )
+
+        _install_enterprise_config_compat_patches()
+
+        class FakeEnterpriseConfig(Config):  # subclass, mirrors EnterpriseConfig
+            pass
+
+        instance = FakeEnterpriseConfig()
+        # The OSS loader's strict check would treat this as needing
+        # conversion; the patched function returns the subclass instance as-is.
+        assert loader_mod.convert_config_type(instance, Config) is instance
+
+    def test_patches_are_noop_when_tobikodata_absent(
+        self, _enterprise_compat_patches_isolated
+    ):
+        monkeypatch = _enterprise_compat_patches_isolated
+        for key in list(sys.modules):
+            if key.startswith("tobikodata"):
+                monkeypatch.delitem(sys.modules, key, raising=False)
+
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_enterprise_config_compat_patches,
+        )
+
+        _install_enterprise_config_compat_patches()  # must not raise
+
+    def test_patches_are_idempotent(self, _enterprise_compat_patches_isolated):
+        import sqlmesh.core.config.loader as loader_mod
+
+        self._stub_tobikodata(_enterprise_compat_patches_isolated)
+
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _install_enterprise_config_compat_patches,
+        )
+
+        _install_enterprise_config_compat_patches()
+        wrapped_once = loader_mod.convert_config_type
+        _install_enterprise_config_compat_patches()
+        assert loader_mod.convert_config_type is wrapped_once
+
+
+class TestScopedTobikoCloudEnv:
+    """The token injection channel is sqlmesh's documented
+    SQLMESH__GATEWAYS__<gw>__STATE_CONNECTION__* env-var override (the same
+    one tcloud uses in tcloud/installer.py). We narrow the exposure window
+    to a single Context.__init__ by saving/restoring around the block.
+    """
+
+    def test_noop_when_token_is_none(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _scoped_tobiko_cloud_env,
+        )
+
+        before = dict(os.environ)
+        with _scoped_tobiko_cloud_env(token=None, gateway="gw", url=None):
+            assert dict(os.environ) == before
+
+    def test_sets_and_restores_env_vars(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _scoped_tobiko_cloud_env,
+        )
+
+        snapshot = dict(os.environ)
+        with _scoped_tobiko_cloud_env(
+            token="secret", gateway="gw", url="https://example"
+        ):
+            assert (
+                os.environ["SQLMESH__GATEWAYS__GW__STATE_CONNECTION__TYPE"] == "cloud"
+            )
+            assert (
+                os.environ["SQLMESH__GATEWAYS__GW__STATE_CONNECTION__TOKEN"] == "secret"
+            )
+            assert (
+                os.environ["SQLMESH__GATEWAYS__GW__STATE_CONNECTION__URL"]
+                == "https://example"
+            )
+            assert os.environ["SQLMESH__DEFAULT_GATEWAY"] == "gw"
+        assert dict(os.environ) == snapshot
+
+    def test_restores_env_on_exception(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _scoped_tobiko_cloud_env,
+        )
+
+        snapshot = dict(os.environ)
+        with (
+            pytest.raises(RuntimeError, match="boom"),
+            _scoped_tobiko_cloud_env(token="t", gateway="gw", url=None),
+        ):
+            raise RuntimeError("boom")
+        assert dict(os.environ) == snapshot
