@@ -163,3 +163,48 @@ def test_new_server_with_semantic_search_disabled_fails(
         ValueError, match="Semantic search is not enabled on the DataHub server"
     ):
         DocumentChunkingSource(ctx, config, standalone=True)
+
+
+@patch(
+    "datahub.ingestion.source.unstructured.chunking_source.get_semantic_search_config"
+)
+@patch("datahub.ingestion.source.unstructured.chunking_source.DataHubGraph")
+def test_no_local_config_server_disabled_skips_embedding(
+    mock_graph_class, mock_get_config
+):
+    """When no local embedding config is set and the server has semantic search
+    disabled, the source must skip embedding entirely (provider=None).
+
+    Regression: previously this path fell through to get_default_config() which
+    returned provider='bedrock', causing boto3 import failures on minimal installs
+    (e.g. Sproutsocial executor with enabled=false but provider='aws-bedrock').
+    """
+    from datahub.ingestion.source.unstructured.chunking_config import (
+        ServerEmbeddingConfig,
+        ServerSemanticSearchConfig,
+    )
+
+    # No local embedding config — just defaults (provider=None)
+    config = DocumentChunkingSourceConfig()
+
+    ctx = PipelineContext(run_id="test")
+    mock_graph = Mock()
+    mock_graph_class.return_value = mock_graph
+
+    # Server is reachable, has a provider configured, but semantic search is disabled
+    server_config = ServerSemanticSearchConfig(
+        enabled=False,
+        enabled_entities=["document"],
+        embedding_config=ServerEmbeddingConfig(
+            provider="aws-bedrock",
+            model_id="cohere.embed-english-v3",
+            aws_region="us-west-2",
+            model_embedding_key="cohere_embed_v3",
+        ),
+    )
+    mock_get_config.return_value = server_config
+
+    source = DocumentChunkingSource(ctx, config, standalone=True)
+
+    # provider must be None — no embedding should be attempted
+    assert source.config.embedding.provider is None

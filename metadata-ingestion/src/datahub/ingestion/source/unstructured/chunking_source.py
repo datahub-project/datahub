@@ -986,10 +986,18 @@ class DocumentChunkingSource(Source):
                         f"\n  AWS Region: {server_config.embedding_config.aws_region or 'N/A'}"
                     )
                     return resolved
-                else:
-                    # Server doesn't have semantic search enabled - use defaults
+                elif server_config and not server_config.enabled:
+                    # Server is reachable and has explicitly disabled semantic search.
+                    # Respect the server's setting — do not embed.
                     logger.info(
-                        "Semantic search not enabled on server - using default client-side embedding config (Bedrock/Cohere)"
+                        "Semantic search is disabled on the DataHub server — skipping embedding generation."
+                    )
+                    return EmbeddingConfig()
+                else:
+                    # Server reachable but semantic search not yet configured (no embedding_config).
+                    # Fall back to defaults so existing deployments keep working.
+                    logger.info(
+                        "Semantic search not configured on server - using default client-side embedding config (Bedrock/Cohere)"
                     )
                     default_config = EmbeddingConfig.get_default_config()
                     logger.info(
