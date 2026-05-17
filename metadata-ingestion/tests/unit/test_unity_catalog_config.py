@@ -541,3 +541,35 @@ def test_profiling_explicit_ge_method_preserved():
     )
     assert isinstance(config.profiling, UnityCatalogGEProfilerConfig)
     assert config.profiling.method == "ge"
+
+
+def test_uses_table_level_profiler_helpers():
+    base = {
+        "token": "token",
+        "workspace_url": "https://test.databricks.com",
+        "include_hive_metastore": False,
+    }
+
+    # sqlalchemy → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "sqlalchemy", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is True
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is True
+
+    # ge → True
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "ge", "warehouse_id": "wh"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is True
+    assert cfg.uses_table_level_profiler() is True
+
+    # analyze → False
+    cfg = UnityCatalogSourceConfig.model_validate(
+        {**base, "profiling": {"method": "analyze"}}
+    )
+    assert cfg.is_sqlalchemy_profiling() is False
+    assert cfg.is_ge_profiling() is False
+    assert cfg.uses_table_level_profiler() is False
