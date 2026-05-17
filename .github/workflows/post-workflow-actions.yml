@@ -21,6 +21,7 @@ on:
       - "ingestion smoke"
       - "documentation"
       - "GX Plugin"
+      - "Linear — Ingestion CLI/PyPI Release Tracking"
       - "lint"
       - "Metadata Ingestion"
       - "metadata-io"
