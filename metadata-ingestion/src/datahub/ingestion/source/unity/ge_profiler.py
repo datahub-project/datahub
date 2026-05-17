@@ -2,7 +2,12 @@ import concurrent.futures
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 from databricks.sdk.service.catalog import DataSourceFormat
 from sqlalchemy import create_engine, inspect
@@ -10,6 +15,7 @@ from sqlalchemy.engine import Connection
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -86,25 +92,32 @@ class UnityCatalogGEProfiler(GenericProfiler):
 
     def get_profiler_instance(
         self, db_name: Optional[str] = None
-    ) -> "DatahubGEProfiler":
-        """Override to use catalog-specific connections for Unity Catalog profiling"""
-        logger.debug(
-            f"Getting profiler instance for Unity Catalog with db_name={db_name}"
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+            SQLAlchemyProfiler,
         )
 
-        # Use the catalog-specific URL if db_name is provided
-        if db_name:
-            url = self.config.get_sql_alchemy_url(database=db_name)
-        else:
-            url = self.config.get_sql_alchemy_url()
-
+        # Use the catalog-specific URL so profiling queries target the right catalog.
+        url = (
+            self.config.get_sql_alchemy_url(database=db_name)
+            if db_name
+            else self.config.get_sql_alchemy_url()
+        )
         logger.debug(f"sql_alchemy_url={url}")
 
         engine = create_engine(url, **self.config.options)
         with engine.connect() as conn:
             inspector = inspect(conn)
 
-        return DatahubGEProfiler(
+        if self.config.profiling.method == "sqlalchemy":
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        return create_datahub_ge_profiler(
             conn=inspector.bind,
             report=self.report,
             config=self.config.profiling,
