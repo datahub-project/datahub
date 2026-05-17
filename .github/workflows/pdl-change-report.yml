@@ -1,0 +1,56 @@
+name: PDL Aspect Change Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Base ref (tag/branch/commit). Leave blank to auto-resolve latest v1.0* non-rc tag."
+        required: false
+        default: ""
+      head:
+        description: "Head ref. Defaults to the branch the workflow is run from."
+        required: false
+        default: ""
+      per_pr:
+        description: "Per-PR audit mode: classify every PDL-touching commit in base..head in isolation, then aggregate. Catches per-PR `bump_spurious` cases that wide cumulative windows mask. Slower (~10–60s)."
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pdl-change-report-${{ github.ref }}-${{ inputs.base }}-${{ inputs.head }}-${{ inputs.per_pr }}
+  cancel-in-progress: true
+
+jobs:
+  report:
+    runs-on: depot-ubuntu-24.04-small
+    steps:
+      - name: Check out repo with full history and tags
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+
+      - name: Generate PDL aspect change report
+        env:
+          INPUT_BASE: ${{ inputs.base }}
+          INPUT_HEAD: ${{ inputs.head }}
+          INPUT_PER_PR: ${{ inputs.per_pr }}
+        run: |
+          BASE_ARG=()
+          HEAD_ARG=()
+          PER_PR_ARG=()
+          [ -n "$INPUT_BASE" ] && BASE_ARG=(--base "$INPUT_BASE")
+          [ -n "$INPUT_HEAD" ] && HEAD_ARG=(--head "$INPUT_HEAD")
+          [ "$INPUT_PER_PR" = "true" ] && PER_PR_ARG=(--per-pr)
+          python3 .github/scripts/report_aspect_changes.py \
+            "${BASE_ARG[@]}" "${HEAD_ARG[@]}" "${PER_PR_ARG[@]}" \
+            --output "$GITHUB_STEP_SUMMARY"
