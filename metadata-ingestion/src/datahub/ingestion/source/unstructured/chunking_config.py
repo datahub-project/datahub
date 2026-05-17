@@ -594,7 +594,9 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
 
     response = graph.execute_graphql(
-        query=query, operation_name="getSemanticSearchConfig"
+        query=query,
+        operation_name="getSemanticSearchConfig",
+        strip_unsupported_fields=True,
     )
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
