@@ -109,7 +109,7 @@ class TestFailureBundleWriter:
         rpt = _passing_report()
         rpt.scenario_results = [
             ValidationResult(
-                tc_number=20,
+                tc_number=320,
                 name="Read path in-memory only",
                 status="FAIL",
                 expected_to_fail=False,
@@ -124,7 +124,7 @@ class TestFailureBundleWriter:
 
         summary = _json.loads((path / "summary.json").read_text())
         failed_scenarios = [
-            s for s in summary.get("failed_scenarios", []) if s.get("tc") == 20
+            s for s in summary.get("failed_scenarios", []) if s.get("tc") == 320
         ]
         assert len(failed_scenarios) == 1
 

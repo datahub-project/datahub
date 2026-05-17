@@ -71,7 +71,7 @@ class SeedPhase(Phase):
         # Optional: when present, seed waits for each scenario URN to land in
         # ES before declaring success. Required for the clean_build flow where
         # ES starts empty — without this, Phase 6's reindex runs on a stale
-        # source index and post-reindex docs come up missing (TC-015 failure
+        # source index and post-reindex docs come up missing (TC-315 failure
         # mode discovered during G19c-v2 live-run).
         self._es = es
         self._drain_timeout_s = drain_timeout_s
@@ -162,12 +162,13 @@ class SeedPhase(Phase):
         (MCL → MAE consumer → ES doc). When clean_build wipes ES, the freshly
         created indices start empty, and Phase 6's reindex can run before all
         seeded MCLs drain — causing seeded scenario docs to be missing from
-        the post-reindex backing index (TC-015 failure mode).
+        the post-reindex backing index (TC-315 failure mode).
 
         Uses ``ctx.seeded_entities`` so XFAIL scenarios that the executor
-        skipped (TC-7, 11, 12, 13, 14, 19, 21, 23 — "Requires bridgeGap" /
-        "Requires fault injection" etc.) aren't waited on. Falls back to
-        all scenarios when ctx is None (backwards-compat for legacy tests).
+        skipped (TC-307, TC-311, TC-312, TC-313, TC-314, TC-319, TC-321,
+        TC-323 — "Requires bridgeGap" / "Requires fault injection" etc.)
+        aren't waited on. Falls back to all scenarios when ctx is None
+        (backwards-compat for legacy tests).
 
         Skipped when no ES client is configured or when no seeded URN has a
         known entity-type→alias mapping.

@@ -368,24 +368,11 @@ class ValidationPhase(Phase):
                     )
                 )
 
-        # Invariant 5 (informational SKIP): empty disabled set on a non-empty stack.
-        if (
-            nonblocking is not None
-            and not nonblocking.dual_write_disabled_indices
-            and blocking.indices
-        ):
-            results.append(
-                ValidationResult(
-                    tc_number=0,
-                    name="DualWriteState[disabled-empty]",
-                    status="SKIP",
-                    expected_to_fail=False,
-                    actual_result=(
-                        "no DUAL_WRITE_DISABLED markings observed — "
-                        "expected on a dev stack with no migration mutators registered"
-                    ),
-                )
-            )
+        # The "empty disabled-set on a non-empty stack" condition (no
+        # DUAL_WRITE_DISABLED markings observed) is the same G20c blocker
+        # already reported by Suite D TC-205 / TC-206 — emitting a separate
+        # synthetic TC-000 here would double-count the signal in the SKIP
+        # column. Skipped.
         return results
 
     @staticmethod

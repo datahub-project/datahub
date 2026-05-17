@@ -107,7 +107,7 @@ class RollingRestartPhase(Phase):
         # time …" into the GMS container's stdout instead. Without this,
         # the tail returns empty and dual_write_start_times stays {}, which
         # cascades into empty catch_up_windows and starves
-        # TC-301/303/304's validators. On a real two-service profile, the
+        # TC-201 / TC-203 / TC-204's validators. On a real two-service profile, the
         # MAE tail captures the line first and GMS sees nothing — the
         # "first timestamp per index wins" merge in _capture_dual_write...
         # makes the extra tail a safe no-op there.

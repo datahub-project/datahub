@@ -51,7 +51,7 @@ def _aspect_migration(
     )
 
 
-# Suite D — ES Phase 2 catch-up. Most TCs depend on a real two-image rolling
+# Suite D — ES Phase 2 reindexing. Most TCs depend on a real two-image rolling
 # restart that the single-image dev stack doesn't reproduce. The codified
 # scenarios PASS on real CI runs against a two-image stack; on dev they XFAIL
 # with skip_reason documenting the dependency.
@@ -83,7 +83,7 @@ _DEV_STACK_REQUIRES_REINDEX_CAPTURE = (
     "transitions to capture)."
 )
 _REDUNDANT_WITH_TC_022 = (
-    "Coverage redundant with Suite A TC-022 (APP_SOURCE stamping is already "
+    "Coverage redundant with Suite A TC-322 (APP_SOURCE stamping is already "
     "asserted on the sweep path there). Standalone per-aspect inspection "
     "would require a separate systemMetadata fetch — out of scope."
 )
@@ -129,74 +129,63 @@ def _catchup_scenario(
 
 
 SUITE_D_SCENARIOS: list[ZDUTestScenario] = [
+    # Active validator — data-integrity reframe. Original TC-201 targeted
+    # Phase 2's specific MCL-replay catch-up mechanism; that path is
+    # blocked on dev by an upstream gap (BuildIndicesIncrementalStep
+    # doesn't persist oldBackingIndexName). The data-integrity version
+    # asserts the OUTCOME directly: every gap and dual URN written across
+    # phases 7-9 is searchable in the entity index alias after Phase 10.
     _catchup_scenario(
-        tc=301,
-        name="Entity index gap catch-up",
+        tc=201,
+        name="Entity index gap+dual URNs searchable post-upgrade",
         description=(
-            "10 entities written before rolling restart land in old-only; "
-            "after SystemUpdateNonBlocking, all 10 should appear in the "
-            "next physical index with new mapping fields populated."
+            "Asserts every URN in ctx.gap_urns + ctx.dual_write_urns is "
+            "findable via the dashboardindex_v2 alias after Phase 10. Tests "
+            "the data-integrity OUTCOME of rolling-restart + catch-up "
+            "without depending on the production catch-up mechanism."
         ),
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_ROLLING_RESTART,
     ),
+    # Sister assertion to TC-201, but on the systemMetadata index.
     _catchup_scenario(
-        tc=302,
-        name="Timeseries catch-up via filtered _reindex",
+        tc=202,
+        name="systemMetadata entries preserved for gap+dual URNs",
         description=(
-            "Timeseries docs in [T0, T1] are caught up via a filtered "
-            "_reindex task; assert task observed and timestamps preserved."
-        ),
-        expected_to_fail=True,
-        skip_reason=(
-            "Requires two-image rolling restart + timeseries seed harness — "
-            "dev stack does not reproduce."
+            "Asserts every URN in ctx.gap_urns + ctx.dual_write_urns has "
+            "at least one entry in system_metadata_service_v1 after "
+            "Phase 10. Aspect-level write metadata must not be lost across "
+            "the rolling-restart + catch-up window."
         ),
     ),
+    # Renumbered from TC-205 to TC-203.
     _catchup_scenario(
-        tc=303,
-        name="Global graph index catch-up",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_ROLLING_RESTART,
-    ),
-    _catchup_scenario(
-        tc=304,
-        name="Global system metadata index catch-up",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_ROLLING_RESTART,
-    ),
-    _catchup_scenario(
-        tc=305,
+        tc=203,
         name="T0 >= T1 no-op",
         description=(
             "Force dualWriteStartTime <= reindexStartTime; non-blocking step "
             "should skip catch-up and emit no MCLs."
         ),
     ),
+    # Renumbered from TC-206 to TC-204.
     _catchup_scenario(
-        tc=306,
+        tc=204,
         name="No Phase 1 result no-op",
         description=(
             "Skip Phase 1 entirely; non-blocking catch-up step should "
             "return SUCCEEDED with empty captures."
         ),
     ),
+    # Renumbered from TC-308 to TC-205. Kept SKIP (pending G20c reindex
+    # capture); the test is correct but the precondition state isn't yet
+    # produced on dev. Not XFAIL — there's no reason to expect failure.
     _catchup_scenario(
-        tc=307,
-        name="Resume from lastUrn checkpoint",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_INTERRUPT_KIT,
-    ),
-    _catchup_scenario(
-        tc=308,
+        tc=205,
         name="DUAL_WRITE_DISABLED set when rollback flag off",
-        # Not XFAIL — there's no reason to "expect" failure. The validator
-        # genuinely can't run until G20c lands. SKIP is the honest signal.
         expected_to_fail=False,
         skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
     ),
+    # Renumbered from TC-309 to TC-206.
     _catchup_scenario(
-        tc=309,
+        tc=206,
         name="DUAL_WRITE_DISABLED NOT set when flag on",
         expected_to_fail=False,
         skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
@@ -204,11 +193,11 @@ SUITE_D_SCENARIOS: list[ZDUTestScenario] = [
 ]
 
 
-# Suite A — Aspect schema migration (TC-001..TC-022, plus TC-023 placeholder).
+# Suite A — Aspect schema migration (TC-301..TC-322, plus TC-323 placeholder).
 # Layout matches the historical CSV row order and field semantics 1:1.
 SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
     _aspect_migration(
-        tc=1,
+        tc=301,
         name="Full sweep single hop",
         aspect_name="globalTags",
         entity_type="dataset",
@@ -217,7 +206,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Single Hop Migration",
     ),
     _aspect_migration(
-        tc=2,
+        tc=302,
         name="Read path single hop",
         aspect_name="globalTags",
         entity_type="dataset",
@@ -226,7 +215,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Single Hop Migration",
     ),
     _aspect_migration(
-        tc=3,
+        tc=303,
         name="Write path single hop",
         aspect_name="globalTags",
         entity_type="dataset",
@@ -235,7 +224,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Single Hop Migration",
     ),
     _aspect_migration(
-        tc=4,
+        tc=304,
         name="Full sweep multi hop",
         aspect_name="embed",
         entity_type="dashboard",
@@ -244,7 +233,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=5,
+        tc=305,
         name="Read path multi hop",
         aspect_name="embed",
         entity_type="dashboard",
@@ -253,7 +242,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=6,
+        tc=306,
         name="Write path multi hop",
         aspect_name="embed",
         entity_type="dashboard",
@@ -262,7 +251,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=7,
+        tc=307,
         name="Mid-chain start at v2",
         aspect_name="embed",
         entity_type="dashboard",
@@ -272,7 +261,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=8,
+        tc=308,
         name="Already at target v4",
         aspect_name="embed",
         entity_type="dashboard",
@@ -282,7 +271,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=9,
+        tc=309,
         name="Future version v5",
         aspect_name="embed",
         entity_type="dashboard",
@@ -292,7 +281,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=10,
+        tc=310,
         name="Null systemMetadata",
         aspect_name="embed",
         entity_type="dashboard",
@@ -301,7 +290,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=11,
+        tc=311,
         name="Gap in mutator chain",
         aspect_name="embed",
         entity_type="dashboard",
@@ -311,7 +300,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=12,
+        tc=312,
         name="Single-hop v3→v4 sweep",
         aspect_name="embed",
         entity_type="dashboard",
@@ -329,7 +318,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         ),
     ),
     _aspect_migration(
-        tc=13,
+        tc=313,
         name="Invalid URN crashes sweep",
         aspect_name="embed",
         entity_type="dashboard",
@@ -338,7 +327,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=14,
+        tc=314,
         name="Malformed JSON in metadata",
         aspect_name="embed",
         entity_type="dashboard",
@@ -347,7 +336,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Multi Hop Migration",
     ),
     _aspect_migration(
-        tc=15,
+        tc=315,
         name="ES reindexing after migration",
         aspect_name="embed",
         entity_type="dashboard",
@@ -360,7 +349,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         expected_es_fields=["urn"],
     ),
     _aspect_migration(
-        tc=16,
+        tc=316,
         name="Re-run after SUCCEEDED",
         aspect_name="embed",
         entity_type="dashboard",
@@ -369,7 +358,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Upgrade Lifecycle",
     ),
     _aspect_migration(
-        tc=17,
+        tc=317,
         name="ABORTED treated as terminal",
         aspect_name="embed",
         entity_type="dashboard",
@@ -378,7 +367,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Upgrade Lifecycle",
     ),
     _aspect_migration(
-        tc=18,
+        tc=318,
         name="IN_PROGRESS resumes sweep",
         aspect_name="embed",
         entity_type="dashboard",
@@ -387,7 +376,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Upgrade Lifecycle",
     ),
     _aspect_migration(
-        tc=19,
+        tc=319,
         name="chain.disable() not wired",
         aspect_name="embed",
         entity_type="dashboard",
@@ -396,7 +385,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Disable Migration After Upgrade",
     ),
     _aspect_migration(
-        tc=20,
+        tc=320,
         name="Read path in-memory only",
         aspect_name="embed",
         entity_type="dashboard",
@@ -406,7 +395,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Data Integrity Verification",
     ),
     _aspect_migration(
-        tc=21,
+        tc=321,
         name="Write path persists",
         aspect_name="embed",
         entity_type="dashboard",
@@ -416,7 +405,7 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         category="Data Integrity Verification",
     ),
     _aspect_migration(
-        tc=22,
+        tc=322,
         name="APP_SOURCE stamped on sweep",
         aspect_name="embed",
         entity_type="dashboard",
@@ -424,10 +413,10 @@ SUITE_A_SCENARIOS: list[ZDUTestScenario] = [
         expected_schema_version=None,
         category="Data Integrity Verification",
     ),
-    # TC-23 placeholder — present in legacy _TC_ACTION as "rolling" but absent from CSV.
+    # TC-323 placeholder — present in legacy _TC_ACTION as "rolling" but absent from CSV.
     # Keep it here so future plans (Phase 6 RollingRestartPhase) can wire it up.
     _aspect_migration(
-        tc=23,
+        tc=323,
         name="Rolling Upgrade",
         aspect_name="embed",
         entity_type="dashboard",
@@ -478,6 +467,9 @@ def _phase1_reindex_scenario(
     description: str = "",
     expected_to_fail: bool = False,
     skip_reason: str | None = None,
+    expected_reindex_indices: frozenset[str] | None = None,
+    min_real_reindex_count: int | None = None,
+    expected_in_place_update_indices: frozenset[str] | None = None,
 ) -> ZDUTestScenario:
     return ZDUTestScenario(
         tc_number=tc,
@@ -498,6 +490,9 @@ def _phase1_reindex_scenario(
         skip_reason=skip_reason,
         scenario_type="phase1_reindex",
         suite=Suite.B,
+        expected_reindex_indices=expected_reindex_indices,
+        min_real_reindex_count=min_real_reindex_count,
+        expected_in_place_update_indices=expected_in_place_update_indices,
     )
 
 
@@ -509,11 +504,15 @@ def _sweep_scenario(
     expected_to_fail: bool = False,
     skip_reason: str | None = None,
 ) -> ZDUTestScenario:
-    """Construct a Suite E system-level sweep scenario.
+    """Construct a Suite A sweep-invariant scenario.
 
-    Sweep scenarios validate AspectMigrationMutatorChain sweep outcomes via
-    captures on ``ctx`` populated by Plans F-5/bootJar. Most TCs require infra
-    not present on the dev stack; TC-404 is the only active validator.
+    Sweep scenarios validate ``AspectMigrationMutatorChain`` sweep-job
+    invariants (cursor, batch-delay, version-match, chain-disable) via
+    captures on ``ctx`` populated by ``upgrade_nonblocking``. They share the
+    same non-blocking phase as the per-URN aspect-migration scenarios so they
+    live in Suite A; their ``scenario_type="sweep"`` dispatches to a separate
+    set of validators that read sweep-level captures rather than per-URN
+    aspect state.
     """
     return ZDUTestScenario(
         tc_number=tc,
@@ -533,36 +532,53 @@ def _sweep_scenario(
         expected_to_fail=expected_to_fail,
         skip_reason=skip_reason,
         scenario_type="sweep",
-        suite=Suite.E,
+        suite=Suite.A,
     )
 
 
-SUITE_E_SCENARIOS: list[ZDUTestScenario] = [
+SUITE_A_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
+    # Suite A's sweep-invariant subset (was TC-401..408 in the original
+    # design-doc numbering; renumbered into the Suite A range because both
+    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-331
+    # collapse to the same outcome on the dev stack: "a second sweep run
+    # finds nothing to migrate" — exactly what TC-316 (Re-run after
+    # SUCCEEDED) already proves end-to-end. Resumability, idempotency on
+    # already-migrated rows, and effective chain-disable all manifest as
+    # the same observable behavior. Honest SKIP with a pointer to the test
+    # that delivers the signal.
     _sweep_scenario(
-        tc=401,
+        tc=324,
         name="Sweep cursor resumability",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_INTERRUPT_KIT,
+        expected_to_fail=False,
+        skip_reason=(
+            "Duplicate of TC-316 (Re-run after SUCCEEDED is a no-op). "
+            "Cursor resumability after a hard interrupt also requires "
+            "kill-switch instrumentation that's not part of this branch."
+        ),
     ),
     _sweep_scenario(
-        tc=402,
+        tc=325,
         name="Sweep respects batchDelayMs",
-        expected_to_fail=True,
+        expected_to_fail=False,
         skip_reason=(
-            "Requires wall-clock instrumentation around the sweep — separate plan."
+            "Untractable on dev stack: batchDelayMs defaults to 0 here so "
+            "there's no wall-clock pause to observe. Asserting the knob "
+            "would require runtime timing instrumentation outside this "
+            "branch's scope."
         ),
     ),
     _sweep_scenario(
-        tc=403,
+        tc=326,
         name="Sweep skips already-migrated rows",
-        expected_to_fail=True,
+        expected_to_fail=False,
         skip_reason=(
-            "Requires pre-migration setup + per-row migration metric capture"
-            " — separate plan."
+            "Duplicate of TC-316. The observable outcome — sweep is a no-op "
+            "when all rows are at the target schemaVersion — is already "
+            "proven by re-running SystemUpdateBlocking after success."
         ),
     ),
     _sweep_scenario(
-        tc=404,
+        tc=327,
         name="Sweep with no mutators registered",
         description=(
             "When AspectMigrationMutatorChain is empty, sweep step is a no-op: "
@@ -572,35 +588,41 @@ SUITE_E_SCENARIOS: list[ZDUTestScenario] = [
         expected_to_fail=False,
     ),
     _sweep_scenario(
-        tc=405,
+        tc=328,
         name="Sweep with feature flag off",
-        # Same as TC-308/309 — blocked on G20c reindex-capture, not on a
-        # missing config knob per se. SKIP is the honest status.
+        # Blocked on G20c reindex-capture, not on a missing config knob per
+        # se (same root cause as TC-205 / TC-206). SKIP is the honest status.
         expected_to_fail=False,
         skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
     ),
     _sweep_scenario(
-        tc=406,
+        tc=329,
         name="APP_SOURCE stamped on sweep writes",
-        # Intentionally redundant with TC-022 — SKIP rather than XFAIL.
+        # Intentionally redundant with TC-322 — SKIP rather than XFAIL.
         expected_to_fail=False,
         skip_reason=_REDUNDANT_WITH_TC_022,
     ),
     _sweep_scenario(
-        tc=407,
+        tc=330,
         name="IF_VERSION_MATCH header prevents stomping",
-        expected_to_fail=True,
+        expected_to_fail=False,
         skip_reason=(
-            "Requires race-window line-by-line interleave proof — separate plan."
+            "Duplicate of TC-403 (Sweep + concurrent writes don't lose data). "
+            "TC-403 already asserts the outcome that IF_VERSION_MATCH "
+            "protects — every concurrent client write captured during the "
+            "sweep was preserved with passed=True. Line-by-line race-window "
+            "proof would add no additional signal."
         ),
     ),
     _sweep_scenario(
-        tc=408,
+        tc=331,
         name="Chain disable after sweep completes",
-        expected_to_fail=True,
+        expected_to_fail=False,
         skip_reason=(
-            "Requires AspectMigrationMutatorChain disabled log-line capture"
-            " — separate plan."
+            "Duplicate of TC-316. Once all rows match the migrated "
+            "predicate, the chain is observably a no-op on re-run — the "
+            "same outcome chain-disable would produce. A log-line capture "
+            "would prove the mechanism but not the property."
         ),
     ),
 ]
@@ -613,15 +635,17 @@ def _live_traffic_scenario(
     description: str = "",
     expected_to_fail: bool = False,
     skip_reason: str | None = None,
+    expected_schema_version: int | None = None,
 ) -> ZDUTestScenario:
     """Construct a Suite F live-traffic scenario.
 
     Live-traffic scenarios validate concurrent read/write behaviour during a
-    running sweep. Most TCs require sustained load generators or ingestion
-    harnesses not present on the dev stack; they are flagged
-    ``expected_to_fail=True`` with a ``skip_reason``. TC-504 is the active
-    validator: every IO-pool write captured in ``ctx.io_write_results`` must
-    have ``passed=True``.
+    running sweep against captures produced by the IO-pool harness in Phase 10
+    and ``DataIntegritySnapshotPhase`` in Phase 13.
+
+    ``expected_schema_version`` parameterizes TC-401's data-integrity
+    assertion: every gap+dual URN's embed aspect must converge to this
+    schemaVersion in MySQL post-sweep.
     """
     return ZDUTestScenario(
         tc_number=tc,
@@ -634,7 +658,7 @@ def _live_traffic_scenario(
         current_status="",
         details="",
         starting_schema_version=None,
-        expected_schema_version=None,
+        expected_schema_version=expected_schema_version,
         action="live_traffic",
         aspect_name="",
         entity_type="",
@@ -646,32 +670,39 @@ def _live_traffic_scenario(
 
 
 SUITE_F_SCENARIOS: list[ZDUTestScenario] = [
+    # Suite F — concurrent operations during the upgrade. Three sequential
+    # scenarios, all PASS on the dev stack. The original Suite F design
+    # specified additional scenarios for sustained-load read mid-sweep, ES
+    # dual-write parity, in-progress catch-up timing, and an ingestion job
+    # harness — those need infrastructure outside this branch's scope
+    # (sustained load generators, OLD-physical capture before the alias
+    # swap, catch-up timing instrumentation, csv-enricher under load) and
+    # were deferred to follow-up plans.
     _live_traffic_scenario(
-        tc=501,
-        name="Reads return new format mid-sweep",
-        expected_to_fail=True,
-        skip_reason=(
-            "Requires sustained 50 RPS read load generator + p99 latency capture"
-            " — separate plan."
+        tc=401,
+        name="Writes persist at target schemaVersion mid-sweep",
+        description=(
+            "Every gap+dual URN's embed aspect must converge to the target "
+            "schemaVersion in MySQL after the Phase 10 sweep — concurrent "
+            "writes across the rolling-restart and catch-up window must not "
+            "be left at the OLD version."
         ),
+        expected_to_fail=False,
+        expected_schema_version=4,
     ),
     _live_traffic_scenario(
-        tc=502,
-        name="Writes persist as new format mid-sweep",
-        expected_to_fail=True,
-        skip_reason=("Requires sustained 10 RPS write load generator — separate plan."),
-    ),
-    _live_traffic_scenario(
-        tc=503,
-        name="Read consistency across sweep boundary",
-        expected_to_fail=True,
-        skip_reason=(
-            "Requires sequential-read instrumentation around the sweep boundary"
-            " — separate plan."
+        tc=402,
+        name="Read consistency: observed version monotonic per URN",
+        description=(
+            "For each URN read more than once across Phase 10, the "
+            "observed_version sequence (ordered by timestamp) must be "
+            "monotonic non-decreasing — no stale snapshot served after the "
+            "sweep advanced the row."
         ),
+        expected_to_fail=False,
     ),
     _live_traffic_scenario(
-        tc=504,
+        tc=403,
         name="Sweep + concurrent writes don't lose data",
         description=(
             "Every IO-pool write captured in ctx.io_write_results must have"
@@ -679,63 +710,91 @@ SUITE_F_SCENARIOS: list[ZDUTestScenario] = [
         ),
         expected_to_fail=False,
     ),
-    _live_traffic_scenario(
-        tc=505,
-        name="ES dual-write under live load",
-        expected_to_fail=True,
-        skip_reason=(
-            "Requires ES doc-count parity check across both physical indices"
-            " under load — separate plan."
-        ),
-    ),
-    _live_traffic_scenario(
-        tc=506,
-        name="Read sees catch-up in progress",
-        expected_to_fail=True,
-        skip_reason=("Requires catch-up timing instrumentation — separate plan."),
-    ),
-    _live_traffic_scenario(
-        tc=507,
-        name="Ingestion run during ZDU",
-        expected_to_fail=True,
-        skip_reason=("Requires ingestion job harness (csv-enricher) — separate plan."),
-    ),
 ]
 
 
 SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
-    # P0a — flipped active after G20c. The G20c env-var indirection mounts the
-    # NEW worktree's PDLs into the system-update container, so G19a/G19b
-    # diffs vs. OLD (master HEAD) now produce a real mapping diff for
-    # dashboardindex_v2. The validator asserts at least one alias swap had a
-    # non-empty next_index_name (proof of a real reindex with mapping diff).
+    # Active validator (Plan 15) — observed reindex set must match
+    # ``expected_reindex_indices`` exactly. The expected set is hand-curated
+    # per fixture pair: G19a/G19b diff the embed aspect on the dashboard
+    # entity, producing one real reindex on dashboardindex_v2. Update this
+    # field whenever the fixture set changes (e.g., G19c/d landing).
     _phase1_reindex_scenario(
         tc=101,
         name="Single-index reindex with mapping change",
+        description=(
+            "Asserts that SystemUpdateBlocking reindexes EXACTLY the indices "
+            "named in expected_reindex_indices — no missing, no extra. The "
+            "expected set encodes the PDL diff between OLD and NEW worktrees "
+            "and must be revised when the fixture set changes."
+        ),
+        expected_reindex_indices=frozenset({"dashboardindex_v2"}),
     ),
+    # Active validator (Plan 15) — derives the unchanged-set from TC-101's
+    # expected_reindex_indices: every captured alias swap NOT in that set
+    # must have an empty next_index_name (no real reindex). Depends on TC-101
+    # being present in the run.
     _phase1_reindex_scenario(
         tc=102,
         name="No-reindex needed",
-        expected_to_fail=True,
-        skip_reason=_REQUIRES_NO_MAPPING_DIFF_CONDITION,
+        description=(
+            "Asserts indices outside TC-101's expected_reindex_indices were "
+            "NOT reindexed — every captured alias swap outside that set must "
+            "have an empty next_index_name (no-op alias swap on empty source "
+            "or identical mapping)."
+        ),
     ),
+    # Active validator (Plan 18) — settings/mappings-only update path.
+    # When NEW adds new mapping fields but doesn't modify existing ones,
+    # ReindexConfig.isPureMappingsAddition is true → ESIndexBuilder takes
+    # the in-place mapping update path instead of reindex+alias-swap. The
+    # PDL commit on this branch renames hasValuesFieldName on uniqueUserCount
+    # (a pure mappings addition on datasetindex_v2). Together with the
+    # globalTags.displayName addition, ~21 entity indices hit this path on
+    # the dev stack.
     _phase1_reindex_scenario(
         tc=103,
         name="Settings/mappings-only update",
-        expected_to_fail=True,
-        skip_reason=_REQUIRES_INDICES_STATE_CAPTURE,
+        description=(
+            "Asserts the in-place mapping update path was taken for the named "
+            "indices — i.e., the upgrade applied new mapping fields without "
+            "reindexing existing data (requiresApplyMappings=true, "
+            "isPureMappingsAddition=true). Signal: log line "
+            "``Updating index <name> mappings in place``."
+        ),
+        expected_in_place_update_indices=frozenset({"datasetindex_v2"}),
     ),
+    # Active validator (Plan 15) — empty-source no-op path: ≥1 captured alias
+    # swap has empty next_index_name AND (when raw available) sourceDocCount=0
+    # + status=COMPLETED. schemafieldindex_v2 and corpgroupindex_v2 typically
+    # exercise this on the dev stack.
     _phase1_reindex_scenario(
         tc=104,
         name="Empty source index",
-        expected_to_fail=True,
-        skip_reason=("Requires explicit doc-drop step before upgrade — separate plan."),
+        description=(
+            "Asserts ≥1 captured alias swap is an empty-source no-op (empty "
+            "next_index_name). Cross-checks MySQL indicesState when available: "
+            "the same alias must have sourceDocCount=0 and status=COMPLETED."
+        ),
     ),
+    # Active validator (Plan 17) — multi-index reindex assertion. The dev
+    # stack produces 3 alias entries in ctx.upgrade_blocking.raw, all with
+    # requiresDataBackfill=true and status=COMPLETED (dashboardindex_v2 with
+    # real source, schemafieldindex_v2 + corpgroupindex_v2 with 0 source
+    # docs but the same upgrade-side classification). Raising
+    # min_real_reindex_count above 3 would require seeding entities into
+    # more indices — see plan 17 follow-up plan-21.
     _phase1_reindex_scenario(
         tc=105,
         name="Multiple indices, all need reindex",
-        expected_to_fail=True,
-        skip_reason=_REQUIRES_MULTI_INDEX_DIFF,
+        description=(
+            "Asserts ≥min_real_reindex_count indices in ctx.upgrade_blocking.raw "
+            "have requiresDataBackfill=true AND status=COMPLETED. Validates "
+            "that BuildIndicesIncrementalStep processed multiple indices and "
+            "did not partial-run, stick at IN_PROGRESS, or drop the backfill "
+            "flag on any subset."
+        ),
+        min_real_reindex_count=2,
     ),
     # P0a — flipped active after G20c. With G19a/G19b PDLs, dashboardindex_v2
     # gets a real reindex while other captured indices (schemafield, corpgroup)
@@ -745,14 +804,10 @@ SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
         tc=106,
         name="Mixed reindex / mapping-only",
     ),
+    # Renumbered from TC-108 to TC-107 after TC-107/TC-110/TC-111 were
+    # removed (Suite B revival cleanup, 2026-05-17).
     _phase1_reindex_scenario(
         tc=107,
-        name="Timeseries index reindex",
-        expected_to_fail=True,
-        skip_reason=("Requires timeseries entity seed harness — separate plan."),
-    ),
-    _phase1_reindex_scenario(
-        tc=108,
         name="DataHubUpgradeResult state shape",
         description=(
             "Every entry in DataHubUpgradeResult.indicesState must have the "
@@ -761,39 +816,56 @@ SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
             "status."
         ),
     ),
+    # Active validator (Plan 16) — runs SystemUpdateBlocking a SECOND time
+    # via UpgradeBlockingReRunPhase and asserts every previously-reindexed
+    # alias was either skipped (SKIP_ALREADY_DONE) or absent from the rerun.
+    # Production no-op path lives in BuildIndicesIncrementalStep.java:103-112.
+    # Renumbered from TC-109 to TC-108.
+    _phase1_reindex_scenario(
+        tc=108,
+        name="Re-run after COMPLETED",
+        description=(
+            "Asserts the second invocation of SystemUpdateBlocking is a no-op: "
+            "every alias reindexed in Phase 6 must emit SKIP_ALREADY_DONE on "
+            "the rerun (or not appear at all). No new physical indices may be "
+            "created on the rerun. Mirrors production code at "
+            "BuildIndicesIncrementalStep.java:103-112."
+        ),
+    ),
+    # Active validator — doc-count preservation across the upgrade.
+    # Compares ctx.snapshot_t0.doc_counts (post-seed, pre-upgrade) against
+    # ctx.snapshot_t1.doc_counts (post-upgrade-blocking-rerun, pre-traffic).
+    # Catches any data-loss or duplication bug — broader than the original
+    # fault-injection design (kept as dead-code _validate_doc_count_mismatch
+    # for a future plan).
     _phase1_reindex_scenario(
         tc=109,
-        name="Re-run after COMPLETED",
-        expected_to_fail=True,
-        skip_reason=("Requires second blocking run — separate plan."),
-    ),
-    _phase1_reindex_scenario(
-        tc=110,
-        name="Resume after interruption",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_FAULT_INJECTION,
-    ),
-    _phase1_reindex_scenario(
-        tc=111,
-        name="Reindex failure → cleanup",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_FAULT_INJECTION,
-    ),
-    _phase1_reindex_scenario(
-        tc=112,
-        name="Doc count mismatch fails alias swap",
-        expected_to_fail=True,
-        skip_reason=_DEV_STACK_REQUIRES_FAULT_INJECTION,
+        name="Doc count preserved across upgrade",
+        description=(
+            "Asserts every index that existed at T0 (post-seed, pre-upgrade) "
+            "has the same doc count at T1 (post-upgrade-blocking-rerun, "
+            "pre-traffic-injection). Mismatch indicates data loss or "
+            "duplication during reindex/alias-swap/in-place-update — a "
+            "broader signal than triggering the validateAndSwapAlias safety "
+            "check directly."
+        ),
     ),
 ]
 
 
 def load_scenarios() -> list[ZDUTestScenario]:
-    """Return the canonical scenario list for all currently codified suites."""
+    """Return the canonical scenario list for all currently codified suites.
+
+    Suite A's sweep-invariant subset (``SUITE_A_SWEEP_INVARIANT_SCENARIOS``)
+    is appended directly to Suite A — both groups exercise the same
+    non-blocking sweep phase. Their ``scenario_type`` differs
+    (``aspect_migration`` for per-URN outcomes vs ``sweep`` for sweep-job
+    invariants), which keeps validator dispatch clean.
+    """
     return (
         list(SUITE_A_SCENARIOS)
+        + list(SUITE_A_SWEEP_INVARIANT_SCENARIOS)
         + list(SUITE_B_SCENARIOS)
         + list(SUITE_D_SCENARIOS)
-        + list(SUITE_E_SCENARIOS)
         + list(SUITE_F_SCENARIOS)
     )

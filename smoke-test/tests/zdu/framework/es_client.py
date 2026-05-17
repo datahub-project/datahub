@@ -131,6 +131,105 @@ class ElasticsearchClient:
             log.debug("cat_aliases failed: %s", exc)
             return ""
 
+    def count_matching_urn(self, index_or_alias: str, urn: str) -> int:
+        """Count docs in ``index_or_alias`` whose ``urn`` field equals ``urn``.
+
+        Used by the data-integrity snapshot (Suite D) to verify that gap/dual
+        URNs landed in the entity + systemMetadata indices post-upgrade. Uses
+        the ``q="urn:\"<urn>\""`` lucene query syntax — note the inner quotes
+        keep the colon-separated URN tokens together rather than letting
+        lucene split on ``:``.
+        """
+        resp = self._es_session.get(
+            f"{self._es_url}/{index_or_alias}/_count",
+            params={"q": f'urn:"{urn}"'},
+            timeout=30,
+        )
+        if resp.status_code == _HTTP_NOT_FOUND:
+            return 0
+        resp.raise_for_status()
+        return int(resp.json().get("count", 0))
+
+    def clone_index_with_partial_docs(
+        self, source_alias: str, target_name: str, doc_count: int
+    ) -> int:
+        """Create ``target_name`` from ``source_alias``'s mapping and copy up
+        to ``doc_count`` docs from the source. Returns the actual count
+        copied.
+
+        Used by the TC-112 fault-injection phase to produce an intentional
+        doc-count mismatch between an alias and a candidate "next index".
+        Idempotent: deletes target first if it already exists.
+        """
+        # 1. Drop the target if it lingers from a prior run.
+        self._es_session.delete(f"{self._es_url}/{target_name}", timeout=30)
+
+        # 2. Read source mapping AND settings via dedicated endpoints.
+        mappings_resp = self._es_session.get(
+            f"{self._es_url}/{source_alias}/_mapping", timeout=30
+        )
+        mappings_resp.raise_for_status()
+        mappings_body: dict[str, Any] = mappings_resp.json()
+        first_mappings: dict[str, Any] = next(iter(mappings_body.values()), {})
+        mappings = first_mappings.get("mappings", {})
+
+        settings_resp = self._es_session.get(
+            f"{self._es_url}/{source_alias}/_settings", timeout=30
+        )
+        settings_resp.raise_for_status()
+        settings_body: dict[str, Any] = settings_resp.json()
+        first_settings: dict[str, Any] = next(iter(settings_body.values()), {})
+        full_index_settings = first_settings.get("settings", {}).get("index", {})
+        # Strip ES-managed settings that can't be set on create.
+        immutable_keys = {
+            "uuid",
+            "provided_name",
+            "creation_date",
+            "version",
+            "routing",
+            "history",
+            "store",
+            "transform",
+            "lifecycle",
+        }
+        index_settings = {
+            k: v for k, v in full_index_settings.items() if k not in immutable_keys
+        }
+
+        # 3. Create the target with matching mapping + minimal settings.
+        create_body: dict[str, Any] = {"mappings": mappings}
+        if index_settings:
+            create_body["settings"] = {"index": index_settings}
+        create_resp = self._es_session.put(
+            f"{self._es_url}/{target_name}",
+            json=create_body,
+            timeout=60,
+        )
+        create_resp.raise_for_status()
+
+        # 4. Copy up to ``doc_count`` docs via _reindex with max_docs.
+        reindex_resp = self._es_session.post(
+            f"{self._es_url}/_reindex",
+            json={
+                "max_docs": max(0, doc_count),
+                "source": {"index": source_alias, "size": min(doc_count, 1000)},
+                "dest": {"index": target_name},
+                "conflicts": "proceed",
+            },
+            params={"refresh": "true", "wait_for_completion": "true"},
+            timeout=120,
+        )
+        reindex_resp.raise_for_status()
+        created = int(reindex_resp.json().get("created", 0))
+        log.info(
+            "[es] cloned %s -> %s with %d docs (requested %d)",
+            source_alias,
+            target_name,
+            created,
+            doc_count,
+        )
+        return created
+
     def list_tasks(
         self, action_pattern: str = "indices:data/write/reindex"
     ) -> list[dict[str, Any]]:

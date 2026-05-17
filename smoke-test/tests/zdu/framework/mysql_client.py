@@ -274,3 +274,75 @@ class MySQLClient:
                 upgrade_id = row["urn"].removeprefix("urn:li:dataHubUpgrade:")
                 return upgrade_id, parsed
         return None, None
+
+    def patch_upgrade_result_per_alias(self, urn: str, alias: str, **kv: str) -> int:
+        """Rewrite per-alias entries in a ``dataHubUpgradeResult``'s flat-dotted
+        ``result`` payload. Returns the number of keys patched.
+
+        Used by the TC-112 fault-injection phase to stage an IN_PROGRESS
+        state pointing at a mismatched ``nextIndexName``. The ``result`` block
+        on a ``BuildIndicesIncremental_*`` row uses keys like
+        ``<alias>.status``, ``<alias>.nextIndexName``, etc. — see
+        ``upgrade_blocking._parse_flat_indices_state``.
+        """
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(
+                "SELECT metadata FROM metadata_aspect_v2 "
+                "WHERE urn=%s AND aspect='dataHubUpgradeResult' AND version=0",
+                (urn,),
+            )
+            row = cur.fetchone()
+            if row is None or not row.get("metadata"):
+                return 0
+            try:
+                parsed = json.loads(row["metadata"])
+            except json.JSONDecodeError:
+                return 0
+            result = parsed.get("result")
+            if not isinstance(result, dict):
+                result = {}
+                parsed["result"] = result
+            patched = 0
+            for k, v in kv.items():
+                result[f"{alias}.{k}"] = v
+                patched += 1
+            cur.execute(
+                "UPDATE metadata_aspect_v2 SET metadata=%s "
+                "WHERE urn=%s AND aspect='dataHubUpgradeResult' AND version=0",
+                (json.dumps(parsed), urn),
+            )
+            c.commit()
+            return patched
+
+    def find_upgrade_result_by_urn_prefix(
+        self, urn_prefix: str
+    ) -> tuple[str | None, dict | None]:
+        """Find any dataHubUpgradeResult whose URN starts with ``urn_prefix``.
+
+        Returns ``(upgrade_id, parsed_metadata_dict)`` for the first match,
+        or ``(None, None)`` if no match. The parsed dict is the FULL metadata
+        payload — callers extract what they need (e.g.,
+        ``BuildIndicesIncremental_<version>`` rows have ``result`` as a
+        flat-dotted-key dict that ``upgrade_blocking._parse_flat_indices_state``
+        unflattens per alias).
+        """
+        full_prefix = f"urn:li:dataHubUpgrade:{urn_prefix}"
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(
+                "SELECT urn, metadata FROM metadata_aspect_v2 "
+                "WHERE aspect='dataHubUpgradeResult' AND version=0 "
+                "AND urn LIKE %s",
+                (f"{full_prefix}%",),
+            )
+            rows = cur.fetchall()
+        for row in rows:
+            md = row.get("metadata")
+            if not md:
+                continue
+            try:
+                parsed = json.loads(md)
+            except json.JSONDecodeError:
+                continue
+            upgrade_id = row["urn"].removeprefix("urn:li:dataHubUpgrade:")
+            return upgrade_id, parsed
+        return None, None

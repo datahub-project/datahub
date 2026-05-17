@@ -92,9 +92,84 @@ class UpgradeBlockingResult:
 
     indices: list[IndexState] = field(default_factory=list)
     alias_swaps_observed: list[tuple[str, str]] = field(default_factory=list)
+    # Indices that hit the in-place mapping update path (production
+    # ``ESIndexBuilder.updateMappingsInPlace`` — fires when
+    # ReindexConfig.isPureMappingsAddition is true). Distinct from
+    # ``alias_swaps_observed`` — these indices were NOT reindexed; their
+    # mapping was patched in place. Used by TC-103.
+    indices_updated_in_place: list[str] = field(default_factory=list)
     raw: dict | None = None
     duration_s: float = 0.0
     upgrade_id: str | None = None
+
+
+@dataclass
+class UpgradeBlockingReRunResult:
+    """Captured by ``UpgradeBlockingReRunPhase`` — the second invocation of
+    ``SystemUpdateBlocking``.
+
+    On a re-run, every index already-completed by Phase 6 must either:
+      - emit ``Index <name> already COMPLETED in previous run, skipping``
+        (captured in ``skip_already_done_aliases``), OR
+      - not appear in the rerun log stream at all (production opt-out path,
+        e.g., ``ReindexConfig`` no longer flags the index as needing reindex).
+
+    Any entry in ``rerun_alias_swaps_observed`` with a non-empty
+    ``next_index_name`` is a regression — the upgrade re-did work it should
+    have skipped per ``BuildIndicesIncrementalStep.java:103-112``.
+    """
+
+    skip_already_done_aliases: list[str] = field(default_factory=list)
+    rerun_alias_swaps_observed: list[tuple[str, str]] = field(default_factory=list)
+    duration_s: float = 0.0
+    upgrade_id: str | None = None
+    rerun_exit_code: int = -1
+
+
+@dataclass
+class Tc112FaultInjectionResult:
+    """Captures the TC-112 fault-injection upgrade run.
+
+    Engineered fault: pre-stage MySQL state to point ``alias`` at a manually
+    created ``bad_target_index`` whose doc count differs from the alias's
+    source. Production resume path runs ``validateAndSwapAlias``, detects the
+    mismatch, logs ``Doc count mismatch for alias swap X -> Y: ...``, and
+    exits FAILED. The framework captures each mismatch event in
+    ``mismatch_events_observed`` as ``(alias, bad_target)`` tuples.
+    """
+
+    target_alias: str = ""
+    bad_target_index: str = ""
+    source_doc_count: int = 0
+    target_doc_count: int = 0
+    mismatch_events_observed: list[tuple[str, str]] = field(default_factory=list)
+    upgrade_exit_code: int = -1
+    duration_s: float = 0.0
+
+
+@dataclass
+class DataIntegritySnapshot:
+    """Post-Phase-10 ES presence check for gap and dual URNs.
+
+    Written by ``DataIntegritySnapshotPhase``. Read by the Suite D
+    data-integrity validators (TC-201, TC-204) to assert no gap/dual URN
+    was lost across the rolling-restart + catch-up window.
+
+    ``entity_index_presence[urn]`` is True iff the URN is searchable via
+    the entity index alias (``dashboardindex_v2``).
+    ``systemmetadata_counts[urn]`` is the number of aspect entries in
+    ``system_metadata_service_v1`` keyed by that URN (typically 4 per
+    URN: corresponding to the ZDU framework's seed aspects).
+    """
+
+    entity_index_alias: str = "dashboardindex_v2"
+    entity_index_presence: dict[str, bool] = field(default_factory=dict)
+    systemmetadata_counts: dict[str, int] = field(default_factory=dict)
+    # Suite F TC-401 — every gap/dual URN's embed aspect must be
+    # at the target schemaVersion in MySQL after the sweep. Values are the
+    # schemaVersion read from systemMetadata; ``None`` means the row didn't
+    # exist or the systemMetadata.schemaVersion key wasn't set.
+    embed_schema_versions: dict[str, int | None] = field(default_factory=dict)
 
 
 @dataclass
@@ -261,6 +336,27 @@ class TestContext:
     # UpgradeBlockingPhase writes
     upgrade_blocking: UpgradeBlockingResult | None = None
 
+    # UpgradeBlockingReRunPhase writes — captures second SystemUpdateBlocking
+    # invocation; consumed by TC-108 validator.
+    upgrade_blocking_rerun: UpgradeBlockingReRunResult | None = None
+
+    # SnapshotT1Phase writes — re-queries each ``ctx.snapshot_t0`` index via
+    # its alias after upgrade_blocking_rerun completes. Consumed by TC-109
+    # validator to assert no doc loss across the upgrade.
+    snapshot_t1: SnapshotT0 | None = None
+
+    # DataIntegritySnapshotPhase writes — post-Phase-10 ES presence check
+    # for gap_urns + dual_write_urns. Consumed by Suite D TC-201 and TC-204
+    # validators to assert no URN was lost across the rolling-restart +
+    # catch-up window.
+    data_integrity_snapshot: DataIntegritySnapshot | None = None
+
+    # Tc112FaultInjectionPhase writes — engineered doc-count mismatch run.
+    # Phase is currently NOT wired into the runner (see plan 19 — superseded
+    # by the simpler t0/t1 doc-count preservation design for TC-109). Field
+    # remains for the future fault-injection plan.
+    tc112_fault_injection: Tc112FaultInjectionResult | None = None
+
     # InjectTrafficPrePhase writes
     gap_urns: list[str] = field(default_factory=list)
 
@@ -284,3 +380,9 @@ class TestContext:
 
     # ValidationPhase writes
     validation_results: list[ValidationResult] = field(default_factory=list)
+
+    # Runner caches the active scenario list here so Suite B's TC-102 can
+    # look up TC-101's expected_reindex_indices at validation time without
+    # adding a back-reference from the scenario loader. Typed as Any to
+    # avoid a circular import (scenario_loader → context → scenario_loader).
+    all_scenarios: list[Any] = field(default_factory=list)

@@ -114,11 +114,13 @@ class TestCheckDualWriteState:
             if r.status == "FAIL"
         )
 
-    def test_empty_disabled_set_emits_informational_skip(self) -> None:
+    def test_empty_disabled_set_emits_no_synthetic_result(self) -> None:
+        # The "empty disabled set on non-empty stack" condition is the same
+        # G20c blocker Suite D TC-205 / TC-206 already report. No synthetic
+        # SKIP is emitted from here — would double-count the signal.
         ctx = _ctx_with_post_upgrade_state(dual_write_disabled=[])
         results = ValidationPhase._check_dual_write_state(ctx)
-        # Informational skip exists (status=SKIP) acknowledging dev-stack case.
-        assert any(r.status == "SKIP" for r in results)
+        assert all(r.status != "SKIP" for r in results)
 
 
 # ---------- _check_runtime_migration_probes tests ----------
@@ -240,7 +242,7 @@ class TestCheckEsFieldPresence:
     def test_all_fields_present_returns_no_failures(self) -> None:
         es = MagicMock()
         es.get_doc.return_value = {"embedType": "EXTERNAL", "renderUrl": "http://x"}
-        scenarios = [_es_scenario(tc=15, expected_es_fields=["embedType"])]
+        scenarios = [_es_scenario(tc=315, expected_es_fields=["embedType"])]
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
         es.get_doc.assert_called_once()
@@ -251,29 +253,31 @@ class TestCheckEsFieldPresence:
     def test_missing_field_emits_fail(self) -> None:
         es = MagicMock()
         es.get_doc.return_value = {"renderUrl": "http://x"}  # no embedType
-        scenarios = [_es_scenario(tc=15, expected_es_fields=["embedType"])]
+        scenarios = [_es_scenario(tc=315, expected_es_fields=["embedType"])]
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         fails = [r for r in results if r.status == "FAIL"]
         assert len(fails) == 1
-        assert fails[0].tc_number == 15
+        assert fails[0].tc_number == 315
         assert "embedType" in fails[0].actual_result
         assert "missing" in fails[0].actual_result.lower()
 
     def test_doc_not_found_emits_fail(self) -> None:
         es = MagicMock()
         es.get_doc.return_value = None  # 404 from ES
-        scenarios = [_es_scenario(tc=15, expected_es_fields=["embedType"])]
+        scenarios = [_es_scenario(tc=315, expected_es_fields=["embedType"])]
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         fails = [r for r in results if r.status == "FAIL"]
         assert len(fails) == 1
-        assert fails[0].tc_number == 15
+        assert fails[0].tc_number == 315
         assert "not found" in fails[0].actual_result.lower()
 
     def test_dataset_entity_type_uses_dataset_alias(self) -> None:
         es = MagicMock()
         es.get_doc.return_value = {"someField": True}
         scenarios = [
-            _es_scenario(tc=20, entity_type="dataset", expected_es_fields=["someField"])
+            _es_scenario(
+                tc=320, entity_type="dataset", expected_es_fields=["someField"]
+            )
         ]
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         assert results == []
@@ -295,7 +299,7 @@ class TestCheckEsFieldPresence:
     def test_es_client_exception_emits_fail(self) -> None:
         es = MagicMock()
         es.get_doc.side_effect = RuntimeError("ES unreachable")
-        scenarios = [_es_scenario(tc=15, expected_es_fields=["embedType"])]
+        scenarios = [_es_scenario(tc=315, expected_es_fields=["embedType"])]
         results = ValidationPhase._check_es_field_presence(scenarios, es=es)
         fails = [r for r in results if r.status == "FAIL"]
         assert len(fails) == 1

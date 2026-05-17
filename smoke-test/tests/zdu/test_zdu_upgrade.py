@@ -78,8 +78,8 @@ def test_scenario(
     scenario: ZDUTestScenario,
     zdu_report: ZDUReport,
 ) -> None:
-    if scenario.tc_number == 23:
-        pytest.skip("TC-023 Rolling Upgrade — test steps not yet defined in sheet")
+    if scenario.tc_number == 323:
+        pytest.skip("TC-323 Rolling Upgrade — test steps not yet defined in sheet")
 
     result = zdu_report.scenario_result(scenario.tc_number)
 

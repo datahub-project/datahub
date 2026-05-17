@@ -21,10 +21,13 @@ from tests.zdu.framework.suite import Suite
 
 class TestLoadScenarios:
     def test_load_returns_full_suite_a(self) -> None:
+        # Suite A spans TC-301..031: 23 per-URN aspect-migration scenarios
+        # + 8 sweep-invariant scenarios (originally TC-401..408 in the
+        # design doc), all sharing the non-blocking sweep phase.
         ss = load_scenarios()
         suite_a = [s for s in ss if s.suite == Suite.A]
-        assert len(suite_a) == 23
-        assert {s.tc_number for s in suite_a} == set(range(1, 24))
+        assert len(suite_a) == 31
+        assert {s.tc_number for s in suite_a} == set(range(301, 332))
 
     def test_loader_class_returns_same_list(self) -> None:
         # Backward-compatible API: ScenarioLoader().load() == load_scenarios().
@@ -36,18 +39,32 @@ class TestLoadScenarios:
         # Existing callers may pass source=...; new loader ignores it.
         ss = ScenarioLoader().load(source="ignored")
         suite_a = [s for s in ss if s.suite == Suite.A]
-        assert len(suite_a) == 23
+        assert len(suite_a) == 31
 
-    def test_all_suite_a_scenarios_are_aspect_migration(self) -> None:
-        # Suite A scenarios use the aspect_migration executor.
+    def test_suite_a_scenario_types(self) -> None:
+        # Suite A holds two scenario_types: per-URN aspect-migration scenarios
+        # use "aspect_migration"; sweep-invariant scenarios use "sweep".
+        aspect_migration = []
+        sweep = []
         for s in load_scenarios():
-            if s.suite == Suite.A:
-                assert s.scenario_type == "aspect_migration"
+            if s.suite != Suite.A:
+                continue
+            if s.scenario_type == "aspect_migration":
+                aspect_migration.append(s.tc_number)
+            elif s.scenario_type == "sweep":
+                sweep.append(s.tc_number)
+            else:
+                raise AssertionError(
+                    f"Suite A TC-{s.tc_number} has unexpected "
+                    f"scenario_type={s.scenario_type}"
+                )
+        assert set(aspect_migration) == set(range(301, 324))
+        assert set(sweep) == set(range(324, 332))
 
 
 class TestScenarioFields:
     def test_tc1_globaltags_dataset(self) -> None:
-        tc1 = next(s for s in load_scenarios() if s.tc_number == 1)
+        tc1 = next(s for s in load_scenarios() if s.tc_number == 301)
         assert tc1.aspect_name == "globalTags"
         assert tc1.entity_type == "dataset"
         assert tc1.action == "sweep"
@@ -56,23 +73,23 @@ class TestScenarioFields:
         assert tc1.expected_to_fail is False
 
     def test_tc4_embed_dashboard_multi_hop(self) -> None:
-        tc4 = next(s for s in load_scenarios() if s.tc_number == 4)
+        tc4 = next(s for s in load_scenarios() if s.tc_number == 304)
         assert tc4.aspect_name == "embed"
         assert tc4.entity_type == "dashboard"
         assert tc4.expected_schema_version == 4
 
     def test_tc7_mid_chain_v2_is_active(self) -> None:
         # bridgeGap is wired (EmbedV2ToV3Mutator + EmbedV3ToV4Mutator exist).
-        # TC-7 was XFAIL on "v2→v3 mutator absent in gap simulation"; that
+        # TC-307 was XFAIL on "v2→v3 mutator absent in gap simulation"; that
         # reason is now stale and the scenario runs as an active validator.
-        tc7 = next(s for s in load_scenarios() if s.tc_number == 7)
+        tc7 = next(s for s in load_scenarios() if s.tc_number == 307)
         assert tc7.starting_schema_version == 2
         assert tc7.expected_schema_version == 4
         assert tc7.expected_to_fail is False
         assert tc7.skip_reason is None
 
     def test_tc20_read_path_in_memory(self) -> None:
-        tc20 = next(s for s in load_scenarios() if s.tc_number == 20)
+        tc20 = next(s for s in load_scenarios() if s.tc_number == 320)
         assert tc20.starting_schema_version == 1
         assert tc20.expected_schema_version == 4
         assert tc20.action == "read"
@@ -103,7 +120,7 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
     def test_validates_only_tc_specific_urns(self) -> None:
         datahub = MagicMock()
         aspect_resp = MagicMock()
-        tc1 = next(s for s in SUITE_A_SCENARIOS if s.tc_number == 1)
+        tc1 = next(s for s in SUITE_A_SCENARIOS if s.tc_number == 301)
         aspect_resp.schema_version = tc1.expected_schema_version
         datahub.get_aspect.return_value = aspect_resp
 
@@ -112,7 +129,7 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
             SeededEntity(
                 urn="urn:li:dataset:tc1",
                 aspect_name="globalTags",
-                tc_number=1,
+                tc_number=301,
                 seeded_data={},
                 expected_schema_version=2,
                 validator=lambda d: True,
@@ -120,7 +137,7 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
             SeededEntity(
                 urn="urn:li:dataset:tc2",
                 aspect_name="globalTags",
-                tc_number=2,
+                tc_number=302,
                 seeded_data={},
                 expected_schema_version=2,
                 validator=lambda d: True,
@@ -128,19 +145,19 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
         ]
         result = ScenarioExecutor(datahub).validate(tc1, ctx)
         assert result.status == "PASS"
-        # Only TC-1's URN was queried, not TC-2's
+        # Only TC-301's URN was queried, not TC-302's
         datahub.get_aspect.assert_called_once_with("urn:li:dataset:tc1", "globalTags")
 
 
 class TestSuiteD:
-    def test_load_scenarios_includes_9_suite_d_scenarios(self) -> None:
+    def test_load_scenarios_includes_6_suite_d_scenarios(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suite_d = [s for s in scenarios if s.suite == Suite.D]
-        assert len(suite_d) == 9
-        # tc_numbers cover 301..309
-        assert {s.tc_number for s in suite_d} == set(range(301, 310))
+        # Suite D — ES Phase 2 reindexing (dual-write phase). 6 codified.
+        assert len(suite_d) == 6
+        assert {s.tc_number for s in suite_d} == set(range(201, 207))
 
     def test_suite_d_scenarios_use_catch_up_scenario_type(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
@@ -150,24 +167,17 @@ class TestSuiteD:
         assert all(s.scenario_type == "catch_up" for s in suite_d)
         assert all(s.action == "catch_up" for s in suite_d)
 
-    def test_dev_stack_xfail_scenarios_have_skip_reason(self) -> None:
+    def test_dev_stack_skip_scenarios_have_skip_reason(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
 
         scenarios = load_scenarios()
         suite_d = [s for s in scenarios if s.suite == Suite.D]
-        # TC-305 / TC-306 PASS on dev (active validators); TC-308 / TC-309
-        # SKIP on dev via the P0b/c reclassification (was XFAIL with a
-        # misleading "runtime knob" reason; the real blocker is G20c
-        # reindex-capture). None of these four are "expected to fail".
+        # No XFAIL scenarios remain in Suite D post-revival. TC-205 / TC-206
+        # carry the G20c-pending SKIP reason; the rest are active validators.
         non_xfail = {s.tc_number for s in suite_d if not s.expected_to_fail}
-        assert non_xfail == {305, 306, 308, 309}
-        # Every XFAIL scenario must explain why with a skip_reason.
-        xfail = [s for s in suite_d if s.expected_to_fail]
-        for s in xfail:
-            assert s.skip_reason, f"TC-{s.tc_number} XFAIL without skip_reason"
-        # The reclassified SKIP scenarios must also carry a skip_reason
-        # documenting their blocker (G20c reindex capture).
-        for tc in (308, 309):
+        assert non_xfail == {201, 202, 203, 204, 205, 206}
+        # The SKIP scenarios must carry a skip_reason documenting the blocker.
+        for tc in (205, 206):
             scenario = next(s for s in suite_d if s.tc_number == tc)
             assert scenario.skip_reason, f"TC-{tc} SKIP without skip_reason"
             assert "G20c" in scenario.skip_reason or "reindex" in scenario.skip_reason
@@ -179,33 +189,44 @@ class TestAllSuites:
 
         scenarios = load_scenarios()
         suites_present = {s.suite for s in scenarios}
-        # Suite A + B + D + E + F (no C, G, H, I yet)
+        # Suite A + B + D + F (Suite E was folded into A; C, G, H not codified yet)
         assert Suite.A in suites_present
         assert Suite.B in suites_present
         assert Suite.D in suites_present
-        assert Suite.E in suites_present
         assert Suite.F in suites_present
+
+    def test_suite_a_count(self) -> None:
+        from tests.zdu.framework.scenarios import (
+            SUITE_A_SCENARIOS,
+            SUITE_A_SWEEP_INVARIANT_SCENARIOS,
+        )
+
+        # Suite A has two subsets: the per-URN aspect-migration scenarios
+        # (TC-301..023) and the sweep-invariant scenarios (TC-324..031, which
+        # were originally TC-401..408 in the design doc). Both groups share
+        # the non-blocking sweep phase.
+        assert len(SUITE_A_SCENARIOS) == 23
+        assert len(SUITE_A_SWEEP_INVARIANT_SCENARIOS) == 8
+        all_a_tcs = {s.tc_number for s in SUITE_A_SCENARIOS} | {
+            s.tc_number for s in SUITE_A_SWEEP_INVARIANT_SCENARIOS
+        }
+        assert all_a_tcs == set(range(301, 332))
 
     def test_suite_b_count(self) -> None:
         from tests.zdu.framework.scenarios import SUITE_B_SCENARIOS
 
-        assert len(SUITE_B_SCENARIOS) == 12
-        assert {s.tc_number for s in SUITE_B_SCENARIOS} == set(range(101, 113))
-
-    def test_suite_e_count(self) -> None:
-        from tests.zdu.framework.scenarios import SUITE_E_SCENARIOS
-
-        assert len(SUITE_E_SCENARIOS) == 8
-        assert {s.tc_number for s in SUITE_E_SCENARIOS} == set(range(401, 409))
+        # Suite B — ES Phase 1 reindexing (blocking phase). 9 codified.
+        assert len(SUITE_B_SCENARIOS) == 9
+        assert {s.tc_number for s in SUITE_B_SCENARIOS} == set(range(101, 110))
 
     def test_suite_f_count(self) -> None:
         from tests.zdu.framework.scenarios import SUITE_F_SCENARIOS
 
-        assert len(SUITE_F_SCENARIOS) == 7
-        assert {s.tc_number for s in SUITE_F_SCENARIOS} == set(range(501, 508))
+        assert len(SUITE_F_SCENARIOS) == 3
+        assert {s.tc_number for s in SUITE_F_SCENARIOS} == set(range(401, 404))
 
     def test_total_scenarios_is_sum_of_suites(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
 
-        # 23 A + 12 B + 9 D + 8 E + 7 F = 59
-        assert len(load_scenarios()) == 59
+        # 23 A_aspect + 8 A_sweep + 9 B + 6 D + 3 F = 49
+        assert len(load_scenarios()) == 49

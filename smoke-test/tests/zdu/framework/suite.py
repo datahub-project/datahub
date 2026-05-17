@@ -1,8 +1,14 @@
 """Suite identifiers for the ZDU end-to-end test framework.
 
-Each suite groups TCs that exercise a related ZDU concern. The enum value is
-the lowercase short code used as the pytest marker (``suite_a``, ``suite_b``,
-...) and the ``--suite`` CLI argument.
+Suites map 1:1 to the production ZDU upgrade phases they exercise:
+
+* Blocking phase            → Suite B: ES Phase 1 reindexing
+* Dual-write phase          → Suite D: ES Phase 2 reindexing
+* Non-blocking phase        → Suite A: Aspect schema migration & system sweep
+* Concurrent operations     → Suite F: Live Read/write and Swap
+
+The enum value is the lowercase short code used as the pytest marker
+(``suite_a``, ``suite_b``, ...) and the ``--suite`` CLI argument.
 """
 
 from __future__ import annotations
@@ -11,27 +17,23 @@ from enum import Enum
 
 
 class Suite(Enum):
-    A = "a"  # Aspect schema migration (TC-001..TC-023)
-    B = "b"  # ES Phase 1 — incremental reindex (TC-101..TC-112)
-    C = "c"  # Rollback dual-write (TC-201..TC-208)
-    D = "d"  # ES Phase 2 catch-up (TC-301..TC-309)
-    E = "e"  # System-level sweep (TC-401..TC-408)
-    F = "f"  # Live traffic (TC-501..TC-507)
-    G = "g"  # Rollback (TC-601..TC-604)
-    H = "h"  # Failure recovery (TC-701..TC-705)
+    A = "a"  # Non-blocking — Aspect schema migration & system sweep (TC-301..TC-331)
+    B = "b"  # Blocking — ES Phase 1 reindexing (TC-101..TC-109)
+    D = "d"  # Dual-write — ES Phase 2 reindexing (TC-201..TC-206)
+    F = "f"  # Concurrent operation — Live Read/write and Swap (TC-401..TC-403)
 
 
 # Explicit mapping — keeps the source of truth in one place and avoids a
 # silent off-by-one if a TC range shifts. Tests exercise the boundaries.
+# Suite A spans TC-301..TC-331: TC-301..323 are per-URN aspect-migration
+# scenarios (was TC-001..023 in the design doc); TC-324..331 are sweep-job
+# invariant checks (was TC-401..408). Both groups share the non-blocking
+# sweep phase, so the suite split was artificial.
 _TC_RANGES: tuple[tuple[range, Suite], ...] = (
-    (range(1, 24), Suite.A),
-    (range(101, 113), Suite.B),
-    (range(201, 209), Suite.C),
-    (range(301, 310), Suite.D),
-    (range(401, 409), Suite.E),
-    (range(501, 508), Suite.F),
-    (range(601, 605), Suite.G),
-    (range(701, 706), Suite.H),
+    (range(301, 332), Suite.A),
+    (range(101, 110), Suite.B),
+    (range(201, 207), Suite.D),
+    (range(401, 404), Suite.F),
 )
 
 

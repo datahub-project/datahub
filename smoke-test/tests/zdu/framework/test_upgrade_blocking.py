@@ -102,6 +102,10 @@ def docker() -> MagicMock:
 @pytest.fixture
 def mysql() -> MagicMock:
     m = MagicMock()
+    # New canonical lookup (post-plan-15) — find BuildIndicesIncremental_<version>
+    # row by URN prefix, parse flat-dotted result keys. Default: no row found.
+    m.find_upgrade_result_by_urn_prefix.return_value = (None, None)
+    # Legacy lookup (kept for backward compat; not used by _capture_indices_state).
     m.find_upgrade_result_with_field.return_value = (None, None)
     return m
 
@@ -130,21 +134,19 @@ class TestUpgradeBlockingPhaseHappyPath:
             ],
             returncode=0,
         )
-        mysql.find_upgrade_result_with_field.return_value = (
-            "system-update-blocking",
+        # Mock the canonical BuildIndicesIncremental_* row in the new
+        # flat-dotted-key shape that `_parse_flat_indices_state` unflattens.
+        mysql.find_upgrade_result_by_urn_prefix.return_value = (
+            "BuildIndicesIncremental_v1.5.0rc1-0",
             {
-                "indicesState": {
-                    "datasetindex_v2": {
-                        "nextIndexName": "datasetindex_v2_1714",
-                        "status": "COMPLETED",
-                        "sourceDocCount": 100,
-                    },
-                    "dashboardindex_v2": {
-                        "nextIndexName": "dashboardindex_v2_1714b",
-                        "status": "COMPLETED",
-                        "sourceDocCount": 0,
-                    },
-                }
+                "result": {
+                    "datasetindex_v2.nextIndexName": "datasetindex_v2_1714",
+                    "datasetindex_v2.status": "COMPLETED",
+                    "datasetindex_v2.sourceDocCount": "100",
+                    "dashboardindex_v2.nextIndexName": "dashboardindex_v2_1714b",
+                    "dashboardindex_v2.status": "COMPLETED",
+                    "dashboardindex_v2.sourceDocCount": "0",
+                },
             },
         )
 
@@ -154,7 +156,7 @@ class TestUpgradeBlockingPhaseHappyPath:
         assert result.status == "passed", result.error
         assert ctx.upgrade_blocking is not None
         ub = ctx.upgrade_blocking
-        assert ub.upgrade_id == "system-update-blocking"
+        assert ub.upgrade_id == "BuildIndicesIncremental_v1.5.0rc1-0"
         assert ("datasetindex_v2", "datasetindex_v2_1714") in ub.alias_swaps_observed
         # Empty-source variant has no next-index name in the log line; recorded as empty string.
         assert ("dashboardindex_v2", "") in ub.alias_swaps_observed

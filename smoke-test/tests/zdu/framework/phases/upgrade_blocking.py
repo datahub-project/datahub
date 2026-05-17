@@ -58,6 +58,9 @@ def parse_indices_state(payload: dict) -> list[IndexState]:
     """Convert a parsed ``DataHubUpgradeResult.indicesState`` map into IndexState rows.
 
     Skips entries whose value is not a dict (defensive against malformed JSON).
+    Kept for backward compatibility; the canonical capture path now goes
+    through ``_parse_flat_indices_state`` (real-stack output ships values as
+    flat ``<alias>.<key>`` keys under ``result``, not nested under ``indicesState``).
     """
     out: list[IndexState] = []
     for alias, entry in payload.items():
@@ -77,6 +80,61 @@ def parse_indices_state(payload: dict) -> list[IndexState]:
             )
         )
     return out
+
+
+_INT_KEYS = {"sourceDocCount", "reindexStartTime", "reindexCompleteTime"}
+_BOOL_KEYS = {"requiresDataBackfill"}
+
+
+def _coerce_flat_value(key: str, value: object) -> object:
+    """String→int/bool coercion for the flat-key shape MySQL emits.
+
+    ``BuildIndicesIncrementalStep`` writes every value as a string
+    (``"19"``, ``"true"``, ``"COMPLETED"``); coerce here so validators see
+    typed values. Defensive against missing / non-numeric inputs.
+    """
+    if key in _INT_KEYS:
+        try:
+            return int(value)  # type: ignore[call-overload]
+        except (TypeError, ValueError):
+            return 0
+    if key in _BOOL_KEYS:
+        return str(value).lower() == "true"
+    return value
+
+
+def _parse_flat_indices_state(result_block: dict) -> dict[str, dict]:
+    """Convert flat ``<alias>.<field>`` keys under ``result`` into a per-alias dict.
+
+    Real-stack ``BuildIndicesIncremental_<version>.result`` shape::
+
+        {
+          "dashboardindex_v2.status": "COMPLETED",
+          "dashboardindex_v2.taskId": "...",
+          "dashboardindex_v2.nextIndexName": "...",
+          "dashboardindex_v2.sourceDocCount": "19",
+          "dashboardindex_v2.requiresDataBackfill": "true",
+          "schemafieldindex_v2.status": "COMPLETED",
+          ...
+        }
+
+    Returns the unflattened form::
+
+        {
+          "dashboardindex_v2": {"status": "COMPLETED", "taskId": "...",
+                                "sourceDocCount": 19,
+                                "requiresDataBackfill": True, ...},
+          "schemafieldindex_v2": {...},
+        }
+    """
+    per_alias: dict[str, dict] = {}
+    for flat_key, value in result_block.items():
+        if "." not in flat_key:
+            continue
+        alias, _, sub_key = flat_key.partition(".")
+        entry = per_alias.setdefault(alias, {})
+        entry[sub_key] = _coerce_flat_value(sub_key, value)
+    return per_alias
 
 
 class UpgradeBlockingPhase(Phase):
@@ -100,7 +158,12 @@ class UpgradeBlockingPhase(Phase):
         self._new_image_tag = new_image_tag
         self._build_images_root = build_images_root
 
-    def run(self, ctx: TestContext) -> PhaseResult:
+    def run(self, ctx: TestContext) -> PhaseResult:  # noqa: C901
+        # Complexity is over the default 15-branch threshold because this is
+        # a stream-parser loop with several distinct event states (alias
+        # swap, in-place update, reindex failure, watchdog timeout, exit
+        # code, reap timeout). Splitting it costs more readability than the
+        # threshold buys back.
         start = datetime.utcnow()
         t0 = time.monotonic()
         deadline = t0 + self._timeout_s
@@ -109,6 +172,7 @@ class UpgradeBlockingPhase(Phase):
         proc = self._launch(token_env)
 
         alias_swaps: list[tuple[str, str]] = []
+        indices_updated_in_place: list[str] = []
         any_failure = False
         timed_out = False
         assert proc.stdout is not None
@@ -136,6 +200,9 @@ class UpgradeBlockingPhase(Phase):
             if event.state == Phase1State.ALIAS_SWAPPED:
                 if event.index_name is not None:
                     alias_swaps.append((event.index_name, event.next_index_name or ""))
+            elif event.state == Phase1State.MAPPINGS_UPDATE_IN_PLACE:
+                if event.index_name is not None:
+                    indices_updated_in_place.append(event.index_name)
             elif event.state == Phase1State.REINDEX_FAILED:
                 any_failure = True
 
@@ -200,6 +267,7 @@ class UpgradeBlockingPhase(Phase):
             )
 
         captured = self._capture_indices_state(alias_swaps, duration)
+        captured.indices_updated_in_place = indices_updated_in_place
         ctx.upgrade_blocking = captured
         return PhaseResult(
             phase_name=self.name,
@@ -209,6 +277,7 @@ class UpgradeBlockingPhase(Phase):
             details={
                 "alias_swaps_observed": alias_swaps,
                 "indices": [vars(i) for i in captured.indices],
+                "indices_updated_in_place": indices_updated_in_place,
                 "upgrade_id": captured.upgrade_id,
                 "duration_s": duration,
             },
@@ -272,19 +341,44 @@ class UpgradeBlockingPhase(Phase):
     def _capture_indices_state(
         self, alias_swaps: list[tuple[str, str]], duration: float
     ) -> UpgradeBlockingResult:
-        """Find the DataHubUpgradeResult that contains indicesState and parse it.
+        """Locate the ``BuildIndicesIncremental_*`` upgrade result and unflatten
+        its per-alias state.
 
-        Phase 4's upgrade may write multiple DataHubUpgradeResult aspects (one per
-        step). We accept the first one whose payload has an ``indicesState`` key.
-        If none is found, return a result whose ``indices`` is empty but
-        ``alias_swaps_observed`` still records what we saw in the log.
+        Real-stack BuildIndicesIncrementalStep persists per-alias state as flat
+        ``<alias>.<key>`` keys under the top-level ``result`` block, not as a
+        nested ``indicesState`` dict — so the legacy
+        ``find_upgrade_result_with_field("indicesState")`` lookup always
+        returns None. The new ``find_upgrade_result_by_urn_prefix`` matches
+        on URN, then ``_parse_flat_indices_state`` unflattens.
         """
-        upgrade_id, raw = self._mysql.find_upgrade_result_with_field("indicesState")
-        indices = parse_indices_state(raw.get("indicesState", {})) if raw else []
+        upgrade_id, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
+            "BuildIndicesIncremental_"
+        )
+        raw_per_alias: dict[str, dict] = {}
+        indices: list[IndexState] = []
+        if parsed and isinstance(parsed.get("result"), dict):
+            raw_per_alias = _parse_flat_indices_state(parsed["result"])
+            indices = [
+                IndexState(
+                    alias=alias,
+                    next_index_name=entry.get("nextIndexName"),
+                    # oldBackingIndexName is not emitted by BuildIndicesIncrementalStep
+                    # — confirmed via real-stack capture inspection (Plan 15).
+                    old_backing_index_name=None,
+                    reindex_start_time=entry.get("reindexStartTime"),
+                    source_doc_count=int(entry.get("sourceDocCount", 0) or 0),
+                    task_id=entry.get("taskId"),
+                    requires_data_backfill=bool(
+                        entry.get("requiresDataBackfill", False)
+                    ),
+                    status=entry.get("status", "UNKNOWN"),
+                )
+                for alias, entry in raw_per_alias.items()
+            ]
         return UpgradeBlockingResult(
             indices=indices,
             alias_swaps_observed=alias_swaps,
-            raw=raw,
+            raw=raw_per_alias,
             duration_s=duration,
             upgrade_id=upgrade_id,
         )

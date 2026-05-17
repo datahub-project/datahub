@@ -15,15 +15,15 @@ log = logging.getLogger(__name__)
 
 KNOWN_FAILURES: dict[int, str] = {
     # bridgeGap is now wired (EmbedV2ToV3Mutator + EmbedV3ToV4Mutator exist in
-    # entity-registry/.../aspect/hooks/). TC-7/11/21 should now PASS via the
-    # full v2→v3→v4 chain at sweep/write time. Removed from XFAIL.
+    # entity-registry/.../aspect/hooks/). TC-307 / TC-311 / TC-321 should now
+    # PASS via the full v2→v3→v4 chain at sweep/write time. Removed from XFAIL.
     #
-    # TC-12, TC-13, TC-14, TC-19 removed — false positives. TC-12 asserts
+    # TC-312, TC-313, TC-314, TC-319 removed — false positives. TC-312 asserts
     # expected_schema_version=3 (no-op transform leaves schemaVersion at 3,
-    # which is correct by design). TC-13/14/19 use expected_schema_version=None
-    # so the executor only verifies the aspect is fetchable — it does not
-    # actually exercise the crash paths the names imply. All four pass under
-    # the normal validation path.
+    # which is correct by design). TC-313 / TC-314 / TC-319 use
+    # expected_schema_version=None so the executor only verifies the aspect
+    # is fetchable — it does not actually exercise the crash paths the names
+    # imply. All four pass under the normal validation path.
 }
 
 
@@ -52,6 +52,27 @@ class ZDUTestScenario:
     # ``_source``. ``None`` (the default) opts the scenario out of Dim-4
     # validation; an empty list opts in but asserts no specific fields.
     expected_es_fields: list[str] | None = None
+    # Suite B (phase1_reindex) — set of ES index aliases that MUST appear as
+    # real reindexes after SystemUpdateBlocking. The set is the authoritative
+    # expectation: TC-101 asserts observed == this set; TC-102 asserts every
+    # OTHER captured alias swap was a no-op. ``None`` opts the scenario out
+    # of input-driven validation.
+    expected_reindex_indices: frozenset[str] | None = None
+    # Suite B (phase1_reindex) — minimum number of aliases that must appear
+    # in ``ctx.upgrade_blocking.raw`` with ``requiresDataBackfill=true`` AND
+    # ``status="COMPLETED"``. Used by TC-105 to assert "multiple indices
+    # needed reindex, all completed cleanly". Decoupled from
+    # nextIndexName-non-empty (0-doc source still counts here). ``None``
+    # opts the scenario out.
+    min_real_reindex_count: int | None = None
+    # Suite B (phase1_reindex) — set of ES index aliases that MUST appear in
+    # ``ctx.upgrade_blocking.indices_updated_in_place`` (captured from the
+    # ``Updating index <name> mappings in place`` log line). Used by TC-103
+    # to assert the upgrade took the in-place mapping update path for the
+    # named indices — i.e., new mapping fields were added but no full
+    # reindex was needed (``isPureMappingsAddition=true``). ``None`` opts
+    # the scenario out.
+    expected_in_place_update_indices: frozenset[str] | None = None
 
 
 class ScenarioLoader:
@@ -114,6 +135,14 @@ class ScenarioExecutor:
     def validate(
         self, scenario: ZDUTestScenario, ctx: "TestContext"
     ) -> ValidationResult:
+        # Suite A's sweep-invariant subset (TC-324..031) runs in the same
+        # non-blocking phase but doesn't seed per-URN — dispatch to the
+        # sweep validators (read sweep-level captures off ctx).
+        if scenario.scenario_type == "sweep":
+            from .sweep_executor import dispatch_sweep_scenario
+
+            return dispatch_sweep_scenario(scenario, ctx)
+
         # Build URN list from ctx — replaces the per-call argument the legacy
         # ValidationPhase used to compute on every scenario.
         urns = [e.urn for e in ctx.seeded_entities if e.tc_number == scenario.tc_number]

@@ -19,6 +19,7 @@ from .phase1_reindex_executor import Phase1ReindexExecutor
 from .phases.base import PhaseResult
 from .phases.build_images import BuildImagesPhase
 from .phases.cleanup import CleanupPhase
+from .phases.data_integrity_snapshot import DataIntegritySnapshotPhase
 from .phases.discovery import DiscoveryPhase
 from .phases.inject_traffic_dual import InjectTrafficDualPhase
 from .phases.inject_traffic_pre import InjectTrafficPrePhase
@@ -30,13 +31,19 @@ from .phases.runtime_migration import RuntimeMigrationPhase
 from .phases.seed import SeedPhase
 from .phases.setup_old_stack import SetupOldStackPhase
 from .phases.snapshot_t0 import SnapshotT0Phase
+from .phases.snapshot_t1 import SnapshotT1Phase
+
+# Tc112FaultInjectionPhase intentionally NOT imported / wired — see plan 19
+# and the TC-109 (was TC-112) skip_reason. Kept as code only for a future
+# fault-injection plan; superseded by SnapshotT1Phase for the data-integrity
+# variant of TC-109.
 from .phases.upgrade_blocking import UpgradeBlockingPhase
+from .phases.upgrade_blocking_rerun import UpgradeBlockingReRunPhase
 from .phases.upgrade_nonblocking import UpgradeNonBlockingPhase
 from .phases.validation import ValidationPhase
 from .reporter import Reporter
 from .scenario_executor import ScenarioTypeRegistry
 from .scenario_loader import ScenarioExecutor, ScenarioLoader, ZDUTestScenario
-from .sweep_executor import SweepExecutor
 from .upgrade_jar_freshness import ensure_upgrade_jar_fresh
 
 log = logging.getLogger(__name__)
@@ -112,13 +119,16 @@ class ZDUTestRunner:
         # signature satisfies ScenarioTypeExecutor structurally — no adapter.
         self._registry = ScenarioTypeRegistry()
         self._aspect_executor = ScenarioExecutor(self._datahub)
+        # Suite A: per-URN aspect-migration scenarios share the non-blocking
+        # phase with the sweep-invariant subset, so both dispatch through
+        # ScenarioExecutor (which delegates to sweep_executor for the
+        # ``scenario_type="sweep"`` branch).
         self._registry.register("aspect_migration", self._aspect_executor)
+        self._registry.register("sweep", self._aspect_executor)
         self._catchup_executor = CatchUpScenarioExecutor()
         self._registry.register("catch_up", self._catchup_executor)
         self._phase1_reindex_executor = Phase1ReindexExecutor()
         self._registry.register("phase1_reindex", self._phase1_reindex_executor)
-        self._sweep_executor = SweepExecutor()
-        self._registry.register("sweep", self._sweep_executor)
         self._live_traffic_executor = LiveTrafficExecutor()
         self._registry.register("live_traffic", self._live_traffic_executor)
 
@@ -147,6 +157,10 @@ class ZDUTestRunner:
     def run(self) -> ZDUReport:
         report = ZDUReport(config=self._config)
         ctx = TestContext(gms_url=self._config.gms_url)
+        # Cache the active scenario list so cross-scenario validators
+        # (e.g., Suite B TC-102 reading TC-101's expected_reindex_indices)
+        # can look up siblings at validation time.
+        ctx.all_scenarios = list(self._scenarios)
 
         # repo_root: project_dir is typically /<repo>/docker/profiles — go up two levels.
         # Falls back to cwd if the heuristic doesn't hold (e.g., custom ZDU_PROJECT_DIR).
@@ -284,6 +298,22 @@ class ZDUTestRunner:
                 ),
             ),
             (
+                "upgrade_blocking_rerun",
+                UpgradeBlockingReRunPhase(
+                    docker=self._docker,
+                    mysql=self._mysql,
+                    gms_service=self._config.gms_service,
+                    upgrade_service=self._config.upgrade_service,
+                    timeout_s=self._config.sweep_timeout_s,
+                    new_image_tag=self._config.new_image_tag,
+                    build_images_root=self._config.build_images_root,
+                ),
+            ),
+            (
+                "snapshot_t1",
+                SnapshotT1Phase(es=self._es),
+            ),
+            (
                 "inject_traffic_pre",
                 InjectTrafficPrePhase(
                     datahub=self._datahub,
@@ -322,6 +352,17 @@ class ZDUTestRunner:
                 "runtime_migration",
                 RuntimeMigrationPhase(datahub=self._datahub),
             ),
+            (
+                "data_integrity_snapshot",
+                DataIntegritySnapshotPhase(es=self._es, mysql=self._mysql),
+            ),
+            # Plan 19's Tc112FaultInjectionPhase is intentionally NOT wired
+            # in. See the plan doc + TC-112 skip_reason — the fault-injection
+            # design can't break past production's
+            # "No indices require incremental reindex" outer gate without
+            # additional alias-routing pre-staging. Phase code, helpers,
+            # validator, and tests stay as foundation for a future plan that
+            # adds the stale-mapping pre-stage.
             (
                 "validation",
                 ValidationPhase(

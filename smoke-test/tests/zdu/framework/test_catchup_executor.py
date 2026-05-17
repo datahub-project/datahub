@@ -51,28 +51,28 @@ def executor() -> CatchUpScenarioExecutor:
 class TestSeedIsNoop:
     def test_seed_returns_empty_list(self, executor: CatchUpScenarioExecutor) -> None:
         # Suite D doesn't seed per-scenario.
-        assert executor.seed(_scenario(tc=305)) == []
+        assert executor.seed(_scenario(tc=205)) == []
 
 
 class TestXfailDispatch:
     def test_expected_to_fail_returns_xfail_with_skip_reason(
         self, executor: CatchUpScenarioExecutor
     ) -> None:
-        scen = _scenario(tc=301, expected_to_fail=True, skip_reason="needs CI")
+        scen = _scenario(tc=201, expected_to_fail=True, skip_reason="needs CI")
         result = executor.validate(scen, TestContext())
         assert result.status == "XFAIL"
         assert result.expected_to_fail is True
         assert result.failure_reason == "needs CI"
 
 
-class TestTC305T0GeT1Noop:
+class TestTC303T0GeT1Noop:
     def test_no_catch_up_windows_passes(
         self, executor: CatchUpScenarioExecutor
     ) -> None:
         # Dev stack — empty captures = implicit no-op.
         ctx = TestContext()
         ctx.upgrade_nonblocking = UpgradeNonBlockingResult(catch_up_windows={})
-        result = executor.validate(_scenario(tc=305), ctx)
+        result = executor.validate(_scenario(tc=203), ctx)
         assert result.status == "PASS"
 
     def test_window_with_t0_lt_t1_passes_when_gap_urns_absent(
@@ -85,7 +85,7 @@ class TestTC305T0GeT1Noop:
             catch_up_windows={"dashboardindex_v2_new": (100, 200)}
         )
         ctx.gap_urns = []
-        result = executor.validate(_scenario(tc=305), ctx)
+        result = executor.validate(_scenario(tc=203), ctx)
         assert result.status == "PASS"
 
     def test_window_with_t0_ge_t1_returns_skip(
@@ -100,20 +100,20 @@ class TestTC305T0GeT1Noop:
         ctx.upgrade_nonblocking = UpgradeNonBlockingResult(
             catch_up_windows={"dashboardindex_v2_new": (200, 100)}
         )
-        result = executor.validate(_scenario(tc=305), ctx)
+        result = executor.validate(_scenario(tc=203), ctx)
         assert result.status == "SKIP"
         assert "t0>=t1" in (result.actual_result or "")
         assert "MCL counter" in (result.actual_result or "")
 
 
-class TestTC306NoPhase1Noop:
+class TestTC304NoPhase1Noop:
     def test_empty_blocking_indices_with_empty_nonblocking_passes(
         self, executor: CatchUpScenarioExecutor
     ) -> None:
         ctx = TestContext()
         ctx.upgrade_blocking = UpgradeBlockingResult(indices=[])
         ctx.upgrade_nonblocking = UpgradeNonBlockingResult(catch_up_windows={})
-        result = executor.validate(_scenario(tc=306), ctx)
+        result = executor.validate(_scenario(tc=204), ctx)
         assert result.status == "PASS"
 
     def test_nonblocking_captured_windows_when_blocking_empty_fails(
@@ -126,7 +126,7 @@ class TestTC306NoPhase1Noop:
         ctx.upgrade_nonblocking = UpgradeNonBlockingResult(
             catch_up_windows={"dashboardindex_v2_new": (100, 200)}
         )
-        result = executor.validate(_scenario(tc=306), ctx)
+        result = executor.validate(_scenario(tc=204), ctx)
         assert result.status == "FAIL"
 
     def test_blocking_with_indices_skips_invariant(
@@ -144,7 +144,7 @@ class TestTC306NoPhase1Noop:
         ctx.upgrade_nonblocking = UpgradeNonBlockingResult(
             catch_up_windows={"dashboardindex_v2_new": (100, 200)}
         )
-        result = executor.validate(_scenario(tc=306), ctx)
+        result = executor.validate(_scenario(tc=204), ctx)
         assert result.status == "PASS"
 
 

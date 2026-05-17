@@ -171,7 +171,7 @@ class NukeAndRedeployPhase(ConfiguredPhase):
         #      against stale data from previous runs. Without this, GMS's
         #      ConditionalWriteValidator sees same-data UPSERTs and suppresses
         #      MCL emission → ES never gets populated by seed → reindex sees
-        #      empty source index → TC-015 etc. fail with "document missing".
+        #      empty source index → TC-315 etc. fail with "document missing".
         # The stale ~/.datahubenv token gets ignored anyway because
         # METADATA_SERVICE_AUTH_ENABLED=false (set in compose_env below), so
         # we don't need MySQL's stateful token records to be valid.

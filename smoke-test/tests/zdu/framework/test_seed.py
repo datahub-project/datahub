@@ -82,7 +82,7 @@ class TestRegisterReferencedPlatforms:
 class TestWaitForESDrain:
     """G19c-v2: scenario seed writes are async to ES (MCL → MAE → doc). If
     Phase 6's reindex runs before they drain, post-reindex docs come up
-    missing (TC-015 failure mode). SeedPhase polls ES for each scenario URN
+    missing (TC-315 failure mode). SeedPhase polls ES for each scenario URN
     until present or timeout, failing the phase loudly rather than letting
     downstream phases silently see a stale index.
     """
