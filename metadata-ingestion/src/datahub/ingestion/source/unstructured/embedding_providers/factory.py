@@ -9,18 +9,6 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
 
 if TYPE_CHECKING:
     from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
-    from datahub.ingestion.source.unstructured.embedding_providers.bedrock import (
-        BedrockEmbeddingProvider,
-    )
-    from datahub.ingestion.source.unstructured.embedding_providers.cohere import (
-        CohereEmbeddingProvider,
-    )
-    from datahub.ingestion.source.unstructured.embedding_providers.openai import (
-        OpenAIEmbeddingProvider,
-    )
-    from datahub.ingestion.source.unstructured.embedding_providers.vertex_ai import (
-        VertexAIEmbeddingProvider,
-    )
 
 
 SUPPORTED_PROVIDERS: tuple[str, ...] = (
