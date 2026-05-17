@@ -21,6 +21,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
@@ -33,10 +34,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class UpsertStructuredPropertiesResolver
     implements DataFetcher<
         CompletableFuture<com.linkedin.datahub.graphql.generated.StructuredProperties>> {
@@ -82,9 +86,28 @@ public class UpsertStructuredPropertiesResolver
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
 
+            final OperationContext opContext = context.getOperationContext();
+
             // get or default the structured properties aspect
             StructuredProperties structuredProperties =
-                getStructuredProperties(context.getOperationContext(), assetUrn);
+                getStructuredProperties(opContext, assetUrn);
+
+            final int assignmentCountBeforeFilter =
+                structuredProperties.hasProperties()
+                    ? structuredProperties.getProperties().size()
+                    : 0;
+
+            // Drop assignments whose property definition was hard-deleted so a full-aspect upsert
+            // does not fail validation on orphaned values.
+            structuredProperties =
+                filterHardDeletedPropertyAssignments(opContext, structuredProperties);
+
+            final boolean orphansRemoved =
+                assignmentCountBeforeFilter > structuredProperties.getProperties().size();
+
+            if (!requiresIngest(orphansRemoved, structuredProperties, updateMap)) {
+              return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
+            }
 
             // update the existing properties based on new value
             StructuredPropertyValueAssignmentArray properties =
@@ -95,13 +118,11 @@ public class UpsertStructuredPropertiesResolver
 
             structuredProperties.setProperties(properties);
 
-            // ingest change proposal
             final MetadataChangeProposal structuredPropertiesProposal =
                 AspectUtils.buildMetadataChangeProposal(
                     assetUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
 
-            _entityClient.ingestProposal(
-                context.getOperationContext(), structuredPropertiesProposal, false);
+            _entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
 
             return StructuredPropertiesMapper.map(context, structuredProperties, assetUrn);
           } catch (Exception e) {
@@ -111,6 +132,95 @@ public class UpsertStructuredPropertiesResolver
         },
         this.getClass().getSimpleName(),
         "get");
+  }
+
+  /** Removes value assignments whose structured property entity no longer exists (hard-deleted). */
+  @Nonnull
+  private StructuredProperties filterHardDeletedPropertyAssignments(
+      @Nonnull OperationContext opContext, @Nonnull StructuredProperties structuredProperties)
+      throws Exception {
+    if (!structuredProperties.hasProperties()) {
+      return structuredProperties;
+    }
+
+    Set<Urn> propertyUrns =
+        structuredProperties.getProperties().stream()
+            .map(StructuredPropertyValueAssignment::getPropertyUrn)
+            .collect(Collectors.toSet());
+
+    if (propertyUrns.isEmpty()) {
+      return structuredProperties;
+    }
+
+    Set<Urn> existingPropertyUrns = _entityClient.filterExistingUrns(opContext, propertyUrns);
+
+    StructuredPropertyValueAssignmentArray filtered = new StructuredPropertyValueAssignmentArray();
+    for (StructuredPropertyValueAssignment assignment : structuredProperties.getProperties()) {
+      Urn propertyUrn = assignment.getPropertyUrn();
+      if (existingPropertyUrns.contains(propertyUrn)) {
+        filtered.add(assignment);
+      } else {
+        log.debug(
+            "Dropping structured property assignment for hard-deleted definition {}", propertyUrn);
+      }
+    }
+    return structuredProperties.setProperties(filtered);
+  }
+
+  private static boolean requiresIngest(
+      boolean orphansRemoved,
+      @Nonnull StructuredProperties afterFilter,
+      @Nonnull Map<String, List<PropertyValueInput>> updateMap) {
+    if (orphansRemoved) {
+      return true;
+    }
+    if (!afterFilter.hasProperties()) {
+      return !updateMap.isEmpty();
+    }
+
+    Set<String> existingPropertyUrns =
+        afterFilter.getProperties().stream()
+            .map(assignment -> assignment.getPropertyUrn().toString())
+            .collect(Collectors.toSet());
+
+    if (updateMap.keySet().stream().anyMatch(key -> !existingPropertyUrns.contains(key))) {
+      return true;
+    }
+
+    for (StructuredPropertyValueAssignment assignment : afterFilter.getProperties()) {
+      String propertyUrnString = assignment.getPropertyUrn().toString();
+      if (updateMap.containsKey(propertyUrnString)
+          && requiresUpsert(assignment, updateMap.get(propertyUrnString))) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Returns true when the assignment must be written: value mismatch or attribution is present
+   * (upsert clears attribution on update).
+   */
+  private static boolean requiresUpsert(
+      @Nonnull StructuredPropertyValueAssignment existing,
+      @Nonnull List<PropertyValueInput> desiredValues) {
+    if (existing.hasAttribution()) {
+      return true;
+    }
+    return !existing.getValues().equals(toPrimitiveValues(desiredValues));
+  }
+
+  private static PrimitivePropertyValueArray toPrimitiveValues(
+      @Nonnull List<PropertyValueInput> desiredValues) {
+    final PrimitivePropertyValueArray values = new PrimitivePropertyValueArray();
+    for (PropertyValueInput valueInput : desiredValues) {
+      final PrimitivePropertyValue primitiveValue =
+          StructuredPropertyUtils.mapPropertyValueInput(valueInput);
+      if (primitiveValue != null) {
+        values.add(primitiveValue);
+      }
+    }
+    return values;
   }
 
   private StructuredProperties getStructuredProperties(
@@ -123,7 +233,9 @@ public class UpsertStructuredPropertiesResolver
             ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
+    if (response != null
+        && response.getAspects() != null
+        && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
       structuredProperties =
           new StructuredProperties(
               response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());

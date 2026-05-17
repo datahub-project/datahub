@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -969,6 +970,20 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
             .urnParam(urn.toString())
             .includeSoftDeleteParam(includeSoftDeleted);
     return sendClientRequest(requestBuilder, opContext).getEntity();
+  }
+
+  @Override
+  @Nonnull
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    Set<Urn> existing = new HashSet<>();
+    for (Urn urn : urns) {
+      if (exists(opContext, urn)) {
+        existing.add(urn);
+      }
+    }
+    return existing;
   }
 
   /**

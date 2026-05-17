@@ -3,7 +3,9 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.MetadataAttribution;
@@ -29,7 +31,10 @@ import graphql.com.google.common.collect.ImmutableList;
 import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -39,6 +44,7 @@ public class UpsertStructuredPropertiesResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:hive,name,PROD)";
   private static final String PROPERTY_URN_1 = "urn:li:structuredProperty:test1";
   private static final String PROPERTY_URN_2 = "urn:li:structuredProperty:test2";
+  private static final String HARD_DELETED_PROPERTY_URN = "urn:li:structuredProperty:deleted";
 
   private static final StructuredPropertyInputParams PROP_INPUT_1 =
       new StructuredPropertyInputParams(
@@ -233,6 +239,85 @@ public class UpsertStructuredPropertiesResolverTest {
   }
 
   @Test
+  public void testNoOpWhenValuesUnchanged() throws Exception {
+    StructuredPropertyValueAssignmentArray initialProperties =
+        new StructuredPropertyValueAssignmentArray();
+    initialProperties.add(
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(UrnUtils.getUrn(PROPERTY_URN_1))
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test1"))));
+    initialProperties.add(
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(UrnUtils.getUrn(PROPERTY_URN_2))
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("test2"))));
+
+    EntityClient mockEntityClient = initMockEntityClient(true, initialProperties);
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+    Mockito.verify(mockEntityClient, times(1))
+        .filterExistingUrns(any(OperationContext.class), any(Collection.class));
+  }
+
+  @Test
+  public void testFiltersHardDeletedPropertyAssignments() throws Exception {
+    StructuredPropertyValueAssignmentArray initialProperties =
+        new StructuredPropertyValueAssignmentArray();
+    initialProperties.add(
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(UrnUtils.getUrn(HARD_DELETED_PROPERTY_URN))
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("orphan"))));
+    initialProperties.add(
+        new StructuredPropertyValueAssignment()
+            .setPropertyUrn(UrnUtils.getUrn(PROPERTY_URN_1))
+            .setValues(new PrimitivePropertyValueArray(PrimitivePropertyValue.create("hello"))));
+
+    EntityClient mockEntityClient = initMockEntityClient(true, initialProperties);
+    Mockito.when(
+            mockEntityClient.filterExistingUrns(any(OperationContext.class), any(Collection.class)))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Collection<Urn> urns = invocation.getArgument(1);
+              return urns.stream()
+                  .filter(urn -> !urn.equals(UrnUtils.getUrn(HARD_DELETED_PROPERTY_URN)))
+                  .collect(Collectors.toSet());
+            });
+
+    UpsertStructuredPropertiesResolver resolver =
+        new UpsertStructuredPropertiesResolver(mockEntityClient);
+
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    com.linkedin.datahub.graphql.generated.StructuredProperties result =
+        resolver.get(mockEnv).get();
+
+    assertEquals(result.getProperties().size(), 2);
+    assertFalse(
+        result.getProperties().stream()
+            .anyMatch(
+                property ->
+                    property.getStructuredProperty().getUrn().equals(HARD_DELETED_PROPERTY_URN)));
+
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .ingestProposal(any(), Mockito.any(MetadataChangeProposal.class), Mockito.eq(false));
+    Mockito.verify(mockEntityClient, times(1))
+        .filterExistingUrns(any(OperationContext.class), any(Collection.class));
+  }
+
+  @Test
   public void testThrowsError() throws Exception {
     EntityClient mockEntityClient = initMockEntityClient(false, null);
     UpsertStructuredPropertiesResolver resolver =
@@ -260,6 +345,13 @@ public class UpsertStructuredPropertiesResolverTest {
     Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(assetUrn), any()))
         .thenReturn(true);
     Mockito.when(client.exists(any(OperationContext.class), Mockito.eq(assetUrn))).thenReturn(true);
+    Mockito.when(client.filterExistingUrns(any(OperationContext.class), any(Collection.class)))
+        .thenAnswer(
+            invocation -> {
+              @SuppressWarnings("unchecked")
+              Collection<Urn> urns = invocation.getArgument(1);
+              return new HashSet<>(urns);
+            });
 
     if (!shouldSucceed) {
       Mockito.doThrow(new RuntimeException())

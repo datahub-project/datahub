@@ -2958,6 +2958,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
+    // Hard delete wipes all aspects in one shot; capture propertyDefinition before deleteUrn so
+    // PropertyDefinitionDeleteSideEffect can scroll ES and emit PATCH REMOVE MCPs (see
+    // docs/api/tutorials/structured-properties.md).
+    final RecordTemplate[] propertyDefinitionBeforeHardDelete = {null};
+    final SystemMetadata[] propertyDefinitionMetadataBeforeHardDelete = {null};
+
     final RollbackResult result =
         aspectDao
             .runInTransactionWithRetry(
@@ -3080,6 +3086,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
                         // If Using CDCs, need to ensure key aspect is the deleted last.
+                        if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+                          try {
+                            SystemAspect definitionAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext,
+                                    urn,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    false);
+                            propertyDefinitionBeforeHardDelete[0] =
+                                definitionAspect.getRecordTemplate();
+                            propertyDefinitionMetadataBeforeHardDelete[0] =
+                                definitionAspect.getSystemMetadata();
+                          } catch (EntityNotFoundException e) {
+                            log.debug(
+                                "No {} aspect to capture before hard delete of {}",
+                                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                urn);
+                          }
+                        }
                         additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
@@ -3146,7 +3171,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .orElse(null);
 
     if (result != null) {
-      processPostCommitMCLSideEffects(opContext, List.of(result.toMCL(auditStamp)));
+      List<MetadataChangeLog> mclsForSideEffects = new ArrayList<>();
+      if (propertyDefinitionBeforeHardDelete[0] != null) {
+        mclsForSideEffects.add(
+            constructMCL(
+                null,
+                urnToEntityName(entityUrn),
+                entityUrn,
+                ChangeType.DELETE,
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                auditStamp,
+                null,
+                null,
+                propertyDefinitionBeforeHardDelete[0],
+                propertyDefinitionMetadataBeforeHardDelete[0]));
+      }
+      mclsForSideEffects.add(result.toMCL(auditStamp));
+      processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
     }
 
     return result;
