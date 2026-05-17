@@ -16,7 +16,7 @@ import { useGetPlatforms } from '@src/app/homeV2/content/tabs/discovery/sections
 export const OnboardingCards = () => {
     const theme = useTheme();
     const { user, platformPrivileges } = useUserContext();
-    const { platforms, loading } = useGetPlatforms(user);
+    const { platforms, loading } = useGetPlatforms();
     const { isUserInitializing } = useContext(OnboardingContext);
     const [isViewingInviteToken, setIsViewingInviteToken] = useState(false);
 

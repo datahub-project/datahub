@@ -1372,7 +1372,13 @@ fragment entityDataProduct on Entity {
                         description
                     }
                     domain {
-                        ...entityDomain
+                        domain {
+                            urn
+                            type
+                            properties {
+                                name
+                            }
+                        }
                     }
                 }
             }

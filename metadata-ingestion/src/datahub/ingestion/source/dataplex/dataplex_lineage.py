@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import logging
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Dict, Iterable, Optional
+from itertools import islice
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
 
 from google.api_core import exceptions as google_exceptions
 from tenacity import (
@@ -47,6 +50,11 @@ from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
+
+# Naive upper bound on in-flight futures submitted to the thread pool at once.
+# Prevents O(N) memory growth when there are thousands of entries.
+# TODO: replace with proper backpressure (e.g. bounded queue / semaphore).
+WORKERS_BATCH_SIZE = 200
 
 
 @dataclass(order=True, eq=True, frozen=True)
@@ -124,65 +132,81 @@ class DataplexLineageReport(Report):
         field(default_factory=dict)
     )
 
+    def __post_init__(self) -> None:
+        # Lock protecting all mutable fields when report methods are called from
+        # parallel worker threads in get_lineage_workunits_parallel.
+        self._lock: threading.Lock = threading.Lock()
+
     def report_lineage_api_call(self, api_name: str, elapsed_seconds: float) -> None:
         """Accumulate per-API call count and total latency in seconds."""
-        num_calls, total_time_secs = self.lineage_api.get(api_name, (0, 0.0))
-        self.lineage_api[api_name] = (
-            num_calls + 1,
-            total_time_secs + elapsed_seconds,
-        )
+        with self._lock:
+            num_calls, total_time_secs = self.lineage_api.get(api_name, (0, 0.0))
+            self.lineage_api[api_name] = (
+                num_calls + 1,
+                total_time_secs + elapsed_seconds,
+            )
 
     def _lineage_scan_stats_for(
         self, project_id: str, location: str
     ) -> LocationScanStats:
+        # Caller must hold self._lock.
         key = (project_id, location)
         if key not in self.scan_stats_by_project_location_pair:
             self.scan_stats_by_project_location_pair[key] = LocationScanStats()
         return self.scan_stats_by_project_location_pair[key]
 
     def report_lineage_scan_call(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location).calls += 1
+        with self._lock:
+            self._lineage_scan_stats_for(project_id, location).calls += 1
 
     def report_lineage_scan_hit(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location).hits += 1
+        with self._lock:
+            self._lineage_scan_stats_for(project_id, location).hits += 1
 
     def report_lineage_scan_empty(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location).empty += 1
+        with self._lock:
+            self._lineage_scan_stats_for(project_id, location).empty += 1
 
     def report_lineage_scan_error(self, project_id: str, location: str) -> None:
-        self._lineage_scan_stats_for(project_id, location).errors += 1
+        with self._lock:
+            self._lineage_scan_stats_for(project_id, location).errors += 1
 
     def report_lineage_relationship_created(self, relationship: str) -> None:
-        self.num_lineage_relationships_created += 1
-        self.lineage_relationships_created_samples.append(relationship)
+        with self._lock:
+            self.num_lineage_relationships_created += 1
+            self.lineage_relationships_created_samples.append(relationship)
         logger.debug(f"Lineage relationship created: {relationship}")
 
     def report_lineage_entry_processed(self, entry_name: str) -> None:
-        self.num_lineage_entries_processed += 1
-        self.lineage_entries_processed_samples.append(entry_name)
+        with self._lock:
+            self.num_lineage_entries_processed += 1
+            self.lineage_entries_processed_samples.append(entry_name)
         logger.debug(f"Lineage entry processed: {entry_name}")
 
     def report_lineage_entry_scanned(self, entry_name: str) -> None:
-        self.num_lineage_entries_scanned += 1
-        self.lineage_entries_scanned_samples.append(entry_name)
+        with self._lock:
+            self.num_lineage_entries_scanned += 1
+            self.lineage_entries_scanned_samples.append(entry_name)
         logger.debug(f"Lineage entry has links: {entry_name}")
 
     def report_lineage_entry_without_lineage(
         self, entry_name: str, reason: str
     ) -> None:
-        self.num_lineage_entries_without_lineage += 1
-        self.lineage_entries_without_lineage_samples.append(
-            f"entry={entry_name}, reason={reason}"
-        )
+        with self._lock:
+            self.num_lineage_entries_without_lineage += 1
+            self.lineage_entries_without_lineage_samples.append(
+                f"entry={entry_name}, reason={reason}"
+            )
         logger.debug(f"Lineage missing for entry {entry_name} (reason={reason})")
 
     def report_lineage_entry_skipped_unsupported_type(
         self, entry_name: str, entry_type: str
     ) -> None:
-        self.num_lineage_entries_skipped_unsupported_type += 1
-        self.lineage_entries_skipped_unsupported_type_samples.append(
-            f"entry={entry_name}, entry_type={entry_type}"
-        )
+        with self._lock:
+            self.num_lineage_entries_skipped_unsupported_type += 1
+            self.lineage_entries_skipped_unsupported_type_samples.append(
+                f"entry={entry_name}, entry_type={entry_type}"
+            )
         logger.debug(
             f"Lineage skipped unsupported entry type for {entry_name}: {entry_type}"
         )
@@ -190,10 +214,11 @@ class DataplexLineageReport(Report):
     def report_lineage_upstream_fqn_skipped(
         self, entry_name: str, upstream_fqn: str
     ) -> None:
-        self.num_lineage_upstream_fqns_skipped += 1
-        self.lineage_upstream_fqns_skipped_samples.append(
-            f"entry={entry_name}, upstream_fqn={upstream_fqn}"
-        )
+        with self._lock:
+            self.num_lineage_upstream_fqns_skipped += 1
+            self.lineage_upstream_fqns_skipped_samples.append(
+                f"entry={entry_name}, upstream_fqn={upstream_fqn}"
+            )
         logger.debug(
             f"Lineage upstream FQN skipped for {entry_name}: upstream_fqn={upstream_fqn}"
         )
@@ -201,10 +226,11 @@ class DataplexLineageReport(Report):
     def report_lineage_upstream_links_found(self, entry_name: str, count: int) -> None:
         if count <= 0:
             return
-        self.num_lineage_upstream_links_found += count
-        self.lineage_upstream_links_found_samples.append(
-            f"entry={entry_name}, count={count}"
-        )
+        with self._lock:
+            self.num_lineage_upstream_links_found += count
+            self.lineage_upstream_links_found_samples.append(
+                f"entry={entry_name}, count={count}"
+            )
         logger.debug(f"Lineage upstream links observed for {entry_name}: {count}")
 
     def report_lineage_downstream_links_found(
@@ -212,26 +238,31 @@ class DataplexLineageReport(Report):
     ) -> None:
         if count <= 0:
             return
-        self.num_lineage_downstream_links_found += count
-        self.lineage_downstream_links_found_samples.append(
-            f"entry={entry_name}, count={count}"
-        )
+        with self._lock:
+            self.num_lineage_downstream_links_found += count
+            self.lineage_downstream_links_found_samples.append(
+                f"entry={entry_name}, count={count}"
+            )
         logger.debug(f"Lineage downstream links observed for {entry_name}: {count}")
 
     def report_lineage_edge_added(
         self, downstream_dataset_id: str, upstream_dataset_urn: str
     ) -> None:
-        self.num_lineage_edges_added += 1
-        self.lineage_edges_added_samples.append(
-            f"{downstream_dataset_id}<-{upstream_dataset_urn}"
-        )
+        with self._lock:
+            self.num_lineage_edges_added += 1
+            self.lineage_edges_added_samples.append(
+                f"{downstream_dataset_id}<-{upstream_dataset_urn}"
+            )
         logger.debug(
             f"Lineage edge added: {downstream_dataset_id} <- {upstream_dataset_urn}"
         )
 
     def report_lineage_entry_failed(self, entry_name: str, stage: str) -> None:
-        self.num_lineage_entries_failed += 1
-        self.lineage_entries_failed_samples.append(f"entry={entry_name}, stage={stage}")
+        with self._lock:
+            self.num_lineage_entries_failed += 1
+            self.lineage_entries_failed_samples.append(
+                f"entry={entry_name}, stage={stage}"
+            )
         logger.debug(f"Lineage entry failed: {entry_name} (stage={stage})")
 
 
@@ -583,100 +614,112 @@ class DataplexLineageExtractor:
             entityUrn=dataset_urn, aspect=upstream_lineage
         ).as_workunit()
 
+    def _process_entry_lineage(
+        self,
+        entry: EntryDataTuple,
+        active_lineage_project_location_pairs: list[tuple[str, str]],
+    ) -> List[MetadataWorkUnit]:
+        """Fetch and build lineage workunits for a single entry.
+
+        Safe to call from parallel worker threads — all shared state mutations
+        go through lock-protected report methods, and the lineage client uses
+        a thread-safe gRPC channel.
+
+        Returns a list (empty or singleton) of ``MetadataWorkUnit`` objects so
+        the result can be collected by the calling thread without a generator.
+        """
+        lineage_data = self.get_lineage_for_entry(
+            entry,
+            active_lineage_project_location_pairs=active_lineage_project_location_pairs,
+        )
+        lineage_edges = self._extract_lineage_edges_for_entry(entry, lineage_data)
+        if not lineage_edges:
+            return []
+
+        dataset_id = entry.datahub_dataset_name
+        dataset_urn = builder.make_dataset_urn_with_platform_instance(
+            platform=entry.datahub_platform,
+            name=dataset_id,
+            platform_instance=None,
+            env=self.config.env,
+        )
+        upstream_lineage = self._to_upstream_lineage(dataset_id, lineage_edges)
+        return list(self._gen_lineage(dataset_id, dataset_urn, upstream_lineage))
+
     def get_lineage_workunits(
         self,
         entry_data: Iterable[EntryDataTuple],
         active_lineage_project_location_pairs: list[tuple[str, str]],
+        max_workers: int = 20,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Main entry point to get lineage workunits for multiple entries.
+        """Extract lineage workunits for all entries using a thread pool.
 
-        Processes entries in a streaming mode to reduce memory pressure for large
-        deployments. Each entry is queried, normalized, and emitted independently.
+        Submits one task per entry to a ``ThreadPoolExecutor``.  Each worker
+        calls ``_process_entry_lineage`` which internally queries the Dataplex
+        Lineage API across all configured ``(project_id, location)`` pairs with
+        the configured retry logic.  Results are yielded from the main thread
+        as futures complete.
 
         Args:
-            entry_data: Iterable of EntryDataTuple objects
-
-        Yields:
-            MetadataWorkUnit objects containing lineage information
+            entry_data: Entries to extract lineage for.
+            active_lineage_project_location_pairs: Explicit ``(project_id, location)``
+                parents to query in the Lineage API.
+            max_workers: Maximum number of parallel worker threads.
         """
         if not self.config.include_lineage:
             logger.info("Lineage extraction is disabled")
             return
 
-        logger.info("Extracting lineage")
+        logger.info("Extracting lineage (parallel, max_workers=%d)", max_workers)
 
+        # Submit entries in bounded batches to cap in-flight futures and prevent
+        # O(N) memory growth for large deployments.
         entries_with_lineage = 0
-        for entry_index, entry in enumerate(entry_data, start=1):
-            lineage_data = self.get_lineage_for_entry(
-                entry,
-                active_lineage_project_location_pairs=active_lineage_project_location_pairs,
-            )
-            lineage_edges = self._extract_lineage_edges_for_entry(entry, lineage_data)
-            if not lineage_edges:
-                continue
-
-            dataset_id = entry.datahub_dataset_name
-            dataset_urn = builder.make_dataset_urn_with_platform_instance(
-                platform=entry.datahub_platform,
-                name=dataset_id,
-                platform_instance=None,
-                env=self.config.env,
-            )
-            upstream_lineage = self._to_upstream_lineage(dataset_id, lineage_edges)
-            if upstream_lineage is None:
-                continue
-
-            try:
-                yielded_for_entry = False
-                for workunit in self._gen_lineage(
-                    dataset_id,
-                    dataset_urn,
-                    upstream_lineage,
-                ):
-                    yielded_for_entry = True
-                    yield workunit
-                if yielded_for_entry:
-                    entries_with_lineage += 1
-            except Exception as e:
-                self.report.report_lineage_entry_failed(
-                    entry_name=entry.dataplex_entry_name,
-                    stage="gen_lineage_streaming",
-                )
-                self.source_report.warning(
-                    "Failed to generate lineage for entry.",
-                    context=(
-                        f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                        f"datahub_dataset_name={entry.datahub_dataset_name}, "
-                        "stage=gen_lineage_streaming"
-                    ),
-                    exc=e,
-                )
-
-            if entry_index % 1000 == 0:
-                logger.info(
-                    "Lineage streaming progress: processed=%s, scanned=%s, "
-                    "no_lineage=%s, unsupported=%s, failed=%s, edges_added=%s, "
-                    "upstream_parse_skipped=%s",
-                    self.report.num_lineage_entries_processed,
-                    self.report.num_lineage_entries_scanned,
-                    self.report.num_lineage_entries_without_lineage,
-                    self.report.num_lineage_entries_skipped_unsupported_type,
-                    self.report.num_lineage_entries_failed,
-                    self.report.num_lineage_edges_added,
-                    self.report.num_lineage_upstream_fqns_skipped,
-                )
+        found_any = False
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            it = iter(entry_data)
+            while batch := list(islice(it, WORKERS_BATCH_SIZE)):
+                found_any = True
+                futures = {
+                    executor.submit(
+                        self._process_entry_lineage,
+                        entry,
+                        active_lineage_project_location_pairs,
+                    ): entry
+                    for entry in batch
+                }
+                for future in as_completed(futures):
+                    entry = futures[future]
+                    try:
+                        workunits = future.result()
+                        if workunits:
+                            entries_with_lineage += 1
+                        yield from workunits
+                    except Exception as exc:
+                        self.report.report_lineage_entry_failed(
+                            entry_name=entry.dataplex_entry_name,
+                            stage="parallel_gen_lineage",
+                        )
+                        self.source_report.warning(
+                            "Failed to generate lineage for entry in parallel worker.",
+                            context=(
+                                f"dataplex_entry_name={entry.dataplex_entry_name}, "
+                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                                "stage=parallel_gen_lineage"
+                            ),
+                            exc=exc,
+                        )
+        if not found_any:
+            logger.info("No entries found for lineage extraction")
 
         logger.info(
-            "Lineage streaming complete: entries_with_lineage=%s, processed=%s, "
-            "no_lineage=%s, unsupported=%s, failed=%s, upstream_parse_skipped=%s, "
-            "upstream_links_observed=%s, edges_added=%s",
+            "Parallel lineage complete: entries_with_lineage=%s, processed=%s, "
+            "no_lineage=%s, unsupported=%s, failed=%s, upstream_links=%s, edges=%s",
             entries_with_lineage,
             self.report.num_lineage_entries_processed,
             self.report.num_lineage_entries_without_lineage,
             self.report.num_lineage_entries_skipped_unsupported_type,
             self.report.num_lineage_entries_failed,
-            self.report.num_lineage_upstream_fqns_skipped,
             self.report.num_lineage_upstream_links_found,
             self.report.num_lineage_edges_added,
         )

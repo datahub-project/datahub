@@ -10,7 +10,7 @@ from datahub_agent_context.context import get_graph
 from datahub_agent_context.mcp_tools.base import (
     clean_gql_response,
     execute_graphql,
-    fetch_global_default_view,
+    resolve_default_view,
 )
 from datahub_agent_context.mcp_tools.search_filter_parser import (
     FILTER_DOCS,
@@ -124,8 +124,8 @@ def search(
 
     types, compiled_filters = compile_filters(parsed_filter)
 
-    # Fetch and apply default view (returns None if disabled or not configured)
-    view_urn = fetch_global_default_view(graph)
+    # Fetch and apply default view: user personal first, then org global
+    view_urn = resolve_default_view(graph)
     if view_urn:
         logger.debug(f"Applying default view: {view_urn}")
     else:

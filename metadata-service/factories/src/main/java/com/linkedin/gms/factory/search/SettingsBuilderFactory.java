@@ -14,6 +14,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettin
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2SemanticSearchSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MultiEntitySettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,8 @@ public class SettingsBuilderFactory {
   protected SettingsBuilder createSemanticSearchSettingsBuilder(
       ConfigurationProvider configProvider,
       @Qualifier(INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
-      @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder) {
+      @Qualifier("legacySettingsBuilder") @Nullable SettingsBuilder v2SettingsBuilder,
+      SearchClientShim<?> searchClientShim) {
     EntityIndexConfiguration entityIndexConfig = configProvider.getElasticSearch().getEntityIndex();
     SemanticSearchConfiguration semanticConfig = entityIndexConfig.getSemanticSearch();
 
@@ -82,9 +84,11 @@ public class SettingsBuilderFactory {
     }
 
     log.info(
-        "Creating SemanticSearchSettingsBuilder bean for entities: {}",
-        semanticConfig.getEnabledEntities());
-    return new V2SemanticSearchSettingsBuilder(indexConvention, v2SettingsBuilder);
+        "Creating SemanticSearchSettingsBuilder bean for entities: {} engine: {}",
+        semanticConfig.getEnabledEntities(),
+        searchClientShim.getEngineType());
+    return new V2SemanticSearchSettingsBuilder(
+        indexConvention, v2SettingsBuilder, searchClientShim);
   }
 
   @Bean("settingsBuilder")

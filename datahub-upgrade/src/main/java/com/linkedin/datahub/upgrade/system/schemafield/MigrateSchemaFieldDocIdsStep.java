@@ -268,6 +268,7 @@ public class MigrateSchemaFieldDocIdsStep implements UpgradeStep {
   }
 
   private void deleteDocumentIds(Set<String> documentIds) {
-    documentIds.forEach(docId -> elasticsearchClient.addBulk(new DeleteRequest(indexName, docId)));
+    documentIds.forEach(
+        docId -> elasticsearchClient.addBulk(docId, new DeleteRequest(indexName, docId)));
   }
 }

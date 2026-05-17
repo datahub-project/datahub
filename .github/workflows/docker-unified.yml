@@ -21,6 +21,7 @@ on:
       - "!.github/scripts/send_failed_tests_to_posthog.py"
       - "!.github/scripts/docker_helpers.sh"
       - "!.github/actions/ci-optimization"
+      - "!.github/actions/restore-dependency-caches"
       - "!.github/scripts/check_python_package.py"
       - "!.github/scripts/parse_failed_cypress_tests.py"
       - "!.github/scripts/parse_failed_pytest_tests.py"
@@ -40,7 +41,7 @@ env:
   PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "s0gr1cr3jd"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
@@ -90,6 +91,8 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+      smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+      smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -144,6 +147,30 @@ jobs:
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve smoke test profile from PR label
+        id: smoke-profile
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          CONFIG_KEY=$(echo "$PR_LABELS" | jq -r '[.[] | select(startswith("smoke:"))] | first // empty' | sed 's/^smoke://')
+          if [[ -z "$CONFIG_KEY" ]]; then
+            echo "No smoke: label found, using defaults"
+            exit 0
+          fi
+          echo "Found smoke label config key: $CONFIG_KEY"
+          PROFILE_NAME=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
+          if [[ -z "$PROFILE_NAME" ]]; then
+            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY"
+            exit 1
+          fi
+          echo "Resolved compose profile: $PROFILE_NAME"
+          {
+            echo "smoke_build_task=:docker:buildImages${CONFIG_KEY}"
+            echo "smoke_profile_name=${PROFILE_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -200,50 +227,32 @@ jobs:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
+    timeout-minutes: 60
     if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: ./.github/actions/restore-dependency-caches
         with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
-          restore-keys: |
-            gradle-plugins-cache
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          restore_gradle: true
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -259,16 +268,15 @@ jobs:
 
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
-        # If not publishing, just a subset of images required for smoke tests is sufficient.
-        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
-            # we still dont need matrixed builds since this is for smoke test only.
             BUILD_TASK=":docker:buildImagesAll"
+          elif [[ -n "${{ needs.setup.outputs.smoke_build_task }}" ]]; then
+            BUILD_TASK="${{ needs.setup.outputs.smoke_build_task }}"
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
+          echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
@@ -316,49 +324,6 @@ jobs:
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
-
-  scan_images:
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    name: Scan images for vulnerabilities
-    runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
-    if: ${{ false }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
-    steps:
-      - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - id: download_image
-        name: Download images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        run: |
-          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "${{ matrix.target}}"
-          docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        env:
-          TRIVY_OFFLINE_SCAN: true
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
-          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
-        with:
-          image-ref: ${{ steps.download_image.outputs.docker_image }}
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          trivy-config: "./trivy.yaml"
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
-        with:
-          sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
@@ -428,24 +393,22 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 #v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
@@ -635,9 +598,12 @@ jobs:
           docker system df -v
 
       - name: build images
+        timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -662,8 +628,9 @@ jobs:
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
         run: |
-          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
+          echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check

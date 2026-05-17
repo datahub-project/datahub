@@ -40,7 +40,6 @@ dependencies {
     testImplementation externalDependency.testng
     testImplementation externalDependency.junit
     testImplementation externalDependency.mockito
-    testImplementation externalDependency.mockitoInline
     testCompileOnly externalDependency.lombok
     testImplementation project(':test-models')
     testImplementation project(path: ':test-models', configuration: 'testDataTemplate')

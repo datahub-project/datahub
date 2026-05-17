@@ -20,6 +20,7 @@ _TYPE_URN = "typeUrn"
 _ATTRIBUTION_SOURCE = f"attribution{UNIT_SEPARATOR}source"
 
 _DEFAULT_OWNERS_KEY_FIELDS = [_OWNER, _TYPE, _TYPE_URN, _ATTRIBUTION_SOURCE]
+_OWNERS_APK = {"owners": _DEFAULT_OWNERS_KEY_FIELDS}
 
 
 class HasOwnershipPatch(MetadataPatchProposal):
@@ -48,6 +49,7 @@ class HasOwnershipPatch(MetadataPatchProposal):
             "add",
             path=("owners", owner.owner, type_str, type_urn_str, source),
             value=owner,
+            array_primary_keys=_OWNERS_APK,
         )
         return self
 

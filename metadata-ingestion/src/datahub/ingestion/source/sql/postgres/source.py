@@ -645,7 +645,7 @@ class PostgresSource(SQLAlchemySource):
                         p.proname AS name,
                         l.lanname AS language,
                         pg_get_function_arguments(p.oid) AS arguments,
-                        pg_get_functiondef(p.oid) AS definition,
+                        p.prosrc AS definition,
                         obj_description(p.oid, 'pg_proc') AS comment
                     FROM
                         pg_proc p
@@ -665,7 +665,7 @@ class PostgresSource(SQLAlchemySource):
                 base_procedures.append(
                     BaseProcedure(
                         name=row.name,
-                        language=row.language,
+                        language=row.language.upper() if row.language else "",
                         argument_signature=row.arguments,
                         return_type=None,
                         procedure_definition=row.definition,

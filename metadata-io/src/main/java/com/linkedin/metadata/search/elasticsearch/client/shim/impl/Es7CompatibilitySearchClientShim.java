@@ -1,5 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -11,6 +15,12 @@ import org.opensearch.client.RequestOptions;
  * Implementation of SearchClientShim using the Elasticsearch 7.17 REST High Level Client. This
  * implementation supports: - Elasticsearch 7.x clusters - OpenSearch 2.x clusters (which maintain
  * ES 7.x API compatibility)
+ *
+ * <p><b>Mapping behavior:</b> this class intentionally does not override {@code
+ * partialNgramConfig()} — ES7 round-trips {@code doc_values: false} on {@code search_as_you_type}
+ * fields identically to OpenSearch 2.x, so it inherits {@link
+ * OpenSearch2SearchClientShim#PARTIAL_NGRAM_CONFIG} (the legacy map). If OS2's mapping behavior
+ * ever diverges from ES7, override here.
  */
 @Slf4j
 public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShim {
@@ -76,5 +86,24 @@ public class Es7CompatibilitySearchClientShim extends OpenSearch2SearchClientShi
         log.warn("Unknown feature requested: {}", feature);
         return false;
     }
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) {
+    throw new UnsupportedOperationException(
+        "Semantic search requires Elasticsearch 8.18+; this cluster is on 7.x compatibility mode");
   }
 }

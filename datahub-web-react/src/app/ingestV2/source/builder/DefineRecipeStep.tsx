@@ -181,7 +181,7 @@ export const DefineRecipeStep = ({
                 <Button variant="outline" color="gray" disabled={isEditing} onClick={prev}>
                     Previous
                 </Button>
-                <Button disabled={!stepComplete} onClick={onClickNext}>
+                <Button disabled={!stepComplete} onClick={onClickNext} data-testid="recipe-builder-next-button">
                     Next
                 </Button>
             </ControlsContainer>

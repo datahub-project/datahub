@@ -5,6 +5,7 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
@@ -776,7 +777,7 @@ public class DocumentService {
     final Criterion parentCriterion =
         new Criterion()
             .setField("parentDocument")
-            .setValue(parentDocumentUrn.toString())
+            .setValues(new StringArray(Collections.singletonList(parentDocumentUrn.toString())))
             .setCondition(Condition.EQUAL);
 
     return new Filter()

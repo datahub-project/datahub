@@ -124,6 +124,7 @@ class SqlQueriesSourceReport(SourceReport):
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.LINEAGE_COARSE, "Parsed from SQL queries")
 @capability(SourceCapability.LINEAGE_FINE, "Parsed from SQL queries")
+@capability(SourceCapability.OPERATION_CAPTURE, "Parsed from non-SELECT SQL queries")
 class SqlQueriesSource(Source):
     """
     Source that parses SQL queries from a newline-delimited JSON file to generate lineage.

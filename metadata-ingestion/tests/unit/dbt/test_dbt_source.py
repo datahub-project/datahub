@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -38,12 +39,15 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     DBTFreshnessCriteria,
     DBTFreshnessInfo,
     DBTTest,
+    DBTTestResult,
     make_assertion_from_freshness,
     make_assertion_result_from_freshness,
+    make_assertion_result_from_test,
     parse_freshness_criteria,
 )
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
+    AssertionResultSeverityClass,
     AssertionResultTypeClass,
     AssertionRunEventClass,
     AssertionTypeClass,
@@ -447,7 +451,7 @@ def test_default_convert_column_urns_to_lowercase():
 
 
 def test_default_convert_urns_to_lowercase():
-    """convert_urns_to_lowercase is opt-in only, never auto-enabled."""
+    """convert_urns_to_lowercase defaults to True to match historical dbt behavior."""
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
@@ -456,23 +460,23 @@ def test_default_convert_urns_to_lowercase():
     }
 
     config = DBTCoreConfig.model_validate({**config_dict})
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Snowflake should NOT auto-enable convert_urns_to_lowercase.
+    # Snowflake also defaults to True.
     config = DBTCoreConfig.model_validate(
         {**config_dict, "target_platform": "snowflake"}
     )
-    assert config.convert_urns_to_lowercase is False
+    assert config.convert_urns_to_lowercase is True
 
-    # Explicit opt-in should work.
+    # Explicit opt-out should work (e.g. for BigQuery with mixed-case identifiers).
     config = DBTCoreConfig.model_validate(
         {
             **config_dict,
-            "convert_urns_to_lowercase": True,
-            "target_platform": "snowflake",
+            "convert_urns_to_lowercase": False,
+            "target_platform": "bigquery",
         }
     )
-    assert config.convert_urns_to_lowercase is True
+    assert config.convert_urns_to_lowercase is False
 
 
 def test_convert_urns_to_lowercase_affects_dbt_urns():
@@ -520,14 +524,146 @@ def test_convert_urns_to_lowercase_affects_dbt_urns():
     )
     assert "my_db.app_sales.dim_industry" in dbt_urn_with_flag
 
-    # Target platform URNs are always lowercased regardless of the flag.
+    # Target platform URNs preserve casing when flag is off.
     node.convert_urns_to_lowercase = False
     target_urn = node.get_urn(
         target_platform="snowflake",
         env="PROD",
         data_platform_instance=None,
     )
+    assert "MY_DB.APP_SALES.dim_industry" in target_urn
+
+    # Target platform URNs are lowercased when flag is on.
+    node.convert_urns_to_lowercase = True
+    target_urn = node.get_urn(
+        target_platform="snowflake",
+        env="PROD",
+        data_platform_instance=None,
+    )
     assert "my_db.app_sales.dim_industry" in target_urn
+
+
+def test_bigquery_mixed_case_urn_preserved():
+    """Regression test for Zendesk #7397 / PR #16358.
+
+    BigQuery is case-sensitive for quoted identifiers. dbt must not unconditionally
+    lowercase BigQuery URNs, or lineage to the real BigQuery entity will break.
+    Uses the exact customer entity from the ticket (AM100 in table name).
+    """
+    node = DBTNode(
+        dbt_name="model.sales_index.int_sales_index__retailer_groups_with_AM100_position",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="at-dp-salesindex-prod",
+        schema="sales_index",
+        name="int_sales_index__retailer_groups_with_AM100_position",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/int_sales_index__retailer_groups_with_AM100_position.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Default: convert_urns_to_lowercase is False — casing must be preserved.
+    assert node.convert_urns_to_lowercase is False
+
+    bq_urn = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in bq_urn
+    assert "am100" not in bq_urn
+
+    dbt_urn = node.get_urn(
+        target_platform="dbt",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "int_sales_index__retailer_groups_with_AM100_position" in dbt_urn
+
+    # Opt-in: when enabled, lowercasing should apply.
+    node.convert_urns_to_lowercase = True
+    bq_urn_lower = node.get_urn(
+        target_platform="bigquery",
+        env="PROD",
+        data_platform_instance=None,
+    )
+    assert "am100" in bq_urn_lower
+    assert "AM100" not in bq_urn_lower
+
+
+def test_convert_urns_to_lowercase_truth_table():
+    """Verify the full truth table from Zendesk #7397 — lowercasing must be opt-in only.
+
+    | target_platform | convert_urns_to_lowercase | URN lowercased? |
+    |-----------------|--------------------------|-----------------|
+    | "dbt"           | False                    | No              |
+    | "dbt"           | True                     | Yes             |
+    | "bigquery"      | False                    | No              |
+    | "bigquery"      | True                     | Yes             |
+    """
+    node = DBTNode(
+        dbt_name="model.project.MixedCaseTable",
+        dbt_adapter="bigquery",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=[],
+        materialization="table",
+        columns=[],
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        database="MyProject",
+        schema="MyDataset",
+        name="MixedCaseTable",
+        alias=None,
+        raw_code=None,
+        dbt_file_path="/models/MixedCaseTable.sql",
+        dbt_package_name=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+    )
+
+    # Row 1: dbt + flag=False → NOT lowercased
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 2: dbt + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(target_platform="dbt", env="PROD", data_platform_instance=None)
+    assert "myproject.mydataset.mixedcasetable" in urn
+
+    # Row 3: bigquery + flag=False → NOT lowercased (this was the bug)
+    node.convert_urns_to_lowercase = False
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "MyProject.MyDataset.MixedCaseTable" in urn
+
+    # Row 4: bigquery + flag=True → lowercased
+    node.convert_urns_to_lowercase = True
+    urn = node.get_urn(
+        target_platform="bigquery", env="PROD", data_platform_instance=None
+    )
+    assert "myproject.mydataset.mixedcasetable" in urn
 
 
 def test_dbt_entity_emission_configuration_helpers():
@@ -812,60 +948,79 @@ def test_drop_duplicate_sources() -> None:
     assert source.report.duplicate_sources_references_updated == 1
 
 
-def test_dbt_sibling_aspects_creation():
-    """Test that sibling patches are created correctly based on configuration."""
-    ctx = PipelineContext(run_id="test-run-id")
-    base_config = create_base_dbt_config()
-
-    # Create source with dbt as primary (default behavior)
-    config_dbt_primary = DBTCoreConfig(**base_config)
-    source_dbt_primary = DBTCoreSource(config_dbt_primary, ctx)
-
-    # Manually set the config value for testing since the field might not be parsed yet
-    source_dbt_primary.config.dbt_is_primary_sibling = True
-
-    model_node = DBTNode(
-        name="test_model",
+def _make_sibling_dbt_node(
+    materialization: str = "table",
+    node_type: str = "model",
+    name: str = "test_model",
+) -> DBTNode:
+    return DBTNode(
+        name=name,
         database="test_db",
         schema="test_schema",
         alias=None,
         comment="",
-        description="Test model",
+        description="",
         language="sql",
         raw_code=None,
         dbt_adapter="postgres",
-        dbt_name="model.package.test_model",
+        dbt_name=f"{node_type}.package.{name}",
         dbt_file_path=None,
         dbt_package_name="package",
-        node_type="model",
-        materialization="table",
+        node_type=node_type,
+        materialization=materialization,
         max_loaded_at=None,
         catalog_type=None,
         missing_from_catalog=False,
         owner=None,
         compiled_code=None,
     )
-    # Note: exists_in_target_platform is a property that returns True for non-ephemeral, non-test nodes
-    # Our node_type="model" and materialization="table" will make this property return True
 
-    # For models when dbt is primary - should not create sibling patches
-    should_create_siblings = source_dbt_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is False
 
-    # Test with target platform as primary - should create sibling patches
-    config_target_primary = DBTCoreConfig(**base_config)
-    source_target_primary = DBTCoreSource(config_target_primary, ctx)
+def _make_dbt_source(dbt_is_primary_sibling: bool = True) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig(**create_base_dbt_config())
+    source = DBTCoreSource(config, ctx)
+    source.config.dbt_is_primary_sibling = dbt_is_primary_sibling
+    return source
 
-    # Manually set the config value for testing
-    source_target_primary.config.dbt_is_primary_sibling = False
 
-    # For models when target platform is primary - should create sibling patches
-    should_create_siblings = source_target_primary._should_create_sibling_relationships(
-        model_node
-    )
-    assert should_create_siblings is True
+@pytest.mark.parametrize("dbt_is_primary_sibling", [True, False])
+def test_dbt_sibling_created_for_semantic_views(dbt_is_primary_sibling: bool) -> None:
+    """Regression test for CUS-7718: semantic views showed as duplicate search
+    results because the SiblingAssociationHook only handles the "source" subtype."""
+    source = _make_dbt_source(dbt_is_primary_sibling)
+    node = _make_sibling_dbt_node(materialization="semantic_view")
+    assert source._should_create_sibling_relationships(node) is True
+
+
+def test_dbt_sibling_not_created_for_standard_models_when_primary() -> None:
+    """Standard models rely on the SiblingAssociationHook for sibling creation
+    when dbt is primary. Only semantic views need explicit emission."""
+    source = _make_dbt_source(dbt_is_primary_sibling=True)
+    for materialization in ("table", "view", "incremental"):
+        node = _make_sibling_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is False
+
+
+def test_dbt_sibling_created_for_all_nodes_when_not_primary() -> None:
+    """When target platform is primary (dbt_is_primary_sibling=False),
+    the dbt source emits siblings for all nodes."""
+    source = _make_dbt_source(dbt_is_primary_sibling=False)
+    for materialization in ("table", "view", "incremental", "semantic_view"):
+        node = _make_sibling_dbt_node(materialization=materialization)
+        assert source._should_create_sibling_relationships(node) is True
+
+
+@pytest.mark.parametrize(
+    "materialization,node_type",
+    [("ephemeral", "model"), ("test", "test")],
+)
+def test_dbt_sibling_not_created_for_ephemeral_or_test_nodes(
+    materialization: str, node_type: str
+) -> None:
+    source = _make_dbt_source()
+    node = _make_sibling_dbt_node(materialization=materialization, node_type=node_type)
+    assert source._should_create_sibling_relationships(node) is False
 
 
 def test_dbt_cloud_source_description_precedence() -> None:
@@ -1884,22 +2039,39 @@ def test_make_assertion_from_freshness() -> None:
     assert isinstance(mcp.aspect.customAssertion, CustomAssertionInfoClass)
     assert mcp.aspect.customAssertion.type == "dbt Freshness"
     assert mcp.aspect.customAssertion.entity == "urn:li:dataset:test"
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     assert mcp.aspect.customProperties is not None
     assert mcp.aspect.customProperties.get("error_after_count") == "24"
     assert mcp.aspect.customProperties.get("warn_after_count") == "12"
 
 
 @pytest.mark.parametrize(
-    ("status", "warnings_are_errors", "expected_success"),
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
     [
-        ("pass", False, True),
-        ("warn", False, True),
-        ("warn", True, False),
-        ("error", False, False),
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "error",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
     ],
 )
 def test_make_assertion_result_from_freshness(
-    status: str, warnings_are_errors: bool, expected_success: bool
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
 ) -> None:
     node = DBTNode(
         database="raw_db",
@@ -1935,15 +2107,81 @@ def test_make_assertion_result_from_freshness(
         node, "urn:li:assertion:test", "urn:li:dataset:test", warnings_are_errors
     )
 
-    expected = (
-        AssertionResultTypeClass.SUCCESS
-        if expected_success
-        else AssertionResultTypeClass.FAILURE
-    )
     assert mcp.aspect is not None
     assert isinstance(mcp.aspect, AssertionRunEventClass)
     assert mcp.aspect.result is not None
-    assert mcp.aspect.result.type == expected
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
+
+
+@pytest.mark.parametrize(
+    ("status", "warnings_are_errors", "expected_type", "expected_severity"),
+    [
+        ("pass", False, AssertionResultTypeClass.SUCCESS, None),
+        ("success", False, AssertionResultTypeClass.SUCCESS, None),
+        ("warn", False, AssertionResultTypeClass.SUCCESS, None),
+        (
+            "warn",
+            True,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.LOW,
+        ),
+        (
+            "fail",
+            False,
+            AssertionResultTypeClass.FAILURE,
+            AssertionResultSeverityClass.HIGH,
+        ),
+        ("error", False, AssertionResultTypeClass.ERROR, None),
+        ("runtime error", False, AssertionResultTypeClass.ERROR, None),
+    ],
+)
+def test_make_assertion_result_from_test(
+    status: str,
+    warnings_are_errors: bool,
+    expected_type: str,
+    expected_severity: Optional[str],
+) -> None:
+    node = DBTNode(
+        database="analytics",
+        schema="dbt",
+        name="users",
+        alias="users",
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name="test.some_test",
+        dbt_file_path=None,
+        dbt_package_name="test",
+        node_type="test",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+    test_result = DBTTestResult(
+        invocation_id="test-123",
+        status=status,
+        execution_time=datetime(2026, 1, 13, 12, 0, 0, tzinfo=timezone.utc),
+        native_results={},
+    )
+
+    mcp = make_assertion_result_from_test(
+        node,
+        test_result,
+        "urn:li:assertion:test",
+        "urn:li:dataset:test",
+        warnings_are_errors,
+    )
+
+    assert mcp.aspect is not None
+    assert isinstance(mcp.aspect, AssertionRunEventClass)
+    assert mcp.aspect.result is not None
+    assert mcp.aspect.result.type == expected_type
+    assert mcp.aspect.result.severity == expected_severity
 
 
 def test_parse_freshness_criteria_with_null_fields() -> None:
@@ -2003,7 +2241,9 @@ def test_make_assertion_from_freshness_warn_only() -> None:
     assert mcp.aspect.customProperties.get("warn_after_period") == "day"
     assert "error_after_count" not in mcp.aspect.customProperties
     assert "error_after_period" not in mcp.aspect.customProperties
-    # Validate that the aspect can be serialized without errors
+    assert mcp.aspect.source is not None
+    assert mcp.aspect.source.created is not None
+    assert mcp.aspect.source.created.actor == SYSTEM_ACTOR
     mcp.aspect.to_obj()
 
 

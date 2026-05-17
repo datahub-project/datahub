@@ -30,15 +30,20 @@
     "changeType": "PATCH",
     "aspectName": "globalTags",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/tags/urn:li:tag:test_tag/",
-                "value": {
-                    "tag": "urn:li:tag:test_tag"
+        "json": {
+            "arrayPrimaryKeys": {
+                "tags": ["tag", "attribution\u241fsource"]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/tags/urn:li:tag:test_tag/",
+                    "value": {
+                        "tag": "urn:li:tag:test_tag"
+                    }
                 }
-            }
-        ]
+            ]
+        }
     }
 },
 {
@@ -98,14 +103,14 @@
         "json": [
             {
                 "op": "add",
-                "path": "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1/",
+                "path": "/editableSchemaFieldInfo/field1/globalTags/tags/urn:li:tag:tag1",
                 "value": {
                     "tag": "urn:li:tag:tag1"
                 }
             },
             {
                 "op": "remove",
-                "path": "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term1/urn:li:dataHubAction:myAction",
+                "path": "/editableSchemaFieldInfo/field1/glossaryTerms/terms/urn:li:glossaryTerm:term1",
                 "value": {}
             }
         ]
