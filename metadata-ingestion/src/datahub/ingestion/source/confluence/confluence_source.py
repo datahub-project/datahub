@@ -526,7 +526,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             # Fetch the page itself with full metadata
             page = self.confluence_client.get_page_by_id(
                 page_id,
-                expand="ancestors,version,space,body.storage",
+                expand="ancestors,version,history,space,body.storage",
             )
 
             if not page:
@@ -594,7 +594,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     space=space_key,
                     start=start,
                     limit=min(limit, self.config.max_pages_per_space - total_pages),
-                    expand="ancestors,version,space,body.storage",
+                    expand="ancestors,version,history,space,body.storage",
                 )
 
                 if not response:
@@ -681,7 +681,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     # Just fetch this page (non-recursive)
                     page = self.confluence_client.get_page_by_id(
                         page_id,
-                        expand="ancestors,version,space,body.storage",
+                        expand="ancestors,version,history,space,body.storage",
                     )
                     if page:
                         visited_pages.add(page_id)
@@ -839,13 +839,23 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         created_time = None
         last_modified_time = None
         if isinstance(version, dict):
-            # Confluence uses "when" field for timestamps
             when = version.get("when")
             if when:
                 try:
                     from dateutil import parser as date_parser
 
                     last_modified_time = date_parser.parse(when)
+                except Exception:
+                    pass
+
+        history = page.get("history", {})
+        if isinstance(history, dict):
+            created_date = history.get("createdDate")
+            if created_date:
+                try:
+                    from dateutil import parser as date_parser
+
+                    created_time = date_parser.parse(created_date)
                 except Exception:
                     pass
 

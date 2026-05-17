@@ -908,3 +908,121 @@ def test_max_documents_limit_reached_flag(
             list(source._create_document_entity(page, {"12345"}, set()))
 
     assert source.report.num_documents_limit_reached is True
+
+
+def _make_page_with_timestamps(created_date: str, modified_date: str) -> dict:
+    return {
+        "id": "12345",
+        "title": "Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "TEST", "name": "Test Space"},
+        "_links": {"webui": "/spaces/TEST/pages/12345"},
+        "version": {"when": modified_date},
+        "history": {"createdDate": created_date},
+    }
+
+
+def test_created_time_read_from_history(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """created_time must come from history.createdDate, not default to ingestion time."""
+    import datetime
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = _make_page_with_timestamps(
+        created_date="2024-03-15T10:00:00.000Z",
+        modified_date="2025-06-20T12:00:00.000Z",
+    )
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[
+                {"text": "Content here for testing.", "type": "NarrativeText"}
+            ],
+        ):
+            wus = list(source._create_document_entity(page, {"12345"}, set()))
+
+    doc_info = next(
+        (
+            wu.metadata.aspect
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DocumentInfoClass)
+        ),
+        None,
+    )
+    assert doc_info is not None
+
+    assert doc_info.created is not None
+    created_dt = datetime.datetime.fromtimestamp(
+        doc_info.created.time / 1000, tz=datetime.timezone.utc
+    )
+    assert created_dt.year == 2024
+    assert created_dt.month == 3
+
+    assert doc_info.lastModified is not None
+    modified_dt = datetime.datetime.fromtimestamp(
+        doc_info.lastModified.time / 1000, tz=datetime.timezone.utc
+    )
+    assert modified_dt.year == 2025
+    assert modified_dt.month == 6
+
+
+def test_missing_history_does_not_crash(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Source must not crash when API response lacks a history field."""
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = {
+        "id": "12345",
+        "title": "Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>This is enough content to pass the minimum text length filter.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "TEST", "name": "Test Space"},
+        "_links": {"webui": "/spaces/TEST/pages/12345"},
+        "version": {"when": "2025-01-01T00:00:00.000Z"},
+        # no "history" key
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[
+                {"text": "Content here for testing.", "type": "NarrativeText"}
+            ],
+        ):
+            wus = list(source._create_document_entity(page, {"12345"}, set()))
+
+    assert any(
+        isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and isinstance(wu.metadata.aspect, DocumentInfoClass)
+        for wu in wus
+    )
