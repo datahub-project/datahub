@@ -51,6 +51,59 @@ def test_html_storage_to_markdown_preserves_links_and_emphasis() -> None:
     assert "important" in markdown
 
 
+def test_toc_macro_is_removed() -> None:
+    """TOC macro parameters must not leak into output text."""
+    html = (
+        '<ac:structured-macro ac:name="toc" ac:schema-version="1">'
+        '<ac:parameter ac:name="minLevel">2</ac:parameter>'
+        '<ac:parameter ac:name="maxLevel">3</ac:parameter>'
+        '<ac:parameter ac:name="style">default</ac:parameter>'
+        '<ac:parameter ac:name="type">list</ac:parameter>'
+        '<ac:parameter ac:name="printable">true</ac:parameter>'
+        "</ac:structured-macro>"
+        "<h1>Heading</h1><p>Body text.</p>"
+    )
+    markdown = html_storage_to_markdown(html)
+
+    assert "# Heading" in markdown
+    assert "Body text" in markdown
+    # Parameter values must not appear
+    for leaked in ["minLevel", "maxLevel", "default", "printable", "23defaultlisttrue"]:
+        assert leaked not in markdown
+
+
+def test_code_macro_renders_as_fenced_block() -> None:
+    """Code macro must become a fenced code block; parameter values must not leak."""
+    html = (
+        '<ac:structured-macro ac:name="code" ac:schema-version="1">'
+        '<ac:parameter ac:name="language">sql</ac:parameter>'
+        '<ac:parameter ac:name="borderStyle">wide</ac:parameter>'
+        '<ac:parameter ac:name="width">1800</ac:parameter>'
+        "<ac:plain-text-body><![CDATA[SELECT 1 FROM dual;]]></ac:plain-text-body>"
+        "</ac:structured-macro>"
+    )
+    markdown = html_storage_to_markdown(html)
+
+    assert "SELECT 1 FROM dual;" in markdown
+    # Parameter values must not appear as bare text
+    for leaked in ["sqlwide1800", "wide", "1800"]:
+        assert leaked not in markdown
+
+
+def test_panel_macro_body_is_preserved() -> None:
+    """Panel/info macros should keep their body content, drop the macro wrapper."""
+    html = (
+        '<ac:structured-macro ac:name="info">'
+        '<ac:parameter ac:name="title">Note</ac:parameter>'
+        "<ac:rich-text-body><p>Important note here.</p></ac:rich-text-body>"
+        "</ac:structured-macro>"
+    )
+    markdown = html_storage_to_markdown(html)
+
+    assert "Important note here." in markdown
+    assert "Note" not in markdown  # parameter value dropped
+
+
 def test_html_storage_to_markdown_empty_input() -> None:
     assert html_storage_to_markdown("") == ""
     assert html_storage_to_markdown("   ") == ""
