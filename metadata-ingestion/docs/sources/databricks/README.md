@@ -38,7 +38,7 @@ For a deeper look at how to think about DataHub within and across your Databrick
 | Schema                                    | Container (SCHEMA)                | Nested under its Catalog container.                                                                                   |
 | Table (managed, external, Delta, Iceberg) | Dataset (TABLE)                   | All non-view table types including streaming tables. Schema, descriptions, and tags are extracted.                    |
 | View / Materialized View                  | Dataset (VIEW)                    | View definition is captured.                                                                                          |
-| Unity Catalog Metric View                 | Dataset (METRIC_VIEW)             | Opt-in via `include_metric_views: true`. YAML body is preserved; dimensions and measures are tagged as schema fields. |
+| Metric View                               | Dataset (METRIC_VIEW)             | Opt-in via `include_metric_views: true`. YAML body is preserved; dimensions and measures are tagged as schema fields. |
 | Notebook                                  | Dataset (NOTEBOOK)                | Ingested when `include_notebooks` is enabled. Lineage to and from tables is extracted.                                |
 | ML Model Group                            | MLModelGroup                      | Represents an MLflow Registered Model.                                                                                |
 | ML Model Version                          | MLModel                           | Each registered version with run metrics, parameters, tags, and aliases.                                              |

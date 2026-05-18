@@ -87,6 +87,7 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
 )
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -160,32 +161,6 @@ from datahub.utilities.registries.domain_registry import DomainRegistry
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def _split_databricks_identifier(raw: str) -> Optional[List[str]]:
-    parts: List[str] = []
-    buf: List[str] = []
-    in_tick = False
-    for ch in raw:
-        if ch == "`":
-            in_tick = not in_tick
-            continue
-        if ch == "." and not in_tick:
-            parts.append("".join(buf))
-            buf = []
-            continue
-        buf.append(ch)
-    if in_tick:
-        return None
-    parts.append("".join(buf))
-    cleaned: List[str] = []
-    for p in parts:
-        p = p.strip()
-        # Only strip surrounding "..." so " inside a backtick-quoted part survives.
-        if len(p) >= 2 and p.startswith('"') and p.endswith('"'):
-            p = p[1:-1]
-        cleaned.append(p)
-    return cleaned
-
-
 def _parse_metric_view_source(
     raw: str,
     *,
@@ -202,7 +177,7 @@ def _parse_metric_view_source(
     if any(ch in raw for ch in (" ", "\t")) and "`" not in raw:
         logger.debug("metric view source rejected (unquoted whitespace): %r", raw)
         return None
-    parts = _split_databricks_identifier(raw)
+    parts = split_databricks_identifier(raw)
     if parts is None:
         logger.debug("metric view source rejected (unterminated backtick): %r", raw)
         return None
