@@ -133,6 +133,15 @@ class MongoDBConfig(
         description="Hosting environment of MongoDB, default is SELF_HOSTED, currently support `SELF_HOSTED`, `ATLAS`, `AWS_DOCUMENTDB`",
     )
 
+    emit_as_documentdb: bool = Field(
+        default=False,
+        description=(
+            "Emit entities under the `documentdb` data platform URN instead of "
+            "`mongodb`. Only takes effect when `hostingEnvironment` is set to "
+            "`AWS_DOCUMENTDB`."
+        ),
+    )
+
     database_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for databases to filter in ingestion.",
@@ -292,12 +301,27 @@ class MongoDBSource(StatefulIngestionSourceBase):
     config: MongoDBConfig
     report: MongoDBSourceReport
     mongo_client: MongoClient
-    platform: str = "mongodb"
+    platform: str
 
     def __init__(self, ctx: PipelineContext, config: MongoDBConfig):
         super().__init__(config, ctx)
         self.config = config
         self.report = MongoDBSourceReport()
+        self.platform = (
+            "documentdb"
+            if (config.emit_as_documentdb and self.is_hosted_on_aws_documentdb())
+            else "mongodb"
+        )
+        if config.emit_as_documentdb and not self.is_hosted_on_aws_documentdb():
+            self.report.warning(
+                title="emit_as_documentdb requires AWS_DOCUMENTDB hosting",
+                message=(
+                    "emit_as_documentdb is True but hostingEnvironment is not "
+                    "AWS_DOCUMENTDB. The flag is being ignored and entities will "
+                    "continue to be emitted under the mongodb data platform. "
+                    "Set hostingEnvironment: AWS_DOCUMENTDB to emit documentdb URNs."
+                ),
+            )
 
         options = {}
         if self.config.username is not None:

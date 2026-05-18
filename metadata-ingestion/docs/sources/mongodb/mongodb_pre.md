@@ -102,4 +102,5 @@ source:
     password: "${AWS_SECRET_ACCESS_KEY}"
     authMechanism: "MONGODB-AWS"
     hostingEnvironment: "AWS_DOCUMENTDB"
+    emit_as_documentdb: true
 ```
