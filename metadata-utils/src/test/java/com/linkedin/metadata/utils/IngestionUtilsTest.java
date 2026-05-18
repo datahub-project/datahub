@@ -17,6 +17,20 @@ public class IngestionUtilsTest {
   }
 
   @Test
+  public void resolveIngestionCliVersionUsesDefaultForNullBlankOrEmpty() {
+    String def = "0.12.3";
+    assertEquals(def, IngestionUtils.resolveIngestionCliVersion(null, def));
+    assertEquals(def, IngestionUtils.resolveIngestionCliVersion("", def));
+    assertEquals(def, IngestionUtils.resolveIngestionCliVersion("   ", def));
+  }
+
+  @Test
+  public void resolveIngestionCliVersionUsesConfiguredWhenPresent() {
+    assertEquals("1.2.3", IngestionUtils.resolveIngestionCliVersion("1.2.3", "0.12.3"));
+    assertEquals("1.2.3", IngestionUtils.resolveIngestionCliVersion("  1.2.3  ", "0.12.3"));
+  }
+
+  @Test
   public void injectPipelineNameWhenNotThere() {
     String recipe =
         "{\"source\":{\"type\":\"snowflake\",\"config\":{\"stateful_ingestion\":{\"enabled\":true}}}}";
