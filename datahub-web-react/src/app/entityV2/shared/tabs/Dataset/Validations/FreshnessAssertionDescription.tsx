@@ -1,7 +1,8 @@
 import { Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import {
     CronSchedule,
@@ -21,7 +22,7 @@ const getCronAsLabel = (cronSchedule: CronSchedule) => {
     if (!cron) {
         return '';
     }
-    return `${cronstrue.toString(cron).toLocaleLowerCase().replace('at', '')} (${timezone})`;
+    return `${removeTimePrefix(cronToString(cron).toLocaleLowerCase())} (${timezone})`;
 };
 export const createCronText = (cronSchedule: CronSchedule) => {
     return `between cron windows scheduled at ${getCronAsLabel(cronSchedule)}`;
