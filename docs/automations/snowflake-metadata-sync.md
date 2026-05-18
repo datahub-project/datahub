@@ -79,7 +79,7 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
 2. **Create An Automation**: Click on 'Create' and select 'Snowflake Metadata Sync'.
 
 <p align="center">
-  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/automation-type.png"/>
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-type.png"/>
 </p>
 
 3. **Configure Automation**: Fill in the required fields to connect to Snowflake, along with the name, description, and category.
@@ -97,7 +97,7 @@ GRANT OWNERSHIP ON FUTURE VIEWS IN SCHEMA your_database.your_schema TO ROLE DATA
    Finally, click 'Save and Run' to start the automation
 
 <p align="center">
-  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/automation-form.png"/>
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/automation-form.png"/>
 </p>
 
 ## Propagating for Existing Assets
@@ -139,5 +139,5 @@ Tags and glossary terms will appear as Snowflake tags on your tables and columns
 DataHub descriptions will be synced as Snowflake comments on tables and columns, visible in the Snowflake UI and accessible via `SHOW TABLES` and `DESCRIBE TABLE` commands.
 
 <p align="center">
-  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-metadata-sync/view-snowflake-tags.png"/>
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/snowflake-tag-propagation/view-snowflake-tags.png"/>
 </p>
