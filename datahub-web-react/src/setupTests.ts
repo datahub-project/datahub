@@ -6,6 +6,20 @@ import '@testing-library/jest-dom/vitest';
 
 import '@utils/dayjs';
 
+vi.mock('i18next', () => ({
+    default: {
+        changeLanguage: vi.fn(),
+        isInitialized: true,
+        use: vi.fn().mockReturnThis(),
+        init: vi.fn(),
+        on: vi.fn(),
+        off: vi.fn(),
+        t: vi.fn((key) => key),
+        language: 'en',
+        languages: ['en'],
+    },
+}));
+
 // Mock window.matchMedia interface.
 // See https://jestjs.io/docs/en/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
 // and https://github.com/ant-design/ant-design/issues/21096.

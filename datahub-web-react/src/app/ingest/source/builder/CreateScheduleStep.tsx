@@ -1,6 +1,5 @@
 import { CheckCircleOutlined, WarningOutlined } from '@ant-design/icons';
 import { Checkbox, Form, Input, Switch, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React, { useMemo, useState } from 'react';
 import { Cron } from 'react-js-cron';
 import 'react-js-cron/dist/styles.css';
@@ -13,6 +12,7 @@ import { SourceBuilderState, StepProps } from '@app/ingest/source/builder/types'
 import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { Button } from '@src/alchemy-components';
+import { cronToString } from '@utils/cronstrue';
 
 const Section = styled.div`
     display: flex;
@@ -99,7 +99,7 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
         if (scheduleCronInterval) {
             try {
                 return {
-                    text: `Runs ${lowerFirstLetter(cronstrue.toString(scheduleCronInterval))}.`,
+                    text: `Runs ${lowerFirstLetter(cronToString(scheduleCronInterval))}.`,
                     error: false,
                 };
             } catch (e) {
