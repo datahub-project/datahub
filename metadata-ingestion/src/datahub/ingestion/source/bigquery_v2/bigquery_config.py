@@ -2,7 +2,7 @@ import logging
 import re
 from copy import deepcopy
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
@@ -40,6 +40,11 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
+
+# Shipped defaults for region_qualifiers. The gating in queries_extractor
+# imports this constant to decide whether the user is on shipped defaults;
+# a Tuple here prevents an accidental mutation from drifting the gate.
+DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -488,7 +493,7 @@ class BigQueryV2Config(
     )
 
     region_qualifiers: List[str] = Field(
-        default=["region-us", "region-eu"],
+        default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
