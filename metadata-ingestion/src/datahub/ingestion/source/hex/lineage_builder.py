@@ -96,7 +96,6 @@ class HexLineageBuilder:
         self,
         # {connection_id → HexConnection}, pre-resolved by the caller
         connections: Dict[str, HexConnection],
-        platform_instance: Optional[str],
         env: str,
         report: LineageBuilderReport,
         # current project_id, updated per project by the caller
@@ -108,14 +107,13 @@ class HexLineageBuilder:
         graph: Optional["DataHubGraph"] = None,
     ):
         self._connections = connections
-        self._platform_instance = platform_instance
         self._env = env
         self._report = report
         self._project_id = project_id
         self._graph = graph
-        # One SchemaResolver per platform — shared across cells of the same
-        # platform so cached schemas are reused within a single ingestion run.
-        self._schema_resolvers: Dict[str, SchemaResolver] = {}
+        # Cached per (platform, platform_instance) — same-platform connections
+        # with different instances must NOT share a resolver.
+        self._schema_resolvers: Dict[Tuple[str, Optional[str]], SchemaResolver] = {}
 
     def set_project_id(self, project_id: str) -> None:
         self._project_id = project_id
@@ -137,7 +135,7 @@ class HexLineageBuilder:
             if not table_name:
                 continue
 
-            platform, reason = self._lookup_platform(connection_id)
+            platform, platform_instance, reason = self._lookup_connection(connection_id)
             if platform is None:
                 self._record_skip(
                     connection_id=connection_id or "",
@@ -150,7 +148,7 @@ class HexLineageBuilder:
             urn = make_dataset_urn_with_platform_instance(
                 platform=platform,
                 name=table_name,
-                platform_instance=self._platform_instance,
+                platform_instance=platform_instance,
                 env=self._env,
             )
             if urn not in seen:
@@ -185,7 +183,9 @@ class HexLineageBuilder:
         for cell in sql_cells:
             self._report.sql_cells_attempted += 1
 
-            platform, reason = self._lookup_platform(cell.data_connection_id)
+            platform, platform_instance, reason = self._lookup_connection(
+                cell.data_connection_id
+            )
             if platform is None:
                 self._report.sql_cells_skipped_unresolved_platform += 1
                 self._record_skip(
@@ -196,7 +196,9 @@ class HexLineageBuilder:
                 )
                 continue
 
-            dataset_urns, field_urns = self._parse_cell(cell, platform)
+            dataset_urns, field_urns = self._parse_cell(
+                cell, platform, platform_instance
+            )
             if dataset_urns:
                 self._report.sql_cells_succeeded += 1
                 for urn in dataset_urns:
@@ -237,11 +239,13 @@ class HexLineageBuilder:
         seen_fields: Set[str] = set()
 
         for cell in sql_cells:
-            platform, _ = self._lookup_platform(cell.data_connection_id)
+            platform, platform_instance, _ = self._lookup_connection(
+                cell.data_connection_id
+            )
             if platform is None:
                 continue
 
-            _, field_urns = self._parse_cell(cell, platform)
+            _, field_urns = self._parse_cell(cell, platform, platform_instance)
             if not field_urns:
                 continue
 
@@ -288,38 +292,39 @@ class HexLineageBuilder:
         self._report.enterprise_column_fields_emitted += len(validated_fields)
         return validated_fields
 
-    def _lookup_platform(
+    def _lookup_connection(
         self, connection_id: Optional[str]
-    ) -> Tuple[Optional[str], Optional[str]]:
-        """
-        Look up the DataHub platform for a connection ID in the pre-resolved
-        connections map (populated once at the source boundary).
-
-        Returns (platform, None) on hit, or (None, reason) when no platform is
-        available — caller must skip on None. Never falls back to a default
-        platform.
-        """
+    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+        """Look up (platform, platform_instance, reason). Caller skips on None platform."""
         if not connection_id:
-            return None, "missing_connection_id"
+            return None, None, "missing_connection_id"
 
         connection = self._connections.get(connection_id)
         if connection is None or connection.platform is None:
-            return None, "unresolved_platform"
+            return None, None, "unresolved_platform"
 
-        return connection.platform, None
+        return connection.platform, connection.platform_instance, None
 
-    def _get_resolver(self, platform: str) -> SchemaResolver:
-        """Return the cached SchemaResolver for this platform, creating it if needed."""
-        if platform not in self._schema_resolvers:
-            self._schema_resolvers[platform] = SchemaResolver(
+    def _get_resolver(
+        self, platform: str, platform_instance: Optional[str]
+    ) -> SchemaResolver:
+        """Return the cached SchemaResolver for this (platform, instance)."""
+        key = (platform, platform_instance)
+        if key not in self._schema_resolvers:
+            self._schema_resolvers[key] = SchemaResolver(
                 platform=platform,
-                platform_instance=self._platform_instance,
+                platform_instance=platform_instance,
                 env=self._env,
                 graph=self._graph,
             )
-        return self._schema_resolvers[platform]
+        return self._schema_resolvers[key]
 
-    def _parse_cell(self, cell: SqlCell, platform: str) -> Tuple[List[str], List[str]]:
+    def _parse_cell(
+        self,
+        cell: SqlCell,
+        platform: str,
+        platform_instance: Optional[str],
+    ) -> Tuple[List[str], List[str]]:
         """
         Parse one SQL cell and return (dataset_urns, schema_field_urns).
 
@@ -328,7 +333,7 @@ class HexLineageBuilder:
         can resolve table schemas; otherwise the field list is empty.
         """
         dialect = get_dialect_str(platform)
-        resolver = self._get_resolver(platform)
+        resolver = self._get_resolver(platform, platform_instance)
         try:
             result = sqlglot_lineage(
                 sql=cell.sql_source,

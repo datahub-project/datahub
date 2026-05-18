@@ -7,7 +7,7 @@ to AI agents that have the project in scope.
 """
 
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Dict, Iterable, List, Union
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.hex.model import (
@@ -26,13 +26,11 @@ class HexDocumentBuilder:
     def __init__(
         self,
         workspace_name: str,
-        platform_instance: Optional[str],
         # {connection_id → HexConnection} for rendering
         # "**Connection:** <name> (<platform>)" alongside each SQL cell.
         connections: Dict[str, HexConnection],
     ):
         self._workspace = workspace_name
-        self._platform_instance = platform_instance
         self._connections = connections
 
     def build_document(

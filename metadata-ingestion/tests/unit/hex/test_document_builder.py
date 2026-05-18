@@ -23,12 +23,10 @@ CONNECTIONS: Dict[str, HexConnection] = {
 
 def _builder(
     workspace_name: str = WORKSPACE,
-    platform_instance: Optional[str] = None,
     connections: Optional[Dict[str, HexConnection]] = None,
 ) -> HexDocumentBuilder:
     return HexDocumentBuilder(
         workspace_name=workspace_name,
-        platform_instance=platform_instance,
         connections=connections if connections is not None else CONNECTIONS,
     )
 

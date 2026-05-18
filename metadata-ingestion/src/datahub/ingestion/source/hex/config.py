@@ -2,7 +2,7 @@ from typing import Dict, Optional
 
 from pydantic import Field, SecretStr
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
@@ -18,6 +18,23 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+
+
+class HexConnectionDetail(ConfigModel):
+    """Per-connection override for upstream lineage URN construction."""
+
+    platform: Optional[str] = Field(
+        default=None,
+        description="DataHub platform name. Required only when Hex's connection "
+        "type cannot be auto-resolved (deleted connections, permission gaps, "
+        "custom types).",
+    )
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="DataHub platform_instance the underlying warehouse was "
+        "ingested under. Leave unset for warehouses ingested without one "
+        "(e.g. typical BigQuery).",
+    )
 
 
 class HexSourceConfig(
@@ -87,13 +104,16 @@ class HexSourceConfig(
         "or falls back to parsing SQL from cells (all workspaces). No warehouse ingestion "
         "dependency required.",
     )
-    connection_platform_map: Dict[str, str] = Field(
+    connection_platform_map: Dict[str, HexConnectionDetail] = Field(
         default_factory=dict,
-        description="Map connection ID to DataHub platform name for connections that cannot "
-        "be resolved automatically (deleted connections, permission gaps, unsupported types). "
-        "Lineage is skipped — not guessed — for unmapped connections. "
-        'Example: {"<connection_uuid>": "snowflake"}',
+        description=(
+            "Per-connection lineage configuration, keyed by Hex dataConnectionId (UUID). "
+            "Pins platform and platform_instance so upstream URNs match the warehouse's "
+            "ingestion. "
+            'Example: {"<uuid>": {"platform": "snowflake", "platform_instance": "prod_snowflake"}}'
+        ),
     )
+
     include_run_history: bool = Field(
         default=True,
         description="Emit the most recent scheduled run as an Operation aspect.",

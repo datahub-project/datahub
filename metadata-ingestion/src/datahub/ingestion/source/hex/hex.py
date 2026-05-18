@@ -26,7 +26,7 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.hex.api import HexApi, HexApiReport
-from datahub.ingestion.source.hex.config import HexSourceConfig
+from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.constants import (
     CONNECTION_TYPE_TO_DATAHUB_PLATFORM,
     HEX_INCREMENTAL_JOB_ID,
@@ -590,12 +590,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         ):
             connections = self._resolve_connections(
                 api_connections=self.hex_api.fetch_connections(),
-                platform_overrides=self.source_config.connection_platform_map,
+                connection_overrides=self.source_config.connection_platform_map,
             )
 
         lineage_builder = HexLineageBuilder(
             connections=connections,
-            platform_instance=self.source_config.platform_instance,
             env=self.source_config.env,
             report=self.report,
             graph=self.ctx.graph,
@@ -652,33 +651,24 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def _resolve_connections(
         self,
         api_connections: Dict[str, Tuple[str, str]],
-        platform_overrides: Dict[str, str],
+        connection_overrides: Dict[str, HexConnectionDetail],
     ) -> Dict[str, HexConnection]:
-        """
-        Resolve API-discovered connections + user overrides into a map of
-        {conn_id → HexConnection(name, platform)}.
+        """Resolve API + user overrides into {conn_id → HexConnection}.
 
-        Override precedence is applied per conn_id. User overrides specify
-        DataHub platform names directly and bypass the
-        CONNECTION_TYPE_TO_DATAHUB_PLATFORM lookup — so connections backed by
-        platforms outside the canonical map (vertica, materialize, custom
-        platform-instance setups) are resolvable.
-
-        Connections that have no override and whose Hex type isn't in the
-        canonical map remain in the result with platform=None (lineage will be
-        skipped, but the display name is still available for the document
-        builder). Their hex_types are summarised in a single warning. Types
-        rescued by an override are NOT counted.
+        Overrides can pin platform (bypassing CONNECTION_TYPE_TO_DATAHUB_PLATFORM
+        for vertica / materialize / custom setups) and platform_instance.
+        Unmapped types are summarised in a single warning; types rescued by an
+        override are NOT counted.
         """
         connections: Dict[str, HexConnection] = {}
         unmapped_type_counts: Dict[str, int] = {}
 
-        for conn_id in api_connections.keys() | platform_overrides.keys():
+        for conn_id in api_connections.keys() | connection_overrides.keys():
             display_name, hex_type = api_connections.get(conn_id, ("", ""))
-            override = platform_overrides.get(conn_id)
+            override = connection_overrides.get(conn_id)
 
-            if override is not None:
-                platform: Optional[str] = override
+            if override is not None and override.platform:
+                platform: Optional[str] = override.platform
             else:
                 platform = CONNECTION_TYPE_TO_DATAHUB_PLATFORM.get(hex_type.lower())
                 if platform is None and hex_type:
@@ -689,6 +679,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             connections[conn_id] = HexConnection(
                 name=display_name or conn_id,
                 platform=platform,
+                platform_instance=override.platform_instance if override else None,
             )
 
         if unmapped_type_counts:
@@ -809,7 +800,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             chart_urn = self.mapper.get_chart_urn(component.id).urn()
             doc_builder = HexDocumentBuilder(
                 workspace_name=self.source_config.workspace_name,
-                platform_instance=self.source_config.platform_instance,
                 connections=connections,
             )
             yield from doc_builder.build_document(
@@ -898,7 +888,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             sql_cells, explore_cells, section_names, markdown = _parse_cells(all_cells)
             doc_builder = HexDocumentBuilder(
                 workspace_name=self.source_config.workspace_name,
-                platform_instance=self.source_config.platform_instance,
                 connections=connections,
             )
             yield from doc_builder.build_document(

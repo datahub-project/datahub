@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, patch
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
-from datahub.ingestion.source.hex.config import HexSourceConfig
+from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.hex import HexSource
 from tests.unit.hex.conftest import load_json_data
 
@@ -42,6 +42,22 @@ class TestHexSourceConfig(unittest.TestCase):
         input_config = {**self.minimum_input_config, "include_lineage": False}
         config = HexSourceConfig.model_validate(input_config)
         assert config and not config.include_lineage
+
+    def test_connection_platform_map_rich_object_round_trips(self):
+        config = HexSourceConfig.model_validate(
+            {
+                **self.minimum_input_config,
+                "connection_platform_map": {
+                    "conn-sf": {
+                        "platform": "snowflake",
+                        "platform_instance": "prod_snowflake",
+                    },
+                },
+            }
+        )
+        detail = config.connection_platform_map["conn-sf"]
+        assert detail.platform == "snowflake"
+        assert detail.platform_instance == "prod_snowflake"
 
     def test_deprecated_lineage_fields_emit_warnings(self):
         """Removed fields emit ConfigurationWarning instead of silently being ignored."""
@@ -237,10 +253,12 @@ class TestResolveConnections(unittest.TestCase):
                 "conn-sf": ("Analytics Hub", "snowflake"),
                 "conn-bq": ("BQ Hub", "bigquery"),
             },
-            platform_overrides={},
+            connection_overrides={},
         )
         assert connections["conn-sf"].name == "Analytics Hub"
         assert connections["conn-sf"].platform == "snowflake"
+        # No user override → no platform_instance pinned.
+        assert connections["conn-sf"].platform_instance is None
         assert connections["conn-bq"].name == "BQ Hub"
         assert connections["conn-bq"].platform == "bigquery"
 
@@ -248,7 +266,7 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         connections = source._resolve_connections(
             api_connections={"conn-vt": ("Vertica Prod", "vertica")},
-            platform_overrides={},
+            connection_overrides={},
         )
         # Name is retained for the document builder…
         assert connections["conn-vt"].name == "Vertica Prod"
@@ -266,7 +284,7 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         connections = source._resolve_connections(
             api_connections={"conn-vt": ("Vertica Prod", "vertica")},
-            platform_overrides={"conn-vt": "vertica"},
+            connection_overrides={"conn-vt": HexConnectionDetail(platform="vertica")},
         )
         # Display name from the API is preserved, override supplies platform.
         assert connections["conn-vt"].name == "Vertica Prod"
@@ -285,7 +303,9 @@ class TestResolveConnections(unittest.TestCase):
                 "conn-vt-2": ("Vertica B", "vertica"),
                 "conn-mz": ("Materialize", "materialize"),
             },
-            platform_overrides={"conn-vt-1": "vertica"},  # rescues one of two
+            connection_overrides={
+                "conn-vt-1": HexConnectionDetail(platform="vertica"),
+            },
         )
         # Both unmapped types appear in the warning context; only the
         # still-unmapped vertica connection is counted.
@@ -301,7 +321,9 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         connections = source._resolve_connections(
             api_connections={},
-            platform_overrides={"conn-deleted": "snowflake"},
+            connection_overrides={
+                "conn-deleted": HexConnectionDetail(platform="snowflake"),
+            },
         )
         # Falls back to the conn_id itself when no display name is known.
         assert connections["conn-deleted"].name == "conn-deleted"
@@ -311,7 +333,7 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         connections = source._resolve_connections(
             api_connections={"conn-1": ("Prod SF", "snowflake")},
-            platform_overrides={"conn-1": "redshift"},
+            connection_overrides={"conn-1": HexConnectionDetail(platform="redshift")},
         )
         assert connections["conn-1"].platform == "redshift"
         # Display name from the API is preserved on override.
@@ -320,9 +342,24 @@ class TestResolveConnections(unittest.TestCase):
     def test_empty_inputs_produce_empty_outputs(self):
         source = self._make_source()
         connections = source._resolve_connections(
-            api_connections={}, platform_overrides={}
+            api_connections={}, connection_overrides={}
         )
         assert connections == {}
+
+    def test_rich_override_with_platform_instance_and_env(self):
+        """When the user supplies a HexConnectionDetail, the resolved
+        HexConnection carries platform_instance for the lineage builder."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={"conn-sf": ("Prod SF", "snowflake")},
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(platform_instance="prod_snowflake"),
+            },
+        )
+        c = connections["conn-sf"]
+        # platform still auto-resolves from the API since override.platform is None
+        assert c.platform == "snowflake"
+        assert c.platform_instance == "prod_snowflake"
 
 
 class TestHexTestConnection(unittest.TestCase):

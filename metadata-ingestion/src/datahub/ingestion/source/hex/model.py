@@ -25,22 +25,16 @@ class HexIncrementalCheckpointState(CheckpointStateBase):
 
 @dataclass
 class HexConnection:
-    """
-    A Hex data connection, resolved to its DataHub platform.
+    """A Hex data connection resolved to its DataHub platform.
 
-    Built once at the source boundary by HexSource._resolve_connections from
-    the /v1/data-connections API and the user's connection_platform_map.
-    Downstream consumers (lineage builder, document builder) read this directly
-    — no further type→platform translation happens.
-
-    `platform` is None when the connection's Hex type is not in the canonical
-    CONNECTION_TYPE_TO_DATAHUB_PLATFORM map and the user has not provided an
-    override. Such connections still carry a display `name` (for the document
-    builder), but lineage is skipped for cells that reference them.
+    Built once at the source boundary by HexSource._resolve_connections.
+    `platform=None` means lineage will be skipped for cells referencing this
+    connection — the display name is still available for the document builder.
     """
 
     name: str
     platform: Optional[str]
+    platform_instance: Optional[str] = None
 
 
 @dataclass

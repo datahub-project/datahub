@@ -20,14 +20,12 @@ CONNECTIONS: Dict[str, HexConnection] = {
 
 def _builder(
     connections: Optional[Dict[str, HexConnection]] = None,
-    platform_instance: Optional[str] = None,
     env: str = "PROD",
     report: Optional[LineageBuilderReport] = None,
     project_id: str = "proj-1",
 ) -> HexLineageBuilder:
     return HexLineageBuilder(
         connections=connections if connections is not None else CONNECTIONS,
-        platform_instance=platform_instance,
         env=env,
         report=report if report is not None else LineageBuilderReport(),
         project_id=project_id,
@@ -44,43 +42,68 @@ def _cell(sql: str, conn_id: str = SNOWFLAKE_CONN, label: str = "q") -> SqlCell:
 
 
 # ------------------------------------------------------------------
-# _lookup_platform
+# _lookup_connection
 # ------------------------------------------------------------------
 
 
-def test_lookup_platform_known_snowflake():
+def test_lookup_connection_known_snowflake():
     b = _builder()
-    platform, reason = b._lookup_platform(SNOWFLAKE_CONN)
+    platform, pi, reason = b._lookup_connection(SNOWFLAKE_CONN)
     assert platform == "snowflake"
+    assert pi is None  # No platform_instance pinned on the connection.
     assert reason is None
 
 
-def test_lookup_platform_known_bigquery():
+def test_lookup_connection_known_bigquery():
     b = _builder()
-    platform, reason = b._lookup_platform(BIGQUERY_CONN)
+    platform, _, reason = b._lookup_connection(BIGQUERY_CONN)
     assert platform == "bigquery"
     assert reason is None
 
 
-def test_lookup_platform_none_id():
+def test_lookup_connection_none_id():
     b = _builder()
-    platform, reason = b._lookup_platform(None)
+    platform, _, reason = b._lookup_connection(None)
     assert platform is None
     assert reason == "missing_connection_id"
 
 
-def test_lookup_platform_empty_string():
+def test_lookup_connection_empty_string():
     b = _builder()
-    platform, reason = b._lookup_platform("")
+    platform, _, reason = b._lookup_connection("")
     assert platform is None
     assert reason == "missing_connection_id"
 
 
-def test_lookup_platform_unresolved_connection_id():
+def test_lookup_connection_unresolved_connection_id():
     b = _builder()
-    platform, reason = b._lookup_platform(UNKNOWN_CONN)
+    platform, _, reason = b._lookup_connection(UNKNOWN_CONN)
     assert platform is None
     assert reason == "unresolved_platform"
+
+
+def test_lookup_connection_uses_per_connection_platform_instance():
+    """The per-connection platform_instance flows into the upstream URN."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A", platform="snowflake", platform_instance="prod_snowflake"
+            ),
+        },
+    )
+    _, pi, _ = b._lookup_connection(SNOWFLAKE_CONN)
+    assert pi == "prod_snowflake"
+
+
+def test_lookup_connection_no_platform_instance_emits_none():
+    """When the connection has no platform_instance pinned, the upstream URN
+    gets None — matches ADF / Mode / PowerBI behavior. Hex's own
+    platform_instance is never used as a fallback for upstream URNs."""
+    b = _builder(
+        connections={SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake")},
+    )
+    _, pi, _ = b._lookup_connection(SNOWFLAKE_CONN)
+    assert pi is None
 
 
 # ------------------------------------------------------------------
@@ -200,7 +223,7 @@ def test_build_upstream_urns_none_connection_skipped():
     assert report.skipped_cells[0].reason == "missing_connection_id"
 
 
-def test_lookup_platform_user_override_bypasses_canonical_map():
+def test_lookup_connection_user_override_bypasses_canonical_map():
     """User overrides should resolve to ANY platform name, not just those in
     CONNECTION_TYPE_TO_DATAHUB_PLATFORM. This test guards the M2 fix at the
     builder level: the builder must accept any pre-resolved platform string
@@ -212,7 +235,7 @@ def test_lookup_platform_user_override_bypasses_canonical_map():
             "conn-vertica-1": HexConnection(name="Vertica Prod", platform="vertica"),
         },
     )
-    platform, reason = b._lookup_platform("conn-vertica-1")
+    platform, _, reason = b._lookup_connection("conn-vertica-1")
     assert platform == "vertica"
     assert reason is None
 
@@ -236,12 +259,56 @@ def test_build_upstream_urns_invalid_sql_counted_as_failure():
     assert report.sql_cells_attempted == 1
 
 
-def test_build_upstream_urns_platform_instance_in_urn():
-    b = _builder(platform_instance="my_instance")
+def test_build_upstream_urns_no_platform_instance_when_not_pinned():
+    """No per-connection platform_instance → upstream URN has no instance
+    prefix. Matches a warehouse ingested without a platform_instance
+    (typical BigQuery setup)."""
+    b = _builder()
     sql = "SELECT id FROM db.schema.orders"
     datasets, _ = b.build_upstream_urns([_cell(sql)])
     assert len(datasets) == 1
-    assert "my_instance" in datasets[0]
+    # No platform_instance was pinned → URN should not contain one.
+    # The dataset name part is the only segment between platform and env.
+    assert ",db.schema.orders," in datasets[0]
+
+
+def test_build_upstream_urns_uses_per_connection_platform_instance():
+    """The fix in action: a connection pinned to `prod_snowflake` produces
+    an upstream URN that matches the corresponding Snowflake ingestion."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A", platform="snowflake", platform_instance="prod_snowflake"
+            ),
+        },
+    )
+    datasets, _ = b.build_upstream_urns(
+        [_cell("SELECT id FROM db.schema.orders", conn_id=SNOWFLAKE_CONN)]
+    )
+    assert len(datasets) == 1
+    assert "prod_snowflake" in datasets[0]
+
+
+def test_build_from_queried_tables_uses_connection_platform_instance():
+    """End-to-end via the ENTERPRISE queriedTables path: upstream URNs
+    reflect the connection's pinned platform_instance."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A", platform="snowflake", platform_instance="prod_snowflake"
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [
+            {
+                "dataConnectionId": SNOWFLAKE_CONN,
+                "tableName": "db.schema.orders",
+            }
+        ]
+    )
+    assert len(urns) == 1
+    assert "prod_snowflake" in urns[0]
 
 
 def test_build_upstream_urns_report_counters():
@@ -266,13 +333,19 @@ def test_build_upstream_urns_report_counters():
 # ------------------------------------------------------------------
 
 
-def test_schema_resolver_cached_per_platform():
+def test_schema_resolver_cached_per_combination():
+    """Resolver cache keyed by (platform, platform_instance) — same key reuses,
+    different on either axis yields a new resolver."""
     b = _builder()
-    r1 = b._get_resolver("snowflake")
-    r2 = b._get_resolver("snowflake")
-    r3 = b._get_resolver("bigquery")
+    r1 = b._get_resolver("snowflake", None)
+    r2 = b._get_resolver("snowflake", None)
+    r3 = b._get_resolver("bigquery", None)
+    # Different platform_instance for the same platform → different resolver
+    # (two same-platform connections with distinct instances must NOT share).
+    r4 = b._get_resolver("snowflake", "prod_sf")
     assert r1 is r2
     assert r1 is not r3
+    assert r1 is not r4
 
 
 # ------------------------------------------------------------------
