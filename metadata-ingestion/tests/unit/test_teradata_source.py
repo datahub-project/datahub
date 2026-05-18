@@ -297,7 +297,7 @@ class TestTeradataSource:
 
         mock_connection = MagicMock()
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = mock_connection
+        mock_engine.connect.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
         config = TeradataConfig.model_validate(_base_config())
@@ -344,8 +344,10 @@ class TestTeradataSource:
             )
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = [mock_entry]
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 # Call the method after patching the engine
@@ -443,7 +445,7 @@ class TestTeradataSource:
             # Mock successful query execution
             mock_connection = MagicMock()
             mock_engine = MagicMock()
-            mock_engine.connect.return_value.__enter__.return_value = mock_connection
+            mock_engine.connect.return_value = mock_connection
 
             with patch.object(source, "get_metadata_engine", return_value=mock_engine):
                 result = source._check_historical_table_exists()
@@ -471,7 +473,7 @@ class TestTeradataSource:
             mock_connection = MagicMock()
             mock_connection.execute.side_effect = Exception("Table not found")
             mock_engine = MagicMock()
-            mock_engine.connect.return_value.__enter__.return_value = mock_connection
+            mock_engine.connect.return_value = mock_connection
 
             with patch.object(source, "get_metadata_engine", return_value=mock_engine):
                 result = source._check_historical_table_exists()
@@ -1023,9 +1025,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1077,9 +1077,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1134,9 +1132,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1266,9 +1262,7 @@ class TestLineageQuerySeparation:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -1763,8 +1757,10 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
             mock_engine = MagicMock()
-            mock_engine.execute.return_value = [mock_entry]
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -1782,8 +1778,10 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
             mock_engine = MagicMock()
-            mock_engine.execute.return_value = [mock_entry]
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -1904,11 +1902,13 @@ class TestOwnershipExtraction:
         )
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
-            mock_engine = MagicMock()
-            mock_engine.execute.return_value = [
+            mock_conn = MagicMock()
+            mock_conn.execute.return_value.fetchall.return_value = [
                 entry_with_creator,
                 entry_without_creator,
             ]
+            mock_engine = MagicMock()
+            mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
 
             source.cache_tables_and_views()
@@ -2140,8 +2140,10 @@ class TestIncrementalColumnExtraction:
             ),  # None timestamp → include (conservative)
         ]
 
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = entries
         mock_engine = MagicMock()
-        mock_engine.execute.return_value = entries
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2170,18 +2172,20 @@ class TestIncrementalColumnExtraction:
             "db1", "stale_table", alter_time=datetime(2024, 6, 5, 12, 0, 0)
         )
 
-        # Mock the engine: engine.connect() returns a context manager whose conn
-        # handles the CURRENT_TIMESTAMP query; engine.execute() returns table rows.
-        mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchone.return_value = (td_server_now,)
+        # Two engine.connect() calls are made: one for SELECT CURRENT_TIMESTAMP(0)
+        # and one for the tables/views query. Use side_effect to return a different
+        # mock connection for each.
+        mock_conn_ts = MagicMock()
+        mock_conn_ts.execute.return_value.fetchone.return_value = (td_server_now,)
 
-        mock_ctx = MagicMock()
-        mock_ctx.__enter__ = MagicMock(return_value=mock_conn)
-        mock_ctx.__exit__ = MagicMock(return_value=False)
+        mock_conn_rows = MagicMock()
+        mock_conn_rows.execute.return_value.fetchall.return_value = [
+            recent_entry,
+            stale_entry,
+        ]
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_ctx
-        mock_engine.execute.return_value = [recent_entry, stale_entry]
+        mock_engine.connect.side_effect = [mock_conn_ts, mock_conn_rows]
 
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
@@ -2532,10 +2536,12 @@ class TestCacheCaseInsensitivity:
     def test_cache_write_lowercases_database_key(self) -> None:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
         source = _create_source_patched()
-        mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = [
             _create_mock_table_entry("MY_DB", "MY_TABLE")
         ]
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2636,10 +2642,12 @@ class TestCacheCaseInsensitivity:
     def test_creator_cache_lookup_is_case_insensitive_on_database(self) -> None:
         """extract_ownership: True + lowercase databases must still find creators."""
         source = _create_source_patched()
-        mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = [
             _create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")
         ]
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2657,14 +2665,16 @@ class TestCacheCaseInsensitivity:
         source = _create_source_patched(
             {"column_extraction_watermark": watermark.isoformat()}
         )
-        mock_engine = MagicMock()
-        mock_engine.execute.return_value = [
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value.fetchall.return_value = [
             _create_mock_table_entry(
                 "MY_DB",
                 "MY_TABLE",
                 alter_time=datetime(2024, 6, 2),
             )
         ]
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
             source.cache_tables_and_views()
 
@@ -2725,7 +2735,7 @@ class TestConfiguredDatabasesValidation:
         ]
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
@@ -2758,7 +2768,7 @@ class TestConfiguredDatabasesValidation:
         # _tables_cache is empty in this scenario.
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch("datahub.ingestion.source.sql.teradata.inspect") as mock_inspect:
@@ -2787,7 +2797,7 @@ class TestConfiguredDatabasesValidation:
         # from the authoritative source.
 
         mock_engine = MagicMock()
-        mock_engine.connect.return_value.__enter__.return_value = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
         mock_create_engine.return_value = mock_engine
 
         with patch(
@@ -2799,3 +2809,120 @@ class TestConfiguredDatabasesValidation:
         yielded = [i._datahub_database for i in inspectors]
         assert yielded == ["from_inspector"]
         assert source.report.warnings == []
+
+
+class TestConnectionPoolRetry:
+    """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
+
+    def test_connection_pool_timeout_ms_default(self):
+        """connection_pool_timeout_ms defaults to 60 000 ms (60 s)."""
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.connection_pool_timeout_ms == 60000
+
+    def test_connection_pool_timeout_ms_custom(self):
+        """connection_pool_timeout_ms accepts a custom value."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "connection_pool_timeout_ms": 120000}
+        )
+        assert config.connection_pool_timeout_ms == 120000
+
+    def test_pool_exhaustion_logs_thread_context_and_retries(self, caplog):
+        """_engine_connect_with_retry logs thread name + tid on PoolTimeoutError and retries."""
+        import logging
+        from threading import current_thread
+        from types import SimpleNamespace
+
+        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
+
+        from datahub.ingestion.source.sql.teradata import _engine_connect_with_retry
+
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        # Fail twice with PoolTimeoutError, then succeed on the third attempt.
+        mock_engine.connect.side_effect = [
+            PoolTimeoutError("pool exhausted"),
+            PoolTimeoutError("pool exhausted"),
+            mock_conn,
+        ]
+
+        report = SimpleNamespace(num_pool_exhaustion_events=0, num_db_retries=0)
+
+        with (
+            patch("time.sleep"),  # skip real backoff sleeps
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+            _engine_connect_with_retry(mock_engine, report=report) as conn,
+        ):
+            assert conn is mock_conn
+
+        # Two failures → two pool-exhaustion events and two retry increments.
+        assert report.num_pool_exhaustion_events == 2
+        assert report.num_db_retries == 2
+
+        # Both WARNING lines must carry thread name and tid.
+        thread = current_thread()
+        exhaustion_warnings = [
+            r for r in caplog.records if "pool exhausted" in r.message.lower()
+        ]
+        assert len(exhaustion_warnings) == 2
+        for record in exhaustion_warnings:
+            assert thread.name in record.message
+            assert str(thread.ident) in record.message
+
+    def test_pool_exhaustion_raises_after_max_attempts(self):
+        """_engine_connect_with_retry re-raises PoolTimeoutError after all attempts fail."""
+        from types import SimpleNamespace
+
+        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
+
+        from datahub.ingestion.source.sql.teradata import _engine_connect_with_retry
+
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = PoolTimeoutError("always exhausted")
+
+        report = SimpleNamespace(num_pool_exhaustion_events=0, num_db_retries=0)
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(PoolTimeoutError),
+            _engine_connect_with_retry(mock_engine, max_attempts=3, report=report),
+        ):
+            pass  # should never reach here
+
+        # All 3 attempts counted as exhaustion events; only 2 retries (last attempt just raises).
+        assert report.num_pool_exhaustion_events == 3
+        assert report.num_db_retries == 2
+
+    def test_pool_timeout_propagated_to_sqlalchemy_pool_timeout(self):
+        """connection_pool_timeout_ms / 1000 is passed as pool_timeout to QueuePool."""
+        from datahub.ingestion.source.sql.teradata import TeradataSource
+
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "connection_pool_timeout_ms": 90000}
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine"
+            ) as mock_create_engine,
+            patch(
+                "datahub.ingestion.source.sql.teradata.TeradataSource.cache_tables_and_views"
+            ),
+            patch(
+                "datahub.sql_parsing.sql_parsing_aggregator.SqlParsingAggregator"
+            ) as mock_agg_class,
+        ):
+            mock_agg_class.return_value = MagicMock()
+            mock_create_engine.return_value = MagicMock()
+            source = TeradataSource(config, PipelineContext(run_id="test"))
+            source._get_or_create_pooled_engine()
+
+        # Find the create_engine call that carried pool_timeout (the pooled engine call).
+        pool_calls = [
+            c
+            for c in mock_create_engine.call_args_list
+            if c[1].get("pool_timeout") is not None
+        ]
+        assert pool_calls, "create_engine was never called with pool_timeout"
+        assert pool_calls[-1][1]["pool_timeout"] == 90.0  # 90000 ms → 90 s
