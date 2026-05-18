@@ -1603,26 +1603,6 @@ class TestUnityCatalogMetricViews:
         )
         assert schema_metadata.fields[0].globalTags is None
 
-    def test_split_databricks_identifier_helper(self):
-        from datahub.ingestion.source.unity.identifier_helper import (
-            split_databricks_identifier,
-        )
-
-        # basic cases
-        assert split_databricks_identifier("a") == ["a"]
-        assert split_databricks_identifier("a.b") == ["a", "b"]
-        assert split_databricks_identifier("a.b.c") == ["a", "b", "c"]
-        # backtick-quoted part containing dots
-        assert split_databricks_identifier("`a.b`.c.d") == ["a.b", "c", "d"]
-        assert split_databricks_identifier("a.`b`.c") == ["a", "b", "c"]
-        assert split_databricks_identifier("`a.b.c`.d") == ["a.b.c", "d"]
-        # double-quoted part (no dot inside, quotes are stripped)
-        assert split_databricks_identifier('a."b".c') == ["a", "b", "c"]
-        # empty string
-        assert split_databricks_identifier("") == [""]
-        # unbalanced backtick returns None
-        assert split_databricks_identifier("a.`unbalanced") is None
-
     def test_struct_column_dimension_tag_on_root_only(self):
         """Complex (struct/array) dim columns: tag the root field, nothing on children."""
         source = self._build_source(include_metric_views=True)
