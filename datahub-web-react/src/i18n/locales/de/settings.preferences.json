@@ -1,0 +1,16 @@
+{
+    "appearance": {
+        "subTitle": "Verwalten Sie Ihre Darstellungseinstellungen.",
+        "title": "Darstellung"
+    },
+    "language": {
+        "description": "Wählen Sie Ihre bevorzugte Anzeigesprache",
+        "title": "Sprache der Benutzeroberfläche"
+    },
+    "noSettings": "Keine Darstellungseinstellungen gefunden.",
+    "showApplications": {
+        "description": "Anwendungen sind eine weitere Möglichkeit, Ihre Daten zu organisieren, ähnlich wie Domänen. Sie sind standardmäßig ausgeblendet.",
+        "successMessage": "Einstellung aktualisiert!",
+        "title": "Anwendungen anzeigen"
+    }
+}
