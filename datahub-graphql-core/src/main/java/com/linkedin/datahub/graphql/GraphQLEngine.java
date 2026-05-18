@@ -102,10 +102,9 @@ public class GraphQLEngine {
         && graphQLConfiguration.getOtel().isEnableOtelGraphqlTraces()) {
       instrumentations.add(
           GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
+      // Must be last so it fires after GraphQLTelemetry has made the operation span current.
+      instrumentations.add(new OperationContextCaptureInstrumentation());
     }
-
-    // Must be last so it fires after GraphQLTelemetry has made the operation span current.
-    instrumentations.add(new OperationContextCaptureInstrumentation());
 
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
     _graphQL =
