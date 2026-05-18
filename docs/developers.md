@@ -385,6 +385,61 @@ removed in a future release.
 
 :::
 
+#### Python Package Index (PyPI)
+
+Docker images for `datahub-ingestion`, `datahub-executor`, and `datahub-actions` install Python
+packages at build time. Override these URLs to point to an internal PyPI mirror or add a secondary
+index for airgapped or corporate environments:
+
+| Property                                       | Default                          | Purpose                                        |
+| ---------------------------------------------- | -------------------------------- | ---------------------------------------------- |
+| `datahub.dependencies.python.pipMirrorUrl`     | `https://pypi.python.org/simple` | Replace PyPI entirely (e.g. airgapped mirrors) |
+| `datahub.dependencies.python.pipExtraIndexUrl` | _(empty)_                        | Add a secondary index alongside the main one   |
+
+The defaults are defined in the root `gradle.properties` file, which is the canonical reference.
+
+**Override options (in order of precedence):**
+
+1. **Command-line flag:**
+
+   ```bash
+   ./gradlew :docker:datahub-ingestion:docker \
+     -P'datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/ \
+     -P'datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
+   ```
+
+2. **Environment variable:**
+
+   ```bash
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipMirrorUrl'=https://nexus.company.com/pypi/simple/
+   export 'ORG_GRADLE_PROJECT_datahub.dependencies.python.pipExtraIndexUrl'=https://nexus.company.com/pypi-extra/simple/
+   ```
+
+3. **User-level `~/.gradle/gradle.properties`:**
+
+   ```properties
+   datahub.dependencies.python.pipMirrorUrl=https://nexus.company.com/pypi/simple/
+   datahub.dependencies.python.pipExtraIndexUrl=https://nexus.company.com/pypi-extra/simple/
+   ```
+
+:::note Authentication
+
+For indices that require credentials, embed them in the URL:
+
+```properties
+datahub.dependencies.python.pipExtraIndexUrl=https://user:password@custom-pypi.company.com/simple/
+```
+
+:::
+
+:::note Legacy properties
+
+The `pipMirrorUrl` and `pipExtraIndexUrls` Gradle properties are **deprecated** in favour of
+`datahub.dependencies.python.pipMirrorUrl` and `datahub.dependencies.python.pipExtraIndexUrl`.
+They are still honoured for backward compatibility but will be removed in a future release.
+
+:::
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

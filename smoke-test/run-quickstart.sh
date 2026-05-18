@@ -4,11 +4,13 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
-../gradlew :smoke-test:installDev
-set +x
-echo "Activating virtual environment"
-source venv/bin/activate
-set -x
+if [[ "${SKIP_INSTALL_DEV:-}" != "true" ]]; then
+  ../gradlew :smoke-test:installDev
+  set +x
+  echo "Activating virtual environment"
+  source venv/bin/activate
+  set -x
+fi
 
 mkdir -p ~/.datahub/plugins/frontend/auth/
 echo "test_user:test_pass" >> ~/.datahub/plugins/frontend/auth/user.props

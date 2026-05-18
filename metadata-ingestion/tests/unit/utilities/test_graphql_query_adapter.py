@@ -814,6 +814,126 @@ class TestAdaptQueryPreservesFragments:
         assert orphan_names == {"Outer", "Inner"}
 
 
+class TestMinifyGraphqlQuery:
+    """Tests for the token-aware minifier used to shrink wire payloads."""
+
+    def test_collapses_indentation_outside_strings(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        pretty = """
+            query Q {
+                me {
+                    corpUser {
+                        urn
+                        username
+                    }
+                }
+            }
+        """
+        minified = minify_graphql_query(pretty)
+        assert minified == "query Q { me { corpUser { urn username } } }"
+        assert "\n" not in minified
+        assert "  " not in minified
+
+    def test_preserves_whitespace_inside_string_literals(self) -> None:
+        """Naive ' '.join(q.split()) would corrupt 'hello   world' → 'hello world'."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        # GraphQL string literal with interior runs of whitespace and a tab.
+        q = 'query Q { search(input: {query: "hello   world\\tfoo"}) { total } }'
+        minified = minify_graphql_query(q)
+        assert '"hello   world\\tfoo"' in minified
+
+    def test_preserves_block_string_contents(self) -> None:
+        """Block strings — even after graphql-core's print_ast re-formats them
+        with surrounding newlines — retain their semantic content (block-string
+        de-indentation is part of the GraphQL spec). The minifier MUST NOT
+        touch anything between the triple quotes."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = 'query Q { search(input: {query: """multi\n  line\n  query"""}) { total } }'
+        minified = minify_graphql_query(q)
+        # Block string must arrive intact at the AST level.
+        assert print_ast(parse(minified)) == print_ast(parse(q))
+        # Triple quotes must still bound the literal — minifier didn't split it.
+        assert minified.count('"""') == 2
+
+    def test_idempotent(self) -> None:
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = "query Q { me { corpUser { urn } } }"
+        once = minify_graphql_query(q)
+        twice = minify_graphql_query(once)
+        assert once == twice
+
+    def test_invalid_query_returned_verbatim(self) -> None:
+        """Unparseable input must not raise — callers rely on graceful degradation."""
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        garbage = "this is not graphql {{{"
+        assert minify_graphql_query(garbage) == garbage
+
+    def test_semantic_equivalence(self) -> None:
+        """Parsed AST of the minified output equals the original's AST."""
+        from graphql import parse, print_ast
+
+        from datahub.utilities.graphql_query_adapter import minify_graphql_query
+
+        q = """
+            fragment F on Dataset { urn name }
+            query Q($urn: String!) {
+                entity(urn: $urn) {
+                    ... on Dataset { ...F platform { urn } }
+                }
+            }
+        """
+        assert print_ast(parse(minify_graphql_query(q))) == print_ast(parse(q))
+
+
+class TestExecuteGraphqlMinifiesWireBody:
+    """Tests that execute_graphql sends a minified body regardless of strip mode."""
+
+    @staticmethod
+    def _captured_body(graph: Any, query: str, strip: bool) -> str:
+        sent: Dict[str, Any] = {}
+
+        def fake_post(url: str, body: Dict) -> Dict:
+            sent.update(body)
+            return {"data": {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}}
+
+        with patch.object(graph, "_post_generic", fake_post):
+            graph.execute_graphql(query, strip_unsupported_fields=strip)
+        return sent["query"]
+
+    def _make_graph(self) -> Any:
+        from datahub.ingestion.graph.client import DataHubGraph
+
+        with patch.object(DataHubGraph, "__init__", lambda self, *a, **kw: None):
+            graph = DataHubGraph.__new__(DataHubGraph)
+            graph._gms_server = "http://localhost:8080"
+            graph._query_projector = None
+            return graph
+
+    def test_strip_false_minifies_before_send(self) -> None:
+        pretty = "query Q {\n    me {\n        corpUser {\n            urn\n        }\n    }\n}"
+        body = self._captured_body(self._make_graph(), pretty, strip=False)
+        assert "\n" not in body
+        assert body.count("    ") == 0
+        # Semantic equivalence preserved.
+        from graphql import parse, print_ast
+
+        assert print_ast(parse(body)) == print_ast(parse(pretty))
+
+    def test_invalid_query_passes_through_when_strip_false(self) -> None:
+        """If minification can't parse the query, send it as-is so the server
+        can produce a meaningful error rather than silently rewriting input."""
+        bad = "this is not graphql {{{"
+        body = self._captured_body(self._make_graph(), bad, strip=False)
+        assert body == bad
+
+
 class TestQueryResultCache:
     """Tests for the per-query result cache."""
 
@@ -1067,8 +1187,15 @@ class TestExecuteGraphqlFailSafe:
                     original_query, strip_unsupported_fields=True
                 )
 
-                # The original query should have been sent (not a projected one)
-                assert sent_body["query"] == original_query
+                # The original query (semantically) should have been sent —
+                # no projection was applied. The body is whitespace-minified
+                # before transmission, so compare on parsed AST equivalence
+                # rather than byte-for-byte.
+                from graphql import parse, print_ast
+
+                assert print_ast(parse(sent_body["query"])) == print_ast(
+                    parse(original_query)
+                )
                 assert result == {"me": {"corpUser": {"urn": "urn:li:corpuser:test"}}}
 
     def test_import_error_falls_back_gracefully(self):

@@ -53,5 +53,6 @@ lxml>=6.1.0,<7.0.0
 # mlflow-skinny: CVE-2025-14287, CVE-2025-15031, CVE-2026-2033 (fixed >=3.9.0)
 mlflow-skinny>=3.9.0,<4.0.0
 # ujson: parsing huge out-of-range integers leaked memory in 5.4.0–5.11.0; indent handling
-# DoS (GHSA-c8rr-9gxc-jprv) fixed in 5.12.0. Cap major until reviewed.
-ujson>=5.12.0,<6
+# DoS (GHSA-c8rr-9gxc-jprv) fixed in 5.12.0. CVE-2026-44660 (dump() write-failure memory
+# leak) fixed in 5.12.1. Cap major until reviewed.
+ujson>=5.12.1,<6
