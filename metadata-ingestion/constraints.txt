@@ -1318,7 +1318,7 @@ python-json-logger==4.0.0
     #   jupyter-events
 python-ldap==3.4.5
     # via acryl-datahub
-python-liquid==2.1.0
+python-liquid==2.2.0
     # via acryl-datahub
 python-magic==0.4.27
     # via unstructured
