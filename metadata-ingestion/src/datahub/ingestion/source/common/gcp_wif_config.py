@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple
 
 from google.auth import load_credentials_from_dict
 from google.auth.credentials import Credentials
@@ -32,10 +32,12 @@ class GCPWIFConfig(ConfigModel):
         ),
     )
 
-    gcp_wif_configuration_json: Optional[Union[str, Dict[str, Any]]] = Field(
+    gcp_wif_configuration_json: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "GCP Workload Identity Federation configuration as a JSON string or dict. "
+            "GCP Workload Identity Federation configuration as a pre-parsed dict. "
+            "For JSON-string injection (e.g. from a secrets manager) use "
+            "gcp_wif_configuration_json_string instead. "
             "Mutually exclusive with gcp_wif_configuration and "
             "gcp_wif_configuration_json_string."
         ),
@@ -57,7 +59,7 @@ class GCPWIFConfig(ConfigModel):
     @model_validator(mode="before")
     @classmethod
     def _validate_wif_json_format(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate that the JSON-typed WIF options contain valid JSON."""
+        """Validate that WIF JSON-typed options contain valid content."""
         if not isinstance(values, dict):
             return values
 
@@ -66,20 +68,15 @@ class GCPWIFConfig(ConfigModel):
             "gcp_wif_configuration_json_string"
         )
 
-        if gcp_wif_configuration_json is not None:
-            if isinstance(gcp_wif_configuration_json, str):
-                try:
-                    json.loads(gcp_wif_configuration_json)
-                except json.JSONDecodeError as e:
-                    raise ValueError(
-                        f"gcp_wif_configuration_json must be valid JSON: {e}"
-                    ) from e
-            elif not isinstance(gcp_wif_configuration_json, dict):
-                raise ValueError(
-                    "gcp_wif_configuration_json must be either a JSON string or a dictionary"
-                )
+        if gcp_wif_configuration_json is not None and not isinstance(
+            gcp_wif_configuration_json, dict
+        ):
+            raise ValueError(
+                "gcp_wif_configuration_json must be a dict. "
+                "To supply a JSON string, use gcp_wif_configuration_json_string instead."
+            )
 
-        if gcp_wif_configuration_json_string:
+        if gcp_wif_configuration_json_string is not None:
             try:
                 json.loads(gcp_wif_configuration_json_string)
             except json.JSONDecodeError as e:
@@ -114,7 +111,7 @@ class GCPWIFConfig(ConfigModel):
             return f"file:{self.gcp_wif_configuration}"
         if self.gcp_wif_configuration_json is not None:
             return "inline_json"
-        if self.gcp_wif_configuration_json_string:
+        if self.gcp_wif_configuration_json_string is not None:
             return "json_string"
         return None
 
@@ -131,25 +128,33 @@ class GCPWIFConfig(ConfigModel):
                 raise ValueError(
                     f"WIF configuration file not found: {self.gcp_wif_configuration}"
                 ) from None
+            except OSError as e:
+                raise ValueError(
+                    f"WIF configuration file could not be read "
+                    f"(path={self.gcp_wif_configuration}): {e}"
+                ) from e
             except json.JSONDecodeError as e:
                 raise ValueError(
                     f"WIF configuration file is not valid JSON "
                     f"(path={self.gcp_wif_configuration}): {e}"
                 ) from e
+            if not isinstance(loaded, dict):
+                raise ValueError(
+                    f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
+                )
+            return loaded
         elif self.gcp_wif_configuration_json is not None:
-            if isinstance(self.gcp_wif_configuration_json, dict):
-                return dict(self.gcp_wif_configuration_json)
-            loaded = json.loads(self.gcp_wif_configuration_json)
-        elif self.gcp_wif_configuration_json_string:
+            # Return a copy to protect the model's internal dict from mutation by callers.
+            return dict(self.gcp_wif_configuration_json)
+        elif self.gcp_wif_configuration_json_string is not None:
             loaded = json.loads(self.gcp_wif_configuration_json_string)
+            if not isinstance(loaded, dict):
+                raise ValueError(
+                    f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
+                )
+            return loaded
         else:
             raise ValueError("No valid WIF configuration provided")
-
-        if not isinstance(loaded, dict):
-            raise ValueError(
-                f"WIF configuration must be a JSON object, not a {type(loaded).__name__}"
-            )
-        return loaded
 
 
 def _build_credentials_from_wif_dict(
@@ -168,10 +173,13 @@ def _build_credentials_from_wif_dict(
             source_label,
         )
         credentials, project_id = load_credentials_from_dict(wif_dict)
-        # Impersonation (WIF → SA) requires scopes; otherwise IAM returns 400 "Scope required."
-        credentials = credentials.with_scopes(
-            ["https://www.googleapis.com/auth/cloud-platform"]
-        )
+        # For WIF → SA impersonation, scopes must be set; otherwise IAM returns
+        # 400 "Scope required."  Guard with requires_scopes so credential types
+        # that manage access via audience (not scopes) are not broken.
+        if getattr(credentials, "requires_scopes", False):
+            credentials = credentials.with_scopes(
+                ["https://www.googleapis.com/auth/cloud-platform"]
+            )
         logger.info("Successfully loaded Workload Identity Federation credentials")
         return credentials, project_id
     except Exception as e:

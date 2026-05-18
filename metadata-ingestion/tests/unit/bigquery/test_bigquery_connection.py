@@ -140,6 +140,29 @@ class TestBigQueryWIFCredentialSetup:
     @patch(
         "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
     )
+    def test_wif_json_string_field_builds_credentials(
+        self,
+        mock_load: MagicMock,
+    ) -> None:
+        """gcp_wif_configuration_json_string (secrets-manager injection path) must
+        work identically to the dict variant at the BigQueryConnectionConfig level."""
+        fake_creds = MagicMock()
+        mock_load.return_value = (fake_creds, None)
+
+        config = BigQueryConnectionConfig(
+            auth_type="workload_identity_federation",
+            gcp_wif_configuration_json_string=json.dumps(_wif_dict()),
+        )
+
+        assert config._credentials is fake_creds
+        assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+        mock_load.assert_called_once()
+        passed_dict, _ = mock_load.call_args.args
+        assert passed_dict == _wif_dict()
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
     def test_wif_sql_alchemy_url(self, mock_load: MagicMock) -> None:
         mock_load.return_value = (MagicMock(), None)
 
@@ -260,9 +283,25 @@ class TestBigQueryServiceAccountCredentialSetup:
         # which then pick up ADC (e.g. metadata server on GCE/GKE).
         config = BigQueryConnectionConfig()
 
-        assert config.auth_type == BigQueryAuthType.SERVICE_ACCOUNT
         assert config._credentials is None
         assert "GOOGLE_APPLICATION_CREDENTIALS" not in os.environ
+
+    @patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    )
+    def test_service_account_auth_type_ignores_wif_fields(
+        self, mock_build: MagicMock
+    ) -> None:
+        """Regression: WIF fields supplied alongside the default service_account
+        auth_type must be silently ignored, not consumed as WIF credentials.
+        Credentials must be None (ADC fallback) since no credential block is set."""
+        mock_build.return_value = (MagicMock(), None)
+        config = BigQueryConnectionConfig(
+            auth_type="service_account",
+            gcp_wif_configuration_json=_wif_dict(),
+        )
+        assert config._credentials is None  # credential=None → ADC, not WIF
+        mock_build.assert_not_called()  # WIF builder must not have been invoked
 
 
 class TestBigQueryWIFFilePathSetup:

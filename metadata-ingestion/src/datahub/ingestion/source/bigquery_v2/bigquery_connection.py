@@ -78,12 +78,9 @@ class BigQueryConnectionConfig(GCPWIFConfig):
 
     @model_validator(mode="after")
     def _validate_and_setup_auth(self) -> "BigQueryConnectionConfig":
-        # model_copy() does not re-run validators in Pydantic v2, so this guard
-        # is a no-op for that case.  However, model_validate(config.model_dump())
-        # DOES re-run validators; since PrivateAttrs are not included in
-        # model_dump(), _credentials is None on re-entry and the guard cannot
-        # fire — credentials would be re-initialized in that path.  Avoid
-        # round-tripping this config through model_validate() while live.
+        # Guard against double-initialization on model_copy() (which does not
+        # re-run validators).  Note: model_validate(config.model_dump()) DOES
+        # re-run this validator because PrivateAttrs are not serialized.
         if self._credentials is not None:
             return self
 
@@ -101,36 +98,50 @@ class BigQueryConnectionConfig(GCPWIFConfig):
                     "'workload_identity_federation'. Use the gcp_wif_configuration* "
                     "options instead."
                 )
-            self._setup_wif_credentials()
+            # project_id from the WIF config is intentionally ignored; users must
+            # set project_on_behalf explicitly when targeting a specific project.
+            self._credentials, project_id = _build_credentials_from_wif_dict(
+                self.to_wif_dict(), self.wif_config_source()
+            )
+            if project_id is not None and self.project_on_behalf is None:
+                logger.info(
+                    "WIF credential includes project_id=%s but project_on_behalf is "
+                    "not set; the WIF project_id is not used automatically. Set "
+                    "project_on_behalf to target a specific project.",
+                    project_id,
+                )
         elif self.credential is not None:
-            self._setup_service_account_credentials()
-        # else: no credential and no WIF — fall back to Application Default
-        # Credentials (ADC), which GCP client libraries pick up automatically
-        # from the environment (e.g. GCE/GKE metadata server).
+            logger.debug("Setting up service account credentials from credential field")
+            try:
+                self._credentials = (
+                    service_account.Credentials.from_service_account_info(
+                        self.credential.to_dict()
+                    )
+                )
+            except Exception as e:
+                raise ValueError(
+                    f"Failed to load service account credentials "
+                    f"(error_type={type(e).__name__}): {e}"
+                ) from e
+        else:
+            logger.info(
+                "No credential provided for auth_type=%s; falling back to "
+                "Application Default Credentials (ADC).",
+                self.auth_type,
+            )
 
         return self
 
-    def _setup_service_account_credentials(self) -> None:
-        assert self.credential is not None
-        # Keep credentials only in memory. SQLAlchemy callers pass the explicit
-        # bigquery.Client via connect_args (see profiler.py), so the
-        # GOOGLE_APPLICATION_CREDENTIALS env var no longer needs to be set.
-        self._credentials = service_account.Credentials.from_service_account_info(
-            self.credential.to_dict()
-        )
+    def has_explicit_credentials(self) -> bool:
+        """Return True if an explicit credential object has been loaded.
 
-    def _setup_wif_credentials(self) -> None:
-        # project_id from the WIF config is intentionally ignored — users must
-        # set project_on_behalf explicitly when targeting a specific project.
-        # Keep credentials only in memory. SQLAlchemy callers pass the explicit
-        # bigquery.Client via connect_args (see profiler.py), so the
-        # GOOGLE_APPLICATION_CREDENTIALS env var is not written.
-        self._credentials, _ = _build_credentials_from_wif_dict(
-            self.to_wif_dict(), self.wif_config_source()
-        )
+        When False, GCP client libraries fall back to Application Default
+        Credentials (ADC) from the environment.
+        """
+        return self._credentials is not None
 
     def get_bigquery_client(self) -> bigquery.Client:
-        client_options = self.extra_client_options
+        client_options = {**self.extra_client_options}
         return bigquery.Client(
             self.project_on_behalf,
             credentials=self._credentials,

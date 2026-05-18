@@ -11,15 +11,14 @@ from datahub.ingestion.source.common.gcp_wif_config import (
 
 
 class TestGCPWIFConfigValidation:
-    def test_json_string_invalid_raises(self):
-        with pytest.raises(ValueError, match="must be valid JSON"):
+    def test_json_field_rejects_string_value(self) -> None:
+        # gcp_wif_configuration_json only accepts a dict; strings must use
+        # gcp_wif_configuration_json_string instead.
+        with pytest.raises(ValueError, match="must be a dict"):
             GCPWIFConfig(gcp_wif_configuration_json="not-json")
 
-    def test_json_string_invalid_type_raises(self):
-        # gcp_wif_configuration_json must be str or dict, not int
-        with pytest.raises(
-            ValueError, match="must be either a JSON string or a dictionary"
-        ):
+    def test_json_field_rejects_non_dict(self) -> None:
+        with pytest.raises(ValueError, match="must be a dict"):
             GCPWIFConfig(gcp_wif_configuration_json=12345)
 
     def test_json_string_field_invalid_raises(self):
@@ -51,6 +50,7 @@ class TestLoadWIFCredentials:
         creds = MagicMock()
         creds.token = "fake-token"
         creds.expiry = None
+        creds.requires_scopes = True  # simulate a Scoped credential
         scoped = MagicMock()
         scoped.token = "fake-token"
         scoped.expiry = None
@@ -74,7 +74,7 @@ class TestLoadWIFCredentials:
         mock_load.return_value = (mock_creds, None)
 
         payload = json.dumps({"type": "external_account"})
-        config = GCPWIFConfig(gcp_wif_configuration_json=payload)
+        config = GCPWIFConfig(gcp_wif_configuration_json_string=payload)
         creds, project_id = load_wif_credentials(config)
 
         mock_load.assert_called_once_with({"type": "external_account"})

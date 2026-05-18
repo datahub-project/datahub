@@ -59,7 +59,7 @@ class BigqueryProfiler(GenericProfiler):
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
         connect_args: Dict[str, object] = {}
-        if self.config._credentials is not None:
+        if self.config.has_explicit_credentials():
             # user_supplied_client=true tells the BigQuery dialect to short
             # circuit its own client construction and use the one we pass via
             # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
