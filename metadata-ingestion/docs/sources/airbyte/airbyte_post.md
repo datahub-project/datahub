@@ -17,6 +17,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 - Schema information is only available for sources that expose a sync catalog. Sources without schema discovery will produce datasets without schema metadata.
 - Column-level lineage requires field mapping to be configured in the Airbyte connection.
 - Job history depth is limited by the Airbyte API's pagination and retention settings.
+- The Airbyte Public API only supports `limit` + `offset` pagination on list endpoints; cursor pagination is not exposed. Ingestion runs against an actively-mutating Airbyte instance may therefore skip or double-count entries inserted or deleted mid-scan. Schedule ingestion during quiet periods if exactness is required.
 
 ### Troubleshooting
 

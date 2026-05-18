@@ -61,10 +61,8 @@ print(
 # Static IDs replace the random UUIDs Airbyte assigns, so the generated
 # golden files don't change between runs.
 STATIC_WORKSPACE_ID = "12345678-1234-1234-1234-123456789012"
-STATIC_POSTGRES_SOURCE_ID = "11111111-1111-1111-1111-111111111111"
 STATIC_MYSQL_SOURCE_ID = "22222222-2222-2222-2222-222222222222"
 STATIC_POSTGRES_DEST_ID = "44444444-4444-4444-4444-444444444444"
-STATIC_PG_TO_PG_CONNECTION_ID = "55555555-5555-5555-5555-555555555555"
 STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 
 # abctl v0.30.3 deploys Airbyte 1.8+
@@ -520,7 +518,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
 
     created_ids: Dict[str, Optional[str]] = {
         "workspace_id": workspace_id,
-        "postgres_source_id": None,
         "postgres_dest_id": None,
     }
 
@@ -541,47 +538,15 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
 
         source_defs = source_defs_response.json().get("sourceDefinitions", [])
 
-        postgres_source_def_id = None
         mysql_source_def_id = None
-
         for source_def in source_defs:
             name = source_def.get("name", "").lower()
-            if "postgres" in name and not postgres_source_def_id:
-                postgres_source_def_id = source_def["sourceDefinitionId"]
-            elif "mysql" in name and not mysql_source_def_id:
+            if "mysql" in name and not mysql_source_def_id:
                 mysql_source_def_id = source_def["sourceDefinitionId"]
+                break
 
-        if not postgres_source_def_id or not mysql_source_def_id:
-            print("ERROR: Could not find required source definitions")
-            return created_ids
-
-        postgres_source_config = {
-            "name": "Test Postgres Source",
-            "sourceDefinitionId": postgres_source_def_id,
-            "workspaceId": workspace_id,
-            "connectionConfiguration": {
-                "host": DATABASE_HOST,
-                "port": POSTGRES_PORT,
-                "database": "test",
-                "username": "test",
-                "password": "test",
-                "ssl": False,
-                "ssl_mode": {"mode": "disable"},
-            },
-        }
-
-        postgres_source_response = requests.post(
-            f"{api_url}/sources/create",
-            auth=auth,
-            json=postgres_source_config,
-            timeout=10,
-        )
-
-        if postgres_source_response.status_code in [200, 201]:
-            postgres_source_id = postgres_source_response.json()["sourceId"]
-            created_ids["postgres_source_id"] = postgres_source_id
-        else:
-            print("ERROR: Failed to create PostgreSQL source")
+        if not mysql_source_def_id:
+            print("ERROR: Could not find MySQL source definition")
             return created_ids
 
         mysql_source_config = {
@@ -663,10 +628,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             print("ERROR: Failed to create PostgreSQL destination")
             return created_ids
 
-        _create_postgres_connection(
-            api_url, auth, postgres_source_id, postgres_dest_id, created_ids
-        )
-
         if mysql_source_id:
             _create_mysql_connection(
                 api_url, auth, mysql_source_id, postgres_dest_id, created_ids
@@ -730,31 +691,6 @@ def _discover_schema(
     return {"streams": []}
 
 
-def _create_postgres_connection(
-    api_url: str, auth: tuple, source_id: str, dest_id: str, created_ids: Dict
-) -> None:
-    sync_catalog = _discover_schema(api_url, auth, source_id, "PostgreSQL")
-    connection_config = {
-        "name": "Postgres to Postgres Connection",
-        "sourceId": source_id,
-        "destinationId": dest_id,
-        "status": "active",
-        "scheduleType": "manual",
-        "namespaceDefinition": "source",
-        "namespaceFormat": "${SOURCE_NAMESPACE}",
-        "prefix": "",
-        "syncCatalog": sync_catalog,
-    }
-
-    connection_response = requests.post(
-        f"{api_url}/connections/create", auth=auth, json=connection_config, timeout=30
-    )
-
-    if connection_response.status_code in [200, 201]:
-        connection_id = connection_response.json().get("connectionId")
-        created_ids["pg_to_pg_connection_id"] = connection_id
-
-
 def _create_mysql_connection(
     api_url: str, auth: tuple, source_id: str, dest_id: str, created_ids: Dict
 ) -> None:
@@ -782,18 +718,17 @@ def _create_mysql_connection(
 
 
 def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
-    for conn_key in ["pg_to_pg_connection_id", "mysql_to_pg_connection_id"]:
-        conn_id = created_ids.get(conn_key)
-        if conn_id:
-            try:
-                requests.post(
-                    f"{api_url}/connections/sync",
-                    auth=auth,
-                    json={"connectionId": conn_id},
-                    timeout=30,
-                )
-            except Exception:
-                pass
+    conn_id = created_ids.get("mysql_to_pg_connection_id")
+    if conn_id:
+        try:
+            requests.post(
+                f"{api_url}/connections/sync",
+                auth=auth,
+                json={"connectionId": conn_id},
+                timeout=30,
+            )
+        except Exception:
+            pass
 
     time.sleep(10)
 
@@ -823,27 +758,17 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
 
 
 def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
-    postgres_source_id_val = created_ids.get("postgres_source_id")
     postgres_dest_id_val = created_ids.get("postgres_dest_id")
     mysql_source_id_val = created_ids.get("mysql_source_id")
-    pg_connection_id_val = created_ids.get("pg_to_pg_connection_id")
     mysql_connection_id_val = created_ids.get("mysql_to_pg_connection_id")
 
     id_updates: Dict[str, Dict[str, Any]] = {"actors": {}, "connections": {}}
 
-    if postgres_source_id_val:
-        id_updates["actors"][postgres_source_id_val] = STATIC_POSTGRES_SOURCE_ID
     if mysql_source_id_val:
         id_updates["actors"][mysql_source_id_val] = STATIC_MYSQL_SOURCE_ID
     if postgres_dest_id_val:
         id_updates["actors"][postgres_dest_id_val] = STATIC_POSTGRES_DEST_ID
 
-    if pg_connection_id_val and postgres_source_id_val and postgres_dest_id_val:
-        id_updates["connections"][pg_connection_id_val] = {
-            "new_id": STATIC_PG_TO_PG_CONNECTION_ID,
-            "new_source_id": STATIC_POSTGRES_SOURCE_ID,
-            "new_dest_id": STATIC_POSTGRES_DEST_ID,
-        }
     if mysql_connection_id_val and mysql_source_id_val and postgres_dest_id_val:
         id_updates["connections"][mysql_connection_id_val] = {
             "new_id": STATIC_MYSQL_TO_PG_CONNECTION_ID,
@@ -852,14 +777,10 @@ def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
         }
 
     if update_all_ids_atomically(kubeconfig, id_updates):
-        if postgres_source_id_val:
-            created_ids["postgres_source_id"] = STATIC_POSTGRES_SOURCE_ID
         if mysql_source_id_val:
             created_ids["mysql_source_id"] = STATIC_MYSQL_SOURCE_ID
         if postgres_dest_id_val:
             created_ids["postgres_dest_id"] = STATIC_POSTGRES_DEST_ID
-        if pg_connection_id_val:
-            created_ids["pg_to_pg_connection_id"] = STATIC_PG_TO_PG_CONNECTION_ID
         if mysql_connection_id_val:
             created_ids["mysql_to_pg_connection_id"] = STATIC_MYSQL_TO_PG_CONNECTION_ID
     else:
