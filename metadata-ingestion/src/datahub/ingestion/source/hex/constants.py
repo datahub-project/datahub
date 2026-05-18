@@ -13,11 +13,10 @@ HEX_API_PAGE_SIZE_DEFAULT = 100
 HEX_INCREMENTAL_JOB_ID = JobId("hex_incremental")
 
 # Maps the `type` field returned by Hex's GET /v1/data-connections to
-# DataHub platform names. Enum values are taken from the Hex API reference
-# (https://learn.hex.tech/docs/api/api-reference, operation
-# ListDataConnections). Connections of any other type require a user-supplied
+# DataHub platform names. Connections of any other type require a user-supplied
 # entry in HexSourceConfig.connection_platform_map (keyed by connection ID).
 CONNECTION_TYPE_TO_DATAHUB_PLATFORM: dict[str, str] = {
+    # Defined in the API enum (DataConnectionApiType).
     "athena": "athena",
     "bigquery": "bigquery",
     "clickhouse": "clickhouse",
@@ -26,4 +25,14 @@ CONNECTION_TYPE_TO_DATAHUB_PLATFORM: dict[str, str] = {
     "redshift": "redshift",
     "snowflake": "snowflake",
     "trino": "trino",
+    # Present in the Hex UI but missing from the API enum
+    "alloydb": "postgres",
+    "cloudsql__postgres": "postgres",
+    "cloudsql__mysql": "mysql",
+    "cloudsql__sqlserver": "mssql",
+    "mariadb": "mariadb",
+    "sqlserver": "mssql",
+    "mysql": "mysql",
+    "presto": "presto",
+    "starburst": "trino",
 }
