@@ -1,5 +1,4 @@
 import logging
-import os
 from typing import Any, Dict, Optional
 
 from google.api_core.client_info import ClientInfo
@@ -29,7 +28,6 @@ class BigQueryConnectionConfig(ConfigModel):
         default=None, description="BigQuery credential informations"
     )
 
-    _credentials_path: Optional[str] = PrivateAttr(None)
     _credentials: Optional[service_account.Credentials] = PrivateAttr(None)
 
     extra_client_options: Dict[str, Any] = Field(
@@ -46,17 +44,7 @@ class BigQueryConnectionConfig(ConfigModel):
         super().__init__(**data)
 
         if self.credential:
-            self._credentials_path = self.credential.create_credential_temp_file()
-            logger.debug(
-                f"Creating temporary credential file at {self._credentials_path}"
-            )
-            # Keep env var for backward compatibility (e.g. SQLAlchemy BigQuery dialect).
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self._credentials_path
-            # Build explicit credentials for thread-safe client creation.
-            # In Observe/assertions, multiple BigQuery connections with different
-            # service accounts run concurrently in the same process. Without
-            # explicit credentials, concurrent configs overwrite the shared env
-            # var, causing clients to authenticate with the wrong service account.
+            # Keep credentials only in memory.
             self._credentials = service_account.Credentials.from_service_account_info(
                 self.credential.to_dict()
             )

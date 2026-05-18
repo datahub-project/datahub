@@ -558,6 +558,10 @@ class SalesforceApi:
     description="Enabled by default",
 )
 @capability(
+    capability_name=SourceCapability.OPERATION_CAPTURE,
+    description="Enabled by default from Salesforce object created and last modified timestamps",
+)
+@capability(
     capability_name=SourceCapability.LINEAGE_COARSE,
     description="Extract table-level lineage for Salesforce objects",
     subtype_modifier=[

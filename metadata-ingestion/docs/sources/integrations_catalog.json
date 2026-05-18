@@ -112,6 +112,12 @@
     "description": "Demo Data is a data tool that provides sample data sets for demonstration and testing purposes.",
     "img_path": "img/datahub-logo-color-mark.svg"
   },
+  "dlt": {
+    "platform_type": "ETL/ELT",
+    "connection_type": "Push",
+    "description": "Open-source Python library for building data pipelines. Ingest pipeline metadata and lineage from dlt runs into DataHub.",
+    "img_path": "img/logos/platforms/dltlogo.svg"
+  },
   "druid": {
     "platform_type": "Database",
     "connection_type": "Pull",
@@ -863,11 +869,10 @@
     "description": "Enterprise data integration and management platform for ETL, data quality, and master data management.",
     "img_path": "img/logos/platforms/informatica.svg"
   },
-  "matillion": {
-    "api_connector": true,
+  "matillion-dpc": {
     "platform_type": "ETL/ELT",
     "title": "Matillion",
-    "description": "Cloud-native data integration platform for building ELT pipelines into cloud data warehouses.",
+    "description": "Import pipelines, streaming pipelines, projects, environments, and table/column-level lineage from Matillion Data Productivity Cloud.",
     "img_path": "img/logos/platforms/matillion.svg"
   },
   "microsoft-fabric": {

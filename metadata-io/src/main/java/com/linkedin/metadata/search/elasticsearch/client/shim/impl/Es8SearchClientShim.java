@@ -83,6 +83,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.ElasticSearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8KnnQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
@@ -1421,6 +1422,22 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Override
   public SearchEngineType getEngineType() {
     return engineType;
+  }
+
+  /**
+   * ES8+ silently strips {@code doc_values: false} from {@code search_as_you_type} fields on
+   * round-trip. Including it in the authored mapping creates a permanent diff against what the
+   * cluster returns and triggers a reindex on every system update cycle, so we omit it here.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4");
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
   }
 
   @Nonnull
