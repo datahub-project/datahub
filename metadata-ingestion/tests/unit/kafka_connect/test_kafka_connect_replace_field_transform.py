@@ -51,7 +51,7 @@ def test_no_transforms():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "name", "email", "created_at"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # All columns should map 1:1 when no transforms present
     assert column_mapping == {
@@ -83,7 +83,7 @@ def test_exclude_single_field():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "username", "password", "email"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "id": "id",
@@ -114,7 +114,7 @@ def test_exclude_multiple_fields():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "name", "password", "ssn", "email", "credit_card"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "id": "id",
@@ -147,7 +147,7 @@ def test_include_only_specified_fields():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "name", "email", "password", "ssn", "internal_notes"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "id": "id",
@@ -180,7 +180,7 @@ def test_rename_single_field():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["user_id", "name", "email"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "user_id": "id",  # Renamed
@@ -210,7 +210,7 @@ def test_rename_multiple_fields():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["user_id", "user_name", "user_email", "created_at"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "user_id": "id",
@@ -242,7 +242,7 @@ def test_exclude_and_rename_combined():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["user_id", "user_name", "email", "password", "ssn"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     assert column_mapping == {
         "user_id": "id",  # Renamed
@@ -276,7 +276,7 @@ def test_multiple_transforms_in_sequence():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["old_id", "name"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # First transform: old_id -> user_id
     # Second transform: user_id -> id
@@ -309,7 +309,7 @@ def test_non_replacefield_transforms_ignored():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["user_id", "name", "password"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # Only the ReplaceField transform should be applied
     assert column_mapping == {
@@ -342,7 +342,7 @@ def test_replacefield_key_transform_ignored():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "password", "internal_key"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # Only Value transform applied, Key transform ignored
     assert column_mapping == {
@@ -373,7 +373,7 @@ def test_empty_transform_config():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["id", "name", "email"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # Empty config should result in 1:1 mapping
     assert column_mapping == {
@@ -405,7 +405,7 @@ def test_whitespace_in_field_names():
     connector = BaseConnector(manifest, config, report)
 
     source_columns = ["user_id", "user_name", "password", "ssn", "email"]
-    column_mapping = connector._apply_replace_field_transform(source_columns)
+    column_mapping = connector._apply_field_transforms(source_columns)
 
     # Whitespace should be trimmed
     assert column_mapping == {
@@ -477,7 +477,8 @@ def test_integration_with_fine_grained_lineage():
     # Verify password was excluded and fields were renamed
     downstream_fields = []
     for lineage in lineages:
-        for downstream_urn in lineage["downstreams"]:
+        assert lineage.downstreams is not None
+        for downstream_urn in lineage.downstreams:
             # Use proper URN parser to extract field path
             key = schema_field_urn_to_key(downstream_urn)
             if key:
@@ -487,3 +488,165 @@ def test_integration_with_fine_grained_lineage():
     assert "id" in downstream_fields  # user_id renamed to id
     assert "name" in downstream_fields
     assert "email" in downstream_fields
+
+
+def _make_connector(config_overrides: dict) -> BaseConnector:
+    manifest = ConnectorManifest(
+        name="test-connector",
+        type="source",
+        config={"connector.class": "TestConnector", **config_overrides},
+        tasks=[],
+    )
+    config = KafkaConnectSourceConfig(
+        connect_uri="http://localhost:8083", cluster_name="test"
+    )
+    return BaseConnector(manifest, config, KafkaConnectSourceReport())
+
+
+def test_extract_field_unwraps_nested_struct():
+    connector = _make_connector(
+        {
+            "transforms": "unwrap",
+            "transforms.unwrap.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
+            "transforms.unwrap.field": "after",
+        }
+    )
+
+    # Debezium envelope: only `after.*` fields survive the extraction
+    kafka_fields = [
+        "before.id",
+        "before.name",
+        "after.id",
+        "after.name",
+        "source",
+        "op",
+    ]
+    result = connector._apply_field_transforms(kafka_fields)
+
+    assert result.get("after.id") == "id"
+    assert result.get("after.name") == "name"
+    assert "before.id" not in result
+    assert "before.name" not in result
+    assert "source" not in result
+    assert "op" not in result
+
+
+def test_extract_field_no_matching_prefix():
+    """ExtractField with a field name that matches nothing returns an empty mapping."""
+    connector = _make_connector(
+        {
+            "transforms": "unwrap",
+            "transforms.unwrap.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
+            "transforms.unwrap.field": "payload",
+        }
+    )
+
+    result = connector._apply_field_transforms(["after.id", "after.name"])
+
+    assert result == {}
+
+
+def test_hoist_field_wraps_columns_under_struct():
+    connector = _make_connector(
+        {
+            "transforms": "wrap",
+            "transforms.wrap.type": "org.apache.kafka.connect.transforms.HoistField$Value",
+            "transforms.wrap.field": "data",
+        }
+    )
+
+    result = connector._apply_field_transforms(["id", "name", "amount"])
+
+    assert result == {"id": "data.id", "name": "data.name", "amount": "data.amount"}
+
+
+def test_hoist_then_replace_field_chained():
+    """HoistField followed by ReplaceField can exclude a hoisted field."""
+    connector = _make_connector(
+        {
+            "transforms": "wrap,drop",
+            "transforms.wrap.type": "org.apache.kafka.connect.transforms.HoistField$Value",
+            "transforms.wrap.field": "data",
+            "transforms.drop.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+            "transforms.drop.exclude": "data.secret",
+        }
+    )
+
+    result = connector._apply_field_transforms(["id", "name", "secret"])
+
+    assert result.get("id") == "data.id"
+    assert result.get("name") == "data.name"
+    assert result.get("secret") is None
+
+
+def test_extract_then_replace_field_chained():
+    """ExtractField followed by ReplaceField renames the unwrapped fields."""
+    connector = _make_connector(
+        {
+            "transforms": "unwrap,rename",
+            "transforms.unwrap.type": "org.apache.kafka.connect.transforms.ExtractField$Value",
+            "transforms.unwrap.field": "after",
+            "transforms.rename.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+            "transforms.rename.renames": "id:record_id",
+        }
+    )
+
+    result = connector._apply_field_transforms(["after.id", "after.name"])
+
+    assert result.get("after.id") == "record_id"
+    assert result.get("after.name") == "name"
+
+
+def test_flatten_dot_delimiter():
+    """Flatten with the default '.' delimiter leaves simplified DataHub paths unchanged."""
+    connector = _make_connector(
+        {
+            "transforms": "flat",
+            "transforms.flat.type": "org.apache.kafka.connect.transforms.Flatten$Value",
+        }
+    )
+
+    result = connector._apply_field_transforms(["id", "user.name", "address.city"])
+
+    assert result == {
+        "id": "id",
+        "user.name": "user.name",
+        "address.city": "address.city",
+    }
+
+
+def test_flatten_custom_delimiter():
+    connector = _make_connector(
+        {
+            "transforms": "flat",
+            "transforms.flat.type": "org.apache.kafka.connect.transforms.Flatten$Value",
+            "transforms.flat.delimiter": "_",
+        }
+    )
+
+    result = connector._apply_field_transforms(["id", "user.name", "address.city"])
+
+    assert result == {
+        "id": "id",
+        "user.name": "user_name",
+        "address.city": "address_city",
+    }
+
+
+def test_flatten_preserves_excluded_fields():
+    """Flatten passes through None values from fields dropped by a prior transform."""
+    connector = _make_connector(
+        {
+            "transforms": "drop,flat",
+            "transforms.drop.type": "org.apache.kafka.connect.transforms.ReplaceField$Value",
+            "transforms.drop.exclude": "secret",
+            "transforms.flat.type": "org.apache.kafka.connect.transforms.Flatten$Value",
+            "transforms.flat.delimiter": "_",
+        }
+    )
+
+    result = connector._apply_field_transforms(["id", "user.name", "secret"])
+
+    assert result.get("id") == "id"
+    assert result.get("user.name") == "user_name"
+    assert result.get("secret") is None

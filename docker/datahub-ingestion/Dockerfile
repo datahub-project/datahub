@@ -117,7 +117,7 @@ USER 0
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
     apt-get update && apt-get install -y \
-    openjdk-21-jre-headless \
+    openjdk-25-jre-headless \
     build-essential \
     gcc \
     g++ \

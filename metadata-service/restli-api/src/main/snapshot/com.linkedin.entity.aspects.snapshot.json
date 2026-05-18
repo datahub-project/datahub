@@ -193,22 +193,18 @@
                   "items" : {
                     "type" : "record",
                     "name" : "Criterion",
-                    "doc" : "A criterion for matching a field with given value",
+                    "doc" : "A criterion for matching a field with given values",
                     "fields" : [ {
                       "name" : "field",
                       "type" : "string",
                       "doc" : "The name of the field that the criterion refers to"
-                    }, {
-                      "name" : "value",
-                      "type" : "string",
-                      "doc" : "The value of the intended field"
                     }, {
                       "name" : "values",
                       "type" : {
                         "type" : "array",
                         "items" : "string"
                       },
-                      "doc" : "Values. one of which the intended field should match\nNote, if values is set, the above \"value\" field will be ignored",
+                      "doc" : "Values to match against the field (one match suffices unless otherwise documented).",
                       "default" : [ ]
                     }, {
                       "name" : "condition",

@@ -70,6 +70,13 @@ class TestCommonQueries:
         assert 'table_owner AS "owner_name"' in sql
         assert "pg_user" not in sql
 
+    def test_list_columns_late_binding_view_filters_by_view_schema(self):
+        sql = RedshiftCommonQuery.list_columns("mydb", "common")
+        # pg_get_late_binding_view_cols() exposes "view_schema", not "schema" —
+        # the WHERE clause must use the correct column name or late-binding view
+        # columns are silently dropped.
+        assert "view_schema = 'common'" in sql
+
 
 class TestProvisionedQueries:
     def test_list_insert_create_queries_uses_boundary_aware_listagg(self):

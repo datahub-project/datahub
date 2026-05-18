@@ -26,7 +26,14 @@ export const MemberCount = styled.div`
  * Responsible for reading & writing users.
  */
 export default function GroupSidebar({ sidebarData, refetch }: Props) {
-    const { aboutText, groupMemberRelationships, urn, groupOwnership: ownership } = sidebarData;
+    const {
+        aboutText,
+        groupMemberRelationships,
+        urn,
+        groupOwnership: ownership,
+        isExternalGroup,
+        externalGroupType,
+    } = sidebarData;
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
 
     // About Text save
@@ -62,6 +69,8 @@ export default function GroupSidebar({ sidebarData, refetch }: Props) {
                     groupMemberRelationships={groupMemberRelationships}
                     urn={urn}
                     refetch={refetch}
+                    isExternalGroup={isExternalGroup}
+                    externalGroupType={externalGroupType}
                 />
             </Content>
         </SideBar>

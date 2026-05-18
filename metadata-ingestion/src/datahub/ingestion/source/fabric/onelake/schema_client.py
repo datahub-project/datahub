@@ -3,7 +3,16 @@
 import logging
 import re
 import struct
-from typing import TYPE_CHECKING, Dict, List, Optional, Protocol, Tuple
+from datetime import datetime, timezone
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+)
 
 from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.engine import Engine
@@ -18,7 +27,11 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
-from datahub.ingestion.source.fabric.onelake.models import FabricColumn, FabricView
+from datahub.ingestion.source.fabric.onelake.models import (
+    FabricColumn,
+    FabricQueryInsightsRow,
+    FabricView,
+)
 from datahub.ingestion.source.fabric.onelake.schema_report import (
     SqlAnalyticsEndpointReport,
 )
@@ -100,6 +113,31 @@ class SchemaExtractionClient(Protocol):
 
         Returns:
             List of FabricView objects with name, schema, and optional definition
+        """
+        ...
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        fetch_chunk_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream rows from queryinsights.exec_requests_history within a time window.
+
+        Args:
+            workspace_id: Workspace GUID (used for engine cache key)
+            item_id: Lakehouse / Warehouse GUID (used for engine cache key)
+            start_time: Inclusive lower bound on `start_time` column
+            end_time: Exclusive upper bound on `start_time` column
+            skip_failed_queries: When True, filter `status = 'Succeeded'` at the source
+            fetch_chunk_size: Python-side `cursor.fetchmany()` chunk size — tunes. Narrow the time
+                window if a single run's result set is too large to process.
+
+        Yields:
+            One `FabricQueryInsightsRow` per matching row, ordered by `start_time`.
         """
         ...
 
@@ -431,23 +469,17 @@ class SqlAnalyticsEndpointClient:
                     )
                 return columns_by_table
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to extract schema for all tables "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error extracting schema for all tables: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
-            # Re-raise the exception
             raise
 
     def get_all_views(
@@ -501,21 +533,87 @@ class SqlAnalyticsEndpointClient:
                     )
                 return views
         except SQLAlchemyError as e:
-            error_msg = str(e)
             logger.warning(
                 f"Failed to discover views "
-                f"in workspace {workspace_id}, item {item_id}: {error_msg}"
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
             raise
         except Exception as e:
             logger.error(
                 f"Unexpected error discovering views: {e}",
                 exc_info=True,
             )
-            if self.report:
-                self.report.failures += 1
+            raise
+
+    def stream_usage_history(
+        self,
+        workspace_id: str,
+        item_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        skip_failed_queries: bool,
+        fetch_chunk_size: int = 1000,
+    ) -> Iterator[FabricQueryInsightsRow]:
+        """Stream queryinsights.exec_requests_history rows for a single item.
+
+        Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
+        """
+        sql = """
+            SELECT
+                start_time,
+                statement_type,
+                login_name,
+                row_count,
+                status,
+                command
+            FROM queryinsights.exec_requests_history
+            WHERE start_time >= :start_time AND start_time < :end_time
+        """
+        if skip_failed_queries:
+            sql += " AND status = 'Succeeded'"
+        sql += " ORDER BY start_time"
+        query = text(sql)
+
+        # Bind as naive UTC so pyodbc → ODBC 18 emits a datetime2 parameter
+        # directly, matching the column type. Passing tz-aware datetimes works
+        # but relies on the driver's implicit datetimeoffset → datetime2
+        # coercion, which has varied across driver versions.
+        sql_start = start_time.astimezone(timezone.utc).replace(tzinfo=None)
+        sql_end = end_time.astimezone(timezone.utc).replace(tzinfo=None)
+
+        try:
+            engine = self._get_engine(workspace_id, item_id, self.endpoint_url)
+            with engine.connect() as connection:
+                cursor = connection.execute(
+                    query, {"start_time": sql_start, "end_time": sql_end}
+                )
+                while True:
+                    batch = cursor.fetchmany(fetch_chunk_size)
+                    if not batch:
+                        break
+                    for row in batch:
+                        row_mapping = row._mapping
+                        yield FabricQueryInsightsRow(
+                            start_time=row_mapping["start_time"],
+                            statement_type=row_mapping["statement_type"],
+                            login_name=row_mapping["login_name"],
+                            row_count=row_mapping["row_count"],
+                            status=row_mapping["status"],
+                            command=row_mapping["command"],
+                        )
+        except SQLAlchemyError as e:
+            logger.warning(
+                f"Failed to stream queryinsights.exec_requests_history "
+                f"in workspace {workspace_id}, item {item_id}: {e}",
+                exc_info=True,
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error streaming usage history: {e}",
+                exc_info=True,
+            )
             raise
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:

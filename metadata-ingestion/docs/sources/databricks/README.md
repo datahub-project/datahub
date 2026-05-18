@@ -30,12 +30,20 @@ For a deeper look at how to think about DataHub within and across your Databrick
 
 ## Concept Mapping
 
-While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
-
-| Source Concept                                           | DataHub Concept              | Notes                                                            |
-| -------------------------------------------------------- | ---------------------------- | ---------------------------------------------------------------- |
-| Platform/account/project scope                           | Platform Instance, Container | Organizes assets within the platform context.                    |
-| Core technical asset (for example table/view/topic/file) | Dataset                      | Primary ingested technical asset.                                |
-| Schema fields / columns                                  | SchemaField                  | Included when schema extraction is supported.                    |
-| Ownership and collaboration principals                   | CorpUser, CorpGroup          | Emitted by modules that support ownership and identity metadata. |
-| Dependencies and processing relationships                | Lineage edges                | Available when lineage extraction is supported and enabled.      |
+| Databricks Concept                        | DataHub Entity (Subtype)          | Notes                                                                                              |
+| ----------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Workspace / Account                       | Platform Instance                 | Top-level scope; all URNs include the configured platform instance.                                |
+| Metastore                                 | Container (METASTORE)             | Top-level Unity Catalog container.                                                                 |
+| Catalog                                   | Container (CATALOG)               | Namespace within a metastore. Hive Metastore is ingested as a special catalog type.                |
+| Schema                                    | Container (SCHEMA)                | Nested under its Catalog container.                                                                |
+| Table (managed, external, Delta, Iceberg) | Dataset (TABLE)                   | All non-view table types including streaming tables. Schema, descriptions, and tags are extracted. |
+| View / Materialized View                  | Dataset (VIEW)                    | View definition is captured.                                                                       |
+| Notebook                                  | Dataset (NOTEBOOK)                | Ingested when `include_notebooks` is enabled. Lineage to and from tables is extracted.             |
+| ML Model Group                            | MLModelGroup                      | Represents an MLflow Registered Model.                                                             |
+| ML Model Version                          | MLModel                           | Each registered version with run metrics, parameters, tags, and aliases.                           |
+| Column / field                            | SchemaField                       | Column type, nullability, and descriptions are extracted.                                          |
+| User / Service Principal                  | CorpUser                          | Ownership; service principals mapped via display name to user URN.                                 |
+| Group                                     | CorpGroup                         | Ownership mapped as `urn:li:corpGroup:{group_name}`.                                               |
+| Unity Catalog Tag                         | Tag                               | Extracted at catalog, schema, table, and column levels.                                            |
+| Table / column lineage                    | Lineage edges                     | From view definitions and SQL query history. Notebook-to-table lineage also extracted.             |
+| Query operations and usage                | DatasetUsageStatistics, Operation | Per-dataset query counts and DML operation metrics.                                                |
