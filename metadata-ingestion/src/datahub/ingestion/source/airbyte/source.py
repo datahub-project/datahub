@@ -1,7 +1,6 @@
 import logging
-from dataclasses import dataclass
 from functools import partial
-from typing import Dict, Iterable, List, Literal, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
@@ -49,6 +48,8 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteStreamInfo,
     AirbyteTagInfo,
     PlatformInfo,
+    PlatformKind,
+    PlatformResolutionRequest,
     PropertyFieldPath,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -86,23 +87,6 @@ AIRBYTE_JOB_STATUS_MAP = {
     "incomplete": InstanceRunResult.UP_FOR_RETRY,
     "pending": InstanceRunResult.UP_FOR_RETRY,
 }
-
-
-@dataclass(frozen=True)
-class _PlatformResolutionRequest:
-    """Inputs to the source/destination platform-resolution helper.
-
-    Sources and destinations have nearly identical resolution logic; this
-    dataclass lets us pass the relevant fields through a single helper
-    instead of two near-duplicate methods (W4).
-    """
-
-    entity_id: str
-    entity_type: Optional[str]
-    name: Optional[str]
-    definition_id: Optional[str]
-    overrides: PlatformDetail
-    kind: Literal["source", "destination"]
 
 
 def _sanitize_platform_name(platform_name: str) -> str:
@@ -187,7 +171,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def _resolve_platform(self, request: _PlatformResolutionRequest) -> PlatformInfo:
+    def _resolve_platform(self, request: PlatformResolutionRequest) -> PlatformInfo:
         """Shared resolution logic for sources and destinations.
 
         Picks a DataHub platform name using the following precedence:
@@ -199,7 +183,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
         Cases (2) and (3) emit a per-id `report.warning` once so repeated
         connections sharing a source don't spam the report.
         """
-        if request.kind == "source":
+        if request.kind is PlatformKind.SOURCE:
             cache = self._source_platform_cache
             warned = self._warned_source_ids
             id_label = "source_id"
@@ -234,7 +218,7 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     context_parts.append(f"definition_id={request.definition_id}")
                 instance_setting = (
                     "sources_to_platform_instance"
-                    if request.kind == "source"
+                    if request.kind is PlatformKind.SOURCE
                     else "destinations_to_platform_instance"
                 )
                 context_parts.append(
@@ -279,13 +263,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
             source.source_id, PlatformDetail()
         )
         return self._resolve_platform(
-            _PlatformResolutionRequest(
+            PlatformResolutionRequest(
                 entity_id=source.source_id,
                 entity_type=source.source_type,
                 name=source.name,
                 definition_id=source.source_definition_id,
                 overrides=overrides,
-                kind="source",
+                kind=PlatformKind.SOURCE,
             )
         )
 
@@ -297,13 +281,13 @@ class AirbyteSource(StatefulIngestionSourceBase):
             destination.destination_id, PlatformDetail()
         )
         return self._resolve_platform(
-            _PlatformResolutionRequest(
+            PlatformResolutionRequest(
                 entity_id=destination.destination_id,
                 entity_type=destination.destination_type,
                 name=destination.name,
                 definition_id=destination.destination_definition_id,
                 overrides=overrides,
-                kind="destination",
+                kind=PlatformKind.DESTINATION,
             )
         )
 

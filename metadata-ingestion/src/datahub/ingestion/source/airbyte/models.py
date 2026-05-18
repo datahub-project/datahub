@@ -2,6 +2,9 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
+from datahub.ingestion.source.airbyte.config import PlatformDetail
+from datahub.utilities.str_enum import StrEnum
+
 # Common schema-name fields seen across Airbyte source/destination connectors.
 # Order matters: more-specific keys first.
 _SCHEMA_FIELDS: Sequence[str] = (
@@ -428,6 +431,35 @@ class PlatformInfo(BaseModel):
     platform: str
     platform_instance: Optional[str] = None
     env: Optional[str] = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class PlatformKind(StrEnum):
+    """Whether a `PlatformResolutionRequest` refers to an Airbyte source or destination.
+
+    Used to drive shared platform-resolution logic in `AirbyteSource._resolve_platform`
+    without splitting the method into near-identical source/destination variants.
+    """
+
+    SOURCE = "source"
+    DESTINATION = "destination"
+
+
+class PlatformResolutionRequest(BaseModel):
+    """Inputs to the source/destination platform-resolution helper.
+
+    Sources and destinations have nearly identical resolution logic; this
+    model lets us pass the relevant fields through a single helper instead
+    of maintaining two near-duplicate methods (PR #13217 review W4).
+    """
+
+    entity_id: str
+    entity_type: Optional[str] = None
+    name: Optional[str] = None
+    definition_id: Optional[str] = None
+    overrides: PlatformDetail
+    kind: PlatformKind
 
     model_config = ConfigDict(populate_by_name=True)
 
