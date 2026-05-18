@@ -25,8 +25,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -92,6 +94,71 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(
         response.getBody().get("error"),
         "Invalid URN: urn:li:dataset:(urn:li:dataPlatform:dbt,calm-pagoda-323403.jaffle_shop.orders,PROD");
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageStripsJavaClassNames() {
+    String message = "com.fasterxml.jackson.core.JsonParseException: Unexpected character (']')";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("com.fasterxml.jackson.core.JsonParseException"));
+    assertTrue(sanitized.contains("Unexpected character"));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageStripsSourceLocation() {
+    String message =
+        "Unexpected character [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 18]";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("[Source:"));
+    assertFalse(sanitized.contains("StreamReadFeature"));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessagePreservesSimpleMessages() {
+    assertEquals(
+        GlobalControllerExceptionHandler.sanitizeExceptionMessage("Invalid argument"),
+        "Invalid argument");
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageHandlesNull() {
+    assertNull(GlobalControllerExceptionHandler.sanitizeExceptionMessage(null));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageHandlesEmpty() {
+    assertEquals(GlobalControllerExceptionHandler.sanitizeExceptionMessage(""), "");
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageFullJacksonError() {
+    String message =
+        "com.fasterxml.jackson.core.JsonParseException: Unexpected character (&#x27;]&#x27;) "
+            + "(code 93): expected a valid value (JSON String, Number, Array, Object or token "
+            + "&#x27;null&#x27;, &#x27;true&#x27; or &#x27;false&#x27;)\n"
+            + " at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); "
+            + "line: 1, column: 18]";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("com.fasterxml.jackson"));
+    assertFalse(sanitized.contains("StreamReadFeature"));
+    assertFalse(sanitized.contains("[Source:"));
+  }
+
+  @Test
+  public void testHandleHttpMessageNotReadable() {
+    when(mockRequest.getRequestURI()).thenReturn("/api/graphql");
+    HttpMessageNotReadableException ex =
+        new HttpMessageNotReadableException(
+            "JSON parse error: com.fasterxml.jackson.core.JsonParseException: Unexpected",
+            (HttpInputMessage) null);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleHttpMessageNotReadable(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Malformed request body");
+    assertFalse(response.getBody().containsKey("message"));
   }
 
   @Test
@@ -309,6 +376,23 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Invalid JSON format");
     assertEquals(response.getBody().get("message"), "JSON parsing failed");
+  }
+
+  @Test
+  public void testHandleJsonExceptionSanitizesInternalDetails() {
+    when(mockRequest.getRequestURI()).thenReturn("/test/endpoint");
+    JsonProcessingException ex =
+        new JsonProcessingException(
+            "com.fasterxml.jackson.core.JsonParseException: Unexpected char") {};
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleJsonException(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertFalse(
+        response.getBody().get("message").contains("com.fasterxml.jackson"),
+        "Response must not contain internal Java class names");
   }
 
   @Test

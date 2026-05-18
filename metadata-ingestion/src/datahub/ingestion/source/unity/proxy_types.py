@@ -33,6 +33,14 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# TableType.METRIC_VIEW is absent on older databricks-sdk versions.
+_TABLE_TYPE_METRIC_VIEW = getattr(TableType, "METRIC_VIEW", None)
+
+
+def metric_view_supported() -> bool:
+    return _TABLE_TYPE_METRIC_VIEW is not None
+
+
 # TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
@@ -261,6 +269,10 @@ class Table(CommonProperty):
             TableType.MATERIALIZED_VIEW,
             HiveTableType.HIVE_VIEW,
         ]
+        self.is_metric_view = (
+            _TABLE_TYPE_METRIC_VIEW is not None
+            and self.table_type == _TABLE_TYPE_METRIC_VIEW
+        )
 
 
 @dataclass
