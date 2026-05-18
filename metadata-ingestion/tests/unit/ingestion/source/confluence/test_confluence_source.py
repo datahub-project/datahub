@@ -8,7 +8,10 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
+from datahub.ingestion.source.confluence.confluence_source import (
+    EXTRACTION_ALGO_VERSION,
+    ConfluenceSource,
+)
 
 
 @pytest.fixture
@@ -1026,3 +1029,86 @@ def test_missing_history_does_not_crash(
         and isinstance(wu.metadata.aspect, DocumentInfoClass)
         for wu in wus
     )
+
+
+def test_content_hash_in_custom_properties(
+    cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
+) -> None:
+    """Document custom_properties must include content_hash and extraction_algo_version.
+
+    The content_hash is read by DocumentChunkingSource to decide whether to
+    re-embed a document. Bumping EXTRACTION_ALGO_VERSION changes the hash even
+    if the raw page body is unchanged, forcing a full re-ingest after algorithm
+    improvements.
+    """
+    import hashlib
+    import json
+
+    from datahub.emitter.mcp import MetadataChangeProposalWrapper
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    page = {
+        "id": "99999",
+        "title": "Hash Test Page",
+        "body": {
+            "storage": {
+                "value": "<p>Some content that is long enough to pass the minimum length filter for testing purposes.</p>"
+            }
+        },
+        "ancestors": [],
+        "space": {"key": "HS", "name": "Hash Space"},
+        "_links": {"webui": "/spaces/HS/pages/99999"},
+        "version": {"when": "2025-01-01T00:00:00.000Z"},
+    }
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+    ) as mock_confluence:
+        mock_confluence.return_value = MagicMock()
+        source = ConfluenceSource(cloud_config, pipeline_context)
+        source.chunking_source.embedding_model = None
+
+        with patch.object(
+            source.chunking_source,
+            "_chunk_elements",
+            return_value=[{"text": "Some content here.", "type": "NarrativeText"}],
+        ):
+            wus = list(source._create_document_entity(page, {"99999"}, set()))
+
+    # Find the DocumentInfo aspect (carries custom_properties)
+    props_aspect = None
+    for wu in wus:
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
+            wu.metadata.aspect, DocumentInfoClass
+        ):
+            props_aspect = wu.metadata.aspect
+            break
+
+    assert props_aspect is not None, "DocumentInfoClass aspect not found"
+    custom_props = props_aspect.customProperties
+    assert custom_props is not None
+
+    # content_hash must be a 64-char SHA-256 hex string
+    assert "content_hash" in custom_props
+    assert len(custom_props["content_hash"]) == 64
+
+    # extraction_algo_version must match the module constant
+    assert "extraction_algo_version" in custom_props
+    assert custom_props["extraction_algo_version"] == EXTRACTION_ALGO_VERSION
+
+    # Verify the hash is deterministic: same body + same version → same hash
+    raw_body = "<p>Some content that is long enough to pass the minimum length filter for testing purposes.</p>"
+    expected_hash = hashlib.sha256(
+        json.dumps(
+            {"body": raw_body, "algo_version": EXTRACTION_ALGO_VERSION}, sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+    assert custom_props["content_hash"] == expected_hash
+
+    # Verify bumping algo_version changes the hash (cache busting works)
+    different_hash = hashlib.sha256(
+        json.dumps({"body": raw_body, "algo_version": "999"}, sort_keys=True).encode(
+            "utf-8"
+        )
+    ).hexdigest()
+    assert different_hash != expected_hash

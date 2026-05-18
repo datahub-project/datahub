@@ -58,6 +58,11 @@ from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
 
+# Bump this when the page extraction algorithm changes (e.g. HTML→Markdown
+# conversion, macro stripping, text normalization) to force re-ingestion of
+# all pages on the next run regardless of whether the raw Confluence body changed.
+EXTRACTION_ALGO_VERSION = "2"
+
 
 @platform_name("Confluence")
 @config_class(ConfluenceSourceConfig)
@@ -828,10 +833,25 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract parent URN
         parent_urn = self._extract_parent_urn(page, ingested_page_ids)
 
-        # Build custom properties
+        # Build custom properties, including a content_hash that encodes both
+        # the raw page body and the extraction algo version. The chunking source
+        # reads this hash to decide whether to re-embed a document; bumping
+        # EXTRACTION_ALGO_VERSION invalidates every document's hash and forces
+        # a full re-ingest on the next run.
+        import json as _json
+
+        raw_body = page.get("body", {}).get("storage", {}).get("value", "") or ""
+        _hash_input = _json.dumps(
+            {"body": raw_body, "algo_version": EXTRACTION_ALGO_VERSION},
+            sort_keys=True,
+        )
+        content_hash = hashlib.sha256(_hash_input.encode("utf-8")).hexdigest()
+
         custom_properties = {
             "space_key": space_key or "",
             "page_id": page_id,
+            "content_hash": content_hash,
+            "extraction_algo_version": EXTRACTION_ALGO_VERSION,
         }
 
         # Get timestamps if available
