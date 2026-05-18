@@ -1290,15 +1290,34 @@ ORDER by DataBaseName, TableName;
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        # Get list of databases first
-        with _engine_connect_with_retry(engine, report=self.report) as conn:
-            inspector = inspect(conn)
-            if self.config.database and self.config.database != "":
-                databases = [self.config.database]
-            elif self.config.databases:
-                databases = self.config.databases
-            else:
-                databases = inspector.get_schema_names()
+        # Get list of databases first.
+        # When the user supplied an explicit list we avoid an unnecessary DB
+        # round-trip entirely.  In the discovery path (else branch) we call
+        # inspector.get_schema_names() which issues a live query; retry with a
+        # fresh connection on transient failures so a single blip doesn't abort
+        # the whole run.
+        if self.config.database and self.config.database != "":
+            databases: List[str] = [self.config.database]
+        elif self.config.databases:
+            databases = list(self.config.databases)
+        else:
+            databases = []
+            for attempt in range(_RETRY_MAX_ATTEMPTS):
+                try:
+                    with _engine_connect_with_retry(engine, report=self.report) as conn:
+                        databases = inspect(conn).get_schema_names()
+                    break
+                except Exception as exc:
+                    if not _should_retry(exc) or attempt == _RETRY_MAX_ATTEMPTS - 1:
+                        raise
+                    backoff = _RETRY_INITIAL_BACKOFF_SECONDS * (2**attempt)
+                    logger.warning(
+                        f"Retryable error fetching schema names "
+                        f"(attempt {attempt + 1}/{_RETRY_MAX_ATTEMPTS}): {exc}. "
+                        f"Retrying in {backoff:.1f}s..."
+                    )
+                    self.report.num_db_retries += 1
+                    time.sleep(backoff)
 
         # When the user supplied an explicit database list, validate each entry
         # against dbc.TablesV (populated into _tables_cache during discovery).
@@ -2245,9 +2264,16 @@ ORDER by DataBaseName, TableName;
                 )
                 return True
         except Exception as e:
-            logger.info(
-                f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is not available: {e}"
-            )
+            if _should_retry(e):
+                logger.warning(
+                    f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
+                    f"after {_RETRY_MAX_ATTEMPTS} attempts due to a transient error: {e}. "
+                    "Historical lineage will be skipped for this run."
+                )
+            else:
+                logger.info(
+                    f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is not available: {e}"
+                )
             return False
         finally:
             engine.dispose()

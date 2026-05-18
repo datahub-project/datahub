@@ -2926,3 +2926,147 @@ class TestConnectionPoolRetry:
         ]
         assert pool_calls, "create_engine was never called with pool_timeout"
         assert pool_calls[-1][1]["pool_timeout"] == 90.0  # 90000 ms → 90 s
+
+
+class TestSchemaNameRetry:
+    """get_inspectors() retries get_schema_names() on transient errors."""
+
+    def test_retries_on_transient_error_then_succeeds(self, caplog):
+        """A transient error on the first get_schema_names() attempt is retried;
+        the second attempt succeeds and the correct databases are yielded."""
+        import logging
+
+        from sqlalchemy.exc import OperationalError
+
+        source = _create_source_patched()
+
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        # First inspector fails; second succeeds.
+        ok_inspector = MagicMock()
+        ok_inspector.get_schema_names.return_value = ["db1", "db2"]
+
+        fail_inspector = MagicMock()
+        fail_inspector.get_schema_names.side_effect = OperationalError(
+            "connection reset", None, None
+        )
+
+        # inspect() is called: once on failure, once to get schema names, then
+        # once per discovered database (per-db inspector in the for loop).
+        # Each per-db inspector must be a distinct object so that the
+        # _datahub_database attribute set in the loop is independent.
+        inspect_side_effects = iter(
+            [fail_inspector, ok_inspector, MagicMock(), MagicMock()]
+        )
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                side_effect=inspect_side_effects,
+            ),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            inspectors = list(source.get_inspectors())
+
+        assert [i._datahub_database for i in inspectors] == ["db1", "db2"]
+        assert source.report.num_db_retries >= 1
+        assert any("schema names" in r.message for r in caplog.records)
+
+    def test_aborts_on_non_retryable_error(self):
+        """A non-retryable error from get_schema_names() propagates immediately."""
+        source = _create_source_patched()
+
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        bad_inspector = MagicMock()
+        bad_inspector.get_schema_names.side_effect = Exception("permission denied")
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=bad_inspector,
+            ),
+            patch("time.sleep"),
+            pytest.raises(Exception, match="permission denied"),
+        ):
+            list(source.get_inspectors())
+
+        # Only one attempt — non-retryable errors are not retried.
+        assert bad_inspector.get_schema_names.call_count == 1
+
+
+class TestHistoricalTableCheckLogging:
+    """_check_historical_table_exists() logs at the right level depending on error type."""
+
+    def test_transient_error_logs_warning(self, caplog):
+        """When a transient error exhausts all retries the method logs a WARNING
+        (not just INFO) so the operator knows the skip was caused by a connectivity
+        problem, not a missing table."""
+        import logging
+
+        from sqlalchemy.exc import OperationalError
+
+        source = _create_source_patched()
+
+        # Simulate a transient error that survives all retry attempts.
+        transient_exc = OperationalError("connection reset", None, None)
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = transient_exc
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert any("transient" in r.message.lower() for r in warning_records), (
+            "Expected a WARNING mentioning 'transient' but got: "
+            + str([r.message for r in warning_records])
+        )
+
+    def test_non_transient_error_logs_info_not_warning(self, caplog):
+        """A genuine 'table not found' error should log at INFO, not WARNING."""
+        import logging
+
+        source = _create_source_patched()
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = Exception("Object does not exist")
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=mock_engine),
+            patch("time.sleep"),
+            caplog.at_level(
+                logging.DEBUG, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            result = source._check_historical_table_exists()
+
+        assert result is False
+        # Should have an INFO log, but NOT a WARNING about transient errors.
+        assert not any(
+            "transient" in r.message.lower() and r.levelno == logging.WARNING
+            for r in caplog.records
+        )
