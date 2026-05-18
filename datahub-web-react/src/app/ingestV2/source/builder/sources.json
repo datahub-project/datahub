@@ -55,7 +55,7 @@
         "displayName": "Snowflake",
         "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Snowflake.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview",
-        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        authentication_type: KEY_PAIR_AUTHENTICATOR\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Data Warehouse",
         "isPopular": true
     },
@@ -158,6 +158,16 @@
         "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false",
         "category": "ETL / ELT",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:matillion",
+        "name": "matillion-dpc",
+        "displayName": "Matillion",
+        "description": "Import Pipelines, Streaming Pipelines, Projects, Environments, and lineage from Matillion Data Productivity Cloud.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/matillion-dpc",
+        "recipe": "source:\n  type: matillion-dpc\n  config:\n    api_config:\n      client_id: \"${MATILLION_CLIENT_ID}\"\n      client_secret: \"${MATILLION_CLIENT_SECRET}\"\n      region: \"EU1\"  # EU1 or US1\n\n    env: \"PROD\"\n    extract_projects_to_containers: true\n    parse_sql_for_lineage: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:flink",

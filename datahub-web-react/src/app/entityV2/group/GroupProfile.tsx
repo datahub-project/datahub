@@ -121,6 +121,7 @@ export default function GroupProfile({ urn }: Props) {
                         urn={urn}
                         pageSize={MEMBER_PAGE_SIZE}
                         isExternalGroup={isExternalGroup}
+                        externalGroupType={externalGroupType}
                         onChangeMembers={() => {
                             setTimeout(() => refetch(), 3000);
                         }}

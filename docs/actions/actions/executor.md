@@ -28,6 +28,10 @@ Specifically, changes to the `dataHubExecutionRequestInput` and `dataHubExecutio
 
 The executor runs ingestion in pre-built virtual environments under `DATAHUB_BUNDLED_VENV_PATH` (default `/opt/datahub/venvs`) **when the execution uses the bundled CLI version**—the same `acryl-datahub` version baked into the image at build time (`BUNDLED_CLI_VERSION`). To ship additional connectors or group installs, configure those environments **when building** the container image (for example `BUNDLED_VENV_PLUGINS` and `BUNDLED_CLI_VERSION`). See [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md).
 
+## Security
+
+Anyone who can configure UI-driven ingestion sources influences recipe content executed by this Action. For production, combine least-privilege platform privileges with operational controls such as **locked** `datahub-actions` images, a **private Python package mirror**, and restricted outbound egress as described in [Ingestion executor security and hardening](/docs/docker/ingestion-executor-security.md).
+
 ## Action Quickstart
 
 ### Prerequisites

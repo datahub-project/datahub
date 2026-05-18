@@ -44,9 +44,23 @@ FROZEN_TIME = "2022-06-07 17:00:00"
 
 @pytest.fixture(autouse=True)
 def mock_service_account_credentials():
-    """Mock from_service_account_info so tests with dummy private keys don't fail PEM validation."""
-    with mock.patch(
-        "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+    """Mock GCP client construction for tests using dummy BigQuery credentials.
+
+    The dummy `credential:` blocks in these tests would otherwise:
+      1. Fail PEM validation inside `from_service_account_info`.
+      2. Fail project derivation inside `bigquery.Client(None, credentials=MagicMock())`
+         when `get_bigquery_client()` is called from the Fivetran log reader's
+         user-supplied-client path.
+
+    Both are patched so test fixtures don't need real GCP credentials.
+    """
+    with (
+        mock.patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.service_account.Credentials.from_service_account_info"
+        ),
+        mock.patch(
+            "datahub.ingestion.source.bigquery_v2.bigquery_connection.bigquery.Client"
+        ),
     ):
         yield
 

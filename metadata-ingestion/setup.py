@@ -255,7 +255,7 @@ bigquery_common = {
     "google-cloud-datacatalog>=1.5.0,<4.0.0",
     "google-cloud-resource-manager<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
-    "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+    "sqlalchemy-bigquery>=1.5.0,<2.0.0",
     *path_spec_common,
 }
 
@@ -392,8 +392,10 @@ s3_base = {
     "tableschema>=1.20.2,<2.0.0",
     # ujson 5.2.0 has the JSONDecodeError exception type, which we need for error handling.
     # >=5.12.0: fixes DoS (memory growth on parsing huge integers in 5.4–5.11; dumps() indent
-    # overflow/infinite loop GHSA-c8rr-9gxc-jprv). Keep <6 until major API review.
-    "ujson>=5.12.0,<6.0.0",
+    # overflow/infinite loop GHSA-c8rr-9gxc-jprv).
+    # >=5.12.1: CVE-2026-44660 — memory leak in ujson.dump() on write failure.
+    # Keep <6 until major API review.
+    "ujson>=5.12.1,<6.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
     *path_spec_common,
     # cachetools is used by operation_config which is imported by profiling config
@@ -419,7 +421,7 @@ abs_base = {
     *pyarrow_common,
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
-    "ujson>=5.12.0,<6.0.0",
+    "ujson>=5.12.1,<6.0.0",
     *path_spec_common,
 }
 
@@ -566,7 +568,7 @@ plugins: Dict[str, Set[str]] = {
     # https://github.com/jd/tenacity/issues/471
     | {
         "PyAthena[SQLAlchemy]>=2.6.0,<3.0.0",
-        "sqlalchemy-bigquery>=1.4.1,<2.0.0",
+        "sqlalchemy-bigquery>=1.5.0,<2.0.0",
         "tenacity!=8.4.0,<9.0.0",
     },
     "azure-ad": set(),
@@ -799,6 +801,7 @@ plugins: Dict[str, Set[str]] = {
     | databricks_common
     | sqlalchemy_lib
     | sqlglot_lib,
+    "matillion-dpc": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     # dlt is the backing client lib used to read pipeline state. The connector
     # falls back to direct YAML parsing when dlt is not importable, but in
     # normal use we expect users opting into the dlt extra to want the SDK
@@ -958,6 +961,7 @@ base_dev_requirements = {
             "lookml",
             "glue",
             "mariadb",
+            "matillion-dpc",
             "okta",
             "oracle",
             "postgres",
@@ -1119,6 +1123,7 @@ entry_points = {
         "mssql = datahub.ingestion.source.sql.mssql:SQLServerSource",
         "mysql = datahub.ingestion.source.sql.mysql:MySQLSource",
         "mariadb = datahub.ingestion.source.sql.mariadb:MariaDBSource",
+        "matillion-dpc = datahub.ingestion.source.matillion_dpc.matillion:MatillionSource",
         "doris = datahub.ingestion.source.sql.doris.doris_source:DorisSource",
         "okta = datahub.ingestion.source.identity.okta:OktaSource",
         "oracle = datahub.ingestion.source.sql.oracle:OracleSource",

@@ -16,6 +16,7 @@ The `fabric-onelake` module ingests metadata from Fabric Onelake into DataHub. I
 - Table datasets with proper subtypes
 - View datasets with view definitions captured from the SQL Analytics endpoint
 - View-to-table lineage parsed from view definitions
+- Query usage statistics and operation aspects derived from `queryinsights.exec_requests_history`
 - Automatic detection and handling of schemas-enabled and schemas-disabled lakehouses
 - Pattern-based filtering for workspaces, lakehouses, warehouses, tables, and views
 - Stateful ingestion for stale entity removal
@@ -222,3 +223,11 @@ Reading view definitions (needed for view-to-table lineage) requires `VIEW DEFIN
 If neither is acceptable for your environment, set `extract_views: false` to skip view ingestion. Views will still appear without definitions if you ingest them at Viewer level, but lineage will be missing.
 
 References: [Fabric Warehouse roles and permissions](https://learn.microsoft.com/en-us/fabric/data-warehouse/share-warehouse-manage-permissions), [Lakehouse workspace roles](https://learn.microsoft.com/en-us/fabric/data-engineering/workspace-roles-lakehouse).
+
+#### Query Usage Statistics
+
+Usage extraction reads [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) over the SQL Analytics Endpoint. It reuses the ODBC setup from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup), so `sql_endpoint.enabled` must be `true` — the configuration validator rejects `usage.include_usage_statistics=true` otherwise.
+
+**Required role.** Visibility into `queryinsights` is **scoped per workspace**. The ingesting identity (service principal, managed identity, or user) needs **Contributor or higher** on each workspace whose Lakehouses/Warehouses you want usage for. The workspace **Viewer** role used for table ingestion is _not_ sufficient: per [Microsoft's docs](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights), `queryinsights` requires _"contributor or higher permissions"_ on a Premium-capacity workspace, and full query text — needed for SQL parsing and column-level usage — is only exposed to Admin, Member, and Contributor roles.
+
+**Retention and latency.** Fabric retains `queryinsights` for **30 days only** — older history cannot be backfilled, so configure `usage.start_time` accordingly. Newly executed queries can take up to 15 minutes to appear, increasing under concurrency. System queries and queries from outside a user's context are not surfaced.

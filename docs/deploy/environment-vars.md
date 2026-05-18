@@ -1015,6 +1015,24 @@ The following environment variables are used in the codebase but may not be expl
 | `MCP_TIMESERIES_MULTIPLIER`                   | `10`       | Timeseries multiplier                          | GMS, MCE Consumer |
 | `MCP_TIMESERIES_MAX_INTERVAL_MS`              | `30000`    | Timeseries max interval                        | GMS, MCE Consumer |
 
+### MCL Timeseries Write Throttle
+
+Controls how frequently timeseries aspect MCL events update the entity search index and/or
+timeseries index in Elasticsearch. When enabled, repeated writes for the same (URN, aspect) pair
+are dropped if they arrive within the configured refresh period. This reduces ES write pressure
+for high-rate timeseries producers (e.g. usage statistics, dataset profiles) at the cost of
+slightly stale search-index values. The in-memory cache TTL is automatically aligned with the
+refresh period.
+
+| Environment Variable                               | Default | Description                                                                                                    | Components        |
+| -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED`     | `false` | Suppress entity search index updates from timeseries aspects                                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED` | `false` | Suppress timeseries index writes                                                                               | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED`          | `false` | Log-only mode: logs what would be throttled without suppressing writes (shadow mode)                           | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS`          | `3600`  | Default minimum seconds between writes per (URN, aspect); also the cache TTL                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES`        | `{}`    | JSON per-entity, per-aspect refresh overrides, e.g. `{"dataset": {"operation": 300, "datasetProfile": 86400}}` | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_MAX_URNS`                 | `10000` | Maximum URNs tracked in the throttle cache before eviction                                                     | GMS, MAE Consumer |
+
 ### Events API Configuration
 
 | Environment Variable | Default | Description       | Components |
