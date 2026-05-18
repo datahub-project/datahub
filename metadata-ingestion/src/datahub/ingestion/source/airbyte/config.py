@@ -218,6 +218,20 @@ class AirbyteClientConfig(ConfigModel):
             return OAuth2GrantType.REFRESH_TOKEN
         return OAuth2GrantType.CLIENT_CREDENTIALS
 
+    @property
+    def external_url_base(self) -> str:
+        """Return the deployment-appropriate base URL for `externalUrl` aspects.
+
+        OSS uses the configured `host_port` (e.g. http://localhost:8000); Cloud
+        always points at https://cloud.airbyte.com. We can't use
+        `getattr(..., "host_port", DEFAULT)` because `host_port` is a declared
+        field that defaults to None for Cloud — getattr returns None, not the
+        default.
+        """
+        if self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
+            return self.host_port or ""
+        return "https://cloud.airbyte.com"
+
     @model_validator(mode="after")
     def validate_deployment_requirements(self) -> "AirbyteClientConfig":
         """Validate deployment-specific required fields."""

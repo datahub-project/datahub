@@ -15,6 +15,7 @@ from datahub.ingestion.source.airbyte.models import (
     AirbytePipelineInfo,
     AirbyteSourcePartial,
     AirbyteSyncCatalog,
+    AirbyteTagInfo,
     AirbyteWorkspacePartial,
 )
 from datahub.ingestion.source.airbyte.source import AirbyteSource
@@ -90,8 +91,6 @@ class TestExtractConnectionTags:
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_extract_connection_tags(self, mock_create_client, mock_ctx):
         """Test extracting tags for a connection."""
-        from datahub.ingestion.source.airbyte.models import AirbyteTagInfo
-
         mock_create_client.return_value = MagicMock()
 
         config = AirbyteSourceConfig(
@@ -236,12 +235,12 @@ class TestFetchStreamsForSource:
         assert streams == []
 
 
-class TestGetWorkunits:
-    """Tests for get_workunits method and error handling."""
+class TestGetWorkunitsInternal:
+    """Tests for `get_workunits_internal` and error handling."""
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-    def test_get_workunits_with_invalid_workspace(self, mock_create_client, mock_ctx):
-        """Test get_workunits handles invalid workspace gracefully."""
+    def test_invalid_workspace_skipped_silently(self, mock_create_client, mock_ctx):
+        """Workspaces missing IDs are skipped with a warning, not crashed on."""
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
             AirbyteWorkspacePartial(workspace_id="", name="Invalid Workspace")
@@ -254,13 +253,11 @@ class TestGetWorkunits:
         )
         source = AirbyteSource(config, mock_ctx)
 
-        workunits = list(source.get_workunits())
-
-        assert len(workunits) == 0
+        workunits = list(source.get_workunits_internal())
+        assert workunits == []
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-    def test_get_workunits_with_invalid_connection(self, mock_create_client, mock_ctx):
-        """Test get_workunits handles invalid connection gracefully."""
+    def test_invalid_connection_recorded_as_warning(self, mock_create_client, mock_ctx):
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
             AirbyteWorkspacePartial(workspace_id="workspace-123", name="Test Workspace")
@@ -280,16 +277,11 @@ class TestGetWorkunits:
         )
         source = AirbyteSource(config, mock_ctx)
 
-        workunits = list(source.get_workunits())
-
-        assert isinstance(workunits, list)
+        list(source.get_workunits_internal())
         assert source.report.warnings
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-    def test_get_workunits_with_processing_exception(
-        self, mock_create_client, mock_ctx
-    ):
-        """Test get_workunits handles processing exceptions."""
+    def test_api_exception_reported_as_failure(self, mock_create_client, mock_ctx):
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
             AirbyteWorkspacePartial(workspace_id="workspace-123", name="Test Workspace")
@@ -303,9 +295,8 @@ class TestGetWorkunits:
         )
         source = AirbyteSource(config, mock_ctx)
 
-        workunits = list(source.get_workunits())
-
-        assert isinstance(workunits, list)
+        list(source.get_workunits_internal())
+        assert source.report.failures
 
 
 class TestGetWorkunitProcessors:

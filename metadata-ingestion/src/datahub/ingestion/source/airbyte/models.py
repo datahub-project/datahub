@@ -1,10 +1,51 @@
-from typing import Any, Dict, Iterable, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
-from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.data_job_urn import DataJobUrn
+# Common schema-name fields seen across Airbyte source/destination connectors.
+# Order matters: more-specific keys first.
+_SCHEMA_FIELDS: Sequence[str] = (
+    "schema",  # Generic, Postgres, Snowflake
+    "default_schema",  # MSSQL, Oracle
+    "schema_name",  # Alternative name
+)
+
+# Common database-name fields across Airbyte connectors. The destination
+# variant additionally includes "dataset" (BigQuery dataset-as-database);
+# see `_DESTINATION_DATABASE_FIELDS`.
+_SOURCE_DATABASE_FIELDS: Sequence[str] = (
+    "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
+    "db",  # Short form
+    "db_name",  # Alternative
+    "database_name",  # Alternative
+    "dbname",  # Alternative
+    "service_name",  # Oracle
+    "sid",  # Oracle SID
+    "project",  # BigQuery (project = database equivalent)
+    "project_id",  # BigQuery alternative
+    "catalog",  # Databricks, Trino
+    "keyspace",  # Cassandra, ScyllaDB
+)
+
+# Destination database fields include BigQuery's "dataset" key (some
+# destination connectors treat dataset as the database tier).
+_DESTINATION_DATABASE_FIELDS: Sequence[str] = (
+    *_SOURCE_DATABASE_FIELDS,
+    "dataset",
+)
+
+
+def _lookup_config_field(
+    config: Optional[Dict[str, Any]], fields: Sequence[str]
+) -> Optional[str]:
+    """Return the first non-empty string value at any of `fields` in `config`."""
+    if not config:
+        return None
+    for field in fields:
+        value = config.get(field)
+        if value and isinstance(value, str):
+            return value
+    return None
 
 
 class StreamIdentifier(BaseModel):
@@ -61,7 +102,7 @@ class AirbyteStreamConfig(BaseModel):
     """Model for Airbyte stream configuration in syncCatalog."""
 
     stream: AirbyteStream
-    config: Dict[str, Any] = {}  # Default to empty dict instead of Optional
+    config: Dict[str, Any] = {}
 
     def is_enabled(self) -> bool:
         """Check if stream is enabled for syncing."""
@@ -139,101 +180,10 @@ class AirbyteDestinationConfiguration(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
 
-class AirbyteDataSource(BaseModel):
-    """Model for Airbyte source configuration."""
-
-    source_id: str = Field(alias="sourceId")
-    name: str
-    source_type: str = Field("", alias="sourceType")  # Default to empty string
-    source_definition_id: str = Field(
-        "",
-        validation_alias=AliasChoices("definitionId", "sourceDefinitionId"),
-    )
-    configuration: AirbyteSourceConfiguration = Field(
-        default_factory=AirbyteSourceConfiguration
-    )
-    workspace_id: str = Field("", alias="workspaceId")  # Default to empty string
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteDestination(BaseModel):
-    """Model for Airbyte destination configuration."""
-
-    destination_id: str = Field(alias="destinationId")
-    name: str
-    destination_type: str = Field(
-        "", alias="destinationType"
-    )  # Default to empty string
-    destination_definition_id: str = Field(
-        "",
-        validation_alias=AliasChoices("definitionId", "destinationDefinitionId"),
-    )
-    configuration: AirbyteDestinationConfiguration = Field(
-        default_factory=AirbyteDestinationConfiguration
-    )
-    workspace_id: str = Field("", alias="workspaceId")  # Default to empty string
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteConnection(BaseModel):
-    """Model for Airbyte connection configuration."""
-
-    connection_id: str = Field(alias="connectionId")
-    name: str
-    source_id: str = Field(alias="sourceId")
-    destination_id: str = Field(alias="destinationId")
-    status: str
-    sync_catalog: AirbyteSyncCatalog = Field(
-        default_factory=AirbyteSyncCatalog, alias="syncCatalog"
-    )
-    schedule_type: str = Field("", alias="scheduleType")  # Default to empty string
-    schedule_data: Dict[str, Any] = Field(default_factory=dict, alias="scheduleData")
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteJobAttempt(BaseModel):
-    """Model for Airbyte job attempt."""
-
-    id: int
-    status: str
-    created_at: int = Field(alias="createdAt")
-    ended_at: Optional[int] = Field(
-        None, alias="endedAt"
-    )  # This can legitimately be null for running jobs
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteJob(BaseModel):
-    """Model for Airbyte job details."""
-
-    id: str
-    config_id: str = Field(alias="configId")
-    config_type: str = Field(alias="configType")
-    status: str
-    created_at: int = Field(alias="createdAt")
-    updated_at: int = Field(alias="updatedAt")
-    attempts: List[AirbyteJobAttempt] = []
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-class AirbyteWorkspace(BaseModel):
-    """Model for Airbyte workspace."""
-
-    workspace_id: str = Field(alias="workspaceId")
-    name: str
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
 class AirbyteSourcePartial(BaseModel):
     """Model for potentially incomplete Airbyte source configuration."""
 
-    source_id: str = Field(alias="sourceId")  # Make mandatory
+    source_id: str = Field(alias="sourceId")
     name: Optional[str] = None
     source_type: Optional[str] = Field(None, alias="sourceType")
     source_definition_id: Optional[str] = Field(
@@ -261,77 +211,41 @@ class AirbyteSourcePartial(BaseModel):
 
     @property
     def get_schema(self) -> Optional[str]:
-        """
-        Get schema from the source configuration
+        """Get schema from the source configuration.
 
         Returns:
             Schema name or None if not found
         """
-        if not self.configuration:
-            return None
+        schema = _lookup_config_field(self.configuration, _SCHEMA_FIELDS)
+        if schema:
+            return schema
 
-        # Try common schema field names across different connectors
-        schema_fields = [
-            "schema",  # Generic, Postgres, Snowflake
-            "default_schema",  # MSSQL, Oracle
-            "schema_name",  # Alternative name
-        ]
-
-        for field in schema_fields:
-            schema = self.configuration.get(field)
-            if schema and isinstance(schema, str):
-                return schema
-
-        # Then look for schemas array (Snowflake, BigQuery)
-        schemas = self.configuration.get("schemas")
-        if schemas and isinstance(schemas, list) and len(schemas) > 0:
-            first_schema = schemas[0]
-            # schemas might be array of strings or objects
-            if isinstance(first_schema, str):
-                return first_schema
-            elif isinstance(first_schema, dict):
-                return first_schema.get("name") or first_schema.get("schema")
+        # Also look for `schemas` array (Snowflake, BigQuery)
+        if self.configuration:
+            schemas = self.configuration.get("schemas")
+            if schemas and isinstance(schemas, list) and len(schemas) > 0:
+                first_schema = schemas[0]
+                if isinstance(first_schema, str):
+                    return first_schema
+                elif isinstance(first_schema, dict):
+                    return first_schema.get("name") or first_schema.get("schema")
 
         return None
 
     @property
     def get_database(self) -> Optional[str]:
-        """
-        Get database from the source configuration
+        """Get database from the source configuration.
 
         Returns:
             Database name or None if not found
         """
-        if not self.configuration:
-            return None
-
-        # Try common database field names across different connectors
-        database_fields = [
-            "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
-            "db",  # Short form
-            "db_name",  # Alternative
-            "database_name",  # Alternative
-            "dbname",  # Alternative
-            "service_name",  # Oracle
-            "sid",  # Oracle SID
-            "project",  # BigQuery (project = database equivalent)
-            "project_id",  # BigQuery alternative
-            "catalog",  # Databricks, Trino
-            "keyspace",  # Cassandra, ScyllaDB
-        ]
-
-        for field in database_fields:
-            database = self.configuration.get(field)
-            if database and isinstance(database, str):
-                return database
-
-        return None
+        return _lookup_config_field(self.configuration, _SOURCE_DATABASE_FIELDS)
 
 
 class AirbyteDestinationPartial(BaseModel):
     """Model for potentially incomplete Airbyte destination configuration."""
 
-    destination_id: str = Field(alias="destinationId")  # Make mandatory
+    destination_id: str = Field(alias="destinationId")
     name: Optional[str] = None
     destination_type: Optional[str] = Field(None, alias="destinationType")
     destination_definition_id: Optional[str] = Field(
@@ -346,74 +260,33 @@ class AirbyteDestinationPartial(BaseModel):
 
     @property
     def get_schema(self) -> Optional[str]:
-        """
-        Get schema from the destination configuration
+        """Get schema from the destination configuration.
 
         Returns:
             Schema name or None if not found
         """
-        if not self.configuration:
-            return None
-
-        # Try common schema field names across different connectors
-        schema_fields = [
-            "schema",  # Generic, Postgres, Snowflake
-            "default_schema",  # MSSQL, Oracle
-            "schema_name",  # Alternative name
-        ]
-
-        for field in schema_fields:
-            schema = self.configuration.get(field)
-            if schema and isinstance(schema, str):
-                return schema
-
-        return None
+        return _lookup_config_field(self.configuration, _SCHEMA_FIELDS)
 
     @property
     def get_database(self) -> Optional[str]:
-        """
-        Get database from the destination configuration
+        """Get database from the destination configuration.
 
         Returns:
             Database name or None if not found
         """
-        if not self.configuration:
-            return None
-
-        # Try common database field names across different connectors
-        database_fields = [
-            "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
-            "db",  # Short form
-            "db_name",  # Alternative
-            "database_name",  # Alternative
-            "dbname",  # Alternative
-            "service_name",  # Oracle
-            "sid",  # Oracle SID
-            "project",  # BigQuery (project = database equivalent)
-            "project_id",  # BigQuery alternative
-            "catalog",  # Databricks, Trino
-            "dataset",  # BigQuery (dataset = schema equivalent, but some use it as database)
-            "keyspace",  # Cassandra, ScyllaDB
-        ]
-
-        for field in database_fields:
-            database = self.configuration.get(field)
-            if database and isinstance(database, str):
-                return database
-
-        return None
+        return _lookup_config_field(self.configuration, _DESTINATION_DATABASE_FIELDS)
 
 
 class AirbyteConnectionPartial(BaseModel):
     """Model for potentially incomplete Airbyte connection configuration."""
 
-    connection_id: str = Field(alias="connectionId")  # Make mandatory
+    connection_id: str = Field(alias="connectionId")
     name: Optional[str] = None
-    source_id: str = Field(alias="sourceId")  # Make mandatory
-    destination_id: str = Field(alias="destinationId")  # Make mandatory
+    source_id: str = Field(alias="sourceId")
+    destination_id: str = Field(alias="destinationId")
     status: Optional[str] = None
     sync_catalog: Optional[AirbyteSyncCatalog] = Field(None, alias="syncCatalog")
-    configuration: Optional[Dict[str, Any]] = None  # May contain catalog info
+    configuration: Optional[Dict[str, Any]] = None
     schedule_type: Optional[str] = Field(None, alias="scheduleType")
     schedule_data: Optional[Dict[str, Any]] = Field(None, alias="scheduleData")
     namespace_definition: Optional[str] = Field(None, alias="namespaceDefinition")
@@ -476,11 +349,10 @@ class AirbyteConnectionPartial(BaseModel):
         return None
 
 
-# Updated AirbyteWorkspacePartial model with workspace_id as mandatory
 class AirbyteWorkspacePartial(BaseModel):
     """Model for potentially incomplete Airbyte workspace."""
 
-    workspace_id: str = Field(alias="workspaceId")  # Make mandatory
+    workspace_id: str = Field(alias="workspaceId")
     name: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
@@ -493,31 +365,6 @@ class AirbytePipelineInfo(BaseModel):
     connection: AirbyteConnectionPartial
     source: AirbyteSourcePartial
     destination: AirbyteDestinationPartial
-
-
-class AirbyteJobExecution(BaseModel):
-    """Model for Airbyte job execution details."""
-
-    id: str
-    name: str
-    status: str
-    start_time: int
-    end_time: Optional[int] = None  # Can be None for running jobs
-
-    model_config = ConfigDict(populate_by_name=True)
-
-
-# New models for better type safety
-
-
-class AirbyteStreamField(BaseModel):
-    """Model for stream field/column metadata."""
-
-    name: str
-    field_type: str = ""  # Default to empty string
-    description: str = ""  # Default to empty string
-
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteStreamDetails(BaseModel):
@@ -549,14 +396,10 @@ class AirbyteStreamDetails(BaseModel):
 class AirbyteTagInfo(BaseModel):
     """Model for Airbyte tag information."""
 
-    tag_id: Optional[str] = Field(None, alias="id")  # May be missing in some responses
+    tag_id: Optional[str] = Field(None, alias="id")
     name: str
-    resource_id: Optional[str] = Field(
-        None, alias="resourceId"
-    )  # May be missing for global tags
-    resource_type: Optional[str] = Field(
-        None, alias="resourceType"
-    )  # May be missing for global tags
+    resource_id: Optional[str] = Field(None, alias="resourceId")
+    resource_type: Optional[str] = Field(None, alias="resourceType")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -587,24 +430,6 @@ class PlatformInfo(BaseModel):
     env: Optional[str] = None
 
     model_config = ConfigDict(populate_by_name=True)
-
-
-class DataFlowResult(BaseModel):
-    """Container for DataFlow creation results."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    dataflow_urn: DataFlowUrn
-    work_units: Iterable[MetadataWorkUnit]
-
-
-class DataJobResult(BaseModel):
-    """Container for DataJob creation results."""
-
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-
-    datajob_urn: DataJobUrn
-    work_units: Iterable[MetadataWorkUnit]
 
 
 class AirbyteTestResult(BaseModel):

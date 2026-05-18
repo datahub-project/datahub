@@ -1,126 +1,79 @@
+"""Tests for validator/business logic in `airbyte.config`.
+
+We deliberately keep this file focused on logic that lives in our codebase
+(custom validators, derived properties, deployment-specific URL handling).
+Trivial round-trip tests that only re-read pydantic-assigned values are
+omitted — they test pydantic, not us.
+"""
+
+import pytest
 from pydantic import ValidationError
 from pydantic.types import SecretStr
 
-from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.config import (
     AirbyteClientConfig,
     AirbyteDeploymentType,
-    AirbyteSourceConfig,
     OAuth2GrantType,
 )
 
 
-class TestAirbyteClientConfig:
-    def test_open_source_config_valid(self):
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-        )
-        assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
-        assert config.host_port == "http://localhost:8000"
+class TestOAuth2GrantTypeAutoDetection:
+    """`oauth2_grant_type` is derived from whether a refresh token is set."""
 
-    def test_open_source_config_with_auth(self):
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-            username="user",
-            password=SecretStr("pass"),
-        )
-        assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
-        assert config.host_port == "http://localhost:8000"
-        assert config.username == "user"
-        assert (
-            config.password is not None and config.password.get_secret_value() == "pass"
-        )
-
-    def test_cloud_config_valid(self):
-        """Test cloud config requires OAuth credentials."""
+    def test_refresh_token_present_picks_refresh_token_grant(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
-            cloud_workspace_id="test-workspace-id",
+            cloud_workspace_id="ws",
             oauth2_client_id="client-id",
             oauth2_client_secret=SecretStr("client-secret"),
             oauth2_refresh_token=SecretStr("refresh-token"),
         )
-        assert config.deployment_type == AirbyteDeploymentType.CLOUD
-        assert config.cloud_workspace_id == "test-workspace-id"
-        assert config.oauth2_client_id == "client-id"
-        assert config.oauth2_client_secret is not None
-
-    def test_invalid_deployment_type(self):
-        try:
-            # Use a string that is not a valid enum value
-            AirbyteClientConfig(
-                deployment_type="invalid_type",  # This is not a valid enum value
-                host_port="http://localhost:8000",
-            )
-            raise AssertionError("Expected validation to fail")
-        except Exception as e:
-            # Just verify some error is raised - different versions of Pydantic
-            # may use different error types
-            assert (
-                "deployment_type" in str(e).lower()
-                or "not a valid enum" in str(e).lower()
-                or "invalid_type" in str(e).lower()
-            )
-
-    def test_cloud_config_with_refresh_token(self):
-        """Test cloud config with auto-detected refresh_token grant type."""
-        config = AirbyteClientConfig(
-            deployment_type=AirbyteDeploymentType.CLOUD,
-            cloud_workspace_id="test-workspace-id",
-            oauth2_client_id="client-id",
-            oauth2_client_secret=SecretStr("client-secret"),
-            oauth2_refresh_token=SecretStr("refresh-token"),
-            # oauth2_grant_type not specified - auto-detects REFRESH_TOKEN
-        )
-        assert config.deployment_type == AirbyteDeploymentType.CLOUD
         assert config.oauth2_grant_type == OAuth2GrantType.REFRESH_TOKEN
-        assert config.oauth2_client_id == "client-id"
-        assert config.oauth2_refresh_token is not None
 
-    def test_cloud_config_with_client_credentials(self):
-        """Test cloud config with client_credentials (no refresh token)."""
+    def test_refresh_token_absent_picks_client_credentials_grant(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
-            cloud_workspace_id="test-workspace-id",
+            cloud_workspace_id="ws",
             oauth2_client_id="client-id",
             oauth2_client_secret=SecretStr("client-secret"),
-            # No refresh token - auto-detects CLIENT_CREDENTIALS
         )
-        assert config.deployment_type == AirbyteDeploymentType.CLOUD
         assert config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
-        assert config.oauth2_client_id == "client-id"
-        assert config.oauth2_refresh_token is None
 
-    def test_cloud_config_missing_client_credentials(self):
-        """Test that client_id and client_secret are required for cloud deployment."""
-        try:
-            AirbyteClientConfig(
-                deployment_type=AirbyteDeploymentType.CLOUD,
-                cloud_workspace_id="test-workspace-id",
-                # Missing oauth2_client_id and oauth2_client_secret
-            )
-            raise AssertionError("Expected validation to fail")
-        except ValidationError as e:
-            assert "oauth2_client_id" in str(e) or "oauth2_client_secret" in str(e)
 
-    def test_oss_config_with_oauth_client_credentials(self):
-        """Test OSS config with OAuth client credentials (Airbyte 1.0+)."""
+class TestExternalUrlBase:
+    """`external_url_base` is used to build `externalUrl` aspects.
+
+    Regression guard: previously the source used
+    `getattr(config, "host_port", DEFAULT)` which returned `None` for Cloud
+    (since host_port is a declared field that defaults to None), producing
+    literal "None/workspaces/..." URLs.
+    """
+
+    def test_oss_uses_host_port(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
-            oauth2_client_id="oss-client-id",
-            oauth2_client_secret=SecretStr("oss-client-secret"),
         )
-        assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
-        assert config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
-        assert config.oauth2_client_id == "oss-client-id"
-        assert config.oauth2_refresh_token is None
+        assert config.external_url_base == "http://localhost:8000"
 
-    def test_oss_config_with_refresh_token_fails(self):
-        """Test that OSS deployment rejects refresh_token (not supported)."""
-        try:
+    def test_cloud_uses_cloud_base(self):
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.CLOUD,
+            cloud_workspace_id="ws",
+            oauth2_client_id="client-id",
+            oauth2_client_secret=SecretStr("client-secret"),
+            oauth2_refresh_token=SecretStr("refresh-token"),
+        )
+        assert config.external_url_base == "https://cloud.airbyte.com"
+
+
+class TestDeploymentValidators:
+    """Custom model_validator branches."""
+
+    def test_oss_rejects_refresh_token(self):
+        with pytest.raises(
+            ValidationError, match="oauth2_refresh_token is not supported for OSS"
+        ):
             AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
                 host_port="http://localhost:8000",
@@ -128,45 +81,37 @@ class TestAirbyteClientConfig:
                 oauth2_client_secret=SecretStr("oss-client-secret"),
                 oauth2_refresh_token=SecretStr("refresh-token"),
             )
-            raise AssertionError("Expected validation to fail")
-        except ValidationError as e:
-            assert "oauth2_refresh_token is not supported for OSS" in str(e)
 
+    def test_oss_requires_host_port(self):
+        with pytest.raises(ValidationError, match="host_port is required for oss"):
+            AirbyteClientConfig(deployment_type=AirbyteDeploymentType.OPEN_SOURCE)
 
-class TestAirbyteSourceConfig:
-    def test_basic_config(self):
-        config = AirbyteSourceConfig(
-            platform_instance="dev",
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-            extract_tags=True,
-        )
-        assert config.platform_instance == "dev"
-        assert config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
-        assert config.host_port == "http://localhost:8000"
-        assert config.extract_tags is True
+    def test_cloud_requires_workspace_id(self):
+        with pytest.raises(ValidationError, match="cloud_workspace_id is required"):
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
+                oauth2_client_id="client-id",
+                oauth2_client_secret=SecretStr("client-secret"),
+            )
 
-    def test_cloud_config(self):
-        config = AirbyteSourceConfig(
-            platform_instance="prod",
-            deployment_type=AirbyteDeploymentType.CLOUD,
-            cloud_workspace_id="test-workspace-id",
-            oauth2_client_id="client-id",
-            oauth2_client_secret=SecretStr("client-secret"),
-            oauth2_refresh_token=SecretStr("refresh-token"),
-        )
-        assert config.platform_instance == "prod"
-        assert config.deployment_type == AirbyteDeploymentType.CLOUD
-        assert config.cloud_workspace_id == "test-workspace-id"
-        assert config.oauth2_client_id == "client-id"
+    def test_cloud_requires_oauth_credentials(self):
+        with pytest.raises(
+            ValidationError,
+            match="oauth2_client_id and oauth2_client_secret are required",
+        ):
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.CLOUD,
+                cloud_workspace_id="ws",
+            )
 
-    def test_with_patterns(self):
-        config = AirbyteSourceConfig(
-            platform_instance="dev",
-            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
-            host_port="http://localhost:8000",
-            source_pattern=AllowDenyPattern(allow=["postgres.*", "mysql.*"]),
-            connection_pattern=AllowDenyPattern(allow=["conn-.*"]),
-        )
-        assert config.source_pattern.allow == ["postgres.*", "mysql.*"]
-        assert config.connection_pattern.allow == ["conn-.*"]
+    def test_partial_oauth_credentials_rejected(self):
+        """Half-supplied credentials should fail fast rather than silently."""
+        with pytest.raises(
+            ValidationError,
+            match="Both oauth2_client_id and oauth2_client_secret must be provided",
+        ):
+            AirbyteClientConfig(
+                deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+                host_port="http://localhost:8000",
+                oauth2_client_id="client-id",
+            )

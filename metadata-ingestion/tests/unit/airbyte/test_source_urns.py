@@ -414,8 +414,16 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
-    """Test that destinations not in known_urns don't get lineage emitted."""
+def test_upstream_lineage_emitted_for_cross_platform_destination(
+    mock_create_client, mock_ctx
+):
+    """C2 regression: UpstreamLineage must be emitted for cross-platform pairs.
+
+    The old `known_urns` gate silently dropped this emission in production
+    because `_collect_source_urns` was never wired up. Now we emit lineage
+    unconditionally for any source/destination pair where the URNs differ.
+    The `is_primary_source=False` flag prevents phantom dataset entities.
+    """
     mock_client = MagicMock()
     mock_create_client.return_value = mock_client
 
@@ -433,71 +441,49 @@ def test_known_urns_prevents_phantom_destinations(mock_create_client, mock_ctx):
             PropertyFieldPath(path=["name"]),
         ],
     )
-
-    # Create a minimal pipeline_info for the test
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="test", name="Test", workspace_id="test"
-    )
-    source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="postgres",
-        source_id="source-1",
-        source_type="postgres",
-    )
-    dest = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
-        destinationType="snowflake",
-        destination_id="dest-1",
-        destination_type="snowflake",
-    )
-    connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
-        connection_id="conn-1",
-        source_id="source-1",
-        destination_id="dest-1",
-    )
-
     pipeline_info = AirbytePipelineInfo(
-        workspace=workspace, connection=connection, source=source_obj, destination=dest
+        workspace=AirbyteWorkspacePartial(workspaceId="test", name="Test"),
+        connection=AirbyteConnectionPartial(
+            connectionId="conn-1",
+            name="Test Connection",
+            sourceId="source-1",
+            destinationId="dest-1",
+            status="active",
+        ),
+        source=AirbyteSourcePartial(
+            sourceId="source-1", name="Test Source", sourceType="postgres"
+        ),
+        destination=AirbyteDestinationPartial(
+            destinationId="dest-1", name="Test Dest", destinationType="snowflake"
+        ),
     )
 
-    # Destination is NOT in known_urns
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
     dest_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customers,PROD)"
-    source.known_urns = {source_urn}
 
     work_units = list(
-        source._create_dataset_lineage(
-            pipeline_info,
-            source_urn,
-            dest_urn,
-            stream_details,
+        source._emit_destination_upstream_lineage(
+            pipeline_info=pipeline_info,
+            source_urn=source_urn,
+            destination_urn=dest_urn,
+            stream=stream_details,
         )
     )
 
-    # Should only emit lineage if destination is in known_urns
-    # Since destination is NOT in known_urns, no lineage MCPs should be emitted
     lineage_mcps = [
         wu
         for wu in work_units
-        if hasattr(wu, "metadata")
-        and hasattr(wu.metadata, "aspect")
-        and "UpstreamLineage" in str(wu.metadata.aspect)
-        and hasattr(wu.metadata, "entityUrn")
-        and dest_urn in str(wu.metadata.entityUrn)
+        if "UpstreamLineage" in type(wu.metadata.aspect).__name__
+        and wu.metadata.entityUrn == dest_urn
     ]
-    assert len(lineage_mcps) == 0
+    assert len(lineage_mcps) == 1
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
-def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_ctx):
-    """Test that lineage IS emitted when destination is also a source (in known_urns)."""
+def test_upstream_lineage_skipped_for_self_lineage(mock_create_client, mock_ctx):
+    """Self-lineage (source URN == destination URN) must be skipped — it would
+    produce a meaningless dataset-points-at-itself relationship in DataHub.
+    """
     mock_client = MagicMock()
     mock_create_client.return_value = mock_client
 
@@ -508,73 +494,36 @@ def test_known_urns_allows_airbyte_to_airbyte_lineage(mock_create_client, mock_c
     source = AirbyteSource(config, mock_ctx)
 
     stream_details = AirbyteStreamDetails(
-        stream_name="customers",
-        namespace="public",
-        property_fields=[
-            PropertyFieldPath(path=["id"]),
-            PropertyFieldPath(path=["name"]),
-        ],
+        stream_name="customers", namespace="public", property_fields=[]
     )
-
-    # Create a minimal pipeline_info for the test
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="test", name="Test", workspace_id="test"
-    )
-    source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="postgres",
-        source_id="source-1",
-        source_type="postgres",
-    )
-    dest = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
-        destinationType="snowflake",
-        destination_id="dest-1",
-        destination_type="snowflake",
-    )
-    connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
-        connection_id="conn-1",
-        source_id="source-1",
-        destination_id="dest-1",
-    )
-
     pipeline_info = AirbytePipelineInfo(
-        workspace=workspace, connection=connection, source=source_obj, destination=dest
+        workspace=AirbyteWorkspacePartial(workspaceId="test", name="Test"),
+        connection=AirbyteConnectionPartial(
+            connectionId="conn-1",
+            name="Test Connection",
+            sourceId="source-1",
+            destinationId="dest-1",
+            status="active",
+        ),
+        source=AirbyteSourcePartial(
+            sourceId="source-1", name="Test Source", sourceType="postgres"
+        ),
+        destination=AirbyteDestinationPartial(
+            destinationId="dest-1", name="Test Dest", destinationType="postgres"
+        ),
     )
 
-    source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
-    dest_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,analytics.customers,PROD)"
-
-    # Both source AND destination are in known_urns (destination is also a source elsewhere)
-    source.known_urns = {source_urn, dest_urn}
+    same_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
 
     work_units = list(
-        source._create_dataset_lineage(
-            pipeline_info,
-            source_urn,
-            dest_urn,
-            stream_details,
+        source._emit_destination_upstream_lineage(
+            pipeline_info=pipeline_info,
+            source_urn=same_urn,
+            destination_urn=same_urn,
+            stream=stream_details,
         )
     )
-
-    # Should emit lineage because destination IS in known_urns
-    lineage_mcps = [
-        wu
-        for wu in work_units
-        if hasattr(wu, "metadata")
-        and hasattr(wu.metadata, "aspect")
-        and "UpstreamLineage" in str(wu.metadata.aspect)
-        and hasattr(wu.metadata, "entityUrn")
-        and dest_urn in str(wu.metadata.entityUrn)
-    ]
-    assert len(lineage_mcps) == 1
+    assert work_units == []
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")

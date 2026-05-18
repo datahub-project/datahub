@@ -3,10 +3,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-from pydantic import SecretStr
+from pydantic import SecretStr, ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.client import (
+    AirbyteApiError,
     AirbyteBaseClient,
     AirbyteCloudClient,
     AirbyteOSSClient,
@@ -92,8 +93,6 @@ class TestAirbyteOSSClient:
         assert client.config.api_key.get_secret_value() == "test-api-key"
 
     def test_init_without_host_port(self):
-        from pydantic import ValidationError
-
         with pytest.raises(ValidationError, match="host_port is required"):
             AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -422,8 +421,6 @@ class TestAirbyteCloudClient:
 
     def test_init_missing_workspace_id(self):
         # Missing workspace_id should raise ValidationError during config creation
-        from pydantic import ValidationError
-
         with pytest.raises(ValidationError, match="cloud_workspace_id is required"):
             AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.CLOUD,
@@ -1099,9 +1096,11 @@ class TestFetchStreamPropertyFields:
         mock_list_streams.assert_not_called()
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
-    def test_fetch_stream_property_fields_exception(self, mock_list_streams):
-        """Test handling exceptions when fetching property fields."""
-        mock_list_streams.side_effect = Exception("API error")
+    def test_fetch_stream_property_fields_404_returns_empty(self, mock_list_streams):
+        """404 from /streams (older OSS versions) should fall back to empty dict."""
+        mock_list_streams.side_effect = AirbyteApiError(
+            "404 Not Found: /streams endpoint missing"
+        )
 
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -1112,6 +1111,20 @@ class TestFetchStreamPropertyFields:
         result = client._fetch_stream_property_fields("source-id-123")
 
         assert result == {}
+
+    @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
+    def test_fetch_stream_property_fields_non_404_reraises(self, mock_list_streams):
+        """Non-404 API errors must propagate so the source layer can warn."""
+        mock_list_streams.side_effect = AirbyteApiError("500 Internal Server Error")
+
+        config = AirbyteClientConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        client = AirbyteOSSClient(config)
+
+        with pytest.raises(AirbyteApiError, match="500"):
+            client._fetch_stream_property_fields("source-id-123")
 
 
 class TestGetConnection:

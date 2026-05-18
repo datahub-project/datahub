@@ -1,13 +1,13 @@
 import logging
+from dataclasses import dataclass
 from functools import partial
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Literal, Optional, Set
 
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
 from datahub.emitter.mce_builder import (
-    make_data_flow_urn,
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_tag_urn,
@@ -48,8 +48,6 @@ from datahub.ingestion.source.airbyte.models import (
     AirbyteStreamDetails,
     AirbyteStreamInfo,
     AirbyteTagInfo,
-    DataFlowResult,
-    DataJobResult,
     PlatformInfo,
     PropertyFieldPath,
 )
@@ -61,20 +59,15 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import (
-    DataFlowInfoClass,
-    DataJobInfoClass,
-    DataJobInputOutputClass,
     DatasetLineageTypeClass,
     FabricTypeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    GlobalTagsClass,
-    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
-from datahub.utilities.urns.data_flow_urn import DataFlowUrn
+from datahub.sdk.datajob import DataFlow, DataJob
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 logger = logging.getLogger(__name__)
@@ -93,6 +86,23 @@ AIRBYTE_JOB_STATUS_MAP = {
     "incomplete": InstanceRunResult.UP_FOR_RETRY,
     "pending": InstanceRunResult.UP_FOR_RETRY,
 }
+
+
+@dataclass(frozen=True)
+class _PlatformResolutionRequest:
+    """Inputs to the source/destination platform-resolution helper.
+
+    Sources and destinations have nearly identical resolution logic; this
+    dataclass lets us pass the relevant fields through a single helper
+    instead of two near-duplicate methods (W4).
+    """
+
+    entity_id: str
+    entity_type: Optional[str]
+    name: Optional[str]
+    definition_id: Optional[str]
+    overrides: PlatformDetail
+    kind: Literal["source", "destination"]
 
 
 def _sanitize_platform_name(platform_name: str) -> str:
@@ -159,11 +169,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self.source_config = config
         self.client = create_airbyte_client(config)
         self.report = StaleEntityRemovalSourceReport()
-        self._warned_source_ids: set[str] = set()
-        self._warned_destination_ids: set[str] = set()
-        self.known_urns: set[str] = set()
+        self._warned_source_ids: Set[str] = set()
+        self._warned_destination_ids: Set[str] = set()
         self._source_platform_cache: Dict[str, PlatformInfo] = {}
         self._dest_platform_cache: Dict[str, PlatformInfo] = {}
+        self._warned_unknown_statuses: Set[str] = set()
 
         logger.debug(
             "Initialized Airbyte source with deployment type: %s",
@@ -177,117 +187,125 @@ class AirbyteSource(StatefulIngestionSourceBase):
         config = AirbyteSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
 
-    def _get_platform_for_source(self, source: AirbyteSourcePartial) -> PlatformInfo:
-        """Return platform information for source."""
-        if source.source_id in self._source_platform_cache:
-            return self._source_platform_cache[source.source_id]
+    def _resolve_platform(self, request: _PlatformResolutionRequest) -> PlatformInfo:
+        """Shared resolution logic for sources and destinations.
 
-        source_details = self.source_config.sources_to_platform_instance.get(
-            source.source_id, PlatformDetail()
-        )
+        Picks a DataHub platform name using the following precedence:
+        1. Explicit override (`sources_to_platform_instance` / `destinations_to_platform_instance`).
+        2. Airbyte's reported `sourceType` / `destinationType` mapped via
+           `source_type_mapping` + `KNOWN_SOURCE_TYPE_MAPPING`.
+        3. Heuristic fallback to the connector's display `name`.
 
-        if source_details.platform:
-            platform = source_details.platform
-        elif source.source_type and source.source_type.strip():
+        Cases (2) and (3) emit a per-id `report.warning` once so repeated
+        connections sharing a source don't spam the report.
+        """
+        if request.kind == "source":
+            cache = self._source_platform_cache
+            warned = self._warned_source_ids
+            id_label = "source_id"
+            type_label = "source_type"
+            name_label = "source_name"
+            entity_label = "Source"
+        else:
+            cache = self._dest_platform_cache
+            warned = self._warned_destination_ids
+            id_label = "destination_id"
+            type_label = "destination_type"
+            name_label = "destination_name"
+            entity_label = "Destination"
+
+        if request.entity_id in cache:
+            return cache[request.entity_id]
+
+        overrides = request.overrides
+        if overrides.platform:
+            platform = overrides.platform
+        elif request.entity_type and request.entity_type.strip():
             platform = _map_source_type_to_platform(
-                source.source_type, self.source_config.source_type_mapping
+                request.entity_type, self.source_config.source_type_mapping
             )
-        elif source.name:
-            if source.source_id not in self._warned_source_ids:
+        elif request.name:
+            if request.entity_id not in warned:
                 context_parts = [
-                    f"source_id={source.source_id}",
-                    f"source_name={source.name}",
+                    f"{id_label}={request.entity_id}",
+                    f"{name_label}={request.name}",
                 ]
-                if source.source_definition_id:
-                    context_parts.append(f"definition_id={source.source_definition_id}")
-                context_parts.append(
-                    "Configure 'sources_to_platform_instance' to specify correct platform"
+                if request.definition_id:
+                    context_parts.append(f"definition_id={request.definition_id}")
+                instance_setting = (
+                    "sources_to_platform_instance"
+                    if request.kind == "source"
+                    else "destinations_to_platform_instance"
                 )
-
+                context_parts.append(
+                    f"Configure '{instance_setting}' to specify correct platform"
+                )
                 self.report.warning(
                     title="Platform Detection Fallback",
-                    message=f"Source {source.source_id} missing source_type, using name '{source.name}' as fallback",
+                    message=(
+                        f"{entity_label} {request.entity_id} missing "
+                        f"{type_label}, using name '{request.name}' as fallback"
+                    ),
                     context=", ".join(context_parts),
                 )
-                self._warned_source_ids.add(source.source_id)
+                warned.add(request.entity_id)
             platform = _map_source_type_to_platform(
-                source.name, self.source_config.source_type_mapping
+                request.name, self.source_config.source_type_mapping
             )
         else:
-            if source.source_id not in self._warned_source_ids:
+            if request.entity_id not in warned:
                 self.report.warning(
                     title="Platform Detection Failed",
-                    message=f"Source {source.source_id} missing both source_type and name",
-                    context=f"source_id={source.source_id}",
+                    message=(
+                        f"{entity_label} {request.entity_id} missing both "
+                        f"{type_label} and name"
+                    ),
+                    context=f"{id_label}={request.entity_id}",
                 )
-                self._warned_source_ids.add(source.source_id)
+                warned.add(request.entity_id)
             platform = ""
 
         result = PlatformInfo(
             platform=platform,
-            platform_instance=source_details.platform_instance,
-            env=source_details.env,
+            platform_instance=overrides.platform_instance,
+            env=overrides.env,
         )
-        self._source_platform_cache[source.source_id] = result
+        cache[request.entity_id] = result
         return result
+
+    def _get_platform_for_source(self, source: AirbyteSourcePartial) -> PlatformInfo:
+        """Return platform information for source."""
+        overrides = self.source_config.sources_to_platform_instance.get(
+            source.source_id, PlatformDetail()
+        )
+        return self._resolve_platform(
+            _PlatformResolutionRequest(
+                entity_id=source.source_id,
+                entity_type=source.source_type,
+                name=source.name,
+                definition_id=source.source_definition_id,
+                overrides=overrides,
+                kind="source",
+            )
+        )
 
     def _get_platform_for_destination(
         self, destination: AirbyteDestinationPartial
     ) -> PlatformInfo:
         """Return platform information for destination."""
-        if destination.destination_id in self._dest_platform_cache:
-            return self._dest_platform_cache[destination.destination_id]
-
-        dest_details = self.source_config.destinations_to_platform_instance.get(
+        overrides = self.source_config.destinations_to_platform_instance.get(
             destination.destination_id, PlatformDetail()
         )
-
-        if dest_details.platform:
-            platform = dest_details.platform
-        elif destination.destination_type and destination.destination_type.strip():
-            platform = _map_source_type_to_platform(
-                destination.destination_type, self.source_config.source_type_mapping
+        return self._resolve_platform(
+            _PlatformResolutionRequest(
+                entity_id=destination.destination_id,
+                entity_type=destination.destination_type,
+                name=destination.name,
+                definition_id=destination.destination_definition_id,
+                overrides=overrides,
+                kind="destination",
             )
-        elif destination.name:
-            if destination.destination_id not in self._warned_destination_ids:
-                context_parts = [
-                    f"destination_id={destination.destination_id}",
-                    f"destination_name={destination.name}",
-                ]
-                if destination.destination_definition_id:
-                    context_parts.append(
-                        f"definition_id={destination.destination_definition_id}"
-                    )
-                context_parts.append(
-                    "Configure 'destinations_to_platform_instance' to specify correct platform"
-                )
-
-                self.report.warning(
-                    title="Platform Detection Fallback",
-                    message=f"Destination {destination.destination_id} missing destination_type, using name '{destination.name}' as fallback",
-                    context=", ".join(context_parts),
-                )
-                self._warned_destination_ids.add(destination.destination_id)
-            platform = _map_source_type_to_platform(
-                destination.name, self.source_config.source_type_mapping
-            )
-        else:
-            if destination.destination_id not in self._warned_destination_ids:
-                self.report.warning(
-                    title="Platform Detection Failed",
-                    message=f"Destination {destination.destination_id} missing both destination_type and name",
-                    context=f"destination_id={destination.destination_id}",
-                )
-                self._warned_destination_ids.add(destination.destination_id)
-            platform = ""
-
-        result = PlatformInfo(
-            platform=platform,
-            platform_instance=dest_details.platform_instance,
-            env=dest_details.env,
         )
-        self._dest_platform_cache[destination.destination_id] = result
-        return result
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -394,10 +412,18 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-    def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        """Yield workunits for each Airbyte pipeline.
+
+        Named `get_workunits_internal` (not `get_workunits`) so the base
+        class's `get_workunits` runs every emission through
+        `get_workunit_processors()` — including `auto_incremental_lineage`,
+        `StaleEntityRemovalHandler`, and `AutoSystemMetadata.stamp`.
+        Overriding `get_workunits` directly would silently disable all of
+        them, breaking `incremental_lineage` and `DELETION_DETECTION`.
+        """
         for pipeline_info in self._get_pipelines():
             try:
-                yield from self._create_dataflow_workunits(pipeline_info)
                 yield from self._create_lineage_workunits(pipeline_info)
             except Exception as e:
                 conn_id = pipeline_info.connection.connection_id or "unknown"
@@ -406,35 +432,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     context=f"pipeline-{conn_id}",
                     exc=e,
                 )
-
-    def _create_dataflow_workunits(
-        self, pipeline_info: AirbytePipelineInfo
-    ) -> Iterable[MetadataWorkUnit]:
-        workspace = pipeline_info.workspace
-        workspace_id = workspace.workspace_id
-        workspace_name = workspace.name or "Unnamed Workspace"
-
-        dataflow_urn = make_data_flow_urn(
-            orchestrator=self.platform,
-            flow_id=workspace_id,
-            cluster=self.source_config.env,
-            platform_instance=self.source_config.platform_instance,
-        )
-
-        dataflow_info = DataFlowInfoClass(
-            name=workspace_id,
-            description=f"Airbyte workspace: {workspace_name}",
-            externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}",
-            customProperties={
-                "workspace_id": workspace_id,
-                "platform": "airbyte",
-                "deployment_type": self.source_config.deployment_type.value,
-            },
-        )
-
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataflow_urn, aspect=dataflow_info
-        ).as_workunit()
 
     def _enrich_job_properties_with_details(
         self, properties: Dict[str, str], job_details: dict, stream_name: str
@@ -518,14 +515,43 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     try:
                         job_details = self.client.get_job(str(job_id))
                     except Exception as e:
-                        logger.debug(
-                            f"Could not fetch detailed job info for {job_id}: {e}"
+                        # Job-detail enrichment is best-effort, but the
+                        # connector's reported metrics (bytesCommitted,
+                        # streamStatuses) silently disappear when this swallow
+                        # fires. Surface as a per-job warning so operators
+                        # know enrichment is missing — not as logger.debug.
+                        self.report.warning(
+                            title="Job Details Unavailable",
+                            message=(
+                                "Failed to fetch detailed job info; "
+                                "bytes/records committed metrics will be missing"
+                            ),
+                            context=f"job_id={job_id}, connection_id={connection_id}",
+                            exc=e,
                         )
 
                     attempts = job.get("attempts", [])
                     for attempt_idx, attempt in enumerate(attempts):
                         attempt_id = attempt.get("id", attempt_idx)
                         attempt_status = attempt.get("status", "").lower()
+
+                        if attempt_status not in AIRBYTE_JOB_STATUS_MAP:
+                            # Defaulting unknown statuses to FAILURE makes
+                            # every run look red if Airbyte ever renames the
+                            # status field — warn once per unknown status so
+                            # the operator can investigate.
+                            if attempt_status not in self._warned_unknown_statuses:
+                                self.report.warning(
+                                    title="Unknown Airbyte Job Status",
+                                    message=(
+                                        f"Encountered unrecognized Airbyte job "
+                                        f"status '{attempt_status}'; mapping to "
+                                        "FAILURE. Update AIRBYTE_JOB_STATUS_MAP "
+                                        "if this is a legitimate status."
+                                    ),
+                                    context=f"connection_id={connection_id}, job_id={job_id}",
+                                )
+                                self._warned_unknown_statuses.add(attempt_status)
 
                         result = AIRBYTE_JOB_STATUS_MAP.get(
                             attempt_status, InstanceRunResult.FAILURE
@@ -552,7 +578,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
                                 properties, job_details, stream_name
                             )
 
-                        job_url = f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}/status"
+                        job_url = (
+                            f"{self.source_config.external_url_base}"
+                            f"/workspaces/{workspace_id}/connections/{connection_id}/status"
+                        )
 
                         dpi = DataProcessInstance(
                             orchestrator=self.platform,
@@ -701,10 +730,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
     ) -> List[str]:
         """Extract tag URNs for a connection from both workspace tags and connection tags."""
         tags: List[str] = []
-        tag_names_seen: set[str] = set()
+        tag_names_seen: Set[str] = set()
         connection_id = pipeline_info.connection.connection_id
 
-        # First, add tags directly on the connection object
         if pipeline_info.connection.tags:
             for tag_dict in pipeline_info.connection.tags:
                 tag_name = tag_dict.get("name")
@@ -712,7 +740,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     tags.append(make_tag_urn(tag_name))
                     tag_names_seen.add(tag_name)
 
-        # Then add workspace-level tags linked to this connection
         for tag_info in airbyte_tags:
             if (
                 tag_info.resource_id == connection_id
@@ -776,37 +803,22 @@ class AirbyteSource(StatefulIngestionSourceBase):
             )
         return lineages
 
-    def _create_connection_dataflow(
-        self, pipeline_info: AirbytePipelineInfo, tags: List[str]
-    ) -> DataFlowResult:
+    def _build_connection_custom_props(
+        self, pipeline_info: AirbytePipelineInfo
+    ) -> Dict[str, str]:
         connection = pipeline_info.connection
         source = pipeline_info.source
         destination = pipeline_info.destination
         workspace = pipeline_info.workspace
 
-        connection_id = connection.connection_id
-        source_id = source.source_id or ""
-        destination_id = destination.destination_id or ""
-        source_name = source.name or "Unknown Source"
-        destination_name = destination.name or "Unknown Destination"
-        workspace_id = workspace.workspace_id
-        workspace_name = workspace.name or "Unnamed Workspace"
-        connection_name = connection.name or "Unnamed Connection"
-
-        connection_dataflow_urn = DataFlowUrn(
-            orchestrator=self.platform,
-            flow_id=connection_id,
-            cluster=self.source_config.env,
-        )
-
-        custom_props = {
-            "connection_id": connection_id,
-            "source_id": source_id,
-            "destination_id": destination_id,
-            "source_name": source_name,
-            "destination_name": destination_name,
-            "workspace_id": workspace_id,
-            "workspace_name": workspace_name,
+        custom_props: Dict[str, str] = {
+            "connection_id": connection.connection_id,
+            "source_id": source.source_id or "",
+            "destination_id": destination.destination_id or "",
+            "source_name": source.name or "Unknown Source",
+            "destination_name": destination.name or "Unknown Destination",
+            "workspace_id": workspace.workspace_id,
+            "workspace_name": workspace.name or "Unnamed Workspace",
             "platform": "airbyte",
             "deployment_type": self.source_config.deployment_type.value,
         }
@@ -818,46 +830,57 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if destination.created_at:
             custom_props["destination_created_at"] = str(destination.created_at)
 
-        dataflow_info = DataFlowInfoClass(
-            name=connection_name,
-            description=f"Airbyte connection from {source_name} to {destination_name}",
-            externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}",
-            customProperties=custom_props,
-        )
+        return custom_props
 
-        work_units = []
-
-        if tags:
-            dataflow_tags = GlobalTagsClass(
-                tags=[TagAssociationClass(tag=tag) for tag in tags]
-            )
-            work_units.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=connection_dataflow_urn.urn(), aspect=dataflow_tags
-                ).as_workunit()
-            )
-
-        work_units.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=connection_dataflow_urn.urn(), aspect=dataflow_info
-            ).as_workunit()
-        )
-
-        return DataFlowResult(
-            dataflow_urn=connection_dataflow_urn, work_units=work_units
-        )
-
-    def _create_stream_datajob(
+    def _build_connection_dataflow(
         self,
-        connection_dataflow_urn: DataFlowUrn,
+        pipeline_info: AirbytePipelineInfo,
+        tags: List[str],
+    ) -> DataFlow:
+        """Build a SDK V2 `DataFlow` for the Airbyte connection.
+
+        We previously emitted a workspace-level DataFlow + a connection-level
+        DataFlow with no parent-child relationship, which left the workspace
+        DataFlow dangling (see W7). Now we emit a single DataFlow per
+        connection and surface workspace identity via `customProperties`.
+        """
+        connection = pipeline_info.connection
+        source = pipeline_info.source
+        destination = pipeline_info.destination
+        workspace = pipeline_info.workspace
+
+        source_name = source.name or "Unknown Source"
+        destination_name = destination.name or "Unknown Destination"
+        external_url = (
+            f"{self.source_config.external_url_base}"
+            f"/workspaces/{workspace.workspace_id}"
+            f"/connections/{connection.connection_id}"
+        )
+
+        return DataFlow(
+            name=connection.connection_id,
+            platform=self.platform,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+            display_name=connection.name or "Unnamed Connection",
+            description=(
+                f"Airbyte connection from {source_name} to {destination_name}"
+            ),
+            external_url=external_url,
+            custom_properties=self._build_connection_custom_props(pipeline_info),
+            tags=tags or None,
+        )
+
+    def _build_stream_datajob(
+        self,
+        connection_dataflow: DataFlow,
         pipeline_info: AirbytePipelineInfo,
         stream: AirbyteStreamDetails,
         source_urn: str,
         destination_urn: str,
         tags: List[str],
-    ) -> DataJobResult:
-        """Create DataJob for stream with column-level lineage on InputOutput aspect."""
-        work_units: List[MetadataWorkUnit] = []
+    ) -> DataJob:
+        """Build SDK V2 `DataJob` for a single stream within a connection."""
         connection = pipeline_info.connection
         source = pipeline_info.source
         destination = pipeline_info.destination
@@ -867,12 +890,10 @@ class AirbyteSource(StatefulIngestionSourceBase):
         stream_name = stream.stream_name or ""
         source_name = source.name or "Unknown Source"
         destination_name = destination.name or "Unknown Destination"
-        workspace_id = workspace.workspace_id
 
         job_id = f"{connection_id}_{stream_name}"
-        datajob_urn = DataJobUrn(flow=connection_dataflow_urn, job_id=job_id)
 
-        custom_props = {
+        custom_props: Dict[str, str] = {
             "stream_name": stream_name,
             "namespace": stream.namespace,
             "connection_id": connection_id,
@@ -883,7 +904,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
             "destination_name": destination_name,
         }
 
-        # Add stream metadata if available
         if stream.default_cursor_field:
             custom_props["cursor_field"] = ",".join(stream.default_cursor_field)
         if stream.source_defined_primary_key:
@@ -891,125 +911,72 @@ class AirbyteSource(StatefulIngestionSourceBase):
         if stream.source_defined_cursor_field:
             custom_props["source_defined_cursor"] = "true"
 
-        datajob_info = DataJobInfoClass(
-            name=stream_name,
-            description=f"Airbyte sync for stream {stream_name} from {source_name} to {destination_name}",
-            externalUrl=f"{getattr(self.source_config, 'host_port', 'https://cloud.airbyte.com')}/workspaces/{workspace_id}/connections/{connection_id}",
-            type="BATCH",
-            customProperties=custom_props,
+        external_url = (
+            f"{self.source_config.external_url_base}"
+            f"/workspaces/{workspace.workspace_id}"
+            f"/connections/{connection_id}"
         )
 
         fine_grained_lineages = self._build_fine_grained_lineages(
             pipeline_info, stream, source_urn, destination_urn
         )
 
-        input_output = DataJobInputOutputClass(
-            inputDatasets=[source_urn],
-            outputDatasets=[destination_urn],
-            fineGrainedLineages=fine_grained_lineages
-            if fine_grained_lineages
-            else None,
+        return DataJob(
+            name=job_id,
+            flow=connection_dataflow,
+            display_name=stream_name,
+            description=(
+                f"Airbyte sync for stream {stream_name} from "
+                f"{source_name} to {destination_name}"
+            ),
+            external_url=external_url,
+            custom_properties=custom_props,
+            inlets=[source_urn],
+            outlets=[destination_urn],
+            fine_grained_lineages=fine_grained_lineages or None,
+            tags=tags or None,
         )
 
-        work_units.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=datajob_urn.urn(), aspect=datajob_info
-            ).as_workunit()
-        )
-
-        work_units.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=datajob_urn.urn(), aspect=input_output
-            ).as_workunit()
-        )
-
-        if tags:
-            job_tags = GlobalTagsClass(
-                tags=[TagAssociationClass(tag=tag) for tag in tags]
-            )
-            work_units.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=datajob_urn.urn(), aspect=job_tags
-                ).as_workunit()
-            )
-
-        return DataJobResult(datajob_urn=datajob_urn, work_units=work_units)
-
-    def _create_dataset_lineage(
+    def _emit_destination_upstream_lineage(
         self,
         pipeline_info: AirbytePipelineInfo,
         source_urn: str,
         destination_urn: str,
         stream: AirbyteStreamDetails,
     ) -> Iterable[MetadataWorkUnit]:
-        """Emit dataset lineage with column-level mappings. Marked as non-primary source."""
-        work_units = []
+        """Emit `UpstreamLineage` on the destination dataset.
 
+        Marked with `is_primary_source=False` because Airbyte is enriching a
+        dataset it does not own — the destination's primary connector
+        (Postgres, Snowflake, etc.) owns the dataset and any other aspects.
+        Lineage flows through fine-grained `FineGrainedLineageClass` entries
+        so column-level relationships survive even if a downstream connector
+        re-emits the dataset.
+        """
         fine_grained_lineages = self._build_fine_grained_lineages(
             pipeline_info, stream, source_urn, destination_urn
         )
 
-        # Only emit lineage if destination is also a source (prevents phantom datasets)
-        if destination_urn in self.known_urns:
-            work_units.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=destination_urn,
-                    aspect=UpstreamLineageClass(
-                        upstreams=[
-                            UpstreamClass(
-                                dataset=source_urn,
-                                type=DatasetLineageTypeClass.TRANSFORMED,
-                            )
-                        ],
-                        fineGrainedLineages=fine_grained_lineages or None,
-                    ),
-                ).as_workunit(is_primary_source=False)
-            )
-        else:
+        if source_urn == destination_urn:
+            # Self-lineage is meaningless and would noise up dataset views.
             logger.debug(
-                "Skipping lineage emission for destination '%s' - not in known URNs. "
-                "Destination connector should create this dataset.",
+                "Skipping UpstreamLineage emission: source URN equals destination URN (%s).",
                 destination_urn,
             )
-
-        return work_units
-
-    def _collect_source_urns(self, pipeline_info: AirbytePipelineInfo) -> None:
-        """First pass: collect all source dataset URNs that Airbyte reads from."""
-        if (
-            not pipeline_info.connection.sync_catalog
-            or not pipeline_info.connection.sync_catalog.streams
-        ):
             return
 
-        source = pipeline_info.source
-        platform_info = self._get_platform_for_source(source)
-
-        source_details = self.source_config.sources_to_platform_instance.get(
-            source.source_id, PlatformDetail()
-        )
-
-        for stream_config in pipeline_info.connection.sync_catalog.streams:
-            if not stream_config or not stream_config.stream:
-                continue
-
-            stream = stream_config.stream
-            schema_name = stream.namespace or ""
-            table_name = stream.name
-
-            if platform_info.platform and table_name:
-                dataset_name = (
-                    f"{schema_name}.{table_name}" if schema_name else table_name
-                )
-                if source_details.convert_urns_to_lowercase:
-                    dataset_name = dataset_name.lower()
-                source_urn = make_dataset_urn_with_platform_instance(
-                    platform=_sanitize_platform_name(platform_info.platform),
-                    name=dataset_name,
-                    env=platform_info.env or FabricTypeClass.PROD,
-                    platform_instance=platform_info.platform_instance,
-                )
-                self.known_urns.add(source_urn)
+        yield MetadataChangeProposalWrapper(
+            entityUrn=destination_urn,
+            aspect=UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        dataset=source_urn,
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                    )
+                ],
+                fineGrainedLineages=fine_grained_lineages or None,
+            ),
+        ).as_workunit(is_primary_source=False)
 
     def _create_dataset_urns(
         self,
@@ -1206,9 +1173,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
     def _resolve_destination_schema(
         self,
         stream_config: AirbyteStreamConfig,
-        connection: "AirbyteConnectionPartial",
+        connection: AirbyteConnectionPartial,
         source_schema: str,
-        destination: "AirbyteDestinationPartial",
+        destination: AirbyteDestinationPartial,
         stream_name: str,
     ) -> str:
         """Resolve destination schema following Airbyte's namespace precedence.
@@ -1358,9 +1325,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
             tags = self._extract_connection_tags(pipeline_info, airbyte_tags)
         else:
             tags = []
-        dataflow_result = self._create_connection_dataflow(pipeline_info, tags)
 
-        yield from dataflow_result.work_units
+        connection_dataflow = self._build_connection_dataflow(pipeline_info, tags)
+        yield from connection_dataflow.as_workunits()
 
         platform_instance = None
         if (
@@ -1382,8 +1349,8 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     platform_instance,
                 )
 
-                datajob_result = self._create_stream_datajob(
-                    dataflow_result.dataflow_urn,
+                datajob = self._build_stream_datajob(
+                    connection_dataflow,
                     pipeline_info,
                     stream_info.details,
                     dataset_urns.source_urn,
@@ -1391,23 +1358,21 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     tags,
                 )
 
-                yield from datajob_result.work_units
+                yield from datajob.as_workunits()
 
                 if self.source_config.include_statuses:
                     yield from self._create_job_executions_workunits(
                         pipeline_info=pipeline_info,
-                        datajob_urn=datajob_result.datajob_urn,
+                        datajob_urn=datajob.urn,
                         stream_name=stream_info.details.stream_name,
                     )
 
-                lineage_workunits = self._create_dataset_lineage(
+                yield from self._emit_destination_upstream_lineage(
                     pipeline_info,
                     dataset_urns.source_urn,
                     dataset_urns.destination_urn,
                     stream_info.details,
                 )
-
-                yield from lineage_workunits
 
             except Exception as e:
                 conn_name = getattr(pipeline_info.connection, "name", "unknown")

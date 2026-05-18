@@ -1,25 +1,24 @@
 [
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.12345678-1234-1234-1234-123456789012,PROD)",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
+    "aspectName": "dataPlatformInstance",
     "aspect": {
         "json": {
-            "customProperties": {
-                "workspace_id": "12345678-1234-1234-1234-123456789012",
-                "platform": "airbyte",
-                "deployment_type": "oss"
-            },
-            "externalUrl": "http://localhost:8000/workspaces/12345678-1234-1234-1234-123456789012",
-            "name": "12345678-1234-1234-1234-123456789012",
-            "description": "Airbyte workspace: Default Workspace"
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600781,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD)",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -34,19 +33,63 @@
                 "workspace_name": "Default Workspace",
                 "platform": "airbyte",
                 "deployment_type": "oss",
-                "created_at": "1765570162",
-                "source_created_at": "1765569999",
-                "destination_created_at": "1765570000"
+                "created_at": "1779111348",
+                "source_created_at": "1779111291",
+                "destination_created_at": "1779111291"
             },
             "externalUrl": "http://localhost:8000/workspaces/12345678-1234-1234-1234-123456789012/connections/55555555-5555-5555-5555-555555555555",
             "name": "Postgres to Postgres Connection",
-            "description": "Airbyte connection from Test Postgres Source to Test Postgres Destination"
+            "description": "Airbyte connection from Test Postgres Source to Test Postgres Destination",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600781,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600781,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600800,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -65,14 +108,21 @@
             "name": "customers",
             "description": "Airbyte sync for stream customers from Test Postgres Source to Test Postgres Destination",
             "type": {
-                "string": "BATCH"
-            }
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600801,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -141,11 +191,58 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600801,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                },
+                {
+                    "id": "custom-platform.55555555-5555-5555-5555-555555555555",
+                    "urn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349600802,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601067,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -164,14 +261,21 @@
             "name": "orders",
             "description": "Airbyte sync for stream orders from Test Postgres Source to Test Postgres Destination",
             "type": {
-                "string": "BATCH"
-            }
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601068,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -251,29 +355,58 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601068,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.12345678-1234-1234-1234-123456789012,PROD)",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
     "changeType": "UPSERT",
-    "aspectName": "dataFlowInfo",
+    "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
-            "customProperties": {
-                "workspace_id": "12345678-1234-1234-1234-123456789012",
-                "platform": "airbyte",
-                "deployment_type": "oss"
-            },
-            "externalUrl": "http://localhost:8000/workspaces/12345678-1234-1234-1234-123456789012",
-            "name": "12345678-1234-1234-1234-123456789012",
-            "description": "Airbyte workspace: Default Workspace"
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                },
+                {
+                    "id": "custom-platform.55555555-5555-5555-5555-555555555555",
+                    "urn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)"
+                }
+            ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601069,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD)",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601070,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
     "changeType": "UPSERT",
     "aspectName": "dataFlowInfo",
     "aspect": {
@@ -288,19 +421,63 @@
                 "workspace_name": "Default Workspace",
                 "platform": "airbyte",
                 "deployment_type": "oss",
-                "created_at": "1765570211",
-                "source_created_at": "1765569999",
-                "destination_created_at": "1765570000"
+                "created_at": "1779111368",
+                "source_created_at": "1779111291",
+                "destination_created_at": "1779111291"
             },
             "externalUrl": "http://localhost:8000/workspaces/12345678-1234-1234-1234-123456789012/connections/66666666-6666-6666-6666-666666666666",
             "name": "MySQL to Postgres Connection",
-            "description": "Airbyte connection from Test MySQL Source to Test Postgres Destination"
+            "description": "Airbyte connection from Test MySQL Source to Test Postgres Destination",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601070,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601071,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601084,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -319,14 +496,21 @@
             "name": "customers",
             "description": "Airbyte sync for stream customers from Test MySQL Source to Test Postgres Destination",
             "type": {
-                "string": "BATCH"
-            }
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601084,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -395,11 +579,140 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601085,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                },
+                {
+                    "id": "custom-platform.66666666-6666-6666-6666-666666666666",
+                    "urn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601085,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD),country)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),country)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD),name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),name)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD),created_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),created_at)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.customers,PROD),email)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.customers,PROD),email)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601087,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:airbyte",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601098,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInfo",
     "aspect": {
@@ -418,14 +731,21 @@
             "name": "orders",
             "description": "Airbyte sync for stream orders from Test MySQL Source to Test Postgres Destination",
             "type": {
-                "string": "BATCH"
-            }
+                "string": "COMMAND"
+            },
+            "flowUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
+            "env": "PROD"
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601098,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
     "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
@@ -505,6 +825,225 @@
                 }
             ]
         }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601098,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:airbyte,custom-platform)"
+                },
+                {
+                    "id": "custom-platform.66666666-6666-6666-6666-666666666666",
+                    "urn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601099,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD)",
+                    "type": "TRANSFORMED"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),quantity)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),quantity)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),price)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),price)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),ordered_at)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),ordered_at)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),customer_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),customer_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),order_id)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,source_db.orders,PROD),product_name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test.source_db.orders,PROD),product_name)"
+                    ],
+                    "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601100,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601100,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601101,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601101,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.55555555-5555-5555-5555-555555555555,PROD),55555555-5555-5555-5555-555555555555_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601101,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_customers)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601101,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airbyte,custom-platform.66666666-6666-6666-6666-666666666666,PROD),66666666-6666-6666-6666-666666666666_orders)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697349601101,
+        "runId": "airbyte-2023_10_15-07_00_00-exq16g",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

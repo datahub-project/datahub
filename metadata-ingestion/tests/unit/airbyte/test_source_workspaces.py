@@ -199,19 +199,20 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 @patch(
-    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_dataflow_workunits"
-)
-@patch(
     "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
 )
-def test_get_workunits(
+def test_get_workunits_internal_routes_through_processors(
     mock_create_lineage,
-    mock_create_dataflow,
     mock_create_client,
     mock_ctx,
     mock_client,
 ):
-    """Test the get_workunits method."""
+    """C1 regression: emissions must go through `get_workunits_internal` so the
+    base class's `get_workunits` runs `auto_incremental_lineage` /
+    `StaleEntityRemovalHandler` / `AutoSystemMetadata.stamp`.
+
+    Overriding `get_workunits` directly would silently disable those.
+    """
     mock_create_client.return_value = mock_client
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -220,53 +221,52 @@ def test_get_workunits(
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspace_id="workspace-1", name="Test Workspace"
-    )
-    connection = AirbyteConnectionPartial(
-        connection_id="connection-1",
-        name="Test Connection",
-        source_id="source-1",
-        destination_id="destination-1",
-    )
-    source_info = AirbyteSourcePartial(
-        source_id="source-1",
-        name="Test Source",
-        source_definition_id="source-def-1",
-        workspace_id="workspace-1",
-    )
-    destination = AirbyteDestinationPartial(
-        destination_id="destination-1",
-        name="Test Destination",
-        destination_definition_id="dest-def-1",
-        workspace_id="workspace-1",
-    )
-
     pipeline_info = AirbytePipelineInfo(
-        workspace=workspace,
-        connection=connection,
-        source=source_info,
-        destination=destination,
+        workspace=AirbyteWorkspacePartial(
+            workspace_id="workspace-1", name="Test Workspace"
+        ),
+        connection=AirbyteConnectionPartial(
+            connection_id="connection-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+        ),
+        source=AirbyteSourcePartial(
+            source_id="source-1",
+            name="Test Source",
+            source_definition_id="source-def-1",
+            workspace_id="workspace-1",
+        ),
+        destination=AirbyteDestinationPartial(
+            destination_id="destination-1",
+            name="Test Destination",
+            destination_definition_id="dest-def-1",
+            workspace_id="workspace-1",
+        ),
     )
 
-    # Mock source._get_pipelines to return our test data
     with patch.object(
         source, "_get_pipelines", return_value=[pipeline_info]
     ) as mock_get_pipelines:
-        mock_create_dataflow.return_value = ["dataflow_workunit"]
         mock_create_lineage.return_value = ["lineage_workunit"]
 
-        workunits = list(source.get_workunits())
+        workunits = list(source.get_workunits_internal())
 
         mock_get_pipelines.assert_called_once()
-        mock_create_dataflow.assert_called_once_with(pipeline_info)
         mock_create_lineage.assert_called_once_with(pipeline_info)
+        assert workunits == ["lineage_workunit"]
 
-        assert len(workunits) == 2
-        assert workunits == [
-            "dataflow_workunit",
-            "lineage_workunit",
-        ]
+    # Sanity check that `get_workunits` is NOT overridden — it must come from
+    # the StatefulIngestionSourceBase via the StatefulIngestionSourceBase
+    # ancestor of AirbyteSource. We use the MRO to assert this: the first
+    # class to define `get_workunits` should NOT be AirbyteSource itself.
+    defining_class = next(
+        cls for cls in type(source).__mro__ if "get_workunits" in cls.__dict__
+    )
+    assert defining_class is not AirbyteSource, (
+        "AirbyteSource must not override get_workunits; it would bypass "
+        "auto_incremental_lineage and StaleEntityRemovalHandler processors."
+    )
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")

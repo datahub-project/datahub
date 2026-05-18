@@ -11,6 +11,10 @@ from datahub.ingestion.source.airbyte.config import (
     AirbyteSourceConfig,
     PlatformDetail,
 )
+from datahub.ingestion.source.airbyte.models import (
+    AirbyteDestinationPartial,
+    AirbyteSourcePartial,
+)
 from datahub.ingestion.source.airbyte.source import (
     AirbyteSource,
     _map_source_type_to_platform,
@@ -70,8 +74,6 @@ def test_per_source_platform_override(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
-
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "PostgreSQL"}
     )
@@ -99,8 +101,6 @@ def test_per_destination_platform_override(mock_create_client, mock_ctx):
         },
     )
     source = AirbyteSource(config, mock_ctx)
-
-    from datahub.ingestion.source.airbyte.models import AirbyteDestinationPartial
 
     mock_dest = AirbyteDestinationPartial.model_validate(
         {
@@ -130,8 +130,6 @@ def test_source_type_mapping_config(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
-
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "Custom DB"}
     )
@@ -151,8 +149,6 @@ def test_platform_detail_defaults(mock_create_client, mock_ctx):
         host_port="http://localhost:8000",
     )
     source = AirbyteSource(config, mock_ctx)
-
-    from datahub.ingestion.source.airbyte.models import AirbyteSourcePartial
 
     mock_source = AirbyteSourcePartial.model_validate(
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "postgres"}

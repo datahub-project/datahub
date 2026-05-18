@@ -3,7 +3,6 @@ import os
 import time
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Iterator, List, Optional, TypedDict
-from urllib.parse import urljoin
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -191,6 +190,34 @@ class AirbyteBaseClient(ABC):
         """
         return uri.rstrip("/")
 
+    def _do_get(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Perform a single GET and parse the JSON response.
+
+        Subclasses override this hook to add behavior around the wire call
+        (e.g., the Cloud client adds a 401/403 token-refresh retry) without
+        duplicating the error-handling shell in `_make_request`.
+        """
+        # response.json() is verbose at DEBUG and may include API config
+        # objects whose values include connector credentials (JDBC URLs with
+        # passwords, S3 secrets, etc.). Log status/length only at DEBUG to
+        # avoid leaking secrets into customer log aggregators.
+        response = self.session.get(
+            url, params=params, timeout=self.config.request_timeout
+        )
+        response.raise_for_status()
+        response_data = response.json()
+        logger.debug(
+            "Airbyte API response from %s: status=%s, payload_bytes=%d",
+            url,
+            response.status_code,
+            len(response.content or b""),
+        )
+        return response_data
+
     def _make_request(
         self,
         endpoint: str,
@@ -212,17 +239,7 @@ class AirbyteBaseClient(ABC):
         logger.debug("Making GET request to %s", url)
 
         try:
-            response = self.session.get(
-                url, params=params, timeout=self.config.request_timeout
-            )
-            response.raise_for_status()
-            response_data = response.json()
-            logger.debug(
-                "Airbyte API response from %s: %s",
-                endpoint,
-                response_data,
-            )
-            return response_data
+            return self._do_get(url, params=params)
         except requests.HTTPError as e:
             error_message = f"Airbyte API request failed: {e.response.status_code}"
             try:
@@ -266,20 +283,29 @@ class AirbyteBaseClient(ABC):
             response = self._make_request(endpoint, params=params)
 
             items = response.get(result_key, [])
-            if isinstance(items, list):
-                for item in items:
-                    yield item
-                    total_items += 1
-
-                    if limit and total_items >= limit:
-                        return
-            else:
-                logger.warning(
-                    "Expected list for %s but got %s", result_key, type(items)
+            if not isinstance(items, list):
+                # Treating a malformed page as "end of stream" silently truncates
+                # the entire enumeration. Raise so the operator sees a clear
+                # failure instead of incomplete results.
+                raise AirbyteApiError(
+                    f"Paginated response for {endpoint} returned non-list at "
+                    f"key '{result_key}': got {type(items).__name__}"
                 )
 
+            for item in items:
+                yield item
+                total_items += 1
+
+                if limit and total_items >= limit:
+                    return
+
+            # Airbyte's Public API uses offset/limit only — no cursor token —
+            # so we break when a page comes back empty. The next_token check
+            # is kept for forward-compat with hypothetical future cursor support.
+            if not items:
+                break
             next_token = response.get(next_page_token_key)
-            if not next_token or next_token == "":
+            if next_token == "":
                 break
 
             offset += page_size
@@ -568,11 +594,20 @@ class AirbyteBaseClient(ABC):
 
             return stream_property_fields
 
-        except Exception as e:
-            logger.debug(
-                f"/streams endpoint not available or failed: {e}. Using schema from configurations."
-            )
-            return {}
+        except AirbyteApiError as e:
+            # `/streams` was introduced in newer Airbyte versions; older OSS
+            # deployments respond with 404 which is expected — log+ignore. Any
+            # other error (auth, server error, network) silently degrades
+            # column-level lineage, so we re-raise it to be surfaced as a
+            # warning by the source layer.
+            if "404" in str(e):
+                logger.debug(
+                    "/streams endpoint not available (404) for source %s; "
+                    "falling back to configurations.streams schema",
+                    source_id,
+                )
+                return {}
+            raise
 
     def _build_sync_catalog(
         self,
@@ -974,61 +1009,33 @@ class AirbyteCloudClient(AirbyteBaseClient):
     def _acquire_token(self) -> None:
         self._request_oauth_token(self.config.oauth2_grant_type)
 
-    def _make_request(self, endpoint: str, params: Optional[dict] = None) -> Any:
-        """Override to add OAuth token retry logic for 401/403 responses."""
-        url = self._get_full_url(endpoint)
-        logger.debug("Making GET request to %s", url)
+    def _do_get(
+        self,
+        url: str,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
+        """Cloud-specific GET that retries once with a fresh token on 401/403.
 
+        We override the inner wire hook rather than `_make_request` so the
+        error-handling shell (HTTP/connection error → AirbyteApiError) stays
+        in one place; only the actual request + token-refresh logic differs.
+        """
         try:
-            response = self.session.get(
-                url, params=params, timeout=self.config.request_timeout
-            )
-            response.raise_for_status()
-            response_data = response.json()
-            logger.debug(
-                "Airbyte API response from %s: %s",
-                endpoint,
-                response_data,
-            )
-            return response_data
+            return super()._do_get(url, params=params)
         except requests.HTTPError as e:
-            if e.response.status_code in (401, 403):
-                logger.warning(
-                    f"Received {e.response.status_code}, attempting token refresh"
-                )
-                try:
-                    logger.info("Refreshing token after server invalidation")
-                    self._acquire_token()
-
-                    response = self.session.get(
-                        url, params=params, timeout=self.config.request_timeout
-                    )
-                    response.raise_for_status()
-                    response_data = response.json()
-                    logger.debug(
-                        "Airbyte API response from %s (after token refresh): %s",
-                        endpoint,
-                        response_data,
-                    )
-                    return response_data
-                except Exception:
-                    error_msg = "Token refresh failed after 401/403 response"
-                    logger.error(error_msg)
-                    raise AirbyteAuthenticationError(error_msg) from e
-
-            error_message = f"Airbyte API request failed: {e.response.status_code}"
+            if e.response.status_code not in (401, 403):
+                raise
+            logger.warning(
+                "Received %s from Airbyte Cloud, attempting token refresh",
+                e.response.status_code,
+            )
             try:
-                error_details = e.response.json()
-                error_message += f" - {error_details.get('message', e.response.text)}"
-            except (ValueError, KeyError):
-                error_message += f" - {e.response.text}"
-
-            logger.error(error_message)
-            raise AirbyteApiError(error_message) from e
-        except requests.RequestException as e:
-            error_message = f"Error connecting to Airbyte API: {str(e)}"
-            logger.error(error_message)
-            raise AirbyteApiError(error_message) from e
+                self._acquire_token()
+                return super()._do_get(url, params=params)
+            except Exception as refresh_exc:
+                raise AirbyteAuthenticationError(
+                    "Token refresh failed after 401/403 response"
+                ) from refresh_exc
 
     def _check_token_expiry(self) -> None:
         """Check token expiry with 10-minute buffer and refresh if needed."""
@@ -1038,7 +1045,12 @@ class AirbyteCloudClient(AirbyteBaseClient):
             self._acquire_token()
 
     def _get_full_url(self, endpoint: str) -> str:
-        return urljoin(self.base_url, endpoint.lstrip("/"))
+        # urljoin silently drops trailing path segments when the base lacks
+        # a trailing slash (e.g. urljoin("https://api.airbyte.com/v1",
+        # "workspaces") -> "https://api.airbyte.com/workspaces"). Concatenate
+        # explicitly so customer-supplied `cloud_api_url` values like
+        # "https://eu.example.com/api/v1" don't lose their path prefix.
+        return f"{self.base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
     def _check_auth_before_request(self) -> None:
         self._check_token_expiry()
