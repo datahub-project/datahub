@@ -245,15 +245,14 @@ public class KubernetesController {
               return ResponseEntity.badRequest()
                   .body(
                       Map.of(
-                          "error",
-                          "Deployment " + name + " does not have autoscaling configured"));
+                          "error", "Deployment " + name + " does not have autoscaling configured"));
             }
             if (req.getReplicas() != null) {
               deployments.withName(name).scale(req.getReplicas());
               log.info("Scaled deployment {} to {} replicas", name, req.getReplicas());
             }
 
-          // ── KEDA-managed path ─────────────────────────────────────────────
+            // ── KEDA-managed path ─────────────────────────────────────────────
           } else {
             if (req.getReplicas() != null) {
               // Pause autoscaling at the requested replica count via annotation.
@@ -889,8 +888,7 @@ public class KubernetesController {
    * controlling replicas. No-op if the annotation is not present (autoscaling was already active).
    */
   private void unpauseKedaScaledObject(
-      @Nonnull final GenericKubernetesResource scaledObject,
-      @Nonnull final String deploymentName) {
+      @Nonnull final GenericKubernetesResource scaledObject, @Nonnull final String deploymentName) {
     Map<String, String> annotations = scaledObject.getMetadata().getAnnotations();
     boolean wasPaused =
         annotations != null && annotations.containsKey(KEDA_PAUSED_REPLICAS_ANNOTATION);
