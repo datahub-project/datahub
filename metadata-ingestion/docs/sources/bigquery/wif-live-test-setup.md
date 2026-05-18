@@ -80,11 +80,11 @@ gcloud iam service-accounts add-iam-policy-binding $SA_EMAIL \
 In your GitHub repository go to **Settings → Secrets and variables → Actions → Variables** and
 add the following **repository variables** (not secrets — these values are not sensitive):
 
-| Variable name            | Value                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `GCP_WIF_PROVIDER`       | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID`                          |
-| `GCP_WIF_SERVICE_ACCOUNT`| `SA_EMAIL` (e.g. `datahub-wif-test-sa@my-project.iam.gserviceaccount.com`)                                              |
-| `GCP_PROJECT_ID`         | `my-project`                                                                                                             |
+| Variable name             | Value                                                                                          |
+| ------------------------- | ---------------------------------------------------------------------------------------------- |
+| `GCP_WIF_PROVIDER`        | `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID` |
+| `GCP_WIF_SERVICE_ACCOUNT` | `SA_EMAIL` (e.g. `datahub-wif-test-sa@my-project.iam.gserviceaccount.com`)                     |
+| `GCP_PROJECT_ID`          | `my-project`                                                                                   |
 
 ---
 
