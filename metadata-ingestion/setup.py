@@ -131,9 +131,10 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    #"sqlglot[c]==30.0.3",
-    # memory leak with sqlglot[c] https://github.com/tobymao/sqlglot/issues/7506
-    "sqlglot==30.0.3",
+    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
+    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
+    # upstream, so we restore [c] here for performance.
+    "sqlglot[c]==30.8.0",
     "patchy==2.8.0",
 }
 

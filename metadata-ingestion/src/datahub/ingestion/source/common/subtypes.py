@@ -44,6 +44,7 @@ class DatasetSubTypes(StrEnum):
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     SAP_HANA_CALCULATION_VIEW = "Calculation View"
+    METRIC_VIEW = "Metric View"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
