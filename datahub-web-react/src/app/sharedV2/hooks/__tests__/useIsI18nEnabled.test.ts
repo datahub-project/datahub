@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useIsI18nEnabled } from '@app/shared/hooks/useIsI18nEnabled';
+import { useIsI18nEnabled } from '@app/sharedV2/hooks/useIsI18nEnabled';
 import { useAppConfig } from '@app/useAppConfig';
 
 const localStorageMock = (() => {
