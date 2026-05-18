@@ -274,6 +274,7 @@ project.ext.externalDependency = [
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
+    'opentelemetrySdkTesting': 'io.opentelemetry:opentelemetry-sdk-testing:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
     'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",

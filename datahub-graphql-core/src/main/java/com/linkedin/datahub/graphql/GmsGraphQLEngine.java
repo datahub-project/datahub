@@ -3558,10 +3558,10 @@ public class GmsGraphQLEngine {
     DataLoaderOptions loaderOptions =
         DataLoaderOptions.newOptions().setBatchLoaderContextProvider(contextProvider);
 
-    // Capture the OTel context at DataLoader creation time. LazyDataLoaderRegistry makes the
-    // GraphQL operation context current before calling this method (via setOperationContext /
-    // OperationContextCaptureInstrumentation), so batchContext holds the operation span. Restoring
-    // it inside the supplier ensures getEntitiesV2 and other batch spans are children of the
+    // Capture the OTel context at DataLoader creation time. LazyDataLoaderRegistry makes the OTel
+    // operation context current before calling this method (via setOtelContext /
+    // OtelContextCaptureInstrumentation), so batchContext holds the operation span. Restoring it
+    // inside the supplier ensures getEntitiesV2 and other batch spans are children of the
     // operation rather than of whichever field resolver or ForkJoinPool thread dispatches the
     // batch.
     final Context batchContext = Context.current();

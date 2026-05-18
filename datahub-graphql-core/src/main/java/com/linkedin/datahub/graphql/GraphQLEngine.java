@@ -4,7 +4,7 @@ import static graphql.schema.idl.RuntimeWiring.*;
 
 import com.linkedin.datahub.graphql.exception.DataHubDataFetcherExceptionHandler;
 import com.linkedin.datahub.graphql.instrumentation.DataHubFieldComplexityCalculator;
-import com.linkedin.datahub.graphql.instrumentation.OperationContextCaptureInstrumentation;
+import com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.system_telemetry.GraphQLTimingInstrumentation;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -100,10 +100,13 @@ public class GraphQLEngine {
 
     if (graphQLConfiguration.getOtel() != null
         && graphQLConfiguration.getOtel().isEnableOtelGraphqlTraces()) {
+      // Order matters: GraphQLTelemetry must be registered before OtelContextCaptureInstrumentation
+      // so that, when ChainedInstrumentation invokes beginExecution in registration order,
+      // GraphQLTelemetry has already made the operation span current by the time the capture
+      // instrumentation samples Context.current().
       instrumentations.add(
           GraphQLTelemetry.builder(GlobalOpenTelemetry.get()).build().createInstrumentation());
-      // Must be last so it fires after GraphQLTelemetry has made the operation span current.
-      instrumentations.add(new OperationContextCaptureInstrumentation());
+      instrumentations.add(OtelContextCaptureInstrumentation.INSTANCE);
     }
 
     ChainedInstrumentation chainedInstrumentation = new ChainedInstrumentation(instrumentations);
@@ -127,8 +130,8 @@ public class GraphQLEngine {
     /*
      * Construct execution input
      */
-    // Build graphQLContext as a mutable map so OperationContextCaptureInstrumentation can look up
-    // the registry by class key and call setOperationContext once the operation span is active.
+    // Build graphQLContext as a mutable map so OtelContextCaptureInstrumentation can look up the
+    // registry by class key and call setOtelContext once the operation span is active.
     Map<Object, Object> graphqlContextMap = new LinkedHashMap<>();
     // https://www.graphql-java.com/documentation/upgrade-notes/#how-to-use-the-inputinterceptor-to-use-the-legacy-parsevalue-behaviour-prior-to-v220
     graphqlContextMap.put(InputInterceptor.class, LegacyCoercingInputInterceptor.migratesValues());

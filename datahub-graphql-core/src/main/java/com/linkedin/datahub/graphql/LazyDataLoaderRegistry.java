@@ -20,7 +20,7 @@ import org.dataloader.DataLoaderRegistry;
 public class LazyDataLoaderRegistry extends DataLoaderRegistry {
   private final QueryContext queryContext;
   private final Map<String, Function<QueryContext, DataLoader<?, ?>>> dataLoaderSuppliers;
-  private volatile Context operationContext = null;
+  private volatile Context otelContext = null;
 
   public LazyDataLoaderRegistry(
       QueryContext queryContext,
@@ -32,11 +32,12 @@ public class LazyDataLoaderRegistry extends DataLoaderRegistry {
 
   /**
    * Called by {@link
-   * com.linkedin.datahub.graphql.instrumentation.OperationContextCaptureInstrumentation} at the
-   * start of each GraphQL execution, once the operation span is active.
+   * com.linkedin.datahub.graphql.instrumentation.OtelContextCaptureInstrumentation} at the start of
+   * each GraphQL execution, once the OTel operation span is active. Stores the OTel {@link Context}
+   * (not the DataHub {@code OperationContext}) so that DataLoader creation can re-activate it.
    */
-  public void setOperationContext(Context ctx) {
-    this.operationContext = ctx;
+  public void setOtelContext(Context ctx) {
+    this.otelContext = ctx;
   }
 
   @Override
@@ -48,9 +49,9 @@ public class LazyDataLoaderRegistry extends DataLoaderRegistry {
           if (supplier == null) {
             throw new IllegalArgumentException("No DataLoader registered for key: " + key);
           }
-          // Make the operation context current while the DataLoader is created so that
+          // Make the OTel operation context current while the DataLoader is created so that
           // createDataLoader can capture it via Context.current() for batch span parenting.
-          Context ctx = operationContext;
+          Context ctx = otelContext;
           if (ctx != null) {
             try (Scope ignored = ctx.makeCurrent()) {
               return supplier.apply(queryContext);
