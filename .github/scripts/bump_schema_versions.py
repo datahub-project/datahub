@@ -66,8 +66,29 @@ def detect_default_branch() -> str:
     return "master"
 
 
-def get_changed_pdl_files(base_branch: str) -> list[str]:
-    """Return repo-relative paths of PDL files that differ from base_branch."""
+def get_merge_base(remote_ref: str) -> str:
+    """Return the merge-base commit SHA between HEAD and remote_ref."""
+    result = subprocess.run(
+        ["git", "merge-base", "HEAD", remote_ref],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        print(
+            f"Error finding merge-base with {remote_ref}: {result.stderr}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    return result.stdout.strip()
+
+
+def get_base_pdl_changes(merge_base: str, remote_ref: str) -> list[str]:
+    """Return PDL files that changed on remote_ref since merge_base.
+
+    Used to detect whether any of the PDL files touched on this branch have
+    also moved on the base branch — if so, the branch must be rebased before
+    schemaVersion can be bumped correctly.
+    """
     try:
         result = subprocess.run(
             [
@@ -75,7 +96,36 @@ def get_changed_pdl_files(base_branch: str) -> list[str]:
                 "diff",
                 "--name-only",
                 "--diff-filter=ACM",
-                base_branch,
+                merge_base,
+                remote_ref,
+                "--",
+                "*.pdl",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return [f.strip() for f in result.stdout.strip().splitlines() if f.strip()]
+    except subprocess.CalledProcessError as e:
+        print(f"Error getting base branch PDL changes: {e.stderr}", file=sys.stderr)
+        sys.exit(1)
+
+
+def get_changed_pdl_files(base_ref: str) -> list[str]:
+    """Return repo-relative paths of PDL files that differ between base_ref and the working tree.
+
+    Compares base_ref against the working tree (not HEAD) so that uncommitted
+    changes are included — this function runs inside a pre-commit hook.
+    base_ref may be a branch name, remote tracking ref, or commit SHA.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "git",
+                "diff",
+                "--name-only",
+                "--diff-filter=ACM",
+                base_ref,
                 "--",
                 "*.pdl",
             ],
@@ -544,14 +594,33 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    directly_changed = get_changed_pdl_files(args.base_branch)
+    remote_ref = f"refs/remotes/origin/{args.base_branch}"
+    merge_base = get_merge_base(remote_ref)
+
+    directly_changed = get_changed_pdl_files(merge_base)
 
     if not directly_changed:
         print("No changed PDL files found.")
         return 0
 
+    # Check whether any PDL files changed on this branch also changed on the
+    # base branch since divergence. If so, the branch must be rebased or
+    # merged before schemaVersion can be bumped correctly.
+    # Unrelated PDL changes on the base branch do not block.
+    base_pdl_changes = get_base_pdl_changes(merge_base, remote_ref)
+    conflicting = sorted(set(directly_changed) & set(base_pdl_changes))
+    if conflicting:
+        files_list = "\n".join(f"  {f}" for f in conflicting)
+        print(
+            f"ERROR: The following PDL file(s) also changed on {args.base_branch} "
+            f"since this branch diverged. Please merge or rebase from "
+            f"{args.base_branch} first:\n{files_list}",
+            file=sys.stderr,
+        )
+        return 1
+
     if args.verbose:
-        print(f"Comparing against branch: {args.base_branch}")
+        print(f"Comparing against branch: {args.base_branch} (merge-base: {merge_base[:12]})")
         print(f"Found {len(directly_changed)} directly changed PDL file(s):")
         for f in directly_changed:
             print(f"  {f}")
@@ -581,7 +650,9 @@ def main() -> int:
         path = Path(filepath)
         current_content = path.read_text(encoding="utf-8")
 
-        base_content = get_file_at_branch(filepath, args.base_branch)
+        # Use remote_ref (refs/remotes/origin/…) rather than the bare branch
+        # name — local checkouts of the base branch may not exist.
+        base_content = get_file_at_branch(filepath, remote_ref)
         base_version = get_schema_version(base_content) if base_content else 0
         current_version = get_schema_version(current_content)
         new_version = base_version + 1

@@ -18,7 +18,6 @@ const Container = styled.div`
     align-items: center;
     gap: 8px;
     margin-left: -3px;
-    transition: padding 250ms ease-in-out;
 `;
 
 const Logotype = styled.div`
