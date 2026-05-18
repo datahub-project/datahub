@@ -26,7 +26,8 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '7.0.6'
+  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
+  ext.springVersion = '7.0.7'
   // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
   ext.springBootVersion = '4.0.6'
   ext.springKafkaVersion = '4.0.4'
@@ -66,7 +67,7 @@ buildscript {
   // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
   ext.hadoopShadedGuavaVersion = '1.5.0'
   ext.kafkaVersion = '8.1.0'
-  ext.hazelcastVersion = '5.6.0'
+  ext.hazelcastVersion = '5.7.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
@@ -272,8 +273,8 @@ project.ext.externalDependency = [
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     // Parquet stack aligned (parquet-jackson comes transitively; 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq)
-    'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
+    'parquet': 'org.apache.parquet:parquet-avro:1.17.1',
+    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.1',
     'picocli': 'info.picocli:picocli:4.5.0',
     // org.playframework JARs: no version here — datahub-frontend uses platform(play-bom) and $playVersion on that BOM only.
     'playCache': "org.playframework:play-cache_$playScalaVersion",
