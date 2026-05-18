@@ -1440,6 +1440,116 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertFalse(result.hasScrollId()); // No scroll ID since no results
   }
 
+  @Test
+  public void testExtractResultSkipsHitsWithMissingOrInvalidUrn() {
+    // Regression test for #13181 / PR #17387: hits whose `urn` field is missing
+    // or unparseable (e.g. the legacy v1.0.0 bootstrap `datahub-gc` document)
+    // must be skipped rather than aborting the entire search response.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchHit goodHit = mock(SearchHit.class);
+    when(goodHit.getSourceAsMap())
+        .thenReturn(ImmutableMap.of("urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,good,PROD)"));
+    when(goodHit.getScore()).thenReturn(1.0f);
+    when(goodHit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(goodHit.getMatchedQueries()).thenReturn(new String[0]);
+
+    SearchHit nullUrnHit = mock(SearchHit.class);
+    // Source map without `urn` triggers the null path in extractUrnFromSearchHit.
+    when(nullUrnHit.getSourceAsMap()).thenReturn(ImmutableMap.of());
+    when(nullUrnHit.getIndex()).thenReturn("dataset_index_v2");
+    when(nullUrnHit.getId()).thenReturn("legacy-null-urn-doc");
+
+    SearchHit invalidUrnHit = mock(SearchHit.class);
+    when(invalidUrnHit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", "not a valid urn"));
+    when(invalidUrnHit.getIndex()).thenReturn("dataset_index_v2");
+    when(invalidUrnHit.getId()).thenReturn("legacy-bad-urn-doc");
+
+    SearchHit[] hits = new SearchHit[] {goodHit, nullUrnHit, invalidUrnHit};
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+    assertEquals(
+        result.getEntities().get(0).getEntity().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,good,PROD)");
+    // numEntities reflects the raw hit count from Elasticsearch, not the post-filter size.
+    assertEquals(result.getNumEntities().intValue(), 3);
+  }
+
+  @Test
+  public void testExtractScrollResultSkipsHitsWithMissingOrInvalidUrn() {
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchHit goodHit = mock(SearchHit.class);
+    when(goodHit.getSourceAsMap())
+        .thenReturn(ImmutableMap.of("urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,good,PROD)"));
+    when(goodHit.getScore()).thenReturn(1.0f);
+    when(goodHit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(goodHit.getMatchedQueries()).thenReturn(new String[0]);
+    when(goodHit.getSortValues()).thenReturn(new Object[] {"sortValue-good"});
+
+    SearchHit nullUrnHit = mock(SearchHit.class);
+    when(nullUrnHit.getSourceAsMap()).thenReturn(ImmutableMap.of());
+    when(nullUrnHit.getIndex()).thenReturn("dataset_index_v2");
+    when(nullUrnHit.getId()).thenReturn("legacy-null-urn-doc");
+
+    SearchHit invalidUrnHit = mock(SearchHit.class);
+    when(invalidUrnHit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", "not a valid urn"));
+    when(invalidUrnHit.getIndex()).thenReturn("dataset_index_v2");
+    when(invalidUrnHit.getId()).thenReturn("legacy-bad-urn-doc");
+
+    SearchHit[] hits = new SearchHit[] {goodHit, nullUrnHit, invalidUrnHit};
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockHits.getHits()).thenReturn(hits);
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+
+    // Request a size larger than the hit count so the nextScrollId branch is not exercised
+    // (avoids depending on getSortValues() being mocked on the bad hits).
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 10, true);
+
+    assertNotNull(result);
+    assertEquals(result.getEntities().size(), 1);
+    assertEquals(
+        result.getEntities().get(0).getEntity().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,good,PROD)");
+    assertNotNull(result.getEntities().get(0).getExtraFields());
+    assertNotNull(result.getEntities().get(0).getExtraFields().get("scrollId"));
+    assertEquals(result.getNumEntities().intValue(), 3);
+    // searchHits.length (3) < size (10), so no top-level next scrollId.
+    assertFalse(result.hasScrollId());
+  }
+
   // Helper method to create scroll results with specific sizes
   private ScrollResult verifyScrollResultSize(
       SearchRequestHandler handler,
