@@ -2,6 +2,8 @@ package com.linkedin.metadata.resources.entity;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertNotNull;
 
@@ -84,5 +86,27 @@ public class EntityResourceTest {
     Task<DeleteEntityResponse> task = entityResource.deleteEntity(urn.toString(), null, null, null);
 
     assertNotNull(task);
+  }
+
+  /**
+   * Entities such as {@code structuredProperty} have no registered timeseries aspects. The delete
+   * flow must not call {@link TimeseriesAspectService#deleteAspectValues} (or require timeseries
+   * authorization) in that case, so entity delete succeeds when the user can delete the entity.
+   */
+  @Test
+  public void testDeleteEntitySkipsTimeseriesWhenEntityHasNoTimeseriesAspects()
+      throws URISyntaxException {
+    RollbackRunResult rollback =
+        new RollbackRunResult(Collections.emptyList(), 1, Collections.emptyList());
+    when(entityService.deleteUrn(any(OperationContext.class), any(Urn.class)))
+        .thenReturn(rollback);
+
+    Urn urn = Urn.createFromString("urn:li:structuredProperty:business_definition");
+
+    Task<DeleteEntityResponse> task = entityResource.deleteEntity(urn.toString(), null, null, null);
+
+    assertNotNull(task);
+    verify(timeseriesAspectService, never())
+        .deleteAspectValues(any(OperationContext.class), any(), any(), any());
   }
 }

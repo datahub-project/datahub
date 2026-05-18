@@ -1016,6 +1016,12 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Metadata Change Log configuration
           "metadataChangeLog.consumer.batch.enabled",
           "metadataChangeLog.consumer.batch.size",
+          "metadataChangeLog.throttle.timeseries.entityIndex.enabled",
+          "metadataChangeLog.throttle.timeseries.timeseriesIndex.enabled",
+          "metadataChangeLog.throttle.timeseries.observe.enabled",
+          "metadataChangeLog.throttle.timeseries.refreshPeriodSeconds",
+          "metadataChangeLog.throttle.timeseries.refreshOverrides",
+          "metadataChangeLog.throttle.timeseries.maxCacheUrns",
 
           // Elasticsearch Build Indices - Adaptive throttling configuration
           "elasticsearch.buildIndices.clusterHeapYellowThresholdPercent",

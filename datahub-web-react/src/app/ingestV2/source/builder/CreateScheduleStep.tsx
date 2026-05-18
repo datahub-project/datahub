@@ -138,7 +138,9 @@ export const CreateScheduleStep = ({ state, updateState, goTo, prev }: StepProps
     return (
         <>
             <Section>
-                <SelectTemplateHeader level={5}>Configure an Ingestion Schedule</SelectTemplateHeader>
+                <SelectTemplateHeader level={5} data-testid="configure-schedule-heading">
+                    Configure an Ingestion Schedule
+                </SelectTemplateHeader>
             </Section>
             <RequiredFieldForm layout="vertical">
                 <Form.Item

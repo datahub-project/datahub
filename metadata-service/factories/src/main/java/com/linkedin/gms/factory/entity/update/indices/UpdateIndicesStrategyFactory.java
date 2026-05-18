@@ -5,9 +5,11 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
 import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.service.UpdateIndicesV3Strategy;
@@ -27,6 +29,21 @@ import org.springframework.context.annotation.Import;
 @Slf4j
 public class UpdateIndicesStrategyFactory {
 
+  @Bean
+  @Nonnull
+  protected TimeseriesWriteThrottleCache timeseriesWriteThrottleCache(
+      ConfigurationProvider configProvider) {
+    TimeseriesWriteThrottleConfiguration throttleConfig =
+        configProvider.getMetadataChangeLog() != null
+                && configProvider.getMetadataChangeLog().getThrottle() != null
+            ? configProvider.getMetadataChangeLog().getThrottle().getTimeseries()
+            : null;
+    if (throttleConfig == null) {
+      throttleConfig = TimeseriesWriteThrottleConfiguration.builder().build();
+    }
+    return new TimeseriesWriteThrottleCache(throttleConfig);
+  }
+
   @Bean("updateIndicesV2Strategy")
   @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
   @Nonnull
@@ -37,6 +54,7 @@ public class UpdateIndicesStrategyFactory {
       ConfigurationProvider configProvider,
       @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN) IndexConvention indexConvention,
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
+      TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
       @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
@@ -76,7 +94,8 @@ public class UpdateIndicesStrategyFactory {
         semanticSearchConfig,
         indexConvention,
         coalesceBatchUpdates,
-        mappingsBuilder);
+        mappingsBuilder,
+        timeseriesWriteThrottleCache);
   }
 
   @Bean("updateIndicesV3Strategy")
@@ -86,6 +105,7 @@ public class UpdateIndicesStrategyFactory {
       ElasticSearchService elasticSearchService,
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
+      TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.idHashAlgo}") String idHashAlgo,
       @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
       @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled) {
@@ -100,6 +120,7 @@ public class UpdateIndicesStrategyFactory {
         searchDocumentTransformer,
         timeseriesAspectService,
         idHashAlgo,
-        v2Enabled);
+        v2Enabled,
+        timeseriesWriteThrottleCache);
   }
 }

@@ -291,7 +291,7 @@ class RedshiftCommonQuery:
               col_name name,
               col_type varchar,
               col_num int)
-            WHERE 1 and schema = '{schema_name}'
+            WHERE 1 and view_schema = '{schema_name}'
             UNION
             SELECT
               c.schemaname as "schema",

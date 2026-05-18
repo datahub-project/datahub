@@ -51,6 +51,11 @@ record FreshnessAssertionInfo {
     schedule: FreshnessAssertionSchedule
 
     /**
+    * Optional configuration for assigning severities to failed freshness assertions.
+    */
+    failureSeverityConfig: optional AssertionFailureSeverityConfig
+
+    /**
      * A definition of the specific filters that should be applied, when performing monitoring.
      * If not provided, there is no filter, and the full table is under consideration.
      */
