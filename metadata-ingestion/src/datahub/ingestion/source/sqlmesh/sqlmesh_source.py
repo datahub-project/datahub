@@ -486,6 +486,12 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             self.compiled_owner_extraction_pattern = re.compile(
                 config.owner_extraction_pattern
             )
+        # Resolved project config (with auto-detected target_platform and env
+        # suffix settings from the loaded SQLMesh Context). Populated by
+        # _ingest_project's per-model loop so _emit_audit_run_events can build
+        # warehouse URNs identical to those used in _emit_assertions —
+        # keeping assertion-definition and run-event URN hashes consistent.
+        self._resolved_effective: Optional[_EffectiveProjectConfig] = None
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlmeshSource":
@@ -652,6 +658,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             env_suffix_target=env_suffix_target,
             env_catalog_mapping=env_catalog_mapping,
         )
+        # Cache for _emit_audit_run_events so it can build warehouse URNs
+        # the same way _emit_assertions does (consistent assertion hash).
+        self._resolved_effective = effective
 
         logger.info(
             "Ingesting SQLMesh project %r (gateway=%r, env=%r, warehouse=%r)",
@@ -1170,13 +1179,23 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         if schema_key is not None:
             yield from add_dataset_to_container(schema_key, str(dataset.urn))
 
-        # EMBEDDED models have no warehouse object — skip sibling.
-        # All other kinds (including EXTERNAL) have a warehouse view to link to.
-        if not is_embedded:
+        # EMBEDDED models have no warehouse object — skip sibling and emit any
+        # assertions against the sqlmesh URN (there's no physical entity to
+        # attach to). All other kinds (including EXTERNAL) have a warehouse
+        # view we sibling-stitch and attach assertions to.
+        if is_embedded:
+            assertion_target_urn = sqlmesh_urn
+        else:
             warehouse_urn = self._make_warehouse_urn(fqn, effective)
             yield from self._emit_siblings(sqlmesh_urn, warehouse_urn)
+            # Attach assertions to the warehouse URN — same convention as dbt
+            # (dbt_common.py:1462). The warehouse view is where data-quality
+            # consumers actually look, and the warehouse URN here is exactly
+            # the one we just sibling-stitched, so a follow-on warehouse
+            # connector ingestion lights it up automatically.
+            assertion_target_urn = warehouse_urn
 
-        yield from self._emit_assertions(model, sqlmesh_urn)
+        yield from self._emit_assertions(model, assertion_target_urn)
 
     def _build_custom_properties(
         self,
@@ -1531,28 +1550,21 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             if not model_name or not audit_name or status == "skip":
                 continue
 
-            # Reconstruct the dataset URN the same way _emit_model does —
-            # using the global sqlmesh_platform_instance (project-level overrides
-            # are not available here, but single-project setups work correctly).
-            fqn = self._build_logical_fqn(
-                model_name,
-                _EffectiveProjectConfig(
-                    project_path="",
-                    gateway=None,
-                    environment="prod",
-                    target_platform=None,
-                    target_platform_instance=None,
-                    sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
-                    default_catalog=self.config.default_catalog,
-                    convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
-                ),
-            )
-            dataset_urn = mce_builder.make_dataset_urn_with_platform_instance(
-                platform=SQLMESH_PLATFORM,
-                name=fqn,
-                platform_instance=self.config.sqlmesh_platform_instance,
-                env=self.config.env,
-            )
+            # Build the same warehouse URN _emit_assertions used so the
+            # derived assertion hash matches. Requires _ingest_project to
+            # have populated self._resolved_effective (target_platform
+            # auto-detected from the Context's connection_config).
+            effective = self._resolved_effective
+            if effective is None or not effective.target_platform:
+                logger.warning(
+                    "Skipping audit run events for %s — no resolved target_platform; "
+                    "_ingest_project must succeed before _emit_audit_run_events can "
+                    "build the warehouse URNs that match emitted assertion definitions.",
+                    model_name,
+                )
+                continue
+            fqn = self._build_logical_fqn(model_name, effective)
+            dataset_urn = self._make_warehouse_urn(fqn, effective)
 
             # Suffix matches what _emit_single_audit uses
             params = _SQLMESH_AUDIT_MAP.get(audit_name)

@@ -226,6 +226,73 @@ class TestSiblingEmission:
         )
 
 
+class TestAssertionTarget:
+    """Regression: sqlmesh audit-derived assertions attach to the warehouse
+    URN (matching dbt's convention) so they surface on the same Data Quality
+    tab as UI-created Monitor assertions and so a follow-on warehouse
+    connector ingestion stitches them naturally.
+    """
+
+    def test_assertion_dataset_matches_warehouse_sibling_urn(self):
+        from datahub.metadata.schema_classes import (
+            AssertionInfoClass,
+            SiblingsClass,
+        )
+
+        source = _make_source()
+        model = _make_mock_model()
+        # Unknown audit name → dataset-level assertion (no column resolution
+        # needed), exercising the URN-attachment path without sqlglot mocks.
+        model.audits = [("some_custom_audit", {})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        # Pull the warehouse URN from the sibling aspect emitted on the
+        # sqlmesh entity (the sqlmesh URN's Siblings.siblings[0] is the
+        # warehouse URN). This is the URN our assertion MUST match.
+        sqlmesh_sibling_aspect = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+            and SQLMESH_PLATFORM in wu.metadata.entityUrn
+        )
+        warehouse_urn = sqlmesh_sibling_aspect.siblings[0]
+        assert WAREHOUSE_PLATFORM in warehouse_urn
+
+        assertion_infos = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+        ]
+        assert len(assertion_infos) >= 1
+        info = assertion_infos[0]
+        assert info.datasetAssertion is not None
+        # The key invariant — assertion.dataset must match the warehouse
+        # URN we emit as a sibling, so the two never drift.
+        assert info.datasetAssertion.dataset == warehouse_urn
+
+    def test_embedded_model_assertion_falls_back_to_sqlmesh_urn(self):
+        """Embedded sqlmesh models don't materialize to the warehouse, so
+        there's no warehouse URN to target. Assertions stay on the sqlmesh
+        URN — the only place they have somewhere to live."""
+        from datahub.metadata.schema_classes import AssertionInfoClass
+
+        source = _make_source()
+        model = _make_mock_model(kind_name="EMBEDDED", is_embedded=True)
+        model.audits = [("some_custom_audit", {})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assertion_infos = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+        ]
+        assert len(assertion_infos) >= 1
+        # Embedded → no warehouse URN exists; assertion targets sqlmesh URN.
+        assert SQLMESH_PLATFORM in assertion_infos[0].datasetAssertion.dataset
+
+
 class TestLineageEmission:
     def test_lineage_points_to_sqlmesh_urns(self):
         """Lineage edges for managed deps target sqlmesh URNs, not warehouse URNs."""
