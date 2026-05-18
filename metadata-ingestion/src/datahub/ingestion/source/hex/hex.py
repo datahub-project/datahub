@@ -137,6 +137,8 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             base_url=self.source_config.base_url,
             page_size=self.source_config.page_size,
         )
+        # Resolved in get_workunits_internal
+        self.workspace_id: Optional[str] = None
         self.mapper = Mapper(
             workspace_name=self.source_config.workspace_name,
             platform_instance=self.source_config.platform_instance,
@@ -545,6 +547,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self._last_ingested_at_ms = None
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        self.workspace_id = self.hex_api.fetch_workspace_id()
+        self.mapper.workspace_id = self.workspace_id
+
         # Read incremental checkpoint — None on first run or when ignore_old_state=true
         run_start_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
         last_checkpoint = self.state_provider.get_last_checkpoint(

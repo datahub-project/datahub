@@ -44,6 +44,7 @@ from datahub.metadata.urns import DashboardUrn
 
 class TestMapper(unittest.TestCase):
     workspace_name = "test-workspace"
+    workspace_id = "67a12d5f-c344-44e5-111f-5c11f942abcd"
     created_at = datetime(2022, 1, 1, 0, 0, 0)
     last_edited_at = datetime(2022, 1, 2, 0, 0, 0)
     last_modified = ChangeAuditStampsClass(
@@ -113,6 +114,7 @@ class TestMapper(unittest.TestCase):
     def test_map_project(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
@@ -159,7 +161,7 @@ class TestMapper(unittest.TestCase):
         assert dashboard_info_wus[0].metadata.aspect.description == "A test project"
         assert (
             dashboard_info_wus[0].metadata.aspect.externalUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            == f"https://app.hex.tech/{self.workspace_id}/hex/uuid1"
         )
         assert dashboard_info_wus[0].metadata.aspect.customProperties == {
             "id": "uuid1",
@@ -344,6 +346,7 @@ class TestMapper(unittest.TestCase):
     def test_map_component(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
@@ -390,7 +393,7 @@ class TestMapper(unittest.TestCase):
         assert chart_info_wus[0].metadata.aspect.description == "A test component"
         assert (
             chart_info_wus[0].metadata.aspect.chartUrl
-            == "https://app.hex.tech/test-workspace/hex/uuid1"
+            == f"https://app.hex.tech/{self.workspace_id}/hex/uuid1"
         )
         assert chart_info_wus[0].metadata.aspect.customProperties == {"id": "uuid1"}
 
@@ -834,13 +837,14 @@ class TestMapper(unittest.TestCase):
     def test_external_urls(self):
         mapper = Mapper(
             workspace_name=self.workspace_name,
+            workspace_id=self.workspace_id,
             patch_metadata=False,
         )
 
         cases = [
-            # unpublished projects and components are at: {workspace}/hex/{id}
+            # unpublished projects and components are at: {workspace_id}/hex/{id}
             (
-                "https://app.hex.tech/test-workspace/hex/uuid1",
+                f"https://app.hex.tech/{self.workspace_id}/hex/uuid1",
                 Project(
                     id="uuid1",
                     title="",
@@ -848,16 +852,16 @@ class TestMapper(unittest.TestCase):
                 ),
             ),
             (
-                "https://app.hex.tech/test-workspace/hex/uuid2",
+                f"https://app.hex.tech/{self.workspace_id}/hex/uuid2",
                 Component(
                     id="uuid2",
                     title="",
                     description="",
                 ),
             ),
-            # but published projects and components are at: {workspace}/app/{id}
+            # but published projects and components are at: {workspace_id}/app/{id}
             (
-                "https://app.hex.tech/test-workspace/app/uuid3",
+                f"https://app.hex.tech/{self.workspace_id}/app/uuid3",
                 Project(
                     id="uuid3",
                     title="",
@@ -866,7 +870,7 @@ class TestMapper(unittest.TestCase):
                 ),
             ),
             (
-                "https://app.hex.tech/test-workspace/app/uuid4",
+                f"https://app.hex.tech/{self.workspace_id}/app/uuid4",
                 Component(
                     id="uuid4",
                     title="",
@@ -899,3 +903,28 @@ class TestMapper(unittest.TestCase):
                 assert chart_aspects[0].chartUrl == expected_external_url
             else:
                 raise AssertionError()
+
+    def test_external_url_omitted_without_workspace_id(self):
+        """Without a workspace_id we can't build a working Hex URL — omit it
+        rather than emit a broken link using the workspace name."""
+        mapper = Mapper(
+            workspace_name=self.workspace_name,
+            workspace_id=None,
+            patch_metadata=False,
+        )
+
+        dashboard_info = next(
+            wu.get_aspect_of_type(DashboardInfoClass)
+            for wu in mapper.map_project(Project(id="uuid1", title="", description=""))
+            if wu.get_aspect_of_type(DashboardInfoClass)
+        )
+        assert dashboard_info and dashboard_info.externalUrl is None
+
+        chart_info = next(
+            wu.get_aspect_of_type(ChartInfoClass)
+            for wu in mapper.map_component(
+                Component(id="uuid2", title="", description="")
+            )
+            if wu.get_aspect_of_type(ChartInfoClass)
+        )
+        assert chart_info and chart_info.chartUrl is None

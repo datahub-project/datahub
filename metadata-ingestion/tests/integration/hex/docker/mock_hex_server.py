@@ -215,6 +215,19 @@ class MockHexAPIHandler(http.server.SimpleHTTPRequestHandler):
             self._respond(200, "OK", content_type="text/plain")
             return
 
+        # /users/me — workspace_id is read from org.id for building externalUrl.
+        if path == "/api/v1/users/me":
+            self._respond_json(
+                {
+                    "email": "test@example.com",
+                    "id": "019dff50-7a19-7000-81d9-526c38da0134",
+                    "name": "Test User",
+                    "org": {"id": "67a12d5f-c344-44e5-111f-5c11f942abcd"},
+                    "role": "ADMIN",
+                }
+            )
+            return
+
         # Data connections
         if path == "/api/v1/data-connections":
             self._respond_json(CONNECTIONS_RESPONSE)

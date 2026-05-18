@@ -52,7 +52,7 @@
                 "last_run_status": "COMPLETED",
                 "last_run_elapsed_seconds": "60"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/app/c8f815c8-88c2-4dea-981f-69f544d6165d",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/app/c8f815c8-88c2-4dea-981f-69f544d6165d",
             "title": "Welcome to Hex!-0",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -220,7 +220,7 @@
             "customProperties": {
                 "id": "dd0f1e20-7586-4b8e-89ae-bfe3c924625b"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/dd0f1e20-7586-4b8e-89ae-bfe3c924625b",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/dd0f1e20-7586-4b8e-89ae-bfe3c924625b",
             "title": "Welcome to Hex!-2",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -362,7 +362,7 @@
             "customProperties": {
                 "id": "827ea1f2-ed9a-425f-8d48-0ecc491c7c7c"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/827ea1f2-ed9a-425f-8d48-0ecc491c7c7c",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/827ea1f2-ed9a-425f-8d48-0ecc491c7c7c",
             "title": "Welcome to Hex!-3",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -504,7 +504,7 @@
             "customProperties": {
                 "id": "e9d940fe-34ad-415b-ad12-cb4c201650dc"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/e9d940fe-34ad-415b-ad12-cb4c201650dc",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/e9d940fe-34ad-415b-ad12-cb4c201650dc",
             "title": "Welcome to Hex!-4",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -650,7 +650,7 @@
             "customProperties": {
                 "id": "89e64571-42d9-44ac-bf47-320a7440eb57"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/89e64571-42d9-44ac-bf47-320a7440eb57",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/89e64571-42d9-44ac-bf47-320a7440eb57",
             "title": "Welcome to Hex!-5",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -792,7 +792,7 @@
             "customProperties": {
                 "id": "d05b0d81-6d00-4798-8967-6587b6731c0a"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/d05b0d81-6d00-4798-8967-6587b6731c0a",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/d05b0d81-6d00-4798-8967-6587b6731c0a",
             "title": "Welcome to Hex!-6",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],
@@ -934,7 +934,7 @@
             "customProperties": {
                 "id": "d73da67d-c87b-4dd8-9e7f-b79cb7f822cf"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/app/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/app/d73da67d-c87b-4dd8-9e7f-b79cb7f822cf",
             "title": "PlayNotebook",
             "description": "This is a play project\n\n",
             "charts": [],
@@ -1167,7 +1167,7 @@
                     "actor": "urn:li:corpuser:_ingestion"
                 }
             },
-            "chartUrl": "http://localhost:8001/test-workspace/app/4759f33c-1ab9-403d-92e8-9bef48de00c4",
+            "chartUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/app/4759f33c-1ab9-403d-92e8-9bef48de00c4",
             "inputs": [
                 {
                     "string": "urn:li:dataset:(urn:li:dataPlatform:snowflake,hex_test.analytics.public.orders,PROD)"
@@ -1344,7 +1344,7 @@
                     "actor": "urn:li:corpuser:_ingestion"
                 }
             },
-            "chartUrl": "http://localhost:8001/test-workspace/app/0496a2c2-8656-475d-9946-6402320779e2"
+            "chartUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/app/0496a2c2-8656-475d-9946-6402320779e2"
         }
     },
     "systemMetadata": {
@@ -1492,7 +1492,7 @@
             "customProperties": {
                 "id": "2ef730de-25ec-4131-94af-3517e743a738"
             },
-            "externalUrl": "http://localhost:8001/test-workspace/hex/2ef730de-25ec-4131-94af-3517e743a738",
+            "externalUrl": "http://localhost:8001/67a12d5f-c344-44e5-111f-5c11f942abcd/hex/2ef730de-25ec-4131-94af-3517e743a738",
             "title": "Welcome to Hex!",
             "description": "Get started with this example project that uses SQL and Python to find the most popular dessert order for a fictional dumpling restaurant.\n\n",
             "charts": [],

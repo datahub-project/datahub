@@ -358,6 +358,33 @@ class HexApi:
 
         return session
 
+    @_api_call("get_workspace_id")
+    def fetch_workspace_id(self) -> Optional[str]:
+        """Fetch the workspace (org) ID from /users/me.
+
+        Hex's web URLs require the workspace UUID, not the human-readable name,
+        so we derive it from /users/me which returns it under `org.id` for both
+        Personal Access Tokens and Workspace Tokens.
+
+        Returns None if the endpoint errors or the field is missing — callers
+        should treat that as "no externalUrl/chartUrl" rather than failing.
+        """
+        try:
+            resp = self.session.get(
+                url=f"{self.base_url}/users/me",
+                headers=self._auth_header(),
+                timeout=15,
+            )
+            resp.raise_for_status()
+            return resp.json().get("org", {}).get("id") or None
+        except Exception as e:
+            self.report.warning(
+                title="Could not auto-discover Hex workspace_id",
+                message=("External URLs (externalUrl/chartUrl) will be omitted. "),
+                exc=e,
+            )
+            return None
+
     @_api_call("list_projects")
     def fetch_projects(
         self,

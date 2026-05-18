@@ -87,6 +87,7 @@ class Mapper:
         platform_instance: Optional[str] = None,
         env: Optional[str] = None,
         base_url: str = HEX_API_BASE_URL_DEFAULT,
+        workspace_id: Optional[str] = None,
         patch_metadata: bool = True,
         collections_as_tags: bool = True,
         status_as_tag: bool = True,
@@ -94,6 +95,7 @@ class Mapper:
         set_ownership_from_email: bool = True,
     ):
         self._workspace_name = workspace_name
+        self.workspace_id = workspace_id
         self._env = env
         self._platform_instance = platform_instance
         self._workspace_urn = Mapper._get_workspace_urn(
@@ -287,15 +289,11 @@ class Mapper:
         self,
         project_or_component: Union[Project, Component],
     ) -> Optional[str]:
-        if project_or_component.last_published_at is None:
-            return (
-                f"{self._base_url}/{self._workspace_name}/hex/{project_or_component.id}"
-            )
-        else:
-            # published Projects/Components have a different URL that everybody, not just editors, can access
-            return (
-                f"{self._base_url}/{self._workspace_name}/app/{project_or_component.id}"
-            )
+        if not self.workspace_id:
+            return None
+        # published Projects/Components have a different URL that everybody, not just editors, can access
+        path = "app" if project_or_component.last_published_at else "hex"
+        return f"{self._base_url}/{self.workspace_id}/{path}/{project_or_component.id}"
 
     def _change_audit_stamps(
         self, created_at: Optional[datetime], last_edited_at: Optional[datetime]
