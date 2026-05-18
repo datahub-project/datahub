@@ -1,4 +1,4 @@
-import { Clock } from '@phosphor-icons/react';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import { Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';

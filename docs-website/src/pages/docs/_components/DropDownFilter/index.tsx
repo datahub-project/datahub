@@ -7,12 +7,12 @@
 
 /* eslint-disable jsx-a11y/no-autofocus */
 
-import React, { useEffect, useState, useReducer, useRef } from "react";
-import { Row, Col, Checkbox } from "antd";
+import React, { useState } from "react";
+import { Checkbox } from "antd";
 import type { SelectProps } from "antd";
 import { Select } from "antd";
 
-function DropDownFilter({ filterState, setFilterState, filterOptions }) {
+function DropDownFilter({ filterState, setFilterState, filterOptions, excludeKeys = [] }) {
   function SingleFilter({
     filterState,
     setFilterState,
@@ -20,7 +20,6 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
     filterOptions,
   }) {
     const toArray = [...filterOptions[filter]];
-    const [selectedItems, setSelectedItems] = useState<any[]>([]);
     const options: SelectProps["options"] = [];
 
     toArray.forEach((item) => {
@@ -54,108 +53,74 @@ function DropDownFilter({ filterState, setFilterState, filterOptions }) {
         });
     };
 
-    let returnElement = <div />;
+    const labelStyle: React.CSSProperties = {
+      fontSize: "0.85rem",
+      fontWeight: 500,
+      color: "var(--ifm-color-emphasis-700)",
+      minWidth: "120px",
+      paddingTop: "0.3rem",
+    };
+
+    const rowStyle: React.CSSProperties = {
+      display: "flex",
+      alignItems: "flex-start",
+      gap: "1rem",
+      width: "100%",
+    };
+
     if (toArray.length <= 2) {
-      returnElement = (
-        <Row
-          style={{
-            width: "auto",
-            display: "flex",
-            flex: "1 1 auto",
-            flexDirection: "row",
-            justifyContent: "space-between",
-          }}
-        >
-          <Col style={{ marginRight: "10px" }}>{filter}</Col>
-          <Col
-            style={{ width: "55%", display: "flex", justifyContent: "start" }}
-          >
-            {toArray.length > 0 &&
-              toArray.map((item) => {
-                return (
-                  <Checkbox
-                    key={item}
-                    onChange={(e) => {
-                      toggleFilter(item);
-                    }}
-                    checked={filterState.includes(item)}
-                  >
-                    {item}
-                  </Checkbox>
-                );
-              })}
-          </Col>
-        </Row>
-      );
-    } else {
-      returnElement = (
-        <Row
-          style={{
-            width: "auto",
-            display: "flex",
-            flex: "1 1 auto",
-            flexDirection: "row",
-            justifyContent: "space-between",
-          }}
-        >
-          <Col>{filter}</Col>
-          <Select
-            mode="multiple"
-            allowClear
-            value={filterState.filter((val) => {
-              return toArray.includes(val);
-            })}
-            bordered={true}
-            style={{ width: "55%", marginLeft: "10px" }}
-            placeholder="Select"
-            onChange={handleChange}
-            options={options}
-          />
-        </Row>
+      return (
+        <div style={{ ...rowStyle, alignItems: "center", padding: "0.5rem 0" }}>
+          <span style={labelStyle}>{filter}</span>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+            {toArray.map((item) => (
+              <Checkbox
+                key={item}
+                onChange={() => toggleFilter(item)}
+                checked={filterState.includes(item)}
+              >
+                {item}
+              </Checkbox>
+            ))}
+          </div>
+        </div>
       );
     }
+
     return (
-      <Row
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          width: "auto",
-          flex: "1 1 auto",
-          marginTop: "16px",
-        }}
-      >
-        {returnElement}
-      </Row>
+      <div style={{ ...rowStyle, padding: "0.5rem 0" }}>
+        <span style={labelStyle}>{filter}</span>
+        <Select
+          mode="multiple"
+          allowClear
+          value={filterState.filter((val) => toArray.includes(val))}
+          style={{
+            flex: 1,
+            minWidth: 0,
+          }}
+          placeholder="Select..."
+          onChange={handleChange}
+          options={options}
+        />
+      </div>
     );
   }
 
   const keys = Object.keys(filterOptions);
-  var width: any = keys.length > 1 ? 100 / keys.length : 100;
-  width = width + "%";
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        width: "auto",
-        flexDirection: "column",
-      }}
-    >
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.25rem" }}>
       {keys
-        .sort((a, b) => {
-          return filterOptions[a].size - filterOptions[b].size;
-        })
-        .map((filter) => {
-          return (
-            <SingleFilter
-              filterState={filterState}
-              setFilterState={setFilterState}
-              filterOptions={filterOptions}
-              filter={filter}
-              key={filter}
-            />
-          );
-        })}
+        .filter((key) => !excludeKeys.includes(key))
+        .sort((a, b) => filterOptions[a].size - filterOptions[b].size)
+        .map((filter) => (
+          <SingleFilter
+            filterState={filterState}
+            setFilterState={setFilterState}
+            filterOptions={filterOptions}
+            filter={filter}
+            key={filter}
+          />
+        ))}
     </div>
   );
 }

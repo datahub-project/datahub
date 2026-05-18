@@ -180,10 +180,12 @@ class UnityCatalogSourceConfig(
     )
 
     _only_ingest_assigned_metastore_removed = pydantic_removed_field(
-        "only_ingest_assigned_metastore"
+        "only_ingest_assigned_metastore", month="June", year=2023
     )
 
-    _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+    _metastore_id_pattern_removed = pydantic_removed_field(
+        "metastore_id_pattern", month="June", year=2023
+    )
 
     catalogs: Optional[List[str]] = pydantic.Field(
         default=None,
@@ -214,6 +216,28 @@ class UnityCatalogSourceConfig(
             "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
             " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
             " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
         ),
     )
 

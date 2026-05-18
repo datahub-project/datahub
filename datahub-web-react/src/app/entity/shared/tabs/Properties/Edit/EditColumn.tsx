@@ -1,3 +1,4 @@
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -12,7 +13,7 @@ import { ToastType, showToastMessage } from '@src/app/sharedV2/toastMessageUtils
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
 
-export const MoreOptionsContainer = styled.div`
+const MoreOptionsContainer = styled.div`
     display: flex;
     gap: 12px;
     justify-content: end;
@@ -121,7 +122,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="MoreVert" size="md" data-testid="structured-prop-entity-more-icon" />
+                    <Icon icon={DotsThreeVertical} size="md" data-testid="structured-prop-entity-more-icon" />
                 </Dropdown>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal

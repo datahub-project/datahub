@@ -9,11 +9,14 @@ Tests the following operations:
 - createAccessToken for service account: Generate API token for a service account
 """
 
+import logging
 from typing import Optional
 
 import tenacity
 
 from tests.utils import get_sleep_info
+
+logger = logging.getLogger(__name__)
 
 sleep_sec, sleep_times = get_sleep_info()
 
@@ -204,6 +207,34 @@ def _ensure_service_account_exists(session, urn: str):
     return res_data
 
 
+@tenacity.retry(
+    stop=tenacity.stop_after_attempt(sleep_times), wait=tenacity.wait_fixed(sleep_sec)
+)
+def _ensure_service_account_default_view(
+    session, service_account_urn: str, expected_view_urn: Optional[str]
+):
+    """Wait for a service account's default view to reach the expected state."""
+    res_data = list_service_accounts_with_default_view(session)
+    assert res_data.get("data"), f"Failed to list service accounts: {res_data}"
+    assert "errors" not in res_data, f"Unexpected errors: {res_data.get('errors')}"
+
+    accounts = res_data["data"]["listServiceAccounts"]["serviceAccounts"]
+    matching = [sa for sa in accounts if sa["urn"] == service_account_urn]
+    assert len(matching) == 1, f"Expected to find service account {service_account_urn}"
+
+    default_view = matching[0]["defaultView"]
+    if expected_view_urn is None:
+        assert default_view is None, (
+            f"Expected defaultView to be null, got: {default_view}"
+        )
+    else:
+        assert default_view is not None, "Expected defaultView to be set"
+        assert default_view["urn"] == expected_view_urn, (
+            f"Expected view {expected_view_urn}, got {default_view['urn']}"
+        )
+    return matching[0]
+
+
 # Tests
 
 
@@ -227,10 +258,10 @@ def test_create_list_get_delete_service_account(auth_session):
         f"Unexpected errors in list: {res_data.get('errors')}"
     )
     before_count = res_data["data"]["listServiceAccounts"]["total"]
-    print(f"Initial service account count: {before_count}")
+    logger.info(f"Initial service account count: {before_count}")
 
     # Step 1: Create service account (ID is auto-generated as UUID)
-    print("Creating service account with auto-generated ID")
+    logger.info("Creating service account with auto-generated ID")
     res_data = create_service_account(
         auth_session,
         display_name=display_name,
@@ -253,11 +284,11 @@ def test_create_list_get_delete_service_account(auth_session):
     )
 
     service_account_urn = created_account["urn"]
-    print(f"Created service account with URN: {service_account_urn}")
+    logger.info(f"Created service account with URN: {service_account_urn}")
 
     # Step 2: List service accounts and verify count increased
     _ensure_service_account_count(auth_session, before_count + 1)
-    print("Verified service account count increased")
+    logger.info("Verified service account count increased")
 
     # Step 3: Get the service account by URN
     res_data = _ensure_service_account_exists(auth_session, service_account_urn)
@@ -265,10 +296,10 @@ def test_create_list_get_delete_service_account(auth_session):
     assert fetched_account["urn"] == service_account_urn
     assert fetched_account["displayName"] == display_name
     assert fetched_account["description"] == description
-    print(f"Successfully retrieved service account: {fetched_account}")
+    logger.info(f"Successfully retrieved service account: {fetched_account}")
 
     # Step 4: Delete the service account
-    print(f"Deleting service account: {service_account_urn}")
+    logger.info(f"Deleting service account: {service_account_urn}")
     res_data = delete_service_account(auth_session, service_account_urn)
     assert res_data, "Failed to delete service account"
     assert res_data.get("data"), f"Response missing data: {res_data}"
@@ -278,11 +309,11 @@ def test_create_list_get_delete_service_account(auth_session):
     assert res_data["data"]["deleteServiceAccount"] is True, (
         f"deleteServiceAccount returned {res_data['data']['deleteServiceAccount']}"
     )
-    print("Service account deleted successfully")
+    logger.info("Service account deleted successfully")
 
     # Step 5: Verify count is back to original
     _ensure_service_account_count(auth_session, before_count)
-    print("Verified service account count is back to original")
+    logger.info("Verified service account count is back to original")
 
 
 def test_create_access_token_for_service_account(auth_session):
@@ -295,7 +326,7 @@ def test_create_access_token_for_service_account(auth_session):
     5. Delete the service account
     """
     # Step 1: Create service account (ID is auto-generated)
-    print("Creating service account for token test")
+    logger.info("Creating service account for token test")
     res_data = create_service_account(
         auth_session,
         display_name="Token Test Service Account",
@@ -305,13 +336,13 @@ def test_create_access_token_for_service_account(auth_session):
     assert "errors" not in res_data, f"Errors in create: {res_data.get('errors')}"
 
     service_account_urn = res_data["data"]["createServiceAccount"]["urn"]
-    print(f"Created service account: {service_account_urn}")
+    logger.info(f"Created service account: {service_account_urn}")
 
     # Wait for it to be indexed
     _ensure_service_account_exists(auth_session, service_account_urn)
 
     # Step 2: Create access token for service account
-    print(f"Creating access token for: {service_account_urn}")
+    logger.info(f"Creating access token for: {service_account_urn}")
     res_data = create_access_token_for_service_account(
         auth_session,
         actor_urn=service_account_urn,
@@ -328,22 +359,22 @@ def test_create_access_token_for_service_account(auth_session):
     )
 
     token_id = token_result["metadata"]["id"]
-    print(f"Created access token with ID: {token_id}")
+    logger.info(f"Created access token with ID: {token_id}")
 
     # Step 3: Revoke the token
-    print(f"Revoking access token: {token_id}")
+    logger.info(f"Revoking access token: {token_id}")
     res_data = revoke_access_token(auth_session, token_id)
     assert res_data.get("data"), f"Failed to revoke token: {res_data}"
     assert "errors" not in res_data, f"Errors in revoke: {res_data.get('errors')}"
     assert res_data["data"]["revokeAccessToken"] is True
-    print("Token revoked successfully")
+    logger.info("Token revoked successfully")
 
     # Step 4: Clean up - delete service account
-    print(f"Deleting service account: {service_account_urn}")
+    logger.info(f"Deleting service account: {service_account_urn}")
     res_data = delete_service_account(auth_session, service_account_urn)
     assert res_data.get("data"), f"Failed to delete service account: {res_data}"
     assert "errors" not in res_data, f"Errors in delete: {res_data.get('errors')}"
-    print("Service account deleted successfully")
+    logger.info("Service account deleted successfully")
 
 
 def test_get_nonexistent_service_account(auth_session):
@@ -353,14 +384,14 @@ def test_get_nonexistent_service_account(auth_session):
     res_data = get_service_account(auth_session, fake_urn)
     # Should either return null or an error
     if res_data.get("errors"):
-        print(
+        logger.info(
             f"Got expected error for nonexistent service account: {res_data['errors']}"
         )
     else:
         assert res_data["data"]["getServiceAccount"] is None, (
             f"Expected null for nonexistent service account, got: {res_data['data']['getServiceAccount']}"
         )
-        print("Got expected null for nonexistent service account")
+        logger.info("Got expected null for nonexistent service account")
 
 
 def test_delete_nonexistent_service_account(auth_session):
@@ -370,12 +401,188 @@ def test_delete_nonexistent_service_account(auth_session):
     res_data = delete_service_account(auth_session, fake_urn)
     # Should return an error for non-existent service account
     if res_data.get("errors"):
-        print(
+        logger.info(
             f"Got expected error for deleting nonexistent service account: {res_data['errors']}"
         )
     else:
         # Some implementations might return false instead of an error
-        print(f"Delete returned: {res_data}")
+        logger.info(f"Delete returned: {res_data}")
+
+
+def update_service_account_default_view(
+    session, urn: str, default_view: Optional[str] = None
+):
+    """Set or clear the default view for a service account."""
+    input_data: dict = {"urn": urn}
+    if default_view is not None:
+        input_data["defaultView"] = default_view
+
+    json_data = {
+        "query": """mutation updateServiceAccountDefaultView($input: UpdateServiceAccountDefaultViewInput!) {
+            updateServiceAccountDefaultView(input: $input)
+        }""",
+        "variables": {"input": input_data},
+    }
+
+    response = session.post(f"{session.frontend_url()}/api/v2/graphql", json=json_data)
+    response.raise_for_status()
+    return response.json()
+
+
+def list_service_accounts_with_default_view(
+    session, start: int = 0, count: int = 20, query: Optional[str] = None
+):
+    """List service accounts including the defaultView field."""
+    input_data: dict = {"start": start, "count": count}
+    if query:
+        input_data["query"] = query
+
+    json_data = {
+        "query": """query listServiceAccounts($input: ListServiceAccountsInput!) {
+            listServiceAccounts(input: $input) {
+                start
+                count
+                total
+                serviceAccounts {
+                    urn
+                    name
+                    displayName
+                    defaultView {
+                        urn
+                        name
+                        viewType
+                    }
+                }
+            }
+        }""",
+        "variables": {"input": input_data},
+    }
+
+    response = session.post(f"{session.frontend_url()}/api/v2/graphql", json=json_data)
+    response.raise_for_status()
+    return response.json()
+
+
+def create_global_view(session, name: str):
+    """Create a global view for testing."""
+    json_data = {
+        "query": """mutation createView($input: CreateViewInput!) {
+            createView(input: $input) {
+                urn
+                name
+            }
+        }""",
+        "variables": {
+            "input": {
+                "viewType": "GLOBAL",
+                "name": name,
+                "description": "Test view for service account default view",
+                "definition": {
+                    "entityTypes": ["DATASET"],
+                    "filter": {
+                        "operator": "AND",
+                        "filters": [
+                            {
+                                "field": "tags",
+                                "values": ["urn:li:tag:test"],
+                                "negated": False,
+                                "condition": "EQUAL",
+                            }
+                        ],
+                    },
+                },
+            }
+        },
+    }
+
+    response = session.post(f"{session.frontend_url()}/api/v2/graphql", json=json_data)
+    response.raise_for_status()
+    return response.json()
+
+
+def delete_view(session, urn: str):
+    """Delete a view."""
+    json_data = {
+        "query": """mutation deleteView($urn: String!) {
+            deleteView(urn: $urn)
+        }""",
+        "variables": {"urn": urn},
+    }
+
+    response = session.post(f"{session.frontend_url()}/api/v2/graphql", json=json_data)
+    response.raise_for_status()
+    return response.json()
+
+
+def test_service_account_default_view(auth_session):
+    """
+    Test setting and clearing the default view for a service account:
+    1. Create a service account
+    2. Create a global view
+    3. Set the default view on the service account
+    4. List service accounts and verify the default view is returned
+    5. Clear the default view
+    6. Verify it's cleared
+    7. Clean up
+    """
+    # Step 1: Create service account
+    res_data = create_service_account(
+        auth_session,
+        display_name="Default View Test SA",
+        description="Testing default view feature",
+    )
+    assert res_data.get("data"), f"Failed to create service account: {res_data}"
+    assert "errors" not in res_data
+    service_account_urn = res_data["data"]["createServiceAccount"]["urn"]
+    logger.info(f"Created service account: {service_account_urn}")
+
+    _ensure_service_account_exists(auth_session, service_account_urn)
+
+    # Step 2: Create a global view
+    res_data = create_global_view(auth_session, "SA Default View Test")
+    assert res_data.get("data"), f"Failed to create view: {res_data}"
+    assert "errors" not in res_data
+    view_urn = res_data["data"]["createView"]["urn"]
+    view_name = res_data["data"]["createView"]["name"]
+    logger.info(f"Created view: {view_urn} ({view_name})")
+
+    try:
+        # Step 3: Set default view on the service account
+        res_data = update_service_account_default_view(
+            auth_session, service_account_urn, view_urn
+        )
+        assert res_data.get("data"), f"Failed to set default view: {res_data}"
+        assert "errors" not in res_data, (
+            f"Errors setting default view: {res_data.get('errors')}"
+        )
+        assert res_data["data"]["updateServiceAccountDefaultView"] is True
+        logger.info("Default view set successfully")
+
+        # Step 4: List and verify the default view is returned (with retry for eventual consistency)
+        matched = _ensure_service_account_default_view(
+            auth_session, service_account_urn, view_urn
+        )
+        assert matched["defaultView"]["name"] == view_name
+        logger.info(f"Verified default view in list: {matched['defaultView']}")
+
+        # Step 5: Clear the default view
+        res_data = update_service_account_default_view(
+            auth_session, service_account_urn, None
+        )
+        assert res_data.get("data"), f"Failed to clear default view: {res_data}"
+        assert "errors" not in res_data
+        assert res_data["data"]["updateServiceAccountDefaultView"] is True
+        logger.info("Default view cleared successfully")
+
+        # Step 6: Verify it's cleared (with retry for eventual consistency)
+        _ensure_service_account_default_view(auth_session, service_account_urn, None)
+        logger.info("Verified default view is cleared")
+
+    finally:
+        # Clean up
+        delete_service_account(auth_session, service_account_urn)
+        delete_view(auth_session, view_urn)
+        logger.info("Cleaned up service account and view")
 
 
 def test_list_service_accounts_with_query(auth_session):
@@ -408,7 +615,7 @@ def test_list_service_accounts_with_query(auth_session):
         f"Expected to find service account with URN '{service_account_urn}' in list results"
     )
     assert matching[0]["displayName"] == unique_display_name
-    print(f"Found service account in list: {matching[0]}")
+    logger.info(f"Found service account in list: {matching[0]}")
 
     # Clean up
     delete_service_account(auth_session, service_account_urn)

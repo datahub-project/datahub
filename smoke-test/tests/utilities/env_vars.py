@@ -24,6 +24,19 @@ def get_gms_url() -> Optional[str]:
     return os.getenv("DATAHUB_GMS_URL")
 
 
+def get_gms_management_url() -> Optional[str]:
+    """Override base URL for Spring Actuator / Micrometer (e.g. `http://localhost:4319`).
+
+    If unset, smoke tests infer `http://<gms-host>:4319` when DATAHUB_GMS_URL uses port 8080 (Docker default).
+    """
+    return os.getenv("DATAHUB_GMS_MANAGEMENT_URL")
+
+
+def get_gms_token() -> Optional[str]:
+    """GMS Bearer token for authenticated API calls."""
+    return os.getenv("DATAHUB_GMS_TOKEN")
+
+
 def get_base_path() -> str:
     """Base path for DataHub frontend."""
     return os.getenv("DATAHUB_BASE_PATH", "")

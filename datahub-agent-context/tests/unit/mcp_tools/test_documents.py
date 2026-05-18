@@ -103,11 +103,11 @@ def test_search_documents_basic(mock_client, mock_doc_search_response):
 
 
 def test_search_documents_with_platforms(mock_client, mock_doc_search_response):
-    """Test filtering by platforms."""
+    """Test filtering by platform."""
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
-        result = search_documents(query="*", platforms=["urn:li:dataPlatform:notion"])
+        result = search_documents(query="*", filter="platform = notion")
 
     assert result is not None
     call_args = mock_client._graph.execute_graphql.call_args
@@ -115,40 +115,44 @@ def test_search_documents_with_platforms(mock_client, mock_doc_search_response):
 
 
 def test_search_documents_with_domains(mock_client, mock_doc_search_response):
-    """Test filtering by domains."""
+    """Test filtering by domain."""
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
-        result = search_documents(query="*", domains=["urn:li:domain:engineering"])
+        result = search_documents(
+            query="*", filter="domain = urn:li:domain:engineering"
+        )
 
     assert result is not None
 
 
 def test_search_documents_with_tags(mock_client, mock_doc_search_response):
-    """Test filtering by tags."""
+    """Test filtering by tag."""
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
-        result = search_documents(query="*", tags=["urn:li:tag:critical"])
+        result = search_documents(query="*", filter="tag = urn:li:tag:critical")
     assert result is not None
 
 
 def test_search_documents_with_glossary_terms(mock_client, mock_doc_search_response):
-    """Test filtering by glossary terms."""
+    """Test filtering by glossary term."""
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
-        result = search_documents(query="*", glossary_terms=["urn:li:glossaryTerm:pii"])
+        result = search_documents(
+            query="*", filter="glossary_term = urn:li:glossaryTerm:pii"
+        )
 
     assert result is not None
 
 
 def test_search_documents_with_owners(mock_client, mock_doc_search_response):
-    """Test filtering by owners."""
+    """Test filtering by owner."""
     mock_client._graph.execute_graphql.return_value = mock_doc_search_response
 
     with DataHubContext(mock_client):
-        result = search_documents(query="*", owners=["urn:li:corpuser:alice"])
+        result = search_documents(query="*", filter="owner = urn:li:corpuser:alice")
     assert result is not None
 
 
@@ -159,8 +163,7 @@ def test_search_documents_with_multiple_filters(mock_client, mock_doc_search_res
     with DataHubContext(mock_client):
         result = search_documents(
             query="*",
-            platforms=["urn:li:dataPlatform:notion"],
-            domains=["urn:li:domain:engineering"],
+            filter="platform = notion AND domain = urn:li:domain:engineering",
         )
 
     assert result is not None

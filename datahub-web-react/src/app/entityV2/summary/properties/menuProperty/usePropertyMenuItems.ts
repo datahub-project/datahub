@@ -32,18 +32,22 @@ export default function usePropertyMenuItems(position: number, elementType: Summ
         const items: ItemType[] = [
             {
                 type: 'item',
-                key: 'replace',
-                title: 'Replace Property',
-                children: addPropertyMenuItems,
-            },
-            {
-                type: 'item',
                 key: 'remove',
                 title: 'Remove',
                 onClick: onRemove,
                 danger: true,
             },
         ];
+
+        if (addPropertyMenuItems.length > 0) {
+            // add to the beginning
+            items.unshift({
+                type: 'item',
+                key: 'replace',
+                title: 'Replace Property',
+                children: addPropertyMenuItems,
+            });
+        }
 
         return items;
     }, [addPropertyMenuItems, onRemove]);

@@ -35,6 +35,8 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.cache.CachedEntityLineageResult;
 import com.linkedin.metadata.search.utils.FilterUtils;
 import com.linkedin.metadata.search.utils.SearchUtils;
+import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -53,6 +55,7 @@ import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections4.CollectionUtils;
@@ -85,6 +88,8 @@ public class LineageSearchService {
   private final boolean cacheEnabled;
   private final DataHubAppConfiguration appConfig;
   private final ExecutorService cacheRefillExecutor = Executors.newFixedThreadPool(1);
+
+  @Setter @Nullable private MetricUtils metricUtils;
 
   private static final String DEGREE_FILTER = "degree";
   private static final AggregationMetadata DEGREE_FILTER_GROUP =
@@ -139,111 +144,107 @@ public class LineageSearchService {
       int from,
       @Nullable Integer size) {
 
-    long startTime = System.nanoTime();
-    final String finalInput = input == null || input.isEmpty() ? "*" : input;
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.begin(
+            metricUtils, "searchAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+      final String finalInput = input == null || input.isEmpty() ? "*" : input;
 
-    final OperationContext finalOpContext =
-        opContext
-            .withSearchFlags(
-                flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS))
-            .withLineageFlags(lineageFlags -> lineageFlags);
+      final OperationContext finalOpContext =
+          opContext
+              .withSearchFlags(
+                  flags -> applyDefaultSearchFlags(flags, finalInput, DEFAULT_SERVICE_SEARCH_FLAGS))
+              .withLineageFlags(lineageFlags -> lineageFlags);
 
-    log.debug(
-        "Cache enabled {}, Input :{}:",
-        enableCache(finalOpContext.getSearchContext().getSearchFlags()),
-        finalInput);
-    maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
+      log.debug(
+          "Cache enabled {}, Input :{}:",
+          enableCache(finalOpContext.getSearchContext().getSearchFlags()),
+          finalInput);
+      maxHops = applyMaxHopsLimit(opContext.getSearchContext().getLineageFlags(), maxHops);
 
-    // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey =
-        new EntityLineageResultCacheKey(
-            finalOpContext.getSearchContextId(),
-            sourceUrn,
-            direction,
-            maxHops,
-            opContext.getSearchContext().getLineageFlags() != null
-                ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
-                : null);
-    CachedEntityLineageResult cachedLineageResult = null;
-
-    if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
-      try {
-        cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
-      } catch (Exception e) {
-        log.warn("Failed to load cacheKey {}", cacheKey, e);
-      }
-    }
-
-    EntityLineageResult lineageResult;
-    FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
-    if (cachedLineageResult == null) {
-      lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+      // Cache multihop result for faster performance
+      final EntityLineageResultCacheKey cacheKey =
+          new EntityLineageResultCacheKey(
+              finalOpContext.getSearchContextId(),
+              sourceUrn,
+              direction,
+              maxHops,
+              opContext.getSearchContext().getLineageFlags() != null
+                  ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
+                  : null);
+      CachedEntityLineageResult cachedLineageResult = null;
 
       if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
         try {
-          cache.put(
-              cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+          cachedLineageResult = cache.get(cacheKey, CachedEntityLineageResult.class);
         } catch (Exception e) {
-          log.warn("Failed to add cacheKey {}", cacheKey, e);
+          log.warn("Failed to load cacheKey {}", cacheKey, e);
         }
       }
-    } else {
-      lineageResult = cachedLineageResult.getEntityLineageResult();
-      freshnessStats.setCached(Boolean.TRUE);
-      LongMap systemFreshness = new LongMap();
-      systemFreshness.put("LineageGraphCache", cachedLineageResult.getTimestamp());
-      freshnessStats.setSystemFreshness(systemFreshness);
-      // set up cache refill if needed
-      if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
-          > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
-        log.info("Cached lineage entry for: {} is older than one day. Will refill.", sourceUrn);
-        Integer finalMaxHops = maxHops;
-        this.cacheRefillExecutor.submit(
-            () -> {
-              log.debug("Cache refill started.");
-              CachedEntityLineageResult reFetchLineageResult =
-                  cache.get(cacheKey, CachedEntityLineageResult.class);
-              if (reFetchLineageResult == null
-                  || System.currentTimeMillis() - reFetchLineageResult.getTimestamp()
-                      > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
-                // we have to refetch
-                EntityLineageResult result =
-                    getLineageResult(opContext, sourceUrn, direction, finalMaxHops);
-                if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
-                  cache.put(cacheKey, result);
+
+      EntityLineageResult lineageResult;
+      FreshnessStats freshnessStats = new FreshnessStats().setCached(Boolean.FALSE);
+      if (cachedLineageResult == null) {
+        lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+
+        if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
+          try {
+            cache.put(
+                cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+          } catch (Exception e) {
+            log.warn("Failed to add cacheKey {}", cacheKey, e);
+          }
+        }
+      } else {
+        lineageResult = cachedLineageResult.getEntityLineageResult();
+        freshnessStats.setCached(Boolean.TRUE);
+        LongMap systemFreshness = new LongMap();
+        systemFreshness.put("LineageGraphCache", cachedLineageResult.getTimestamp());
+        freshnessStats.setSystemFreshness(systemFreshness);
+        // set up cache refill if needed
+        if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
+            > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
+          log.info("Cached lineage entry for: {} is older than one day. Will refill.", sourceUrn);
+          Integer finalMaxHops = maxHops;
+          this.cacheRefillExecutor.submit(
+              () -> {
+                log.debug("Cache refill started.");
+                CachedEntityLineageResult reFetchLineageResult =
+                    cache.get(cacheKey, CachedEntityLineageResult.class);
+                if (reFetchLineageResult == null
+                    || System.currentTimeMillis() - reFetchLineageResult.getTimestamp()
+                        > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
+                  // we have to refetch
+                  EntityLineageResult result =
+                      getLineageResult(opContext, sourceUrn, direction, finalMaxHops);
+                  if (enableCache(finalOpContext.getSearchContext().getSearchFlags())) {
+                    cache.put(cacheKey, result);
+                  }
+                  log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
+                } else {
+                  log.debug(
+                      "Cache refill not needed. {}",
+                      System.currentTimeMillis() - reFetchLineageResult.getTimestamp());
                 }
-                log.debug("Refilled Cached lineage entry for: {}.", sourceUrn);
-              } else {
-                log.debug(
-                    "Cache refill not needed. {}",
-                    System.currentTimeMillis() - reFetchLineageResult.getTimestamp());
-              }
-            });
+              });
+        }
       }
-    }
 
-    if (SearchUtils.convertSchemaFieldToDataset(
-        finalOpContext.getSearchContext().getSearchFlags())) {
-      // set schemaField relationship entity to be its reference urn
-      LineageRelationshipArray updatedRelationships =
-          convertSchemaFieldRelationships(lineageResult);
-      lineageResult.setRelationships(updatedRelationships);
-    }
+      if (SearchUtils.convertSchemaFieldToDataset(
+          finalOpContext.getSearchContext().getSearchFlags())) {
+        // set schemaField relationship entity to be its reference urn
+        LineageRelationshipArray updatedRelationships =
+            convertSchemaFieldRelationships(lineageResult);
+        lineageResult.setRelationships(updatedRelationships);
+      }
 
-    // Filter hopped result based on the set of entities to return and inputFilters before sending
-    // to search
-    List<LineageRelationship> lineageRelationships =
-        filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
-    log.debug("Lineage relationships found: {}", lineageRelationships);
+      // Filter hopped result based on the set of entities to return and inputFilters before sending
+      // to search
+      List<LineageRelationship> lineageRelationships =
+          filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+      log.debug("Lineage relationships found: {}", lineageRelationships);
+      cascade.recordEntitiesProcessed(lineageRelationships.size());
 
-    String lineageGraphInfo =
-        String.format(
-            "Lineage Graph = time(ms):%s size:%s",
-            (System.nanoTime() - startTime) / (1000.0 * 1000.0), lineageRelationships.size());
-    startTime = System.nanoTime();
-    long numEntities = 0;
-    String codePath = null;
-    try {
+      String codePath = null;
       Filter reducedFilters =
           SearchUtils.removeCriteria(
               inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
@@ -259,7 +260,7 @@ public class LineageSearchService {
               "Lightning Lineage entity result: {}",
               lineageSearchResult.getEntities().get(0).toString());
         }
-        numEntities = lineageSearchResult.getNumEntities();
+        log.debug("Lineage search code path: {}", codePath);
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.LIGHTNING);
         if (lineageResult.hasPartial()) {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
@@ -282,21 +283,14 @@ public class LineageSearchService {
               lineageSearchResult.getNumEntities(),
               lineageSearchResult.getEntities().get(0).toString());
         }
-        numEntities = lineageSearchResult.getNumEntities();
+        log.debug("Lineage search code path: {}", codePath);
         lineageSearchResult.setLineageSearchPath(LineageSearchPath.TORTOISE);
         if (lineageResult.hasPartial()) {
           lineageSearchResult.setIsPartial(lineageResult.isPartial());
         }
         return lineageSearchResult;
       }
-    } finally {
-      log.info(
-          "{}; Lineage Search({}) = time(ms):{} size:{}",
-          lineageGraphInfo,
-          codePath,
-          (System.nanoTime() - startTime) / (1000.0 * 1000.0),
-          numEntities);
-    }
+    } // end try-with-resources CascadeOperationContext
   }
 
   @VisibleForTesting
@@ -760,62 +754,68 @@ public class LineageSearchService {
       @Nullable String scrollId,
       @Nonnull String keepAlive,
       @Nullable Integer size) {
-    // Cache multihop result for faster performance
-    final EntityLineageResultCacheKey cacheKey =
-        new EntityLineageResultCacheKey(
-            opContext.getSearchContextId(),
-            sourceUrn,
-            direction,
-            maxHops,
-            opContext.getSearchContext().getLineageFlags() != null
-                ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
-                : null);
-    CachedEntityLineageResult cachedLineageResult =
-        enableCache(opContext.getSearchContext().getSearchFlags())
-            ? cache.get(cacheKey, CachedEntityLineageResult.class)
-            : null;
-    EntityLineageResult lineageResult;
-    if (cachedLineageResult == null) {
-      maxHops = maxHops != null ? maxHops : 1000;
-      lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
-      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
-        cache.put(
-            cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+    try (CascadeOperationContext cascade =
+        CascadeOperationContext.begin(
+            metricUtils, "scrollAcrossLineage", sourceUrn, -1, "datahub.lineage")) {
+      // Cache multihop result for faster performance
+      final EntityLineageResultCacheKey cacheKey =
+          new EntityLineageResultCacheKey(
+              opContext.getSearchContextId(),
+              sourceUrn,
+              direction,
+              maxHops,
+              opContext.getSearchContext().getLineageFlags() != null
+                  ? opContext.getSearchContext().getLineageFlags().getEntitiesExploredPerHopLimit()
+                  : null);
+      CachedEntityLineageResult cachedLineageResult =
+          enableCache(opContext.getSearchContext().getSearchFlags())
+              ? cache.get(cacheKey, CachedEntityLineageResult.class)
+              : null;
+      EntityLineageResult lineageResult;
+      if (cachedLineageResult == null) {
+        maxHops = maxHops != null ? maxHops : 1000;
+        lineageResult = getLineageResult(opContext, sourceUrn, direction, maxHops);
+        if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+          cache.put(
+              cacheKey, new CachedEntityLineageResult(lineageResult, System.currentTimeMillis()));
+        }
+      } else {
+        lineageResult = cachedLineageResult.getEntityLineageResult();
+        if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
+            > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
+          log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
+        }
       }
-    } else {
-      lineageResult = cachedLineageResult.getEntityLineageResult();
-      if (System.currentTimeMillis() - cachedLineageResult.getTimestamp()
-          > appConfig.getCache().getSearch().getLineage().getTTLMillis()) {
-        log.warn("Cached lineage entry for: {} is older than one day.", sourceUrn);
+
+      // set schemaField relationship entity to be its reference urn
+      LineageRelationshipArray updatedRelationships =
+          convertSchemaFieldRelationships(lineageResult);
+      lineageResult.setRelationships(updatedRelationships);
+
+      // Filter hopped result based on the set of entities to return and inputFilters before sending
+      // to search
+      List<LineageRelationship> lineageRelationships =
+          filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
+      cascade.recordEntitiesProcessed(lineageRelationships.size());
+
+      Filter reducedFilters =
+          SearchUtils.removeCriteria(
+              inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
+      LineageScrollResult scrollResult =
+          getScrollResultInBatches(
+              opContext,
+              lineageRelationships,
+              input != null ? input : "*",
+              reducedFilters,
+              sortCriteria,
+              scrollId,
+              keepAlive,
+              ConfigUtils.applyLimit(appConfig.getGraphService(), size));
+      if (lineageResult.hasPartial()) {
+        scrollResult.setIsPartial(lineageResult.isPartial());
       }
-    }
-
-    // set schemaField relationship entity to be its reference urn
-    LineageRelationshipArray updatedRelationships = convertSchemaFieldRelationships(lineageResult);
-    lineageResult.setRelationships(updatedRelationships);
-
-    // Filter hopped result based on the set of entities to return and inputFilters before sending
-    // to search
-    List<LineageRelationship> lineageRelationships =
-        filterRelationships(lineageResult, new HashSet<>(entities), inputFilters);
-
-    Filter reducedFilters =
-        SearchUtils.removeCriteria(
-            inputFilters, criterion -> criterion.getField().equals(DEGREE_FILTER));
-    LineageScrollResult scrollResult =
-        getScrollResultInBatches(
-            opContext,
-            lineageRelationships,
-            input != null ? input : "*",
-            reducedFilters,
-            sortCriteria,
-            scrollId,
-            keepAlive,
-            ConfigUtils.applyLimit(appConfig.getGraphService(), size));
-    if (lineageResult.hasPartial()) {
-      scrollResult.setIsPartial(lineageResult.isPartial());
-    }
-    return scrollResult;
+      return scrollResult;
+    } // end try-with-resources CascadeOperationContext
   }
 
   // Search service can only take up to 50K term filter, so query search service in batches

@@ -21,15 +21,24 @@ def generate_search_datahub_udf() -> str:
 
     Parameters:
         search_query (STRING): Search query string (use /q prefix for structured queries)
-        entity_type (STRING): Optional entity type filter as JSON array string
-                             (e.g., '["dataset"]', '["dashboard", "chart"]')
-                             Use NULL to search across all entity types
+        filter (STRING): Optional SQL-like filter string, e.g.:
+                         'entity_type = dataset'
+                         'entity_type = dataset AND platform = snowflake'
+                         'platform IN (snowflake, bigquery) AND env = PROD'
+                         'tag = urn:li:tag:PII'
+                         Pass NULL to search across all entity types and platforms.
 
     Returns:
         VARIANT: Dictionary with search results, facets, and metadata
+
+    Examples:
+        - Search all entities: SEARCH_DATAHUB('/q revenue', NULL)
+        - Search datasets only: SEARCH_DATAHUB('*', 'entity_type = dataset')
+        - Search Snowflake datasets: SEARCH_DATAHUB('*', 'entity_type = dataset AND platform = snowflake')
+        - Search by tag: SEARCH_DATAHUB('*', 'tag = urn:li:tag:PII')
+        - Search prod assets: SEARCH_DATAHUB('/q sales', 'platform IN (snowflake, bigquery) AND env = PROD')
     """
     function_body = """from datahub_agent_context.mcp_tools import search
-import json
 try:
     datahub_url = _snowflake.get_generic_secret_string('datahub_url_secret')
     datahub_token = _snowflake.get_generic_secret_string('datahub_token_secret')
@@ -37,20 +46,10 @@ try:
 
     client = DataHubClient(server=datahub_url, token=datahub_token)
 
-    # Parse entity_type filter if provided
-    filters = {}
-    if entity_type:
-        try:
-            entity_type_list = json.loads(entity_type) if isinstance(entity_type, str) else entity_type
-            filters["entity_type"] = entity_type_list
-        except json.JSONDecodeError:
-            # If not valid JSON, treat as single entity type
-            filters["entity_type"] = [entity_type]
-
     with DataHubContext(client):
         return search(
             query=search_query,
-            filters=filters if filters else None,
+            filter=filter if filter else None,
             num_results=10
         )
 
@@ -63,7 +62,7 @@ except Exception as e:
 
     return generate_python_udf_code(
         function_name="SEARCH_DATAHUB",
-        parameters=[("search_query", "STRING"), ("entity_type", "STRING")],
+        parameters=[("search_query", "STRING"), ("filter", "STRING")],
         return_type="VARIANT",
         function_body=function_body,
     )

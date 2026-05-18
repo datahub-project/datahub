@@ -1,3 +1,4 @@
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useCallback, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
@@ -23,6 +24,7 @@ import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, Menu, Popover, Text, Tooltip } from '@src/alchemy-components';
+// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
 import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -201,7 +203,7 @@ export default function RelatedSection({ hideLinksButton }: RelatedSectionProps)
                                     variant="text"
                                     color="gray"
                                     size="xs"
-                                    icon={{ icon: 'Plus', source: 'phosphor', size: 'lg' }}
+                                    icon={{ icon: Plus, size: 'lg' }}
                                     style={{ padding: '0 2px' }}
                                     aria-label="Add related link or context"
                                     data-testid="add-related-button"

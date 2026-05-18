@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
@@ -17,6 +18,7 @@ import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder.IndexMapping;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -306,6 +308,46 @@ public class MultiEntityMappingsBuilderTest {
         "Should have root-level field for conflicted field");
   }
 
+  /**
+   * When a field name alias has type OBJECT and conflicts across entities (same alias, different
+   * aspect paths), the root field mapping must have dynamic=true so Elasticsearch can index nested
+   * properties.
+   */
+  @Test
+  public void testConflictedObjectFieldRootMappingHasDynamicTrue() {
+    EntitySpec entitySpec1 =
+        createMockEntitySpecWithAliasAndAspect(
+            "entity1", "objectField", FieldType.OBJECT, "objectAlias", "datasetProperties");
+    EntitySpec entitySpec2 =
+        createMockEntitySpecWithAliasAndAspect(
+            "entity2", "objectField", FieldType.OBJECT, "objectAlias", "otherProperties");
+
+    when(mockEntityRegistry.getSearchGroups()).thenReturn(Collections.singleton("default"));
+    when(mockEntityRegistry.getEntitySpecsBySearchGroup("default"))
+        .thenReturn(ImmutableMap.of("entity1", entitySpec1, "entity2", entitySpec2));
+
+    Collection<IndexMapping> mappings = mappingsBuilder.getIndexMappings(operationContext);
+
+    assertNotNull(mappings, "Mappings should not be null");
+    assertFalse(mappings.isEmpty(), "Should handle conflicting object field alias");
+
+    IndexMapping mapping = mappings.iterator().next();
+    Map<String, Object> properties = (Map<String, Object>) mapping.getMappings().get("properties");
+    assertTrue(
+        properties.containsKey("objectAlias"),
+        "Should have root-level field for conflicted object field alias");
+    @SuppressWarnings("unchecked")
+    Map<String, Object> objectAliasMapping = (Map<String, Object>) properties.get("objectAlias");
+    assertEquals(
+        objectAliasMapping.get("type"),
+        "object",
+        "Conflicted object field alias root must have type object");
+    assertEquals(
+        objectAliasMapping.get("dynamic"),
+        true,
+        "Conflicted object field alias root must have dynamic=true");
+  }
+
   @Test
   public void testMappingsConsistency() {
     // Setup: V3 enabled
@@ -393,6 +435,26 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   private EntitySpec createMockEntitySpec(String entityName, String fieldName) {
+    return createMockEntitySpec(entityName, fieldName, FieldType.KEYWORD);
+  }
+
+  private EntitySpec createMockEntitySpec(
+      String entityName, String fieldName, FieldType fieldType) {
+    return createMockEntitySpecWithAlias(entityName, fieldName, fieldType, null);
+  }
+
+  private EntitySpec createMockEntitySpecWithAlias(
+      String entityName, String fieldName, FieldType fieldType, String fieldNameAlias) {
+    return createMockEntitySpecWithAliasAndAspect(
+        entityName, fieldName, fieldType, fieldNameAlias, "datasetProperties");
+  }
+
+  private EntitySpec createMockEntitySpecWithAliasAndAspect(
+      String entityName,
+      String fieldName,
+      FieldType fieldType,
+      String fieldNameAlias,
+      String aspectName) {
     EntitySpec entitySpec = mock(EntitySpec.class);
     when(entitySpec.getName()).thenReturn(entityName);
     when(entitySpec.getSearchGroup()).thenReturn("default");
@@ -402,12 +464,14 @@ public class MultiEntityMappingsBuilderTest {
     when(entityAnnotation.getName()).thenReturn(entityName);
     when(entitySpec.getEntityAnnotation()).thenReturn(entityAnnotation);
 
-    // Create aspect specs
-    List<AspectSpec> aspectSpecs = createMockAspectSpecs(fieldName);
+    // Create aspect specs with given aspect name so alias paths differ across entities
+    List<AspectSpec> aspectSpecs =
+        createMockAspectSpecsWithAliasAndAspect(fieldName, fieldType, fieldNameAlias, aspectName);
     when(entitySpec.getAspectSpecs()).thenReturn(aspectSpecs);
 
     // Create searchable field specs
-    List<SearchableFieldSpec> searchableFields = createMockSearchableFieldSpecs(fieldName);
+    List<SearchableFieldSpec> searchableFields =
+        createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, fieldNameAlias);
     when(entitySpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
 
     // Create searchable ref field specs
@@ -418,35 +482,60 @@ public class MultiEntityMappingsBuilderTest {
   }
 
   private List<AspectSpec> createMockAspectSpecs(String fieldName) {
+    return createMockAspectSpecs(fieldName, FieldType.KEYWORD);
+  }
+
+  private List<AspectSpec> createMockAspectSpecs(String fieldName, FieldType fieldType) {
+    return createMockAspectSpecsWithAlias(fieldName, fieldType, null);
+  }
+
+  private List<AspectSpec> createMockAspectSpecsWithAlias(
+      String fieldName, FieldType fieldType, String fieldNameAlias) {
+    return createMockAspectSpecsWithAliasAndAspect(
+        fieldName, fieldType, fieldNameAlias, "datasetProperties");
+  }
+
+  private List<AspectSpec> createMockAspectSpecsWithAliasAndAspect(
+      String fieldName, FieldType fieldType, String fieldNameAlias, String aspectName) {
     List<AspectSpec> aspectSpecs = new ArrayList<>();
 
-    // Create a regular aspect spec
-    AspectSpec regularAspect = mock(AspectSpec.class);
-    when(regularAspect.getName()).thenReturn("datasetProperties");
+    AspectSpec aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn(aspectName);
 
-    // Create mock searchable field specs for the regular aspect
-    List<SearchableFieldSpec> searchableFields = new ArrayList<>();
-    SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
-    SearchableAnnotation searchableAnnotation = mock(SearchableAnnotation.class);
-    when(searchableAnnotation.getFieldName()).thenReturn(fieldName);
-    when(searchableAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.KEYWORD);
-    when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);
-    searchableFields.add(fieldSpec);
-
-    when(regularAspect.getSearchableFieldSpecs()).thenReturn(searchableFields);
-    aspectSpecs.add(regularAspect);
+    // Create mock searchable field specs for the aspect
+    List<SearchableFieldSpec> searchableFields =
+        createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, fieldNameAlias);
+    when(aspectSpec.getSearchableFieldSpecs()).thenReturn(searchableFields);
+    aspectSpecs.add(aspectSpec);
 
     return aspectSpecs;
   }
 
   private List<SearchableFieldSpec> createMockSearchableFieldSpecs(String fieldName) {
+    return createMockSearchableFieldSpecs(fieldName, FieldType.KEYWORD);
+  }
+
+  private List<SearchableFieldSpec> createMockSearchableFieldSpecs(
+      String fieldName, FieldType fieldType) {
+    return createMockSearchableFieldSpecsWithAlias(fieldName, fieldType, null);
+  }
+
+  private List<SearchableFieldSpec> createMockSearchableFieldSpecsWithAlias(
+      String fieldName, FieldType fieldType, String fieldNameAlias) {
     List<SearchableFieldSpec> searchableFields = new ArrayList<>();
 
     SearchableFieldSpec fieldSpec = mock(SearchableFieldSpec.class);
     SearchableAnnotation searchableAnnotation = mock(SearchableAnnotation.class);
     when(searchableAnnotation.getFieldName()).thenReturn(fieldName);
-    when(searchableAnnotation.getFieldType()).thenReturn(SearchableAnnotation.FieldType.KEYWORD);
+    when(searchableAnnotation.getFieldType()).thenReturn(fieldType);
+    when(searchableAnnotation.getFieldNameAliases())
+        .thenReturn(fieldNameAlias != null ? Collections.singletonList(fieldNameAlias) : null);
     when(fieldSpec.getSearchableAnnotation()).thenReturn(searchableAnnotation);
+    if (fieldType == FieldType.OBJECT) {
+      DataSchema mockSchema = mock(DataSchema.class);
+      when(mockSchema.getDereferencedType()).thenReturn(DataSchema.Type.RECORD);
+      when(fieldSpec.getPegasusSchema()).thenReturn(mockSchema);
+    }
     searchableFields.add(fieldSpec);
 
     return searchableFields;

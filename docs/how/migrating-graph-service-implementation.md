@@ -6,7 +6,7 @@ If you started using Neo4j as your graph service backend, here is how you can mi
 
 ## Docker-compose
 
-If you are running your instance through docker locally, you will want to spin up your Datahub instance with
+If you are running your instance through docker locally, you will want to spin up your DataHub instance with
 elasticsearch as the backend. On a clean start, this happens by default. However, if you've written data to
 Neo4j you need to explicitly ask DataHub to start in Elastic mode.
 

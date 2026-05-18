@@ -54,7 +54,7 @@ class SqlAlchemyTableDataReader(DataReader):
                         self.connection, compile_kwargs={"literal_binds": True}
                     )
                 )
-                query += "\nAND ROWNUM <= %d" % sample_size
+                query += "\nWHERE ROWNUM <= %d" % sample_size
             else:
                 query = sa.select([sa.text("*")]).select_from(table).limit(sample_size)
             query_results = self.connection.execute(query)

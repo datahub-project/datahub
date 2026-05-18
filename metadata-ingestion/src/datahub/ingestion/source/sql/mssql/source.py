@@ -66,6 +66,10 @@ from datahub.ingestion.source.sql.stored_procedures.base import (
     generate_procedure_lineage,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
+from datahub.metadata.schema_classes import (
+    ForeignKeyConstraintClass,
+    SchemaFieldClass,
+)
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
@@ -178,7 +182,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    _use_odbc_removed = pydantic_removed_field("use_odbc")
+    _use_odbc_removed = pydantic_removed_field("use_odbc", month="January", year=2026)
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
@@ -194,6 +198,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    convert_column_urns_to_lowercase: bool = Field(
+        default=False,
+        description="When enabled, converts column URNs to lowercase to ensure cross-platform compatibility.",
     )
     include_lineage: bool = Field(
         default=True,
@@ -377,16 +385,14 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
 )
 class SQLServerSource(SQLAlchemySource):
     """
-    This plugin extracts the following:
-    - Metadata for databases, schemas, views and tables
-    - Column types associated with each table/view
-    - Table, row, and column statistics via optional SQL profiling
+    Source that extracts metadata from Microsoft SQL Server via SQLAlchemy.
 
-    Two source types are available:
-    - `mssql`: Uses [python-tds](https://github.com/denisenkom/pytds) library (pure Python, easier to install)
-    - `mssql-odbc`: Uses [pyodbc](https://github.com/mkleehammer/pyodbc) library (required for encryption, Azure managed services)
-
-    If you need encryption (e.g., for Azure SQL), use source type `mssql-odbc` and configure `uri_args` with your ODBC driver settings.
+    Implementation notes:
+    - Supports both python-tds (mssql) and pyodbc (mssql-odbc) backends
+    - Uses MSSQLLineageExtractor for extracting stored procedure and view lineage via T-SQL parsing
+    - Implements SqlParsingAggregator for query-based lineage from Query Store or DMVs
+    - Fetches extended properties for table and column descriptions
+    - Uses three-part naming (database.schema.table) for URN generation
     """
 
     report: SQLSourceReport
@@ -408,7 +414,15 @@ class SQLServerSource(SQLAlchemySource):
         if self.config.include_lineage and not self.config.convert_urns_to_lowercase:
             self.report.warning(
                 title="Potential issue with lineage",
-                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure lineage correct, set 'convert_urns_to_lowercase' to True.",
+                message="Lineage may not resolve accurately because 'convert_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_urns_to_lowercase' to True.",
+            )
+        if (
+            self.config.include_lineage
+            and not self.config.convert_column_urns_to_lowercase
+        ):
+            self.report.warning(
+                title="Potential issue with column-level lineage",
+                message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
             )
 
         self.sql_aggregator: Optional[SqlParsingAggregator] = None
@@ -547,6 +561,23 @@ class SQLServerSource(SQLAlchemySource):
             if description:
                 column["comment"] = description
         return columns
+
+    def get_schema_fields(
+        self,
+        dataset_name: str,
+        columns: List[dict],
+        inspector: Inspector,
+        pk_constraints: Optional[dict] = None,
+        partition_keys: Optional[List[str]] = None,
+        tags: Optional[Dict[str, List[str]]] = None,
+    ) -> List[SchemaFieldClass]:
+        schema_fields = super().get_schema_fields(
+            dataset_name, columns, inspector, pk_constraints, partition_keys, tags
+        )
+        if self.config.convert_column_urns_to_lowercase:
+            for field in schema_fields:
+                field.fieldPath = field.fieldPath.lower()
+        return schema_fields
 
     def get_database_level_workunits(
         self,
@@ -1246,6 +1277,22 @@ class SQLServerSource(SQLAlchemySource):
                 aspect=data_flow.as_container_aspect,
             ).as_workunit()
 
+    def get_foreign_key_metadata(
+        self,
+        dataset_urn: str,
+        schema: str,
+        fk_dict: Dict[str, Any],
+        inspector: Inspector,
+    ) -> ForeignKeyConstraintClass:
+        if self.config.convert_column_urns_to_lowercase:
+            fk_dict["constrained_columns"] = [
+                f.lower() for f in fk_dict["constrained_columns"]
+            ]
+            fk_dict["referred_columns"] = [
+                f.lower() for f in fk_dict["referred_columns"]
+            ]
+        return super().get_foreign_key_metadata(dataset_urn, schema, fk_dict, inspector)
+
     def get_inspectors(self) -> Iterable[Inspector]:
         # This method can be overridden in the case that you want to dynamically
         # run on multiple databases.
@@ -1273,8 +1320,19 @@ class SQLServerSource(SQLAlchemySource):
                     url = self.config.get_sql_alchemy_url(
                         current_db=db["name"], is_odbc=self._is_odbc
                     )
-                    engine = create_engine(url, **self.config.options)
-                    inspector = inspect(engine)
+                    try:
+                        engine = create_engine(url, **self.config.options)
+                        inspector = inspect(engine)
+                    except OperationalError as e:
+                        if re.search(r"(?i)login failed", str(e)):
+                            logger.warning(
+                                f"Error logging in to database {db['name']}: {e}"
+                            )
+                            self.report.report_warning(
+                                "Error logging in to database", db["name"], exc=e
+                            )
+                            continue
+                        raise
                     self.current_database = db["name"]
                     yield inspector
 

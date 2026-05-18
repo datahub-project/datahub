@@ -1,11 +1,13 @@
 # Dataplex Integration Tests
 
-This directory contains integration tests for the Dataplex source connector with mocked Google Cloud APIs and golden file validation.
+This directory contains integration tests for the Dataplex source connector using the Entries API (Universal Catalog) with mocked Google Cloud APIs and golden file validation.
 
 ## Test Structure
 
 - `test_dataplex_integration.py`: Main integration test file with mocked API responses
 - `golden/`: Directory for golden files (expected output JSON files)
+  - `dataplex_entries_golden.json`: Expected output for BigQuery entries with schema
+  - `dataplex_multi_entry_groups_golden.json`: Expected output for multiple entry groups (BigQuery + GCS)
 
 ## Running Tests
 
@@ -14,7 +16,7 @@ This directory contains integration tests for the Dataplex source connector with
 pytest tests/integration/dataplex/
 
 # Run specific test
-pytest tests/integration/dataplex/test_dataplex_integration.py::test_dataplex_integration_with_golden_file
+pytest tests/integration/dataplex/test_dataplex_integration.py::test_dataplex_entries_integration
 
 # Update golden files (when making intentional changes)
 pytest tests/integration/dataplex/ --update-golden-files
@@ -24,18 +26,31 @@ pytest tests/integration/dataplex/ --update-golden-files
 
 The integration tests cover:
 
-1. **Basic ingestion**: Lakes, zones, assets, and entities
-2. **Multiple lakes**: Hierarchical data across multiple lakes
-3. **Mocked API**: All Google Cloud Dataplex API calls are mocked
-4. **Golden file validation**: Output is validated against expected golden files
+1. **Entries API (Universal Catalog)**: BigQuery tables and GCS objects via entry groups
+2. **Multiple entry groups**: System entry groups (@bigquery) and custom entry groups
+3. **Schema extraction**: Schema metadata from entry aspects
+4. **BigQuery containers**: Project and dataset container hierarchy
+5. **Mocked API**: All Google Cloud Dataplex Catalog API calls are mocked
+6. **Golden file validation**: Output is validated against expected golden files
+
+## API Coverage
+
+The Dataplex source uses the following Google Cloud APIs:
+
+- **CatalogServiceClient**: For listing entry groups and entries (Universal Catalog)
+- **LineageClient**: For extracting lineage information (when enabled)
 
 ## Adding New Tests
 
 1. Create a new test function in `test_dataplex_integration.py`
-2. Mock the necessary Google Cloud API responses
-3. Run the test with `--update-golden-files` to generate the golden file
-4. Review the golden file to ensure correctness
-5. Commit both the test and golden file
+2. Use the helper functions to create mock entries:
+   - `create_mock_entry_group()`: Create a mock entry group
+   - `create_mock_entry()`: Create a mock entry without schema
+   - `create_mock_entry_with_schema()`: Create a mock entry with schema columns
+3. Mock the CatalogServiceClient responses
+4. Run the test with `--update-golden-files` to generate the golden file
+5. Review the golden file to ensure correctness
+6. Commit both the test and golden file
 
 ## Golden Files
 

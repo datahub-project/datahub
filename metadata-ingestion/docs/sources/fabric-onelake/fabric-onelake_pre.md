@@ -1,0 +1,233 @@
+### Overview
+
+The `fabric-onelake` module ingests metadata from Fabric Onelake into DataHub. It is intended for production ingestion workflows and module-specific capabilities are documented below.
+
+:::tip Quick Start
+
+1. **Set up authentication** - Configure Azure credentials (see [Prerequisites](#prerequisites))
+2. **Grant permissions** - Ensure your identity has `Workspace.Read.All` and workspace access
+3. **Configure recipe** - Use `fabric-onelake_recipe.yml` as a template
+4. **Run ingestion** - Execute `datahub ingest -c fabric-onelake_recipe.yml`
+   :::
+
+#### Key Features
+
+- Workspace, Lakehouse, Warehouse, and Schema containers
+- Table datasets with proper subtypes
+- View datasets with view definitions captured from the SQL Analytics endpoint
+- View-to-table lineage parsed from view definitions
+- Query usage statistics and operation aspects derived from `queryinsights.exec_requests_history`
+- Automatic detection and handling of schemas-enabled and schemas-disabled lakehouses
+- Pattern-based filtering for workspaces, lakehouses, warehouses, tables, and views
+- Stateful ingestion for stale entity removal
+- Multiple authentication methods (Service Principal, Managed Identity, Azure CLI, DefaultAzureCredential)
+
+#### References
+
+Azure Authentication
+
+- [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app)
+- [Azure Identity Library](https://learn.microsoft.com/en-us/python/api/overview/azure/identity-readme)
+- [Service Principal Authentication](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals)
+- [Managed Identities](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview)
+
+Fabric Concepts
+
+- [Microsoft Fabric Overview](https://learn.microsoft.com/en-us/fabric/get-started/microsoft-fabric-overview)
+- [OneLake Overview](https://learn.microsoft.com/en-us/fabric/onelake/onelake-overview)
+- [Workspaces in Fabric](https://learn.microsoft.com/en-us/fabric/get-started/workspaces)
+- [Lakehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-engineering/lakehouse-overview)
+- [Warehouses in Fabric](https://learn.microsoft.com/en-us/fabric/data-warehouse/data-warehousing)
+
+### Prerequisites
+
+Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.
+
+#### Authentication
+
+The connector supports multiple Azure authentication methods:
+
+| Method                     | Best For                                         | Configuration                                       |
+| -------------------------- | ------------------------------------------------ | --------------------------------------------------- |
+| **Service Principal**      | Production environments                          | `authentication_method: service_principal`          |
+| **Managed Identity**       | Azure-hosted deployments (VMs, AKS, App Service) | `authentication_method: managed_identity`           |
+| **Azure CLI**              | Local development                                | `authentication_method: cli` (run `az login` first) |
+| **DefaultAzureCredential** | Flexible environments                            | `authentication_method: default`                    |
+
+For service principal setup, see [Register an application with Microsoft Entra ID](https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app).
+
+#### Required Permissions
+
+The connector requires **read-only access** to Fabric workspaces and their contents. The authenticated identity (service principal, managed identity, or user) must have:
+
+**Workspace-Level Permissions:**
+
+- **Workspace.Read.All** or **Workspace.ReadWrite.All** (Microsoft Entra delegated scope)
+- **Viewer** role or higher in the Fabric workspaces you want to ingest
+
+**API Permissions:**
+The service principal or user must have the following Microsoft Entra API permissions:
+
+- `Workspace.Read.All` (delegated) - Required to list and read workspace metadata
+- Or `Workspace.ReadWrite.All` (delegated) - Provides read and write access
+
+**Token Audiences:**
+The connector uses two different token audiences depending on the operation:
+
+- **Fabric REST API** (`https://api.fabric.microsoft.com`): Uses Power BI API scope (`https://analysis.windows.net/powerbi/api/.default`) for listing workspaces, lakehouses, warehouses, and basic table metadata
+- **OneLake Delta Table APIs** (`https://onelake.table.fabric.microsoft.com`): Uses Storage audience (`https://storage.azure.com/.default`) for accessing schemas and tables in **schemas-enabled lakehouses**
+
+The connector automatically handles both token audiences. For schemas-enabled lakehouses, it will use OneLake Delta Table APIs with Storage audience tokens. For schemas-disabled lakehouses, it uses the standard Fabric REST API.
+
+**OneLake Data Access Permissions:**
+For schemas-enabled lakehouses, you may also need OneLake data access permissions:
+
+- If OneLake security is enabled on your lakehouse, ensure your identity has **Read** or **ReadWrite** permissions on the lakehouse item
+- These permissions are separate from workspace roles and are managed in the Fabric portal under the lakehouse's security settings
+
+**Note:** The connector automatically detects whether a lakehouse has schemas enabled and uses the appropriate API endpoint and token audience. No additional configuration is required.
+
+For detailed information on permissions, see:
+
+- [Fabric REST API Permissions](https://learn.microsoft.com/en-us/rest/api/fabric/articles/scopes)
+- [Workspace Roles and Permissions](https://learn.microsoft.com/en-us/fabric/admin/roles)
+- [OneLake Data Access Control](https://learn.microsoft.com/en-us/fabric/onelake/security/data-access-control-model)
+
+#### Granting Permissions
+
+**For Service Principal:**
+
+1. Register an application in Microsoft Entra ID (Azure AD)
+2. Grant API permissions:
+   - Navigate to **Azure Portal** > **App registrations** > Your app > **API permissions**
+   - Add permission: **Power BI Service** > **Delegated permissions** > `Workspace.Read.All`
+   - Click **Grant admin consent** (if you have admin rights)
+3. Assign workspace roles:
+   - In Fabric portal, navigate to each workspace
+   - Go to **Workspace settings** > **Access**
+   - Add your service principal and assign **Viewer** role or higher
+
+**For Managed Identity:**
+
+1. Enable system-assigned managed identity on your Azure resource (VM, AKS, App Service, etc.)
+2. Assign the managed identity to Fabric workspaces with **Viewer** role or higher
+3. The connector will automatically use the managed identity for authentication
+
+#### SQL Analytics Endpoint Setup
+
+Schema extraction via the SQL Analytics Endpoint requires ODBC drivers to be installed on the system.
+
+##### 1. ODBC Driver Manager
+
+First, install the ODBC driver manager (UnixODBC) on your system:
+
+**Ubuntu/Debian:**
+
+```bash
+sudo apt-get update
+sudo apt-get install -y unixodbc unixodbc-dev
+```
+
+**RHEL/CentOS/Fedora:**
+
+```bash
+# RHEL/CentOS 7/8
+sudo yum install -y unixODBC unixODBC-devel
+
+# Fedora / RHEL 9+
+sudo dnf install -y unixODBC unixODBC-devel
+```
+
+**macOS:**
+
+```bash
+brew install unixodbc
+```
+
+##### 2. Microsoft ODBC Driver for SQL Server
+
+Install the Microsoft ODBC Driver 18 for SQL Server (required for connecting to Fabric SQL Analytics Endpoint):
+
+**Ubuntu 20.04/22.04:**
+
+```bash
+curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+sudo apt-get update
+sudo ACCEPT_EULA=Y apt-get install -y msodbcsql18
+```
+
+**RHEL/CentOS 7/8:**
+
+```bash
+sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/$(rpm -E %{rhel})/mssql-release.repo
+sudo ACCEPT_EULA=Y yum install -y msodbcsql18
+```
+
+**RHEL 9 / Fedora:**
+
+```bash
+sudo curl -o /etc/yum.repos.d/mssql-release.repo https://packages.microsoft.com/config/rhel/9/mssql-release.repo
+sudo ACCEPT_EULA=Y dnf install -y msodbcsql18
+```
+
+**macOS:**
+
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 mssql-tools18
+```
+
+**Windows:**
+Download and install from [Microsoft ODBC Driver for SQL Server](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server).
+
+##### 3. Verify Installation
+
+After installation, verify that the ODBC driver is available:
+
+```bash
+odbcinst -q -d
+```
+
+You should see `ODBC Driver 18 for SQL Server` in the list.
+
+##### 4. Permissions
+
+Your Azure identity must have access to query the SQL Analytics Endpoint (same permissions as accessing the endpoint via SQL tools).
+
+##### 5. Python Dependencies
+
+The `fabric-onelake` extra includes `sqlalchemy` and `pyodbc` dependencies. Install them with:
+
+```bash
+pip install 'acryl-datahub[fabric-onelake]'
+```
+
+**Note:** If you encounter `libodbc.so.2: cannot open shared object file` errors, ensure the ODBC driver manager is installed (step 1 above).
+
+#### View Extraction
+
+View extraction reuses the SQL Analytics Endpoint connection from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup) — the same ODBC driver applies, and views are skipped unless `sql_endpoint.enabled` is `true`.
+
+Reading view definitions (needed for view-to-table lineage) requires `VIEW DEFINITION` permission on the SQL Analytics Endpoint. The workspace **Viewer** role used for table ingestion is _not_ sufficient — it grants `db_datareader` only, which causes `INFORMATION_SCHEMA.VIEWS.VIEW_DEFINITION` to return `NULL`. There is no workspace-level toggle for this permission; you must choose one of:
+
+- **Grant `VIEW DEFINITION` per Lakehouse/Warehouse** (recommended for least privilege — keeps the identity at workspace Viewer):
+
+  ```sql
+  GRANT VIEW DEFINITION ON DATABASE::<lakehouse_or_warehouse_name> TO [<service_principal_name>];
+  ```
+
+- **Assign a higher workspace role** (Contributor, Member, or Admin) on the workspaces you ingest.
+
+If neither is acceptable for your environment, set `extract_views: false` to skip view ingestion. Views will still appear without definitions if you ingest them at Viewer level, but lineage will be missing.
+
+References: [Fabric Warehouse roles and permissions](https://learn.microsoft.com/en-us/fabric/data-warehouse/share-warehouse-manage-permissions), [Lakehouse workspace roles](https://learn.microsoft.com/en-us/fabric/data-engineering/workspace-roles-lakehouse).
+
+#### Query Usage Statistics
+
+Usage extraction reads [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) over the SQL Analytics Endpoint. It reuses the ODBC setup from [SQL Analytics Endpoint Setup](#sql-analytics-endpoint-setup), so `sql_endpoint.enabled` must be `true` — the configuration validator rejects `usage.include_usage_statistics=true` otherwise.
+
+**Required role.** Visibility into `queryinsights` is **scoped per workspace**. The ingesting identity (service principal, managed identity, or user) needs **Contributor or higher** on each workspace whose Lakehouses/Warehouses you want usage for. The workspace **Viewer** role used for table ingestion is _not_ sufficient: per [Microsoft's docs](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights), `queryinsights` requires _"contributor or higher permissions"_ on a Premium-capacity workspace, and full query text — needed for SQL parsing and column-level usage — is only exposed to Admin, Member, and Contributor roles.
+
+**Retention and latency.** Fabric retains `queryinsights` for **30 days only** — older history cannot be backfilled, so configure `usage.start_time` accordingly. Newly executed queries can take up to 15 minutes to appear, increasing under concurrency. System queries and queries from outside a user's context are not surfaced.

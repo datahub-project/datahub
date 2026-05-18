@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -16,5 +17,5 @@ interface Props {
 }
 
 export function RemoveIcon({ onClick, className }: Props) {
-    return <StyledIcon source="phosphor" icon="Trash" onClick={onClick} size="lg" color="red" className={className} />;
+    return <StyledIcon icon={Trash} onClick={onClick} size="lg" color="red" className={className} />;
 }

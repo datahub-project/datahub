@@ -40,15 +40,46 @@ with contextlib.suppress(Exception):
     context_info["branch"] = branch_info.strip()
 
 # Get commit info.
+# For pull_request events, GitHub Actions checks out a synthetic merge commit
+# (refs/pull/N/merge) that merges the PR branch into the base branch.
+# DATAHUB_HEAD_SHA contains the actual PR HEAD commit.
 with contextlib.suppress(Exception):
-    commit_info = subprocess.check_output(
-        ["git", "log", "-1", "--pretty=%H%n%B"], text=True
-    )
+    head_sha = os.getenv("DATAHUB_HEAD_SHA")
+    if head_sha:
+        commit_info = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=%H%n%B", head_sha], text=True
+        )
+    else:
+        commit_info = subprocess.check_output(
+            ["git", "log", "-1", "--pretty=%H%n%B"], text=True
+        )
     commit_hash, commit_msg = commit_info.strip().split("\n", 1)
     context_info["commit"] = {
         "hash": commit_hash,
         "message": commit_msg.strip(),
     }
+
+# For PR builds, indicate the base branch commit that was merged in.
+# The checked-out code is the result of merging the PR into the base branch,
+# so the wheel contains both PR changes and the latest base branch state.
+with contextlib.suppress(Exception):
+    head_sha = os.getenv("DATAHUB_HEAD_SHA")
+    merge_commit_msg = subprocess.check_output(
+        ["git", "log", "-1", "--pretty=%B"], text=True
+    ).strip()
+    # GitHub's merge ref has message: "Merge <head_sha> into <base_sha>"
+    if head_sha and merge_commit_msg.startswith("Merge "):
+        parts = merge_commit_msg.split()
+        if len(parts) >= 4 and parts[2] == "into":
+            base_sha = parts[3]
+            base_info = subprocess.check_output(
+                ["git", "log", "-1", "--pretty=%H%n%B", base_sha], text=True
+            )
+            base_hash, base_msg = base_info.strip().split("\n", 1)
+            context_info["base"] = {
+                "hash": base_hash,
+                "message": base_msg.strip(),
+            }
 
 # Get PR info.
 with contextlib.suppress(Exception):

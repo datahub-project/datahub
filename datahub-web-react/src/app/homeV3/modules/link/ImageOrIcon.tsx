@@ -1,4 +1,5 @@
 import { Icon } from '@components';
+import { LinkSimple } from '@phosphor-icons/react/dist/csr/LinkSimple';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -20,5 +21,5 @@ export default function ImageOrIcon({ imageUrl }: { imageUrl?: string | null }) 
         return <Image src={imageUrl} alt="Link image" onError={() => setHasError(true)} />;
     }
 
-    return <Icon icon="LinkSimple" source="phosphor" size="3xl" color="gray" />;
+    return <Icon icon={LinkSimple} size="3xl" color="gray" />;
 }

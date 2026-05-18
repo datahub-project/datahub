@@ -1,5 +1,5 @@
 import { FileOutlined } from '@ant-design/icons';
-import { FileSql } from '@phosphor-icons/react';
+import { FileSql } from '@phosphor-icons/react/dist/csr/FileSql';
 import * as React from 'react';
 
 import { GenericEntityProperties } from '@app/entity/shared/types';

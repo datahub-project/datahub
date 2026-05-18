@@ -3,10 +3,8 @@ package com.datahub.gms.servlet;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import io.micrometer.core.instrument.Clock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
@@ -35,6 +33,4 @@ public class ConfigServletTestContext {
   public EntityService<?> entityService() {
     return Mockito.mock(EntityService.class);
   }
-
-  @MockBean public Clock clock;
 }

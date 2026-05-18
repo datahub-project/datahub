@@ -1,4 +1,6 @@
-import { CheckCircle, Stop, XCircle } from '@phosphor-icons/react';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
+import { XCircle } from '@phosphor-icons/react/dist/csr/XCircle';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -29,7 +31,7 @@ const SummaryTitle = styled(Typography.Title)`
     }
 `;
 
-export type TestsSummary = {
+type TestsSummary = {
     failing: number;
     passing: number;
     total: number;

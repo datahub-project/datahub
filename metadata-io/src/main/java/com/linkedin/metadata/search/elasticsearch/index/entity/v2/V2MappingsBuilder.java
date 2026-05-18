@@ -41,15 +41,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class V2MappingsBuilder implements MappingsBuilder {
 
-  private static final Map<String, String> PARTIAL_NGRAM_CONFIG =
-      ImmutableMap.of(
-          TYPE, "search_as_you_type",
-          MAX_SHINGLE_SIZE, "4",
-          DOC_VALUES, "false");
+  private final Map<String, String> partialNgramConfig;
 
-  private static Map<String, String> getPartialNgramConfigWithOverrides(
-      Map<String, String> overrides) {
-    return Stream.concat(PARTIAL_NGRAM_CONFIG.entrySet().stream(), overrides.entrySet().stream())
+  private Map<String, String> getPartialNgramConfigWithOverrides(Map<String, String> overrides) {
+    return Stream.concat(partialNgramConfig.entrySet().stream(), overrides.entrySet().stream())
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
@@ -75,8 +70,11 @@ public class V2MappingsBuilder implements MappingsBuilder {
 
   private final EntityIndexConfiguration entityIndexConfiguration;
 
-  public V2MappingsBuilder(@Nonnull EntityIndexConfiguration entityIndexConfiguration) {
+  public V2MappingsBuilder(
+      @Nonnull final EntityIndexConfiguration entityIndexConfiguration,
+      @Nonnull final Map<String, String> partialNgramConfig) {
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.partialNgramConfig = partialNgramConfig;
   }
 
   @Override
@@ -166,7 +164,15 @@ public class V2MappingsBuilder implements MappingsBuilder {
               ((Map<String, Object>) mappings.get(PROPERTIES))
                   .computeIfAbsent(
                       STRUCTURED_PROPERTY_MAPPING_FIELD,
-                      (key) -> new HashMap<>(Map.of(PROPERTIES, new HashMap<>())));
+                      (key) ->
+                          new HashMap<>(
+                              Map.of(
+                                  TYPE,
+                                  ESUtils.OBJECT_FIELD_TYPE,
+                                  "dynamic",
+                                  true,
+                                  PROPERTIES,
+                                  new HashMap<>())));
 
       props.merge(
           PROPERTIES,
@@ -218,7 +224,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return ImmutableMap.of(PROPERTIES, mappings);
   }
 
-  private static Map<String, Object> getMappingsForUrn() {
+  private Map<String, Object> getMappingsForUrn() {
     Map<String, Object> subFields = new HashMap<>();
     subFields.put(
         DELIMITED,
@@ -279,7 +285,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
-  private static Map<String, Object> getMappingsForField(
+  private Map<String, Object> getMappingsForField(
       @Nonnull final SearchableFieldSpec searchableFieldSpec) {
     FieldType fieldType = searchableFieldSpec.getSearchableAnnotation().getFieldType();
 
@@ -334,6 +340,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
       mappingForField.put(TYPE, ESUtils.DATE_FIELD_TYPE);
     } else if (OBJECT_FIELD_TYPES.contains(fieldType)) {
       mappingForField.put(TYPE, ESUtils.OBJECT_FIELD_TYPE);
+      mappingForField.put("dynamic", true);
     } else if (fieldType == FieldType.DOUBLE) {
       mappingForField.put(TYPE, ESUtils.DOUBLE_FIELD_TYPE);
     } else {
@@ -372,7 +379,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
     return mappingForField;
   }
 
-  private static Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
+  private Map<String, Object> getMappingsForSearchText(FieldType fieldType) {
     Map<String, Object> mappingForField = new HashMap<>();
     mappingForField.put(TYPE, ESUtils.KEYWORD_FIELD_TYPE);
     mappingForField.put(NORMALIZER, KEYWORD_NORMALIZER);
@@ -414,7 +421,7 @@ public class V2MappingsBuilder implements MappingsBuilder {
         ImmutableMap.of(TYPE, ESUtils.DOUBLE_FIELD_TYPE));
   }
 
-  private static Map<String, Object> getMappingForSearchableRefField(
+  private Map<String, Object> getMappingForSearchableRefField(
       @Nonnull EntityRegistry entityRegistry,
       @Nonnull final SearchableRefFieldSpec searchableRefFieldSpec,
       final int depth) {

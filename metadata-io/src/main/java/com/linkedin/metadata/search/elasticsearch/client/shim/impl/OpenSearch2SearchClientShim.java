@@ -1,11 +1,25 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.search.elasticsearch.client.shim.OpenSearchClientShim;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2KnnQueryBuilder;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
+import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexSettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -118,14 +132,28 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
   @Getter private final ShimConfiguration shimConfiguration;
   private final RestHighLevelClient client;
+  private final ObjectMapper objectMapper;
   protected SearchEngineType engineType;
 
   public OpenSearch2SearchClientShim(@Nonnull ShimConfiguration config) throws IOException {
     this.shimConfiguration = config;
     this.engineType = SearchEngineType.OPENSEARCH_2;
     this.client = createClient();
+    this.objectMapper = new ObjectMapper();
 
     log.info("Created OpenSearch 2.x shim for engine type: {}", engineType);
+  }
+
+  /** Package-private factory for tests; avoids spinning up a real OS connection. */
+  static OpenSearch2SearchClientShim forTest(RestHighLevelClient client) {
+    return new OpenSearch2SearchClientShim(client, new ObjectMapper());
+  }
+
+  private OpenSearch2SearchClientShim(RestHighLevelClient client, ObjectMapper objectMapper) {
+    this.shimConfiguration = null;
+    this.engineType = SearchEngineType.OPENSEARCH_2;
+    this.client = client;
+    this.objectMapper = objectMapper;
   }
 
   public RestHighLevelClient createClient() {
@@ -147,6 +175,7 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
           httpAsyncClientBuilder.setDefaultIOReactorConfig(
               IOReactorConfig.custom()
                   .setIoThreadCount(shimConfiguration.getThreadCount())
+                  .setSoTimeout(shimConfiguration.getSocketTimeout())
                   .build());
 
           setCredentials(httpAsyncClientBuilder);
@@ -170,8 +199,9 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
 
     builder.setRequestConfigCallback(
         requestConfigBuilder ->
-            requestConfigBuilder.setConnectionRequestTimeout(
-                shimConfiguration.getConnectionRequestTimeout()));
+            requestConfigBuilder
+                .setConnectionRequestTimeout(shimConfiguration.getConnectionRequestTimeout())
+                .setSocketTimeout(shimConfiguration.getSocketTimeout()));
 
     return builder;
   }
@@ -193,9 +223,15 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     SchemeIOSessionStrategy sslStrategy =
         new SSLIOSessionStrategy(sslContext, null, null, hostnameVerifier);
 
-    log.info("Creating IOReactorConfig with threadCount: {}", shimConfiguration.getThreadCount());
+    log.info(
+        "Creating IOReactorConfig with threadCount: {}, socketTimeout: {}ms",
+        shimConfiguration.getThreadCount(),
+        shimConfiguration.getSocketTimeout());
     IOReactorConfig ioReactorConfig =
-        IOReactorConfig.custom().setIoThreadCount(shimConfiguration.getThreadCount()).build();
+        IOReactorConfig.custom()
+            .setIoThreadCount(shimConfiguration.getThreadCount())
+            .setSoTimeout(shimConfiguration.getSocketTimeout())
+            .build();
     DefaultConnectingIOReactor ioReactor = new DefaultConnectingIOReactor(ioReactorConfig);
     IOReactorExceptionHandler ioReactorExceptionHandler =
         new IOReactorExceptionHandler() {
@@ -495,6 +531,23 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
     return engineType;
   }
 
+  /**
+   * OpenSearch 2.x and Elasticsearch 7.17 (via {@link Es7CompatibilitySearchClientShim}, which
+   * extends this class) persist {@code doc_values: false} on {@code search_as_you_type} fields, so
+   * the authored mapping must include it to round-trip cleanly against {@code GetMapping}.
+   */
+  public static final Map<String, String> PARTIAL_NGRAM_CONFIG =
+      ImmutableMap.of(
+          "type", "search_as_you_type",
+          "max_shingle_size", "4",
+          "doc_values", "false");
+
+  @Nonnull
+  @Override
+  public Map<String, String> partialNgramConfig() {
+    return PARTIAL_NGRAM_CONFIG;
+  }
+
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
@@ -664,6 +717,119 @@ public class OpenSearch2SearchClientShim extends AbstractBulkProcessorShim<BulkP
   @Override
   protected void closeProcessor(BulkProcessor processor) {
     processor.close();
+  }
+
+  @Nonnull
+  @Override
+  public KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    Map<String, Object> body = OpenSearch2KnnQueryBuilder.build(request);
+    String requestBody = objectMapper.writeValueAsString(body);
+
+    String endpoint = "/" + request.indexName() + "/_search";
+    org.opensearch.client.Request lowLevelReq = new org.opensearch.client.Request("POST", endpoint);
+    lowLevelReq.setJsonEntity(requestBody);
+    String ignoreUnavailableStr = String.valueOf(request.ignoreUnavailable());
+    lowLevelReq.addParameter("ignore_unavailable", ignoreUnavailableStr);
+    lowLevelReq.addParameter("allow_no_indices", ignoreUnavailableStr);
+
+    org.opensearch.client.Response response =
+        client.getLowLevelClient().performRequest(lowLevelReq);
+    String responseBody = org.apache.http.util.EntityUtils.toString(response.getEntity(), "UTF-8");
+    JsonNode responseJson = objectMapper.readTree(responseBody);
+
+    return parseSearchKnnResponse(responseJson, objectMapper);
+  }
+
+  /**
+   * Parses a kNN search response JSON node into a {@link KnnSearchResponse}.
+   *
+   * <p>Package-private for unit testing without a live cluster. The {@code mapper} is supplied by
+   * the caller so production code reuses the shim's configured {@link ObjectMapper} and tests can
+   * pass their own.
+   */
+  static KnnSearchResponse parseSearchKnnResponse(JsonNode responseJson, ObjectMapper mapper) {
+    List<KnnSearchResponse.Hit> hits = new ArrayList<>();
+    for (JsonNode hit : responseJson.path("hits").path("hits")) {
+      String id = hit.path("_id").asText("");
+      if (id.isEmpty()) {
+        log.warn("OpenSearch kNN hit missing _id; skipping");
+        continue;
+      }
+      double score;
+      if (hit.path("_score").isNull() || hit.path("_score").isMissingNode()) {
+        log.warn("OpenSearch kNN hit {} missing _score; defaulting to 0.0", id);
+        score = 0.0;
+      } else {
+        score = hit.path("_score").asDouble(0.0);
+      }
+      Map<String, Object> source =
+          hit.has("_source")
+              ? mapper.convertValue(
+                  hit.path("_source"), new TypeReference<Map<String, Object>>() {})
+              : Map.of();
+      hits.add(new KnnSearchResponse.Hit(id, score, source));
+    }
+    return new KnnSearchResponse(hits);
+  }
+
+  @Override
+  public void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    Map<String, Object> mapping = OpenSearch2SemanticIndexMapper.build(spec);
+    Map<String, Object> settings = OpenSearch2SemanticIndexSettingsBuilder.build(spec);
+
+    org.opensearch.client.indices.CreateIndexRequest req =
+        new org.opensearch.client.indices.CreateIndexRequest(spec.indexName());
+    req.mapping(mapping);
+    req.settings(settings);
+
+    org.opensearch.client.indices.CreateIndexResponse resp =
+        client.indices().create(req, RequestOptions.DEFAULT);
+    if (!resp.isAcknowledged()) {
+      throw new IOException("Index create not acknowledged: " + spec.indexName());
+    }
+    log.info("Created OpenSearch semantic index {}", spec.indexName());
+  }
+
+  @Override
+  public void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    Map<String, Object> document = buildEmbeddingsDocument(batch);
+
+    org.opensearch.action.index.IndexRequest req =
+        new org.opensearch.action.index.IndexRequest(batch.indexName());
+    req.id(batch.documentId());
+    req.source(document);
+
+    org.opensearch.action.index.IndexResponse resp = client.index(req, RequestOptions.DEFAULT);
+    if (resp.getResult() != org.opensearch.action.DocWriteResponse.Result.CREATED
+        && resp.getResult() != org.opensearch.action.DocWriteResponse.Result.UPDATED) {
+      throw new IOException(
+          "Embedding index for " + batch.documentId() + " returned " + resp.getResult());
+    }
+    log.debug(
+        "Indexed {} chunks for {} in {}",
+        batch.chunks().size(),
+        batch.documentId(),
+        batch.indexName());
+  }
+
+  private static Map<String, Object> buildEmbeddingsDocument(EmbeddingBatch batch) {
+    List<Map<String, Object>> chunks = new ArrayList<>(batch.chunks().size());
+    for (EmbeddingBatch.Chunk c : batch.chunks()) {
+      Map<String, Object> chunk = new LinkedHashMap<>();
+      chunk.put("vector", c.vector());
+      chunk.put("text", c.text());
+      chunk.put("position", c.position());
+      chunk.put("characterOffset", c.characterOffset());
+      chunk.put("characterLength", c.characterLength());
+      chunk.put("tokenCount", c.tokenCount());
+      chunks.add(chunk);
+    }
+    Map<String, Object> modelEntry = Map.of("chunks", chunks);
+    Map<String, Object> embeddings = Map.of(batch.modelKey(), modelEntry);
+    Map<String, Object> document = new LinkedHashMap<>();
+    document.put("urn", batch.documentId());
+    document.put("embeddings", embeddings);
+    return document;
   }
 
   @Nonnull

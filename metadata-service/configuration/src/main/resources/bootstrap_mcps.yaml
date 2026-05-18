@@ -13,7 +13,7 @@ bootstrap:
       mcps_location: "bootstrap_mcps/root-user.yaml"
 
     - name: data-platforms
-      version: v6
+      version: v9
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/data-platforms.yaml"
@@ -29,6 +29,12 @@ bootstrap:
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/ownership-types.yaml"
+
+    - name: lifecycle-stages
+      version: v2
+      blocking: true
+      async: false
+      mcps_location: "bootstrap_mcps/lifecycle-stages.yaml"
 
     - name: roles
       version: v1
@@ -50,8 +56,15 @@ bootstrap:
 
     # Ingestion Recipes
     - name: ingestion-datahub-gc
-      version: v5
+      version: v6
       optional: false
       mcps_location: "bootstrap_mcps/ingestion-datahub-gc.yaml"
       values_env: "DATAHUB_GC_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
+
+    - name: ingestion-datahub-documents
+      version: v2
+      optional: true
+      mcps_location: "bootstrap_mcps/ingestion-datahub-documents.yaml"
+      values_env: "DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES"
+      revision_env: "DATAHUB_DOCUMENTS_REVISION"

@@ -14,8 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from utils.clients.gh_client import GitHubAPIClient
-from utils.workflow_metrics import JobMetrics, Metrics, WorkflowMetrics
+from utils.github.gh_client import GitHubAPIClient
+from utils.github.workflow_metrics import JobMetrics, Metrics, WorkflowMetrics
 
 
 def classify_rerun(attempt: int, jobs: list[dict[str, Any]]) -> str:
@@ -68,7 +68,9 @@ def main() -> int:
     metrics = Metrics(
         collected_at=collected_at.isoformat(),
         repository=args.repo,
-        workflow=WorkflowMetrics.from_api(run_data, int(args.run_id), args.attempt, rerun_type),
+        workflow=WorkflowMetrics.from_api(
+            run_data, int(args.run_id), args.attempt, rerun_type
+        ),
         jobs=[JobMetrics.from_api(j) for j in attempt_jobs],
     )
 

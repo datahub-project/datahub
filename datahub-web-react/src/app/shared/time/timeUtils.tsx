@@ -1,12 +1,9 @@
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
-import moment from 'moment';
+import dayjs from '@utils/dayjs';
+import type { Dayjs, ManipulateType } from '@utils/dayjs';
 
 import { DateInterval } from '@types';
 
-dayjs.extend(relativeTime);
-
-export const INTERVAL_TO_SECONDS = {
+const INTERVAL_TO_SECONDS = {
     [DateInterval.Second]: 1,
     [DateInterval.Minute]: 60,
     [DateInterval.Hour]: 3600,
@@ -16,7 +13,7 @@ export const INTERVAL_TO_SECONDS = {
     [DateInterval.Year]: 31536000,
 };
 
-export const INTERVAL_TO_MS = {
+const INTERVAL_TO_MS = {
     [DateInterval.Second]: 1000,
     [DateInterval.Minute]: 60000,
     [DateInterval.Hour]: 3600000,
@@ -26,7 +23,7 @@ export const INTERVAL_TO_MS = {
     [DateInterval.Year]: 31536000000,
 };
 
-export const INTERVAL_TO_MOMENT_INTERVAL: { [key: string]: moment.DurationInputArg2 } = {
+const INTERVAL_TO_DURATION_UNIT: { [key: string]: ManipulateType } = {
     [DateInterval.Second]: 'seconds',
     [DateInterval.Minute]: 'minutes',
     [DateInterval.Hour]: 'hours',
@@ -41,9 +38,9 @@ export type TimeWindowSize = {
     count: number;
 };
 
-export type TimeWindowSizeMs = number;
+type TimeWindowSizeMs = number;
 
-export type TimeWindow = {
+type TimeWindow = {
     startTime: number;
     endTime: number;
 };
@@ -55,15 +52,12 @@ export type TimeWindow = {
  * @param interval a human-readable time interval
  * @param count the number of time intervals composing the window
  */
-export const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
+const getTimeWindowSizeMs = (windowSize: TimeWindowSize): TimeWindowSizeMs => {
     return INTERVAL_TO_SECONDS[windowSize.interval] * 1000 * windowSize.count;
 };
 
 export const addInterval = (interval_num: number, date: Date, interval: DateInterval): Date => {
-    return moment(date)
-        .utc()
-        .add(interval_num, INTERVAL_TO_MOMENT_INTERVAL[interval] as moment.DurationInputArg2)
-        .toDate();
+    return dayjs(date).utc().add(interval_num, INTERVAL_TO_DURATION_UNIT[interval]).toDate();
 };
 
 /**
@@ -84,9 +78,9 @@ export const getTimeWindowStart = (endTimeMillis: number, interval: DateInterval
  * @param windowSize the
  */
 export const getFixedLookbackWindow = (windowSize: TimeWindowSize): TimeWindow => {
-    const endTime = moment().valueOf();
-    const startTime = moment(endTime)
-        .subtract(windowSize.count, INTERVAL_TO_MOMENT_INTERVAL[windowSize.interval])
+    const endTime = dayjs().valueOf();
+    const startTime = dayjs(endTime)
+        .subtract(windowSize.count, INTERVAL_TO_DURATION_UNIT[windowSize.interval])
         .valueOf();
 
     return {
@@ -113,19 +107,6 @@ export const toLocalDateTimeString = (timeMs: number) => {
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-        timeZoneName: 'short',
-    });
-};
-
-export const toUTCDateTimeString = (timeMs: number) => {
-    const date = new Date(timeMs);
-    return date.toLocaleString([], {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        timeZone: 'UTC',
         timeZoneName: 'short',
     });
 };
@@ -190,7 +171,7 @@ export function getTimeFromNow(timestampMillis) {
     return relativeTimeString;
 }
 
-export function getTimeRangeDescription(startDate: moment.Moment | null, endDate: moment.Moment | null): string {
+export function getTimeRangeDescription(startDate: Dayjs | null, endDate: Dayjs | null): string {
     if (!startDate && !endDate) {
         return 'All Time';
     }
@@ -204,8 +185,8 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
     }
 
     if (startDate && endDate) {
-        if (endDate && endDate.isSame(moment(), 'day')) {
-            const startDateRelativeTime = moment().diff(startDate, 'days');
+        if (endDate && endDate.isSame(dayjs(), 'day')) {
+            const startDateRelativeTime = dayjs().diff(startDate, 'days');
             return `Last ${startDateRelativeTime} days`;
         }
 
@@ -219,7 +200,7 @@ export function getTimeRangeDescription(startDate: moment.Moment | null, endDate
 }
 
 export function formatDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();
@@ -237,7 +218,7 @@ export function formatDuration(durationMs: number): string {
 }
 
 export function formatDetailedDuration(durationMs: number): string {
-    const duration = moment.duration(durationMs);
+    const duration = dayjs.duration(durationMs);
     const hours = Math.floor(duration.asHours());
     const minutes = duration.minutes();
     const seconds = duration.seconds();

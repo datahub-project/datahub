@@ -1,4 +1,5 @@
 import { Tooltip } from '@components';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 
@@ -82,7 +83,7 @@ const StructuredPropsForm = ({
                         Property Type
                         <RequiredAsterisk />
                         <Tooltip title="The allowed value type of the property" showArrow={false}>
-                            <Icon icon="Info" color="violet" size="lg" />
+                            <Icon icon={Info} color="violet" size="lg" />
                         </Tooltip>
                     </FlexContainer>
                 </FieldLabel>

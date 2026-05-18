@@ -2,6 +2,10 @@ package com.linkedin.metadata.utils.elasticsearch;
 
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
+import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.io.Closeable;
 import java.io.IOException;
@@ -146,6 +150,8 @@ public interface SearchClientShim<T> extends Closeable {
 
     Integer getConnectionRequestTimeout();
 
+    Integer getSocketTimeout();
+
     SSLContext getSSLContext();
   }
 
@@ -286,6 +292,16 @@ public interface SearchClientShim<T> extends Closeable {
   @Nonnull
   SearchEngineType getEngineType();
 
+  /**
+   * Returns the base config for the {@code search_as_you_type} partial-ngram subfield.
+   *
+   * <p>ES7 and OpenSearch 2.x persist {@code doc_values: false} on round-trip, while ES8+ silently
+   * strips it. Each shim implementation supplies the variant that matches its engine, keeping
+   * engine-version knowledge inside the shim layer.
+   */
+  @Nonnull
+  Map<String, String> partialNgramConfig();
+
   @Nonnull
   String getEngineVersion() throws IOException;
 
@@ -333,13 +349,28 @@ public interface SearchClientShim<T> extends Closeable {
       int numRetries,
       int threadCount);
 
-  void addBulk(DocWriteRequest<?> writeRequest);
-
   void addBulk(String urn, DocWriteRequest<?> writeRequest);
 
   void flushBulkProcessor();
 
   void closeBulkProcessor();
+
+  // -- Semantic search operations --------------------------------------------------
+
+  default KnnSearchResponse searchKnn(@Nonnull KnnSearchRequest request) throws IOException {
+    throw new UnsupportedOperationException(
+        "searchKnn not supported by " + getEngineType() + " shim");
+  }
+
+  default void createSemanticIndex(@Nonnull SemanticIndexSpec spec) throws IOException {
+    throw new UnsupportedOperationException(
+        "createSemanticIndex not supported by " + getEngineType() + " shim");
+  }
+
+  default void indexEmbeddings(@Nonnull EmbeddingBatch batch) throws IOException {
+    throw new UnsupportedOperationException(
+        "indexEmbeddings not supported by " + getEngineType() + " shim");
+  }
 
   /**
    * Get the native client instance for advanced operations that require direct access WARNING:

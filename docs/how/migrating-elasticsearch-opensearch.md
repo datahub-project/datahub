@@ -66,7 +66,7 @@ Run helm upgrade to apply changes
 helm upgrade prerequisites datahub/datahub-prerequisites --values <<path-to-values-file>>
 ```
 
-## Configure Datahub to use OpenSearch
+## Configure DataHub to use OpenSearch
 
 [Default values](https://github.com/acryldata/datahub-helm/blob/master/charts/datahub/values.yaml)
 

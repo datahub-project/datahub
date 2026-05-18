@@ -20,4 +20,7 @@ public class GraphQLQueryConfiguration {
    * short-circuit to prevent OOM with large or cyclic graphs. Default in application.yaml.
    */
   private int maxVisitedUrns;
+
+  /** Requests taking longer than this threshold (in ms) are logged at INFO. Default 1000ms. */
+  private long slowQueryThresholdMs;
 }

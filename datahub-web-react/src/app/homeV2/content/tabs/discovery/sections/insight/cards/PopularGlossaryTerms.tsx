@@ -5,16 +5,15 @@ import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useRegisterInsight } from '@app/homeV2/content/tabs/discovery/sections/insight/InsightStatusProvider';
 import { InsightCard } from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCard';
 import InsightCardSkeleton from '@app/homeV2/content/tabs/discovery/sections/insight/shared/InsightCardSkeleton';
 import { EntityLinkList } from '@app/homeV2/reference/sections/EntityLinkList';
+import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 import { PageRoutes } from '@conf/Global';
 
-import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
-import { RecommendationRenderType, ScenarioType } from '@types';
+import { RecommendationRenderType } from '@types';
 
 const Header = styled.div`
     display: flex;
@@ -29,13 +28,13 @@ const Title = styled.div`
     display: flex;
     align-items: center;
     justify-content: start;
-    color: ${ANTD_GRAY[9]};
+    color: ${(props) => props.theme.colors.text};
     white-space: nowrap;
     margin-right: 20px;
 `;
 
 const ShowAll = styled(Link)`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 12px;
     font-weight: 700;
 
@@ -53,22 +52,8 @@ export const PopularGlossaryTerms = () => {
     const [loaded, setLoaded] = useState(false);
     const { isUserInitializing } = useContext(OnboardingContext);
     const userContext = useUserContext();
-    const userUrn = userContext?.user?.urn;
 
-    const { loading, data } = useListRecommendationsQuery({
-        variables: {
-            input: {
-                userUrn: userUrn || '',
-                requestContext: {
-                    scenario: ScenarioType.Home,
-                },
-                limit: 10,
-            },
-        },
-        fetchPolicy: 'cache-first',
-        skip: !userUrn,
-    });
-    const recommendationModules = data?.listRecommendations?.modules;
+    const { modules: recommendationModules, loading } = useHomeRecommendations();
     const glossaryRecommendationModules = recommendationModules?.filter(
         (module) => module.renderType === RecommendationRenderType.GlossaryTermSearchList,
     );

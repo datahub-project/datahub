@@ -1,0 +1,78 @@
+{
+  "data": [
+    {
+      "id": "dp-ecommerce-analytics",
+      "name": "E-commerce Analytics",
+      "description": "Product analytics for e-commerce events including checkout flow and product interactions",
+      "organizationId": "test-org-uuid",
+      "domain": "Analytics",
+      "owner": "analytics-team@company.com",
+      "status": "published",
+      "eventSpecs": [
+        {
+          "id": "evt-spec-checkout",
+          "url": "https://console.snowplowanalytics.com/api/msc/v1/organizations/test-org-uuid/event-specs/v1/evt-spec-checkout"
+        },
+        {
+          "id": "evt-spec-product-interaction",
+          "url": "https://console.snowplowanalytics.com/api/msc/v1/organizations/test-org-uuid/event-specs/v1/evt-spec-product-interaction"
+        }
+      ],
+      "sourceApplications": [
+        "app-test-ecommerce"
+      ],
+      "type": "custom",
+      "lockStatus": "unlocked",
+      "createdAt": "2024-01-15T10:00:00Z",
+      "updatedAt": "2024-02-20T14:30:00Z"
+    },
+    {
+      "id": "dp-mobile-engagement",
+      "name": "Mobile App Engagement",
+      "description": "Mobile app user engagement and retention metrics",
+      "organizationId": "test-org-uuid",
+      "domain": "Mobile",
+      "owner": "mobile-team@company.com",
+      "status": "draft",
+      "eventSpecs": [
+        {
+          "id": "evt-spec-mobile-screens",
+          "url": "https://console.snowplowanalytics.com/api/msc/v1/organizations/test-org-uuid/event-specs/v1/evt-spec-mobile-screens"
+        }
+      ],
+      "sourceApplications": [
+        "app-test-mobile"
+      ],
+      "type": "custom",
+      "lockStatus": "unlocked",
+      "createdAt": "2024-02-01T12:00:00Z",
+      "updatedAt": "2024-02-25T16:00:00Z"
+    }
+  ],
+  "includes": {
+    "owners": [],
+    "eventSpecs": [
+      {
+        "id": "evt-spec-checkout",
+        "version": 1,
+        "name": "checkout_started",
+        "status": "published"
+      },
+      {
+        "id": "evt-spec-product-interaction",
+        "version": 1,
+        "name": "product_viewed",
+        "status": "published"
+      }
+    ],
+    "sourceApplications": [
+      {
+        "id": "app-test-ecommerce",
+        "name": "Test E-commerce App",
+        "description": "Test application for e-commerce event tracking"
+      }
+    ]
+  },
+  "errors": [],
+  "metadata": null
+}

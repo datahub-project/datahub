@@ -99,6 +99,9 @@ export const DEFAULT_APP_CONFIG = {
         documentationFileUploadV1: false,
         contextDocumentsEnabled: false,
         hideLineageInSearchCards: false,
+        glossaryBasedPoliciesEnabled: false,
+        multipleDataProductsPerAsset: false,
+        showTestsInHealthIcon: false,
     },
     chromeExtensionConfig: {
         enabled: false,

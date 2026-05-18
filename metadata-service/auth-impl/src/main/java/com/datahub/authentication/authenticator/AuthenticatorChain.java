@@ -104,7 +104,7 @@ public class AuthenticatorChain {
                   })
               .map(p -> Pair.of(p.getFirst(), p.getSecond().getMessage()))
               .collect(Collectors.toList());
-      log.warn(
+      log.debug(
           "Authentication chain failed to resolve a valid authentication. Errors: {}",
           shortMessage);
     }

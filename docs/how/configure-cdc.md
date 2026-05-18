@@ -1175,7 +1175,7 @@ See the full [Troubleshooting](#troubleshooting) section for step-by-step fixes.
 
 ### Can I use CDC with DataHub Cloud?
 
-CDC mode is currently not supported in Datahub Cloud.
+CDC mode is currently not supported in DataHub Cloud.
 
 ### How do I disable CDC mode?
 

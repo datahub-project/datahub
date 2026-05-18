@@ -91,7 +91,7 @@ public class PlatformEventProcessor {
                         .record(Duration.ofMillis(queueTimeMs));
                   });
           final GenericRecord record = consumerRecord.value();
-          log.info(
+          log.debug(
               "Got PE event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
               consumerRecord.key(),
               consumerRecord.topic(),
@@ -129,10 +129,10 @@ public class PlatformEventProcessor {
             return;
           }
 
-          log.info("Invoking PE hooks for event name {}", event.getName());
+          log.debug("Invoking PE hooks for event name {}", event.getName());
 
           for (PlatformEventHook hook : this.hooks) {
-            log.info(
+            log.debug(
                 "Invoking PE hook {} for event name {}",
                 hook.getClass().getSimpleName(),
                 event.getName());
@@ -165,7 +165,7 @@ public class PlatformEventProcessor {
               .getMetricUtils()
               .ifPresent(
                   metricUtils -> metricUtils.increment(this.getClass(), "consumed_pe_count", 1));
-          log.info("Successfully completed PE hooks for event with name {}", event.getName());
+          log.debug("Successfully completed PE hooks for event with name {}", event.getName());
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(this.getClass(), "consume"));

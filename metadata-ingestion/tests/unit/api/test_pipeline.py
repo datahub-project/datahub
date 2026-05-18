@@ -5,7 +5,7 @@ from typing import Iterable, List, Optional, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
@@ -56,7 +56,7 @@ class TestPipeline:
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
     )
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_configure(self, mock_sink, mock_source, mock_consumer):
         pipeline = Pipeline.create(
             {
@@ -73,7 +73,7 @@ class TestPipeline:
         mock_source.assert_called_once()
         mock_sink.assert_called_once()
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
@@ -97,7 +97,7 @@ class TestPipeline:
         assert pipeline.sink.config.server == "http://fake-gms-server:8080"
         assert pipeline.sink.config.token is None
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",
@@ -132,7 +132,7 @@ class TestPipeline:
             pipeline.sink.emitter._session.headers["Authorization"] == "Basic user:pass"
         )
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_initializes_graph(
         self, mock_fetch_config, mock_server_config
@@ -167,7 +167,7 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_configure_with_rest_sink_with_additional_props_initializes_graph(
         self, mock_fetch_config, mock_server_config
@@ -202,7 +202,7 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.server == pipeline.config.sink.config["server"]
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch(
         "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
     )
@@ -227,7 +227,7 @@ class TestPipeline:
         assert pipeline.config.sink.config == {"filename": str(tmp_path / "test.json")}
         assert pipeline.ctx.graph is None, "DataHubGraph should not be initialized"
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_fake_transformation(self):
         pipeline = Pipeline.create(
             {
@@ -254,7 +254,7 @@ class TestPipeline:
         assert len(sink_report.received_records) == 1
         assert expected_mce == sink_report.received_records[0].record
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_run_including_registered_transformation(self):
         # This is not testing functionality, but just the transformer registration system.
 
@@ -295,7 +295,7 @@ class TestPipeline:
             ),
         ],
     )
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_pipeline_return_code(self, tmp_path, source, strict_warnings, exit_code):
         config_file: pathlib.Path = tmp_path / "test.yml"
 
@@ -382,7 +382,7 @@ sink:
             ),
         ],
     )
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     def test_pipeline_process_commits(self, commit_policy, source, should_commit):
         pipeline = Pipeline.create(
             {
@@ -414,7 +414,7 @@ sink:
             else:
                 mock_commit.assert_not_called()
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     def test_pipeline_graph_has_expected_client_mode_and_component(
         self, mock_fetch_config, mock_server_config
@@ -448,7 +448,7 @@ sink:
         assert pipeline.ctx.graph.config.server == "http://somehost.someplace.some:8080"
         assert pipeline.ctx.graph.config.token == "foo"
 
-    @freeze_time(FROZEN_TIME)
+    @time_machine.travel(FROZEN_TIME, tick=False)
     @patch("datahub.emitter.rest_emitter.DataHubRestEmitter.fetch_server_config")
     @patch(
         "datahub.cli.config_utils.load_client_config",

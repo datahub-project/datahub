@@ -1,5 +1,6 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import { Button, Tooltip } from '@components';
+import { ClockCounterClockwise } from '@phosphor-icons/react/dist/csr/ClockCounterClockwise';
 import { Button as AntButton, Typography } from 'antd';
 import React, { useState } from 'react';
 import { useDebounce } from 'react-use';
@@ -85,7 +86,7 @@ type Props = {
     selectedVersion: string;
     versionList: Array<SemanticVersionStruct>;
     showSchemaTimeline: boolean;
-    setShowSchemaTimeline: any;
+    setShowSchemaTimeline: (show: boolean) => void;
     filterText: string;
     setFilterText: (text: string) => void;
     numRows: number;
@@ -181,7 +182,7 @@ export default function SchemaHeader({
                             variant="text"
                             data-testid="schema-blame-button"
                             color={showSchemaTimeline ? 'violet' : 'gray'}
-                            icon={{ icon: 'ClockCounterClockwise', source: 'phosphor', size: '2xl' }}
+                            icon={{ icon: ClockCounterClockwise, size: '2xl' }}
                             onClick={() => setShowSchemaTimeline(!showSchemaTimeline)}
                         />
                     </Tooltip>

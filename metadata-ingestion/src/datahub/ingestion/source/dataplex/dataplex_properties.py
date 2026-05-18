@@ -13,7 +13,7 @@ def extract_aspects_to_custom_properties(
     """Extract aspects as custom properties.
 
     Args:
-        aspects: Dictionary of aspects from entry or entity
+        aspects: Dictionary of aspects from entry
         custom_properties: Dictionary to update with aspect properties
     """
     for aspect_key, aspect_value in aspects.items():
@@ -62,62 +62,5 @@ def extract_entry_custom_properties(
 
     if entry.aspects:
         extract_aspects_to_custom_properties(entry.aspects, custom_properties)
-
-    return custom_properties
-
-
-def extract_entity_custom_properties(
-    entity_full: dataplex_v1.Entity,
-    project_id: str,
-    lake_id: str,
-    zone_id: str,
-    entity_id: str,
-    zone_metadata: dict[str, str],
-) -> dict[str, str]:
-    """Extract custom properties from a Dataplex entity.
-
-    Args:
-        entity_full: Full entity object from Dataplex
-        project_id: GCP project ID
-        lake_id: Dataplex lake ID
-        zone_id: Dataplex zone ID
-        entity_id: Entity ID
-        zone_metadata: Zone metadata cache (format: "{project}.{lake}.{zone}" -> zone_type)
-
-    Returns:
-        Dictionary of custom properties
-    """
-    custom_properties = {
-        "dataplex_ingested": "true",
-        "dataplex_lake": lake_id,
-        "dataplex_zone": zone_id,
-        "dataplex_entity_id": entity_id,
-    }
-
-    # Add zone type from metadata
-    zone_key = f"{project_id}.{lake_id}.{zone_id}"
-    if zone_key in zone_metadata:
-        custom_properties["dataplex_zone_type"] = zone_metadata[zone_key]
-
-    if entity_full.data_path:
-        custom_properties["data_path"] = entity_full.data_path
-
-    if entity_full.system:
-        custom_properties["system"] = entity_full.system.name
-
-    if entity_full.format:
-        custom_properties["format"] = entity_full.format.format_.name
-
-    if entity_full.asset:
-        custom_properties["asset"] = entity_full.asset
-
-    if hasattr(entity_full, "catalog_entry") and entity_full.catalog_entry:
-        custom_properties["catalog_entry"] = entity_full.catalog_entry
-
-    if hasattr(entity_full, "compatibility") and entity_full.compatibility:
-        custom_properties["compatibility"] = str(entity_full.compatibility)
-
-    if hasattr(entity_full, "aspects") and entity_full.aspects:
-        extract_aspects_to_custom_properties(entity_full.aspects, custom_properties)
 
     return custom_properties

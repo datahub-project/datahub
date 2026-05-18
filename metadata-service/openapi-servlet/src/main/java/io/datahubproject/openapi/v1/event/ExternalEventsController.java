@@ -145,13 +145,14 @@ public class ExternalEventsController {
 
   private boolean isAuthorizedToGetEvents(
       @Nonnull final OperationContext opContext, @Nonnull final String topic) {
+    if (AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_TOPIC_EVENTS_PRIVILEGE)) {
+      return true;
+    }
     if (Topics.PLATFORM_EVENT.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_PLATFORM_EVENTS_PRIVILEGE);
     }
-    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)) {
-      return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
-    }
-    if (Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
+    if (Topics.METADATA_CHANGE_LOG_VERSIONED.equals(topic)
+        || Topics.METADATA_CHANGE_LOG_TIMESERIES.equals(topic)) {
       return AuthUtil.isAPIAuthorized(opContext, PoliciesConfig.GET_METADATA_CHANGE_LOG_EVENTS);
     }
     return false;

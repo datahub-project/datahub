@@ -1,169 +1,309 @@
 #!/usr/bin/env python3
 """
 Self-contained script to create bundled venvs for DataHub ingestion sources.
-This script creates virtual environments with predictable names following the pattern:
-<plugin-name>-bundled that are leveraged within acryl-executor to run ingestion jobs.
+
+Groups come from env vars ``BUNDLED_VENV_PLUGINS_<group_id>`` (suffix lowercased for the
+group label, e.g. ``BUNDLED_VENV_PLUGINS_COMMON`` -> ``common-venv``). One
+``BUNDLED_CLI_VERSION`` installs ``acryl-datahub[...]==`` that version for each group (or
+editable ``/metadata-ingestion`` when present). After a **PyPI** install, the venv is
+checked that ``importlib.metadata`` matches that pin. Editable local installs skip this
+pin check by default (source ``setup.py`` version often differs from the label in
+``BUNDLED_CLI_VERSION``); set ``BUNDLED_CLI_VERSION_ENFORCE=true`` to require a match.
+
+When ``BUNDLED_VENV_SLIM_MODE`` is true, eligible extras use ``-slim`` variants and each
+slim venv is verified to not import PySpark.
 """
 
 import os
 import subprocess
 import sys
-from typing import List, Tuple
+from pathlib import Path
 
-# Adding a new plug-in with a -slim variant has to be defined here
-PLUGINS_WITH_SLIM_VARIANT = ['s3']
-
-def generate_venv_mappings(plugins: List[str]) -> List[Tuple[str, str]]:
-    """Generate simple venv name mappings using <plugin-name>-bundled pattern."""
-    venv_mappings = []
-
-    for plugin in plugins:
-        # Simple, predictable naming: <plugin-name>-bundled
-        venv_name = f"{plugin}-bundled"
-        venv_mappings.append((plugin, venv_name))
-
-    return venv_mappings
+from bundled_venv_config import (
+    BundledVenvGroupPlan,
+    build_group_plans,
+    extras_to_install_string,
+    groups_config_from_plugin_group_env,
+)
 
 
-def create_venv(plugin: str, venv_name: str, bundled_cli_version: str, venv_base_path: str, slim_mode: bool = False) -> bool:
-    """Create a single bundled venv for a plugin.
+def _env_truthy(key: str) -> bool:
+    return os.environ.get(key, "").lower() in ("true", "1", "yes")
 
-    Args:
-        plugin: Plugin name (e.g., "s3", "demo-data")
-        venv_name: Name of the venv directory (e.g., "s3-bundled")
-        bundled_cli_version: DataHub CLI version to install
-        venv_base_path: Base directory for venvs
-        slim_mode: If True, use -slim variants for data lake sources (s3-slim, gcs-slim, abs-slim)
+
+def _print_subprocess_failure(proc: subprocess.CompletedProcess[str]) -> None:
+    if proc.stdout:
+        print(f"     stdout: {proc.stdout}")
+    if proc.stderr:
+        print(f"     stderr: {proc.stderr}")
+
+
+def _verify_installed_acryl_datahub_version(
+    venv_path: str, bundled_cli_version: str
+) -> tuple[bool, str]:
     """
+    Ensure the venv has acryl-datahub installed at BUNDLED_CLI_VERSION.
+    Catches PyPI resolution/install failures already surfaced by pip, and editable
+    installs where local metadata does not match the requested release pin.
+    """
+    python_exe = os.path.join(venv_path, "bin", "python")
+    script = f"""
+import importlib.metadata as m
+import sys
+
+def norm(v):
+    v = v.strip()
+    if v.startswith(("v", "V")):
+        v = v[1:]
+    return v
+
+exp = norm({bundled_cli_version!r})
+try:
+    got = m.version("acryl-datahub")
+except m.PackageNotFoundError:
+    print("ERROR: acryl-datahub is not installed after pip install", file=sys.stderr)
+    sys.exit(2)
+try:
+    from packaging.version import Version
+
+    match = Version(got) == Version(exp)
+except Exception:
+    match = got == exp
+if not match:
+    print(
+        f"ERROR: Installed acryl-datahub version {{got!r}} does not match "
+        f"required BUNDLED_CLI_VERSION {{exp!r}}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+"""
+    proc = subprocess.run(
+        [python_exe, "-c", script],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if proc.returncode == 0:
+        return True, ""
+    detail = (proc.stderr or proc.stdout or "").strip()
+    return False, detail
+
+
+def create_bundled_venv(
+    group_plan: BundledVenvGroupPlan,
+    bundled_cli_version: str,
+    venv_base_path: str,
+    slim_mode: bool,
+) -> bool:
+    """Create one physical venv at canonical_dir_name with the given extras."""
+    venv_name = group_plan.canonical_dir_name
     venv_path = os.path.join(venv_base_path, venv_name)
+    extras_str = extras_to_install_string(group_plan.extras)
 
-    print(f"Creating bundled venv for {plugin}: {venv_name}")
+    print(f"Creating bundled venv for group '{group_plan.label}': {venv_name}")
+    print(f"  Members: {', '.join(group_plan.members)}")
     print(f"  Venv Path: {venv_path}")
+    print(f"  Extras: [{extras_str}]")
     if slim_mode:
-        print(f"  Slim Mode: Will use -slim variants for data lake sources")
+        print("  Slim Mode: using -slim variants for eligible data lake extras")
 
+    constraints_path = os.path.join(venv_base_path, "constraints.txt")
     try:
-        # Create the venv
-        print(f"  → Creating venv...")
-        subprocess.run(['uv', 'venv', venv_path], check=True, capture_output=True)
+        print("  → Creating venv...")
+        subprocess.run(
+            ["uv", "venv", "--clear", venv_path],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
 
-        # Install packages in the venv
-        print(f"  → Installing base packages...")
-        base_cmd = f'source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools'
-        subprocess.run(['bash', '-c', base_cmd], check=True, capture_output=True)
+        print("  → Installing base packages...")
+        base_cmd = f"source {venv_path}/bin/activate && uv pip install --upgrade pip wheel setuptools --constraint {constraints_path}"
+        subprocess.run(
+            ["bash", "-c", base_cmd], check=True, capture_output=True, text=True
+        )
 
-        # Determine which plugin extra to use
-        # In slim mode, use -slim suffix for data lake sources to avoid PySpark
-        plugin_extra = plugin
-        if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
-            plugin_extra = f"{plugin}-slim"
-            print(f"  → Using {plugin_extra} extra (slim mode, no PySpark)")
-
-        # Install DataHub with the specific plugin
-        print(f"  → Installing datahub with {plugin_extra} plugin...")
-        # Use local metadata-ingestion if available (for development), otherwise use PyPI
-        if os.path.exists('/metadata-ingestion/setup.py'):
-            print(f"  → Using local /metadata-ingestion source")
-            datahub_package = f'-e /metadata-ingestion[datahub-rest,datahub-kafka,file,{plugin_extra}]'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
-            install_cmd = f'source {venv_path}/bin/activate && uv pip install {datahub_package} --constraints {constraints_path}'
+        print(f"  → Installing datahub with [{extras_str}]...")
+        if os.path.exists("/metadata-ingestion/setup.py"):
+            print("  → Using local /metadata-ingestion source")
+            datahub_package = f"-e /metadata-ingestion[{extras_str}]"
+            install_cmd = f"source {venv_path}/bin/activate && uv pip install {datahub_package} --constraint {constraints_path}"
         else:
-            datahub_package = f'acryl-datahub[datahub-rest,datahub-kafka,file,{plugin_extra}]=={bundled_cli_version}'
-            constraints_path = os.path.join(venv_base_path, "constraints.txt")
-            install_cmd = f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" --constraints {constraints_path}'
-        subprocess.run(['bash', '-c', install_cmd], check=True, capture_output=True)
+            datahub_package = f"acryl-datahub[{extras_str}]=={bundled_cli_version}"
+            install_cmd = (
+                f'source {venv_path}/bin/activate && uv pip install "{datahub_package}" '
+                f"--constraint {constraints_path}"
+            )
+        subprocess.run(
+            ["bash", "-c", install_cmd], check=True, capture_output=True, text=True
+        )
+
+        install_from_local = os.path.exists("/metadata-ingestion/setup.py")
+        enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
+        if not install_from_local or enforce_cli_pin:
+            print("  → Verifying installed acryl-datahub matches BUNDLED_CLI_VERSION...")
+            ok, verify_detail = _verify_installed_acryl_datahub_version(
+                venv_path, bundled_cli_version
+            )
+            if not ok:
+                print(f"  ❌ Version verification failed for {venv_name}")
+                if verify_detail:
+                    print(f"     {verify_detail}")
+                return False
+        else:
+            print(
+                "  → Skipping BUNDLED_CLI_VERSION pin check (editable /metadata-ingestion; "
+                "set BUNDLED_CLI_VERSION_ENFORCE=true to require installed version to match)"
+            )
+
+        if slim_mode:
+            python_exe = os.path.join(venv_path, "bin", "python")
+            result = subprocess.run(
+                [python_exe, "-c", "import pyspark"],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 0:
+                print(
+                    f"  ❌ FAIL: PySpark found in {venv_name} (slim mode requires no PySpark)"
+                )
+                return False
+            print(f"  → Verified: No PySpark in {venv_name}")
 
         print(f"  ✅ Successfully created {venv_name}")
         return True
 
     except subprocess.CalledProcessError as e:
         print(f"  ❌ Failed to create {venv_name}: {e}")
-        # Print stderr if available for debugging
-        if e.stderr:
-            print(f"     Error output: {e.stderr.decode()}")
+        if e.stdout is not None or e.stderr is not None:
+            proc = subprocess.CompletedProcess(
+                e.cmd, e.returncode, e.stdout, e.stderr
+            )
+            _print_subprocess_failure(proc)
         return False
 
 
-def main():
-    """Main function to generate and create all bundled venvs."""
-    # Get configuration from environment
-    plugins_str = os.environ.get('BUNDLED_VENV_PLUGINS', 's3,demo-data')
-    bundled_cli_version = os.environ.get('BUNDLED_CLI_VERSION')
-    venv_base_path = os.environ.get('DATAHUB_BUNDLED_VENV_PATH', '/opt/datahub/venvs')
-    slim_mode_str = os.environ.get('BUNDLED_VENV_SLIM_MODE', 'false').lower()
-    slim_mode = slim_mode_str in ['true', '1', 'yes']
+def _remove_if_exists(path: str) -> None:
+    p = Path(path)
+    if p.is_symlink() or p.is_file():
+        p.unlink()
+    elif p.is_dir():
+        raise RuntimeError(f"Refusing to remove unexpected directory: {path}")
+
+
+def ensure_plugin_symlinks(
+    group_plan: BundledVenvGroupPlan,
+    venv_base_path: str,
+) -> None:
+    """
+    For groups with multiple members, or a single member whose canonical dir name
+    differs from `{plugin}-bundled`, create relative symlinks so each plugin path exists.
+    """
+    canonical = group_plan.canonical_dir_name
+    canonical_path = os.path.join(venv_base_path, canonical)
+
+    for plugin in group_plan.members:
+        alias_name = f"{plugin}-bundled"
+        if alias_name == canonical:
+            continue
+
+        link_path = os.path.join(venv_base_path, alias_name)
+        _remove_if_exists(link_path)
+
+        target_rel = os.path.relpath(canonical_path, start=os.path.dirname(link_path))
+        os.symlink(target_rel, link_path, target_is_directory=True)
+        print(f"  → Symlink {alias_name} -> {target_rel}")
+
+
+def main() -> int:
+    plugins_str = os.environ.get("BUNDLED_VENV_PLUGINS", "s3,demo-data,file")
+    bundled_cli_version = os.environ.get("BUNDLED_CLI_VERSION")
+    venv_base_path = os.environ.get("DATAHUB_BUNDLED_VENV_PATH", "/opt/datahub/venvs")
+    slim_mode_str = os.environ.get("BUNDLED_VENV_SLIM_MODE", "false").lower()
+    slim_mode = slim_mode_str in ["true", "1", "yes"]
 
     if not bundled_cli_version:
         print("ERROR: BUNDLED_CLI_VERSION environment variable must be set")
-        sys.exit(1)
+        return 1
 
-    # Strip 'v' prefix if present (e.g., v0.12.1 -> 0.12.1)
-    if bundled_cli_version.startswith('v'):
+    if bundled_cli_version.startswith("v"):
         bundled_cli_version = bundled_cli_version[1:]
 
-    # Parse plugins list
-    plugins = [p.strip() for p in plugins_str.split(',') if p.strip()]
+    plugins = [p.strip() for p in plugins_str.split(",") if p.strip()]
 
     print("=" * 60)
-    print("DataHub Bundled Venv Builder (Self-Contained)")
+    print("DataHub Bundled Venv Builder (named groups)")
     print("=" * 60)
     print(f"DataHub CLI Version: {bundled_cli_version}")
     print(f"Plugins: {', '.join(plugins)}")
     print(f"Venv Base Path: {venv_base_path}")
     print(f"Slim Mode: {slim_mode}")
+    local_setup = os.path.exists("/metadata-ingestion/setup.py")
+    enforce_cli_pin = _env_truthy("BUNDLED_CLI_VERSION_ENFORCE")
+    if local_setup:
+        print(
+            "Bundled CLI pin check: "
+            + (
+                "enforced (BUNDLED_CLI_VERSION_ENFORCE)"
+                if enforce_cli_pin
+                else "skipped for editable /metadata-ingestion"
+            )
+        )
     print(f"Total Plugins: {len(plugins)}")
     print()
 
-    # Generate venv name mappings using simple pattern
-    print("Generating venv name mappings...")
-    venv_mappings = generate_venv_mappings(plugins)
+    try:
+        raw_config = groups_config_from_plugin_group_env(os.environ)
+        plans = build_group_plans(plugins, raw_config, slim_mode)
+    except (ValueError, OSError) as e:
+        print(f"ERROR: Invalid bundled venv groups configuration: {e}")
+        return 1
 
-    print("Generated venv mappings:")
-    for plugin, venv_name in venv_mappings:
-        extra_info = ""
-        if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
-            extra_info = " (will use -slim extra)"
-        print(f"  {plugin} → {venv_name}{extra_info}")
+    print("Resolved install plan:")
+    for plan in plans:
+        print(
+            f"  group={plan.label!r} -> {plan.canonical_dir_name} "
+            f"members={list(plan.members)} extras=[{extras_to_install_string(plan.extras)}]"
+        )
     print()
 
-    # Ensure the venv base directory exists
     os.makedirs(venv_base_path, exist_ok=True)
 
-    # Create each venv
     print("Creating bundled venvs...")
     print("-" * 40)
     success_count = 0
-    failed_plugins = []
+    failed_labels: list[str] = []
 
-    for plugin, venv_name in venv_mappings:
+    for plan in plans:
         try:
-            if create_venv(plugin, venv_name, bundled_cli_version, venv_base_path, slim_mode):
+            if create_bundled_venv(
+                plan, bundled_cli_version, venv_base_path, slim_mode
+            ):
+                ensure_plugin_symlinks(plan, venv_base_path)
                 success_count += 1
             else:
-                failed_plugins.append(plugin)
+                failed_labels.append(plan.label)
         except Exception as e:
-            print(f"Failed to create venv for {plugin}: {e}")
-            failed_plugins.append(plugin)
-        print()  # Add spacing between venvs
+            print(f"Failed to create venv for group {plan.label!r}: {e}")
+            failed_labels.append(plan.label)
+        print()
 
-    # Summary
     print("=" * 60)
     print("Summary")
     print("=" * 60)
-    print(f"Total plugins: {len(venv_mappings)}")
+    print(f"Total install groups: {len(plans)}")
     print(f"Successfully created: {success_count}")
-    print(f"Failed: {len(failed_plugins)}")
+    print(f"Failed: {len(failed_labels)}")
 
-    if failed_plugins:
-        print(f"Failed plugins: {', '.join(failed_plugins)}")
+    if failed_labels:
+        print(f"Failed groups: {', '.join(failed_labels)}")
 
     print()
-    if success_count == len(venv_mappings):
+    if success_count == len(plans):
         print("🎉 All bundled venvs created successfully!")
         return 0
-    else:
-        print("⚠️  Some bundled venvs failed to create")
-        return 1
+    print("⚠️  Some bundled venvs failed to create")
+    return 1
 
 
 if __name__ == "__main__":

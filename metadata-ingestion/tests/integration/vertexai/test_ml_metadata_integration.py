@@ -31,7 +31,7 @@ def source_with_ml_metadata() -> VertexAISource:
     return VertexAISource(
         ctx=PipelineContext(run_id="ml-metadata-test"),
         config=VertexAIConfig(
-            project_id=PROJECT_ID,
+            project_ids=[PROJECT_ID],
             region=REGION,
             use_ml_metadata_for_lineage=True,
             extract_execution_metrics=True,
@@ -125,11 +125,19 @@ class TestModelEvaluationIngestion:
 
         mock_evals = [gen_mock_model_evaluation(i) for i in range(5)]
 
-        mock_model = gen_mock_model(list_model_evaluations_return=mock_evals)
+        mock_model = gen_mock_model()
 
-        with patch("google.cloud.aiplatform.Model.list") as mock_list:
-            mock_list.return_value = [mock_model]
+        from google.cloud.aiplatform import ModelEvaluation
 
+        def _gapic_list_side_effect(cls, *args, **kwargs):
+            if cls is ModelEvaluation:
+                return mock_evals
+            return [mock_model]
+
+        with patch(
+            "datahub.ingestion.source.vertexai.vertexai_model_extractor.rate_limited_gapic_list",
+            side_effect=_gapic_list_side_effect,
+        ):
             mcps = list(source.model_extractor.get_evaluation_workunits())
 
             deployment_mcps = [
@@ -229,7 +237,7 @@ class TestMLMetadataIntegration:
         source = VertexAISource(
             ctx=PipelineContext(run_id="no-ml-metadata-test"),
             config=VertexAIConfig(
-                project_id=PROJECT_ID,
+                project_ids=[PROJECT_ID],
                 region=REGION,
                 use_ml_metadata_for_lineage=False,
                 extract_execution_metrics=False,

@@ -66,7 +66,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     const defaultOwners = user ? [user] : [];
 
     // Stable callback for setting owner URNs
-    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: React.SetStateAction<string[]>) => {
+    const handleSetSelectedOwnerUrns = useCallback((ownerUrns: string[]) => {
         setSelectedOwnerUrns(ownerUrns);
     }, []);
 

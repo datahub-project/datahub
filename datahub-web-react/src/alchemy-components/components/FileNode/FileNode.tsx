@@ -1,4 +1,5 @@
-import { Button, colors } from '@components';
+import { Button } from '@components';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Typography } from 'antd';
 import React, { useCallback, useMemo } from 'react';
 import styled from 'styled-components';
@@ -18,7 +19,7 @@ const Container = styled.div<{ $border?: boolean; $fontSize?: string }>`
         props.$border &&
         `
         border-radius: 8px;
-        border: 1px solid ${colors.gray[100]};
+        border: 1px solid ${props.theme.colors.border};
     `}
 
     ${(props) => props.$fontSize && `font-size: ${props.$fontSize};`}
@@ -42,7 +43,7 @@ const CloseButton = styled(Button)`
 `;
 
 const FileName = styled(Typography.Text)`
-    color: ${({ theme }) => theme?.styles?.['primary-color'] ?? colors.violet[500]};
+    color: ${({ theme }) => theme.colors.textBrand};
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -108,8 +109,7 @@ export function FileNode({
                 {onClose && (
                     <CloseButton
                         icon={{
-                            icon: 'X',
-                            source: 'phosphor',
+                            icon: X,
                             color: 'gray',
                             colorLevel: 1800,
                             size: 'lg',
