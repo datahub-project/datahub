@@ -1,9 +1,8 @@
-"""Tests for Airbyte source improvements: lowercase URNs, known URNs, auto-detection."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.airbyte.config import (
     AirbyteDeploymentType,
@@ -40,9 +39,7 @@ def mock_client():
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
-    """Test that URNs are lowercased when convert_urns_to_lowercase is True."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -56,31 +53,24 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="ws-1", name="Test Workspace", workspace_id="ws-1"
-    )
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
     connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
         connection_id="conn-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="dest-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="PostgreSQL",
         source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
         source_definition_id="def-1",
         workspace_id="ws-1",
     )
     destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
         destination_id="dest-1",
+        name="Test Dest",
         destination_definition_id="def-2",
         workspace_id="ws-1",
     )
@@ -92,25 +82,19 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
         destination=destination,
     )
 
-    # Create stream with uppercase name
     stream = AirbyteStreamDetails(
-        streamName="CUSTOMERS",
-        namespace="PUBLIC",
-        propertyFields=[],
         stream_name="CUSTOMERS",
+        namespace="PUBLIC",
+        property_fields=[],
     )
-
-    # Create mock stream config
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
 
-    # Get the dataset URNs
     dataset_urns = source._create_dataset_urns(
         pipeline_info, stream_config, stream, "test-instance"
     )
 
-    # Source URN should have lowercased dataset name
     assert "public.customers" in dataset_urns.source_urn
     assert "PUBLIC" not in dataset_urns.source_urn
     assert "CUSTOMERS" not in dataset_urns.source_urn
@@ -118,9 +102,7 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
-    """Test that URNs preserve case when convert_urns_to_lowercase is False."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -140,31 +122,24 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="ws-1", name="Test Workspace", workspace_id="ws-1"
-    )
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
     connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
         connection_id="conn-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="dest-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="PostgreSQL",
         source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
         source_definition_id="def-1",
         workspace_id="ws-1",
     )
     destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
         destination_id="dest-1",
+        name="Test Dest",
         destination_definition_id="def-2",
         workspace_id="ws-1",
     )
@@ -176,33 +151,28 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
         destination=destination,
     )
 
-    # Create stream with uppercase name
     stream = AirbyteStreamDetails(
-        streamName="CUSTOMERS",
-        namespace="PUBLIC",
-        propertyFields=[],
         stream_name="CUSTOMERS",
+        namespace="PUBLIC",
+        property_fields=[],
     )
-
-    # Create mock stream config
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
 
-    # Get the dataset URNs
     dataset_urns = source._create_dataset_urns(
         pipeline_info, stream_config, stream, "test-instance"
     )
 
-    # Source URN should preserve case
     assert "PUBLIC.CUSTOMERS" in dataset_urns.source_urn
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
-    """Test automatic 2-tier platform detection when schema equals database."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    # When the source's `schema` equals its `database` we treat the
+    # platform as 2-tier and emit `<database>.<table>` instead of
+    # `<database>.<schema>.<table>` (the latter would duplicate the tier).
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -215,32 +185,25 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="ws-1", name="Test Workspace", workspace_id="ws-1"
-    )
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
     connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
         connection_id="conn-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="dest-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="MySQL",
         source_id="source-1",
+        name="Test Source",
+        source_type="MySQL",
         source_definition_id="def-1",
         workspace_id="ws-1",
         configuration={"database": "mydb", "schema": "mydb"},  # Schema == Database
     )
     destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
         destination_id="dest-1",
+        name="Test Dest",
         destination_definition_id="def-2",
         workspace_id="ws-1",
     )
@@ -255,27 +218,21 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
     stream_details = AirbyteStreamDetails(
         stream_name="customers", namespace="mydb", property_fields=[]
     )
-
-    # Create mock stream config
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="customers", namespace="mydb"), config={}
     )
 
-    # Create URNs - should auto-detect 2-tier and exclude duplicate schema
     urns = source._create_dataset_urns(
         pipeline_info, stream_config, stream_details, None
     )
 
-    # Should be 2-tier: mydb.customers (not mydb.mydb.customers)
     assert "mydb.customers" in urns.source_urn
     assert "mydb.mydb.customers" not in urns.source_urn
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
-    """Test that 3-tier platforms (Snowflake) preserve schema when different from database."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -288,32 +245,25 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="ws-1", name="Test Workspace", workspace_id="ws-1"
-    )
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
     connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
         connection_id="conn-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="dest-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="Snowflake",
         source_id="source-1",
+        name="Test Source",
+        source_type="Snowflake",
         source_definition_id="def-1",
         workspace_id="ws-1",
         configuration={"database": "DW_ANALYTICS", "schema": "PUBLIC"},
     )
     destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
         destination_id="dest-1",
+        name="Test Dest",
         destination_definition_id="def-2",
         workspace_id="ws-1",
     )
@@ -328,8 +278,6 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
     stream_details = AirbyteStreamDetails(
         stream_name="customers", namespace="PUBLIC", property_fields=[]
     )
-
-    # Create mock stream config
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="customers", namespace="PUBLIC"), config={}
     )
@@ -338,14 +286,15 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
         pipeline_info, stream_config, stream_details, None
     )
 
-    # Should be 3-tier: dw_analytics.public.customers
     assert "dw_analytics.public.customers" in urns.source_urn
     assert "dw_analytics.customers" not in urns.source_urn
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
-    """Test that fully qualified table names are parsed to extract just the table name."""
+    # Some connectors emit `<schema>.<table>` as the stream name; we only
+    # want the leaf for URN composition so we don't end up with
+    # `mydb.public.public.customers`.
     mock_client = MagicMock()
     mock_create_client.return_value = mock_client
 
@@ -356,32 +305,25 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    workspace = AirbyteWorkspacePartial(
-        workspaceId="ws-1", name="Test Workspace", workspace_id="ws-1"
-    )
+    workspace = AirbyteWorkspacePartial(workspace_id="ws-1", name="Test Workspace")
     connection = AirbyteConnectionPartial(
-        connectionId="conn-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="dest-1",
-        status="active",
         connection_id="conn-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="dest-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="PostgreSQL",
         source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
         source_definition_id="def-1",
         workspace_id="ws-1",
         configuration={"database": "mydb"},
     )
     destination = AirbyteDestinationPartial(
-        destinationId="dest-1",
-        name="Test Dest",
         destination_id="dest-1",
+        name="Test Dest",
         destination_definition_id="def-2",
         workspace_id="ws-1",
     )
@@ -393,12 +335,9 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
         destination=destination,
     )
 
-    # Stream name contains fully qualified path
     stream_details = AirbyteStreamDetails(
         stream_name="public.customers", namespace="public", property_fields=[]
     )
-
-    # Create mock stream config
     stream_config = AirbyteStreamConfig(
         stream=AirbyteStream(name="public.customers", namespace="public"), config={}
     )
@@ -407,9 +346,7 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
         pipeline_info, stream_config, stream_details, None
     )
 
-    # Should extract just 'customers' from 'public.customers'
     assert "mydb.public.customers" in urns.source_urn
-    # Should NOT have doubled table name
     assert "public.customers.public.customers" not in urns.source_urn
 
 
@@ -417,15 +354,10 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
 def test_upstream_lineage_emitted_for_cross_platform_destination(
     mock_create_client, mock_ctx
 ):
-    """C2 regression: UpstreamLineage must be emitted for cross-platform pairs.
-
-    The old `known_urns` gate silently dropped this emission in production
-    because `_collect_source_urns` was never wired up. Now we emit lineage
-    unconditionally for any source/destination pair where the URNs differ.
-    The `is_primary_source=False` flag prevents phantom dataset entities.
-    """
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    # Regression guard: UpstreamLineage must be emitted on the destination
+    # whenever source and destination URNs differ. An earlier version gated
+    # this on a `known_urns` set that was never populated.
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -442,19 +374,19 @@ def test_upstream_lineage_emitted_for_cross_platform_destination(
         ],
     )
     pipeline_info = AirbytePipelineInfo(
-        workspace=AirbyteWorkspacePartial(workspaceId="test", name="Test"),
+        workspace=AirbyteWorkspacePartial(workspace_id="test", name="Test"),
         connection=AirbyteConnectionPartial(
-            connectionId="conn-1",
+            connection_id="conn-1",
             name="Test Connection",
-            sourceId="source-1",
-            destinationId="dest-1",
+            source_id="source-1",
+            destination_id="dest-1",
             status="active",
         ),
         source=AirbyteSourcePartial(
-            sourceId="source-1", name="Test Source", sourceType="postgres"
+            source_id="source-1", name="Test Source", source_type="postgres"
         ),
         destination=AirbyteDestinationPartial(
-            destinationId="dest-1", name="Test Dest", destinationType="snowflake"
+            destination_id="dest-1", name="Test Dest", destination_type="snowflake"
         ),
     )
 
@@ -473,7 +405,8 @@ def test_upstream_lineage_emitted_for_cross_platform_destination(
     lineage_mcps = [
         wu
         for wu in work_units
-        if "UpstreamLineage" in type(wu.metadata.aspect).__name__
+        if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+        and "UpstreamLineage" in type(wu.metadata.aspect).__name__
         and wu.metadata.entityUrn == dest_urn
     ]
     assert len(lineage_mcps) == 1
@@ -481,11 +414,8 @@ def test_upstream_lineage_emitted_for_cross_platform_destination(
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_upstream_lineage_skipped_for_self_lineage(mock_create_client, mock_ctx):
-    """Self-lineage (source URN == destination URN) must be skipped — it would
-    produce a meaningless dataset-points-at-itself relationship in DataHub.
-    """
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    # Self-lineage would produce a meaningless `dataset -> itself` edge.
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -497,19 +427,19 @@ def test_upstream_lineage_skipped_for_self_lineage(mock_create_client, mock_ctx)
         stream_name="customers", namespace="public", property_fields=[]
     )
     pipeline_info = AirbytePipelineInfo(
-        workspace=AirbyteWorkspacePartial(workspaceId="test", name="Test"),
+        workspace=AirbyteWorkspacePartial(workspace_id="test", name="Test"),
         connection=AirbyteConnectionPartial(
-            connectionId="conn-1",
+            connection_id="conn-1",
             name="Test Connection",
-            sourceId="source-1",
-            destinationId="dest-1",
+            source_id="source-1",
+            destination_id="dest-1",
             status="active",
         ),
         source=AirbyteSourcePartial(
-            sourceId="source-1", name="Test Source", sourceType="postgres"
+            source_id="source-1", name="Test Source", source_type="postgres"
         ),
         destination=AirbyteDestinationPartial(
-            destinationId="dest-1", name="Test Dest", destinationType="postgres"
+            destination_id="dest-1", name="Test Dest", destination_type="postgres"
         ),
     )
 
@@ -528,9 +458,7 @@ def test_upstream_lineage_skipped_for_self_lineage(mock_create_client, mock_ctx)
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_platform_caching(mock_create_client, mock_ctx):
-    """Test that platform detection results are cached."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -542,32 +470,28 @@ def test_platform_caching(mock_create_client, mock_ctx):
     source = AirbyteSource(config, mock_ctx)
 
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceType="PostgreSQL",
         source_id="source-1",
+        name="Test Source",
+        source_type="PostgreSQL",
         source_definition_id="def-1",
         workspace_id="ws-1",
     )
 
-    # First call - should populate cache
     result1 = source._get_platform_for_source(source_obj)
     assert result1 == PlatformInfo(
         platform="postgres", platform_instance="prod", env=None
     )
     assert "source-1" in source._source_platform_cache
 
-    # Second call - should use cache
     result2 = source._get_platform_for_source(source_obj)
-    assert result2 == result1
     assert result2 is source._source_platform_cache["source-1"]
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_warning_deduplication(mock_create_client, mock_ctx):
-    """Test that platform detection fallback warnings only appear once per source."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    # Platform-detection fallback warnings dedupe per source_id to avoid
+    # flooding the report when many connections share the same broken source.
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -575,24 +499,18 @@ def test_warning_deduplication(mock_create_client, mock_ctx):
     )
     source = AirbyteSource(config, mock_ctx)
 
-    # Source without source_type (triggers fallback warning)
+    # Missing source_type forces a name-based fallback warning.
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test MySQL Source",
-        source_type=None,  # Missing!
         source_id="source-1",
+        name="Test MySQL Source",
+        source_type=None,
         source_definition_id="def-1",
         workspace_id="ws-1",
     )
 
-    # First call - should warn
     source._get_platform_for_source(source_obj)
     assert "source-1" in source._warned_source_ids
 
-    # Second call - should NOT warn again
     initial_warning_count = len(source.report.warnings)
     source._get_platform_for_source(source_obj)
-    final_warning_count = len(source.report.warnings)
-
-    # No new warnings should be added
-    assert final_warning_count == initial_warning_count
+    assert len(source.report.warnings) == initial_warning_count

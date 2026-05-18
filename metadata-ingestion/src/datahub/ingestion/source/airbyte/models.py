@@ -5,43 +5,40 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from datahub.ingestion.source.airbyte.config import PlatformDetail
 from datahub.utilities.str_enum import StrEnum
 
-# Common schema-name fields seen across Airbyte source/destination connectors.
-# Order matters: more-specific keys first.
+# Schema-name keys seen across Airbyte connector configurations. Order
+# matters — more-specific keys first so the generic `"schema"` doesn't
+# shadow MSSQL/Oracle's `"default_schema"`.
 _SCHEMA_FIELDS: Sequence[str] = (
-    "schema",  # Generic, Postgres, Snowflake
-    "default_schema",  # MSSQL, Oracle
-    "schema_name",  # Alternative name
+    "schema",
+    "default_schema",
+    "schema_name",
 )
 
-# Common database-name fields across Airbyte connectors. The destination
-# variant additionally includes "dataset" (BigQuery dataset-as-database);
-# see `_DESTINATION_DATABASE_FIELDS`.
+# Database-name keys. Destinations additionally treat BigQuery's `"dataset"`
+# as the database tier — see `_DESTINATION_DATABASE_FIELDS`.
 _SOURCE_DATABASE_FIELDS: Sequence[str] = (
-    "database",  # Generic, Postgres, MySQL, MSSQL, Snowflake
-    "db",  # Short form
-    "db_name",  # Alternative
-    "database_name",  # Alternative
-    "dbname",  # Alternative
+    "database",
+    "db",
+    "db_name",
+    "database_name",
+    "dbname",
     "service_name",  # Oracle
     "sid",  # Oracle SID
-    "project",  # BigQuery (project = database equivalent)
-    "project_id",  # BigQuery alternative
+    "project",  # BigQuery
+    "project_id",
     "catalog",  # Databricks, Trino
-    "keyspace",  # Cassandra, ScyllaDB
+    "keyspace",  # Cassandra
 )
 
-# Destination database fields include BigQuery's "dataset" key (some
-# destination connectors treat dataset as the database tier).
 _DESTINATION_DATABASE_FIELDS: Sequence[str] = (
     *_SOURCE_DATABASE_FIELDS,
-    "dataset",
+    "dataset",  # BigQuery destinations
 )
 
 
 def _lookup_config_field(
     config: Optional[Dict[str, Any]], fields: Sequence[str]
 ) -> Optional[str]:
-    """Return the first non-empty string value at any of `fields` in `config`."""
     if not config:
         return None
     for field in fields:
@@ -52,7 +49,8 @@ def _lookup_config_field(
 
 
 class StreamIdentifier(BaseModel):
-    """Immutable identifier for an Airbyte stream, used as dictionary key."""
+    """Hashable `(namespace, stream_name)` key used to look up streams in
+    dicts keyed by stream identity (e.g. propertyFields lookup)."""
 
     stream_name: str
     namespace: str
@@ -71,20 +69,15 @@ class StreamIdentifier(BaseModel):
 
 
 class PropertyFieldPath(BaseModel):
-    """Represents a property field path from Airbyte's API.
-
-    A property field path is a list of strings representing the path to a field.
-    Examples:
-    - ["id"] - simple top-level column
-    - ["user", "id"] - nested field
-    - ["address", "city", "name"] - deeply nested field
-    """
+    """A dotted path to a (possibly nested) Airbyte field, e.g.
+    `["address", "city"]` for `address.city`. We only consume the leaf
+    name for column-level lineage; the rest is preserved for callers that
+    care about nesting."""
 
     path: List[str]
 
     @property
     def field_name(self) -> str:
-        """Get the leaf field name (last component of path)."""
         return self.path[-1] if self.path else ""
 
     def __str__(self) -> str:
@@ -92,8 +85,6 @@ class PropertyFieldPath(BaseModel):
 
 
 class AirbyteStream(BaseModel):
-    """Model for Airbyte stream details in syncCatalog."""
-
     name: str
     namespace: Optional[str] = Field(None, alias="namespace")
     json_schema: Dict[str, Any] = Field({}, alias="jsonSchema")
@@ -102,65 +93,40 @@ class AirbyteStream(BaseModel):
 
 
 class AirbyteStreamConfig(BaseModel):
-    """Model for Airbyte stream configuration in syncCatalog."""
-
     stream: AirbyteStream
     config: Dict[str, Any] = {}
 
     def is_enabled(self) -> bool:
-        """Check if stream is enabled for syncing."""
         if not self.config:
             return True
-
         if self.config.get("syncMode") == "null":
             return False
-
         if self.config.get("selected") is False:
             return False
-
         return True
 
     def is_field_selected(self, field_name: str) -> bool:
-        """Check if a field is selected for syncing."""
-        # By default, assume all fields are selected
+        # Default to selected when no fieldSelection mapping is supplied.
         if not self.config:
             return True
-
-        # Check for field-specific selection
         field_selection = self.config.get("fieldSelection", {})
-        if field_name in field_selection and field_selection[field_name] is False:
-            return False
-
-        return True
+        return field_selection.get(field_name) is not False
 
     def get_destination_namespace(self) -> Optional[str]:
-        """Get the destination namespace override from stream config.
-
-        This is the per-stream destination namespace set in Airbyte's sync configuration.
-        Takes precedence over connection-level namespace settings.
-
-        Returns:
-            Destination namespace string or None if not set
-        """
         if not self.config:
             return None
-
         return self.config.get("destinationNamespace")
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSyncCatalog(BaseModel):
-    """Model for Airbyte sync catalog."""
-
     streams: List[AirbyteStreamConfig] = []
 
     model_config = ConfigDict(populate_by_name=True)
 
 
 class AirbyteSourceConfiguration(BaseModel):
-    """Model for Airbyte source specific configuration."""
-
     host: Optional[str] = None
     port: Optional[int] = None
     database: Optional[str] = None
@@ -172,8 +138,6 @@ class AirbyteSourceConfiguration(BaseModel):
 
 
 class AirbyteDestinationConfiguration(BaseModel):
-    """Model for Airbyte destination specific configuration."""
-
     host: Optional[str] = None
     port: Optional[int] = None
     database: Optional[str] = None
@@ -184,7 +148,9 @@ class AirbyteDestinationConfiguration(BaseModel):
 
 
 class AirbyteSourcePartial(BaseModel):
-    """Model for potentially incomplete Airbyte source configuration."""
+    """Airbyte source representation tolerant of missing optional fields —
+    used for both list and get endpoints across OSS / Cloud / Public API
+    versions, which return slightly different field sets."""
 
     source_id: str = Field(alias="sourceId")
     name: Optional[str] = None
@@ -200,54 +166,42 @@ class AirbyteSourcePartial(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     def get_schema_for_table(self, table_name: str) -> Optional[str]:
-        """Get schema for a specific table (for connectors with table-level schema config)."""
+        # Some connectors (notably MSSQL) carry per-table schema overrides
+        # in `configuration.tables`; this exposes the lookup for callers
+        # that need to honour the override.
         if not self.configuration:
             return None
-
         tables = self.configuration.get("tables")
         if tables and isinstance(tables, list):
             for table in tables:
                 if isinstance(table, dict) and table.get("name") == table_name:
                     return table.get("schema")
-
         return None
 
     @property
     def get_schema(self) -> Optional[str]:
-        """Get schema from the source configuration.
-
-        Returns:
-            Schema name or None if not found
-        """
         schema = _lookup_config_field(self.configuration, _SCHEMA_FIELDS)
         if schema:
             return schema
 
-        # Also look for `schemas` array (Snowflake, BigQuery)
+        # Snowflake / BigQuery expose schemas as a list; take the first
+        # entry (single-schema sources are the common case).
         if self.configuration:
             schemas = self.configuration.get("schemas")
             if schemas and isinstance(schemas, list) and len(schemas) > 0:
                 first_schema = schemas[0]
                 if isinstance(first_schema, str):
                     return first_schema
-                elif isinstance(first_schema, dict):
+                if isinstance(first_schema, dict):
                     return first_schema.get("name") or first_schema.get("schema")
-
         return None
 
     @property
     def get_database(self) -> Optional[str]:
-        """Get database from the source configuration.
-
-        Returns:
-            Database name or None if not found
-        """
         return _lookup_config_field(self.configuration, _SOURCE_DATABASE_FIELDS)
 
 
 class AirbyteDestinationPartial(BaseModel):
-    """Model for potentially incomplete Airbyte destination configuration."""
-
     destination_id: str = Field(alias="destinationId")
     name: Optional[str] = None
     destination_type: Optional[str] = Field(None, alias="destinationType")
@@ -263,26 +217,14 @@ class AirbyteDestinationPartial(BaseModel):
 
     @property
     def get_schema(self) -> Optional[str]:
-        """Get schema from the destination configuration.
-
-        Returns:
-            Schema name or None if not found
-        """
         return _lookup_config_field(self.configuration, _SCHEMA_FIELDS)
 
     @property
     def get_database(self) -> Optional[str]:
-        """Get database from the destination configuration.
-
-        Returns:
-            Database name or None if not found
-        """
         return _lookup_config_field(self.configuration, _DESTINATION_DATABASE_FIELDS)
 
 
 class AirbyteConnectionPartial(BaseModel):
-    """Model for potentially incomplete Airbyte connection configuration."""
-
     connection_id: str = Field(alias="connectionId")
     name: Optional[str] = None
     source_id: str = Field(alias="sourceId")
@@ -300,61 +242,34 @@ class AirbyteConnectionPartial(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    # Airbyte's OSS API surfaces these as top-level fields; the Public API
+    # nests them under `configuration`. We accept both shapes.
     @property
     def get_namespace_definition(self) -> Optional[str]:
-        """Get namespace definition from connection config.
-
-        Returns:
-            'source', 'destination', or 'customformat', or None if not set
-        """
-        # First check top-level field
         if self.namespace_definition:
             return self.namespace_definition
-
-        # Fall back to configuration dict
         if self.configuration:
             return self.configuration.get("namespaceDefinition")
-
         return None
 
     @property
     def get_namespace_format(self) -> Optional[str]:
-        """Get namespace format string from connection config.
-
-        Returns:
-            Format string like "${SOURCE_NAMESPACE}" or None
-        """
-        # First check top-level field
         if self.namespace_format:
             return self.namespace_format
-
-        # Fall back to configuration dict
         if self.configuration:
             return self.configuration.get("namespaceFormat")
-
         return None
 
     @property
     def get_prefix(self) -> Optional[str]:
-        """Get table name prefix from connection config.
-
-        Returns:
-            Prefix string or None
-        """
-        # First check top-level field
         if self.prefix:
             return self.prefix
-
-        # Fall back to configuration dict
         if self.configuration:
             return self.configuration.get("prefix")
-
         return None
 
 
 class AirbyteWorkspacePartial(BaseModel):
-    """Model for potentially incomplete Airbyte workspace."""
-
     workspace_id: str = Field(alias="workspaceId")
     name: Optional[str] = None
 
@@ -362,8 +277,6 @@ class AirbyteWorkspacePartial(BaseModel):
 
 
 class AirbytePipelineInfo(BaseModel):
-    """Model for storing Airbyte pipeline (connection) details."""
-
     workspace: AirbyteWorkspacePartial
     connection: AirbyteConnectionPartial
     source: AirbyteSourcePartial
@@ -371,8 +284,6 @@ class AirbytePipelineInfo(BaseModel):
 
 
 class AirbyteStreamDetails(BaseModel):
-    """Model for Airbyte stream details from API."""
-
     stream_name: str = Field(alias="streamName")
     namespace: str = Field(
         default="",
@@ -392,13 +303,10 @@ class AirbyteStreamDetails(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     def get_column_names(self) -> List[str]:
-        """Extract column names from property fields."""
         return [field.field_name for field in self.property_fields]
 
 
 class AirbyteTagInfo(BaseModel):
-    """Model for Airbyte tag information."""
-
     tag_id: Optional[str] = Field(None, alias="id")
     name: str
     resource_id: Optional[str] = Field(None, alias="resourceId")
@@ -408,8 +316,6 @@ class AirbyteTagInfo(BaseModel):
 
 
 class AirbyteDatasetUrns(BaseModel):
-    """Model for paired source and destination dataset URNs."""
-
     source_urn: str
     destination_urn: str
 
@@ -417,8 +323,6 @@ class AirbyteDatasetUrns(BaseModel):
 
 
 class AirbyteStreamInfo(BaseModel):
-    """Model combining stream configuration and details."""
-
     config: AirbyteStreamConfig
     details: AirbyteStreamDetails
 
@@ -426,8 +330,6 @@ class AirbyteStreamInfo(BaseModel):
 
 
 class PlatformInfo(BaseModel):
-    """Model for platform information."""
-
     platform: str
     platform_instance: Optional[str] = None
     env: Optional[str] = None
@@ -436,23 +338,14 @@ class PlatformInfo(BaseModel):
 
 
 class PlatformKind(StrEnum):
-    """Whether a `PlatformResolutionRequest` refers to an Airbyte source or destination.
-
-    Used to drive shared platform-resolution logic in `AirbyteSource._resolve_platform`
-    without splitting the method into near-identical source/destination variants.
-    """
-
     SOURCE = "source"
     DESTINATION = "destination"
 
 
 class PlatformResolutionRequest(BaseModel):
-    """Inputs to the source/destination platform-resolution helper.
-
-    Sources and destinations have nearly identical resolution logic; this
-    model lets us pass the relevant fields through a single helper instead
-    of maintaining two near-duplicate methods (PR #13217 review W4).
-    """
+    """Inputs to `AirbyteSource._resolve_platform`. Lets sources and
+    destinations share a single resolution helper instead of two near-
+    identical methods."""
 
     entity_id: str
     entity_type: Optional[str] = None
@@ -465,8 +358,6 @@ class PlatformResolutionRequest(BaseModel):
 
 
 class AirbyteTestResult(BaseModel):
-    """Container for Airbyte connection test results."""
-
     success: bool
     error_message: Optional[str] = None
     data: Optional[

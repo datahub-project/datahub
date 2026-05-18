@@ -1,5 +1,3 @@
-"""Unit tests for Airbyte connection testing module."""
-
 from unittest.mock import Mock, patch
 
 from pydantic import SecretStr
@@ -20,10 +18,7 @@ from datahub.ingestion.source.airbyte.models import (
 
 
 class TestAirbyteConnection:
-    """Tests for test_connection function."""
-
     def test_connection_success_oss(self):
-        """Test successful connection to OSS Airbyte."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -57,7 +52,6 @@ class TestAirbyteConnection:
             assert result is None  # None means success
 
     def test_connection_no_workspaces_cloud(self):
-        """Test connection failure when no workspaces found in Cloud."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="test-workspace",
@@ -79,7 +73,6 @@ class TestAirbyteConnection:
             assert "No workspaces found with ID test-workspace" in result
 
     def test_connection_no_workspaces_oss(self):
-        """Test connection failure when no workspaces found in OSS."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -98,7 +91,6 @@ class TestAirbyteConnection:
             assert "No workspaces found" in result
 
     def test_connection_invalid_workspace_response(self):
-        """Test connection failure when workspace response is not a list."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -117,7 +109,6 @@ class TestAirbyteConnection:
             assert "expected a list response" in result
 
     def test_connection_exception_handling(self):
-        """Test connection handles exceptions gracefully."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -136,7 +127,6 @@ class TestAirbyteConnection:
             assert "Connection failed" in result
 
     def test_connection_with_connections(self):
-        """Test connection with existing connections."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -170,7 +160,6 @@ class TestAirbyteConnection:
             assert result is None
 
     def test_connection_invalid_connections_response(self):
-        """Test connection failure when connections response is invalid."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -192,7 +181,6 @@ class TestAirbyteConnection:
             assert "expected a list response" in result
 
     def test_connection_source_failure(self):
-        """Test connection handles source retrieval failure."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -221,7 +209,6 @@ class TestAirbyteConnection:
             assert "Source not found" in result
 
     def test_connection_destination_failure(self):
-        """Test connection handles destination retrieval failure."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -253,7 +240,6 @@ class TestAirbyteConnection:
             assert "Dest not found" in result
 
     def test_connection_jobs_failure(self):
-        """Test connection handles jobs retrieval failure."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",

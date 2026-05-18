@@ -31,7 +31,6 @@ FROZEN_TIME = "2023-10-15 07:00:00"
 
 @pytest.fixture(scope="module")
 def test_resources_dir(pytestconfig: Any) -> Path:
-    """Return the path to the test resources directory."""
     return pytestconfig.rootpath / "tests/integration/airbyte"
 
 
@@ -39,11 +38,9 @@ def test_resources_dir(pytestconfig: Any) -> Path:
 def test_databases(
     test_resources_dir: Path, docker_compose_runner: Any
 ) -> Generator[Any, None, None]:
-    """Start PostgreSQL and MySQL test databases."""
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "airbyte-test-dbs"
     ) as docker_services:
-        # Wait for databases
         max_attempts = 30
         for _ in range(max_attempts):
             if is_postgres_ready("test-postgres"):
@@ -73,7 +70,6 @@ def test_databases(
 
 @pytest.fixture(scope="module")
 def set_docker_env_vars() -> Generator[None, None, None]:
-    """Set environment variables needed for abctl setup."""
     env_vars = {
         "BASIC_AUTH_USERNAME": BASIC_AUTH_USERNAME,
         "BASIC_AUTH_PASSWORD": BASIC_AUTH_PASSWORD,
@@ -101,17 +97,14 @@ def airbyte_service(
     test_databases: Any,
     set_docker_env_vars: None,
 ) -> Generator[None, None, None]:
-    """Set up Airbyte using abctl (Kubernetes-based)."""
     print("\n" + "=" * 80)
     print("AIRBYTE INTEGRATION TEST SETUP")
     print("=" * 80)
 
     abctl_path = install_abctl(test_resources_dir)
 
-    # Clean up any existing Airbyte installation
     cleanup_airbyte(abctl_path, test_resources_dir)
 
-    # Check if Airbyte is still running and clean up again if needed
     try:
         status_check = subprocess.run(
             [str(abctl_path), "local", "status"],
@@ -126,7 +119,6 @@ def airbyte_service(
     except Exception as e:
         print(f"Status check failed: {e}, proceeding with install...")
 
-    # Install Airbyte with abctl
     print("\nInstalling Airbyte with abctl...")
     install_cmd = [
         str(abctl_path),
@@ -156,13 +148,11 @@ def airbyte_service(
     except subprocess.TimeoutExpired as e:
         raise RuntimeError("abctl install timed out") from e
 
-    # Get credentials BEFORE onboarding (needed for authentication)
+    # Credentials must be fetched BEFORE onboarding so the onboarding call can authenticate.
     get_airbyte_credentials(abctl_path, test_resources_dir)
 
-    # Complete onboarding (this also verifies API is working)
     onboarding_succeeded = complete_airbyte_onboarding()
 
-    # If onboarding succeeded, API is ready; otherwise check readiness
     if onboarding_succeeded:
         print("Waiting 15 seconds for Airbyte to process onboarding...")
         time.sleep(15)
@@ -170,20 +160,18 @@ def airbyte_service(
     elif not wait_for_airbyte_ready(timeout=300):
         raise RuntimeError("Airbyte failed to become ready")
 
-    # CRITICAL: Verify databases have data before creating Airbyte resources
-    # This ensures schema discovery finds tables
+    # Airbyte schema discovery only finds tables present at connection-creation time,
+    # so we have to confirm the source databases are populated before we register them.
     print("\nVerifying test databases have data before creating Airbyte connections...")
     max_verify_attempts = 10
     for _attempt in range(max_verify_attempts):
         if is_postgres_ready("test-postgres") and is_mysql_ready("test-mysql"):
-            print("✓ Databases are ready")
+            print("Databases are ready")
             break
         time.sleep(2)
     else:
         raise RuntimeError("Test databases not ready after data initialization")
 
-    # Set up sources, destinations, and connections
-    # Schema discovery will now find the tables that were initialized
     setup_airbyte_connections(test_resources_dir)
 
     print("\n" + "=" * 80)
@@ -192,41 +180,29 @@ def airbyte_service(
 
     yield
 
-    # Cleanup
     print("\n" + "=" * 80)
     print("CLEANING UP AIRBYTE")
     print("=" * 80)
     cleanup_airbyte(abctl_path, test_resources_dir)
 
 
-def update_config_file_with_api_url(
-    config_file: Path,
-) -> Path:
-    """Return the config file path directly since API URL is consistent."""
-    return config_file
-
-
 @time_machine.travel(FROZEN_TIME)
 def test_airbyte_ingest(
     airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
-    """Test basic Airbyte metadata ingestion."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
-    # Basic ingestion test
     config_file = test_resources_dir / "airbyte_to_file.yml"
-    config_file_to_use = update_config_file_with_api_url(config_file)
 
     run_datahub_cmd(
         [
             "ingest",
             "-c",
-            str(config_file_to_use),
+            str(config_file),
         ],
         tmp_path=tmp_path,
     )
 
-    # Verify golden file
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "airbyte_mces.json",
@@ -243,23 +219,19 @@ def test_airbyte_ingest(
 def test_airbyte_platform_instance_urns(
     airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
-    """Test Airbyte platform instance URN generation."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
-    # Test platform instance URN
     config_file = test_resources_dir / "airbyte_platform_instance_to_file.yml"
-    config_file_to_use = update_config_file_with_api_url(config_file)
 
     run_datahub_cmd(
         [
             "ingest",
             "-c",
-            str(config_file_to_use),
+            str(config_file),
         ],
         tmp_path=tmp_path,
     )
 
-    # Verify golden file
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "airbyte_platform_instance_mces.json",
@@ -276,23 +248,19 @@ def test_airbyte_platform_instance_urns(
 def test_airbyte_schema_filter(
     airbyte_service: None, pytestconfig: Any, tmp_path: Path
 ) -> None:
-    """Test Airbyte schema filtering."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/airbyte"
 
-    # Test schema filtering
     config_file = test_resources_dir / "airbyte_schema_filter_to_file.yml"
-    config_file_to_use = update_config_file_with_api_url(config_file)
 
     run_datahub_cmd(
         [
             "ingest",
             "-c",
-            str(config_file_to_use),
+            str(config_file),
         ],
         tmp_path=tmp_path,
     )
 
-    # Verify golden file
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "airbyte_schema_filter_mces.json",

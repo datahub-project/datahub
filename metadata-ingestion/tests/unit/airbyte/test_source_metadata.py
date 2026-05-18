@@ -1,5 +1,3 @@
-"""Additional tests for new Airbyte source functionality."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +21,6 @@ from datahub.ingestion.source.airbyte.source import (
 
 @pytest.fixture
 def mock_ctx():
-    """Create a mock pipeline context."""
     ctx = MagicMock(spec=PipelineContext)
     ctx.graph = MagicMock()
     ctx.pipeline_name = "airbyte_test"
@@ -31,12 +28,9 @@ def mock_ctx():
 
 
 def test_source_type_mapping():
-    """Test source type to platform mapping with known types."""
-
     assert _map_source_type_to_platform("postgres", {}) == "postgres"
     assert _map_source_type_to_platform("postgresql", {}) == "postgres"
-    assert _map_source_type_to_platform("mysql", {}) == "mysql"
-    assert _map_source_type_to_platform("MySQL", {}) == "mysql"  # Case insensitive
+    assert _map_source_type_to_platform("MySQL", {}) == "mysql"
 
     user_mapping = {"PostgreSQL": "my-postgres"}
     assert _map_source_type_to_platform("PostgreSQL", user_mapping) == "my-postgres"
@@ -44,24 +38,17 @@ def test_source_type_mapping():
     assert _map_source_type_to_platform("Custom Database", {}) == "custom-database"
 
 
-def test_known_source_type_mapping_completeness():
-    """Test that KNOWN_SOURCE_TYPE_MAPPING contains expected platforms."""
-    assert "postgres" in KNOWN_SOURCE_TYPE_MAPPING
-    assert "mysql" in KNOWN_SOURCE_TYPE_MAPPING
-    assert "snowflake" in KNOWN_SOURCE_TYPE_MAPPING
-    assert "bigquery" in KNOWN_SOURCE_TYPE_MAPPING
-
-    # Verify mappings are lowercase
+def test_known_source_type_mapping_is_lowercase():
+    # Keys and values are looked up case-insensitively after lowercasing
+    # in `_map_source_type_to_platform`; the canonical form must match.
     for key, value in KNOWN_SOURCE_TYPE_MAPPING.items():
-        assert key == key.lower(), f"Key {key} should be lowercase"
-        assert value == value.lower(), f"Value {value} should be lowercase"
+        assert key == key.lower()
+        assert value == value.lower()
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_per_source_platform_override(mock_create_client, mock_ctx):
-    """Test per-source platform instance override."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -87,9 +74,7 @@ def test_per_source_platform_override(mock_create_client, mock_ctx):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_per_destination_platform_override(mock_create_client, mock_ctx):
-    """Test per-destination platform instance override."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -119,9 +104,7 @@ def test_per_destination_platform_override(mock_create_client, mock_ctx):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_source_type_mapping_config(mock_create_client, mock_ctx):
-    """Test user-configured source type mapping."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -134,15 +117,12 @@ def test_source_type_mapping_config(mock_create_client, mock_ctx):
         {"sourceId": "source-1", "name": "Test Source", "sourceType": "Custom DB"}
     )
 
-    platform_info = source._get_platform_for_source(mock_source)
-    assert platform_info.platform == "custom-platform"
+    assert source._get_platform_for_source(mock_source).platform == "custom-platform"
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_platform_detail_defaults(mock_create_client, mock_ctx):
-    """Test that PlatformDetail defaults are handled correctly."""
-    mock_client = MagicMock()
-    mock_create_client.return_value = mock_client
+    mock_create_client.return_value = MagicMock()
 
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -156,6 +136,6 @@ def test_platform_detail_defaults(mock_create_client, mock_ctx):
 
     platform_info = source._get_platform_for_source(mock_source)
 
-    assert platform_info.platform == "postgres"  # From sourceType
-    assert platform_info.platform_instance is None  # No override
-    assert platform_info.env is None  # No override
+    assert platform_info.platform == "postgres"
+    assert platform_info.platform_instance is None
+    assert platform_info.env is None

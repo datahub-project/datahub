@@ -23,13 +23,11 @@ from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 @pytest.fixture
 def mock_client():
-    """Create a mock Airbyte client."""
     return MagicMock()
 
 
 @pytest.fixture
 def mock_ctx():
-    """Create a mock pipeline context."""
     ctx = MagicMock(spec=PipelineContext)
     ctx.graph = MagicMock()
     ctx.pipeline_name = "airbyte_test"
@@ -38,7 +36,6 @@ def mock_ctx():
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_source_initialization(mock_create_client, mock_ctx, mock_client):
-    """Test that the AirbyteSource class initializes correctly."""
     mock_create_client.return_value = mock_client
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -56,7 +53,6 @@ def test_source_initialization(mock_create_client, mock_ctx, mock_client):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_create_method(mock_create_client, mock_ctx, mock_client):
-    """Test the static create method."""
     mock_create_client.return_value = mock_client
     config_dict = {
         "deployment_type": "oss",
@@ -73,7 +69,6 @@ def test_create_method(mock_create_client, mock_ctx, mock_client):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
-    """Test the _get_pipelines method."""
     mock_create_client.return_value = mock_client
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -136,7 +131,6 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
-    """Test the _get_pipelines method with source and destination filters."""
     mock_create_client.return_value = mock_client
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -271,7 +265,6 @@ def test_get_workunits_internal_routes_through_processors(
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
 def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_client):
-    """Test error handling in the _get_pipelines method."""
     mock_create_client.return_value = mock_client
     config = AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
@@ -313,7 +306,6 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
 def test_job_execution_enrichment_with_get_job(
     mock_create_client, mock_ctx, mock_client
 ):
-    """Test that job executions are enriched with detailed sync statistics from get_job()."""
     mock_create_client.return_value = mock_client
 
     workspace = AirbyteWorkspacePartial(
@@ -449,7 +441,6 @@ def test_job_execution_enrichment_with_get_job(
 def test_job_execution_without_get_job_details(
     mock_create_client, mock_ctx, mock_client
 ):
-    """Test that job executions work even when get_job() fails."""
     mock_create_client.return_value = mock_client
 
     workspace = AirbyteWorkspacePartial(

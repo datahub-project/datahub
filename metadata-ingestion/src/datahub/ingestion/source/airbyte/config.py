@@ -21,15 +21,11 @@ from datahub.utilities.str_enum import StrEnum
 
 
 class AirbyteDeploymentType(StrEnum):
-    """Enumeration of Airbyte deployment types"""
-
     OPEN_SOURCE = "oss"
     CLOUD = "cloud"
 
 
 class OAuth2GrantType(StrEnum):
-    """OAuth 2.0 grant types supported for Airbyte Cloud authentication"""
-
     REFRESH_TOKEN = "refresh_token"
     CLIENT_CREDENTIALS = "client_credentials"
 
@@ -213,28 +209,21 @@ class AirbyteClientConfig(ConfigModel):
 
     @property
     def oauth2_grant_type(self) -> OAuth2GrantType:
-        """Automatically determine OAuth2 grant type based on configuration."""
         if self.oauth2_refresh_token:
             return OAuth2GrantType.REFRESH_TOKEN
         return OAuth2GrantType.CLIENT_CREDENTIALS
 
     @property
     def external_url_base(self) -> str:
-        """Return the deployment-appropriate base URL for `externalUrl` aspects.
-
-        OSS uses the configured `host_port` (e.g. http://localhost:8000); Cloud
-        always points at https://cloud.airbyte.com. We can't use
-        `getattr(..., "host_port", DEFAULT)` because `host_port` is a declared
-        field that defaults to None for Cloud — getattr returns None, not the
-        default.
-        """
+        # Base URL used to build `externalUrl` aspects. OSS uses the
+        # configured `host_port`; Cloud always points at cloud.airbyte.com
+        # (the Cloud API host is a different domain and isn't web-browsable).
         if self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
             return self.host_port or ""
         return "https://cloud.airbyte.com"
 
     @model_validator(mode="after")
     def validate_deployment_requirements(self) -> "AirbyteClientConfig":
-        """Validate deployment-specific required fields."""
         if (
             self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
             and not self.host_port
@@ -247,14 +236,13 @@ class AirbyteClientConfig(ConfigModel):
         ):
             raise ValueError("cloud_workspace_id is required for cloud deployment")
 
-        # OAuth validation for both OSS and Cloud
         if self.oauth2_client_id or self.oauth2_client_secret:
             if not self.oauth2_client_id or not self.oauth2_client_secret:
                 raise ValueError(
                     "Both oauth2_client_id and oauth2_client_secret must be provided together"
                 )
 
-        # OSS does not support refresh_token grant type
+        # OSS only supports client_credentials; refresh_token is Cloud-only.
         if (
             self.deployment_type == AirbyteDeploymentType.OPEN_SOURCE
             and self.oauth2_refresh_token
@@ -264,7 +252,6 @@ class AirbyteClientConfig(ConfigModel):
                 "OSS only supports client_credentials grant type."
             )
 
-        # Cloud deployment requires OAuth
         if self.deployment_type == AirbyteDeploymentType.CLOUD:
             if not self.oauth2_client_id or not self.oauth2_client_secret:
                 raise ValueError(

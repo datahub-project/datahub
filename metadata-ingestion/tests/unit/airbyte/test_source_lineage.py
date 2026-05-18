@@ -1,3 +1,4 @@
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,7 +29,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     UpstreamLineageClass,
 )
-from datahub.sdk.datajob import DataFlow
+from datahub.sdk.dataflow import DataFlow
 
 
 @pytest.fixture
@@ -64,16 +65,16 @@ def source(config, mock_ctx, mock_client):
 
 @pytest.fixture
 def workspace():
-    return AirbyteWorkspacePartial(workspaceId="workspace-1", name="Test Workspace")
+    return AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
 
 
 @pytest.fixture
 def connection():
     return AirbyteConnectionPartial(
-        connectionId="connection-1",
+        connection_id="connection-1",
         name="Test Connection",
-        sourceId="source-1",
-        destinationId="destination-1",
+        source_id="source-1",
+        destination_id="destination-1",
         status="active",
     )
 
@@ -81,11 +82,11 @@ def connection():
 @pytest.fixture
 def source_obj():
     return AirbyteSourcePartial(
-        sourceId="source-1",
+        source_id="source-1",
         name="Test Source",
-        sourceType="postgres",
-        sourceDefinitionId="source-def-1",
-        workspaceId="workspace-1",
+        source_type="postgres",
+        source_definition_id="source-def-1",
+        workspace_id="workspace-1",
         configuration={
             "host": "localhost",
             "port": 5432,
@@ -98,11 +99,11 @@ def source_obj():
 @pytest.fixture
 def destination():
     return AirbyteDestinationPartial(
-        destinationId="destination-1",
+        destination_id="destination-1",
         name="Test Destination",
-        destinationType="snowflake",
-        destinationDefinitionId="dest-def-1",
-        workspaceId="workspace-1",
+        destination_type="snowflake",
+        destination_definition_id="dest-def-1",
+        workspace_id="workspace-1",
         configuration={
             "host": "localhost",
             "port": 443,
@@ -125,9 +126,9 @@ def pipeline_info(workspace, connection, source_obj, destination):
 @pytest.fixture
 def stream():
     return AirbyteStreamDetails(
-        streamName="customers",
+        stream_name="customers",
         namespace="public",
-        propertyFields=[
+        property_fields=[
             PropertyFieldPath(path=["id"]),
             PropertyFieldPath(path=["name"]),
             PropertyFieldPath(path=["email"]),
@@ -136,7 +137,6 @@ def stream():
 
 
 def _aspect_of_type(workunits, aspect_cls):
-    """Return the first emitted aspect of a given class from a list of workunits."""
     for wu in workunits:
         aspect = wu.metadata.aspect
         if isinstance(aspect, aspect_cls):
@@ -145,12 +145,10 @@ def _aspect_of_type(workunits, aspect_cls):
 
 
 def test_build_connection_dataflow_returns_sdk_v2_dataflow(source, pipeline_info):
-    """Connection DataFlow must use SDK V2 and fold platform_instance into the URN.
-
-    Regression guard for the old asymmetric URN bug — workspace DataFlow had
-    a platform_instance prefix while connection DataFlow did not, breaking
-    URN lookups.
-    """
+    # Regression guard: the connection DataFlow URN must include
+    # platform_instance. An earlier implementation emitted the workspace
+    # DataFlow URN with a platform_instance prefix but the connection URN
+    # without, which broke any cross-aspect URN lookup.
     tags = ["urn:li:tag:test-tag-1", "urn:li:tag:test-tag-2"]
 
     result = source._build_connection_dataflow(pipeline_info, tags)
@@ -166,13 +164,14 @@ def test_build_connection_dataflow_returns_sdk_v2_dataflow(source, pipeline_info
     flow_info = _aspect_of_type(workunits, DataFlowInfoClass)
     assert flow_info is not None
     assert flow_info.name == "Test Connection"
-    # `set_description()` routes to `DataFlowInfoClass` only under an active
-    # ingestion-attribution context. In unit tests we just verify the SDK-level
-    # property, which combines both ingestion- and editable-side aspects.
+    # `set_description` routes to `DataFlowInfoClass` only under an active
+    # ingestion-attribution context; check the SDK property which merges
+    # both the ingestion- and editable-side aspects.
     assert result.description == (
         "Airbyte connection from Test Source to Test Destination"
     )
-    # External URL must use the configured host_port (OSS), not "None/...".
+    # Regression guard for W3 (Cloud externalUrl bug): the URL must use the
+    # configured host_port for OSS, not the literal string "None/...".
     assert flow_info.externalUrl is not None
     assert flow_info.externalUrl.startswith("http://localhost:8000/workspaces/")
 
@@ -184,7 +183,6 @@ def test_build_connection_dataflow_returns_sdk_v2_dataflow(source, pipeline_info
 
 
 def test_build_stream_datajob_uses_connection_flow_urn(source, pipeline_info, stream):
-    """The DataJob URN must hang off the connection DataFlow's URN."""
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
     destination_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.public.customers,PROD)"
@@ -218,7 +216,8 @@ def test_build_stream_datajob_uses_connection_flow_urn(source, pipeline_info, st
 def test_emit_destination_upstream_lineage_skips_self_lineage(
     source, pipeline_info, stream
 ):
-    """Self-lineage (source URN == destination URN) is meaningless and must be skipped."""
+    # Self-lineage (source URN == destination URN) would produce a
+    # meaningless `dataset -> itself` edge.
     same_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
 
     workunits = list(
@@ -235,7 +234,6 @@ def test_emit_destination_upstream_lineage_skips_self_lineage(
 def test_emit_destination_upstream_lineage_emits_when_cross_platform(
     source, pipeline_info, stream
 ):
-    """Cross-platform pairs must emit an `UpstreamLineageClass` on the destination."""
     source_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,public.customers,PROD)"
     destination_urn = (
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,dest_db.public.customers,PROD)"
@@ -259,7 +257,6 @@ def test_emit_destination_upstream_lineage_emits_when_cross_platform(
 
 
 def test_create_lineage_workunits_end_to_end(source, pipeline_info, stream):
-    """Smoke test the full lineage emission path including UpstreamLineage."""
     mock_stream_config = MagicMock(spec=AirbyteStreamConfig)
     stream_info = AirbyteStreamInfo(config=mock_stream_config, details=stream)
 
@@ -285,15 +282,14 @@ def test_create_lineage_workunits_end_to_end(source, pipeline_info, stream):
     assert "DataFlowInfoClass" in aspect_types
     assert "DataJobInfoClass" in aspect_types
     assert "DataJobInputOutputClass" in aspect_types
-    # C2 regression guard: cross-platform pairs must emit UpstreamLineage.
+    # Regression guard: cross-platform pairs must emit UpstreamLineage on
+    # the destination, not just the DataJob's inlets/outlets.
     assert "UpstreamLineageClass" in aspect_types
 
 
 def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream):
-    """W5: Snowflake destination + `convert_urns_to_lowercase` => columns lowercased.
-
-    Other platforms must NOT have their column names lowercased — only Snowflake.
-    """
+    # Snowflake folds identifiers to lowercase when `convert_urns_to_lowercase`
+    # is set; non-Snowflake platforms must preserve column case regardless.
     source.source_config.destinations_to_platform_instance = {
         "destination-1": PlatformDetail(
             platform="snowflake", convert_urns_to_lowercase=True
@@ -303,9 +299,9 @@ def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream)
         "source-1": PlatformDetail(platform="postgres", convert_urns_to_lowercase=True),
     }
     upper_stream = AirbyteStreamDetails(
-        streamName="customers",
+        stream_name="customers",
         namespace="public",
-        propertyFields=[
+        property_fields=[
             PropertyFieldPath(path=["CustomerID"]),
             PropertyFieldPath(path=["Email"]),
         ],
@@ -324,13 +320,11 @@ def test_snowflake_destination_lowercases_columns(source, pipeline_info, stream)
     )
 
     assert len(lineages) == 2
-    # Postgres source preserves column case; Snowflake destination lowercases.
     assert any("CustomerID" in u for u in lineages[0].upstreams)
     assert all("customerid" in d for d in lineages[0].downstreams)
 
 
 def test_postgres_to_mysql_preserves_column_case(source, pipeline_info, stream):
-    """W5: Non-Snowflake destinations must not lowercase column names."""
     source.source_config.destinations_to_platform_instance = {
         "destination-1": PlatformDetail(
             platform="mysql", convert_urns_to_lowercase=True
@@ -341,9 +335,9 @@ def test_postgres_to_mysql_preserves_column_case(source, pipeline_info, stream):
     }
 
     cased_stream = AirbyteStreamDetails(
-        streamName="customers",
+        stream_name="customers",
         namespace="public",
-        propertyFields=[
+        property_fields=[
             PropertyFieldPath(path=["CustomerID"]),
         ],
     )
@@ -359,13 +353,11 @@ def test_postgres_to_mysql_preserves_column_case(source, pipeline_info, stream):
     )
 
     assert len(lineages) == 1
-    # Neither side should lowercase columns when neither platform is snowflake.
     assert any("CustomerID" in u for u in lineages[0].upstreams)
     assert any("CustomerID" in d for d in lineages[0].downstreams)
 
 
 def test_snowflake_source_lowercases_columns(source, pipeline_info, stream):
-    """W5: When the source is Snowflake, its column URNs must be lowercased."""
     source.source_config.sources_to_platform_instance = {
         "source-1": PlatformDetail(
             platform="snowflake", convert_urns_to_lowercase=True
@@ -378,9 +370,9 @@ def test_snowflake_source_lowercases_columns(source, pipeline_info, stream):
     }
 
     cased_stream = AirbyteStreamDetails(
-        streamName="customers",
+        stream_name="customers",
         namespace="public",
-        propertyFields=[
+        property_fields=[
             PropertyFieldPath(path=["CustomerID"]),
         ],
     )
@@ -417,7 +409,7 @@ def test_snowflake_source_lowercases_columns(source, pipeline_info, stream):
 
 
 def _make_stream_config(
-    destination_namespace=None,
+    destination_namespace: Optional[str] = None,
 ) -> AirbyteStreamConfig:
     return AirbyteStreamConfig(
         stream={"name": "customers", "namespace": "public", "jsonSchema": {}},
@@ -430,31 +422,30 @@ def _make_stream_config(
 
 
 def _make_connection(
-    namespace_definition=None,
-    namespace_format=None,
+    namespace_definition: Optional[str] = None,
+    namespace_format: Optional[str] = None,
 ) -> AirbyteConnectionPartial:
     return AirbyteConnectionPartial(
-        connectionId="conn-1",
-        sourceId="source-1",
-        destinationId="destination-1",
-        namespaceDefinition=namespace_definition,
-        namespaceFormat=namespace_format,
+        connection_id="conn-1",
+        source_id="source-1",
+        destination_id="destination-1",
+        namespace_definition=namespace_definition,
+        namespace_format=namespace_format,
     )
 
 
-def _make_destination(schema=None) -> AirbyteDestinationPartial:
-    config = {"host": "h", "port": 1, "database": "d"}
+def _make_destination(schema: Optional[str] = None) -> AirbyteDestinationPartial:
+    config: Dict[str, Any] = {"host": "h", "port": 1, "database": "d"}
     if schema is not None:
         config["schema"] = schema
     return AirbyteDestinationPartial(
-        destinationId="destination-1",
-        destinationType="postgres",
+        destination_id="destination-1",
+        destination_type="postgres",
         configuration=config,
     )
 
 
 def test_resolve_destination_schema_per_stream_override_wins(source):
-    """Branch 1: per-stream `destinationNamespace` overrides everything else."""
     stream_config = _make_stream_config(destination_namespace="stream_override")
     connection = _make_connection(namespace_definition="destination")
     destination = _make_destination(schema="dest_default")
@@ -471,7 +462,6 @@ def test_resolve_destination_schema_per_stream_override_wins(source):
 
 
 def test_resolve_destination_schema_namespace_source(source):
-    """Branch 2a: `namespace_definition == "source"` → use source schema."""
     stream_config = _make_stream_config()
     connection = _make_connection(namespace_definition="source")
     destination = _make_destination(schema="dest_default")
@@ -488,7 +478,6 @@ def test_resolve_destination_schema_namespace_source(source):
 
 
 def test_resolve_destination_schema_namespace_destination(source):
-    """Branch 2b: `namespace_definition == "destination"` → destination's configured schema."""
     stream_config = _make_stream_config()
     connection = _make_connection(namespace_definition="destination")
     destination = _make_destination(schema="dest_default")
@@ -505,7 +494,6 @@ def test_resolve_destination_schema_namespace_destination(source):
 
 
 def test_resolve_destination_schema_customformat_interpolates_source_namespace(source):
-    """Branch 2c: `customformat` interpolates ${SOURCE_NAMESPACE}."""
     stream_config = _make_stream_config()
     connection = _make_connection(
         namespace_definition="customformat",
@@ -525,7 +513,7 @@ def test_resolve_destination_schema_customformat_interpolates_source_namespace(s
 
 
 def test_resolve_destination_schema_customformat_underscore_variant(source):
-    """`custom_format` (underscore) accepted as alias for `customformat`."""
+    # `custom_format` (underscore) is accepted as an alias for `customformat`.
     stream_config = _make_stream_config()
     connection = _make_connection(
         namespace_definition="custom_format",
@@ -545,7 +533,6 @@ def test_resolve_destination_schema_customformat_underscore_variant(source):
 
 
 def test_resolve_destination_schema_falls_back_to_destination_default(source):
-    """Branch 3: no per-stream override or namespace_definition → use destination's configured schema."""
     stream_config = _make_stream_config()
     connection = _make_connection()
     destination = _make_destination(schema="dest_default")
@@ -562,7 +549,6 @@ def test_resolve_destination_schema_falls_back_to_destination_default(source):
 
 
 def test_resolve_destination_schema_falls_back_to_source_schema(source):
-    """Branch 4: nothing else available → fall back to source schema."""
     stream_config = _make_stream_config()
     connection = _make_connection()
     destination = _make_destination()

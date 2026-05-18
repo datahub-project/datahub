@@ -1,5 +1,3 @@
-"""Unit tests for Airbyte source coverage improvements."""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -23,7 +21,6 @@ from datahub.ingestion.source.airbyte.source import AirbyteSource
 
 @pytest.fixture
 def mock_ctx():
-    """Create a mock pipeline context."""
     ctx = MagicMock(spec=PipelineContext)
     ctx.graph = MagicMock()
     ctx.pipeline_name = "airbyte_test"
@@ -33,11 +30,8 @@ def mock_ctx():
 
 
 class TestFetchTagsForWorkspace:
-    """Tests for _fetch_tags_for_workspace method."""
-
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_fetch_tags_success(self, mock_create_client, mock_ctx):
-        """Test successfully fetching tags."""
         mock_client = MagicMock()
         mock_client.list_tags.return_value = [
             {
@@ -69,7 +63,6 @@ class TestFetchTagsForWorkspace:
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_fetch_tags_exception(self, mock_create_client, mock_ctx):
-        """Test handling exception when fetching tags."""
         mock_client = MagicMock()
         mock_client.list_tags.side_effect = Exception("API error")
         mock_create_client.return_value = mock_client
@@ -86,11 +79,8 @@ class TestFetchTagsForWorkspace:
 
 
 class TestExtractConnectionTags:
-    """Tests for _extract_connection_tags method."""
-
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_extract_connection_tags(self, mock_create_client, mock_ctx):
-        """Test extracting tags for a connection."""
         mock_create_client.return_value = MagicMock()
 
         config = AirbyteSourceConfig(
@@ -137,11 +127,8 @@ class TestExtractConnectionTags:
 
 
 class TestFetchStreamsForSource:
-    """Tests for _fetch_streams_for_source method."""
-
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_fetch_streams_no_sync_catalog(self, mock_create_client, mock_ctx):
-        """Test fetching streams when connection has no sync_catalog."""
         mock_create_client.return_value = MagicMock()
 
         config = AirbyteSourceConfig(
@@ -173,7 +160,6 @@ class TestFetchStreamsForSource:
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_fetch_streams_empty_streams(self, mock_create_client, mock_ctx):
-        """Test fetching streams when sync_catalog has no streams."""
         mock_create_client.return_value = MagicMock()
 
         config = AirbyteSourceConfig(
@@ -205,7 +191,6 @@ class TestFetchStreamsForSource:
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_fetch_streams_missing_source_id(self, mock_create_client, mock_ctx):
-        """Test fetching streams when source_id is None."""
         mock_create_client.return_value = MagicMock()
 
         config = AirbyteSourceConfig(
@@ -236,11 +221,9 @@ class TestFetchStreamsForSource:
 
 
 class TestGetWorkunitsInternal:
-    """Tests for `get_workunits_internal` and error handling."""
-
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_invalid_workspace_skipped_silently(self, mock_create_client, mock_ctx):
-        """Workspaces missing IDs are skipped with a warning, not crashed on."""
+        # Workspaces missing IDs should warn and skip, not crash the run.
         mock_client = MagicMock()
         mock_client.list_workspaces.return_value = [
             AirbyteWorkspacePartial(workspace_id="", name="Invalid Workspace")
@@ -300,13 +283,10 @@ class TestGetWorkunitsInternal:
 
 
 class TestGetWorkunitProcessors:
-    """Tests for get_workunit_processors method."""
-
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_get_workunit_processors_with_incremental_lineage(
         self, mock_create_client, mock_ctx
     ):
-        """Test workunit processors includes incremental lineage when enabled."""
         config = AirbyteSourceConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -317,15 +297,14 @@ class TestGetWorkunitProcessors:
 
         processors = source.get_workunit_processors()
 
-        # Should have at least 2 processors: incremental_lineage + stale_entity_removal
         assert processors is not None
+        # incremental_lineage + stale_entity_removal at minimum.
         assert len(processors) >= 2
 
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
     def test_get_workunit_processors_without_incremental_lineage(
         self, mock_create_client, mock_ctx
     ):
-        """Test workunit processors without incremental lineage."""
         config = AirbyteSourceConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",

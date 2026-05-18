@@ -18,58 +18,9 @@ from datahub.ingestion.source.airbyte.models import (
 logger = logging.getLogger(__name__)
 
 
-def _log_authentication_info(config: AirbyteClientConfig) -> None:
-    """
-    Log information about the authentication method being used
-
-    Args:
-        config: The Airbyte client configuration
-    """
-    if config.deployment_type == AirbyteDeploymentType.OPEN_SOURCE:
-        if config.api_key:
-            logger.debug("Using API key/token for authentication")
-        elif config.username:
-            logger.debug("Using basic authentication with username and password")
-        else:
-            logger.debug(
-                "No authentication credentials provided for Open Source deployment"
-            )
-    else:  # Cloud deployment
-        if config.oauth2_client_id and config.oauth2_client_secret:
-            if config.oauth2_refresh_token:
-                logger.debug("Using OAuth2 refresh_token grant for Airbyte Cloud")
-            else:
-                logger.debug("Using OAuth2 client_credentials grant for Airbyte Cloud")
-        else:
-            logger.debug("OAuth2 credentials incomplete for Airbyte Cloud")
-
-
-def _log_ssl_settings(config: AirbyteClientConfig) -> None:
-    """
-    Log information about the SSL verification settings
-
-    Args:
-        config: The Airbyte client configuration
-    """
-    if not config.verify_ssl:
-        logger.warning("SSL certificate verification is disabled")
-    elif config.ssl_ca_cert:
-        logger.debug("Using custom CA certificate: %s", config.ssl_ca_cert)
-
-
 def _test_workspaces(
     client: AirbyteBaseClient, config: AirbyteClientConfig
 ) -> AirbyteTestResult:
-    """
-    Test listing workspaces and validate the response
-
-    Args:
-        client: The Airbyte client
-        config: The Airbyte client configuration
-
-    Returns:
-        AirbyteTestResult with success flag, error message (if any), and first workspace data
-    """
     try:
         workspaces = client.list_workspaces()
         if not isinstance(workspaces, list):
@@ -100,16 +51,6 @@ def _test_workspaces(
 def _test_connections(
     client: AirbyteBaseClient, workspace_id: str
 ) -> AirbyteTestResult:
-    """
-    Test listing connections for a workspace and validate the response
-
-    Args:
-        client: The Airbyte client
-        workspace_id: The workspace ID
-
-    Returns:
-        AirbyteTestResult with success flag, error message (if any), and first connection data
-    """
     try:
         connections = client.list_connections(workspace_id)
         if not isinstance(connections, list):
@@ -117,10 +58,6 @@ def _test_connections(
                 success=False,
                 error_message="Unable to retrieve connections from Airbyte API: expected a list response",
             )
-
-        logger.debug(
-            "Retrieved %d connections from workspace %s", len(connections), workspace_id
-        )
 
         if not connections:
             return AirbyteTestResult(success=True)
@@ -134,19 +71,8 @@ def _test_connections(
 
 
 def _test_source(client: AirbyteBaseClient, source_id: str) -> AirbyteTestResult:
-    """
-    Test retrieving a source and validate the response
-
-    Args:
-        client: The Airbyte client
-        source_id: The source ID
-
-    Returns:
-        AirbyteTestResult with success flag and error message (if any)
-    """
     try:
         client.get_source(source_id)
-        logger.info("Successfully retrieved source %s", source_id)
         return AirbyteTestResult(success=True)
     except Exception as e:
         return AirbyteTestResult(
@@ -158,19 +84,8 @@ def _test_source(client: AirbyteBaseClient, source_id: str) -> AirbyteTestResult
 def _test_destination(
     client: AirbyteBaseClient, destination_id: str
 ) -> AirbyteTestResult:
-    """
-    Test retrieving a destination and validate the response
-
-    Args:
-        client: The Airbyte client
-        destination_id: The destination ID
-
-    Returns:
-        AirbyteTestResult with success flag and error message (if any)
-    """
     try:
         client.get_destination(destination_id)
-        logger.info("Successfully retrieved destination %s", destination_id)
         return AirbyteTestResult(success=True)
     except Exception as e:
         return AirbyteTestResult(
@@ -180,21 +95,8 @@ def _test_destination(
 
 
 def _test_jobs(client: AirbyteBaseClient, connection_id: str) -> AirbyteTestResult:
-    """
-    Test listing jobs for a connection and validate the response
-
-    Args:
-        client: The Airbyte client
-        connection_id: The connection ID
-
-    Returns:
-        AirbyteTestResult with success flag and error message (if any)
-    """
     try:
-        jobs = client.list_jobs(connection_id, limit=5)
-        logger.info(
-            "Successfully retrieved %d jobs for connection %s", len(jobs), connection_id
-        )
+        client.list_jobs(connection_id, limit=5)
         return AirbyteTestResult(success=True)
     except Exception as e:
         return AirbyteTestResult(
@@ -204,24 +106,12 @@ def _test_jobs(client: AirbyteBaseClient, connection_id: str) -> AirbyteTestResu
 
 
 def test_connection(config: AirbyteClientConfig) -> Optional[str]:
-    """
-    Test the connection to the Airbyte API using the provided configuration.
-    Works with both Open Source and Cloud deployments.
-
-    Args:
-        config: The Airbyte client configuration
-
-    Returns:
-        Optional[str]: None if successful, or an error message if connection fails
-    """
+    """Test the connection to the Airbyte API; returns None on success, or an
+    error message describing the first failure encountered."""
     try:
-        logger.info("Testing connection to Airbyte %s API", config.deployment_type)
+        if not config.verify_ssl:
+            logger.warning("SSL certificate verification is disabled")
 
-        # Log configuration information
-        _log_authentication_info(config)
-        _log_ssl_settings(config)
-
-        # Create the appropriate client
         client = create_airbyte_client(config)
 
         workspace_result = _test_workspaces(client, config)

@@ -38,19 +38,16 @@ from datahub.ingestion.source.airbyte.source import (
     ],
 )
 def test_sanitize_platform_name(input_name, expected_output):
-    """Test platform name sanitization for URN compatibility."""
     assert _sanitize_platform_name(input_name) == expected_output
 
 
 @pytest.fixture
 def mock_client():
-    """Create a mock Airbyte client."""
     return MagicMock()
 
 
 @pytest.fixture
 def mock_ctx():
-    """Create a mock pipeline context."""
     ctx = MagicMock(spec=PipelineContext)
     ctx.graph = MagicMock()
     ctx.pipeline_name = "airbyte_test"
@@ -59,7 +56,6 @@ def mock_ctx():
 
 @pytest.fixture
 def config():
-    """Create a standard test config."""
     return AirbyteSourceConfig(
         deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
         host_port="http://localhost:8000",
@@ -69,7 +65,6 @@ def config():
 
 @pytest.fixture
 def source(config, mock_ctx, mock_client):
-    """Create an AirbyteSource instance with mocked dependencies."""
     with patch(
         "datahub.ingestion.source.airbyte.source.create_airbyte_client"
     ) as mock_create_client:
@@ -78,38 +73,27 @@ def source(config, mock_ctx, mock_client):
 
 
 def test_fetch_streams_for_source(source):
-    """Test the _fetch_streams_for_source method."""
     workspace = AirbyteWorkspacePartial(
-        workspaceId="workspace-1",
-        name="Test Workspace",
         workspace_id="workspace-1",
+        name="Test Workspace",
     )
     connection = AirbyteConnectionPartial(
-        connectionId="connection-1",
-        name="Test Connection",
-        sourceId="source-1",
-        destinationId="destination-1",
-        status="active",
         connection_id="connection-1",
+        name="Test Connection",
         source_id="source-1",
         destination_id="destination-1",
+        status="active",
     )
     source_obj = AirbyteSourcePartial(
-        sourceId="source-1",
-        name="Test Source",
-        sourceDefinitionId="source-def-1",
-        workspaceId="workspace-1",
         source_id="source-1",
+        name="Test Source",
         source_definition_id="source-def-1",
         workspace_id="workspace-1",
         configuration={},
     )
     destination = AirbyteDestinationPartial(
-        destinationId="destination-1",
-        name="Test Destination",
-        destinationDefinitionId="dest-def-1",
-        workspaceId="workspace-1",
         destination_id="destination-1",
+        name="Test Destination",
         destination_definition_id="dest-def-1",
         workspace_id="workspace-1",
         configuration={},

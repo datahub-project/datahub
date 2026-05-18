@@ -1,14 +1,5 @@
-"""
-Airbyte integration test setup utilities.
-
-This module contains helper functions for setting up and managing Airbyte
-during integration tests. It handles:
-- Container readiness checks
-- API connectivity and diagnostics
-- Database ID updates for consistent golden files
-- Source/destination/connection creation
-- abctl installation and management
-"""
+"""Helpers for spinning up Airbyte locally via abctl, seeding sources/destinations,
+and rewriting auto-generated IDs to static values so golden files stay stable."""
 
 import json
 import os
@@ -25,7 +16,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
-# Constants
 AIRBYTE_API_HOST = "localhost"
 AIRBYTE_WEB_PORT = 8000
 AIRBYTE_API_PORT = 8000
@@ -35,17 +25,12 @@ POSTGRES_PORT = 5433
 MYSQL_PORT = 30306
 
 
-# Determine the correct hostname for Airbyte to connect to test databases
-# host.docker.internal works on Mac/Windows but not Linux CI
-# In Linux, use the docker bridge gateway IP
 def get_database_host() -> str:
-    """Get the hostname that Airbyte (running in Kind) should use to connect to test databases."""
+    """Return the hostname Airbyte (in Kind) should use to reach the test databases.
+    On Mac/Windows the Docker daemon resolves `host.docker.internal`; on Linux we
+    have to ask Docker for the bridge gateway IP (typically 172.17.0.1)."""
     if platform.system() == "Linux":
-        # In Linux CI, docker bridge gateway is typically 172.17.0.1
-        # But Kind uses its own network, so we need the host's IP from Kind's perspective
         try:
-            # Get the host IP that Kind can reach
-            # This is typically the docker0 bridge IP
             result = subprocess.run(
                 [
                     "docker",
@@ -63,11 +48,8 @@ def get_database_host() -> str:
                 return result.stdout.strip()
         except Exception:
             pass
-        # Fallback to common Linux docker bridge IP
         return "172.17.0.1"
-    else:
-        # Mac/Windows use host.docker.internal
-        return "host.docker.internal"
+    return "host.docker.internal"
 
 
 DATABASE_HOST = get_database_host()
@@ -76,7 +58,8 @@ print(
     f"Test databases running on ports - PostgreSQL: {POSTGRES_PORT}, MySQL: {MYSQL_PORT}"
 )
 
-# Static IDs for consistent golden files
+# Static IDs replace the random UUIDs Airbyte assigns, so the generated
+# golden files don't change between runs.
 STATIC_WORKSPACE_ID = "12345678-1234-1234-1234-123456789012"
 STATIC_POSTGRES_SOURCE_ID = "11111111-1111-1111-1111-111111111111"
 STATIC_MYSQL_SOURCE_ID = "22222222-2222-2222-2222-222222222222"
@@ -87,28 +70,19 @@ STATIC_MYSQL_TO_PG_CONNECTION_ID = "66666666-6666-6666-6666-666666666666"
 # abctl v0.30.3 deploys Airbyte 1.8+
 ABCTL_VERSION = "v0.30.3"
 
-# Global API URL (will be updated dynamically)
 AIRBYTE_API_URL: str = f"http://{AIRBYTE_API_HOST}:{AIRBYTE_API_PORT}/api/v1"
 
 
 def set_airbyte_api_url(url: str) -> None:
-    """Update the global API URL."""
     global AIRBYTE_API_URL
     AIRBYTE_API_URL = url
 
 
 def get_airbyte_api_url() -> str:
-    """Get the current API URL."""
     return AIRBYTE_API_URL
 
 
-# =============================================================================
-# Container Readiness Checks
-# =============================================================================
-
-
 def is_postgres_ready(container_name: str) -> bool:
-    """Check if PostgreSQL is responsive on a container."""
     try:
         cmd = f"docker exec {container_name} pg_isready -U test"
         ret = subprocess.run(cmd, shell=True, capture_output=True, timeout=5)
@@ -118,7 +92,6 @@ def is_postgres_ready(container_name: str) -> bool:
 
 
 def is_mysql_ready(container_name: str) -> bool:
-    """Check if MySQL is responsive on a container."""
     try:
         cmd = f"docker exec {container_name} mysqladmin ping -h localhost -u root -prootpwd123"
         ret = subprocess.run(cmd, shell=True, capture_output=True, timeout=5)
@@ -130,7 +103,6 @@ def is_mysql_ready(container_name: str) -> bool:
 def check_container_logs_for_errors(
     container_name: str, error_patterns: Optional[List[str]] = None
 ) -> bool:
-    """Check if container logs contain specific error patterns."""
     if error_patterns is None:
         error_patterns = ["error", "exception", "failed"]
 
@@ -148,7 +120,6 @@ def check_container_logs_for_errors(
 
 
 def check_container_health(container_name: str) -> Optional[str]:
-    """Check container health status if available."""
     try:
         health = subprocess.check_output(
             f"docker inspect --format='{{{{.State.Health.Status}}}}' {container_name}",
@@ -160,13 +131,10 @@ def check_container_health(container_name: str) -> Optional[str]:
         return None
 
 
-# =============================================================================
-# API Connectivity and Diagnostics
-# =============================================================================
-
-
 def find_working_api_url() -> Optional[Dict[str, Any]]:
-    """Determine which port and path combination works for the Airbyte API."""
+    """Probe a few candidate Airbyte health endpoints (paths differ across versions
+    and basic-auth may or may not be required) and return the first one that
+    responds successfully, along with whether auth is needed."""
     api_paths = [
         "/api/v1/health",
         "/api/public/v1/health",
@@ -204,7 +172,7 @@ def find_working_api_url() -> Optional[Dict[str, Any]]:
 
 
 def diagnose_airbyte_proxy_issue() -> None:
-    """Run diagnostics for abctl Kubernetes-based Airbyte deployment."""
+    """Print abctl status and pod state to help diagnose flaky local installs."""
     print("Running Airbyte diagnostics...")
 
     try:
@@ -239,7 +207,6 @@ def diagnose_airbyte_proxy_issue() -> None:
 
 
 def get_api_url_for_test() -> Tuple[str, bool]:
-    """Determine the appropriate API URL for testing, with fallbacks."""
     api_config = find_working_api_url()
 
     if api_config:
@@ -253,7 +220,6 @@ def get_api_url_for_test() -> Tuple[str, bool]:
 
 
 def check_airbyte_pods_ready() -> bool:
-    """Check if Airbyte Kubernetes pods are all running."""
     try:
         kubeconfig = Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig"
         if not kubeconfig.exists():
@@ -300,9 +266,7 @@ def check_airbyte_pods_ready() -> bool:
 
 
 def get_airbyte_version() -> Optional[str]:
-    """Detect the actual Airbyte version deployed by abctl."""
     try:
-        # Try to get version from the airbyte-server deployment
         result = subprocess.run(
             [
                 "kubectl",
@@ -319,18 +283,15 @@ def get_airbyte_version() -> Optional[str]:
             timeout=10,
         )
         if result.returncode == 0 and result.stdout:
-            # Image format is typically: airbyte/server:1.2.3 or airbyte/server:1.2.3-abctl
             image = result.stdout.strip()
             if ":" in image:
-                version = image.split(":")[-1]
-                return version
+                return image.split(":")[-1]
     except Exception:
         pass
     return None
 
 
 def wait_for_airbyte_ready(timeout: int = 600) -> bool:
-    """Wait for Airbyte API to be ready."""
     print(f"Waiting for Airbyte API (timeout: {timeout}s)...")
 
     time.sleep(45)
@@ -368,7 +329,6 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
                     print("Airbyte API ready")
                     return True
                 elif attempt == 1:
-                    # Log auth failure details on first attempt
                     print(
                         f"Workspace list returned {workspaces_response.status_code}: {workspaces_response.text[:200]}"
                     )
@@ -388,16 +348,12 @@ def wait_for_airbyte_ready(timeout: int = 600) -> bool:
     return False
 
 
-# =============================================================================
-# Database ID Updates
-# =============================================================================
-
-
 def update_all_ids_atomically(
     kubeconfig_path: Path,
     id_updates: Dict[str, Dict[str, Any]],
 ) -> bool:
-    """Update all Airbyte database IDs in a single atomic transaction."""
+    """Rewrite Airbyte-assigned UUIDs (actors + connections) to our static test IDs
+    in a single transaction so golden files stay stable across runs."""
     if not shutil.which("kubectl") or not kubeconfig_path.exists():
         return False
 
@@ -419,8 +375,6 @@ def update_all_ids_atomically(
             new_conn_id = conn_data["new_id"]
             new_source_id = conn_data["new_source_id"]
             new_dest_id = conn_data["new_dest_id"]
-            # Update connection ID and foreign keys
-            # All other columns (including catalog-related columns) are preserved
             sql_statements.append(
                 f"UPDATE connection SET id = '{new_conn_id}', "
                 f"source_id = '{new_source_id}', destination_id = '{new_dest_id}' "
@@ -465,7 +419,6 @@ def update_all_ids_atomically(
 def update_airbyte_database_id(
     kubeconfig_path: Path, table_name: str, old_id: str, new_id: str
 ) -> bool:
-    """Update a single Airbyte database ID using kubectl."""
     if not kubeconfig_path.exists():
         return False
 
@@ -510,13 +463,9 @@ def update_airbyte_database_id(
         return False
 
 
-# =============================================================================
-# Airbyte Setup Functions
-# =============================================================================
-
-
 def try_direct_api_setup() -> Optional[str]:
-    """Verify Airbyte API is working and return workspace ID."""
+    """Hit a couple of Airbyte API base paths, locate the first responsive workspace,
+    cache the API URL for later calls, and return the workspace ID."""
     print("Verifying Airbyte API...")
 
     try:
@@ -567,7 +516,6 @@ def try_direct_api_setup() -> Optional[str]:
 
 
 def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
-    """Create PostgreSQL and MySQL sources, PostgreSQL destination, and connections."""
     print("Creating Airbyte resources...")
 
     created_ids: Dict[str, Optional[str]] = {
@@ -581,7 +529,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         password = os.environ.get("AIRBYTE_PASSWORD", BASIC_AUTH_PASSWORD)
         auth = (BASIC_AUTH_USERNAME, password)
 
-        # Get source definitions
         source_defs_response = requests.post(
             f"{api_url}/source_definitions/list", auth=auth, json={}, timeout=10
         )
@@ -594,7 +541,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
 
         source_defs = source_defs_response.json().get("sourceDefinitions", [])
 
-        # Find PostgreSQL and MySQL source definition IDs
         postgres_source_def_id = None
         mysql_source_def_id = None
 
@@ -609,7 +555,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             print("ERROR: Could not find required source definitions")
             return created_ids
 
-        # Create PostgreSQL source
         postgres_source_config = {
             "name": "Test Postgres Source",
             "sourceDefinitionId": postgres_source_def_id,
@@ -639,7 +584,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             print("ERROR: Failed to create PostgreSQL source")
             return created_ids
 
-        # Create MySQL source
         mysql_source_config = {
             "name": "Test MySQL Source",
             "sourceDefinitionId": mysql_source_def_id,
@@ -666,7 +610,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
         else:
             print("WARNING: Failed to create MySQL source")
 
-        # Get destination definitions
         dest_defs_response = requests.post(
             f"{api_url}/destination_definitions/list", auth=auth, json={}, timeout=10
         )
@@ -690,7 +633,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             print("ERROR: Could not find PostgreSQL destination definition")
             return created_ids
 
-        # Create PostgreSQL destination
         postgres_dest_config = {
             "name": "Test Postgres Destination",
             "destinationDefinitionId": postgres_dest_def_id,
@@ -721,7 +663,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
             print("ERROR: Failed to create PostgreSQL destination")
             return created_ids
 
-        # Discover and create connections
         _create_postgres_connection(
             api_url, auth, postgres_source_id, postgres_dest_id, created_ids
         )
@@ -731,12 +672,10 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
                 api_url, auth, mysql_source_id, postgres_dest_id, created_ids
             )
 
-        # Trigger sync jobs to populate catalog and generate job metadata
         print("Triggering sync jobs for connections...")
         _trigger_sync_jobs(api_url, auth, created_ids)
 
-        # Wait for jobs to be registered in the database
-        print("Waiting 10 seconds for sync jobs to be registered...")
+        # Give Airbyte a moment to persist the job rows so the ingest run finds them.
         time.sleep(10)
 
         print("All Airbyte resources created")
@@ -752,7 +691,6 @@ def create_airbyte_test_setup(workspace_id: str) -> Dict[str, Optional[str]]:
 def _discover_schema(
     api_url: str, auth: tuple, source_id: str, source_name: str
 ) -> Optional[Dict]:
-    """Discover schema for a source with retries."""
     discover_payload = {"sourceId": source_id}
 
     for attempt in range(3):
@@ -795,7 +733,6 @@ def _discover_schema(
 def _create_postgres_connection(
     api_url: str, auth: tuple, source_id: str, dest_id: str, created_ids: Dict
 ) -> None:
-    """Create PostgreSQL to PostgreSQL connection."""
     sync_catalog = _discover_schema(api_url, auth, source_id, "PostgreSQL")
     connection_config = {
         "name": "Postgres to Postgres Connection",
@@ -821,7 +758,6 @@ def _create_postgres_connection(
 def _create_mysql_connection(
     api_url: str, auth: tuple, source_id: str, dest_id: str, created_ids: Dict
 ) -> None:
-    """Create MySQL to PostgreSQL connection."""
     sync_catalog = _discover_schema(api_url, auth, source_id, "MySQL")
 
     connection_config = {
@@ -846,7 +782,6 @@ def _create_mysql_connection(
 
 
 def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
-    """Trigger sync jobs for connections."""
     for conn_key in ["pg_to_pg_connection_id", "mysql_to_pg_connection_id"]:
         conn_id = created_ids.get(conn_key)
         if conn_id:
@@ -864,14 +799,11 @@ def _trigger_sync_jobs(api_url: str, auth: tuple, created_ids: Dict) -> None:
 
 
 def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[str]]:
-    """Set up Airbyte sources, destinations, and connections for testing."""
-
     workspace_id = try_direct_api_setup()
 
     if not workspace_id:
         return {}
 
-    # Update workspace ID to static value
     kubeconfig = Path.home() / ".airbyte" / "abctl" / "abctl.kubeconfig"
 
     if update_airbyte_database_id(
@@ -881,7 +813,6 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
         print(f"Using static workspace ID: {workspace_id}")
         time.sleep(5)
 
-    # Create sources, destinations, and connections
     created_ids = create_airbyte_test_setup(workspace_id)
 
     _update_ids_to_static(kubeconfig, created_ids)
@@ -892,7 +823,6 @@ def setup_airbyte_connections(test_resources_dir: Path) -> Dict[str, Optional[st
 
 
 def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
-    """Update all IDs to static values atomically."""
     postgres_source_id_val = created_ids.get("postgres_source_id")
     postgres_dest_id_val = created_ids.get("postgres_dest_id")
     mysql_source_id_val = created_ids.get("mysql_source_id")
@@ -937,7 +867,8 @@ def _update_ids_to_static(kubeconfig: Path, created_ids: Dict) -> None:
 
 
 def _restart_airbyte_server(kubeconfig: Path) -> None:
-    """Restart Airbyte server pod to reload static IDs."""
+    # After rewriting IDs we have to bounce the server so it drops any caches
+    # holding the old (dynamic) UUIDs.
     try:
         restart_cmd = [
             "kubectl",
@@ -973,17 +904,9 @@ def _restart_airbyte_server(kubeconfig: Path) -> None:
         pass
 
 
-# =============================================================================
-# Test Data Initialization
-# =============================================================================
-
-
 def init_test_data(test_resources_dir: Path) -> None:
-    """Initialize test data in PostgreSQL container using SQL files.
-
-    Note: MySQL is automatically initialized via docker-compose volume mount
-    to /docker-entrypoint-initdb.d/init.sql
-    """
+    """Seed the Postgres test container by piping `setup/init-test-db.sql` into psql.
+    MySQL is already seeded by docker-compose via `/docker-entrypoint-initdb.d/init.sql`."""
     try:
         postgres_init_file = test_resources_dir / "setup" / "init-test-db.sql"
         if postgres_init_file.exists():
@@ -1011,14 +934,7 @@ def init_test_data(test_resources_dir: Path) -> None:
         pass
 
 
-# =============================================================================
-# abctl Management
-# =============================================================================
-
-
 def install_abctl(test_resources_dir: Path) -> Path:
-    """Install abctl if not already available."""
-
     try:
         result = subprocess.run(
             ["abctl", "version"], capture_output=True, text=True, timeout=10
@@ -1087,7 +1003,6 @@ def install_abctl(test_resources_dir: Path) -> Path:
 
 
 def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
-    """Clean up Airbyte and Kubernetes environment."""
     try:
         cleanup_result = subprocess.run(
             [str(abctl_path), "local", "uninstall", "--persisted"],
@@ -1114,7 +1029,9 @@ def cleanup_airbyte(abctl_path: Path, test_resources_dir: Path) -> None:
 
 
 def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
-    """Retrieve and store Airbyte credentials from abctl."""
+    """Read credentials from `abctl local credentials` and stash them in env vars
+    (AIRBYTE_PASSWORD / AIRBYTE_CLIENT_ID / AIRBYTE_CLIENT_SECRET) for the rest
+    of the test run."""
     try:
         creds_result = subprocess.run(
             [str(abctl_path), "local", "credentials"],
@@ -1151,7 +1068,6 @@ def get_airbyte_credentials(abctl_path: Path, test_resources_dir: Path) -> None:
 
 
 def complete_airbyte_onboarding() -> bool:
-    """Complete Airbyte onboarding programmatically."""
     try:
         api_endpoints = [
             f"http://localhost:{AIRBYTE_API_PORT}/api/v1",

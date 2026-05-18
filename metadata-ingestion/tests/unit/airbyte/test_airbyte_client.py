@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 from pydantic import SecretStr, ValidationError
+from requests.auth import HTTPBasicAuth
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.source.airbyte.client import (
@@ -181,7 +182,6 @@ class TestAirbyteOSSClient:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_http_error_handling(self, mock_make_request):
-        # Set up the mock to raise an HTTP error
         mock_make_request.side_effect = requests.exceptions.HTTPError(
             "404 Client Error: Not Found"
         )
@@ -191,24 +191,20 @@ class TestAirbyteOSSClient:
         )
         client = AirbyteOSSClient(config)
 
-        # Expect the HTTP error to be re-raised
         with pytest.raises(requests.exceptions.HTTPError) as excinfo:
             client.list_workspaces()
 
-        # Verify the error contains the expected message
         assert "404 Client Error: Not Found" in str(excinfo.value)
 
 
 class TestAirbyteClientBase:
     def test_abstract_class(self):
-        # Instead of trying to instantiate, check that it has abstract methods
         assert hasattr(AirbyteBaseClient, "__abstractmethods__")
         abstract_methods = AirbyteBaseClient.__abstractmethods__
         assert "_check_auth_before_request" in abstract_methods
         assert "_get_full_url" in abstract_methods
 
     def test_required_methods(self):
-        # Create a concrete subclass that implements abstract methods
         class CompleteClient(AirbyteBaseClient):
             def _check_auth_before_request(self):
                 pass
@@ -228,24 +224,18 @@ class TestAirbyteClientBase:
             def list_connections(self, workspace_id, pattern=None):
                 return []
 
-        # Create an incomplete subclass
         class IncompleteClient(AirbyteBaseClient):
             pass
 
-        # Check that we can instantiate a complete implementation
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
         )
 
-        # We can instantiate the complete class
         client = CompleteClient(config)
         assert isinstance(client, AirbyteBaseClient)
-
-        # Check inherited methods work
         assert hasattr(client, "list_workspaces")
 
-        # Check that IncompleteClient still has abstract methods
         assert hasattr(IncompleteClient, "__abstractmethods__")
         abstract_methods = IncompleteClient.__abstractmethods__
         assert "_check_auth_before_request" in abstract_methods
@@ -273,7 +263,6 @@ class TestAirbyteOpenSourceClient:
         )
         client = AirbyteOSSClient(config)
 
-        # Mock the _paginate_results method to return the items we want
         mock_paginate_results.return_value = [
             {
                 "workspaceId": "workspace-id-1",
@@ -432,7 +421,6 @@ class TestAirbyteCloudClient:
 
     @patch("requests.post")
     def test_refresh_oauth_token(self, mock_post):
-        # Mock the oauth token response
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -442,7 +430,8 @@ class TestAirbyteCloudClient:
         }
         mock_post.return_value = mock_response
 
-        # Create client with patched _acquire_token to prevent initial token acquisition
+        # Patch out the auto token fetch in the constructor so we can drive
+        # the refresh path explicitly below.
         with patch.object(AirbyteCloudClient, "_acquire_token"):
             config = AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.CLOUD,
@@ -453,16 +442,12 @@ class TestAirbyteCloudClient:
             )
             client = AirbyteCloudClient(config)
 
-        # Reset the mock to clear any previous calls during initialization
         mock_post.reset_mock()
 
-        # Call the private method directly to refresh the token
         client._refresh_oauth_token()
 
-        # Verify token was updated
         assert client.access_token == "new-access-token"
 
-        # Verify correct request was made
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
         assert args[0] == "https://auth.airbyte.com/oauth/token"
@@ -610,22 +595,20 @@ class TestAirbyteCloudClient:
             oauth2_refresh_token=SecretStr("refresh-token"),
         )
         client = AirbyteCloudClient(config)
-        client.access_token = "test-token"  # Set the access token directly
+        client.access_token = "test-token"
         workspaces = client.list_workspaces()
 
-        # Verify response - cloud only returns the configured workspace
+        # Cloud only ever exposes the single configured workspace.
         assert len(workspaces) == 1
         assert workspaces[0].workspace_id == "workspace-id-1"
         assert workspaces[0].name == "Workspace 1"
 
-        # Verify the correct endpoint was used with the workspace ID
         mock_make_request.assert_called_once_with(
             f"/workspaces/{config.cloud_workspace_id}"
         )
 
     @patch("requests.post")
     def test_client_credentials_token(self, mock_post):
-        """Test OAuth2 client credentials grant type."""
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -640,14 +623,11 @@ class TestAirbyteCloudClient:
             cloud_workspace_id="workspace-id-1",
             oauth2_client_id="client-id",
             oauth2_client_secret=SecretStr("client-secret"),
-            # No refresh token - auto-detects client_credentials
         )
         client = AirbyteCloudClient(config)
 
-        # Verify token was obtained
         assert client.access_token == "client-creds-access-token"
 
-        # Verify correct request was made
         mock_post.assert_called_once()
         args, kwargs = mock_post.call_args
         assert args[0] == "https://auth.airbyte.com/oauth/token"
@@ -658,16 +638,14 @@ class TestAirbyteCloudClient:
         }
 
     def test_client_credentials_missing_refresh_token(self):
-        """Test that refresh_token is not required for client_credentials grant type."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.CLOUD,
             cloud_workspace_id="workspace-id-1",
             oauth2_client_id="client-id",
             oauth2_client_secret=SecretStr("client-secret"),
-            # oauth2_refresh_token intentionally not provided - auto-detects client_credentials
+            # No refresh token -> grant type should fall through to client_credentials.
         )
 
-        # Mock the token acquisition to avoid HTTP requests
         with patch.object(AirbyteCloudClient, "_acquire_token"):
             client = AirbyteCloudClient(config)
             assert client.config.oauth2_grant_type == OAuth2GrantType.CLIENT_CREDENTIALS
@@ -676,10 +654,8 @@ class TestAirbyteCloudClient:
     @patch("time.time")
     @patch("requests.post")
     def test_token_auto_refresh_client_credentials(self, mock_post, mock_time):
-        """Test automatic token refresh for client credentials before expiry."""
         mock_time.return_value = 1000
 
-        # Mock initial token response
         initial_response = MagicMock()
         initial_response.status_code = 200
         initial_response.json.return_value = {
@@ -688,7 +664,6 @@ class TestAirbyteCloudClient:
             "token_type": "Bearer",
         }
 
-        # Mock refreshed token response
         refreshed_response = MagicMock()
         refreshed_response.status_code = 200
         refreshed_response.json.return_value = {
@@ -704,28 +679,22 @@ class TestAirbyteCloudClient:
             cloud_workspace_id="workspace-id-1",
             oauth2_client_id="client-id",
             oauth2_client_secret=SecretStr("client-secret"),
-            # No refresh token - auto-detects client_credentials
         )
         client = AirbyteCloudClient(config)
 
-        # Verify initial token
         assert client.access_token == "initial-token"
 
-        # Fast forward time to near token expiry (3600 - 600 = 3000 seconds buffer)
-        mock_time.return_value = 4000  # Past the refresh threshold
+        # Jump past the token's 1-hour expiry so the next check triggers a refresh.
+        mock_time.return_value = 4000
 
-        # Trigger token expiry check
         client._check_token_expiry()
 
-        # Verify token was refreshed
         assert client.access_token == "refreshed-token"
         assert mock_post.call_count == 2
 
     @patch("requests.post")
     @patch("requests.Session.get")
     def test_retry_on_401_with_client_credentials(self, mock_get, mock_post):
-        """Test automatic retry on 401 with client credentials token refresh."""
-        # Mock successful token refresh
         mock_token_response = MagicMock()
         mock_token_response.status_code = 200
         mock_token_response.json.return_value = {
@@ -735,7 +704,6 @@ class TestAirbyteCloudClient:
         }
         mock_post.return_value = mock_token_response
 
-        # Mock initial 401 response, then successful response after token refresh
         mock_401_response = MagicMock()
         mock_401_response.status_code = 401
         mock_401_response.raise_for_status.side_effect = requests.HTTPError(
@@ -748,31 +716,24 @@ class TestAirbyteCloudClient:
 
         mock_get.side_effect = [mock_401_response, mock_success_response]
 
-        # Create client with client credentials
         with patch.object(AirbyteCloudClient, "_acquire_token"):
             config = AirbyteClientConfig(
                 deployment_type=AirbyteDeploymentType.CLOUD,
                 cloud_workspace_id="workspace-id-1",
                 oauth2_client_id="client-id",
                 oauth2_client_secret=SecretStr("client-secret"),
-                # No refresh token - auto-detects client_credentials
             )
             client = AirbyteCloudClient(config)
 
-        # Make a request that triggers 401 and retry
         result = client._make_request("/workspaces/workspace-id-1")
 
-        # Verify token was refreshed and request succeeded
         assert result == {"workspaceId": "workspace-id-1"}
         assert mock_get.call_count == 2
-        mock_post.assert_called_once()  # Token refresh after 401
+        mock_post.assert_called_once()
 
 
 class TestClientBuildSyncCatalog:
-    """Tests for _build_sync_catalog and related methods."""
-
     def test_build_sync_catalog_with_property_fields(self):
-        """Test building sync catalog with property fields from /streams endpoint."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -807,7 +768,6 @@ class TestClientBuildSyncCatalog:
         assert "jsonSchema" in stream["stream"]
 
     def test_build_sync_catalog_without_property_fields(self):
-        """Test building sync catalog without property fields."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -828,7 +788,6 @@ class TestClientBuildSyncCatalog:
         assert len(result["streams"]) == 1
 
     def test_build_stream_config(self):
-        """Test building stream config."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -850,7 +809,6 @@ class TestClientBuildSyncCatalog:
         assert result["cursorField"] == ["updated_at"]
 
     def test_get_json_schema_for_stream_with_property_fields(self):
-        """Test getting JSON schema when property fields are provided."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -874,7 +832,6 @@ class TestClientBuildSyncCatalog:
         assert "email" in properties
 
     def test_get_json_schema_for_stream_from_configurations(self):
-        """Test getting JSON schema from configurations when property fields are not provided."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -897,7 +854,6 @@ class TestClientBuildSyncCatalog:
         assert result == stream["jsonSchema"]
 
     def test_get_json_schema_for_stream_fallback_empty(self):
-        """Test getting JSON schema falls back to empty dict."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -912,10 +868,7 @@ class TestClientBuildSyncCatalog:
 
 
 class TestClientSSLAndAuth:
-    """Tests for SSL and authentication configuration."""
-
     def test_oss_client_ssl_disabled_warning(self, caplog):
-        """Test warning when SSL is disabled."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -927,23 +880,19 @@ class TestClientSSLAndAuth:
 
         assert "SSL certificate verification is disabled" in caplog.text
 
-    def test_oss_client_with_api_key(self, caplog):
-        """Test OSS client configured with API key."""
+    def test_oss_client_with_api_key(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
             api_key=SecretStr("test-api-key"),
         )
 
-        with caplog.at_level("DEBUG"):
-            client = AirbyteOSSClient(config)
-
-        # API key authentication is handled by _check_auth_before_request
-
+        # API key auth is applied lazily via _check_auth_before_request,
+        # so just check the client constructs cleanly with the secret set.
+        client = AirbyteOSSClient(config)
         assert client is not None
 
-    def test_oss_client_with_username_password(self, caplog):
-        """Test OSS client configured with username/password."""
+    def test_oss_client_with_username_password(self):
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -951,15 +900,13 @@ class TestClientSSLAndAuth:
             password=SecretStr("test-password"),
         )
 
-        with caplog.at_level("DEBUG"):
-            _ = AirbyteOSSClient(config)
+        client = AirbyteOSSClient(config)
 
-        assert "Using basic authentication" in caplog.text
+        assert isinstance(client.session.auth, HTTPBasicAuth)
+        assert client.session.auth.username == "test-user"
 
     @patch("datahub.ingestion.source.airbyte.client.requests.post")
-    def test_oss_client_with_oauth2(self, mock_post, caplog):
-        """Test OSS client configured with OAuth2 client credentials (Airbyte 1.0+)."""
-        # Mock the OAuth token response
+    def test_oss_client_with_oauth2(self, mock_post):
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
@@ -976,23 +923,13 @@ class TestClientSSLAndAuth:
             oauth2_client_secret=SecretStr("test-client-secret"),
         )
 
-        with caplog.at_level("DEBUG"):
-            client = AirbyteOSSClient(config)
+        client = AirbyteOSSClient(config)
 
-        assert (
-            "Using OAuth2 client credentials authentication (OSS 1.0+)" in caplog.text
-        )
-        assert (
-            "OAuth2 token obtained successfully via client_credentials" in caplog.text
-        )
-
-        # Verify token was set in session headers
         assert "Authorization" in client.session.headers
         assert (
             client.session.headers["Authorization"] == "Bearer test-access-token-12345"
         )
 
-        # Verify OAuth request was made to correct endpoint
         mock_post.assert_called_once()
         call_args = mock_post.call_args
         assert "applications/token" in call_args[0][0]
@@ -1002,11 +939,8 @@ class TestClientSSLAndAuth:
 
 
 class TestClientErrorHandling:
-    """Tests for error handling in client methods."""
-
     @patch("datahub.ingestion.source.airbyte.client.requests.Session.request")
     def test_make_request_connection_error(self, mock_request):
-        """Test handling of connection errors."""
         mock_request.side_effect = requests.exceptions.ConnectionError(
             "Connection refused"
         )
@@ -1024,7 +958,6 @@ class TestClientErrorHandling:
 
     @patch("datahub.ingestion.source.airbyte.client.requests.Session.request")
     def test_make_request_timeout(self, mock_request):
-        """Test handling of timeout errors."""
         mock_request.side_effect = requests.exceptions.Timeout("Request timed out")
 
         config = AirbyteClientConfig(
@@ -1040,11 +973,8 @@ class TestClientErrorHandling:
 
 
 class TestFetchStreamPropertyFields:
-    """Tests for _fetch_stream_property_fields method."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_property_fields_success(self, mock_list_streams):
-        """Test successfully fetching property fields."""
         mock_list_streams.return_value = [
             {
                 "streamName": "users",
@@ -1083,7 +1013,6 @@ class TestFetchStreamPropertyFields:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient.list_streams")
     def test_fetch_stream_property_fields_no_source_id(self, mock_list_streams):
-        """Test fetching property fields when source_id is None."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -1128,8 +1057,6 @@ class TestFetchStreamPropertyFields:
 
 
 class TestGetConnection:
-    """Tests for get_connection method."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     @patch(
         "datahub.ingestion.source.airbyte.client.AirbyteOSSClient._fetch_stream_property_fields"
@@ -1140,7 +1067,6 @@ class TestGetConnection:
     def test_get_connection_builds_sync_catalog_from_configurations(
         self, mock_build_sync, mock_fetch_fields, mock_make_request
     ):
-        """Test get_connection builds syncCatalog from configurations.streams."""
         mock_make_request.return_value = {
             "connectionId": "conn-123",
             "sourceId": "source-123",
@@ -1165,7 +1091,8 @@ class TestGetConnection:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_connection_with_existing_sync_catalog(self, mock_make_request):
-        """Test get_connection when syncCatalog already exists."""
+        # When the connection payload already has a syncCatalog we should use it
+        # as-is rather than re-building one from `configurations.streams`.
         mock_make_request.return_value = {
             "connectionId": "conn-123",
             "sourceId": "source-123",
@@ -1186,10 +1113,7 @@ class TestGetConnection:
 
 
 class TestClientSSLAndHeaders:
-    """Tests for SSL and header configuration."""
-
     def test_client_with_extra_headers(self):
-        """Test client with extra headers."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -1202,7 +1126,6 @@ class TestClientSSLAndHeaders:
 
     @patch("os.path.isfile", return_value=True)
     def test_client_with_valid_ssl_ca_cert(self, mock_isfile):
-        """Test client with valid SSL CA certificate."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -1215,7 +1138,6 @@ class TestClientSSLAndHeaders:
 
     @patch("os.path.isfile", return_value=False)
     def test_client_with_invalid_ssl_ca_cert(self, mock_isfile, caplog):
-        """Test client with invalid SSL CA certificate path."""
         config = AirbyteClientConfig(
             deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
             host_port="http://localhost:8000",
@@ -1230,11 +1152,8 @@ class TestClientSSLAndHeaders:
 
 
 class TestClientListJobs:
-    """Tests for list_jobs method."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_jobs_basic(self, mock_make_request):
-        """Test basic list_jobs call."""
         mock_make_request.return_value = {
             "data": [
                 {"jobId": "job-1", "status": "succeeded"},
@@ -1254,7 +1173,6 @@ class TestClientListJobs:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_jobs_with_date_filters(self, mock_make_request):
-        """Test list_jobs with date filters."""
         mock_make_request.return_value = {"data": [{"jobId": "job-1"}]}
 
         config = AirbyteClientConfig(
@@ -1278,7 +1196,7 @@ class TestClientListJobs:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_jobs_legacy_format(self, mock_make_request):
-        """Test list_jobs with legacy API format (jobs key)."""
+        # Older Airbyte versions returned `{"jobs": [...]}` instead of `{"data": [...]}`.
         mock_make_request.return_value = {
             "jobs": [
                 {"jobId": "job-1", "status": "succeeded"},
@@ -1298,11 +1216,8 @@ class TestClientListJobs:
 
 
 class TestClientGetMethods:
-    """Tests for get_source, get_destination, get_job methods."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_source(self, mock_make_request):
-        """Test get_source method."""
         mock_make_request.return_value = {
             "sourceId": "source-123",
             "name": "Test Source",
@@ -1321,7 +1236,6 @@ class TestClientGetMethods:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_destination(self, mock_make_request):
-        """Test get_destination method."""
         mock_make_request.return_value = {
             "destinationId": "dest-123",
             "name": "Test Destination",
@@ -1340,7 +1254,6 @@ class TestClientGetMethods:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_get_job(self, mock_make_request):
-        """Test get_job method retrieves detailed job information."""
         mock_make_request.return_value = {
             "jobId": "job-123",
             "status": "succeeded",
@@ -1368,11 +1281,8 @@ class TestClientGetMethods:
 
 
 class TestClientListStreams:
-    """Tests for list_streams method."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_streams(self, mock_make_request):
-        """Test list_streams method."""
         mock_make_request.return_value = {
             "streams": [
                 {"streamName": "users", "namespace": "public"},
@@ -1392,7 +1302,6 @@ class TestClientListStreams:
 
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_streams_empty(self, mock_make_request):
-        """Test list_streams returns empty list when no streams."""
         mock_make_request.return_value = {"streams": []}
 
         config = AirbyteClientConfig(
@@ -1406,11 +1315,8 @@ class TestClientListStreams:
 
 
 class TestClientListTags:
-    """Tests for list_tags method."""
-
     @patch("datahub.ingestion.source.airbyte.client.AirbyteOSSClient._make_request")
     def test_list_tags(self, mock_make_request):
-        """Test list_tags method."""
         mock_make_request.return_value = {
             "tags": [
                 {"id": "tag-1", "name": "production"},
