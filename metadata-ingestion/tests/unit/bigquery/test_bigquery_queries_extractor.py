@@ -990,15 +990,21 @@ class TestFetchQueryLogPerRegionIsolation:
                 yield MagicMock()
                 yield MagicMock()
 
-        with patch.object(
-            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        with (
+            patch.object(
+                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+            ),
+            patch.object(
+                BigQueryQueriesExtractor,
+                "fetch_region_query_log",
+                side_effect=fake_fetch_region,
+            ),
         ):
             extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
             extractor.config = config
             extractor.effective_region_qualifiers = ["region-us", "region-eu"]
             extractor.report = BigQueryQueriesExtractorReport()
             extractor.structured_report = mock_structured
-            extractor.fetch_region_query_log = fake_fetch_region
 
             mock_project = MagicMock()
             mock_project.id = "test-project"
@@ -1032,15 +1038,21 @@ class TestFetchQueryLogPerRegionIsolation:
             raise RuntimeError("transient BQ error")
             yield  # unreachable; makes this a generator
 
-        with patch.object(
-            BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+        with (
+            patch.object(
+                BigQueryQueriesExtractor, "__init__", lambda self, **kwargs: None
+            ),
+            patch.object(
+                BigQueryQueriesExtractor,
+                "fetch_region_query_log",
+                side_effect=fake_fetch_region,
+            ),
         ):
             extractor = BigQueryQueriesExtractor.__new__(BigQueryQueriesExtractor)
             extractor.config = config
             extractor.effective_region_qualifiers = ["region-us"]
             extractor.report = BigQueryQueriesExtractorReport()
             extractor.structured_report = mock_structured
-            extractor.fetch_region_query_log = fake_fetch_region
 
             mock_project = MagicMock()
             mock_project.id = "test-project"
