@@ -1,9 +1,8 @@
 """Live BigQuery Workload Identity Federation test.
 
-Requires real GCP + GitHub OIDC infrastructure — see
-docs/sources/bigquery/wif-live-test-setup.md for setup. The test is skipped
-unless both BIGQUERY_WIF_CONFIG_PATH and BIGQUERY_WIF_PROJECT_ID are set, so
-it is inert in normal CI and local runs.
+Requires real GCP + GitHub OIDC infrastructure. The test is skipped unless
+both BIGQUERY_WIF_CONFIG_PATH and BIGQUERY_WIF_PROJECT_ID are set, so it is
+inert in normal CI and local runs.
 """
 
 import os
@@ -22,11 +21,7 @@ PROJECT_ID = os.environ.get("BIGQUERY_WIF_PROJECT_ID")
 
 needs_wif = pytest.mark.skipif(
     not (WIF_CONFIG_PATH and PROJECT_ID),
-    reason=(
-        "Live WIF test requires BIGQUERY_WIF_CONFIG_PATH and "
-        "BIGQUERY_WIF_PROJECT_ID. See "
-        "docs/sources/bigquery/wif-live-test-setup.md."
-    ),
+    reason="Live WIF test requires BIGQUERY_WIF_CONFIG_PATH and BIGQUERY_WIF_PROJECT_ID.",
 )
 
 

@@ -340,13 +340,13 @@ def test_wif_config_rejects_invalid_json_string():
 
 
 def test_wif_config_rejects_invalid_json_in_dict_option():
-    """gcp_wif_configuration_json when string must be valid JSON."""
+    """gcp_wif_configuration_json only accepts a dict; strings must use gcp_wif_configuration_json_string."""
     source = {
         "path_specs": _BASE_WIF_PATH_SPECS,
         "auth_type": "workload_identity_federation",
         "gcp_wif_configuration_json": "not valid json",
     }
-    with pytest.raises(ValidationError, match="must be valid JSON"):
+    with pytest.raises(ValidationError, match="must be a dict"):
         GCSSourceConfig.model_validate(source)
 
 

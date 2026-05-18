@@ -1,5 +1,4 @@
 # Rename this file to bigquery-wif-live-test.yml to activate.
-# See metadata-ingestion/docs/sources/bigquery/wif-live-test-setup.md for setup.
 
 name: BigQuery WIF live test
 
