@@ -5,7 +5,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
-import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,11 +33,12 @@ public class AuthServiceTestConfiguration {
 
   public static String SYSTEM_CLIENT_ID = "systemClientId";
 
-  // StatelessTokenService has no bean definition (production uses StatefulTokenService)
+  // StatefulTokenService is provided explicitly because this lightweight Spring test context does
+  // not include the production token service factory.
   @Bean
   @Primary
-  public StatelessTokenService statelessTokenService() {
-    return Mockito.mock(StatelessTokenService.class);
+  public StatefulTokenService statefulTokenService() {
+    return Mockito.mock(StatefulTokenService.class);
   }
 
   @Bean(name = "configurationProvider")

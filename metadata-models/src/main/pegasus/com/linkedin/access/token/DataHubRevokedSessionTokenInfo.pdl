@@ -1,0 +1,28 @@
+namespace com.linkedin.access.token
+
+import com.linkedin.common.Time
+import com.linkedin.common.Urn
+
+/**
+ * Information about a revoked DataHub UI session token.
+ */
+@Aspect = {
+  "name": "dataHubRevokedSessionTokenInfo"
+}
+record DataHubRevokedSessionTokenInfo {
+
+  /**
+   * Urn of the actor whose session token was revoked.
+   */
+  actorUrn: optional Urn
+
+  /**
+   * When the token was revoked.
+   */
+  revokedAt: Time
+
+  /**
+   * When the original token expires, if known.
+   */
+  expiresAt: optional Time
+}

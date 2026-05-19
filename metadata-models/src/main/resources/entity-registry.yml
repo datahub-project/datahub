@@ -549,6 +549,11 @@ entities:
     keyAspect: dataHubAccessTokenKey
     aspects:
       - dataHubAccessTokenInfo
+  - name: dataHubRevokedSessionToken
+    category: internal
+    keyAspect: dataHubRevokedSessionTokenKey
+    aspects:
+      - dataHubRevokedSessionTokenInfo
   - name: test
     doc: A DataHub test
     category: core

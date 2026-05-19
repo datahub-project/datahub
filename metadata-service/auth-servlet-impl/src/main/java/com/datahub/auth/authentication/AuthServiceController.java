@@ -16,7 +16,9 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
-import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenException;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
@@ -96,8 +98,9 @@ public class AuthServiceController {
   // Retained for backwards compatibility
   private static final String PREFERRED_JWS_ALGORITHM = "preferredJwsAlgorithm";
   private static final String PREFERRED_JWS_ALGORITHM_2 = "preferredJwsAlgorithm2";
+  private static final String BEARER_PREFIX = "Bearer ";
 
-  @Autowired private StatelessTokenService _statelessTokenService;
+  @Autowired private StatefulTokenService _statefulTokenService;
 
   @Autowired private Authentication _systemAuthentication;
 
@@ -191,7 +194,7 @@ public class AuthServiceController {
               final long sessionTokenDurationMs =
                   _configProvider.getAuthentication().getSessionTokenDurationMs();
               final String token =
-                  _statelessTokenService.generateAccessToken(
+                  _statefulTokenService.generateAccessToken(
                       TokenType.SESSION,
                       new Actor(ActorType.USER, userId.asText()),
                       sessionTokenDurationMs);
@@ -233,6 +236,41 @@ public class AuthServiceController {
               new HttpHeaders(),
               null,
               null);
+        });
+  }
+
+  @PostMapping(value = "/revokeSessionToken")
+  CompletableFuture<ResponseEntity<Void>> revokeSessionToken(final HttpEntity<String> httpEntity) {
+    final String authorizationHeader = httpEntity.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
+    if (authorizationHeader == null || !authorizationHeader.startsWith(BEARER_PREFIX)) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
+
+    final String accessToken = authorizationHeader.substring(BEARER_PREFIX.length());
+    if (accessToken.isBlank()) {
+      return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+    }
+
+    final Authentication authentication = AuthenticationContext.getAuthentication();
+    final String actorUrn = authentication == null ? null : authentication.getActor().toUrnStr();
+    return CompletableFuture.supplyAsync(
+        () -> {
+          try {
+            final TokenClaims claims = _statefulTokenService.validateAccessToken(accessToken);
+            if (!claims.getTokenType().equals(TokenType.SESSION)) {
+              return new ResponseEntity<Void>(HttpStatus.FORBIDDEN);
+            }
+
+            _statefulTokenService.revokeSessionAccessToken(
+                systemOperationContext, accessToken, actorUrn, claims.getExpirationInMs());
+            return new ResponseEntity<Void>(HttpStatus.OK);
+          } catch (TokenException e) {
+            log.info("Session token is already invalid or revoked during logout.", e);
+            return new ResponseEntity<Void>(HttpStatus.UNAUTHORIZED);
+          } catch (Exception e) {
+            log.error("Failed to revoke current session token.", e);
+            return new ResponseEntity<Void>(HttpStatus.INTERNAL_SERVER_ERROR);
+          }
         });
   }
 

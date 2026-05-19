@@ -1,6 +1,7 @@
 package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
+import com.linkedin.access.token.DataHubRevokedSessionTokenInfo;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.DataHubAccessTokenKey;
+import com.linkedin.metadata.key.DataHubRevokedSessionTokenKey;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -33,10 +35,14 @@ import org.apache.commons.lang3.ArrayUtils;
  */
 @Slf4j
 public class StatefulTokenService extends StatelessTokenService {
+  private static final String REVOKED_SESSION_TOKEN_ENTITY_NAME = "dataHubRevokedSessionToken";
+  private static final String REVOKED_SESSION_TOKEN_INFO_ASPECT_NAME =
+      "dataHubRevokedSessionTokenInfo";
 
   private final OperationContext systemOperationContext;
   private final EntityService<?> _entityService;
   private final LoadingCache<String, Boolean> _revokedTokenCache;
+  private final LoadingCache<String, Boolean> _revokedSessionTokenCache;
   private final String salt;
 
   public StatefulTokenService(
@@ -59,6 +65,18 @@ public class StatefulTokenService extends StatelessTokenService {
                   public Boolean load(final String key) {
                     final Urn accessUrn = tokenUrnFromKey(key);
                     return !_entityService.exists(systemOperationContext, accessUrn, true);
+                  }
+                });
+    this._revokedSessionTokenCache =
+        CacheBuilder.newBuilder()
+            .maximumSize(10000)
+            .expireAfterWrite(5, TimeUnit.MINUTES)
+            .build(
+                new CacheLoader<String, Boolean>() {
+                  @Override
+                  public Boolean load(final String key) {
+                    final Urn revokedTokenUrn = revokedSessionTokenUrnFromKey(key);
+                    return _entityService.exists(systemOperationContext, revokedTokenUrn, true);
                   }
                 });
     this.salt = Objects.requireNonNull(salt);
@@ -159,8 +177,12 @@ public class StatefulTokenService extends StatelessTokenService {
   public TokenClaims validateAccessToken(@Nonnull String accessToken) throws TokenException {
     try {
       final TokenClaims tokenClaims = super.validateAccessToken(accessToken);
-      if (tokenClaims.getTokenVersion().equals(TokenVersion.TWO)) {
-        final String hash = hash(accessToken);
+      final String hash = hash(accessToken);
+      if (tokenClaims.getTokenType().equals(TokenType.SESSION)) {
+        if (_revokedSessionTokenCache.get(hash)) {
+          throw new TokenException("Failed to validate DataHub token: Token has been revoked");
+        }
+      } else if (tokenClaims.getTokenVersion().equals(TokenVersion.TWO)) {
         if (_revokedTokenCache.get(hash)) {
           throw new TokenException("Failed to validate DataHub token: Token has been revoked");
         }
@@ -180,6 +202,10 @@ public class StatefulTokenService extends StatelessTokenService {
     return Urn.createFromTuple(Constants.ACCESS_TOKEN_ENTITY_NAME, tokenHash);
   }
 
+  public Urn revokedSessionTokenUrnFromKey(String tokenHash) {
+    return Urn.createFromTuple(REVOKED_SESSION_TOKEN_ENTITY_NAME, tokenHash);
+  }
+
   public void revokeAccessToken(OperationContext opContext, @Nonnull String hashedToken)
       throws TokenException {
     try {
@@ -193,6 +219,55 @@ public class StatefulTokenService extends StatelessTokenService {
       throw new TokenException("Failed to validate DataHub token from cache", e);
     }
     throw new TokenException("Access token no longer exists");
+  }
+
+  public void revokeSessionAccessToken(
+      @Nonnull OperationContext opContext,
+      @Nonnull String accessToken,
+      @Nullable String actorUrn,
+      @Nullable Long expiresAtMs)
+      throws TokenException {
+    final String hashedToken = hash(accessToken);
+    try {
+      if (_revokedSessionTokenCache.get(hashedToken)) {
+        return;
+      }
+
+      final MetadataChangeProposal proposal = new MetadataChangeProposal();
+      final DataHubRevokedSessionTokenKey key = new DataHubRevokedSessionTokenKey();
+      key.setId(hashedToken);
+      proposal.setEntityKeyAspect(GenericRecordUtils.serializeAspect(key));
+      proposal.setEntityType(REVOKED_SESSION_TOKEN_ENTITY_NAME);
+      proposal.setAspectName(REVOKED_SESSION_TOKEN_INFO_ASPECT_NAME);
+
+      final DataHubRevokedSessionTokenInfo value = new DataHubRevokedSessionTokenInfo();
+      if (actorUrn != null) {
+        value.setActorUrn(UrnUtils.getUrn(actorUrn));
+      }
+      value.setRevokedAt(System.currentTimeMillis());
+      if (expiresAtMs != null) {
+        value.setExpiresAt(expiresAtMs);
+      }
+      proposal.setAspect(GenericRecordUtils.serializeAspect(value));
+      proposal.setChangeType(ChangeType.UPSERT);
+
+      final AuditStamp auditStamp =
+          actorUrn == null
+              ? AuditStampUtils.createDefaultAuditStamp()
+              : AuditStampUtils.createDefaultAuditStamp().setActor(UrnUtils.getUrn(actorUrn));
+
+      _entityService.ingestProposal(
+          opContext,
+          AspectsBatchImpl.builder()
+              .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext())
+              .build(opContext),
+          false);
+      _revokedSessionTokenCache.put(hashedToken, true);
+    } catch (ExecutionException e) {
+      throw new TokenException("Failed to validate session token from cache", e);
+    } catch (Exception e) {
+      throw new TokenException("Failed to revoke session token", e);
+    }
   }
 
   /** Hashes the input after salting it. */

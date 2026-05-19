@@ -245,5 +245,22 @@ public class StatefulTokenServiceTest {
     assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
   }
 
+  @Test
+  public void revokeSessionTokenPreventsReuse() throws TokenException {
+    StatefulTokenService tokenService =
+        new StatefulTokenService(
+            opContext, TEST_SIGNING_KEY, "HS256", null, mockService, TEST_SALTING_KEY);
+    Actor datahub = new Actor(ActorType.USER, "datahub");
+    String token =
+        tokenService.generateAccessToken(
+            TokenType.SESSION, datahub, StatelessTokenService.DEFAULT_EXPIRES_IN_MS);
+
+    TokenClaims claims = tokenService.validateAccessToken(token);
+    tokenService.revokeSessionAccessToken(
+        opContext, token, datahub.toUrnStr(), claims.getExpirationInMs());
+
+    assertThrows(TokenException.class, () -> tokenService.validateAccessToken(token));
+  }
+
   private void mockStateful() {}
 }

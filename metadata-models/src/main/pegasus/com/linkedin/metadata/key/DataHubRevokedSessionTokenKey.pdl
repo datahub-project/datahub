@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a revoked DataHub UI session token.
+ */
+@Aspect = {
+  "name": "dataHubRevokedSessionTokenKey"
+}
+record DataHubRevokedSessionTokenKey {
+  /**
+   * The salted hash of the revoked session token.
+   */
+  id: string
+}

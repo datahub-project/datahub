@@ -19,8 +19,10 @@ import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.LoginDenialReason;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
-import com.datahub.authentication.token.StatelessTokenService;
+import com.datahub.authentication.token.StatefulTokenService;
+import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenType;
+import com.datahub.authentication.token.TokenVersion;
 import com.datahub.authentication.user.NativeUserService;
 import com.datahub.telemetry.TrackingService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -45,6 +47,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
@@ -76,7 +79,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   @Autowired private EntityService mockEntityService;
   @Autowired private SecretService mockSecretService;
   @Autowired private NativeUserService mockNativeUserService;
-  @Autowired private StatelessTokenService mockTokenService;
+  @Autowired private StatefulTokenService mockTokenService;
   @Autowired private InviteTokenService mockInviteTokenService;
   @Autowired private OperationContext systemOperationContext;
   @Autowired private ConfigurationProvider mockConfigProvider;
@@ -188,6 +191,61 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     Actor capturedActor = actorCaptor.getValue();
     assertEquals(userId, capturedActor.getId());
+  }
+
+  @Test
+  public void testRevokeSessionTokenSuccess() throws Exception {
+    final String sessionToken = "session-token";
+    final Authentication userAuth = mock(Authentication.class);
+    final Actor actor = new Actor(ActorType.USER, "testUser");
+    when(userAuth.getActor()).thenReturn(actor);
+    AuthenticationContext.setAuthentication(userAuth);
+
+    when(mockTokenService.validateAccessToken(sessionToken))
+        .thenReturn(
+            new TokenClaims(
+                TokenVersion.ONE, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
+    HttpEntity<String> httpEntity = new HttpEntity<>("", headers);
+
+    ResponseEntity<Void> response = authServiceController.revokeSessionToken(httpEntity).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verify(mockTokenService)
+        .revokeSessionAccessToken(
+            eq(systemOperationContext),
+            eq(sessionToken),
+            eq(actor.toUrnStr()),
+            eq(123L));
+  }
+
+  @Test
+  public void testRevokeSessionTokenRejectsNonSessionToken() {
+    final String accessToken = "personal-token";
+    when(mockTokenService.validateAccessToken(accessToken))
+        .thenReturn(
+            new TokenClaims(
+                TokenVersion.TWO, TokenType.PERSONAL, ActorType.USER, "testUser", 123L));
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken);
+    HttpEntity<String> httpEntity = new HttpEntity<>("", headers);
+
+    ResponseEntity<Void> response = authServiceController.revokeSessionToken(httpEntity).join();
+
+    assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
+    verify(mockTokenService, never())
+        .revokeSessionAccessToken(any(OperationContext.class), anyString(), any(), any());
+  }
+
+  @Test
+  public void testRevokeSessionTokenMissingAuthorizationHeader() {
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("")).join();
+
+    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
   }
 
   @Test(expectedExceptions = CompletionException.class)

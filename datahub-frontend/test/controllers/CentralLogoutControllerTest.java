@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import auth.sso.SsoManager;
+import client.AuthServiceClient;
 import com.linkedin.metadata.utils.BasePathUtils;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
@@ -21,8 +22,10 @@ public class CentralLogoutControllerTest {
 
   private CentralLogoutController controller;
   private SsoManager mockSsoManager;
+  private AuthServiceClient mockAuthServiceClient;
   private Config mockConfig;
   private Http.Request mockRequest;
+  private Http.Session mockSession;
 
   @BeforeEach
   public void setUp() throws Exception {
@@ -33,15 +36,20 @@ public class CentralLogoutControllerTest {
 
     // Mock SSO manager
     mockSsoManager = mock(SsoManager.class);
+    mockAuthServiceClient = mock(AuthServiceClient.class);
 
     // Mock HTTP request
     mockRequest = mock(Http.Request.class);
+    mockSession = mock(Http.Session.class);
+    when(mockRequest.session()).thenReturn(mockSession);
+    when(mockSession.data()).thenReturn(Map.of());
 
     // Create the controller
     controller = new CentralLogoutController();
 
     // Use reflection to set private fields
     setPrivateField(controller, "ssoManager", mockSsoManager);
+    setPrivateField(controller, "authServiceClient", mockAuthServiceClient);
     setPrivateField(controller, "config", mockConfig);
   }
 
@@ -127,6 +135,46 @@ public class CentralLogoutControllerTest {
 
     // Verify SSO manager was called
     verify(mockSsoManager).isSsoEnabled();
+  }
+
+  @Test
+  public void testExecuteLogoutRevokesSessionTokenBeforeRedirect() {
+    when(mockSsoManager.isSsoEnabled()).thenReturn(false);
+    when(mockSession.data()).thenReturn(Map.of("token", "session-token"));
+
+    try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
+      basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenReturn("/login");
+
+      Result result = controller.executeLogout(mockRequest);
+
+      assertNotNull(result);
+      assertEquals(303, result.status());
+      assertEquals("/login", result.redirectLocation().orElse(""));
+      verify(mockAuthServiceClient).revokeSessionToken("session-token");
+    }
+  }
+
+  @Test
+  public void testExecuteLogoutReturnsErrorWhenRevocationFails() {
+    when(mockSession.data()).thenReturn(Map.of("token", "session-token"));
+    when(mockAuthServiceClient.revokeSessionToken("session-token"))
+        .thenThrow(new RuntimeException("boom"));
+
+    try (MockedStatic<BasePathUtils> basePathUtilsMock = mockStatic(BasePathUtils.class)) {
+      basePathUtilsMock.when(() -> BasePathUtils.normalizeBasePath(anyString())).thenReturn("");
+      basePathUtilsMock
+          .when(() -> BasePathUtils.addBasePath(anyString(), anyString()))
+          .thenReturn("/login");
+
+      Result result = controller.executeLogout(mockRequest);
+
+      assertNotNull(result);
+      assertEquals(500, result.status());
+      verify(mockSsoManager, never()).isSsoEnabled();
+    }
   }
 
   @Test
