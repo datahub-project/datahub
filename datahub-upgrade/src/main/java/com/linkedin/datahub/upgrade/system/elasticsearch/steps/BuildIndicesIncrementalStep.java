@@ -86,7 +86,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return (context) -> {
       try {
         List<ReindexConfig> configsNeedingReindex =
-            IndexUtils.getIndicesNeedingReindex(
+            IndexUtils.getIndicesNeedingReindexOrBuild(
                 context.opContext(), indexedServices, structuredProperties);
         if (configsNeedingReindex.isEmpty()) {
           log.info("No indices require incremental reindex");
@@ -115,6 +115,32 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           if (indexBuilder == null) {
             log.error("No index builder found for index: {}", config.name());
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+          }
+
+          // Fresh-install case: index doesn't exist yet. Delegate to buildIndex, which
+          // short-circuits to
+          // createIndex(config.name(), config) when !exists(), and persist state as COMPLETED so
+          // Phase 2 and resumed runs skip it.
+          if (!config.exists()) {
+            log.info("Index {} does not exist; creating directly", config.name());
+            indexBuilder.buildIndex(config);
+            long createTime = System.currentTimeMillis();
+            upgradeState =
+                IncrementalReindexState.setPhase1State(
+                    upgradeState,
+                    config.name(),
+                    config.name(),
+                    null,
+                    createTime,
+                    0L,
+                    null,
+                    false,
+                    IncrementalReindexState.Status.COMPLETED);
+            upgradeState =
+                IncrementalReindexState.setReindexCompleteTime(
+                    upgradeState, config.name(), createTime);
+            checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
+            continue;
           }
 
           boolean requiresDataBackfill = config.requiresDataBackfill();
