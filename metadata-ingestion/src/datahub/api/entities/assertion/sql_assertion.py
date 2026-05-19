@@ -35,6 +35,11 @@ class SqlMetricAssertion(BaseEntityAssertion):
                 statement=self.statement,
                 operator=self.operator.operator,
                 parameters=self.operator.generate_parameters(),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
+                ),
             ),
         )
 
@@ -73,6 +78,11 @@ class SqlMetricChangeAssertion(BaseEntityAssertion):
                 ),
                 operator=self.operator.operator,
                 parameters=self.operator.generate_parameters(),
+                failureSeverityConfig=(
+                    self.failure_severity_config.to_model()
+                    if self.failure_severity_config
+                    else None
+                ),
             ),
         )
 

@@ -817,23 +817,6 @@
             },
             "rowCount": 0,
             "columnCount": 3,
-            "fieldProfiles": [
-                {
-                    "fieldPath": "id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "description",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                },
-                {
-                    "fieldPath": "customer_id",
-                    "uniqueCount": 0,
-                    "nullCount": 0
-                }
-            ],
             "sizeInBytes": 16384
         }
     },
