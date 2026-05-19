@@ -1359,7 +1359,7 @@ ORDER by DataBaseName, TableName;
                 continue
             with _engine_connect_with_retry(engine, report=self.report) as conn:
                 db_inspector = inspect(conn)
-                db_inspector._datahub_database = db
+                db_inspector._datahub_database = db  # type: ignore[attr-defined]
                 yield db_inspector
 
     def get_db_name(self, inspector: Inspector) -> str:
