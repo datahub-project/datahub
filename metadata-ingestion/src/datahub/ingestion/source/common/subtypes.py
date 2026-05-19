@@ -44,6 +44,7 @@ class DatasetSubTypes(StrEnum):
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
+    METRIC_VIEW = "Metric View"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
