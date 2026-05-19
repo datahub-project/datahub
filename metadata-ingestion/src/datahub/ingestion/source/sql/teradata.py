@@ -197,11 +197,14 @@ _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
 
 def _should_retry(exc: BaseException) -> bool:
     """Return True when *exc* is a retryable Teradata / network error."""
-    # OperationalError covers all connection-level failures (network drop,
-    # pool exhaustion, driver-level timeout) — always worth retrying.
-    if isinstance(exc, (OperationalError, PoolTimeoutError)):
+    if isinstance(exc, PoolTimeoutError):
         return True
-    if isinstance(exc, DatabaseError):
+    # OperationalError wraps both transient failures (network drop, timeout)
+    # and permanent config errors (auth failure, database does not exist,
+    # permission denied).  Apply the same content-based check as DatabaseError
+    # so we only retry errors whose message or error code identifies them as
+    # genuinely transient — avoiding 3x wasted time on unrecoverable errors.
+    if isinstance(exc, (OperationalError, DatabaseError)):
         msg = str(exc).lower()
         if any(s in msg for s in _RETRYABLE_ERROR_SUBSTRINGS):
             return True
@@ -777,14 +780,14 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=13,
         description="Maximum number of connections in the SQLAlchemy connection pool "
         "(base connections + overflow). Teradata drivers can be sensitive to high "
-        "connection counts; keep this conservative. Must be between 10 and 50.",
+        "connection counts; keep this conservative. Must be between 1 and 50.",
     )
 
     @field_validator("max_pool_size")
     @classmethod
     def validate_max_pool_size(cls, v: int) -> int:
-        if not 10 <= v <= 50:
-            raise ValueError(f"max_pool_size must be between 10 and 50, got {v}")
+        if not 1 <= v <= 50:
+            raise ValueError(f"max_pool_size must be between 1 and 50, got {v}")
         return v
 
     extract_ownership: bool = Field(
@@ -881,6 +884,36 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "Default is 60000 (60 seconds)."
         ),
     )
+
+    retry_max_attempts: int = Field(
+        default=3,
+        description=(
+            "Maximum number of attempts for retryable database operations Default is 3."
+        ),
+    )
+
+    @field_validator("retry_max_attempts")
+    @classmethod
+    def validate_retry_max_attempts(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"retry_max_attempts must be >= 1, got {v}")
+        return v
+
+    retry_initial_backoff_seconds: float = Field(
+        default=1.0,
+        description=(
+            "Initial backoff in seconds before the first retry. "
+            "Subsequent retries use exponential backoff (initial * 2^attempt). "
+            "Default is 1.0."
+        ),
+    )
+
+    @field_validator("retry_initial_backoff_seconds")
+    @classmethod
+    def validate_retry_initial_backoff_seconds(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError(f"retry_initial_backoff_seconds must be > 0, got {v}")
+        return v
 
     view_processing_timeout_seconds: int = Field(
         default=1800,
@@ -1282,6 +1315,85 @@ ORDER by DataBaseName, TableName;
         config = TeradataConfig.model_validate(config_dict)
         return cls(config, ctx)
 
+    # ------------------------------------------------------------------
+    # Retry helpers — thin wrappers that bind config values so call sites
+    # don't repeat max_attempts / initial_backoff_seconds everywhere.
+    # ------------------------------------------------------------------
+
+    @contextmanager
+    def _retry_connect(
+        self, engine: Engine, max_attempts: Optional[int] = None
+    ) -> Generator[Connection, None, None]:
+        """Acquire a connection with config-driven retry / backoff."""
+        with _engine_connect_with_retry(
+            engine,
+            max_attempts=(
+                max_attempts
+                if max_attempts is not None
+                else self.config.retry_max_attempts
+            ),
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+        ) as conn:
+            yield conn
+
+    def _retry_execute(
+        self,
+        conn: Connection,
+        stmt: Any,
+        params: Optional[Dict[str, Any]] = None,
+    ) -> Any:
+        """Execute a statement with config-driven retry / backoff."""
+        return _execute_with_retry(
+            conn,
+            stmt,
+            params,
+            max_attempts=self.config.retry_max_attempts,
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+        )
+
+    def _retry_fetchmany(self, result: Any, batch_size: int) -> List[Any]:
+        """Fetch a batch with config-driven retry / backoff."""
+        return _fetchmany_with_retry(
+            result,
+            batch_size,
+            max_attempts=self.config.retry_max_attempts,
+            initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
+            report=self.report,
+        )
+
+    def _get_schema_names_with_retry(self, engine: Engine) -> List[str]:
+        """Fetch schema names, retrying the full connect+query sequence on transient errors.
+
+        Both engine.connect() and get_schema_names() can fail transiently.
+        _retry_connect only retries the connect step; failures inside the ``with``
+        block propagate out unretried.  This method owns the outer retry loop so
+        that a transient blip during either step triggers a fresh attempt from
+        scratch rather than aborting schema discovery entirely.
+
+        max_attempts=1 is passed to _retry_connect to prevent a nested retry
+        layer that would otherwise produce up to retry_max_attempts² total attempts.
+        """
+        max_attempts = self.config.retry_max_attempts
+        initial_backoff = self.config.retry_initial_backoff_seconds
+        for attempt in range(max_attempts):
+            try:
+                with self._retry_connect(engine, max_attempts=1) as conn:
+                    return inspect(conn).get_schema_names()
+            except Exception as exc:
+                if not _should_retry(exc) or attempt == max_attempts - 1:
+                    raise
+                backoff = initial_backoff * (2**attempt)
+                logger.warning(
+                    f"Retryable error fetching schema names "
+                    f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
+                    f"Retrying in {backoff:.1f}s..."
+                )
+                self.report.num_db_retries += 1
+                time.sleep(backoff)
+        raise RuntimeError("unreachable")  # loop always raises or returns
+
     def _init_schema_resolver(self) -> SchemaResolver:
         if not self.config.include_tables or not self.config.include_views:
             if self.ctx.graph:
@@ -1331,29 +1443,7 @@ ORDER by DataBaseName, TableName;
             elif self.config.databases:
                 databases = list(self.config.databases)
             else:
-                databases = []
-                # The outer loop owns all retry decisions for both the connect step
-                # and get_schema_names() — passing max_attempts=1 to
-                # _engine_connect_with_retry prevents a nested retry layer that
-                # would otherwise cause up to _RETRY_MAX_ATTEMPTS² total attempts.
-                for attempt in range(_RETRY_MAX_ATTEMPTS):
-                    try:
-                        with _engine_connect_with_retry(
-                            engine, max_attempts=1, report=self.report
-                        ) as conn:
-                            databases = inspect(conn).get_schema_names()
-                        break
-                    except Exception as exc:
-                        if not _should_retry(exc) or attempt == _RETRY_MAX_ATTEMPTS - 1:
-                            raise
-                        backoff = _RETRY_INITIAL_BACKOFF_SECONDS * (2**attempt)
-                        logger.warning(
-                            f"Retryable error fetching schema names "
-                            f"(attempt {attempt + 1}/{_RETRY_MAX_ATTEMPTS}): {exc}. "
-                            f"Retrying in {backoff:.1f}s..."
-                        )
-                        self.report.num_db_retries += 1
-                        time.sleep(backoff)
+                databases = self._get_schema_names_with_retry(engine)
 
             # When the user supplied an explicit database list, validate each entry
             # against dbc.TablesV (populated into _tables_cache during discovery).
@@ -1393,7 +1483,7 @@ ORDER by DataBaseName, TableName;
                         ),
                     )
                     continue
-                with _engine_connect_with_retry(engine, report=self.report) as conn:
+                with self._retry_connect(engine) as conn:
                     db_inspector = inspect(conn)
                     db_inspector._datahub_database = db  # type: ignore[attr-defined]
                     yield db_inspector
@@ -1609,7 +1699,7 @@ ORDER by DataBaseName, TableName;
                 try:
                     # Measure connection acquisition time
                     conn_start = time.time()
-                    with _engine_connect_with_retry(engine, report=self.report) as conn:
+                    with self._retry_connect(engine) as conn:
                         timings["connection_acquire"] = time.time() - conn_start
 
                         # Update connection pool metrics
@@ -1628,10 +1718,9 @@ ORDER by DataBaseName, TableName;
 
                         # Set database context once per connection/thread
                         # This allows HELP commands to work without requiring database in connection string
-                        _execute_with_retry(
+                        self._retry_execute(
                             conn,
                             text(f'DATABASE "{schema}"'),
-                            report=self.report,
                         )
 
                         # Measure view processing setup
@@ -1837,15 +1926,14 @@ ORDER by DataBaseName, TableName;
         engine = self.get_metadata_engine()
 
         try:
-            with _engine_connect_with_retry(engine, report=self.report) as conn:
+            with self._retry_connect(engine) as conn:
                 inspector = inspect(conn)
 
                 # Set database context once for all views in this schema
                 # This allows HELP commands to work without requiring database in connection string
-                _execute_with_retry(
+                self._retry_execute(
                     conn,
                     text(f'DATABASE "{schema}"'),
-                    report=self.report,
                 )
                 logger.debug(f"Set database context to {schema} for view processing")
 
@@ -1976,11 +2064,10 @@ ORDER by DataBaseName, TableName;
                     # Use Teradata's CURRENT_TIMESTAMP so the watermark is in the same
                     # time reference as LastAlterTimeStamp. Using the client clock risks
                     # skew when the client and server are in different timezones.
-                    with _engine_connect_with_retry(engine, report=self.report) as conn:
-                        ts_row = _execute_with_retry(
+                    with self._retry_connect(engine) as conn:
+                        ts_row = self._retry_execute(
                             conn,
                             text("SELECT CURRENT_TIMESTAMP(0)"),
-                            report=self.report,
                         ).fetchone()
                     td_now = ts_row[0] if ts_row else datetime.now()
                     if hasattr(td_now, "tzinfo") and td_now.tzinfo is not None:
@@ -1996,11 +2083,10 @@ ORDER by DataBaseName, TableName;
                         "Tables/views with LastAlterTimeStamp before the watermark will be skipped."
                     )
 
-                with _engine_connect_with_retry(engine, report=self.report) as conn:
-                    rows = _execute_with_retry(
+                with self._retry_connect(engine) as conn:
+                    rows = self._retry_execute(
                         conn,
                         text(self._build_tables_and_views_query()),
-                        report=self.report,
                     ).fetchall()
                 for entry in rows:
                     table = TeradataTable(
@@ -2216,7 +2302,7 @@ ORDER by DataBaseName, TableName;
 
         fetch_engine = self.get_metadata_engine()
         try:
-            with _engine_connect_with_retry(fetch_engine, report=self.report) as conn:
+            with self._retry_connect(fetch_engine) as conn:
                 cursor_type = (
                     "server-side"
                     if self.config.use_server_side_cursors
@@ -2248,9 +2334,7 @@ ORDER by DataBaseName, TableName;
                         # propagates to the outer except block.  The stall-detection
                         # watchdog above covers the complementary failure mode where
                         # fetchmany() hangs rather than raises.
-                        batch = _fetchmany_with_retry(
-                            result, batch_size, report=self.report
-                        )
+                        batch = self._retry_fetchmany(result, batch_size)
                         if not batch:
                             break
 
@@ -2299,8 +2383,8 @@ ORDER by DataBaseName, TableName;
                 FROM PDCRINFO.DBQLSqlTbl_Hst 
                 WHERE 1=0
             """
-            with _engine_connect_with_retry(engine, report=self.report) as conn:
-                _execute_with_retry(conn, text(check_query), report=self.report)
+            with self._retry_connect(engine) as conn:
+                self._retry_execute(conn, text(check_query))
                 logger.info(
                     "Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is available"
                 )
@@ -2309,7 +2393,7 @@ ORDER by DataBaseName, TableName;
             if _should_retry(e):
                 logger.warning(
                     f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
-                    f"after {_RETRY_MAX_ATTEMPTS} attempts due to a transient error: {e}. "
+                    f"after {self.config.retry_max_attempts} attempts due to a transient error: {e}. "
                     "Historical lineage will be skipped for this run."
                 )
             else:
@@ -2411,11 +2495,10 @@ ORDER by DataBaseName, TableName;
             try:
                 # Try server-side cursor first
                 streaming_conn = connection.execution_options(stream_results=True)
-                result = _execute_with_retry(
+                result = self._retry_execute(
                     streaming_conn,
                     text(query),
                     params=params,
-                    report=self.report,
                 )
                 logger.debug(
                     "Successfully using server-side cursor for query execution"
@@ -2429,11 +2512,10 @@ ORDER by DataBaseName, TableName;
                 # Fall through to regular execution
 
         # Regular execution (client-side)
-        return _execute_with_retry(
+        return self._retry_execute(
             connection,
             text(query),
             params=params,
-            report=self.report,
         )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:

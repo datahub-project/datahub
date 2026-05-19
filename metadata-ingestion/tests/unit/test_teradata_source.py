@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
@@ -2811,6 +2812,128 @@ class TestConfiguredDatabasesValidation:
         assert source.report.warnings == []
 
 
+class TestShouldRetry:
+    """_should_retry classifies errors as retryable or not."""
+
+    def test_pool_timeout_is_always_retryable(self):
+        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert _should_retry(PoolTimeoutError("pool exhausted")) is True
+
+    def test_operational_error_with_retryable_message(self):
+        from sqlalchemy.exc import OperationalError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert _should_retry(OperationalError("connection reset", None, None)) is True
+        assert _should_retry(OperationalError("timed out", None, None)) is True
+
+    def test_operational_error_with_retryable_error_code(self):
+        from sqlalchemy.exc import OperationalError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        # Error codes 2631, 3111, 3120, 3597, 3598, 3897 are explicitly retryable.
+        assert _should_retry(OperationalError("[Error 3597]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
+
+    def test_operational_error_non_retryable_auth_failure(self):
+        """Auth failures and config errors embedded in OperationalError must NOT be retried."""
+        from sqlalchemy.exc import OperationalError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert (
+            _should_retry(OperationalError("authentication failed", None, None))
+            is False
+        )
+        assert _should_retry(OperationalError("permission denied", None, None)) is False
+        # Teradata error 3807 = "Object does not exist" — non-transient config error.
+        assert _should_retry(OperationalError("[Error 3807]", None, None)) is False
+
+    def test_database_error_with_retryable_message(self):
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert _should_retry(DatabaseError("broken pipe", None, None)) is True
+
+    def test_database_error_non_retryable(self):
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert _should_retry(DatabaseError("syntax error", None, None)) is False
+
+    def test_generic_exception_not_retryable(self):
+        from datahub.ingestion.source.sql.teradata import _should_retry
+
+        assert _should_retry(ValueError("something went wrong")) is False
+
+
+class TestRetryConfig:
+    """retry_max_attempts and retry_initial_backoff_seconds config fields."""
+
+    def test_retry_max_attempts_default(self):
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.retry_max_attempts == 3
+
+    def test_retry_initial_backoff_seconds_default(self):
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.retry_initial_backoff_seconds == 1.0
+
+    def test_retry_max_attempts_custom(self):
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "retry_max_attempts": 5}
+        )
+        assert config.retry_max_attempts == 5
+
+    def test_retry_initial_backoff_seconds_custom(self):
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "retry_initial_backoff_seconds": 2.5}
+        )
+        assert config.retry_initial_backoff_seconds == 2.5
+
+    def test_retry_max_attempts_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate({**_base_config(), "retry_max_attempts": 0})
+
+    def test_retry_initial_backoff_seconds_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "retry_initial_backoff_seconds": 0.0}
+            )
+
+    def test_retry_initial_backoff_seconds_negative_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "retry_initial_backoff_seconds": -1.0}
+            )
+
+    def test_retry_wrappers_honour_config(self):
+        """_retry_connect / _retry_execute / _retry_fetchmany use config values."""
+
+        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
+
+        source = _create_source_patched()
+        source.config.retry_max_attempts = 2
+        source.config.retry_initial_backoff_seconds = 0.01
+
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            PoolTimeoutError("exhausted"),
+            mock_conn,
+        ]
+
+        with patch("time.sleep"), source._retry_connect(mock_engine) as conn:
+            assert conn is mock_conn
+
+        assert mock_engine.connect.call_count == 2
+
+
 class TestConnectionPoolRetry:
     """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
 
@@ -2929,85 +3052,80 @@ class TestConnectionPoolRetry:
 
 
 class TestSchemaNameRetry:
-    """get_inspectors() retries get_schema_names() on transient errors."""
+    """_get_schema_names_with_retry() retries the connect+query sequence on transient errors."""
+
+    def _make_engine(self, connect_results):
+        """Return a mock engine whose connect() yields the given side effects."""
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = connect_results
+        return mock_engine
 
     def test_retries_on_transient_error_then_succeeds(self, caplog):
-        """A transient error on the first get_schema_names() attempt is retried;
-        the second attempt succeeds and the correct databases are yielded."""
+        """A transient error on the first attempt is retried; the second succeeds."""
         import logging
 
         from sqlalchemy.exc import OperationalError
 
         source = _create_source_patched()
 
-        mock_conn = MagicMock()
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1", "db2"]
 
-        # First inspector fails; second succeeds.
-        ok_inspector = MagicMock()
-        ok_inspector.get_schema_names.return_value = ["db1", "db2"]
-
-        fail_inspector = MagicMock()
-        fail_inspector.get_schema_names.side_effect = OperationalError(
-            "connection reset", None, None
-        )
-
-        # inspect() is called: once on failure, once to get schema names, then
-        # once per discovered database (per-db inspector in the for loop).
-        # Each per-db inspector must be a distinct object so that the
-        # _datahub_database attribute set in the loop is independent.
-        inspect_side_effects = iter(
-            [fail_inspector, ok_inspector, MagicMock(), MagicMock()]
+        # First connect raises a transient error; second succeeds.
+        mock_engine = self._make_engine(
+            [OperationalError("connection reset", None, None), good_conn]
         )
 
         with (
             patch(
-                "datahub.ingestion.source.sql.teradata.create_engine",
-                return_value=mock_engine,
-            ),
-            patch(
                 "datahub.ingestion.source.sql.teradata.inspect",
-                side_effect=inspect_side_effects,
+                return_value=good_inspector,
             ),
             patch("time.sleep"),
             caplog.at_level(
                 logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
             ),
         ):
-            inspectors = list(source.get_inspectors())
+            result = source._get_schema_names_with_retry(mock_engine)
 
-        assert [i._datahub_database for i in inspectors] == ["db1", "db2"]
+        assert result == ["db1", "db2"]
         assert source.report.num_db_retries >= 1
         assert any("schema names" in r.message for r in caplog.records)
 
     def test_aborts_on_non_retryable_error(self):
-        """A non-retryable error from get_schema_names() propagates immediately."""
+        """A non-retryable error propagates immediately without retry."""
         source = _create_source_patched()
 
-        mock_conn = MagicMock()
-        mock_engine = MagicMock()
-        mock_engine.connect.return_value = mock_conn
-
-        bad_inspector = MagicMock()
-        bad_inspector.get_schema_names.side_effect = Exception("permission denied")
+        mock_engine = self._make_engine([Exception("permission denied")])
 
         with (
-            patch(
-                "datahub.ingestion.source.sql.teradata.create_engine",
-                return_value=mock_engine,
-            ),
-            patch(
-                "datahub.ingestion.source.sql.teradata.inspect",
-                return_value=bad_inspector,
-            ),
             patch("time.sleep"),
             pytest.raises(Exception, match="permission denied"),
         ):
-            list(source.get_inspectors())
+            source._get_schema_names_with_retry(mock_engine)
 
-        # Only one attempt — non-retryable errors are not retried.
-        assert bad_inspector.get_schema_names.call_count == 1
+        # One connect attempt, immediately re-raised.
+        assert mock_engine.connect.call_count == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt fails transiently the last exception is re-raised."""
+        from sqlalchemy.exc import OperationalError
+
+        source = _create_source_patched()
+        source.config.retry_max_attempts = 2
+
+        transient = OperationalError("connection reset", None, None)
+        mock_engine = self._make_engine([transient, transient])
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(type(transient)),
+        ):
+            source._get_schema_names_with_retry(mock_engine)
+
+        assert mock_engine.connect.call_count == 2
+        assert source.report.num_db_retries == 1  # retried once, then gave up
 
 
 class TestHistoricalTableCheckLogging:
