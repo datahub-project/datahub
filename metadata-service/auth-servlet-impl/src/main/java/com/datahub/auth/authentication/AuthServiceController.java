@@ -430,34 +430,45 @@ public class AuthServiceController {
     return CompletableFuture.supplyAsync(
         () -> {
           try {
-            boolean doesPasswordMatch =
-                _nativeUserService.doesPasswordMatch(
-                    systemOperationContext, userUrnString, passwordString);
+            boolean doesPasswordMatch = false;
             final boolean verboseAuthFailureLogging =
                 _configProvider.getAuthentication().isVerboseAuthFailureLogging();
             final boolean enforceExistence =
                 _configProvider.getAuthentication().isEnforceExistenceEnabled();
 
             LoginDenialReason sessionDenial = null;
+            final Optional<LoginDenialReason> nativeLoginDenial =
+                _nativeUserService.checkNativeLoginEligibility(
+                    systemOperationContext, userUrnString);
+            if (nativeLoginDenial.isPresent()) {
+              sessionDenial = nativeLoginDenial.get();
+            } else {
+              doesPasswordMatch =
+                  _nativeUserService.doesPasswordMatch(
+                      systemOperationContext, userUrnString, passwordString);
+            }
+
             if (doesPasswordMatch) {
+              _nativeUserService.resetFailedLoginAttempts(systemOperationContext, userUrnString);
               final Optional<LoginDenialReason> eligibilityDenial =
                   _userSessionEligibilityChecker.checkEligibility(
                       systemOperationContext, userUrnString, enforceExistence);
               if (eligibilityDenial.isPresent()) {
                 sessionDenial = eligibilityDenial.get();
               }
+            } else if (sessionDenial == null) {
+              sessionDenial =
+                  _nativeUserService.recordFailedLoginAttempt(
+                      systemOperationContext, userUrnString);
             }
 
             if (!doesPasswordMatch) {
               recordFailedNativeLoginUsageEvent(
-                  httpEntity,
-                  userUrnString,
-                  LoginDenialReason.INVALID_CREDENTIALS,
-                  "failedPasswordLogin");
+                  httpEntity, userUrnString, sessionDenial, "failedPasswordLogin");
               emitLoginDenialLog(
                   verboseAuthFailureLogging,
                   userUrnString,
-                  LoginDenialReason.INVALID_CREDENTIALS,
+                  sessionDenial,
                   "verifyNativeUserCredentials");
             } else if (sessionDenial != null) {
               recordFailedNativeLoginUsageEvent(
@@ -469,8 +480,7 @@ public class AuthServiceController {
                   "verifyNativeUserCredentials");
             }
 
-            final LoginDenialReason denialForJson =
-                !doesPasswordMatch ? LoginDenialReason.INVALID_CREDENTIALS : sessionDenial;
+            final LoginDenialReason denialForJson = sessionDenial;
             String response =
                 buildVerifyNativeUserPasswordResponse(doesPasswordMatch, denialForJson);
             log.info(
