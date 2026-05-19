@@ -136,7 +136,7 @@ class HexLineageBuilder:
                 continue
 
             connection, reason = self._lookup_connection(connection_id)
-            if connection is None:
+            if connection is None or connection.platform is None:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
