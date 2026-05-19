@@ -7,6 +7,7 @@ References:
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Literal, Optional
 
 
@@ -107,3 +108,18 @@ class FabricTableSchema:
 
     table: FabricTable
     columns: List[FabricColumn]
+
+
+@dataclass
+class FabricQueryInsightsRow:
+    """A single row from `queryinsights.exec_requests_history`.
+
+    Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
+    """
+
+    start_time: datetime
+    statement_type: str
+    status: str
+    command: str
+    login_name: Optional[str]
+    row_count: Optional[int]

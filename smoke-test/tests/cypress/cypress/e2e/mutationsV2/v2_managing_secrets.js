@@ -146,7 +146,7 @@ describe("managing secrets for ingestion creation", () => {
     // delete secret
     cy.openEntityTab("Secrets");
     cy.waitTextVisible(`secretname${number}`);
-    cy.get('[data-test-id="delete-secret-action"]').first().click();
+    cy.get('[data-testid="delete-secret-action"]').first().click();
     cy.waitTextVisible("Confirm Secret Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed secret.");

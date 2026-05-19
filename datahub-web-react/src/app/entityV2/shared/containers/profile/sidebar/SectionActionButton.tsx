@@ -38,14 +38,22 @@ type Props = {
 };
 
 const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = true, dataTestId }: Props) => {
+    const tooltipTitle = tip ?? (!actionPrivilege ? 'You do not have permission to change this.' : undefined);
+    // Wrapper needed so the Tooltip has a hover target: the disabled inner control gets
+    // `pointer-events: none`, which swallows mouse events and prevents the Tooltip from
+    // firing when disabled.
+    const wrapperStyle: React.CSSProperties = {
+        display: 'inline-block',
+        cursor: !actionPrivilege ? 'not-allowed' : undefined,
+    };
+    // When disabled, stop click propagation at the wrapper so a click on the action doesn't
+    // bubble up and trigger the parent SidebarSection's collapse/expand handler.
+    const wrapperOnClick = !actionPrivilege ? (e: React.MouseEvent) => e.stopPropagation() : undefined;
     return (
-        <Tooltip
-            placement="top"
-            title={!actionPrivilege ? 'You do not have permission to change this.' : tip}
-            showArrow={false}
-        >
+        <Tooltip placement="top" title={tooltipTitle} showArrow={false}>
             {icon ? (
-                <span>
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
+                <span style={wrapperStyle} onClick={wrapperOnClick}>
                     <Button
                         variant="text"
                         color="violet"
@@ -57,9 +65,12 @@ const SectionActionButton = ({ tip, icon, button, onClick, actionPrivilege = tru
                     />
                 </span>
             ) : (
-                <ActionButton onClick={onClick} privilege={actionPrivilege} data-testid={dataTestId}>
-                    {button}
-                </ActionButton>
+                // eslint-disable-next-line jsx-a11y/click-events-have-key-events,jsx-a11y/no-static-element-interactions
+                <span style={wrapperStyle} onClick={wrapperOnClick}>
+                    <ActionButton onClick={onClick} privilege={actionPrivilege} data-testid={dataTestId}>
+                        {button}
+                    </ActionButton>
+                </span>
             )}
         </Tooltip>
     );

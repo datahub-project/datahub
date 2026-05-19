@@ -1,14 +1,11 @@
 import { CheckCircleOutlined, ExclamationCircleOutlined, ExclamationCircleTwoTone } from '@ant-design/icons';
-import { colors } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
+import { FAILURE_COLOR_HEX, SUCCESS_COLOR_HEX } from '@app/entity/shared/tabs/Incident/incidentUtils';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
-
-const HEALTH_INDICATOR_COLOR = colors.red[500];
 
 const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number }>`
     && {
@@ -17,7 +14,7 @@ const UnhealthyIconFilled = styled(ExclamationCircleTwoTone)<{ fontSize: number 
 `;
 
 const UnhealthyIconOutlined = styled(ExclamationCircleOutlined)<{ fontSize: number }>`
-    color: ${HEALTH_INDICATOR_COLOR};
+    color: ${(props) => props.theme.colors.iconError};
     && {
         font-size: ${(props) => props.fontSize}px;
     }
@@ -33,7 +30,9 @@ export const isUnhealthy = (healths: Health[]) => {
     const isFailingAssertions = assertionHealth?.status === HealthStatus.Fail;
     const incidentHealth = healths.find((health) => health.type === HealthStatusType.Incidents);
     const hasActiveIncidents = incidentHealth?.status === HealthStatus.Fail;
-    return isFailingAssertions || hasActiveIncidents;
+    const testsHealth = healths.find((health) => health.type === HealthStatusType.Tests);
+    const hasFailingTests = testsHealth?.status === HealthStatus.Fail;
+    return isFailingAssertions || hasActiveIncidents || hasFailingTests;
 };
 
 export const isDeprecated = (entity: GenericEntityProperties) => {
@@ -61,7 +60,7 @@ export const getHealthSummaryIcon = (
     if (unhealthy) {
         const iconComponent =
             type === HealthSummaryIconType.FILLED ? (
-                <UnhealthyIconFilled twoToneColor={HEALTH_INDICATOR_COLOR} fontSize={fontSize} />
+                <UnhealthyIconFilled twoToneColor={FAILURE_COLOR_HEX} fontSize={fontSize} />
             ) : (
                 <UnhealthyIconOutlined fontSize={fontSize} />
             );
@@ -88,6 +87,9 @@ export const getHealthRedirectPath = (type: HealthStatusType) => {
         case HealthStatusType.Incidents: {
             return 'Incidents';
         }
+        case HealthStatusType.Tests: {
+            return 'Governance';
+        }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
     }
@@ -100,6 +102,9 @@ export const getHealthTypeName = (type: HealthStatusType) => {
         }
         case HealthStatusType.Incidents: {
             return 'Incidents';
+        }
+        case HealthStatusType.Tests: {
+            return 'Tests';
         }
         default:
             throw new Error(`Unrecognized Health Status Type ${type} provided`);
