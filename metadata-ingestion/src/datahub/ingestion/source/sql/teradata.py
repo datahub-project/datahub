@@ -1290,77 +1290,82 @@ ORDER by DataBaseName, TableName;
         logger.debug(f"sql_alchemy_url={url}")
         engine = create_engine(url, **self.config.options)
 
-        # Get list of databases first.
-        # When the user supplied an explicit list we avoid an unnecessary DB
-        # round-trip entirely.  In the discovery path (else branch) we call
-        # inspector.get_schema_names() which issues a live query; retry with a
-        # fresh connection on transient failures so a single blip doesn't abort
-        # the whole run.
-        if self.config.database and self.config.database != "":
-            databases: List[str] = [self.config.database]
-        elif self.config.databases:
-            databases = list(self.config.databases)
-        else:
-            databases = []
-            for attempt in range(_RETRY_MAX_ATTEMPTS):
-                try:
-                    with _engine_connect_with_retry(engine, report=self.report) as conn:
-                        databases = inspect(conn).get_schema_names()
-                    break
-                except Exception as exc:
-                    if not _should_retry(exc) or attempt == _RETRY_MAX_ATTEMPTS - 1:
-                        raise
-                    backoff = _RETRY_INITIAL_BACKOFF_SECONDS * (2**attempt)
-                    logger.warning(
-                        f"Retryable error fetching schema names "
-                        f"(attempt {attempt + 1}/{_RETRY_MAX_ATTEMPTS}): {exc}. "
-                        f"Retrying in {backoff:.1f}s..."
+        try:
+            # Get list of databases first.
+            # When the user supplied an explicit list we avoid an unnecessary DB
+            # round-trip entirely.  In the discovery path (else branch) we call
+            # inspector.get_schema_names() which issues a live query; retry with a
+            # fresh connection on transient failures so a single blip doesn't abort
+            # the whole run.
+            if self.config.database and self.config.database != "":
+                databases: List[str] = [self.config.database]
+            elif self.config.databases:
+                databases = list(self.config.databases)
+            else:
+                databases = []
+                for attempt in range(_RETRY_MAX_ATTEMPTS):
+                    try:
+                        with _engine_connect_with_retry(
+                            engine, report=self.report
+                        ) as conn:
+                            databases = inspect(conn).get_schema_names()
+                        break
+                    except Exception as exc:
+                        if not _should_retry(exc) or attempt == _RETRY_MAX_ATTEMPTS - 1:
+                            raise
+                        backoff = _RETRY_INITIAL_BACKOFF_SECONDS * (2**attempt)
+                        logger.warning(
+                            f"Retryable error fetching schema names "
+                            f"(attempt {attempt + 1}/{_RETRY_MAX_ATTEMPTS}): {exc}. "
+                            f"Retrying in {backoff:.1f}s..."
+                        )
+                        self.report.num_db_retries += 1
+                        time.sleep(backoff)
+
+            # When the user supplied an explicit database list, validate each entry
+            # against dbc.TablesV (populated into _tables_cache during discovery).
+            # Without this, a typo in `databases` silently emits a container URN for
+            # a database that does not exist on the source. Only applies when
+            # discovery actually ran (include_tables or include_views).
+            user_supplied_databases = bool(
+                (self.config.database and self.config.database != "")
+                or self.config.databases
+            )
+            # Only validate when discovery actually produced an inventory we can
+            # check against. An empty cache means either discovery was disabled
+            # (include_tables/include_views both False) or it ran and genuinely
+            # found nothing — in both cases there is no oracle to validate against
+            # and we fall back to trusting the user's list.
+            have_db_inventory = (
+                self.config.include_tables or self.config.include_views
+            ) and bool(self._tables_cache)
+
+            # Create separate connections for each database to avoid connection lifecycle issues
+            for db in databases:
+                if not self.config.database_pattern.allowed(db):
+                    continue
+                if (
+                    user_supplied_databases
+                    and have_db_inventory
+                    and db.lower() not in self._tables_cache
+                ):
+                    self.report.warning(
+                        title="Configured database not found on source",
+                        message=(
+                            f"Database {db!r} is listed in the connector config but no "
+                            "tables or views were found for it in dbc.TablesV. Skipping "
+                            "to avoid emitting a container URN for a database that does "
+                            "not exist (or that exists but is empty). Check for typos or "
+                            "remove the entry."
+                        ),
                     )
-                    self.report.num_db_retries += 1
-                    time.sleep(backoff)
-
-        # When the user supplied an explicit database list, validate each entry
-        # against dbc.TablesV (populated into _tables_cache during discovery).
-        # Without this, a typo in `databases` silently emits a container URN for
-        # a database that does not exist on the source. Only applies when
-        # discovery actually ran (include_tables or include_views).
-        user_supplied_databases = bool(
-            (self.config.database and self.config.database != "")
-            or self.config.databases
-        )
-        # Only validate when discovery actually produced an inventory we can
-        # check against. An empty cache means either discovery was disabled
-        # (include_tables/include_views both False) or it ran and genuinely
-        # found nothing — in both cases there is no oracle to validate against
-        # and we fall back to trusting the user's list.
-        have_db_inventory = (
-            self.config.include_tables or self.config.include_views
-        ) and bool(self._tables_cache)
-
-        # Create separate connections for each database to avoid connection lifecycle issues
-        for db in databases:
-            if not self.config.database_pattern.allowed(db):
-                continue
-            if (
-                user_supplied_databases
-                and have_db_inventory
-                and db.lower() not in self._tables_cache
-            ):
-                self.report.warning(
-                    title="Configured database not found on source",
-                    message=(
-                        f"Database {db!r} is listed in the connector config but no "
-                        "tables or views were found for it in dbc.TablesV. Skipping "
-                        "to avoid emitting a container URN for a database that does "
-                        "not exist (or that exists but is empty). Check for typos or "
-                        "remove the entry."
-                    ),
-                )
-                continue
-            with _engine_connect_with_retry(engine, report=self.report) as conn:
-                db_inspector = inspect(conn)
-                db_inspector._datahub_database = db  # type: ignore[attr-defined]
-                yield db_inspector
+                    continue
+                with _engine_connect_with_retry(engine, report=self.report) as conn:
+                    db_inspector = inspect(conn)
+                    db_inspector._datahub_database = db  # type: ignore[attr-defined]
+                    yield db_inspector
+        finally:
+            engine.dispose()
 
     def get_db_name(self, inspector: Inspector) -> str:
         if hasattr(inspector, "_datahub_database"):
