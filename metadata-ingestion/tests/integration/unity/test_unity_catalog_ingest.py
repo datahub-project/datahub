@@ -697,3 +697,289 @@ def test_ml_model_with_signature_and_run_details(pytestconfig, tmp_path, request
                 output_path=f"/{tmp_path}/{output_file_name}",
                 golden_path=f"{test_resources_dir}/{mce_golden_file}",
             )
+
+
+def register_metric_view_mock_data(workspace_client):
+    """Distinct metastore/catalog so this mock can be used without colliding with register_mock_data."""
+    metric_view_metastore_id = "11111111-1111-1111-1111-111111111111"
+    workspace_client.metastores.summary.return_value = (
+        GetMetastoreSummaryResponse.from_dict(
+            {
+                "name": "metric_view_metastore",
+                "metastore_id": metric_view_metastore_id,
+                "global_metastore_id": (f"aws:us-east-1:{metric_view_metastore_id}"),
+                "region": "us-east-1",
+                "cloud": "aws",
+                "owner": "abc@acryl.io",
+            }
+        )
+    )
+
+    catalog_dict = {
+        "name": "metric_catalog",
+        "owner": "abc@acryl.io",
+        "comment": "",
+        "metastore_id": metric_view_metastore_id,
+        "catalog_type": "MANAGED_CATALOG",
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+    }
+    workspace_client.catalogs.list.return_value = [CatalogInfo.from_dict(catalog_dict)]
+    workspace_client.catalogs.get.return_value = CatalogInfo.from_dict(catalog_dict)
+
+    workspace_client.schemas.list.return_value = [
+        SchemaInfo.from_dict(
+            {
+                "name": "analytics",
+                "catalog_name": "metric_catalog",
+                "owner": "abc@acryl.io",
+                "comment": "",
+                "metastore_id": metric_view_metastore_id,
+                "full_name": "metric_catalog.analytics",
+                "created_at": 1700000000000,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1700000010000,
+                "updated_by": "abc@acryl.io",
+                "catalog_type": "MANAGED_CATALOG",
+            }
+        )
+    ]
+
+    metric_view_yaml = (
+        "version: 0.1\n"
+        "source: metric_catalog.analytics.orders\n"
+        "filter: \"o_orderstatus = 'F'\"\n"
+        "materialization: materialized\n"
+        "dimensions:\n"
+        "  - name: order_date\n"
+        "    expr: o_orderdate\n"
+        "    description: Calendar date the order was placed.\n"
+        "measures:\n"
+        "  - name: total_revenue\n"
+        "    expr: SUM(o_totalprice)\n"
+        "    description: Sum of order totals in USD.\n"
+    )
+
+    orders_dict = {
+        "name": "orders",
+        "catalog_name": "metric_catalog",
+        "schema_name": "analytics",
+        "table_type": "MANAGED",
+        "data_source_format": "DELTA",
+        "columns": [
+            {
+                "name": "o_orderdate",
+                "type_text": "date",
+                "type_json": (
+                    '{"name":"o_orderdate","type":"date","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DATE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 0,
+                "nullable": True,
+            },
+            {
+                "name": "o_totalprice",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"o_totalprice","type":"double","nullable":true,'
+                    '"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 1,
+                "nullable": True,
+            },
+        ],
+        "owner": "abc@acryl.io",
+        "metastore_id": metric_view_metastore_id,
+        "full_name": "metric_catalog.analytics.orders",
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+        "table_id": "orders-id",
+    }
+    revenue_metrics_dict = {
+        "name": "revenue_metrics",
+        "catalog_name": "metric_catalog",
+        "schema_name": "analytics",
+        "table_type": "METRIC_VIEW",
+        "data_source_format": "DELTA",
+        "columns": [
+            {
+                "name": "order_date",
+                "type_text": "date",
+                "type_json": (
+                    '{"name":"order_date","type":"date","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DATE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 0,
+                "nullable": True,
+            },
+            {
+                "name": "total_revenue",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"total_revenue","type":"double","nullable":true,'
+                    '"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 1,
+                "nullable": True,
+            },
+        ],
+        "owner": "abc@acryl.io",
+        "metastore_id": metric_view_metastore_id,
+        "full_name": "metric_catalog.analytics.revenue_metrics",
+        "view_definition": metric_view_yaml,
+        "properties": {
+            "metric_view.from.name": "metric_catalog.analytics.orders",
+            "metric_view.from.type": "ASSET",
+            "metric_view.materialization.enabled": "true",
+            "view.sqlConfig.spark.sql.session.timeZone": "Etc/UTC",
+            "view.sqlConfig.spark.sql.ansi.enabled": "true",
+        },
+        "created_at": 1700000000000,
+        "created_by": "abc@acryl.io",
+        "updated_at": 1700000010000,
+        "updated_by": "abc@acryl.io",
+        "table_id": "metric-view-id",
+        "comment": "Aggregated revenue metric view.",
+    }
+
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(orders_dict),
+        databricks.sdk.service.catalog.TableInfo.from_dict(revenue_metrics_dict),
+    ]
+    workspace_client.tables.get = (
+        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+            revenue_metrics_dict
+        )
+    )
+
+    workspace_client.service_principals.list.return_value = []
+    workspace_client.groups.list.return_value = []
+    workspace_client.workspace.list.return_value = []
+    workspace_client.registered_models.list.return_value = []
+    workspace_client.model_versions.list.return_value = []
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_metric_view_ingestion(pytestconfig, tmp_path, requests_mock):
+    from databricks.sdk.service.catalog import TableType
+
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_metric_view_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_metric_view_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-metric-view-test",
+            "pipeline_name": "unity-catalog-metric-view-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_metric_views": True,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_notebooks": False,
+                    "include_usage_statistics": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/metric_view_mces_golden.json",
+        )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_metric_view_ingestion_flag_off(pytestconfig, tmp_path, requests_mock):
+    from databricks.sdk.service.catalog import TableType
+
+    if not hasattr(TableType, "METRIC_VIEW"):
+        pytest.skip("Installed databricks-sdk lacks TableType.METRIC_VIEW")
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+    register_mock_api(request_mock=requests_mock)
+    output_file_name = "unity_catalog_metric_view_flag_off_mcps.json"
+
+    with patch(
+        "datahub.ingestion.source.unity.connection.WorkspaceClient"
+    ) as mock_client:
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_metric_view_mock_data(workspace_client)
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-metric-view-flag-off-test",
+            "pipeline_name": "unity-catalog-metric-view-flag-off-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_metric_views": False,
+                    "include_hive_metastore": False,
+                    "include_ownership": False,
+                    "include_notebooks": False,
+                    "include_usage_statistics": False,
+                    "include_tags": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/metric_view_flag_off_mces_golden.json",
+        )

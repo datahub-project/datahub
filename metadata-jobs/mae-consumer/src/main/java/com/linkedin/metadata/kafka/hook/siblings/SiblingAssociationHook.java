@@ -275,8 +275,6 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
     Siblings existingDbtSiblingAspect = getSiblingsFromEntityClient(dbtUrn);
     Siblings existingSourceSiblingAspect = getSiblingsFromEntityClient(sourceUrn);
 
-    log.info("Associating {} and {} as siblings.", dbtUrn.toString(), sourceUrn.toString());
-
     if (existingDbtSiblingAspect != null
         && existingSourceSiblingAspect != null
         && existingDbtSiblingAspect.getSiblings().contains(sourceUrn.toString())
@@ -291,6 +289,8 @@ public class SiblingAssociationHook implements MetadataChangeLogHook {
           "Skipping sibling creation - existing siblings found: {} <-> {}", dbtUrn, sourceUrn);
       return;
     }
+
+    log.info("Associating {} and {} as siblings.", dbtUrn.toString(), sourceUrn.toString());
 
     // Traditional hook behavior - dbt is primary by default
     // This preserves backward compatibility for dbt_is_primary_sibling=true

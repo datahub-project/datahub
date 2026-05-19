@@ -194,9 +194,18 @@ public class NonBlockingConfigs {
       @Qualifier("entityService") final EntityService<?> entityService,
       @Value("${entityService.retention.enabled}") final boolean enabled,
       @Value("${entityService.retention.applyOnBootstrap}") final boolean applyAfterIngest,
+      @Value("${entityService.retention.applyOnPolicyChange}") final boolean applyOnPolicyChange,
+      @Value("${entityService.retention.overwriteNonSystemPolicies}")
+          final boolean overwriteNonSystemPolicies,
       @Value("${datahub.plugin.retention.path}") final String pluginPath) {
     return new IngestRetentionPolicies(
-        retentionService, entityService, enabled, applyAfterIngest, pluginPath);
+        retentionService,
+        entityService,
+        enabled,
+        applyAfterIngest,
+        applyOnPolicyChange,
+        overwriteNonSystemPolicies,
+        pluginPath);
   }
 
   @Bean

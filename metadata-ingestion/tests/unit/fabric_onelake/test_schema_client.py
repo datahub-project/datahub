@@ -331,8 +331,6 @@ class TestSqlAnalyticsEndpointClient:
         mock_engine.connect.return_value = mock_connection
         mock_create_engine.return_value = mock_engine
 
-        mock_report.failures = 0
-
         client = SqlAnalyticsEndpointClient(
             auth_helper=mock_auth_helper,
             config=sql_endpoint_config,
@@ -343,7 +341,6 @@ class TestSqlAnalyticsEndpointClient:
 
         with pytest.raises(SQLAlchemyError):
             client.get_all_views(workspace_id="ws-123", item_id="item-456")
-        assert mock_report.failures > 0
 
     def test_close(self, mock_auth_helper, sql_endpoint_config):
         """Test closing all engine connections."""

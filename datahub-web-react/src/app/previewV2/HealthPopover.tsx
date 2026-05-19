@@ -1,3 +1,4 @@
+import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
 import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
 import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
 import { Typography } from 'antd';
@@ -82,6 +83,8 @@ function healthIcon({ type }: Health) {
             return <ReportProblemOutlinedIcon fontSize="inherit" />;
         case HealthStatusType.Assertions:
             return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+        case HealthStatusType.Tests:
+            return <AssignmentOutlinedIcon fontSize="inherit" />;
         default:
             return null;
     }
@@ -93,6 +96,8 @@ function healthUrlSuffix({ type }: Health) {
             return '/Incidents';
         case HealthStatusType.Assertions:
             return '/Quality/List';
+        case HealthStatusType.Tests:
+            return '/Governance';
         default:
             return null;
     }
@@ -106,6 +111,8 @@ function healthMessage({ message, status, type }: Health) {
                 return 'All assertions are passing';
             case HealthStatusType.Incidents:
                 return 'No active incidents';
+            case HealthStatusType.Tests:
+                return 'All tests are passing';
             default:
                 return null;
         }

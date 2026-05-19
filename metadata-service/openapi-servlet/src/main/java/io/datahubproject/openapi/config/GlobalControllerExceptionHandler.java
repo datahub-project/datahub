@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
@@ -25,6 +26,7 @@ import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
@@ -36,6 +38,12 @@ import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolv
 @ControllerAdvice(
     basePackages = {"io.datahubproject.openapi", "com.datahub.graphql", "com.datahub.auth"})
 public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionResolver {
+
+  private static final Pattern JAVA_CLASS_PATTERN =
+      Pattern.compile(
+          "([a-z][a-z0-9_]*\\.)+[A-Z][A-Za-z0-9_]*(Exception|Error|Throwable|\\$[A-Za-z0-9_]*)");
+  private static final Pattern SOURCE_LOCATION_PATTERN =
+      Pattern.compile("\\[Source:.*?]|at \\[.*?]");
 
   @Autowired(required = false)
   @Nullable
@@ -51,14 +59,30 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
     setWarnLogCategory(getClass().getName());
   }
 
+  /**
+   * Strips internal Java class names (e.g. com.fasterxml.jackson.core.JsonParseException) and
+   * Jackson source location details from exception messages to prevent CWE-200 information
+   * disclosure.
+   */
+  static String sanitizeExceptionMessage(String message) {
+    if (message == null || message.isEmpty()) {
+      return message;
+    }
+    String sanitized = SOURCE_LOCATION_PATTERN.matcher(message).replaceAll("");
+    sanitized = JAVA_CLASS_PATTERN.matcher(sanitized).replaceAll("");
+    sanitized = sanitized.replaceAll("[:\\s]+$", "").trim();
+    return sanitized.isEmpty() ? "Invalid request" : sanitized;
+  }
+
   @ExceptionHandler({ConversionFailedException.class, ConversionNotSupportedException.class})
   public ResponseEntity<String> handleConflict(RuntimeException ex) {
-    return new ResponseEntity<>(ex.getMessage(), HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>(sanitizeExceptionMessage(ex.getMessage()), HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler({IllegalArgumentException.class, InvalidUrnException.class})
   public static ResponseEntity<Map<String, String>> handleUrnException(Exception e) {
-    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.BAD_REQUEST);
+    return new ResponseEntity<>(
+        Map.of("error", sanitizeExceptionMessage(e.getMessage())), HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(APIThrottleException.class)
@@ -107,6 +131,13 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
         HttpStatus.SERVICE_UNAVAILABLE);
   }
 
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<Map<String, String>> handleHttpMessageNotReadable(
+      HttpMessageNotReadableException e, HttpServletRequest request) {
+    log.error("Malformed request body: {}", request.getRequestURI(), e);
+    return new ResponseEntity<>(Map.of("error", "Malformed request body"), HttpStatus.BAD_REQUEST);
+  }
+
   @ExceptionHandler(RuntimeException.class)
   public ResponseEntity<Map<String, String>> handleRuntimeException(
       RuntimeException e, HttpServletRequest request) {
@@ -117,7 +148,8 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
           && element.getMethodName().equals("getUrn")) {
         log.error("Invalid URN format in request: {}", request.getRequestURI(), e);
         return new ResponseEntity<>(
-            Map.of("error", "Invalid URN format: " + e.getMessage()), HttpStatus.BAD_REQUEST);
+            Map.of("error", "Invalid URN format: " + sanitizeExceptionMessage(e.getMessage())),
+            HttpStatus.BAD_REQUEST);
       }
     }
 
@@ -208,14 +240,16 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
       Exception e, HttpServletRequest request) {
     log.error("Invalid JSON format: {}", request.getRequestURI(), e);
     return new ResponseEntity<>(
-        Map.of("error", "Invalid JSON format", "message", e.getMessage()), HttpStatus.BAD_REQUEST);
+        Map.of("error", "Invalid JSON format", "message", sanitizeExceptionMessage(e.getMessage())),
+        HttpStatus.BAD_REQUEST);
   }
 
   @ExceptionHandler(InvalidSyntaxException.class)
   public ResponseEntity<Map<String, String>> handleInvalidSyntaxException(
       InvalidSyntaxException e) {
     return new ResponseEntity<>(
-        Map.of("error", "Invalid GraphQL syntax", "message", e.getMessage()),
+        Map.of(
+            "error", "Invalid GraphQL syntax", "message", sanitizeExceptionMessage(e.getMessage())),
         HttpStatus.BAD_REQUEST);
   }
 }
