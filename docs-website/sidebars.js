@@ -48,6 +48,9 @@ module.exports = {
           label: "Data Quality & Observability",
           type: "doc",
           id: "docs/features/feature-guides/observe",
+          customProps: {
+            icon: "🔍",
+          },
         },
       ],
     },

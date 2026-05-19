@@ -6,7 +6,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Data Quality & Observability
 
-<FeatureAvailability />
+<FeatureAvailability selfHostedPartial comparisonLink="/docs/managed-datahub/managed-datahub-overview#data-observability" />
 
 DataHub treats observability as a first-class capability of the metadata platform. Quality signals live alongside the data assets they describe, the lineage they propagate through, and the people accountable for them — so problems are surfaced in context and routed to the right owner.
 
