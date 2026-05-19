@@ -2933,6 +2933,30 @@ class TestRetryConfig:
         assert mock_engine.connect.call_count == 2
 
 
+class TestPoolSizeConfig:
+    """max_pool_size field: default, valid bounds, and out-of-range rejection."""
+
+    def test_max_pool_size_default(self):
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.max_pool_size == 13
+
+    def test_max_pool_size_min_boundary(self):
+        config = TeradataConfig.model_validate({**_base_config(), "max_pool_size": 1})
+        assert config.max_pool_size == 1
+
+    def test_max_pool_size_max_boundary(self):
+        config = TeradataConfig.model_validate({**_base_config(), "max_pool_size": 50})
+        assert config.max_pool_size == 50
+
+    def test_max_pool_size_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate({**_base_config(), "max_pool_size": 0})
+
+    def test_max_pool_size_above_limit_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate({**_base_config(), "max_pool_size": 51})
+
+
 class TestConnectionPoolRetry:
     """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
 
@@ -3048,6 +3072,115 @@ class TestConnectionPoolRetry:
         ]
         assert pool_calls, "create_engine was never called with pool_timeout"
         assert pool_calls[-1][1]["pool_timeout"] == 90.0  # 90000 ms → 90 s
+
+
+class TestExecuteWithRetry:
+    """_execute_with_retry retries server-side transient errors on the same connection."""
+
+    def test_first_fail_then_succeed_returns_result(self):
+        """A single retryable failure followed by success returns the result."""
+        from types import SimpleNamespace
+
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        sentinel = object()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            sentinel,
+        ]
+        report = SimpleNamespace(num_db_retries=0)
+
+        with patch("time.sleep"):
+            result = _execute_with_retry(
+                mock_conn, "SELECT 1", max_attempts=2, report=report
+            )
+
+        assert result is sentinel
+        assert mock_conn.execute.call_count == 2
+        assert report.num_db_retries == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt raises a retryable error the last exception propagates."""
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        exc = DatabaseError("transaction aborted", None, None)
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = exc
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        assert mock_conn.execute.call_count == 3
+
+    def test_dead_socket_error_not_retried(self):
+        """Dead-socket errors (connection reset) propagate immediately without retry."""
+        from sqlalchemy.exc import OperationalError
+
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError("connection reset", None, None)
+
+        with patch("time.sleep"), pytest.raises(OperationalError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        # Must not retry — the socket is gone.
+        assert mock_conn.execute.call_count == 1
+
+    def test_deadlock_error_code_is_retried(self):
+        """Deadlock error codes (e.g. [Error 2631]) trigger a retry on the same connection."""
+        from types import SimpleNamespace
+
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        sentinel = object()
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("[Error 2631] deadlock", None, None),
+            sentinel,
+        ]
+        report = SimpleNamespace(num_db_retries=0)
+
+        with patch("time.sleep"):
+            result = _execute_with_retry(
+                mock_conn, "SELECT 1", max_attempts=2, report=report
+            )
+
+        assert result is sentinel
+        assert report.num_db_retries == 1
+
+    def test_permanent_error_not_retried(self):
+        """A non-retryable error (syntax error) propagates on the first attempt."""
+        from sqlalchemy.exc import DatabaseError
+
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = DatabaseError("syntax error", None, None)
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=3)
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_params_forwarded_to_execute(self):
+        """Params dict is passed through to conn.execute on a successful call."""
+        from datahub.ingestion.source.sql.teradata import _execute_with_retry
+
+        mock_conn = MagicMock()
+        mock_conn.execute.return_value = "ok"
+        params = {"key": "val"}
+
+        _execute_with_retry(mock_conn, "SELECT :key", params=params)
+
+        mock_conn.execute.assert_called_once_with("SELECT :key", params)
 
 
 class TestSchemaNameRetry:
