@@ -79,6 +79,8 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
+    # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
+    "cramjam>=2.8.0,<3.0.0",
 }
 
 rest_common = {
@@ -534,6 +536,12 @@ plugins: Dict[str, Set[str]] = {
         "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
         "fastavro>=1.2.0,<2.0.0",
     },
+    "datahub-pg-queue": {
+        "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
+        "fastavro>=1.2.0,<2.0.0",
+        "psycopg2-binary<3.0.0",
+    }
+    | aws_common,
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
@@ -1223,6 +1231,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
+        "datahub-pg-queue = datahub.ingestion.sink.datahub_pg_queue:DatahubPgQueueSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
