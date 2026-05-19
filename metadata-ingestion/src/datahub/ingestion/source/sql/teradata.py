@@ -880,6 +880,13 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    @field_validator("connection_pool_timeout_ms")
+    @classmethod
+    def validate_connection_pool_timeout_ms(cls, v: int) -> int:
+        if v < 1:
+            raise ValueError(f"connection_pool_timeout_ms must be >= 1, got {v}")
+        return v
+
     retry_max_attempts: int = Field(
         default=3,
         description=(

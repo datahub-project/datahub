@@ -1,10 +1,19 @@
+import logging
+import re
 from collections import defaultdict
 from datetime import datetime, timezone
+from threading import current_thread
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy.exc import (
+    DatabaseError,
+    OperationalError,
+    TimeoutError as PoolTimeoutError,
+)
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import (
@@ -15,6 +24,9 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
     TeradataSource,
     TeradataTable,
+    _engine_connect_with_retry,
+    _execute_with_retry,
+    _should_retry,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
@@ -566,8 +578,6 @@ class TestTeradataSource:
             query = queries[0]
             assert "TIMESTAMP" in query
             assert "None" not in query
-
-            import re
 
             timestamp_pattern = r"TIMESTAMP '[^']+'"
             matches = re.findall(timestamp_pattern, query)
@@ -2816,34 +2826,18 @@ class TestShouldRetry:
     """_should_retry classifies errors as retryable or not."""
 
     def test_pool_timeout_is_always_retryable(self):
-        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert _should_retry(PoolTimeoutError("pool exhausted")) is True
 
     def test_operational_error_with_retryable_message(self):
-        from sqlalchemy.exc import OperationalError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert _should_retry(OperationalError("connect timed out", None, None)) is True
 
     def test_operational_error_with_retryable_error_code(self):
-        from sqlalchemy.exc import OperationalError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         # Error codes 2631, 3111, 3120, 3597, 3598, 3897 are explicitly retryable.
         assert _should_retry(OperationalError("[Error 3597]", None, None)) is True
         assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
 
     def test_operational_error_non_retryable_auth_failure(self):
         """Auth failures and config errors embedded in OperationalError must NOT be retried."""
-        from sqlalchemy.exc import OperationalError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert (
             _should_retry(OperationalError("authentication failed", None, None))
             is False
@@ -2853,22 +2847,12 @@ class TestShouldRetry:
         assert _should_retry(OperationalError("[Error 3807]", None, None)) is False
 
     def test_database_error_with_retryable_message(self):
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert _should_retry(DatabaseError("connect timed out", None, None)) is True
 
     def test_database_error_non_retryable(self):
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert _should_retry(DatabaseError("syntax error", None, None)) is False
 
     def test_generic_exception_not_retryable(self):
-        from datahub.ingestion.source.sql.teradata import _should_retry
-
         assert _should_retry(ValueError("something went wrong")) is False
 
 
@@ -2913,9 +2897,6 @@ class TestRetryConfig:
 
     def test_retry_wrappers_honour_config(self):
         """_retry_connect / _retry_execute / _retry_fetchmany use config values."""
-
-        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
-
         source = _create_source_patched()
         source.config.retry_max_attempts = 2
         source.config.retry_initial_backoff_seconds = 0.01
@@ -2972,16 +2953,26 @@ class TestConnectionPoolRetry:
         )
         assert config.connection_pool_timeout_ms == 120000
 
+    def test_connection_pool_timeout_ms_min_boundary(self):
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "connection_pool_timeout_ms": 1}
+        )
+        assert config.connection_pool_timeout_ms == 1
+
+    def test_connection_pool_timeout_ms_zero_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "connection_pool_timeout_ms": 0}
+            )
+
+    def test_connection_pool_timeout_ms_negative_is_invalid(self):
+        with pytest.raises(ValidationError):
+            TeradataConfig.model_validate(
+                {**_base_config(), "connection_pool_timeout_ms": -1}
+            )
+
     def test_pool_exhaustion_logs_thread_context_and_retries(self, caplog):
         """_engine_connect_with_retry logs thread name + tid on PoolTimeoutError and retries."""
-        import logging
-        from threading import current_thread
-        from types import SimpleNamespace
-
-        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
-
-        from datahub.ingestion.source.sql.teradata import _engine_connect_with_retry
-
         mock_conn = MagicMock()
         mock_engine = MagicMock()
         # Fail twice with PoolTimeoutError, then succeed on the third attempt.
@@ -3018,12 +3009,6 @@ class TestConnectionPoolRetry:
 
     def test_pool_exhaustion_raises_after_max_attempts(self):
         """_engine_connect_with_retry re-raises PoolTimeoutError after all attempts fail."""
-        from types import SimpleNamespace
-
-        from sqlalchemy.exc import TimeoutError as PoolTimeoutError
-
-        from datahub.ingestion.source.sql.teradata import _engine_connect_with_retry
-
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = PoolTimeoutError("always exhausted")
 
@@ -3042,8 +3027,6 @@ class TestConnectionPoolRetry:
 
     def test_pool_timeout_propagated_to_sqlalchemy_pool_timeout(self):
         """connection_pool_timeout_ms / 1000 is passed as pool_timeout to QueuePool."""
-        from datahub.ingestion.source.sql.teradata import TeradataSource
-
         config = TeradataConfig.model_validate(
             {**_base_config(), "connection_pool_timeout_ms": 90000}
         )
@@ -3079,12 +3062,6 @@ class TestExecuteWithRetry:
 
     def test_first_fail_then_succeed_returns_result(self):
         """A single retryable failure followed by success returns the result."""
-        from types import SimpleNamespace
-
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
@@ -3104,10 +3081,6 @@ class TestExecuteWithRetry:
 
     def test_exhausts_all_attempts_and_reraises(self):
         """When every attempt raises a retryable error the last exception propagates."""
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         exc = DatabaseError("transaction aborted", None, None)
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = exc
@@ -3119,10 +3092,6 @@ class TestExecuteWithRetry:
 
     def test_dead_socket_error_not_retried(self):
         """Dead-socket errors (connection reset) propagate immediately without retry."""
-        from sqlalchemy.exc import OperationalError
-
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = OperationalError("connection reset", None, None)
 
@@ -3134,12 +3103,6 @@ class TestExecuteWithRetry:
 
     def test_deadlock_error_code_is_retried(self):
         """Deadlock error codes (e.g. [Error 2631]) trigger a retry on the same connection."""
-        from types import SimpleNamespace
-
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         sentinel = object()
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = [
@@ -3158,10 +3121,6 @@ class TestExecuteWithRetry:
 
     def test_permanent_error_not_retried(self):
         """A non-retryable error (syntax error) propagates on the first attempt."""
-        from sqlalchemy.exc import DatabaseError
-
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         mock_conn = MagicMock()
         mock_conn.execute.side_effect = DatabaseError("syntax error", None, None)
 
@@ -3172,8 +3131,6 @@ class TestExecuteWithRetry:
 
     def test_params_forwarded_to_execute(self):
         """Params dict is passed through to conn.execute on a successful call."""
-        from datahub.ingestion.source.sql.teradata import _execute_with_retry
-
         mock_conn = MagicMock()
         mock_conn.execute.return_value = "ok"
         params = {"key": "val"}
@@ -3194,10 +3151,6 @@ class TestSchemaNameRetry:
 
     def test_retries_on_transient_error_then_succeeds(self, caplog):
         """A transient error on the first attempt is retried; the second succeeds."""
-        import logging
-
-        from sqlalchemy.exc import OperationalError
-
         source = _create_source_patched()
 
         good_conn = MagicMock()
@@ -3242,8 +3195,6 @@ class TestSchemaNameRetry:
 
     def test_exhausts_all_attempts_and_reraises(self):
         """When every attempt fails transiently the last exception is re-raised."""
-        from sqlalchemy.exc import OperationalError
-
         source = _create_source_patched()
         source.config.retry_max_attempts = 2
 
@@ -3267,10 +3218,6 @@ class TestHistoricalTableCheckLogging:
         """When a transient error exhausts all retries the method logs a WARNING
         (not just INFO) so the operator knows the skip was caused by a connectivity
         problem, not a missing table."""
-        import logging
-
-        from sqlalchemy.exc import OperationalError
-
         source = _create_source_patched()
 
         # Simulate a transient error that survives all retry attempts.
@@ -3301,8 +3248,6 @@ class TestHistoricalTableCheckLogging:
 
     def test_non_transient_error_logs_info_not_warning(self, caplog):
         """A genuine 'table not found' error should log at INFO, not WARNING."""
-        import logging
-
         source = _create_source_patched()
 
         mock_conn = MagicMock()
