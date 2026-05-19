@@ -2391,6 +2391,16 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     f"Skipping emission of node {node_datahub_urn} because node_type {node.node_type} is disabled"
                 )
 
+            # Column structured properties must be emitted as standalone MCPs
+            # because they attach to schemaField URNs, not the dataset URN.
+            if (
+                self.config.enable_meta_mapping
+                and self.config.entities_enabled.can_emit_node_type(node.node_type)
+            ):
+                yield from auto_workunit(
+                    self._create_column_structured_property_mcps(node, node_datahub_urn)
+                )
+
             # Model performance.
             if self.config.entities_enabled.can_emit_model_performance:
                 yield from auto_workunit(
