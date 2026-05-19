@@ -135,8 +135,8 @@ class HexLineageBuilder:
             if not table_name:
                 continue
 
-            platform, platform_instance, reason = self._lookup_connection(connection_id)
-            if platform is None:
+            connection, reason = self._lookup_connection(connection_id)
+            if connection is None:
                 self._record_skip(
                     connection_id=connection_id or "",
                     cell_id="queriedTables",
@@ -146,9 +146,9 @@ class HexLineageBuilder:
                 continue
 
             urn = make_dataset_urn_with_platform_instance(
-                platform=platform,
+                platform=connection.platform,
                 name=table_name,
-                platform_instance=platform_instance,
+                platform_instance=connection.platform_instance,
                 env=self._env,
             )
             if urn not in seen:
@@ -183,10 +183,8 @@ class HexLineageBuilder:
         for cell in sql_cells:
             self._report.sql_cells_attempted += 1
 
-            platform, platform_instance, reason = self._lookup_connection(
-                cell.data_connection_id
-            )
-            if platform is None:
+            connection, reason = self._lookup_connection(cell.data_connection_id)
+            if connection is None:
                 self._report.sql_cells_skipped_unresolved_platform += 1
                 self._record_skip(
                     connection_id=cell.data_connection_id or "",
@@ -196,9 +194,7 @@ class HexLineageBuilder:
                 )
                 continue
 
-            dataset_urns, field_urns = self._parse_cell(
-                cell, platform, platform_instance
-            )
+            dataset_urns, field_urns = self._parse_cell(cell, connection)
             if dataset_urns:
                 self._report.sql_cells_succeeded += 1
                 for urn in dataset_urns:
@@ -239,13 +235,11 @@ class HexLineageBuilder:
         seen_fields: Set[str] = set()
 
         for cell in sql_cells:
-            platform, platform_instance, _ = self._lookup_connection(
-                cell.data_connection_id
-            )
-            if platform is None:
+            connection, _ = self._lookup_connection(cell.data_connection_id)
+            if connection is None:
                 continue
 
-            _, field_urns = self._parse_cell(cell, platform, platform_instance)
+            _, field_urns = self._parse_cell(cell, connection)
             if not field_urns:
                 continue
 
@@ -294,16 +288,19 @@ class HexLineageBuilder:
 
     def _lookup_connection(
         self, connection_id: Optional[str]
-    ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """Look up (platform, platform_instance, reason). Caller skips on None platform."""
+    ) -> Tuple[Optional[HexConnection], Optional[str]]:
+        """Return (connection, None) when the platform is confidently known,
+        otherwise (None, reason). A HexConnection with platform=None is treated
+        as unresolved — callers only need to check `connection is None`.
+        """
         if not connection_id:
-            return None, None, "missing_connection_id"
+            return None, "missing_connection_id"
 
         connection = self._connections.get(connection_id)
         if connection is None or connection.platform is None:
-            return None, None, "unresolved_platform"
+            return None, "unresolved_platform"
 
-        return connection.platform, connection.platform_instance, None
+        return connection, None
 
     def _get_resolver(
         self, platform: str, platform_instance: Optional[str]
@@ -322,22 +319,27 @@ class HexLineageBuilder:
     def _parse_cell(
         self,
         cell: SqlCell,
-        platform: str,
-        platform_instance: Optional[str],
+        connection: HexConnection,
     ) -> Tuple[List[str], List[str]]:
         """
         Parse one SQL cell and return (dataset_urns, schema_field_urns).
 
-        Uses DataHub's canonical platform → sqlglot dialect mapping.
-        Column-level lineage is populated when a graph-backed SchemaResolver
-        can resolve table schemas; otherwise the field list is empty.
+        Uses DataHub's canonical platform → sqlglot dialect mapping. The
+        connection's default_database / default_schema are forwarded to
+        sqlglot so unqualified `FROM table` refs resolve to the canonical
+        warehouse URN. Column-level lineage is populated when a graph-backed
+        SchemaResolver can resolve table schemas; otherwise the field list
+        is empty.
         """
-        dialect = get_dialect_str(platform)
-        resolver = self._get_resolver(platform, platform_instance)
+        assert connection.platform is not None  # callers gate on this
+        dialect = get_dialect_str(connection.platform)
+        resolver = self._get_resolver(connection.platform, connection.platform_instance)
         try:
             result = sqlglot_lineage(
                 sql=cell.sql_source,
                 schema_resolver=resolver,
+                default_db=connection.default_database,
+                default_schema=connection.default_schema,
                 override_dialect=dialect,
             )
         except Exception as e:

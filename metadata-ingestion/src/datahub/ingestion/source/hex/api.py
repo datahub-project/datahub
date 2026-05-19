@@ -26,6 +26,7 @@ from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.hex.constants import (
+    CONNECTION_TYPE_DEFAULTS,
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
 )
@@ -44,6 +45,44 @@ from datahub.utilities.str_enum import StrEnum
 logger = logging.getLogger(__name__)
 
 _F = TypeVar("_F", bound=Callable)
+
+
+@dataclass
+class HexApiConnection:
+    """A row from Hex's GET /v1/data-connections, with per-type defaults
+    already extracted.
+
+    `default_database` / `default_schema` slot into `sqlglot_lineage`'s
+    `default_db` / `default_schema` parameters so unqualified `FROM table`
+    refs in SQL cells resolve to the canonical warehouse URN. Either may
+    be None when Hex doesn't expose the value (e.g. databricks jdbcUrl,
+    nullable Snowflake schema) — the user can override via
+    `connection_platform_map` in the recipe.
+    """
+
+    name: str
+    type: str
+    default_database: Optional[str] = None
+    default_schema: Optional[str] = None
+
+
+def _extract_connection_defaults(
+    hex_type: str, details: dict
+) -> Tuple[Optional[str], Optional[str]]:
+    """Return (default_database, default_schema) for a Hex connection type.
+
+    Unknown types return (None, None) — defaults come from user override
+    via `connection_platform_map` only.
+    """
+    spec = CONNECTION_TYPE_DEFAULTS.get(hex_type.lower())
+    if spec is None:
+        return None, None
+    database_key, schema_key, schema_fallback = spec
+    db = details.get(database_key) if database_key else None
+    schema = details.get(schema_key) if schema_key else None
+    if schema is None and schema_fallback is not None and db is not None:
+        schema = schema_fallback
+    return db, schema
 
 
 def _api_call(name: str, paginated: bool = False) -> Callable[[_F], _F]:
@@ -543,12 +582,16 @@ class HexApi:
             assert_never(hex_item.type)
 
     @_api_call("list_connections")
-    def fetch_connections(self) -> Dict[str, Tuple[str, str]]:
+    def fetch_connections(self) -> Dict[str, "HexApiConnection"]:
         """
-        Return {connection_id: (name, connection_type)} for all data connections.
+        Return {connection_id: HexApiConnection} for all data connections.
 
         Used to resolve dataConnectionId references in cells to DataHub platform names
         and to display human-readable connection labels in context documents.
+
+        Per-type defaults (e.g. BigQuery `projectId`, Snowflake `database`) are
+        extracted from `connectionDetails.<type>` so unqualified SQL refs can be
+        resolved to canonical 3-part warehouse URNs downstream.
         """
         try:
             resp = self.session.get(
@@ -557,9 +600,19 @@ class HexApi:
                 timeout=30,
             )
             resp.raise_for_status()
-            result: Dict[str, Tuple[str, str]] = {}
+            result: Dict[str, HexApiConnection] = {}
             for conn in resp.json().get("values", []):
-                result[conn["id"]] = (conn.get("name", ""), conn.get("type", ""))
+                hex_type = conn.get("type", "")
+                details = (conn.get("connectionDetails") or {}).get(hex_type) or {}
+                default_database, default_schema = _extract_connection_defaults(
+                    hex_type, details
+                )
+                result[conn["id"]] = HexApiConnection(
+                    name=conn.get("name", ""),
+                    type=hex_type,
+                    default_database=default_database,
+                    default_schema=default_schema,
+                )
             return result
         except Exception as e:
             self.report.warning(

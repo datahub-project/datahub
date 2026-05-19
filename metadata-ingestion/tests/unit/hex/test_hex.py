@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
+from datahub.ingestion.source.hex.api import HexApiConnection
 from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.hex import HexSource
 from tests.unit.hex.conftest import load_json_data
@@ -250,8 +251,8 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         connections = source._resolve_connections(
             api_connections={
-                "conn-sf": ("Analytics Hub", "snowflake"),
-                "conn-bq": ("BQ Hub", "bigquery"),
+                "conn-sf": HexApiConnection(name="Analytics Hub", type="snowflake"),
+                "conn-bq": HexApiConnection(name="BQ Hub", type="bigquery"),
             },
             connection_overrides={},
         )
@@ -265,7 +266,9 @@ class TestResolveConnections(unittest.TestCase):
     def test_api_unknown_type_is_unmapped_and_warned(self):
         source = self._make_source()
         connections = source._resolve_connections(
-            api_connections={"conn-vt": ("Vertica Prod", "vertica")},
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica Prod", type="vertica"),
+            },
             connection_overrides={},
         )
         # Name is retained for the document builder…
@@ -283,7 +286,9 @@ class TestResolveConnections(unittest.TestCase):
         should still resolve — this is the M2 fix."""
         source = self._make_source()
         connections = source._resolve_connections(
-            api_connections={"conn-vt": ("Vertica Prod", "vertica")},
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica Prod", type="vertica"),
+            },
             connection_overrides={"conn-vt": HexConnectionDetail(platform="vertica")},
         )
         # Display name from the API is preserved, override supplies platform.
@@ -299,9 +304,9 @@ class TestResolveConnections(unittest.TestCase):
         source = self._make_source()
         source._resolve_connections(
             api_connections={
-                "conn-vt-1": ("Vertica A", "vertica"),
-                "conn-vt-2": ("Vertica B", "vertica"),
-                "conn-mz": ("Materialize", "materialize"),
+                "conn-vt-1": HexApiConnection(name="Vertica A", type="vertica"),
+                "conn-vt-2": HexApiConnection(name="Vertica B", type="vertica"),
+                "conn-mz": HexApiConnection(name="Materialize", type="materialize"),
             },
             connection_overrides={
                 "conn-vt-1": HexConnectionDetail(platform="vertica"),
@@ -332,7 +337,9 @@ class TestResolveConnections(unittest.TestCase):
     def test_user_override_wins_over_api(self):
         source = self._make_source()
         connections = source._resolve_connections(
-            api_connections={"conn-1": ("Prod SF", "snowflake")},
+            api_connections={
+                "conn-1": HexApiConnection(name="Prod SF", type="snowflake"),
+            },
             connection_overrides={"conn-1": HexConnectionDetail(platform="redshift")},
         )
         assert connections["conn-1"].platform == "redshift"
@@ -351,7 +358,9 @@ class TestResolveConnections(unittest.TestCase):
         HexConnection carries platform_instance for the lineage builder."""
         source = self._make_source()
         connections = source._resolve_connections(
-            api_connections={"conn-sf": ("Prod SF", "snowflake")},
+            api_connections={
+                "conn-sf": HexApiConnection(name="Prod SF", type="snowflake"),
+            },
             connection_overrides={
                 "conn-sf": HexConnectionDetail(platform_instance="prod_snowflake"),
             },
@@ -360,6 +369,87 @@ class TestResolveConnections(unittest.TestCase):
         # platform still auto-resolves from the API since override.platform is None
         assert c.platform == "snowflake"
         assert c.platform_instance == "prod_snowflake"
+
+    def test_api_default_database_and_schema_flow_through(self):
+        """API-extracted defaults populate the HexConnection when no override
+        touches them — caller has no override fields set."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={},
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "ANALYTICS"
+        assert c.default_schema == "PUBLIC"
+
+    def test_override_default_schema_only_preserves_api_default_database(self):
+        """Per-field merge: override.default_schema is set, default_database
+        is None on the override → only schema is replaced, db comes from API.
+        """
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(default_schema="REPORTING"),
+            },
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "ANALYTICS"  # unchanged from API
+        assert c.default_schema == "REPORTING"  # override wins
+
+    def test_override_default_database_only_preserves_api_default_schema(self):
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-sf": HexApiConnection(
+                    name="A",
+                    type="snowflake",
+                    default_database="ANALYTICS",
+                    default_schema="PUBLIC",
+                ),
+            },
+            connection_overrides={
+                "conn-sf": HexConnectionDetail(default_database="WAREHOUSE"),
+            },
+        )
+        c = connections["conn-sf"]
+        assert c.default_database == "WAREHOUSE"
+        assert c.default_schema == "PUBLIC"  # unchanged from API
+
+    def test_override_supplies_defaults_when_api_has_none(self):
+        """API didn't extract any defaults (e.g. type missing from
+        CONNECTION_TYPE_DEFAULTS, or `connectionDetails` absent). The override
+        fills in both slots."""
+        source = self._make_source()
+        connections = source._resolve_connections(
+            api_connections={
+                "conn-vt": HexApiConnection(name="Vertica", type="vertica"),
+            },
+            connection_overrides={
+                "conn-vt": HexConnectionDetail(
+                    platform="vertica",
+                    default_database="WAREHOUSE",
+                    default_schema="public",
+                ),
+            },
+        )
+        c = connections["conn-vt"]
+        assert c.default_database == "WAREHOUSE"
+        assert c.default_schema == "public"
 
 
 class TestHexTestConnection(unittest.TestCase):

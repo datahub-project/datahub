@@ -30,11 +30,21 @@ class HexConnection:
     Built once at the source boundary by HexSource._resolve_connections.
     `platform=None` means lineage will be skipped for cells referencing this
     connection — the display name is still available for the document builder.
+
+    `default_database` and `default_schema` map to the slots `sqlglot_lineage`
+    uses for unqualified table refs. The terminology is DataHub-side, not
+    platform-native: for BigQuery `default_database` is the project ID; for
+    Trino/Databricks it's the catalog; for Snowflake/Postgres/Redshift/MSSQL
+    it's the database. For 2-part platforms (mysql/mariadb/clickhouse) only
+    `default_schema` is populated — `default_database` stays None to avoid
+    producing a wrong 3-part URN.
     """
 
     name: str
     platform: Optional[str]
     platform_instance: Optional[str] = None
+    default_database: Optional[str] = None
+    default_schema: Optional[str] = None
 
 
 @dataclass

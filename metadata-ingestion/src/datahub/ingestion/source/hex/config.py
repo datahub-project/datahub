@@ -35,6 +35,30 @@ class HexConnectionDetail(ConfigModel):
         "ingested under. Leave unset for warehouses ingested without one "
         "(e.g. typical BigQuery).",
     )
+    default_database: Optional[str] = Field(
+        default=None,
+        description=(
+            "Default outer-scope qualifier for unqualified table refs in SQL "
+            "cells. For BigQuery this is the GCP project ID; for "
+            "Snowflake/Postgres/Redshift/MSSQL the database; for "
+            "Trino/Databricks/Presto the catalog; for Athena the AWS data "
+            "catalog (defaults to 'awsdatacatalog'). Leave empty for 2-part "
+            "platforms (MySQL/MariaDB/Clickhouse) — set only `default_schema` "
+            "there. Overrides the value auto-extracted from Hex's "
+            "/v1/data-connections response."
+        ),
+    )
+    default_schema: Optional[str] = Field(
+        default=None,
+        description=(
+            "Default inner-scope qualifier for unqualified table refs in SQL "
+            "cells. For BigQuery this is the dataset; for "
+            "Snowflake/Postgres/Redshift/MSSQL/Trino/Databricks/Presto/Athena "
+            "the schema; for MySQL/MariaDB/Clickhouse the database name. "
+            "Overrides the value auto-extracted from Hex's "
+            "/v1/data-connections response."
+        ),
+    )
 
 
 class HexSourceConfig(

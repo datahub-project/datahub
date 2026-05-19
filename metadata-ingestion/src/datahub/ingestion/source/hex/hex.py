@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Union
 
 from typing_extensions import assert_never
 
@@ -25,7 +25,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
-from datahub.ingestion.source.hex.api import HexApi, HexApiReport
+from datahub.ingestion.source.hex.api import HexApi, HexApiConnection, HexApiReport
 from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.constants import (
     CONNECTION_TYPE_TO_DATAHUB_PLATFORM,
@@ -650,36 +650,49 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
     def _resolve_connections(
         self,
-        api_connections: Dict[str, Tuple[str, str]],
+        api_connections: Dict[str, HexApiConnection],
         connection_overrides: Dict[str, HexConnectionDetail],
     ) -> Dict[str, HexConnection]:
-        """Resolve API + user overrides into {conn_id → HexConnection}.
+        """Merge API connections and user overrides into {conn_id → HexConnection}.
 
-        Overrides can pin platform (bypassing CONNECTION_TYPE_TO_DATAHUB_PLATFORM
-        for vertica / materialize / custom setups) and platform_instance.
-        Unmapped types are summarised in a single warning; types rescued by an
-        override are NOT counted.
+        Per field, the override wins if set; otherwise the API value is used.
+        Hex types absent from CONNECTION_TYPE_TO_DATAHUB_PLATFORM and not
+        rescued by an override are reported in a single warning.
         """
         connections: Dict[str, HexConnection] = {}
         unmapped_type_counts: Dict[str, int] = {}
 
         for conn_id in api_connections.keys() | connection_overrides.keys():
-            display_name, hex_type = api_connections.get(conn_id, ("", ""))
+            api_conn = api_connections.get(conn_id)
             override = connection_overrides.get(conn_id)
+            hex_type = api_conn.type if api_conn else ""
 
-            if override is not None and override.platform:
-                platform: Optional[str] = override.platform
-            else:
-                platform = CONNECTION_TYPE_TO_DATAHUB_PLATFORM.get(hex_type.lower())
-                if platform is None and hex_type:
-                    unmapped_type_counts[hex_type] = (
-                        unmapped_type_counts.get(hex_type, 0) + 1
-                    )
+            # API-derived defaults; override (if any) is layered on top per field.
+            name = api_conn.name if api_conn else ""
+            platform = CONNECTION_TYPE_TO_DATAHUB_PLATFORM.get(hex_type.lower())
+            default_database = api_conn.default_database if api_conn else None
+            default_schema = api_conn.default_schema if api_conn else None
+            platform_instance: Optional[str] = None
+
+            if override is not None:
+                platform = override.platform or platform
+                platform_instance = override.platform_instance
+                if override.default_database is not None:
+                    default_database = override.default_database
+                if override.default_schema is not None:
+                    default_schema = override.default_schema
+
+            if platform is None and hex_type:
+                unmapped_type_counts[hex_type] = (
+                    unmapped_type_counts.get(hex_type, 0) + 1
+                )
 
             connections[conn_id] = HexConnection(
-                name=display_name or conn_id,
+                name=name or conn_id,
                 platform=platform,
-                platform_instance=override.platform_instance if override else None,
+                platform_instance=platform_instance,
+                default_database=default_database,
+                default_schema=default_schema,
             )
 
         if unmapped_type_counts:

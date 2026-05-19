@@ -48,37 +48,39 @@ def _cell(sql: str, conn_id: str = SNOWFLAKE_CONN, label: str = "q") -> SqlCell:
 
 def test_lookup_connection_known_snowflake():
     b = _builder()
-    platform, pi, reason = b._lookup_connection(SNOWFLAKE_CONN)
-    assert platform == "snowflake"
-    assert pi is None  # No platform_instance pinned on the connection.
+    connection, reason = b._lookup_connection(SNOWFLAKE_CONN)
+    assert connection is not None
+    assert connection.platform == "snowflake"
+    assert connection.platform_instance is None
     assert reason is None
 
 
 def test_lookup_connection_known_bigquery():
     b = _builder()
-    platform, _, reason = b._lookup_connection(BIGQUERY_CONN)
-    assert platform == "bigquery"
+    connection, reason = b._lookup_connection(BIGQUERY_CONN)
+    assert connection is not None
+    assert connection.platform == "bigquery"
     assert reason is None
 
 
 def test_lookup_connection_none_id():
     b = _builder()
-    platform, _, reason = b._lookup_connection(None)
-    assert platform is None
+    connection, reason = b._lookup_connection(None)
+    assert connection is None
     assert reason == "missing_connection_id"
 
 
 def test_lookup_connection_empty_string():
     b = _builder()
-    platform, _, reason = b._lookup_connection("")
-    assert platform is None
+    connection, reason = b._lookup_connection("")
+    assert connection is None
     assert reason == "missing_connection_id"
 
 
 def test_lookup_connection_unresolved_connection_id():
     b = _builder()
-    platform, _, reason = b._lookup_connection(UNKNOWN_CONN)
-    assert platform is None
+    connection, reason = b._lookup_connection(UNKNOWN_CONN)
+    assert connection is None
     assert reason == "unresolved_platform"
 
 
@@ -91,8 +93,9 @@ def test_lookup_connection_uses_per_connection_platform_instance():
             ),
         },
     )
-    _, pi, _ = b._lookup_connection(SNOWFLAKE_CONN)
-    assert pi == "prod_snowflake"
+    connection, _ = b._lookup_connection(SNOWFLAKE_CONN)
+    assert connection is not None
+    assert connection.platform_instance == "prod_snowflake"
 
 
 def test_lookup_connection_no_platform_instance_emits_none():
@@ -102,8 +105,9 @@ def test_lookup_connection_no_platform_instance_emits_none():
     b = _builder(
         connections={SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake")},
     )
-    _, pi, _ = b._lookup_connection(SNOWFLAKE_CONN)
-    assert pi is None
+    connection, _ = b._lookup_connection(SNOWFLAKE_CONN)
+    assert connection is not None
+    assert connection.platform_instance is None
 
 
 # ------------------------------------------------------------------
@@ -235,8 +239,9 @@ def test_lookup_connection_user_override_bypasses_canonical_map():
             "conn-vertica-1": HexConnection(name="Vertica Prod", platform="vertica"),
         },
     )
-    platform, _, reason = b._lookup_connection("conn-vertica-1")
-    assert platform == "vertica"
+    connection, reason = b._lookup_connection("conn-vertica-1")
+    assert connection is not None
+    assert connection.platform == "vertica"
     assert reason is None
 
 
@@ -472,3 +477,64 @@ def test_validated_cll_unknown_connection_skipped_silently():
     )
     assert fields == []
     assert report.enterprise_cells_with_mismatch == 0  # skipped before parsing
+
+
+# ------------------------------------------------------------------
+# default_database / default_schema propagation to sqlglot
+# ------------------------------------------------------------------
+
+
+def test_default_db_and_schema_resolve_unqualified_table():
+    """An unqualified `FROM orders` should resolve to a fully-qualified URN
+    when the connection carries default_database / default_schema. Without
+    these, sqlglot would emit a URN with only the bare table name."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                default_database="ANALYTICS",
+                default_schema="PUBLIC",
+            ),
+        },
+    )
+    datasets, _ = b.build_upstream_urns([_cell("SELECT id FROM orders")])
+    assert len(datasets) == 1
+    # Fully qualified by the connection's defaults.
+    assert "analytics.public.orders" in datasets[0].lower()
+
+
+def test_no_default_db_leaves_unqualified_table_bare():
+    """Counter-example to test_default_db_and_schema_resolve_unqualified_table:
+    when no defaults are set on the connection, an unqualified `FROM orders`
+    must NOT acquire a warehouse/schema prefix. Guards against the inverse
+    regression — empty-string defaults silently producing `..orders` URNs."""
+    b = _builder(
+        connections={SNOWFLAKE_CONN: HexConnection(name="A", platform="snowflake")},
+    )
+    datasets, _ = b.build_upstream_urns([_cell("SELECT id FROM orders")])
+    assert len(datasets) == 1
+    # URN format: urn:li:dataset:(...,<name>,<env>). The `,orders,` segment
+    # asserts the name part is exactly `orders` with no leading qualifiers.
+    assert ",orders," in datasets[0].lower()
+
+
+def test_explicit_table_qualifier_overrides_defaults():
+    """When the SQL already qualifies the table, the connection's defaults
+    must NOT override it — otherwise cross-database queries would silently
+    rewrite to the connection's default database."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                default_database="ANALYTICS",
+                default_schema="PUBLIC",
+            ),
+        },
+    )
+    datasets, _ = b.build_upstream_urns(
+        [_cell("SELECT id FROM other_db.other_schema.orders")]
+    )
+    assert len(datasets) == 1
+    assert "other_db.other_schema.orders" in datasets[0].lower()
