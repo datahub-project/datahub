@@ -12,7 +12,7 @@ from datahub._version import __version__
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
 from datahub.ingestion.source.common.gcp_wif_config import (
     GCPWIFConfig,
-    _build_credentials_from_wif_dict,
+    build_credentials_from_wif_dict,
 )
 from datahub.utilities.str_enum import StrEnum
 
@@ -20,11 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_bigquery_client_info() -> ClientInfo:
-    """Get ClientInfo with DataHub user-agent for GCP API identification.
-
-    Follows Google's recommended format:
-    "<prod_name>/ver (GPN:<company name>; <other comments>)"
-    """
+    # Format: "<prod_name>/ver (GPN:<company name>)" per Google's recommended convention.
     return ClientInfo(user_agent=f"DataHub/{__version__} (GPN:DataHub)")
 
 
@@ -100,7 +96,7 @@ class BigQueryConnectionConfig(GCPWIFConfig):
                 )
             # project_id from the WIF config is intentionally ignored; users must
             # set project_on_behalf explicitly when targeting a specific project.
-            self._credentials, project_id = _build_credentials_from_wif_dict(
+            self._credentials, project_id = build_credentials_from_wif_dict(
                 self.to_wif_dict(), self.wif_config_source()
             )
             if project_id is not None and self.project_on_behalf is None:

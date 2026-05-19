@@ -267,7 +267,7 @@ def test_profiler_engine_uses_user_supplied_client_when_credential_set(
 
 
 @patch(
-    "datahub.ingestion.source.bigquery_v2.bigquery_connection._build_credentials_from_wif_dict"
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict"
 )
 @patch("datahub.ingestion.source.bigquery_v2.profiler.create_engine")
 def test_profiler_engine_uses_user_supplied_client_for_wif(

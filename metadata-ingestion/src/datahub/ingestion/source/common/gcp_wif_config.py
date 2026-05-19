@@ -1,3 +1,4 @@
+import copy
 import json
 import logging
 from typing import Any, Dict, Optional, Tuple
@@ -35,9 +36,7 @@ class GCPWIFConfig(ConfigModel):
     gcp_wif_configuration_json: Optional[Dict[str, Any]] = Field(
         default=None,
         description=(
-            "GCP Workload Identity Federation configuration as a pre-parsed dict. "
-            "For JSON-string injection (e.g. from a secrets manager) use "
-            "gcp_wif_configuration_json_string instead. "
+            "GCP Workload Identity Federation configuration as a dict or a JSON string. "
             "Mutually exclusive with gcp_wif_configuration and "
             "gcp_wif_configuration_json_string."
         ),
@@ -59,7 +58,6 @@ class GCPWIFConfig(ConfigModel):
     @model_validator(mode="before")
     @classmethod
     def _validate_wif_json_format(cls, values: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate that WIF JSON-typed options contain valid content."""
         if not isinstance(values, dict):
             return values
 
@@ -71,10 +69,25 @@ class GCPWIFConfig(ConfigModel):
         if gcp_wif_configuration_json is not None and not isinstance(
             gcp_wif_configuration_json, dict
         ):
-            raise ValueError(
-                "gcp_wif_configuration_json must be a dict. "
-                "To supply a JSON string, use gcp_wif_configuration_json_string instead."
-            )
+            if isinstance(gcp_wif_configuration_json, str):
+                # Backward-compat: auto-parse JSON strings to dicts so that
+                # existing recipes using gcp_wif_configuration_json: "..." keep working.
+                try:
+                    parsed = json.loads(gcp_wif_configuration_json)
+                except json.JSONDecodeError as e:
+                    raise ValueError(
+                        f"gcp_wif_configuration_json must be valid JSON: {e}"
+                    ) from e
+                if not isinstance(parsed, dict):
+                    raise ValueError(
+                        "gcp_wif_configuration_json must be a JSON object, "
+                        f"not a {type(parsed).__name__}"
+                    )
+                values["gcp_wif_configuration_json"] = parsed
+            else:
+                raise ValueError(
+                    "gcp_wif_configuration_json must be a dict or a JSON string."
+                )
 
         if gcp_wif_configuration_json_string is not None:
             try:
@@ -88,7 +101,6 @@ class GCPWIFConfig(ConfigModel):
 
     @model_validator(mode="after")
     def _validate_wif_mutual_exclusion(self) -> "GCPWIFConfig":
-        """Validate that at most one WIF configuration option is set."""
         provided = [
             opt
             for opt in [
@@ -116,10 +128,6 @@ class GCPWIFConfig(ConfigModel):
         return None
 
     def to_wif_dict(self) -> Dict[str, Any]:
-        """Resolve the configured WIF JSON option into a dict.
-
-        Raises ValueError if no option is set.
-        """
         if self.gcp_wif_configuration:
             try:
                 with open(self.gcp_wif_configuration) as f:
@@ -144,8 +152,8 @@ class GCPWIFConfig(ConfigModel):
                 )
             return loaded
         elif self.gcp_wif_configuration_json is not None:
-            # Return a copy to protect the model's internal dict from mutation by callers.
-            return dict(self.gcp_wif_configuration_json)
+            # Deep-copy to protect nested dicts (e.g. credential_source) from mutation.
+            return copy.deepcopy(self.gcp_wif_configuration_json)
         elif self.gcp_wif_configuration_json_string is not None:
             loaded = json.loads(self.gcp_wif_configuration_json_string)
             if not isinstance(loaded, dict):
@@ -157,7 +165,7 @@ class GCPWIFConfig(ConfigModel):
             raise ValueError("No valid WIF configuration provided")
 
 
-def _build_credentials_from_wif_dict(
+def build_credentials_from_wif_dict(
     wif_dict: Dict[str, Any],
     source_label: Optional[str],
 ) -> Tuple[Credentials, Optional[str]]:
@@ -207,4 +215,4 @@ def load_wif_credentials(
         ValueError: If no WIF configuration is provided or if credential loading fails.
     """
     wif_dict = wif_config.to_wif_dict()
-    return _build_credentials_from_wif_dict(wif_dict, wif_config.wif_config_source())
+    return build_credentials_from_wif_dict(wif_dict, wif_config.wif_config_source())

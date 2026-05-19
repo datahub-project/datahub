@@ -346,7 +346,7 @@ def test_wif_config_rejects_invalid_json_in_dict_option():
         "auth_type": "workload_identity_federation",
         "gcp_wif_configuration_json": "not valid json",
     }
-    with pytest.raises(ValidationError, match="must be a dict"):
+    with pytest.raises(ValidationError, match="must be valid JSON"):
         GCSSourceConfig.model_validate(source)
 
 

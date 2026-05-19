@@ -11,11 +11,16 @@ from datahub.ingestion.source.common.gcp_wif_config import (
 
 
 class TestGCPWIFConfigValidation:
-    def test_json_field_rejects_string_value(self) -> None:
-        # gcp_wif_configuration_json only accepts a dict; strings must use
-        # gcp_wif_configuration_json_string instead.
-        with pytest.raises(ValueError, match="must be a dict"):
+    def test_json_field_rejects_invalid_json_string(self) -> None:
+        # Strings are auto-coerced to dicts, so invalid JSON must raise clearly.
+        with pytest.raises(ValueError, match="must be valid JSON"):
             GCPWIFConfig(gcp_wif_configuration_json="not-json")
+
+    def test_json_field_accepts_valid_json_string(self) -> None:
+        # Backward compat: a valid JSON string is auto-coerced to a dict.
+        payload = {"type": "external_account"}
+        config = GCPWIFConfig(gcp_wif_configuration_json=json.dumps(payload))
+        assert config.gcp_wif_configuration_json == payload
 
     def test_json_field_rejects_non_dict(self) -> None:
         with pytest.raises(ValueError, match="must be a dict"):
@@ -139,14 +144,20 @@ class TestToWifDict:
         config = GCPWIFConfig(gcp_wif_configuration_json=payload)
         assert config.to_wif_dict() == payload
 
-    def test_from_dict_returns_copy_not_alias(self) -> None:
-        # to_wif_dict() must return a copy so callers cannot mutate the model's
-        # internal state.
-        payload = {"type": "external_account"}
+    def test_from_dict_returns_deep_copy_not_alias(self) -> None:
+        # to_wif_dict() must return a deep copy so callers cannot mutate the
+        # model's internal state — including nested dicts like credential_source.
+        payload = {
+            "type": "external_account",
+            "credential_source": {"url": "https://example.com/token"},
+        }
         config = GCPWIFConfig(gcp_wif_configuration_json=payload)
         result = config.to_wif_dict()
         result["injected"] = "value"
-        assert "injected" not in config.to_wif_dict()
+        result["credential_source"]["injected"] = True
+        fresh = config.to_wif_dict()
+        assert "injected" not in fresh
+        assert "injected" not in fresh["credential_source"]
 
     def test_from_json_string_field(self) -> None:
         payload = {"type": "external_account"}
