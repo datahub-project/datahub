@@ -232,82 +232,33 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "orders"
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "MANAGED",
+                "created_by": "abc@acryl.io",
+                "table_id": "orders-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1700000000000,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/orders",
+            "name": "orders",
+            "qualifiedName": "metric_catalog.analytics.orders",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1700000010000,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "metric_catalog.analytics.orders"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "MANAGED"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "orders-id"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/owner",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_at",
-                "value": "2023-11-14 22:13:30+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2023-11-14 22:13:20+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/orders"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
@@ -440,112 +391,39 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
-        "json": [
-            {
-                "op": "add",
-                "path": "/name",
-                "value": "revenue_metrics"
+        "json": {
+            "customProperties": {
+                "data_source_format": "DELTA",
+                "table_type": "METRIC_VIEW",
+                "created_by": "abc@acryl.io",
+                "metric_view.from.name": "metric_catalog.analytics.orders",
+                "metric_view.from.type": "ASSET",
+                "metric_view.materialization.enabled": "true",
+                "view.sqlConfig.spark.sql.session.timeZone": "Etc/UTC",
+                "view.sqlConfig.spark.sql.ansi.enabled": "true",
+                "table_id": "metric-view-id",
+                "owner": "abc@acryl.io",
+                "updated_by": "abc@acryl.io",
+                "updated_at": "2023-11-14 22:13:30+00:00",
+                "created_at": "2023-11-14 22:13:20+00:00"
             },
-            {
-                "op": "add",
-                "path": "/description",
-                "value": "Aggregated revenue metric view."
+            "externalUrl": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/revenue_metrics",
+            "name": "revenue_metrics",
+            "qualifiedName": "metric_catalog.analytics.revenue_metrics",
+            "description": "Aggregated revenue metric view.",
+            "created": {
+                "time": 1700000000000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/created",
-                "value": {
-                    "time": 1700000000000,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
+            "lastModified": {
+                "time": 1700000010000,
+                "actor": "urn:li:corpuser:abc@acryl.io"
             },
-            {
-                "op": "add",
-                "path": "/lastModified",
-                "value": {
-                    "time": 1700000010000,
-                    "actor": "urn:li:corpuser:abc@acryl.io"
-                }
-            },
-            {
-                "op": "add",
-                "path": "/qualifiedName",
-                "value": "metric_catalog.analytics.revenue_metrics"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/data_source_format",
-                "value": "DELTA"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_type",
-                "value": "METRIC_VIEW"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/metric_view.from.name",
-                "value": "metric_catalog.analytics.orders"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/metric_view.from.type",
-                "value": "ASSET"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/metric_view.materialization.enabled",
-                "value": "true"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/view.sqlConfig.spark.sql.session.timeZone",
-                "value": "Etc/UTC"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/view.sqlConfig.spark.sql.ansi.enabled",
-                "value": "true"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/table_id",
-                "value": "metric-view-id"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/owner",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_by",
-                "value": "abc@acryl.io"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/updated_at",
-                "value": "2023-11-14 22:13:30+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/created_at",
-                "value": "2023-11-14 22:13:20+00:00"
-            },
-            {
-                "op": "add",
-                "path": "/externalUrl",
-                "value": "https://dummy.cloud.databricks.com/explore/data/metric_catalog/analytics/revenue_metrics"
-            }
-        ]
+            "tags": []
+        }
     },
     "systemMetadata": {
         "lastObserved": 1638860400000,
