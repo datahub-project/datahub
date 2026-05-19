@@ -257,9 +257,7 @@ class TestMemoryOptimizations:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
