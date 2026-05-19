@@ -345,6 +345,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         top_n_queries=self.config.usage.top_n_queries,
                         region_qualifiers=self.config.region_qualifiers,
+                        region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
                     ),
                     structured_report=self.report,
                     filters=self.filters,

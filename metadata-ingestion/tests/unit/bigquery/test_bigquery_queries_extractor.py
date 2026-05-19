@@ -656,6 +656,7 @@ class TestResolveRegionQualifiers:
         report = BigQueryQueriesExtractorReport()
         result = _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=self._empty_structured_report(),
@@ -671,6 +672,7 @@ class TestResolveRegionQualifiers:
         report = BigQueryQueriesExtractorReport()
         result = _resolve_region_qualifiers(
             configured=["US", "europe-west1"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=self._empty_structured_report(),
@@ -687,6 +689,7 @@ class TestResolveRegionQualifiers:
         report = BigQueryQueriesExtractorReport()
         result = _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["europe-west1", "asia-northeast1"],
             report=report,
             structured_report=self._empty_structured_report(),
@@ -707,6 +710,7 @@ class TestResolveRegionQualifiers:
         report = BigQueryQueriesExtractorReport()
         result = _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["US", "europe-west1"],
             report=report,
             structured_report=self._empty_structured_report(),
@@ -715,64 +719,63 @@ class TestResolveRegionQualifiers:
         assert report.region_qualifiers_auto_discovered == ["region-europe-west1"]
 
     def test_configured_order_preserved(self):
-        # Defaults in reverse order are still defaults — set-based gating.
         report = BigQueryQueriesExtractorReport()
         result = _resolve_region_qualifiers(
             configured=["region-eu", "region-us"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["asia-northeast1"],
             report=report,
             structured_report=self._empty_structured_report(),
         )
         assert result == ["region-eu", "region-us", "region-asia-northeast1"]
 
-    def test_user_customized_list_is_not_auto_extended(self):
-        # REGRESSION PROTECTION: customers who explicitly narrowed the scope
-        # (cost, compliance, deliberate exclusion) must not have it silently
-        # broadened by auto-detect, even if schema discovery found other regions.
-        report = BigQueryQueriesExtractorReport()
-        mock_structured = MagicMock()
-        result = _resolve_region_qualifiers(
-            configured=["region-us"],
-            discovered_locations=["US", "europe-west1", "asia-northeast1"],
-            report=report,
-            structured_report=mock_structured,
-        )
-        assert result == ["region-us"]
-        assert report.region_qualifiers_auto_discovered == []
-        # We do NOT auto-add, but we DO surface the uncovered regions for
-        # visibility — the user can decide whether to opt in.
-        mock_structured.info.assert_called_once()
-        ctx = mock_structured.info.call_args.kwargs["context"]
-        assert "region-europe-west1" in ctx
-        assert "region-asia-northeast1" in ctx
-        assert "region-us" not in ctx  # already covered, must not be flagged
-
-    def test_user_customized_list_no_info_when_fully_covered(self):
-        report = BigQueryQueriesExtractorReport()
-        mock_structured = MagicMock()
-        _resolve_region_qualifiers(
-            configured=["region-us"],
-            discovered_locations=["US"],
-            report=report,
-            structured_report=mock_structured,
-        )
-        mock_structured.info.assert_not_called()
-
-    def test_defaults_plus_extra_region_disables_auto_extend(self):
-        # REGRESSION PROTECTION: a customer who deliberately set defaults plus
-        # one extra region has clearly built their own list. set inequality
-        # disables auto-extension. A refactor to set.issuperset would silently
-        # change this behavior.
+    def test_pinned_list_not_auto_extended(self):
+        # REGRESSION PROTECTION: region_qualifiers_auto_discovery=False pins the list
+        # exactly — no discovered region is ever added, regardless of what
+        # region_qualifiers contains.
         report = BigQueryQueriesExtractorReport()
         mock_structured = MagicMock()
         result = _resolve_region_qualifiers(
             configured=["region-us", "region-eu", "region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
             discovered_locations=["europe-west1"],
             report=report,
             structured_report=mock_structured,
         )
         assert result == ["region-us", "region-eu", "region-asia-northeast1"]
         assert report.region_qualifiers_auto_discovered == []
+
+    def test_pinned_list_surfaces_uncovered_regions(self):
+        # REGRESSION PROTECTION: customers who pinned their list must still see
+        # which discovered regions are outside their scan.
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        result = _resolve_region_qualifiers(
+            configured=["region-us"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["US", "europe-west1", "asia-northeast1"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        assert result == ["region-us"]
+        assert report.region_qualifiers_auto_discovered == []
+        mock_structured.info.assert_called_once()
+        ctx = mock_structured.info.call_args.kwargs["context"]
+        assert "region-europe-west1" in ctx
+        assert "region-asia-northeast1" in ctx
+        assert "region-us" not in ctx  # already covered, must not be flagged
+
+    def test_pinned_list_no_info_when_fully_covered(self):
+        report = BigQueryQueriesExtractorReport()
+        mock_structured = MagicMock()
+        _resolve_region_qualifiers(
+            configured=["region-us"],
+            region_qualifiers_auto_discovery=False,
+            discovered_locations=["US"],
+            report=report,
+            structured_report=mock_structured,
+        )
+        mock_structured.info.assert_not_called()
 
     def test_rejected_configured_qualifier_emits_failure(self):
         # Visibility: previously an unparseable qualifier would fail at
@@ -783,6 +786,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "region us"],  # space in the second one
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=mock_structured,
@@ -791,21 +795,21 @@ class TestResolveRegionQualifiers:
         call = mock_structured.failure.call_args.kwargs
         assert "region us" in call["context"]
 
-    def test_rejection_does_not_resurrect_defaults_gate(self):
-        # If a user configures defaults plus a rejected entry, the rejection
-        # leaves configured_normalized matching defaults — but the user
-        # clearly built a custom list, so auto-extension must NOT kick in.
+    def test_rejection_does_not_block_auto_extension(self):
+        # With region_qualifiers_auto_discovery=True, a rejected entry emits a failure
+        # but does not block discovered regions from being added.
         report = BigQueryQueriesExtractorReport()
         mock_structured = MagicMock()
         result = _resolve_region_qualifiers(
             configured=["region-us", "region-eu", "europe/bad"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["europe-west1"],
             report=report,
             structured_report=mock_structured,
         )
-        # europe-west1 must NOT be auto-added.
-        assert result == ["region-us", "region-eu"]
-        assert report.region_qualifiers_auto_discovered == []
+        assert "region-europe-west1" in result
+        assert "region-europe-west1" in report.region_qualifiers_auto_discovered
+        mock_structured.failure.assert_called_once()
 
     def test_effective_empty_list_emits_failure(self):
         # All configured qualifiers unparseable -> nothing in effective list ->
@@ -814,6 +818,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         result = _resolve_region_qualifiers(
             configured=["nonsense/value", ""],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=mock_structured,
@@ -834,6 +839,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=[],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=mock_structured,
@@ -845,13 +851,14 @@ class TestResolveRegionQualifiers:
         )
         assert "is empty" in empty_failure.kwargs["message"]
 
-    def test_all_unparseable_discovered_emits_skipped_info_on_defaults(self):
+    def test_all_unparseable_discovered_emits_skipped_info(self):
         # Gate is on `discovered_normalized`, not the raw arg — otherwise a
         # truthy-but-all-garbage discovered list suppresses the breadcrumb.
         report = BigQueryQueriesExtractorReport()
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["bad/value", "also bad"],
             report=report,
             structured_report=mock_structured,
@@ -867,12 +874,13 @@ class TestResolveRegionQualifiers:
         ]
 
     def test_unparseable_discovered_recorded_on_report(self):
-        # Even on custom config, unparseable discovered values are tracked so
-        # operators know schema discovery emitted something we couldn't handle.
+        # Unparseable discovered values are tracked so operators know schema
+        # discovery emitted something we couldn't handle.
         report = BigQueryQueriesExtractorReport()
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
             discovered_locations=["bad/value"],
             report=report,
             structured_report=mock_structured,
@@ -885,6 +893,7 @@ class TestResolveRegionQualifiers:
         report = BigQueryQueriesExtractorReport()
         _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["  "],
             report=report,
             structured_report=MagicMock(),
@@ -900,6 +909,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=None,
             report=report,
             structured_report=mock_structured,
@@ -915,6 +925,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "bad/value"],
+            region_qualifiers_auto_discovery=False,
             discovered_locations=["europe-west1"],
             report=report,
             structured_report=mock_structured,
@@ -923,7 +934,7 @@ class TestResolveRegionQualifiers:
         mock_structured.info.assert_called_once()
         assert "region-europe-west1" in mock_structured.info.call_args.kwargs["context"]
 
-    def test_info_emitted_when_auto_detect_inert_on_defaults(self):
+    def test_info_emitted_when_auto_detect_inert(self):
         # Schema discovery WAS attempted but yielded nothing usable — the
         # scenario where the original silent failure bites non-US/EU
         # customers, so the breadcrumb must fire. Distinct from the
@@ -932,17 +943,19 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=[],
             report=report,
             structured_report=mock_structured,
         )
         mock_structured.info.assert_called_once()
 
-    def test_no_info_when_user_overrode_defaults(self):
+    def test_no_info_when_pinned_with_no_discovery(self):
         report = BigQueryQueriesExtractorReport()
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-asia-northeast1"],
+            region_qualifiers_auto_discovery=False,
             discovered_locations=None,
             report=report,
             structured_report=mock_structured,
@@ -954,6 +967,7 @@ class TestResolveRegionQualifiers:
         mock_structured = MagicMock()
         _resolve_region_qualifiers(
             configured=["region-us", "region-eu"],
+            region_qualifiers_auto_discovery=True,
             discovered_locations=["europe-west1"],
             report=report,
             structured_report=mock_structured,
@@ -1204,3 +1218,18 @@ class TestBigQueryConfigValidator:
                 pushdown_allow_usernames=["analyst_%", "   "],
             )
         assert "Empty pattern" in str(exc_info.value)
+
+    def test_region_qualifiers_auto_discovery_defaults_to_false(self):
+        # REGRESSION PROTECTION: default must stay False to avoid unexpected
+        # BigQuery query cost increases for users who haven't opted in.
+        from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+            BigQueryV2Config,
+        )
+        from datahub.ingestion.source.bigquery_v2.queries_extractor import (
+            BigQueryQueriesExtractorConfig,
+        )
+
+        assert BigQueryV2Config().region_qualifiers_auto_discovery is False
+        assert (
+            BigQueryQueriesExtractorConfig().region_qualifiers_auto_discovery is False
+        )

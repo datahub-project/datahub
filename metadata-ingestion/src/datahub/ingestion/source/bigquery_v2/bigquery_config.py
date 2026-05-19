@@ -498,6 +498,14 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
+    )
+
     pushdown_deny_usernames: List[str] = Field(
         default=[],
         description="List of user email patterns using SQL LIKE syntax (e.g., 'bot_%', '%@%.iam.gserviceaccount.com') "

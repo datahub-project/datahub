@@ -134,6 +134,14 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
+    )
+
 
 class BigQueryQueriesExtractor(Closeable):
     """
@@ -180,6 +188,7 @@ class BigQueryQueriesExtractor(Closeable):
         )
         self.effective_region_qualifiers = _resolve_region_qualifiers(
             configured=self.config.region_qualifiers,
+            region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
             discovered_locations=discovered_locations,
             report=self.report,
             structured_report=structured_report,
@@ -556,30 +565,24 @@ def _normalize_location_to_region_qualifier(location: str) -> Optional[str]:
 
 def _resolve_region_qualifiers(
     configured: List[str],
+    region_qualifiers_auto_discovery: bool,
     discovered_locations: Optional[Collection[str]],
     report: BigQueryQueriesExtractorReport,
     structured_report: SourceReport,
 ) -> List[str]:
     """
-    Build the effective list of INFORMATION_SCHEMA region qualifiers without
-    broadening the scan beyond what the user opted into. Auto-extension from
-    discovered dataset locations runs ONLY when the parsed configured list
-    matches the shipped defaults exactly — configured lists that differ from
-    the defaults are passed through unchanged so we never silently expand
-    scope (cost, compliance, scope-tightening) for customers who took
-    ownership of region_qualifiers.
+    Build the effective list of INFORMATION_SCHEMA region qualifiers.
+
+    When region_qualifiers_auto_discovery=True (opt-in; defaults to False), any
+    regions found in dataset locations are merged into the effective list.
+    When False, the configured list is used as-is (after normalization).
 
     Side effects:
       - Records the configured/auto-discovered/used breakdown on the report.
-      - Emits structured failure if any configured value is unparseable
-        (preserves the pre-PR ERROR-level visibility of malformed input).
-      - Emits structured failure if the effective list ends up empty
-        (otherwise the extractor would silently do nothing).
-      - Emits structured info for custom-config users when discovery found
-        regions not in their configured list — informational only, never
-        auto-added; fires regardless of whether rejections also occurred.
-      - Emits structured info for defaults users when discovery was attempted
-        but yielded no usable signal.
+      - Emits structured failure if any configured value is unparseable.
+      - Emits structured failure if the effective list ends up empty.
+      - Emits structured info when discovery was enabled but found no new regions.
+      - Emits structured info when discovery is disabled and uncovered regions exist.
     """
     seen: Set[str] = set()
     ordered: List[str] = []
@@ -607,12 +610,6 @@ def _resolve_region_qualifiers(
             context=f"rejected={rejected_configured}",
         )
 
-    # Rejected entries imply a customized list — don't let drop-and-match
-    # silently re-arm auto-extension on a list the user clearly built.
-    on_defaults = not rejected_configured and set(configured_normalized) == set(
-        DEFAULT_REGION_QUALIFIERS
-    )
-
     discovered_normalized: List[str] = []
     for location in discovered_locations or []:
         normalized = _normalize_location_to_region_qualifier(location)
@@ -625,7 +622,7 @@ def _resolve_region_qualifiers(
     discovered_normalized.sort()
 
     auto_added: List[str] = []
-    if on_defaults:
+    if region_qualifiers_auto_discovery:
         for normalized in discovered_normalized:
             if normalized not in seen:
                 seen.add(normalized)
@@ -647,16 +644,15 @@ def _resolve_region_qualifiers(
                 title="BigQuery region auto-detection skipped",
                 message=(
                     "No usable dataset locations were available from schema "
-                    "discovery, so region_qualifiers stays at the defaults "
-                    "(region-us, region-eu). If your project's data lives "
-                    "elsewhere, set `region_qualifiers` explicitly to avoid "
+                    "discovery, so region_qualifiers was not extended. "
+                    "If your project's data lives outside the configured "
+                    "regions, set `region_qualifiers` explicitly to avoid "
                     "missing usage/lineage."
                 ),
             )
     else:
-        # Custom config: surface (but don't auto-add) uncovered regions for
-        # visibility — fires alongside any rejection failure so operators
-        # see both the typo AND the regions outside their scan.
+        # Discovery disabled: surface uncovered regions so the operator can
+        # decide whether to add them to region_qualifiers.
         uncovered = sorted({r for r in discovered_normalized if r not in seen})
         if uncovered:
             structured_report.info(
