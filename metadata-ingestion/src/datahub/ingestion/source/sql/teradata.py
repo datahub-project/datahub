@@ -758,6 +758,20 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         "Controls the level of concurrency for operations like view processing.",
     )
 
+    max_pool_size: int = Field(
+        default=13,
+        description="Maximum number of connections in the SQLAlchemy connection pool "
+        "(base connections + overflow). Teradata drivers can be sensitive to high "
+        "connection counts; keep this conservative. Must be between 10 and 50.",
+    )
+
+    @field_validator("max_pool_size")
+    @classmethod
+    def validate_max_pool_size(cls, v: int) -> int:
+        if not 10 <= v <= 50:
+            raise ValueError(f"max_pool_size must be between 10 and 50, got {v}")
+        return v
+
     extract_ownership: bool = Field(
         default=False,
         description=(
@@ -1872,9 +1886,7 @@ ORDER by DataBaseName, TableName;
 
                 # Optimal connection pool sizing to match max_workers exactly
                 # Teradata driver can be sensitive to high connection counts, so cap at reasonable limit
-                max_safe_connections = (
-                    13  # Conservative limit: 8 base + 5 overflow for Teradata stability
-                )
+                max_safe_connections = self.config.max_pool_size
 
                 # Adjust max_workers to match available connection pool capacity
                 effective_max_workers = min(
