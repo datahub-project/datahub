@@ -338,11 +338,6 @@ class AirbyteSourceConfig(
         description="Extract tags from Airbyte metadata",
     )
 
-    use_workspace_name_as_platform_instance: bool = Field(
-        default=False,
-        description="Use the workspace name as the platform instance in URNs. If enabled, this will override any platform_instance set in config.",
-    )
-
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @field_validator("job_status_start_date", mode="before")

@@ -128,7 +128,7 @@ def _validate_urn_component(component: str, component_name: str) -> str:
 
 @platform_name("Airbyte")
 @config_class(AirbyteSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 @capability(
@@ -869,7 +869,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         pipeline_info: AirbytePipelineInfo,
         stream_config: AirbyteStreamConfig,
         stream: AirbyteStreamDetails,
-        platform_instance: Optional[str],
     ) -> AirbyteDatasetUrns:
         source = pipeline_info.source
         destination = pipeline_info.destination
@@ -1077,15 +1076,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
         connection_dataflow = self._build_connection_dataflow(pipeline_info, tags)
         yield from connection_dataflow.as_workunits()
 
-        platform_instance = None
-        if (
-            self.source_config.use_workspace_name_as_platform_instance
-            and pipeline_info.workspace.name
-        ):
-            platform_instance = pipeline_info.workspace.name
-        else:
-            platform_instance = self.source_config.platform_instance
-
         streams = self._fetch_streams_for_source(pipeline_info)
 
         for stream_info in streams:
@@ -1094,7 +1084,6 @@ class AirbyteSource(StatefulIngestionSourceBase):
                     pipeline_info,
                     stream_info.config,
                     stream_info.details,
-                    platform_instance,
                 )
 
                 datajob = self._build_stream_datajob(

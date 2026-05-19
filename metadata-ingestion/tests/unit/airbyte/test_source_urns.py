@@ -91,9 +91,7 @@ def test_convert_urns_to_lowercase_enabled(mock_create_client, mock_ctx):
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
 
-    dataset_urns = source._create_dataset_urns(
-        pipeline_info, stream_config, stream, "test-instance"
-    )
+    dataset_urns = source._create_dataset_urns(pipeline_info, stream_config, stream)
 
     assert "public.customers" in dataset_urns.source_urn
     assert "PUBLIC" not in dataset_urns.source_urn
@@ -160,9 +158,7 @@ def test_convert_urns_to_lowercase_disabled(mock_create_client, mock_ctx):
         stream=AirbyteStream(name="CUSTOMERS", namespace="PUBLIC"), config={}
     )
 
-    dataset_urns = source._create_dataset_urns(
-        pipeline_info, stream_config, stream, "test-instance"
-    )
+    dataset_urns = source._create_dataset_urns(pipeline_info, stream_config, stream)
 
     assert "PUBLIC.CUSTOMERS" in dataset_urns.source_urn
 
@@ -222,9 +218,7 @@ def test_auto_detect_two_tier_platform(mock_create_client, mock_ctx):
         stream=AirbyteStream(name="customers", namespace="mydb"), config={}
     )
 
-    urns = source._create_dataset_urns(
-        pipeline_info, stream_config, stream_details, None
-    )
+    urns = source._create_dataset_urns(pipeline_info, stream_config, stream_details)
 
     assert "mydb.customers" in urns.source_urn
     assert "mydb.mydb.customers" not in urns.source_urn
@@ -282,9 +276,7 @@ def test_three_tier_platform_preserved(mock_create_client, mock_ctx):
         stream=AirbyteStream(name="customers", namespace="PUBLIC"), config={}
     )
 
-    urns = source._create_dataset_urns(
-        pipeline_info, stream_config, stream_details, None
-    )
+    urns = source._create_dataset_urns(pipeline_info, stream_config, stream_details)
 
     assert "dw_analytics.public.customers" in urns.source_urn
     assert "dw_analytics.customers" not in urns.source_urn
@@ -342,9 +334,7 @@ def test_fully_qualified_table_name_parsing(mock_create_client, mock_ctx):
         stream=AirbyteStream(name="public.customers", namespace="public"), config={}
     )
 
-    urns = source._create_dataset_urns(
-        pipeline_info, stream_config, stream_details, None
-    )
+    urns = source._create_dataset_urns(pipeline_info, stream_config, stream_details)
 
     assert "mydb.public.customers" in urns.source_urn
     assert "public.customers.public.customers" not in urns.source_urn

@@ -8,16 +8,16 @@ source:
     host_port: http://localhost:8000   # Airbyte API endpoint URL
 
     # Authentication for OSS deployment
-    username: airbyte                  # Username for basic auth
-    password: password                 # Password for basic auth
-    # api_key: your-api-key            # Alternative: API token if available
+    username: your_username            # Username for basic auth
+    password: your_password            # Password for basic auth
+    # api_key: your_api_key            # Alternative: API token if available
 
     # Authentication for Cloud deployment - uncomment if using Airbyte Cloud
     #deployment_type: cloud
-    #oauth2_client_id: client-id       # OAuth2 client ID for Airbyte Cloud
-    #oauth2_client_secret: client-secret # OAuth2 client secret
-    #oauth2_refresh_token: refresh-token # OAuth2 refresh token
-    #cloud_workspace_id: workspace-id  # Airbyte Cloud workspace ID
+    #oauth2_client_id: your_client_id           # OAuth2 client ID for Airbyte Cloud
+    #oauth2_client_secret: your_client_secret   # OAuth2 client secret
+    #oauth2_refresh_token: your_refresh_token   # OAuth2 refresh token
+    #cloud_workspace_id: your_workspace_id      # Airbyte Cloud workspace ID
 
     # SSL configuration
     verify_ssl: false                  # Whether to verify SSL certificates
@@ -54,7 +54,6 @@ source:
 
     # Platform instance configuration
     platform_instance: airbyte-instance # Custom platform instance name
-    #use_workspace_name_as_platform_instance: false # Use workspace name as platform instance
 
     # Performance settings
     request_timeout: 30                # Timeout for API requests in seconds
