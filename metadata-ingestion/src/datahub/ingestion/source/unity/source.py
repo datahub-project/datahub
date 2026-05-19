@@ -1,4 +1,5 @@
 import dataclasses
+import functools
 import json
 import logging
 import re
@@ -45,15 +46,17 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_ownership_helper import (
+    auto_incremental_ownership,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
+)
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
     SourceCapability,
     TestableSource,
     TestConnectionReport,
-)
-from datahub.ingestion.api.source_helpers import (
-    create_dataset_owners_patch_builder,
-    create_dataset_props_patch_builder,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -397,6 +400,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_ownership, self.config.incremental_ownership
+            ),
+            functools.partial(
+                auto_incremental_properties, self.config.incremental_properties
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
@@ -795,31 +804,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.gen_siblings_workunit(dataset_urn, source_dataset_urn)
                 yield from self.gen_lineage_workunit(dataset_urn, source_dataset_urn)
 
-        if ownership:
-            patch_builder = create_dataset_owners_patch_builder(dataset_urn, ownership)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
-        if table_props:
-            # TODO: use auto_incremental_properties workunit processor instead
-            # Consider enabling incremental_properties by default
-            patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-
         yield from [
             mcp.as_workunit()
             for mcp in MetadataChangeProposalWrapper.construct_many(
                 entityUrn=dataset_urn,
                 aspects=[
+                    table_props,
                     view_props,
                     sub_type,
                     schema_metadata,
                     domain,
+                    ownership,
                     data_platform_instance,
                     lineage,
                     tags,

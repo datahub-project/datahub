@@ -100,9 +100,10 @@ def create_dataset_props_patch_builder(
 def create_dataset_owners_patch_builder(
     dataset_urn: str,
     ownership: Ownership,
+    system_metadata: Optional[SystemMetadataClass] = None,
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a dataset's owners"""
-    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder = DatasetPatchBuilder(dataset_urn, system_metadata)
 
     for owner in ownership.owners:
         patch_builder.add_owner(owner)
