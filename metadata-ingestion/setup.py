@@ -957,6 +957,7 @@ base_dev_requirements = {
         dependency
         for plugin in [
             "abs",
+            "aerospike",
             "airbyte",
             "athena",
             "bigquery",

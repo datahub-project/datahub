@@ -512,6 +512,7 @@ delta-lake = [
 dev = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
+    { name = "aerospike" },
     { name = "aiohttp" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
@@ -704,6 +705,7 @@ dlt = [
 docs = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
+    { name = "aerospike" },
     { name = "aiohttp" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
@@ -1826,6 +1828,8 @@ requires-dist = [
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'presto-on-hive'", specifier = "==0.6.18" },
     { name = "aerospike", marker = "extra == 'aerospike'", specifier = ">=15.0.0,<20.0.0" },
     { name = "aerospike", marker = "extra == 'all'", specifier = ">=15.0.0,<20.0.0" },
+    { name = "aerospike", marker = "extra == 'dev'", specifier = ">=15.0.0,<20.0.0" },
+    { name = "aerospike", marker = "extra == 'docs'", specifier = ">=15.0.0,<20.0.0" },
     { name = "aiohttp", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'dev'", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'docs'", specifier = "<4" },
