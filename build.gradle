@@ -114,7 +114,9 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.1'
+ext.jacksonVersion = '2.21.3'
+// Parquet stack (parquet-jackson 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq).
+ext.parquetVersion = '1.17.1'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -272,9 +274,10 @@ project.ext.externalDependency = [
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    // Parquet stack aligned (parquet-jackson comes transitively; 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq)
-    'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
+    // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
+    'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",
+    'parquetHadoop': "org.apache.parquet:parquet-hadoop:${parquetVersion}",
+    'parquetJackson': "org.apache.parquet:parquet-jackson:${parquetVersion}",
     'picocli': 'info.picocli:picocli:4.5.0',
     'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
     'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
@@ -547,6 +550,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useVersion(rootProject.ext.reactorNettyVersion)
         details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
       }
+      if (details.requested.group == 'org.apache.parquet') {
+        details.useVersion(rootProject.ext.parquetVersion)
+        details.because("Parquet stack aligned to ${rootProject.ext.parquetVersion}")
+      }
     }
     resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
     resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
@@ -554,6 +561,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
     }
@@ -599,6 +607,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
 configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
   configurations.all {
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"

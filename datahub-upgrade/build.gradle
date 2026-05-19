@@ -78,6 +78,7 @@ dependencies {
   implementation externalDependency.picocli
   implementation externalDependency.resilience4j
   implementation externalDependency.parquet
+  implementation externalDependency.parquetJackson
   implementation externalDependency.protobuf
   implementation externalDependency.springBeans
   implementation externalDependency.springBootAutoconfigure
