@@ -418,8 +418,10 @@ class TestPerformanceReporting:
             ]
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_conn.execute.return_value.fetchall.return_value = mock_entries
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = mock_entries
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 source.cache_tables_and_views()
