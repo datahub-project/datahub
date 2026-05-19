@@ -90,6 +90,9 @@ abs-slim = [
     { name = "ujson" },
     { name = "wcmatch" },
 ]
+aerospike = [
+    { name = "aerospike" },
+]
 airbyte = [
     { name = "requests" },
 ]
@@ -509,7 +512,6 @@ delta-lake = [
 dev = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
-    { name = "aerospike" },
     { name = "aiohttp" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
@@ -702,7 +704,6 @@ dlt = [
 docs = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
-    { name = "aerospike" },
     { name = "aiohttp" },
     { name = "atlassian-python-api" },
     { name = "authlib" },
@@ -1825,8 +1826,6 @@ requires-dist = [
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'presto-on-hive'", specifier = "==0.6.18" },
     { name = "aerospike", marker = "extra == 'aerospike'", specifier = ">=15.0.0,<20.0.0" },
     { name = "aerospike", marker = "extra == 'all'", specifier = ">=15.0.0,<20.0.0" },
-    { name = "aerospike", marker = "extra == 'dev'", specifier = ">=15.0.0,<20.0.0" },
-    { name = "aerospike", marker = "extra == 'docs'", specifier = ">=15.0.0,<20.0.0" },
     { name = "aiohttp", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'dev'", specifier = "<4" },
     { name = "aiohttp", marker = "extra == 'docs'", specifier = "<4" },
@@ -2744,6 +2743,7 @@ requires-dist = [
     { name = "redshift-connector", marker = "extra == 'dev'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'docs'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'redshift'", specifier = ">=2.1.5,<3.0.0" },
+    { name = "redshift-connector", marker = "extra == 'redshift-slim'", specifier = ">=2.1.5,<3.0.0" },
     { name = "requests", marker = "extra == 'airbyte'" },
     { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'databricks'", specifier = "<3.0.0" },
@@ -3263,7 +3263,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "airbyte", "athena", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-onelake", "feast", "fivetran", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "oracle", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"

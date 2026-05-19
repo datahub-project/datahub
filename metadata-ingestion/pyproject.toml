@@ -115,6 +115,10 @@ abs-slim = [
     "wcmatch<11.0.0",
 ]
 
+aerospike = [
+    "aerospike>=15.0.0,<20.0.0",
+]
+
 airbyte = [
     "requests",
 ]
@@ -1447,7 +1451,6 @@ cloud = ["acryl-datahub-cloud"]
 dev = [
     "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
-    "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.11,<2.0.0",
@@ -1638,7 +1641,6 @@ dev = [
 docs = [
     "acryl-datahub-classify==0.0.11",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
-    "aerospike>=15.0.0,<20.0.0",
     "aiohttp<4",
     "atlassian-python-api>=3.41.0,<5.0.0",
     "Authlib>=1.6.11,<2.0.0",
