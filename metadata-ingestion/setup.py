@@ -185,33 +185,37 @@ great_expectations_lib = {
     "jupyter_server>=2.14.1,<3.0.0",  # CVE-2024-35178
 }
 
+profiling_ge = {
+    *great_expectations_lib,
+    # scipy version restricted to reduce backtracking, used by great-expectations.
+    "scipy>=1.7.2,<2.0.0",
+    # GE added handling for higher version of jinja2.
+    # https://github.com/great-expectations/great_expectations/pull/5382/files
+    # datahub does not depend on traitlets directly but great-expectations does.
+    # https://github.com/ipython/traitlets/issues/741
+    "traitlets!=5.2.2,<6.0.0",
+    # GE depends on IPython - we have no direct dependency on it.
+    # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
+    # version requirement of traitlets>5.
+    # See https://github.com/ipython/ipython/issues/14352.
+    # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
+    # which first appeared in IPython 8.22.1.
+    # As such, we just need to avoid that version in order to get the
+    # dependencies that we need. IPython probably should've yanked 8.22.0.
+    "IPython!=8.22.0,<9.0.0",
+}
+
 sqlalchemy_lib = {
     # Required for all SQL sources.
     # Multiple packages require <2: sqlalchemy-redshift, databricks-sql-connector, great-expectations
     "sqlalchemy>=1.4.39,<2",
+    # greenlet is imported directly by datahub.utilities.sqlalchemy_query_combiner, which
+    # is used by both the SQLAlchemy and GE profilers (via sql_report.py).
+    "greenlet<4.0.0",
 }
 sql_common = (
     {
         *sqlalchemy_lib,
-        # Required for SQL profiling.
-        *great_expectations_lib,
-        # scipy version restricted to reduce backtracking, used by great-expectations,
-        "scipy>=1.7.2,<2.0.0",
-        # GE added handling for higher version of jinja2
-        # https://github.com/great-expectations/great_expectations/pull/5382/files
-        # datahub does not depend on traitlets directly but great expectations does.
-        # https://github.com/ipython/traitlets/issues/741
-        "traitlets!=5.2.2,<6.0.0",
-        # GE depends on IPython - we have no direct dependency on it.
-        # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
-        # version requirement of traitlets>5.
-        # See https://github.com/ipython/ipython/issues/14352.
-        # This issue was fixed by https://github.com/ipython/ipython/pull/14353,
-        # which first appeared in IPython 8.22.1.
-        # As such, we just need to avoid that version in order to get the
-        # dependencies that we need. IPython probably should've yanked 8.22.0.
-        "IPython!=8.22.0,<9.0.0",
-        "greenlet<4.0.0",
         *cachetools_lib,
     }
     | usage_common
@@ -570,6 +574,9 @@ plugins: Dict[str, Set[str]] = {
     "great-expectations": {
         f"acryl-datahub-gx-plugin{_self_pin}",
     },
+    # Opt-in extra for the legacy Great Expectations SQL profiler.
+    # Without this extra, SQL connectors fall back to the SQLAlchemy profiler.
+    "profiling-ge": profiling_ge,
     # Misc plugins.
     "sql-parser": sqlglot_lib,
     # Source plugins
@@ -676,7 +683,6 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {
         "databricks-dbapi<0.7.0",
-        *great_expectations_lib,
     },
     # keep in sync with presto-on-hive until presto-on-hive will be removed
     # Supports both SQL (psycopg2/pymysql) and Thrift (pymetastore) connection types
