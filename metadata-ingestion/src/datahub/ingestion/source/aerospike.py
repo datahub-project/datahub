@@ -289,11 +289,16 @@ def construct_schema_aerospike(
     if sample_size:
         query.max_records = sample_size
     query.records_per_second = records_per_second
+
+    # socket_timeout is configured via the policy dict passed to results(),
+    # not as an attribute on the Query object (which is a C-extension type
+    # that rejects unknown attribute assignment).
+    policy: Dict[str, Any] = {}
     if socket_timeout_ms is not None:
-        query.socket_timeout = socket_timeout_ms  # type: ignore[attr-defined]
+        policy["socket_timeout"] = socket_timeout_ms
 
     try:
-        res = query.results()
+        res = query.results(policy)
         records = [{**record[2], "PK": record[0][2]} for record in res]
     except Exception as e:
         logger.error(f"Error querying Aerospike set: {e}")
