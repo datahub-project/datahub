@@ -126,7 +126,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-url", "https://www.test.com");
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
@@ -148,7 +148,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test documentation");
     cy.clickFirstOptionWithSpecificTestId("add-link-button", 1);
     cy.waitTextVisible("URL");
-    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-url", "https://www.test.com");
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");
@@ -202,7 +202,7 @@ describe("Verify nested domains test functionalities", () => {
     cy.waitTextVisible("Test added");
     cy.clickFirstOptionWithTestId("add-link-button");
     cy.waitTextVisible("Add Link");
-    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-url", "https://www.test.com");
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
     cy.waitTextVisible("Test Label");

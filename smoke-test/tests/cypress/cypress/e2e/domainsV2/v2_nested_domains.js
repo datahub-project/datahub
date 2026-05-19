@@ -156,7 +156,7 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickFirstOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-url", "https://www.test.com");
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
 
@@ -193,7 +193,7 @@ describe("Verify nested domains test functionalities", () => {
 
     // Add a new link
     cy.clickOptionWithTestId("add-link-button");
-    cy.enterTextInTestId("link-form-modal-url", "www.test.com");
+    cy.enterTextInTestId("link-form-modal-url", "https://www.test.com");
     cy.enterTextInTestId("link-form-modal-label", "Test Label");
     cy.clickOptionWithTestId("link-form-modal-submit-button");
 
