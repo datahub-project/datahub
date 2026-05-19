@@ -877,7 +877,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=60000,
         description=(
             "Timeout in milliseconds to wait for a connection from the connection pool "
-            "before raising an error."
+            "before raising an error. "
             "Default is 60000 (60 seconds)."
         ),
     )
