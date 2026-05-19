@@ -10,6 +10,12 @@ namespace com.linkedin.execution
  * exists so post-hoc forensics can answer "which tier produced the version, and which GMS wrote
  * this?" from a single SQL query without log archaeology.
  *
+ * NOTE: this stamps the version GMS *resolved*, not the version the executor actually
+ * installed. The executor may run a different effective version when (a) the recipe's
+ * `extra_pip` requirements transitively pull in `acryl-datahub`, (b) the customer opts out
+ * of installing `acryl-datahub` (e.g. `version="no-acryl-datahub"`), or (c) a bundled image
+ * short-circuits the install step. Treat this aspect as GMS-side intent, not proof-of-install.
+ *
  * The resolution chain is, in priority order:
  *   1. Per-source `config.version` explicit override (PER_SOURCE)
  *   2. Cohort whose `deployments` list contains this deployment's id (MATRIX_COHORT)
