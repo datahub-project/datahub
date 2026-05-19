@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { InstitutionalMemoryMetadata } from '@types';
 
@@ -32,7 +33,7 @@ export default function LinkButton({ link }: Props) {
     return (
         <StyledLink
             type="link"
-            href={link.url}
+            href={safeUrl(link.url)}
             target="_blank"
             rel="noreferrer"
             key={`${link.label}-${link.url}-${link.actor.urn}`}

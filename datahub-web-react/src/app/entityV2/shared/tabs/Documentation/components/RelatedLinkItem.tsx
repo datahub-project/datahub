@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button } from '@src/alchemy-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
@@ -111,7 +112,7 @@ export const RelatedLinkItem: React.FC<RelatedLinkItemProps> = ({ link, onEdit, 
                     <LinkIcon url={link.url} />
                 </IconContainer>
                 <ContentContainer>
-                    <TitleLink href={link.url} target="_blank" rel="noreferrer">
+                    <TitleLink href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                         {link.description || link.label}
                     </TitleLink>
                     <Description>

@@ -15,6 +15,7 @@ import {
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResultType, AssertionRunEvent } from '@types';
 
@@ -211,7 +212,7 @@ export const AssertionResultPopoverContent = ({
                                   ? [
                                         <ThinDivider />,
                                         <PlatformRow>
-                                            <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
+                                            <a href={safeUrl(result.externalUrl)} target="_blank" rel="noopener noreferrer">
                                                 View results in{' '}
                                                 {assertion.platform?.name &&
                                                 assertion.platform?.name?.toLowerCase() !== 'unknown'

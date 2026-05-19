@@ -5,6 +5,7 @@ import React from 'react';
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { StyledLink } from '@app/entityV2/shared/containers/profile/sidebar/LinkButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { safeUrl } from '@app/shared/urlUtils';
 
 export default function SourceRefSection() {
     const { entityData } = useEntityData();
@@ -22,7 +23,7 @@ export default function SourceRefSection() {
                     <>
                         <Typography.Paragraph>
                             {sourceUrl ? (
-                                <StyledLink type="link" href={sourceUrl} target="_blank" rel="noreferrer">
+                                <StyledLink type="link" href={safeUrl(sourceUrl)} target="_blank" rel="noreferrer">
                                     <LinkOutlined />
                                     {sourceRef}
                                 </StyledLink>
