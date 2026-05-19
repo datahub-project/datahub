@@ -150,6 +150,7 @@ backports-tarfile==1.2.0 ; python_full_version < '3.12' and platform_machine != 
 beautifulsoup4==4.14.3
     # via
     #   atlassian-python-api
+    #   markdownify
     #   nbconvert
     #   redshift-connector
     #   unstructured
@@ -295,7 +296,9 @@ coverage==7.13.4
     #   acryl-datahub
     #   pytest-cov
 cramjam==2.11.0
-    # via python-snappy
+    # via
+    #   acryl-datahub
+    #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
 cryptography==46.0.7
@@ -826,6 +829,8 @@ markdown-it-py==4.0.0
     #   mdit-py-plugins
     #   rich
     #   textual
+markdownify==1.2.2
+    # via acryl-datahub
 markupsafe==3.0.3
     # via
     #   flask
@@ -1559,6 +1564,7 @@ six==1.17.0
     #   isodate
     #   langdetect
     #   linear-tsv
+    #   markdownify
     #   python-dateutil
     #   rfc3339-validator
     #   tableschema
@@ -1631,10 +1637,12 @@ sqlalchemy2-stubs==0.0.2a38
     # via
     #   acryl-datahub
     #   sqlalchemy
-sqlglot==30.0.3
+sqlglot==30.8.0
     # via
     #   acryl-datahub
     #   dlt
+sqlglotc==30.8.0
+    # via sqlglot
 sqlparse==0.5.5
     # via
     #   acryl-datahub

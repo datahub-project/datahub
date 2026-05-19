@@ -259,10 +259,23 @@ The GraphQL layer exposes structured properties through several resolvers:
 - `CreateStructuredPropertyResolver`: Creates new structured property definitions
 - `UpdateStructuredPropertyResolver`: Modifies existing property definitions (within allowed constraints)
 - `DeleteStructuredPropertyResolver`: Removes structured property definitions
-- `UpsertStructuredPropertiesResolver`: Assigns property values to entities
+- `UpsertStructuredPropertiesResolver`: Assigns property values to entities (builds MCPs; orphan filtering is handled in GMS)
 - `RemoveStructuredPropertiesResolver`: Removes property values from entities
 
 These resolvers are located in `/datahub-graphql-core/src/main/java/com/linkedin/datahub/graphql/resolvers/structuredproperties/`.
+
+#### GMS assignment mutator
+
+`StructuredPropertiesAssignmentMutator` (`metadata-io/.../structuredproperties/hooks/`) is a `MutationHook` registered for the `structuredProperties` aspect on all entities:
+
+- **Read**: Filters out assignments whose definition is soft-deleted (`StructuredPropertyUtils.filterSoftDelete`).
+- **Write**: When `structuredProperties.dropMissingPropertyValuesWithWarning` is `true` (default), `StructuredPropertiesValidator` skips validation for missing definitions and `StructuredPropertiesAssignmentMutator` drops those assignments before commit (`StructuredPropertyUtils.filterMissingPropertyDefinitions`), logs a warning per dropped URN, and rejects the write if no valid assignments remain.
+
+Configured in `application.yaml` under `structuredProperties.dropMissingPropertyValuesWithWarning` / env `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING`.
+
+#### Hard delete side effects
+
+On hard delete of a `structuredProperty` entity, `EntityServiceImpl` captures the `propertyDefinition` aspect before `deleteUrn` and emits a companion `propertyDefinition` DELETE metadata change log so `PropertyDefinitionDeleteSideEffect` can remove assignments from other entities even when only the key aspect DELETE is visible after storage removal.
 
 ## Notable Exceptions
 
@@ -302,7 +315,7 @@ Structured properties support two deletion modes:
 **Soft Delete** (via `status` aspect with `removed: true`):
 
 - Property definition remains in the system
-- Property values are hidden but not deleted
+- Property values are hidden on read via `StructuredPropertiesAssignmentMutator` but not deleted from storage
 - Assignment of new values is blocked
 - Search filters using the property are disabled
 - Fully reversible by setting `removed: false`
@@ -310,7 +323,9 @@ Structured properties support two deletion modes:
 **Hard Delete** (via entity deletion):
 
 - Removes the property definition entity completely
-- Triggers asynchronous removal of all property values across all entities
+- Emits a companion `propertyDefinition` DELETE event before entity removal so assignment cleanup runs reliably
+- Triggers asynchronous PATCH REMOVE of property values on other entities via `PropertyDefinitionDeleteSideEffect`
+- Orphaned assignments left on entities can be stripped on subsequent writes when `dropMissingPropertyValuesWithWarning` is enabled (default)
 - Not reversible
 - Elasticsearch mappings persist until reindexing occurs
 
