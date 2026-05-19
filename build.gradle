@@ -31,7 +31,8 @@ buildscript {
   // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
   ext.springBootVersion = '4.0.6'
   ext.springKafkaVersion = '4.0.4'
-  ext.openTelemetryVersion = '1.60.1'
+  // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
+  ext.openTelemetryVersion = '1.62.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -560,6 +561,11 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       if (details.requested.group == 'io.projectreactor.netty') {
         details.useVersion(rootProject.ext.reactorNettyVersion)
         details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
+      }
+      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv).
+      if (details.requested.group == 'io.opentelemetry' && details.requested.name != 'opentelemetry-semconv') {
+        details.useVersion(rootProject.ext.openTelemetryVersion)
+        details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
       }
     }
     resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
