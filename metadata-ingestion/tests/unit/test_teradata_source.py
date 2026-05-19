@@ -3160,6 +3160,11 @@ class TestHistoricalTableCheckLogging:
             "Expected a WARNING mentioning 'transient' but got: "
             + str([r.message for r in warning_records])
         )
+        # Transient failures must also surface in the ingestion report so the
+        # operator sees them in the DataHub UI, not only in raw log output.
+        assert any("transient" in w.message.lower() for w in source.report.warnings), (
+            f"Expected report.warnings to mention 'transient', got: {source.report.warnings}"
+        )
 
     def test_non_transient_error_logs_info_not_warning(self, caplog):
         """A genuine 'table not found' error should log at INFO, not WARNING."""

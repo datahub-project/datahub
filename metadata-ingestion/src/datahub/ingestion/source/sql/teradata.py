@@ -2388,10 +2388,13 @@ ORDER by DataBaseName, TableName;
                 return True
         except Exception as e:
             if _should_retry(e):
-                logger.warning(
-                    f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
-                    f"after {self.config.retry_max_attempts} attempts due to a transient error: {e}. "
-                    "Historical lineage will be skipped for this run."
+                self.report.warning(
+                    title="Historical lineage table unreachable",
+                    message=(
+                        f"Historical lineage table PDCRINFO.DBQLSqlTbl_Hst check failed "
+                        f"after {self.config.retry_max_attempts} attempts due to a transient "
+                        f"error: {e}. Historical lineage will be skipped for this run."
+                    ),
                 )
             else:
                 logger.info(
