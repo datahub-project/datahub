@@ -79,6 +79,8 @@ framework_common = {
     # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
     # which is not available as wheel.
     "ruamel.yaml<0.19.0",
+    # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
+    "cramjam>=2.8.0,<3.0.0",
 }
 
 rest_common = {
@@ -131,9 +133,10 @@ sqlglot_lib = {
     # Migrated from [rs] to [c] tokenizer (https://github.com/tobymao/sqlglot/pull/7120).
     # 30.0.3+ fixes Alias.alias behaviour for Placeholder nodes (Snowflake AS :name syntax)
     # (https://github.com/tobymao/sqlglot/pull/7310), removing the need for _patch_alias_placeholder.
-    #"sqlglot[c]==30.0.3",
-    # memory leak with sqlglot[c] https://github.com/tobymao/sqlglot/issues/7506
-    "sqlglot==30.0.3",
+    # sqlglot[c] was removed in a prior PR as a workaround for a memory leak
+    # (https://github.com/tobymao/sqlglot/issues/7506). 30.8.0 fixes the leak
+    # upstream, so we restore [c] here for performance.
+    "sqlglot[c]==30.8.0",
     "patchy==2.8.0",
 }
 
@@ -522,6 +525,11 @@ confluence_common = {
     # Confluence-specific connector adds atlassian-python-api and related dependencies
     "unstructured-ingest[confluence]==0.7.2",
     "atlassian-python-api>=3.41.0,<5.0.0",  # Supports 3.x and 4.x API versions
+    # Preserve Confluence storage HTML structure as Markdown for chunking/retrieval
+    "markdownify>=0.14.1,<2.0.0",
+    # Required for GraphQL query adaptation (strip_unsupported_fields) when fetching
+    # semantic search config from older DataHub servers that lack vertexProviderConfig.
+    "graphql-core>=3.0.0,<4.0.0",
 } | unstructured_lib
 
 # Note: for all of these, framework_common will be added.
@@ -533,6 +541,12 @@ plugins: Dict[str, Set[str]] = {
         "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
         "fastavro>=1.2.0,<2.0.0",
     },
+    "datahub-pg-queue": {
+        "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
+        "fastavro>=1.2.0,<2.0.0",
+        "psycopg2-binary<3.0.0",
+    }
+    | aws_common,
     "datahub-rest": rest_common,
     # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
     "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
@@ -1222,6 +1236,7 @@ entry_points = {
         "console = datahub.ingestion.sink.console:ConsoleSink",
         "blackhole = datahub.ingestion.sink.blackhole:BlackHoleSink",
         "datahub-kafka = datahub.ingestion.sink.datahub_kafka:DatahubKafkaSink",
+        "datahub-pg-queue = datahub.ingestion.sink.datahub_pg_queue:DatahubPgQueueSink",
         "datahub-rest = datahub.ingestion.sink.datahub_rest:DatahubRestSink",
         "datahub-lite = datahub.ingestion.sink.datahub_lite:DataHubLiteSink",
     ],
