@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from collections import defaultdict
+from collections.abc import Generator
 from concurrent.futures import (
     FIRST_COMPLETED,
     Future,
@@ -16,7 +17,6 @@ from threading import Event, Lock, Thread, current_thread
 from typing import (
     Any,
     Dict,
-    Generator,
     Iterable,
     List,
     MutableMapping,
