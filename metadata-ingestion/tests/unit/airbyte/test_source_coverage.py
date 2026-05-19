@@ -77,6 +77,54 @@ class TestFetchTagsForWorkspace:
 
         assert tags == []
 
+    @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+    def test_fetch_tags_cached_per_workspace(self, mock_create_client, mock_ctx):
+        # Tags are workspace-scoped; calling `_fetch_tags_for_workspace` N
+        # times for the same workspace must hit the Airbyte API exactly once.
+        # Without caching, a workspace with N connections issues N identical
+        # `/tags?workspaceIds=...` requests.
+        mock_client = MagicMock()
+        mock_client.list_tags.return_value = [
+            {"id": "tag-1", "name": "production"},
+        ]
+        mock_create_client.return_value = mock_client
+
+        config = AirbyteSourceConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        source = AirbyteSource(config, mock_ctx)
+
+        for _ in range(3):
+            tags = source._fetch_tags_for_workspace("workspace-123")
+            assert len(tags) == 1
+            assert tags[0].name == "production"
+
+        assert mock_client.list_tags.call_count == 1
+
+        # A different workspace must still trigger a fresh fetch.
+        source._fetch_tags_for_workspace("workspace-456")
+        assert mock_client.list_tags.call_count == 2
+
+    @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+    def test_fetch_tags_failure_is_cached(self, mock_create_client, mock_ctx):
+        # A transient failure on the first call should not cause repeat
+        # failing calls for the remaining connections in the same workspace.
+        mock_client = MagicMock()
+        mock_client.list_tags.side_effect = Exception("API error")
+        mock_create_client.return_value = mock_client
+
+        config = AirbyteSourceConfig(
+            deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+            host_port="http://localhost:8000",
+        )
+        source = AirbyteSource(config, mock_ctx)
+
+        for _ in range(3):
+            assert source._fetch_tags_for_workspace("workspace-123") == []
+
+        assert mock_client.list_tags.call_count == 1
+
 
 class TestExtractConnectionTags:
     @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")

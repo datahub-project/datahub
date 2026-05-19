@@ -155,6 +155,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
         self._warned_destination_ids: Set[str] = set()
         self._source_platform_cache: Dict[str, PlatformInfo] = {}
         self._dest_platform_cache: Dict[str, PlatformInfo] = {}
+        # Tags are workspace-scoped; cache per workspace so a workspace with N
+        # connections doesn't make N identical `/tags?workspaceIds=...` calls.
+        # Failures are cached as `[]` as well, so a transient error on the
+        # first connection doesn't repeat the failing call for the rest.
+        self._workspace_tags_cache: Dict[str, List[AirbyteTagInfo]] = {}
         self._warned_unknown_statuses: Set[str] = set()
 
     @classmethod
@@ -617,9 +622,11 @@ class AirbyteSource(StatefulIngestionSourceBase):
         return streams
 
     def _fetch_tags_for_workspace(self, workspace_id: str) -> List[AirbyteTagInfo]:
+        if workspace_id in self._workspace_tags_cache:
+            return self._workspace_tags_cache[workspace_id]
         try:
             tags_list = self.client.list_tags(workspace_id)
-            return [AirbyteTagInfo.model_validate(tag) for tag in tags_list]
+            tags = [AirbyteTagInfo.model_validate(tag) for tag in tags_list]
         except Exception as e:
             self.report.warning(
                 title="Tag Retrieval Failed",
@@ -627,7 +634,9 @@ class AirbyteSource(StatefulIngestionSourceBase):
                 context=f"workspace_id={workspace_id}",
                 exc=e,
             )
-            return []
+            tags = []
+        self._workspace_tags_cache[workspace_id] = tags
+        return tags
 
     def _extract_connection_tags(
         self, pipeline_info: AirbytePipelineInfo, airbyte_tags: List[AirbyteTagInfo]
