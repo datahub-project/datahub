@@ -221,6 +221,8 @@ def _engine_connect_with_retry(
     retries on retryable errors.  Only the *connect* step is retried; errors
     that occur inside the ``with`` block are propagated normally.
     """
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
     conn: Optional[Connection] = None
     for attempt in range(max_attempts):
         try:
@@ -271,6 +273,8 @@ def _execute_with_retry(
     report: Optional[Any] = None,
 ) -> Any:
     """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors."""
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
     for attempt in range(max_attempts):
         try:
             return conn.execute(stmt, params) if params else conn.execute(stmt)
@@ -295,7 +299,18 @@ def _fetchmany_with_retry(
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
     report: Optional[Any] = None,
 ) -> List[Any]:
-    """Fetch the next batch from *result* with exponential-backoff retries on retryable errors."""
+    """Fetch the next batch from *result* with exponential-backoff retries on retryable errors.
+
+    Retry semantics: only meaningful when the *result* cursor remains valid after the error
+    (e.g. a brief network hiccup that leaves the cursor intact).  For server-side streaming
+    cursors (``stream_results=True``) a transient error that invalidates the cursor cannot
+    be recovered by retrying ``fetchmany()`` — the server-side cursor position is lost and
+    subsequent calls will either fail again or silently skip rows.  In that case the retry
+    loop exhausts its attempts and re-raises; the caller is responsible for higher-level
+    recovery (e.g. restarting the query).
+    """
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
     for attempt in range(max_attempts):
         try:
             return result.fetchmany(batch_size)  # type: ignore[no-any-return]
@@ -858,6 +873,15 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         ),
     )
 
+    connection_pool_timeout_ms: int = Field(
+        default=60000,
+        description=(
+            "Timeout in milliseconds to wait for a connection from the connection pool "
+            "before raising an error."
+            "Default is 60000 (60 seconds)."
+        ),
+    )
+
     view_processing_timeout_seconds: int = Field(
         default=1800,
         description=(
@@ -886,15 +910,6 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "If no lineage row batch arrives from DBC.QryLogV within this many seconds, "
             "emit a warning identifying the stalled phase. Set to 0 to disable. "
             "Default is 300 (5 minutes)."
-        ),
-    )
-
-    connection_pool_timeout_ms: int = Field(
-        default=60000,
-        description=(
-            "Timeout in milliseconds to wait for a connection from the connection pool "
-            "before raising an error."
-            "Default is 60000 (60 seconds)."
         ),
     )
 
@@ -1317,10 +1332,14 @@ ORDER by DataBaseName, TableName;
                 databases = list(self.config.databases)
             else:
                 databases = []
+                # The outer loop owns all retry decisions for both the connect step
+                # and get_schema_names() — passing max_attempts=1 to
+                # _engine_connect_with_retry prevents a nested retry layer that
+                # would otherwise cause up to _RETRY_MAX_ATTEMPTS² total attempts.
                 for attempt in range(_RETRY_MAX_ATTEMPTS):
                     try:
                         with _engine_connect_with_retry(
-                            engine, report=self.report
+                            engine, max_attempts=1, report=self.report
                         ) as conn:
                             databases = inspect(conn).get_schema_names()
                         break
@@ -2222,7 +2241,13 @@ ORDER by DataBaseName, TableName;
                     query_total_count = 0
 
                     while True:
-                        # Fetch a batch of rows
+                        # _fetchmany_with_retry handles transient errors that leave
+                        # the cursor intact (e.g. a brief network hiccup).  It does
+                        # NOT recover a server-side cursor whose position has been
+                        # lost — in that case retries exhaust and the exception
+                        # propagates to the outer except block.  The stall-detection
+                        # watchdog above covers the complementary failure mode where
+                        # fetchmany() hangs rather than raises.
                         batch = _fetchmany_with_retry(
                             result, batch_size, report=self.report
                         )
