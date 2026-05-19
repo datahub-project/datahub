@@ -175,8 +175,6 @@ _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
 # Substrings found in Teradata / network error messages that are safe to retry.
 _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "transaction aborted",
-    "connection refused",
-    "reset by peer",
     "try again",
     "tdgss",  # TDGSS / authentication layer transient handshake issues
     "database restart",

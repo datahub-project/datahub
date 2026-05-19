@@ -2827,7 +2827,7 @@ class TestShouldRetry:
 
         from datahub.ingestion.source.sql.teradata import _should_retry
 
-        assert _should_retry(OperationalError("connection refused", None, None)) is True
+        assert _should_retry(OperationalError("connect timed out", None, None)) is True
 
     def test_operational_error_with_retryable_error_code(self):
         from sqlalchemy.exc import OperationalError
@@ -2857,7 +2857,7 @@ class TestShouldRetry:
 
         from datahub.ingestion.source.sql.teradata import _should_retry
 
-        assert _should_retry(DatabaseError("connection refused", None, None)) is True
+        assert _should_retry(DatabaseError("connect timed out", None, None)) is True
 
     def test_database_error_non_retryable(self):
         from sqlalchemy.exc import DatabaseError
@@ -3073,7 +3073,7 @@ class TestSchemaNameRetry:
 
         # First connect raises a transient error; second succeeds.
         mock_engine = self._make_engine(
-            [OperationalError("connection refused", None, None), good_conn]
+            [OperationalError("connect timed out", None, None), good_conn]
         )
 
         with (
@@ -3114,7 +3114,7 @@ class TestSchemaNameRetry:
         source = _create_source_patched()
         source.config.retry_max_attempts = 2
 
-        transient = OperationalError("connection refused", None, None)
+        transient = OperationalError("connect timed out", None, None)
         mock_engine = self._make_engine([transient, transient])
 
         with (
@@ -3141,7 +3141,7 @@ class TestHistoricalTableCheckLogging:
         source = _create_source_patched()
 
         # Simulate a transient error that survives all retry attempts.
-        transient_exc = OperationalError("connection refused", None, None)
+        transient_exc = OperationalError("connect timed out", None, None)
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = transient_exc
 
