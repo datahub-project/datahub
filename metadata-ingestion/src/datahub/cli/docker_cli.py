@@ -461,9 +461,9 @@ DATAHUB_MAE_CONSUMER_PORT=9091
             # continue to issue the restore indices command
             # TODO Use --version if passed
             command = (
-                "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                "docker pull acryldata/datahub-upgrade:${DATAHUB_VERSION:-quickstart}"
                 + f" && docker run --network datahub_network --env-file {env_fp.name} "
-                + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head} -u RestoreIndices -a clean"
+                + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-quickstart} -u RestoreIndices -a clean"
             )
             logger.info(f"Running index restore command: {command}")
             result = subprocess.run(
@@ -471,9 +471,9 @@ DATAHUB_MAE_CONSUMER_PORT=9091
                     "bash",
                     "-c",
                     "docker pull acryldata/datahub-upgrade:"
-                    + "${DATAHUB_VERSION:-head}"
+                    + "${DATAHUB_VERSION:-quickstart}"
                     + f" && docker run --network {DOCKER_COMPOSE_PROJECT_NAME}_network --env-file {env_fp.name} "
-                    + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-head}"
+                    + "acryldata/datahub-upgrade:${DATAHUB_VERSION:-quickstart}"
                     + " -u RestoreIndices -a clean",
                 ],
                 capture_output=True,

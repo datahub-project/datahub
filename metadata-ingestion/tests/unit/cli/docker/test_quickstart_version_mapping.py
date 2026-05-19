@@ -75,11 +75,44 @@ def test_quickstart_forced_stable():
     )
     execution_plan = example_version_mapper.get_quickstart_execution_plan(None)
     expected = QuickstartExecutionPlan(
-        docker_tag="head",
+        docker_tag="quickstart",
         composefile_git_ref="v1.2.0",
         mysql_tag="8.2",
     )
     assert execution_plan == expected
+
+
+def test_quickstart_head_maps_to_quickstart_docker_tag():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "head": {
+                    "composefile_git_ref": "master",
+                    "docker_tag": "quickstart",
+                    "mysql_tag": "8.2",
+                },
+            },
+        }
+    )
+    execution_plan = version_mapper.get_quickstart_execution_plan("head")
+    assert execution_plan == QuickstartExecutionPlan(
+        docker_tag="quickstart",
+        composefile_git_ref="master",
+        mysql_tag="8.2",
+    )
+
+
+def test_quickstart_sha_tag_passthrough():
+    version_mapper = QuickstartVersionMappingConfig.model_validate(
+        {
+            "quickstart_version_map": {
+                "default": example_version_mapper.quickstart_version_map["default"]
+            }
+        }
+    )
+    execution_plan = version_mapper.get_quickstart_execution_plan("sha-abc1234")
+    assert execution_plan.docker_tag == "sha-abc1234"
+    assert execution_plan.composefile_git_ref == "sha-abc1234"
 
 
 def test_quickstart_forced_not_a_version_tag():

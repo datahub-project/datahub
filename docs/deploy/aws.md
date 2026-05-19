@@ -148,7 +148,7 @@ datahub-frontend:
   enabled: true
   image:
     repository: acryldata/datahub-frontend-react
-    tag: "head"
+    tag: "v1.5.0.6"
   ingress:
     enabled: true
     annotations:
@@ -165,7 +165,7 @@ datahub-frontend:
           - /*
 ```
 
-Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. Please use 'head' or version-specific tags, like v0.8.40. For production, we recommend using version-specific tags, not 'head'.
+Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. For production and Kubernetes, use version-specific tags (like `v0.8.40`) or immutable commit tags (`sha-<short_sha>`). The `quickstart` tag is for local Docker Compose only, not cluster deployments.
 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with

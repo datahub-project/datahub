@@ -105,7 +105,9 @@ class QuickstartVersionMappingConfig(BaseModel):
             return QuickstartVersionMappingConfig(
                 quickstart_version_map={
                     "default": QuickstartExecutionPlan(
-                        composefile_git_ref="master", docker_tag="head", mysql_tag="8.2"
+                        composefile_git_ref="master",
+                        docker_tag="quickstart",
+                        mysql_tag="8.2",
                     ),
                 }
             )
@@ -149,6 +151,20 @@ class QuickstartVersionMappingConfig(BaseModel):
                 mysql_tag=str(mysql_tag),
             ),
         )
+
+        if requested_version == "head" and "head" not in self.quickstart_version_map:
+            result = self.quickstart_version_map.get(
+                "default",
+                QuickstartExecutionPlan(
+                    composefile_git_ref="master",
+                    docker_tag="quickstart",
+                    mysql_tag=str(mysql_tag),
+                ),
+            )
+
+        # Cached manifests may still map head -> head; registry tag is now quickstart.
+        if result.docker_tag == "head":
+            result = result.model_copy(update={"docker_tag": "quickstart"})
 
         if not is_minimum_supported_version(requested_version):
             click.secho(

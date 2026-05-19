@@ -316,10 +316,10 @@ jobs:
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
-        # for pr-publish, publish images without waiting for tests to pass.
+        # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
+        # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -1121,7 +1121,7 @@ jobs:
           retention-days: 5
 
   publish_images:
-    name: Push images after tests pass
+    name: Update quickstart tag after tests pass
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs: [setup, smoke_test, base_build]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' }}
@@ -1132,15 +1132,15 @@ jobs:
           # Check the overall result of the matrix job
           # Matrix jobs can have mixed results, so we check for any failures
           if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
-            echo "Smoke tests failed, skipping image pushing"
+            echo "Smoke tests failed, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
           elif [[ "${{ needs.smoke_test.result }}" == "cancelled" ]]; then
-            echo "Smoke tests were cancelled, skipping image pushing"
+            echo "Smoke tests were cancelled, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
           else
-            echo "Smoke tests completed successfully, proceeding with image pushing"
+            echo "Smoke tests completed successfully, proceeding with quickstart tag update"
             echo "tests_passed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -1162,15 +1162,26 @@ jobs:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
 
-      - name: Push images from depot builder
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+      - name: Set up Docker Buildx
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' && github.ref == 'refs/heads/master' }}
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Tag images with quickstart (coordinated floating tag)
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' && github.ref == 'refs/heads/master' }}
         run: |
           set -euo pipefail
-          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
-            TARGET=$(echo "$line" | jq -r '.target')
-            TAG=$(echo "$line" | jq -r '.tags')
-
-            depot push --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "$TARGET" --tag "$TAG"
+          source .github/scripts/docker_helpers.sh
+          # :sha-* images were pushed during the coordinated depot bake; add :quickstart here only.
+          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -cr '.target[].tags[]' | while IFS= read -r image; do
+            if [[ -z "$image" ]]; then
+              continue
+            fi
+            if [[ "$image" != *":${SHA_TAG}" && "$image" != *":${SHA_TAG}-"* ]]; then
+              continue
+            fi
+            quickstartImage="${image/${SHA_TAG}/${QUICKSTART_TAG}}"
+            echo "Tagging $image as $quickstartImage"
+            docker buildx imagetools create -t "$quickstartImage" "$image"
           done
 
   deploy_datahub_head:

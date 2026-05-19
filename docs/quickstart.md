@@ -222,7 +222,7 @@ datahub docker quickstart --version v1.2.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
-You can also specify `head` as the version to get the latest development version on the master branch.
+You can also specify `head` or `quickstart` as the version to get the latest coordinated development images from `master` (compose from `master`, images tagged `quickstart`). For a specific commit build, use `sha-<short_sha>` (registry-only, not a git tag).
 
 ### Customize installation
 

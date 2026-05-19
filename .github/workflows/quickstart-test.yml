@@ -48,7 +48,7 @@ jobs:
       - name: Run quickstart
         run: |
           source metadata-ingestion/venv/bin/activate
-          # Use compose and version mapping from PR; head image so system-update runs SqlSetup
+          # Use compose and version mapping from PR; quickstart tag so system-update runs SqlSetup
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
           datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml --version head
           docker images
@@ -78,7 +78,7 @@ jobs:
         if: false
         env:
           RUN_QUICKSTART: false
-          DATAHUB_VERSION: head
+          DATAHUB_VERSION: quickstart
           CLEANUP_DATA: "false"
           TEST_STRATEGY: cypress
           BATCH_COUNT: 30
