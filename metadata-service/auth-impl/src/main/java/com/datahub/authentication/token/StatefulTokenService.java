@@ -1,11 +1,11 @@
 package com.datahub.authentication.token;
 
 import com.datahub.authentication.Actor;
-import com.linkedin.access.token.DataHubRevokedSessionTokenInfo;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.linkedin.access.token.DataHubAccessTokenInfo;
+import com.linkedin.access.token.DataHubRevokedSessionTokenInfo;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
