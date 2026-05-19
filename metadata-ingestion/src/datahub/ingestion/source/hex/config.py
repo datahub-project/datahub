@@ -65,7 +65,18 @@ class HexSourceConfig(
     StatefulIngestionConfigBase, PlatformInstanceConfigMixin, EnvConfigMixin
 ):
     workspace_name: str = Field(
-        description="Hex workspace name. You can find this name in your Hex home page URL: https://app.hex.tech/<workspace_name>",
+        description="Hex workspace name. Find it in the workspace switcher dropdown in the top-left corner of the Hex app.",
+    )
+    workspace_id: Optional[str] = Field(
+        default=None,
+        description=(
+            "Hex workspace (org) UUID, used to build external URLs to the "
+            "Hex app (e.g. https://app.hex.tech/<workspace_id>/hex/<project_id>). "
+            "If left unset, the connector calls /users/me to auto-discover it — "
+            "which requires the token to have 'Users → Read access'. Set this "
+            "explicitly to avoid granting that scope. Find the UUID in any Hex "
+            "project URL."
+        ),
     )
     token: SecretStr = Field(
         description=(

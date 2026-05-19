@@ -547,7 +547,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self._last_ingested_at_ms = None
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        self.workspace_id = self.hex_api.fetch_workspace_id()
+        # Prefer the explicit config value so users can avoid granting the
+        # 'Users → Read access' scope just for external-URL building.
+        self.workspace_id = (
+            self.source_config.workspace_id or self.hex_api.fetch_workspace_id()
+        )
         self.mapper.workspace_id = self.workspace_id
 
         # Read incremental checkpoint — None on first run or when ignore_old_state=true
