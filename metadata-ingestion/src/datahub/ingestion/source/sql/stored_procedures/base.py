@@ -212,7 +212,7 @@ def _generate_job_workunits(
                             value=procedure.procedure_definition,
                             language=(
                                 QueryLanguageClass.SQL
-                                if procedure.language == "SQL"
+                                if procedure.language == QueryLanguageClass.SQL
                                 # The language field uses a pretty limited enum.
                                 # The "UNKNOWN" enum value is pretty new, so we don't want to
                                 # emit it until it has broader server-side support. As a
@@ -240,7 +240,7 @@ def generate_procedure_lineage(
     report_failure: Optional[Callable[[str], None]] = None,
     additional_input_jobs: Optional[List[str]] = None,
 ) -> Iterable[MetadataChangeProposalWrapper]:
-    if procedure.procedure_definition and procedure.language == "SQL":
+    if procedure.procedure_definition and procedure.language == QueryLanguageClass.SQL:
         datajob_input_output = parse_procedure_code(
             schema_resolver=schema_resolver,
             default_db=default_db,
