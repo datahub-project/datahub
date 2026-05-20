@@ -624,6 +624,22 @@ class TestSQLInjectionSafety:
         assert "schema" in params
         assert params["schema"] == "test_schema"
 
+    def test_get_schema_foreign_keys_parameterized(self):
+        """Test that get_schema_foreign_keys uses parameterized queries."""
+        get_schema_foreign_keys.cache_clear()
+        mock_connection = MagicMock()
+        mock_connection.execute.return_value.fetchall.return_value = []
+
+        get_schema_foreign_keys(None, mock_connection, "test_schema")
+
+        call_args = mock_connection.execute.call_args
+        query = call_args[0][0].text
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+
+        assert ":schema" in query
+        assert "schema" in params
+        assert params["schema"] == "test_schema"
+
 
 class TestSchemaFunctionRetry:
     """get_schema_columns/pk_constraints/foreign_keys retry on transient DB errors."""
@@ -3143,6 +3159,63 @@ class TestPoolSizeConfig:
             TeradataConfig.model_validate({**_base_config(), "max_pool_size": 51})
 
 
+class TestEffectiveMaxWorkers:
+    """_effective_max_workers is capped to max_pool_size; config.max_workers is never mutated."""
+
+    def test_effective_max_workers_initialized_from_config(self):
+        """On source creation, _effective_max_workers mirrors config.max_workers."""
+        source = _create_source_patched({"max_workers": 7})
+        assert source._effective_max_workers == 7
+
+    def test_effective_max_workers_capped_to_pool_size(self):
+        """When max_workers > max_pool_size the effective count is capped to the pool limit."""
+        source = _create_source_patched({"max_workers": 20, "max_pool_size": 5})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source._effective_max_workers == 5
+
+    def test_config_max_workers_unchanged_after_pool_creation(self):
+        """config.max_workers must not be mutated when the pool caps the worker count."""
+        source = _create_source_patched({"max_workers": 20, "max_pool_size": 5})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source.config.max_workers == 20
+
+    def test_effective_max_workers_unchanged_when_within_pool_size(self):
+        """When max_workers <= max_pool_size, no capping occurs."""
+        source = _create_source_patched({"max_workers": 5, "max_pool_size": 13})
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.create_engine",
+            return_value=MagicMock(),
+        ):
+            source._get_or_create_pooled_engine()
+
+        assert source._effective_max_workers == 5
+        assert source.config.max_workers == 5
+
+
+class TestTeradataReportFields:
+    """Newly declared TeradataReport fields have the correct default values."""
+
+    def test_column_extraction_fields_default_to_zero(self):
+        report = TeradataReport()
+        assert report.num_columns_processed == 0
+        assert report.num_column_extraction_failures == 0
+        assert report.num_primary_keys_processed == 0
+        assert report.column_extraction_duration_seconds == 0.0
+
+
 class TestConnectionPoolRetry:
     """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
 
@@ -3668,6 +3741,35 @@ class TestSchemaNameRetry:
 
         assert mock_engine.connect.call_count == 2
         assert source.report.num_db_retries == 1  # retried once, then gave up
+
+    def test_retries_on_dead_socket_error(self):
+        """Dead-socket errors (connection reset, broken pipe) are only handled by
+        _should_retry_connect, not _should_retry — so the outer loop in
+        _get_schema_names_with_retry must use _should_retry_connect."""
+        source = _create_source_patched()
+
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1"]
+
+        # "connection reset" is in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS but NOT in
+        # _RETRYABLE_ERROR_SUBSTRINGS, so _should_retry() would return False while
+        # _should_retry_connect() returns True.
+        dead_socket = OperationalError("connection reset by peer", None, None)
+        mock_engine = self._make_engine([dead_socket, good_conn])
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=good_inspector,
+            ),
+            patch("time.sleep"),
+        ):
+            result = source._get_schema_names_with_retry(mock_engine)
+
+        assert result == ["db1"]
+        assert mock_engine.connect.call_count == 2
+        assert source.report.num_db_retries >= 1
 
 
 class TestHistoricalTableCheckLogging:

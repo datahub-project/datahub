@@ -2,6 +2,7 @@ import logging
 import random
 import re
 import time
+import traceback
 from collections import defaultdict
 from collections.abc import Generator
 from concurrent.futures import (
@@ -628,9 +629,9 @@ def get_schema_foreign_keys(
     stmt = f"""
     SELECT dbc."All_RI_ChildrenV"."ChildDB",  dbc."All_RI_ChildrenV"."ChildTable", dbc."All_RI_ChildrenV"."IndexID", dbc."{dbc_child_parent_table}"."IndexName", dbc."{dbc_child_parent_table}"."ChildKeyColumn", dbc."{dbc_child_parent_table}"."ParentDB", dbc."{dbc_child_parent_table}"."ParentTable", dbc."{dbc_child_parent_table}"."ParentKeyColumn"
         FROM dbc."{dbc_child_parent_table}"
-    WHERE ChildDB = '{schema}' ORDER BY "IndexID" ASC
+    WHERE ChildDB = :schema ORDER BY "IndexID" ASC
     """
-    rows = _execute_with_retry(connection, text(stmt)).fetchall()
+    rows = _execute_with_retry(connection, text(stmt), {"schema": schema}).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.ChildTable not in foreign_keys:
@@ -707,6 +708,12 @@ def optimized_get_view_definition(
 
 @dataclass
 class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
+    # Column extraction metrics
+    num_columns_processed: int = 0
+    num_column_extraction_failures: int = 0
+    num_primary_keys_processed: int = 0
+    column_extraction_duration_seconds: float = 0.0
+
     # View processing metrics (actively used)
     num_views_processed: int = 0
     num_view_processing_failures: int = 0
@@ -838,7 +845,10 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=13,
         description="Maximum number of connections in the SQLAlchemy connection pool "
         "(base connections + overflow). Teradata drivers can be sensitive to high "
-        "connection counts; keep this conservative. Must be between 1 and 50.",
+        "connection counts; keep this conservative. Must be between 1 and 50. "
+        "If max_workers exceeds this value, the effective worker count is silently "
+        "capped to max_pool_size so that the thread pool never exceeds connection "
+        "capacity. Set max_pool_size >= max_workers to avoid this reduction.",
     )
 
     @field_validator("max_pool_size")
@@ -1229,6 +1239,10 @@ ORDER by DataBaseName, TableName;
         # Populated by cache_tables_and_views() when column_extraction_watermark is set;
         # None means "extract all", a set means "only extract these (schema, table) pairs"
         self._tables_needing_column_extraction: Optional[Set[Tuple[str, str]]] = None
+        # May be reduced below config.max_workers when max_pool_size caps the pool.
+        # Stored here instead of mutating config so that config remains an immutable
+        # record of user intent across sequential recipe runs.
+        self._effective_max_workers: int = config.max_workers
 
         self.schema_resolver = self._init_schema_resolver()
 
@@ -1446,7 +1460,7 @@ ORDER by DataBaseName, TableName;
                 with self._retry_connect(engine, max_attempts=1) as conn:
                     return inspect(conn).get_schema_names()
             except Exception as exc:
-                if not _should_retry(exc) or attempt == max_attempts - 1:
+                if not _should_retry_connect(exc) or attempt == max_attempts - 1:
                     raise
                 backoff = _jittered_backoff(attempt, initial_backoff)
                 logger.warning(
@@ -1727,7 +1741,7 @@ ORDER by DataBaseName, TableName;
 
         Each thread gets its own connection from a QueuePool, enabling true concurrent processing.
         """
-        if self.config.max_workers == 1:
+        if self._effective_max_workers == 1:
             # Single-threaded processing - no need for complexity
             yield from self._process_views_single_threaded(
                 view_names, schema, sql_config
@@ -1735,7 +1749,7 @@ ORDER by DataBaseName, TableName;
             return
 
         logger.info(
-            f"Processing {len(view_names)} views with {self.config.max_workers} worker threads"
+            f"Processing {len(view_names)} views with {self._effective_max_workers} worker threads"
         )
 
         # Get or create reusable pooled engine
@@ -1833,9 +1847,6 @@ ORDER by DataBaseName, TableName;
                 except Exception as e:
                     with report_lock:
                         self.report.num_view_processing_failures += 1
-                        # Log full exception details for debugging
-                        import traceback
-
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
@@ -1859,7 +1870,7 @@ ORDER by DataBaseName, TableName;
             # threads will exit when their underlying I/O returns or when the process
             # terminates.
             executor = ThreadPoolExecutor(
-                max_workers=self.config.max_workers,
+                max_workers=self._effective_max_workers,
                 thread_name_prefix="teradata-view",
             )
             try:
@@ -2032,9 +2043,6 @@ ORDER by DataBaseName, TableName;
                         )
 
                     except Exception as e:
-                        # Log full exception details for debugging
-                        import traceback
-
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
@@ -2078,8 +2086,7 @@ ORDER by DataBaseName, TableName;
                         f"Reduced max_workers from {self.config.max_workers} to {effective_max_workers} to match Teradata connection pool capacity"
                     )
 
-                # Update the config to reflect the effective value used
-                self.config.max_workers = effective_max_workers
+                self._effective_max_workers = effective_max_workers
 
                 pool_options = {
                     **self.config.options,
