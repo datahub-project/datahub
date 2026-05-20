@@ -8,7 +8,6 @@ import { useUpdateUserLocaleSettings } from '@app/i18n/hooks/useUpdateUserLocale
 import dayjs from '@utils/dayjs';
 
 vi.mock('@app/i18n/hooks/useUpdateUserLocaleSettings');
-vi.mock('i18next', () => ({ default: { changeLanguage: vi.fn() } }));
 vi.mock('@utils/dayjs', () => ({ default: { locale: vi.fn() } }));
 
 const mockUpdateUserLocaleSettings = vi.fn().mockResolvedValue({});
