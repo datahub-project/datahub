@@ -13,6 +13,7 @@ import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.FormService;
@@ -198,5 +199,11 @@ public class MCLSpringCommonTestConfiguration {
   @Primary
   public ESBulkProcessor elasticSearchBulkProcessor() {
     return Mockito.mock(ESBulkProcessor.class);
+  }
+
+  @Bean(name = "legacyMappingsBuilder")
+  @Primary
+  public V2MappingsBuilder legacyMappingsBuilder() {
+    return Mockito.mock(V2MappingsBuilder.class);
   }
 }

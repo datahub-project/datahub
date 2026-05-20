@@ -49,7 +49,7 @@ from datahub.ingestion.source.fabric.common.urn_generator import (
 from datahub.ingestion.source.fabric.onelake.client import OneLakeClient
 from datahub.ingestion.source.fabric.onelake.config import FabricOneLakeSourceConfig
 from datahub.ingestion.source.fabric.onelake.constants import (
-    DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE,
+    FABRIC_SQL_DEFAULT_SCHEMA,
 )
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
@@ -62,6 +62,10 @@ from datahub.ingestion.source.fabric.onelake.models import (
 from datahub.ingestion.source.fabric.onelake.report import (
     FabricOneLakeClientReport,
     FabricOneLakeSourceReport,
+)
+from datahub.ingestion.source.fabric.onelake.usage import FabricUsageExtractor
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantUsageRunSkipHandler,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -145,6 +149,16 @@ class WarehouseSchemaKey(WarehouseKey):
     SourceCapability.LINEAGE_FINE,
     "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
 )
+@capability(
+    SourceCapability.USAGE_STATS,
+    "Extracted from queryinsights.exec_requests_history (30-day retention) when "
+    "`usage.include_usage_statistics` is enabled. Column-level usage is derived "
+    "via SQL parsing of the query text.",
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
+)
 class FabricOneLakeSource(StatefulIngestionSourceBase):
     """Extracts metadata from Microsoft Fabric OneLake."""
 
@@ -171,20 +185,50 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         # Link client report to source report for reporting
         self.report.client_report = self.client_report
 
-        # SQL parsing aggregator for view lineage.
+        # SQL parsing aggregator. Drives view lineage and (when usage is enabled)
+        # the parsing of observed queries from queryinsights into usage and operation
+        # aspects. Constructed unconditionally so view lineage works regardless of
+        # the usage toggle; usage flags below decide what gets emitted.
+        usage_enabled = config.usage.include_usage_statistics
+        queries_enabled = usage_enabled and config.usage.include_queries
         self.aggregator = SqlParsingAggregator(
             platform=PLATFORM,
             platform_instance=config.platform_instance,
             env=config.env,
             graph=ctx.graph,
             generate_lineage=True,
-            generate_queries=False,
-            generate_query_subject_fields=False,
-            generate_usage_statistics=False,
-            generate_operations=False,
+            generate_queries=queries_enabled,
+            generate_query_subject_fields=queries_enabled,
+            generate_usage_statistics=usage_enabled,
+            generate_operations=usage_enabled
+            and config.usage.include_operational_stats,
+            usage_config=config.usage if usage_enabled else None,
             eager_graph_load=False,
         )
         self.report.sql_aggregator = self.aggregator.report
+
+        # Stateful skip-handler for the usage time window. None when stateful
+        # ingestion is not configured; the extractor handles that gracefully.
+        self.redundant_usage_run_skip_handler: Optional[RedundantUsageRunSkipHandler]
+        if config.stateful_ingestion is not None and config.stateful_ingestion.enabled:
+            self.redundant_usage_run_skip_handler = RedundantUsageRunSkipHandler(
+                source=self,
+                config=config,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+            )
+        else:
+            self.redundant_usage_run_skip_handler = None
+
+        self.usage_extractor = FabricUsageExtractor(
+            config=config.usage,
+            aggregator=self.aggregator,
+            report=self.report,
+            redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
+        )
+
+        # Resolved at the start of get_workunits_internal(); see comment there.
+        self._skip_usage_run: bool = False
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "FabricOneLakeSource":
@@ -217,6 +261,25 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, Entity]]:
         """Generate workunits for all Fabric OneLake resources."""
         logger.info("Starting Fabric OneLake ingestion")
+
+        # Resolve the skip-run decision once per ingestion.
+        self._skip_usage_run = (
+            self.config.usage.include_usage_statistics
+            and self.usage_extractor.should_skip_run()
+        )
+
+        if self.config.usage.include_usage_statistics:
+            if self._skip_usage_run:
+                logger.info(
+                    "Usage extraction skipped: configured window already covered "
+                    "by a previous successful run."
+                )
+            else:
+                logger.info(
+                    f"Usage extraction enabled, window="
+                    f"[{self.usage_extractor.start_time.isoformat()} -> "
+                    f"{self.usage_extractor.end_time.isoformat()}]"
+                )
 
         try:
             # List all workspaces
@@ -256,21 +319,37 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 exc=e,
             )
 
-        # Emit lineage / view-parsing workunits accumulated by the
-        # aggregator across all workspaces. Deferred to the end so the
-        # aggregator can resolve cross-item view→table references.
+        # Drain the aggregator. Emits view lineage and (when usage is enabled)
+        # datasetUsageStatistics / operation aspects. Deferred to the end so
+        # cross-item view→table references resolve.
+        logger.info(
+            "Draining SQL aggregator (view lineage"
+            f"{', usage' if self.config.usage.include_usage_statistics and not self._skip_usage_run else ''})"
+        )
+        aggregator_drain_succeeded = False
         emitted = 0
         try:
             for mcp in self.aggregator.gen_metadata():
                 yield mcp.as_workunit()
                 emitted += 1
+            aggregator_drain_succeeded = True
+            logger.info(f"SQL aggregator drained: emitted {emitted} MCPs")
         except Exception as e:
-            self.report.report_warning(
-                title="Failed to Generate View Lineage",
-                message="Error draining SQL aggregator for view lineage.",
+            self.report.report_failure(
+                title="Failed to Generate Lineage / Usage",
+                message="Error draining SQL aggregator for lineage and usage.",
                 context=f"mcps_emitted_before_failure={emitted}",
                 exc=e,
             )
+
+        # Update the usage checkpoint only after a successful drain so a partial
+        # run doesn't mark the window as covered.
+        if (
+            aggregator_drain_succeeded
+            and self.config.usage.include_usage_statistics
+            and not self.report.usage_run_skipped
+        ):
+            self.usage_extractor.update_state_on_success()
 
     def _create_workspace_container(
         self, workspace: FabricWorkspace
@@ -398,6 +477,10 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 emitted_schemas=emitted_schemas,
             )
 
+        self._extract_item_usage(
+            workspace.id, lakehouse.id, lakehouse.name, schema_client
+        )
+
     def _process_warehouse(
         self, workspace: FabricWorkspace, warehouse: FabricWarehouse
     ) -> Iterable[Union[Container, Dataset]]:
@@ -455,6 +538,42 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 emitted_schemas=emitted_schemas,
             )
 
+        self._extract_item_usage(
+            workspace.id, warehouse.id, warehouse.name, schema_client
+        )
+
+    def _extract_item_usage(
+        self,
+        workspace_id: str,
+        item_id: str,
+        item_display_name: str,
+        schema_client: Optional["SchemaExtractionClient"],
+    ) -> None:
+        """Stream queryinsights rows for one item into the aggregator.
+
+        No-op when usage is disabled, when this run was already covered by a
+        previous successful run, or when schema extraction failed for this item
+        (we share the same SQL endpoint connection). Per-item extraction
+        failures are caught inside the extractor.
+        """
+        if not self.config.usage.include_usage_statistics:
+            return
+        if self._skip_usage_run:
+            return
+        if schema_client is None:
+            self.report.report_usage_query_skipped("no_sql_endpoint_for_item")
+            logger.info(
+                f"Skipping usage extraction for item {item_id} "
+                f"({item_display_name}): SQL Analytics Endpoint unavailable."
+            )
+            return
+        self.usage_extractor.extract(
+            workspace_id=workspace_id,
+            item_id=item_id,
+            item_display_name=item_display_name,
+            schema_client=schema_client,
+        )
+
     def _process_item_tables(
         self,
         workspace: FabricWorkspace,
@@ -480,7 +599,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
                 normalized_schema = (
                     table.schema_name
                     if table.schema_name
-                    else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+                    else FABRIC_SQL_DEFAULT_SCHEMA
                 )
 
                 # Filter tables
@@ -549,7 +668,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
 
         Args:
             schema_map: Dictionary mapping (schema_name, table_name) to list of columns
-            schema_name: Schema name (always non-empty, defaults to DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE for schemas-disabled lakehouses)
+            schema_name: Schema name (always non-empty, defaults to FABRIC_SQL_DEFAULT_SCHEMA for schemas-disabled lakehouses)
             table_name: Table name
 
         Returns:
@@ -628,10 +747,15 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         item_type: Literal["Lakehouse", "Warehouse"],
         item_display_name: str,
     ) -> Optional["SchemaExtractionClient"]:
-        """Create a SQL Analytics Endpoint client, shared by column-schema and
-        view extraction. Returns None on failure; both features skip this item.
+        """Create a SQL Analytics Endpoint client, shared by column-schema,
+        view extraction, and usage statistics. Returns None on failure; all
+        three features skip this item.
         """
-        needs_endpoint = self.config.extract_schema.enabled or self.config.extract_views
+        needs_endpoint = (
+            self.config.extract_schema.enabled
+            or self.config.extract_views
+            or self.config.usage.include_usage_statistics
+        )
         if not (needs_endpoint and self.config.sql_endpoint):
             return None
 
@@ -657,16 +781,16 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
             error_msg = str(e)
             logger.warning(
                 f"Failed to initialize SQL Analytics Endpoint for item {item_id}: "
-                f"{error_msg}. Both column-schema and view extraction will be "
-                "skipped for this item.",
+                f"{error_msg}. If enabled, column-schema, view extraction, and "
+                "usage statistics will be skipped for this item.",
                 exc_info=True,
             )
             self.report.report_warning(
                 title="SQL Analytics Endpoint Initialization Failed",
                 message=(
                     "Failed to initialize the SQL Analytics Endpoint client. "
-                    "Both column-schema and view extraction will be skipped for "
-                    "this item."
+                    "If enabled, column-schema, view extraction, and usage "
+                    "statistics will be skipped for this item."
                 ),
                 context=f"item_id={item_id}, item_type={item_type}, error={error_msg}",
                 exc=e,
@@ -782,9 +906,7 @@ class FabricOneLakeSource(StatefulIngestionSourceBase):
         views_by_schema: dict[str, list[FabricView]] = defaultdict(list)
         for view in views:
             normalized_schema = (
-                view.schema_name
-                if view.schema_name
-                else DEFAULT_SCHEMA_SCHEMALESS_LAKEHOUSE
+                view.schema_name if view.schema_name else FABRIC_SQL_DEFAULT_SCHEMA
             )
 
             view_full_name = f"{normalized_schema}.{view.name}"

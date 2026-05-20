@@ -1,0 +1,117 @@
+# Multi-arch build and push for the DataHub PostgreSQL extensions image (PostGIS, pg_cron, …).
+# Image tag defaults live in docker/postgres/build.gradle (datahubPostgresImageTag); align consumers when adopting.
+name: Publish datahub-postgres
+
+on:
+  workflow_dispatch:
+    inputs:
+      postgres_base_version:
+        description: "Upstream postgres image tag (FROM postgres:…), e.g. 17.5"
+        required: true
+        default: "17.5"
+        type: string
+      extensions_image_version:
+        description: "Extensions image revision N in published tag {base}-extensions-vN"
+        required: true
+        default: "1"
+        type: string
+      docker_registry:
+        description: "Registry namespace (e.g. acryldata)"
+        required: true
+        default: acryldata
+        type: string
+
+concurrency:
+  # Do not include workflow_dispatch inputs here — they are untrusted and must not be interpolated
+  # into expressions that feed runner parsing beyond the documented safe fields.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOCKER_CACHE: DEPOT
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
+
+jobs:
+  publish:
+    name: Build and push
+    runs-on: depot-ubuntu-24.04-4
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          checkout-head-only: true
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+
+      - name: Set up Depot CLI
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Compute publish parameters
+        env:
+          INPUT_POSTGRES_BASE: ${{ github.event.inputs.postgres_base_version || '' }}
+          INPUT_EXTENSIONS_VERSION: ${{ github.event.inputs.extensions_image_version || '' }}
+          INPUT_DOCKER_REGISTRY: ${{ github.event.inputs.docker_registry || '' }}
+        run: |
+          set -euo pipefail
+          BASE="${INPUT_POSTGRES_BASE:-}"
+          if [[ -z "$BASE" ]]; then
+            BASE="17.5"
+          fi
+          EXT_VER="${INPUT_EXTENSIONS_VERSION:-}"
+          if [[ -z "$EXT_VER" ]]; then
+            EXT_VER="1"
+          fi
+          REG="${INPUT_DOCKER_REGISTRY:-}"
+          if [[ -z "$REG" ]]; then
+            REG="acryldata"
+          fi
+          if [[ ! "$BASE" =~ ^[0-9]+(\.[0-9]+){0,2}$ ]]; then
+            echo "::error::postgres_base_version must match ^[0-9]+(\\.[0-9]+){0,2}$ (e.g. 17.5)"
+            exit 1
+          fi
+          if [[ ! "$EXT_VER" =~ ^[0-9]+$ ]]; then
+            echo "::error::extensions_image_version must be a non-negative integer"
+            exit 1
+          fi
+          TAG="${BASE}-extensions-v${EXT_VER}"
+          if [[ ! "$TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::constructed image tag is invalid"
+            exit 1
+          fi
+          if [[ ! "$REG" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
+            echo "::error::docker_registry must match ^[a-z0-9][a-z0-9._-]*$"
+            exit 1
+          fi
+          # Persist for later steps via job env (later steps use plain shell env only).
+          {
+            echo "POSTGRES_BASE_VERSION=$BASE"
+            echo "IMAGE_TAG=$TAG"
+            echo "DOCKER_REGISTRY=$REG"
+          } >> "$GITHUB_ENV"
+
+      - name: Build and push (multi-arch)
+        run: |
+          ./gradlew :docker:buildImagespublishPostgres \
+            -PmatrixBuild=true \
+            -PpostgresVersion="${POSTGRES_BASE_VERSION}" \
+            -PdatahubPostgresImageTag="${IMAGE_TAG}" \
+            -Ptag="${IMAGE_TAG}" \
+            -PdockerRegistry="${DOCKER_REGISTRY}" \
+            -PdockerPush=true

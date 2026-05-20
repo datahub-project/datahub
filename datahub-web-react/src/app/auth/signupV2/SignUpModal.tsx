@@ -1,8 +1,10 @@
 import { useReactiveVar } from '@apollo/client';
 import { Modal } from '@components';
 import { Form, message } from 'antd';
+import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router';
+import { useLocation } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
@@ -18,6 +20,7 @@ import { useAcceptRoleMutation } from '@graphql/mutations.generated';
 
 export default function SignUpModal() {
     const history = useHistory();
+    const location = useLocation();
 
     const [form] = Form.useForm();
 
@@ -26,6 +29,24 @@ export default function SignUpModal() {
 
     const isLoggedIn = useReactiveVar(isLoggedInVar);
     const inviteToken = useGetInviteTokenFromUrlParams();
+
+    useEffect(() => {
+        const params = QueryString.parse(location.search, { decode: true });
+        if (params.redirect_on_sso) {
+            fetch(resolveRuntimePath('/sso'), {
+                method: 'HEAD',
+                redirect: 'manual',
+            })
+                .then((response) => {
+                    if (response.type === 'opaqueredirect' || response.status === 302) {
+                        window.location.href = resolveRuntimePath('/sso');
+                    }
+                })
+                .catch(() => {
+                    // SSO not configured or error - stay on signup
+                });
+        }
+    }, [location.search]);
 
     const [acceptRoleMutation] = useAcceptRoleMutation();
 

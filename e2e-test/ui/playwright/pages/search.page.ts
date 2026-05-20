@@ -1,6 +1,7 @@
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
+import { retryOnFail } from '@utils/retry';
 
 export class SearchPage extends BasePage {
   readonly searchInput: Locator;
@@ -428,5 +429,47 @@ export class SearchPage extends BasePage {
 
   async expectPaginationVisible(): Promise<void> {
     await expect(this.page.locator('.ant-pagination-next')).toBeVisible();
+  }
+
+  // ── Tag-filtered search ───────────────────────────────────────────────────
+
+  getEntityPreviewLocator(entityUrn: string): Locator {
+    return this.page.getByTestId(`preview-${entityUrn}`);
+  }
+
+  async searchByTag(tagUrn: string): Promise<void> {
+    this.logger?.step('searchByTag', { tagUrn });
+    await this.page.goto(
+      `/search?filter_tags___false___EQUAL___0=${encodeURIComponent(tagUrn)}&page=1&query=%2A&unionType=0`,
+    );
+    await this.waitForPageLoad();
+  }
+
+  async expectEntityInSearchResults(entityUrn: string): Promise<void> {
+    this.logger?.step('expectEntityInSearchResults', { entityUrn });
+    await retryOnFail(
+      async () => {
+        await expect(this.getEntityPreviewLocator(entityUrn)).toBeVisible();
+      },
+      {
+        onRetry: async () => {
+          await this.reload();
+        },
+      },
+    );
+  }
+
+  async expectEntityNotInSearchResults(entityUrn: string): Promise<void> {
+    this.logger?.step('expectEntityNotInSearchResults', { entityUrn });
+    await retryOnFail(
+      async () => {
+        await expect(this.getEntityPreviewLocator(entityUrn)).toBeHidden();
+      },
+      {
+        onRetry: async () => {
+          await this.reload();
+        },
+      },
+    );
   }
 }

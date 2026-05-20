@@ -342,6 +342,12 @@ public class FaultInjectingSearchClientShim implements SearchClientShim<Object> 
 
   @Override
   @Nonnull
+  public Map<String, String> partialNgramConfig() {
+    return delegate.partialNgramConfig();
+  }
+
+  @Override
+  @Nonnull
   public String getEngineVersion() throws IOException {
     return delegate.getEngineVersion();
   }
