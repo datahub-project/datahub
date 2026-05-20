@@ -1,8 +1,6 @@
-# Claude Integration
+# Claude
 
-> **📚 Navigation**: [← Back to Agent Context Kit](./agent-context.md) | [← Cursor Integration](./cursor.md) | [Gemini CLI Integration →](./gemini-cli.md)
-
-Connect [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) or [Claude Desktop](https://claude.ai/download) to DataHub so Claude can search your data catalog, inspect schemas, and trace lineage while you work.
+Give [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) or [Claude Desktop](https://claude.ai/download) access to your enterprise data context in DataHub — find trustworthy data, trace lineage, look up ownership, and reference documentation while you work.
 
 ## Prerequisites
 

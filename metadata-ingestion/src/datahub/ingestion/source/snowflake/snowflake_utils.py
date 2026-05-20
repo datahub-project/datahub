@@ -22,6 +22,10 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 
+# Truncate definition strings (e.g. task / pipe SQL bodies) stored in
+# customProperties to stay well within DataHub's aspect size limits.
+MAX_DEFINITION_LENGTH = 4000
+
 
 class SnowflakeStructuredReportMixin(abc.ABC):
     @property
@@ -46,7 +50,21 @@ class SnowsightUrlBuilder:
         region: str,
         privatelink: bool = False,
         snowflake_domain: str = DEFAULT_SNOWFLAKE_DOMAIN,
+        base_url_override: Optional[str] = None,
     ):
+        if base_url_override:
+            # Whether Snowsight is reachable via the public internet
+            # (app.snowflake.com) or only via private link depends on the
+            # customer's Snowflake configuration. When private link is required
+            # for the UI, customers set `snowsight_base_url` in the ingestion
+            # config to the value returned by `SYSTEM$GET_PRIVATELINK_CONFIG()`,
+            # which lands here verbatim (with trailing slash normalisation).
+            self.snowsight_base_url = (
+                base_url_override
+                if base_url_override.endswith("/")
+                else f"{base_url_override}/"
+            )
+            return
         cloud, cloud_region_id = self.get_cloud_region_from_snowflake_region_id(region)
         self.snowsight_base_url = self.create_snowsight_base_url(
             account_locator, cloud_region_id, cloud, privatelink, snowflake_domain
@@ -73,12 +91,9 @@ class SnowsightUrlBuilder:
                 url_cloud_provider_suffix = ""
             else:
                 url_cloud_provider_suffix = f".{cloud}"
-        # Note: Snowsight is always accessed via the public internet (app.snowflake.com)
-        # even for accounts using privatelink. Privatelink only applies to database connections,
-        # not the Snowsight web UI.
-        # Standard Snowsight URL format - works for most regions
         # China region may use app.snowflake.cn instead of app.snowflake.com. This is not documented, just
-        # guessing Based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn)
+        # guessing based on existence of snowflake.cn domain (https://domainindex.com/domains/snowflake.cn).
+        # For private-link-only Snowsight, callers should pass `base_url_override` to `__init__`.
         if snowflake_domain == "snowflakecomputing.cn":
             url = f"https://app.snowflake.cn/{cloud_region_id}{url_cloud_provider_suffix}/{account_locator}/"
         else:

@@ -25,11 +25,13 @@ class ProfilingMethodConfig(ConfigModel):
     """Base class for profiling configs that support method selection."""
 
     method: Literal["ge", "sqlalchemy"] = Field(
-        default="ge",
+        default="sqlalchemy",
         description=(
             "Profiling method to use. "
-            "Options: `ge` (Great Expectations) or `sqlalchemy` (custom SQLAlchemy-based profiler). "
-            "The SQLAlchemy profiler has no GE dependency and provides the same functionality."
+            "`sqlalchemy` (default) runs profiling queries directly against your "
+            "source's existing SQLAlchemy connection. "
+            "`ge` selects the legacy Great Expectations profiler, which is "
+            "deprecated and requires `pip install 'acryl-datahub[profiling-ge]'`."
         ),
     )
 

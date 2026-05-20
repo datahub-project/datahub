@@ -189,6 +189,24 @@ class SnowflakeFilterConfig(SQLFilterConfig):
         " use the regex 'Analytics.public.sales.*'",
     )
 
+    stage_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stages to filter in ingestion. "
+        "Specify regex to match the entire stage name in database.schema.stage format.",
+    )
+
+    task_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for tasks to filter in ingestion. "
+        "Specify regex to match the entire task name in database.schema.task format.",
+    )
+
+    pipe_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for pipes to filter in ingestion. "
+        "Specify regex to match the entire pipe name in database.schema.pipe format.",
+    )
+
     match_fully_qualified_names: bool = Field(
         default=False,
         description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
@@ -250,6 +268,8 @@ class SnowflakeIdentifierConfig(
 
     _email_as_user_identifier = pydantic_removed_field(
         "email_as_user_identifier",
+        month="June",
+        year=2025,
     )
 
 
@@ -274,8 +294,12 @@ class SnowflakeConfig(
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
 
-    _include_view_lineage = pydantic_removed_field("include_view_lineage")
-    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _include_view_lineage = pydantic_removed_field(
+        "include_view_lineage", month="December", year=2024
+    )
+    _include_view_column_lineage = pydantic_removed_field(
+        "include_view_column_lineage", month="December", year=2024
+    )
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
@@ -354,8 +378,12 @@ class SnowflakeV2Config(
         description=f"Experimental: Choose the strategy for query deduplication (default value is appropriate for most use-cases; make sure you understand performance implications before changing it). Allowed values are: {', '.join([s.name for s in QueryDedupStrategyType])}",
     )
 
-    _check_role_grants_removed = pydantic_removed_field("check_role_grants")
-    _provision_role_removed = pydantic_removed_field("provision_role")
+    _check_role_grants_removed = pydantic_removed_field(
+        "check_role_grants", month="April", year=2023
+    )
+    _provision_role_removed = pydantic_removed_field(
+        "provision_role", month="April", year=2023
+    )
 
     extract_tags: TagOption = Field(
         default=TagOption.skip,
@@ -379,8 +407,24 @@ class SnowflakeV2Config(
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
+    snowsight_base_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override for the Snowsight base URL used when generating external URLs "
+            "for Snowflake assets. Set this when Snowsight is only reachable via "
+            "private link (for example "
+            "`https://app.<region>.privatelink.snowflakecomputing.com/` or "
+            "`https://app-<org>-<account>.privatelink.snowflakecomputing.com/`). "
+            "If unset, defaults to the public `app.snowflake.com` URL. The value "
+            "can be obtained by running "
+            "`SELECT SYSTEM$GET_PRIVATELINK_CONFIG()` in Snowflake as ACCOUNTADMIN."
+        ),
+    )
+
     _use_legacy_lineage_method_removed = pydantic_removed_field(
-        "use_legacy_lineage_method"
+        "use_legacy_lineage_method",
+        month="August",
+        year=2023,
     )
 
     validate_upstreams_against_patterns: bool = Field(
@@ -424,6 +468,21 @@ class SnowflakeV2Config(
     semantic_views: SemanticViewsConfig = Field(
         default_factory=SemanticViewsConfig,
         description="Configuration for semantic views ingestion.",
+    )
+
+    include_stages: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Stages will be ingested as containers with associated metadata.",
+    )
+
+    include_tasks: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Tasks will be ingested as DataJobs with DAG dependencies and SQL lineage.",
+    )
+
+    include_pipes: bool = Field(
+        default=False,
+        description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
@@ -545,6 +604,15 @@ class SnowflakeV2Config(
             raise ValueError(
                 "include_assertion_results must be True for include_externally_managed_dmfs to be set."
             )
+        return v
+
+    @field_validator("snowsight_base_url", mode="after")
+    @classmethod
+    def validate_snowsight_base_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("snowsight_base_url must start with http:// or https://")
         return v
 
     @model_validator(mode="after")

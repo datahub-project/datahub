@@ -47,7 +47,11 @@ def ingest() -> None:
     "-c",
     "--config",
     type=click.Path(dir_okay=False),
-    help="Config file in .toml or .yaml format.",
+    help=(
+        "Config file in .toml or .yaml format. "
+        'Use "-" to read from stdin (YAML, JSON, or a JSON envelope '
+        'with "__recipe_yaml__" and optional "__secrets__" for secure secret passing).'
+    ),
     required=True,
 )
 @click.option(

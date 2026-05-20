@@ -48,6 +48,16 @@ The older approach that will be deprecated in future versions:
 
 Both strategies access the same Snowflake system tables (`account_usage.query_history`, `account_usage.access_history`), but the new strategy provides significant performance improvements and additional functionality.
 
+##### Snowflake Streams as Upstream Lineage Sources
+
+DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage details:
+
+- **Multi-target `INSERT ALL` from a Stream** — emits one lineage entry per downstream table, including column-level lineage. Requires `use_queries_v2: true` (the default).
+- **Single-target queries reading from a Stream** — fall back to SQL parsing of the query text rather than direct extraction from the audit log.
+- **Audit log placeholder names** — Snowflake occasionally emits placeholder object names (`$SYS_VIEW_<id>` or other `$`-prefixed names) for stream-driven queries. When this happens for a given row, that row falls back to SQL parsing so DataHub never builds lineage from unusable URNs.
+
+The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
@@ -163,6 +173,49 @@ semantic_view_pattern:
 - Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
 - The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
 
+#### Stages, Tasks, and Pipes
+
+DataHub supports ingestion of Snowflake Stages, Tasks, and Snowpipe objects. All three features are disabled by default and can be enabled independently.
+
+##### Stages (`include_stages: true`)
+
+Stages are ingested as containers nested under their parent schema. Internal stages additionally emit a placeholder dataset representing the staged data, which is used for pipe lineage resolution. External stages (S3, GCS, Azure) resolve their URLs to the corresponding cloud platform dataset URN.
+
+```yaml
+include_stages: true
+stage_pattern:
+  allow:
+    - "MY_DB.MY_SCHEMA.*"
+```
+
+##### Tasks (`include_tasks: true`)
+
+Tasks are ingested as DataJob entities grouped under a per-schema DataFlow. Predecessor dependencies between tasks are captured as `inputDatajobs` on the DataJobInputOutput aspect, preserving the DAG structure.
+
+```yaml
+include_tasks: true
+task_pattern:
+  allow:
+    - "MY_DB.MY_SCHEMA.*"
+```
+
+##### Pipes (`include_pipes: true`)
+
+Snowpipe objects are ingested as DataJob entities with lineage derived from parsing the `COPY INTO` statement. The pipe's source stage resolves to an upstream dataset (internal placeholder or external cloud URN) and the target table resolves to a downstream dataset. Enabling pipes automatically scans stages for lineage resolution, even if `include_stages` is false.
+
+The parser handles the following `COPY INTO` patterns:
+
+- Column-list targets — `COPY INTO t(a, b) FROM @stage` resolves the target table correctly
+- Subquery sources — `COPY INTO t FROM (SELECT ... FROM @s1 UNION ALL SELECT ... FROM @s2)` captures all referenced stages as upstream datasets
+- Non-`COPY` pipe bodies are silently skipped; stage refs that cannot be normalized to a three-part FQN emit a warning in the ingestion report
+
+```yaml
+include_pipes: true
+pipe_pattern:
+  allow:
+    - "MY_DB.MY_SCHEMA.*"
+```
+
 ### Limitations
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
@@ -177,3 +230,21 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Snowsight Links Point to the Wrong URL (Private Link)
+
+By default, DataHub generates Snowsight links of the form `https://app.snowflake.com/<region>/<account>/...`. If Snowsight is only reachable through private link in your environment, these links will not work for your users.
+
+To fix this, set `snowsight_base_url` in the recipe to your private-link Snowsight URL. Retrieve the value from Snowflake as `ACCOUNTADMIN`:
+
+```sql
+SELECT SYSTEM$GET_PRIVATELINK_CONFIG();
+-- Use either snowsight-privatelink-url or regionless-snowsight-privatelink-url.
+```
+
+```yaml
+source:
+  type: snowflake
+  config:
+    snowsight_base_url: "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+```

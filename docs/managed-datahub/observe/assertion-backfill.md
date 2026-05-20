@@ -6,28 +6,27 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Backfill Assertion History
 
-<FeatureAvailability saasOnly />
-
-> The **Backfill Assertion History** feature is available as part of the **DataHub Cloud Observe** module of DataHub Cloud.
-> If you are interested in learning more about **DataHub Cloud Observe** or trying it out, please [visit our website](https://datahub.com/products/data-observability/).
+<FeatureAvailability saasOnly stage="private-beta" />
 
 <div align="center"><iframe width="640" height="444" src="https://www.loom.com/embed/61a201aea8464f58826c965fdbfbe255" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
 
 ## Introduction
 
-When you create a new [Smart Assertion](./smart-assertions.md), it needs historical data to learn what "normal" looks like before it can start making accurate predictions. Without historical context, the assertion's AI model has nothing to train on, meaning it will take days or weeks of real-time evaluations before it can reliably detect anomalies.
+When you enable [Anomaly Detection](./anomaly-detection.md) on a new assertion, the underlying ML model needs historical data to learn what "normal" looks like before it can make accurate predictions. Without historical context, the model has nothing to train on, meaning it takes days or weeks of real-time evaluations before it can reliably detect anomalies.
 
 **Backfill Assertion History** solves this by running the assertion against historical data at the time of creation. Instead of waiting for the model to accumulate enough data points through scheduled evaluations, the system queries your warehouse for past data and populates the assertion's metrics history in one go. This means you get accurate anomaly detection thresholds from day one, with full awareness of daily, weekly, or monthly seasonality in your data.
 
+Because Backfill works by issuing warehouse queries, it is only available on Snowflake, Redshift, BigQuery, and Databricks.
+
 Backfill is available for the following assertion types:
 
-| Assertion Type                    | Backfill Support                                                                                                  |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| **Smart Volume Assertion**        | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
-| **Smart Column Metric Assertion** | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
-| **Freshness Assertion**           | No                                                                                                                |
-| **Schema Assertion**              | No                                                                                                                |
-| **Custom SQL Assertion**          | No                                                                                                                |
+| Assertion Type                                     | Backfill Support                                                                                                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| **Volume Assertion with Anomaly Detection**        | Yes (requires [time-series bucketing](./volume-assertions.md#time-series-bucketing))                              |
+| **Column Metric Assertion with Anomaly Detection** | Yes (requires [time-series bucketing](./column-assertions.md#time-series-bucketing-for-column-metric-assertions)) |
+| **Freshness Assertion**                            | No                                                                                                                |
+| **Schema Assertion**                               | No                                                                                                                |
+| **Custom SQL Assertion**                           | No                                                                                                                |
 
 ## How Backfill Works
 
@@ -48,7 +47,7 @@ The maximum amount of historical data that can be backfilled depends on the buck
 | **Daily**       | 365 days (1 year)   |
 | **Weekly**      | 156 weeks (3 years) |
 
-This is lookback window is relative to the assertion's creation date
+This lookback window is relative to the assertion's creation date
 
 ### Backfill Statuses
 
@@ -69,9 +68,9 @@ Backfilling large tables (> 1 TB) can be expensive in terms of warehouse compute
 
 ### Via the UI
 
-When creating a new smart assertion with [time-series bucketing](./volume-assertions.md#time-series-bucketing) enabled:
+When creating a new assertion with [Anomaly Detection](./anomaly-detection.md) and [time-series bucketing](./volume-assertions.md#time-series-bucketing) enabled:
 
-1. Toggle **Backfill historical data** to on (this defaults to on when bucketing is enabled for smart assertions).
+1. Toggle **Backfill historical data** to on (this defaults to on when bucketing is enabled for Anomaly Detection).
 2. Select a **backfill start date** using the date picker. The date picker enforces the maximum lookback constraints (365 days for daily, 156 weeks for weekly bucketing).
 3. Complete the rest of the assertion configuration and click **Save**.
 
@@ -94,11 +93,13 @@ dataset_urn = DatasetUrn.from_string(
     "urn:li:dataset:(urn:li:dataPlatform:snowflake,database.schema.table,PROD)"
 )
 
-# Smart volume assertion with daily bucketing and 6-month backfill
+# Volume assertion with Anomaly Detection, daily bucketing, and 6-month backfill
 assertion = client.assertions.sync_smart_volume_assertion(
     dataset_urn=dataset_urn,
     display_name="Daily Volume Anomaly Monitor",
-    detection_mechanism="information_schema",
+    # Bucketing always requires a query-based source; information_schema and
+    # DataHub Dataset Profile cannot be bucketed.
+    detection_mechanism="query",
     sensitivity="medium",
     time_bucketing_strategy={
         "timestamp_field_path": "created_at",
@@ -130,7 +131,7 @@ assertion = client.assertions.sync_smart_column_metric_assertion(
     dataset_urn=dataset_urn,
     column_name="user_id",
     metric_type="null_count",
-    display_name="Smart Null Count - user_id",
+    display_name="Null Count Anomaly Monitor - user_id",
     detection_mechanism="all_rows_query_datahub_dataset_profile",
     sensitivity="medium",
     time_bucketing_strategy={

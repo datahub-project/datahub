@@ -124,12 +124,9 @@ public class CreateIngestionExecutionRequestResolver
               arguments.put(RECIPE_ARG_NAME, recipe);
               arguments.put(
                   VERSION_ARG_NAME,
-                  ingestionSourceInfo.getConfig().hasVersion()
-                      ? ingestionSourceInfo.getConfig().getVersion()
-                      : _ingestionConfiguration.getDefaultCliVersion());
-              if (ingestionSourceInfo.getConfig().hasVersion()) {
-                arguments.put(VERSION_ARG_NAME, ingestionSourceInfo.getConfig().getVersion());
-              }
+                  IngestionUtils.resolveIngestionCliVersion(
+                      ingestionSourceInfo.getConfig().getVersion(),
+                      _ingestionConfiguration.getDefaultCliVersion()));
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

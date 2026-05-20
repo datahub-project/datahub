@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.*;
 import com.linkedin.metadata.config.DataHubConfiguration;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
@@ -22,7 +23,7 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
-import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
+import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
@@ -57,17 +58,24 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   @BeforeClass
   private void setup() {
     Mockito.when(configurationProvider.getDatahub()).thenReturn(new DataHubConfiguration());
+    Mockito.when(configurationProvider.getStructuredProperties())
+        .thenReturn(
+            StructuredPropertiesConfiguration.builder()
+                .dropMissingPropertyValuesWithWarning(true)
+                .build());
   }
 
   @Test
   public void testAspectMigrationMutatorChain_flagDisabled_isDisabled() {
-    // zduStage20 is false (RETURNS_MOCKS default) → chain receives no mutators → disabled
+    // aspectMigrationMutatorEnabled is false (RETURNS_MOCKS default) → chain receives no mutators →
+    // disabled
     assertTrue(context.containsBean("aspectMigrationMutatorChain"));
     MutationHook bean = context.getBean("aspectMigrationMutatorChain", MutationHook.class);
     assertNotNull(bean);
     assertTrue(bean instanceof AspectMigrationMutatorChain);
     AspectMigrationMutatorChain chain = (AspectMigrationMutatorChain) bean;
-    assertFalse(chain.isEnabled(), "Chain should be disabled when zduStage20 flag is off");
+    assertFalse(
+        chain.isEnabled(), "Chain should be disabled when aspectMigrationMutatorEnabled is false");
     assertTrue(chain.getChainByAspect().isEmpty());
     assertNotNull(chain.getConfig());
     assertTrue(chain.getConfig().isEnabled());
@@ -298,18 +306,21 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
   }
 
   @Test
-  public void testStructuredPropertiesSoftDeleteBeanCreation() {
-    assertTrue(context.containsBean("structuredPropertiesSoftDelete"));
-    MutationHook mutator = context.getBean("structuredPropertiesSoftDelete", MutationHook.class);
+  public void testStructuredPropertiesAssignmentMutatorBeanCreation() {
+    assertTrue(context.containsBean("structuredPropertiesAssignmentMutator"));
+    MutationHook mutator =
+        context.getBean("structuredPropertiesAssignmentMutator", MutationHook.class);
     assertNotNull(mutator);
-    assertTrue(mutator instanceof StructuredPropertiesSoftDelete);
+    assertTrue(mutator instanceof StructuredPropertiesAssignmentMutator);
 
     // Verify configuration
     assertNotNull(mutator.getConfig());
     assertTrue(mutator.getConfig().isEnabled());
     assertEquals(
-        mutator.getConfig().getClassName(), StructuredPropertiesSoftDelete.class.getName());
-    // Note: This plugin doesn't define supportedOperations, only supportedEntityAspectNames
+        mutator.getConfig().getClassName(), StructuredPropertiesAssignmentMutator.class.getName());
+    assertEquals(
+        mutator.getConfig().getSupportedOperations(),
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "PATCH"));
   }
 
   @Test

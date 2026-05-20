@@ -217,7 +217,9 @@ class ModeConfig(
         # > "Note: workspace_name value should be all lowercase"
         "This is distinct from the workspace's display name, and should be all lowercase."
     )
-    _default_schema = pydantic_removed_field("default_schema")
+    _default_schema = pydantic_removed_field(
+        "default_schema", month="January", year=2025
+    )
 
     space_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(
@@ -1157,6 +1159,7 @@ class ModeSource(StatefulIngestionSourceBase):
                     "last_run_id",
                     "data_source_id",
                     "explorations_count",
+                    "chart_count",
                     "report_imports_count",
                     "dbt_metric_id",
                 ],
@@ -1935,8 +1938,9 @@ class ModeSource(StatefulIngestionSourceBase):
                         chart_fields.setdefault(field.fieldPath, field)
                 yield wu
 
-            # Skip chart API call when the query has 0 explorations.
-            if query.get("explorations_count", None) == 0:
+            # Gate on chart_count (published charts), not explorations_count
+            # (private user analyses), to avoid silently dropping report charts.
+            if query.get("chart_count", 0) == 0:
                 charts: List[dict] = []
                 with self.report._lock:
                     self.report.chart_api_calls_skipped += 1

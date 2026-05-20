@@ -1,6 +1,6 @@
 import React, { useContext, useMemo, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components/macro';
 
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
@@ -88,6 +88,7 @@ interface HelperProps {
 
 // exported for testing only
 function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+    const theme = useTheme();
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
 
@@ -96,13 +97,13 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
     function lineProps(lineNumber: number): React.HTMLProps<HTMLElement> {
         const style: React.CSSProperties = { display: 'block', width: 'fit-content' };
         if (highlightedLineNumbers.has(lineNumber)) {
-            // eslint-disable-next-line rulesdir/no-hardcoded-colors -- highlight overlay, not a semantic color
-            style.backgroundColor = 'rgba(134, 169, 244, 0.41)';
+            style.backgroundColor = theme.colors.bgSelectedSubtle;
         }
         return { style };
     }
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const language = baseEntity?.dataset?.viewProperties?.language;
 
     const canShowFormatted = !!formattedLogic;
 
@@ -139,7 +140,11 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
                                 )}
                                 <CopyQuery query={showFormatted ? formattedLogic || '' : statement} showCopyText />
                             </ViewHeader>
-                            <SyntaxHighlighter language="sql" showLineNumbers lineProps={lineProps}>
+                            <SyntaxHighlighter
+                                language={language?.toLowerCase() ?? 'sql'}
+                                showLineNumbers
+                                lineProps={lineProps}
+                            >
                                 {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
@@ -152,7 +157,7 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
                         />
                     )}
                     <PreviewSyntax
-                        language="sql"
+                        language={language?.toLowerCase() ?? 'sql'}
                         showLineNumbers
                         wrapLines
                         lineNumberStyle={{ display: 'none' }}

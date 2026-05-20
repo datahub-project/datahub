@@ -1,4 +1,5 @@
 ---
+description: "Overview of DataHub features for data discovery, lineage, profiling, governance, contracts, and collaborative metadata management."
 hide_title: true
 slug: /features
 ---

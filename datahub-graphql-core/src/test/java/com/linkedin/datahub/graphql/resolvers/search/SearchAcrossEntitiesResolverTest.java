@@ -196,7 +196,6 @@ public class SearchAcrossEntitiesResolverTest {
                     ImmutableList.of(
                         new FacetFilterInput(
                             "baseField",
-                            "baseTest",
                             ImmutableList.of("baseTest"),
                             false,
                             FilterOperator.EQUAL)))),
@@ -265,7 +264,6 @@ public class SearchAcrossEntitiesResolverTest {
                     ImmutableList.of(
                         new FacetFilterInput(
                             "baseField",
-                            "",
                             ImmutableList.of("baseTest", "baseTest"),
                             false,
                             FilterOperator.EQUAL)))),

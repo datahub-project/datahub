@@ -1,7 +1,7 @@
 import json
 import logging
 import sys
-from typing import Any, Dict, Iterable, List, Literal, Optional, cast
+from typing import Any, Dict, List, Literal, Optional, Set, cast
 
 import requests
 
@@ -25,6 +25,9 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Table,
     User,
     Workspace,
+    new_powerbi_dashboards,
+    new_powerbi_dataset,
+    new_powerbi_reports,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -115,7 +118,10 @@ class PowerBiAPI:
         endorsements or tags as list of strings
         """
         results: Dict[str, List[str]] = {}
-        if scan_result is None:
+        # ``not scan_result`` covers both None (scan never ran / failed) and
+        # {} (workspace was scan-omitted post two-phase refactor); aligns
+        # with the same guard in _get_workspace_datasets.
+        if not scan_result:
             return results
 
         for scanned_dashboard in scan_result.get(Constant.DASHBOARDS) or []:
@@ -133,7 +139,9 @@ class PowerBiAPI:
     ) -> Dict[str, List[str]]:
         results: Dict[str, List[str]] = {}
 
-        if scan_result is None:
+        # See _get_dashboard_endorsements for why this is ``not scan_result``
+        # rather than ``is None``.
+        if not scan_result:
             return results
 
         reports: List[dict] = scan_result.get(Constant.REPORTS) or []
@@ -201,37 +209,89 @@ class PowerBiAPI:
         Fetch the report from PowerBi for the given Workspace
         """
         reports: Dict[str, Report] = {}
-        try:
-            reports = {
-                report.id: report
-                for report in self._get_resolver().get_reports(workspace)
-            }
-            # Fill Report dataset
-            for report in reports.values():
-                if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
-                    if report.dataset is None:
-                        self.reporter.info(
-                            title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
-                        )
-        except Exception:
-            self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+        if workspace.scan_result:
+            # Pre-filter None and App duplicates so the count-diff below reflects only
+            # malformed entries (missing id/name/reportType), not duplicates.
+            # new_powerbi_reports applies the same filters internally for safety when called
+            # from non-scan paths (data_resolver.get_reports) that don't pre-filter.
+            raw_reports = [
+                r
+                for r in workspace.scan_result.get(Constant.REPORTS, [])
+                if r is not None and Constant.APP_ID not in r
+            ]
+            reports_list = new_powerbi_reports(workspace, raw_reports)
+            if len(reports_list) < len(raw_reports):
+                self.reporter.warning(
+                    title="Skipped Reports",
+                    message=f"Skipped {len(raw_reports) - len(reports_list)} report(s) with missing required fields (id, name, or reportType). Check logs for details.",
+                    context=f"workspace={workspace.name}",
+                )
+            reports = {r.id: r for r in reports_list}
+            # Warn when ownership is requested but scan result has no user data for any report.
+            # Covers both missing key (None) and present-but-empty list ([]).
+            if (
+                self.__config.extract_ownership
+                and reports_list
+                and not any(r.users for r in reports_list)
+                and not any(raw.get(Constant.USERS) for raw in raw_reports)
+            ):
+                self.reporter.info(
+                    title="Report Users Not in Scan Result",
+                    message=(
+                        "No user data found in scan result for any report. "
+                        "If ownership is expected, ensure the scan job is configured "
+                        "with getArtifactUsers=True."
+                    ),
+                    context=f"workspace={workspace.name}",
+                )
+        else:
+            self.reporter.info(
+                title="Report Scan Fallback Active",
+                message="Workspace scan returned no data; falling back to per-workspace reports endpoint.",
+                context=f"workspace={workspace.name}",
             )
-
-        def fill_ownership() -> None:
-            if self.__config.extract_ownership is False:
-                logger.info(
-                    "Skipping user retrieval for report as extract_ownership is set to false"
+            try:
+                reports = {
+                    report.id: report
+                    for report in self._get_resolver().get_reports(workspace)
+                }
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
-                return
-
+                self.reporter.warning(
+                    title="Reports Fetch Failed",
+                    message="Unable to fetch reports for workspace; reports will be empty.",
+                    context=f"workspace={workspace.name}",
+                )
             for report in reports.values():
-                report.users = self.get_report_users(
-                    workspace_id=workspace.id, report_id=report.id
+                # _get_entity_users (called by get_report_users) already handles and swallows
+                # HTTP/network exceptions internally, so no outer try/except is needed here.
+                report.users = self.get_report_users(workspace.id, report.id)
+
+        for report in reports.values():
+            try:
+                report.pages = self._get_resolver().get_pages_by_report(
+                    workspace=workspace, report_id=report.id
                 )
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch pages for report {report.name}({report.id}) in workspace {workspace.name}"
+                )
+                self.reporter.warning(
+                    title="Report Pages Not Fetched",
+                    message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
+                    context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
+                )
+                report.pages = []
+            if report.dataset_id:
+                report.dataset = self.dataset_registry.get(report.dataset_id)
+                if report.dataset is None:
+                    self.reporter.info(
+                        title="Missing Lineage For Report",
+                        message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                        context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                    )
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
@@ -243,7 +303,6 @@ class PowerBiAPI:
             for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
-        fill_ownership()
         fill_tags()
         return reports
 
@@ -275,6 +334,10 @@ class PowerBiAPI:
                 id=workspace[Constant.ID],
                 name=workspace[Constant.NAME],
                 type=workspace[Constant.TYPE],
+                webUrl=self.__config.environment.workspace_url(
+                    workspace_id=workspace[Constant.ID],
+                    workspace_type=workspace[Constant.TYPE],
+                ),
                 datasets={},
                 dashboards={},
                 reports={},
@@ -282,7 +345,10 @@ class PowerBiAPI:
                 dashboard_endorsements={},
                 scan_result={},
                 independent_datasets={},
-                app=None,  # It will be populated in _fill_metadata_from_scan_result method
+                app=None,  # populated in fill_metadata_from_scan_result
+                # fabric_artifacts requires the scan response (Lakehouse /
+                # warehouses / SQLAnalyticsEndpoint keys are absent from the
+                # groups payload); set in fill_metadata_from_scan_result.
             )
             for workspace in groups
         ]
@@ -438,13 +504,13 @@ class PowerBiAPI:
         dataset_map: dict = {}
         scan_result = workspace.scan_result
 
-        if scan_result is None:
+        if not scan_result:
             return dataset_map
 
         datasets: Optional[Any] = scan_result.get(Constant.DATASETS)
         if datasets is None or len(datasets) == 0:
             logger.warning(
-                f"Workspace {scan_result[Constant.NAME]}({scan_result[Constant.ID]}) does not have datasets"
+                f"Workspace {scan_result.get(Constant.NAME) or '<unknown>'}({scan_result.get(Constant.ID) or '<unknown>'}) does not have datasets"
             )
 
             logger.info("Returning empty datasets")
@@ -454,21 +520,7 @@ class PowerBiAPI:
 
         for dataset_dict in datasets:
             dataset_id = dataset_dict[Constant.ID]
-            try:
-                dataset_instance = self._get_resolver().get_dataset(
-                    workspace=workspace,
-                    dataset_id=dataset_id,
-                )
-                if dataset_instance is None:
-                    continue
-            except Exception as e:
-                self.reporter.warning(
-                    title="Unable to fetch dataset details",
-                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
-                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
-                    exc=e,
-                )
-                continue
+            dataset_instance = new_powerbi_dataset(workspace, dataset_dict)
 
             # fetch + set dataset parameters
             try:
@@ -484,19 +536,6 @@ class PowerBiAPI:
                 dataset_instance.tags = self._parse_endorsement(
                     dataset_dict.get(Constant.ENDORSEMENT_DETAIL)
                 )
-
-            # Extract dependent artifact ID from scan result relations (for DirectLake lineage)
-            # The individual dataset API doesn't return relations, but the scan result does
-            relations = dataset_dict.get(Constant.RELATIONS, [])
-            for relation in relations:
-                if relation.get(Constant.DEPENDENT_ON_ARTIFACT_ID):
-                    dataset_instance.dependent_on_artifact_id = relation[
-                        Constant.DEPENDENT_ON_ARTIFACT_ID
-                    ]
-                    logger.debug(
-                        f"Dataset {dataset_id} depends on artifact: {dataset_instance.dependent_on_artifact_id}"
-                    )
-                    break
 
             dataset_map[dataset_instance.id] = dataset_instance
             # set dataset-name
@@ -650,17 +689,47 @@ class PowerBiAPI:
         app.dashboards = app_dashboards
         workspace.app = app
 
-    def _fill_metadata_from_scan_result(
+    def fill_metadata_from_scan_result(
         self,
         workspaces: List[Workspace],
-    ) -> List[Workspace]:
-        workspace_ids = [workspace.id for workspace in workspaces]
-        scan_result = self._get_scan_result(workspace_ids)
-        if not scan_result:
-            return workspaces
+    ) -> Set[str]:
+        """Populate scan-derived metadata (scan_result, fabric_artifacts,
+        datasets) on the given workspaces in place.
 
-        workspaces = []
-        for workspace_metadata in scan_result["workspaces"]:
+        Returns the set of workspace IDs that the scan excluded (inactive or
+        excluded by workspace_type_filter). Callers should skip these in
+        downstream phases to avoid redundant per-workspace API calls.
+        """
+        workspaces_by_id = {workspace.id: workspace for workspace in workspaces}
+        scan_result = self._get_scan_result(list(workspaces_by_id))
+        excluded_ids: Set[str] = set()
+        if not scan_result:
+            # _get_scan_result returns None when create_scan_job raises any
+            # exception (HTTP/permission/network/etc., logged via
+            # log_http_error) and may also return an empty payload from the
+            # admin API. We cannot distinguish these here, so surface a
+            # cause-neutral per-workspace warning. Scan timeouts and
+            # result-fetch failures propagate as exceptions instead and are
+            # handled by the Phase 1 try/except in get_workunits_internal.
+            for ws in workspaces:
+                self.__reporter.warning(
+                    title="Incomplete Scan Metadata",
+                    message=(
+                        "Scan returned no metadata for this workspace; it "
+                        "will be ingested without scan-derived metadata "
+                        "(endorsements, app, fabric artifacts, "
+                        "cross-workspace dataset lineage). Check logs for "
+                        "any underlying HTTP or scan error."
+                    ),
+                    context=f"workspace={ws.name} id={ws.id}",
+                )
+            return excluded_ids
+
+        returned_ids: Set[str] = set()
+        for workspace_metadata in scan_result.get("workspaces") or []:
+            ws_id_in_scan = workspace_metadata.get(Constant.ID)
+            if ws_id_in_scan:
+                returned_ids.add(ws_id_in_scan)
             if (
                 workspace_metadata.get(Constant.STATE) != Constant.ACTIVE
                 or workspace_metadata.get(Constant.TYPE)
@@ -668,55 +737,64 @@ class PowerBiAPI:
             ):
                 # if the state is not "Active" then in some state like Not Found, "name" attribute is not present
                 wrk_identifier: str = (
-                    workspace_metadata[Constant.NAME]
-                    if workspace_metadata.get(Constant.NAME)
-                    else workspace_metadata.get(Constant.ID)
+                    workspace_metadata.get(Constant.NAME)
+                    or workspace_metadata.get(Constant.ID)
+                    or "<unknown>"
                 )
                 self.__reporter.info(
                     title="Skipped Workspace",
                     message="Workspace was skipped due to the workspace_type_filter",
                     context=f"workspace={wrk_identifier}",
                 )
+                if ws_id_in_scan and ws_id_in_scan in workspaces_by_id:
+                    excluded_ids.add(ws_id_in_scan)
                 continue
 
-            cur_workspace = Workspace(
-                id=workspace_metadata[Constant.ID],
-                name=workspace_metadata[Constant.NAME],
-                type=workspace_metadata[Constant.TYPE],
-                datasets={},
-                dashboards={},
-                reports={},
-                report_endorsements={},
-                dashboard_endorsements={},
-                scan_result={},
-                independent_datasets={},
-                app=None,  # It is getting set from scan-result
-                fabric_artifacts=self._parse_fabric_artifacts(workspace_metadata),
-            )
+            if not ws_id_in_scan:
+                # Active workspace entry without an id is a malformed scan
+                # response; nothing to correlate it to so skip safely.
+                logger.debug(
+                    "Scan returned an active workspace entry with no id; skipping."
+                )
+                continue
+
+            cur_workspace = workspaces_by_id.get(ws_id_in_scan)
+            if not cur_workspace:
+                # Scan can surface workspace IDs that weren't requested in this
+                # batch; ignore them here (they get processed in their own batch
+                # if allowed) and log for debuggability.
+                logger.debug(
+                    "Scan returned workspace id %s outside the request batch; skipping.",
+                    ws_id_in_scan,
+                )
+                continue
+
             cur_workspace.scan_result = workspace_metadata
+            cur_workspace.fabric_artifacts = self._parse_fabric_artifacts(
+                workspace_metadata
+            )
             cur_workspace.datasets = self._get_workspace_datasets(cur_workspace)
             # collect all datasets in the registry
             self.dataset_registry.update(cur_workspace.datasets)
-            # Fetch endorsement tag if it is enabled from configuration
-            if self.__config.extract_endorsements_to_tags:
-                cur_workspace.dashboard_endorsements = self._get_dashboard_endorsements(
-                    cur_workspace.scan_result
-                )
-                cur_workspace.report_endorsements = self._get_report_endorsements(
-                    cur_workspace.scan_result
-                )
-            else:
-                logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
-                )
 
-            self._populate_app_details(
-                workspace=cur_workspace,
-                workspace_metadata=workspace_metadata,
+        # Surface workspaces the scan API silently omitted. They still reach
+        # Phase 2 with empty scan metadata, but ingesters need visibility into
+        # the gap so they can investigate (typically an admin API permissions
+        # issue or a transient scan failure).
+        missing_ids = set(workspaces_by_id) - returned_ids - excluded_ids
+        for missing_id in missing_ids:
+            missing_ws = workspaces_by_id[missing_id]
+            self.__reporter.warning(
+                title="Incomplete Scan Metadata",
+                message=(
+                    "Workspace was requested but not present in the scan "
+                    "response; downstream metadata (endorsements, app, "
+                    "dataset lineage) may be incomplete for this workspace."
+                ),
+                context=f"workspace={missing_ws.name} id={missing_id}",
             )
-            workspaces.append(cur_workspace)
 
-        return workspaces
+        return excluded_ids
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
         reachable_datasets: List[str] = []
@@ -735,17 +813,74 @@ class PowerBiAPI:
             if dataset.id not in reachable_datasets:
                 workspace.independent_datasets[dataset.id] = dataset
 
-    def _fill_regular_metadata_detail(self, workspace: Workspace) -> None:
+    def fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = {
-                dashboard.id: dashboard
-                for dashboard in self._get_resolver().get_dashboards(workspace)
-            }
+            if workspace.scan_result:
+                # Pre-filter None and App duplicates here so the count-diff below
+                # reflects only malformed entries (missing id/displayName), not duplicates.
+                # new_powerbi_dashboards applies the same filters internally for safety
+                # when called from non-scan paths that don't pre-filter.
+                raw_dashboards = [
+                    r
+                    for r in workspace.scan_result.get(Constant.DASHBOARDS, [])
+                    if r is not None and Constant.APP_ID not in r
+                ]
+                dashboards_list = new_powerbi_dashboards(workspace, raw_dashboards)
+                if len(dashboards_list) < len(raw_dashboards):
+                    self.__reporter.warning(
+                        title="Skipped Dashboards",
+                        message=f"Skipped {len(raw_dashboards) - len(dashboards_list)} dashboard(s) with missing required fields (id or displayName). Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                # Warn when ownership is requested but scan result has no user data for any
+                # dashboard. Checks for both missing key (None) and present-but-empty list ([]).
+                if (
+                    self.__config.extract_ownership
+                    and dashboards_list
+                    and not any(d.users for d in dashboards_list)
+                    and not any(r.get(Constant.USERS) for r in raw_dashboards)
+                ):
+                    self.__reporter.info(
+                        title="Dashboard Users Not in Scan Result",
+                        message=(
+                            "No user data found in scan result for any dashboard. "
+                            "If ownership is expected, ensure the scan job is configured "
+                            "with getArtifactUsers=True."
+                        ),
+                        context=f"workspace={workspace.name}",
+                    )
+                # Surface tile skips caused by missing id fields in the scan result.
+                total_raw_tiles = sum(
+                    len([t for t in r.get(Constant.TILES) or [] if t is not None])
+                    for r in raw_dashboards
+                    if r.get(Constant.ID) in {d.id for d in dashboards_list}
+                )
+                total_built_tiles = sum(len(d.tiles) for d in dashboards_list)
+                if total_built_tiles < total_raw_tiles:
+                    self.__reporter.warning(
+                        title="Skipped Tiles",
+                        message=f"Skipped {total_raw_tiles - total_built_tiles} tile(s) with missing id field in scan result. Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                workspace.dashboards = {d.id: d for d in dashboards_list}
+            else:
+                self.__reporter.info(
+                    title="Dashboard Scan Fallback Active",
+                    message="Workspace scan returned no data; falling back to per-dashboard get_dashboards/get_tiles/get_dashboard_users calls.",
+                    context=f"workspace={workspace.name}",
+                )
+                workspace.dashboards = {
+                    dashboard.id: dashboard
+                    for dashboard in self._get_resolver().get_dashboards(workspace)
+                }
+                for dashboard in workspace.dashboards.values():
+                    dashboard.tiles = self._get_resolver().get_tiles(
+                        workspace, dashboard=dashboard
+                    )
+                    dashboard.users = self.get_dashboard_users(dashboard)
+
             # set tiles of Dashboard
             for dashboard in workspace.dashboards.values():
-                dashboard.tiles = self._get_resolver().get_tiles(
-                    workspace, dashboard=dashboard
-                )
                 # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
                     # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.
@@ -787,22 +922,27 @@ class PowerBiAPI:
             for dashboard in workspace.dashboards.values():
                 dashboard.tags = workspace.dashboard_endorsements.get(dashboard.id, [])
 
+        # Fetch endorsement tag if it is enabled from configuration
+        if self.__config.extract_endorsements_to_tags:
+            workspace.dashboard_endorsements = self._get_dashboard_endorsements(
+                workspace.scan_result
+            )
+            workspace.report_endorsements = self._get_report_endorsements(
+                workspace.scan_result
+            )
+        else:
+            logger.info(
+                "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
+            )
+
+        self._populate_app_details(
+            workspace=workspace,
+            workspace_metadata=workspace.scan_result,
+        )
+
         # fill reports first since some dashboard may reference a report
         fill_reports()
         if self.__config.extract_dashboards:
             fill_dashboards()
         fill_dashboard_tags()
         self._fill_independent_datasets(workspace=workspace)
-
-    def fill_workspaces(
-        self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
-    ) -> Iterable[Workspace]:
-        logger.info(
-            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
-        )
-
-        workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
-        # First try to fill the admin detail as some regular metadata contains lineage to admin metadata
-        for workspace in workspaces:
-            self._fill_regular_metadata_detail(workspace=workspace)
-        return workspaces

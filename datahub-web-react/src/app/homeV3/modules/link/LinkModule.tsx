@@ -1,13 +1,14 @@
-import { Icon, colors } from '@components';
+import { Icon } from '@components';
 import { ArrowUpRight } from '@phosphor-icons/react/dist/csr/ArrowUpRight';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
 import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import ImageOrIcon from '@app/homeV3/modules/link/ImageOrIcon';
 import { DescriptionContainer, NameContainer } from '@app/homeV3/styledComponents';
+import { safeUrl } from '@app/shared/urlUtils';
 
 const Container = styled.div`
     display: flex;
@@ -34,12 +35,13 @@ const TextSection = styled.div`
 `;
 
 export default function LinkModule(props: ModuleProps) {
+    const theme = useTheme();
     const { name } = props.module.properties;
     const { linkParams } = props.module.properties.params;
 
     function goToLink() {
         if (linkParams?.linkUrl) {
-            window.open(linkParams.linkUrl, '_blank');
+            window.open(safeUrl(linkParams.linkUrl), '_blank');
             analytics.event({
                 type: EventType.HomePageTemplateModuleLinkClick,
                 link: linkParams.linkUrl,
@@ -58,7 +60,7 @@ export default function LinkModule(props: ModuleProps) {
                             ellipsis={{
                                 tooltip: {
                                     color: 'white',
-                                    overlayInnerStyle: { color: colors.gray[1700] },
+                                    overlayInnerStyle: { color: theme.colors.textSecondary },
                                     showArrow: false,
                                 },
                             }}
@@ -70,7 +72,7 @@ export default function LinkModule(props: ModuleProps) {
                                 ellipsis={{
                                     tooltip: {
                                         color: 'white',
-                                        overlayInnerStyle: { color: colors.gray[1700] },
+                                        overlayInnerStyle: { color: theme.colors.textSecondary },
                                         showArrow: false,
                                     },
                                 }}
@@ -81,8 +83,8 @@ export default function LinkModule(props: ModuleProps) {
                     </TextSection>
                 </LeftSection>
                 <RightSection>
-                    <a href={linkParams?.linkUrl} target="_blank" rel="noopener noreferrer">
-                        <Icon icon={ArrowUpRight} size="lg" color="gray" />
+                    <a href={safeUrl(linkParams?.linkUrl)} target="_blank" rel="noopener noreferrer">
+                        <Icon icon={ArrowUpRight} size="lg" />
                     </a>
                 </RightSection>
             </Container>

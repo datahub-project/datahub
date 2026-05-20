@@ -1718,7 +1718,7 @@ def _extract_select_from_update(
     # Note: In sqlglot v28+, the parameter was renamed from "from" to "from_"
     if select_statement.args.get("from_") or select_statement.args.get("from"):
         select_statement = select_statement.join(
-            statement.this, append=True, join_kind="cross"
+            statement.this, append=True, join_type="cross"
         )
     else:
         select_statement = select_statement.from_(statement.this)

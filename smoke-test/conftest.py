@@ -37,6 +37,20 @@ os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
 
 
 def build_auth_session():
+    """Build an auth session.
+
+    Token-based (preferred for remote instances — no login round-trip):
+        Set DATAHUB_GMS_TOKEN=<pat> and DATAHUB_GMS_URL=<gms-url>.
+        Frontend URL is not required; GraphQL routes through the GMS directly.
+
+    Login-based (default for local dev):
+        Set ADMIN_USERNAME / ADMIN_PASSWORD (or CYPRESS_ADMIN_* equivalents).
+    """
+    prebuilt_token = os.environ.get("DATAHUB_GMS_TOKEN")
+    if prebuilt_token:
+        logger.info("Token-based auth: using DATAHUB_GMS_TOKEN (skipping login)")
+        return TestSessionWrapper(requests.Session(), prebuilt_token=prebuilt_token)
+
     wait_for_healthcheck_util(requests)
     return TestSessionWrapper(get_frontend_session())
 

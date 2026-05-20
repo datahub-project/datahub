@@ -1,5 +1,6 @@
 ---
 title: "OSS vs Cloud: Comparison Guide"
+description: "Compare DataHub Open Source and DataHub Cloud, covering enterprise governance, AI automation, SLAs, and managed service capabilities."
 ---
 
 # OSS vs Cloud: Comparison Guide
@@ -26,7 +27,7 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 | Feature Name                                                         | OSS | Cloud | Business Value                                                |                                                Link                                                 |
 | :------------------------------------------------------------------- | :-: | :---: | :------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------: |
 | **Quality & Health Status on Asset Profiles**                        | ✔  |  ✔   | See quality at a glance                                       |                                                                                                     |
-| **AI Anomaly Detection (Smart Assertions)**                          | ❌  |  ✔   | Catch issues automatically                                    |           [Docs](https://docs.datahub.com/docs/managed-datahub/observe/smart-assertions)            |
+| **AI Anomaly Detection for Assertions**                              | ❌  |  ✔   | Catch issues automatically                                    |           [Docs](https://docs.datahub.com/docs/managed-datahub/observe/anomaly-detection)           |
 | **Freshness, Volume, Schema & Column Monitoring, Custom SQL Checks** | ❌  |  ✔   | Ensure timely data                                            |         [Docs](https://docs.datahub.com/docs/managed-datahub/observe/freshness-assertions)          |
 | **Data Contracts**                                                   | ✔  |  ✔   | Define quality expectations                                   | [Docs](https://docs.datahub.com/docs/managed-datahub/observe/data-contract#what-is-a-data-contract) |
 | **Data Health Dashboard**                                            | ❌  |  ✔   | Quality overview at scale                                     |         [Docs](https://docs.datahub.com/docs/managed-datahub/observe/data-health-dashboard)         |
@@ -40,7 +41,6 @@ This guide compares DataHub Open Source (OSS) and DataHub Cloud features and pla
 | :------------------------------------------------------------------------------- | :-: | :---: | :---------------------------- | :------------------------------------------------------------------------------------------------------: |
 | **Data Ownership Management**                                                    | ✔  |  ✔   | Clear accountability          |    [Docs](https://docs.datahub.com/docs/metadata-integration/java/docs/sdk-v2/dataset-entity#owners)     |
 | **Business Glossary**                                                            | ✔  |  ✔   | Common data language          |                         [Docs](https://docs.datahub.com/learn/business-glossary)                         |
-| **AI Data Classification**                                                       | ❌  |  ✔   | Auto-tag sensitive data       |                   [Docs](https://docs.datahub.com/docs/automations/ai-term-suggestion)                   |
 | **Bi-Directional Metadata Sync**                                                 | ❌  |  ✔   | Keep metadata current         |                 [Docs](https://docs.datahub.com/docs/automations/bigquery-metadata-sync)                 |
 | **Compliance Forms and Workflow Engine**                                         | ❌  |  ✔   | Track regulatory compliance   |         [Docs](https://docs.datahub.com/docs/features/feature-guides/compliance-forms/analytics)         |
 | **Metadata Tests**                                                               | ❌  |  ✔   | Validate governance rules     |                        [Docs](https://docs.datahub.com/docs/tests/metadata-tests)                        |

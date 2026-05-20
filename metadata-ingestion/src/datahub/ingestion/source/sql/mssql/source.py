@@ -182,7 +182,7 @@ class SQLServerConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     include_descriptions: bool = Field(
         default=True, description="Include table descriptions information."
     )
-    _use_odbc_removed = pydantic_removed_field("use_odbc")
+    _use_odbc_removed = pydantic_removed_field("use_odbc", month="January", year=2026)
     uri_args: Dict[str, str] = Field(
         default={},
         description="Arguments to URL-encode when connecting. See https://docs.microsoft.com/en-us/sql/connect/odbc/dsn-connection-string-attribute?view=sql-server-ver15.",
@@ -1320,8 +1320,19 @@ class SQLServerSource(SQLAlchemySource):
                     url = self.config.get_sql_alchemy_url(
                         current_db=db["name"], is_odbc=self._is_odbc
                     )
-                    engine = create_engine(url, **self.config.options)
-                    inspector = inspect(engine)
+                    try:
+                        engine = create_engine(url, **self.config.options)
+                        inspector = inspect(engine)
+                    except OperationalError as e:
+                        if re.search(r"(?i)login failed", str(e)):
+                            logger.warning(
+                                f"Error logging in to database {db['name']}: {e}"
+                            )
+                            self.report.report_warning(
+                                "Error logging in to database", db["name"], exc=e
+                            )
+                            continue
+                        raise
                     self.current_database = db["name"]
                     yield inspector
 

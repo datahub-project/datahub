@@ -1,4 +1,4 @@
-import { Button, Icon, colors } from '@components';
+import { Button, Icon } from '@components';
 import { ExclamationMark } from '@phosphor-icons/react/dist/csr/ExclamationMark';
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
@@ -10,8 +10,8 @@ import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext'
 
 const Warning = styled.div`
     padding: 8px;
-    background-color: ${colors.red[0]};
-    color: ${colors.red[1000]};
+    background-color: ${(props) => props.theme.colors.bgSurfaceError};
+    color: ${(props) => props.theme.colors.textError};
     display: flex;
     align-items: center;
     gap: 8px;

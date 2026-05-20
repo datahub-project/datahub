@@ -6,7 +6,6 @@ import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
 import { Button, Input } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { DocumentSourceType, DocumentState } from '@types';
 
@@ -15,9 +14,9 @@ const PopoverContainer = styled.div`
     max-height: 300px; /* Fixed height to prevent popover jumping */
     display: flex;
     flex-direction: column;
-    background: white;
+    background: ${(props) => props.theme.colors.bg};
     border-radius: 8px;
-    box-shadow: 0px 4px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 const SearchContainer = styled.div`
@@ -31,8 +30,8 @@ const TreeScrollContainer = styled.div`
 
     padding: 8px 4px;
 
-    border-top: 1px solid ${colors.gray[100]};
-    border-bottom: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 
     /* Custom scrollbar styling */
     &::-webkit-scrollbar {
@@ -44,12 +43,12 @@ const TreeScrollContainer = styled.div`
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${colors.gray[200]};
+        background: ${(props) => props.theme.colors.bgSurface};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${colors.gray[500]};
+        background: ${(props) => props.theme.colors.bgSurface};
     }
 `;
 
@@ -64,17 +63,12 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
     ${(props) =>
         props.$isSelected
             ? `
-        background: linear-gradient(
-            180deg,
-            rgba(83, 63, 209, 0.04) -3.99%,
-            rgba(112, 94, 228, 0.04) 53.04%,
-            rgba(112, 94, 228, 0.04) 100%
-        );
-        box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
+        background: ${props.theme.colors.bgSelectedSubtle};
+        box-shadow: ${props.theme.colors.shadowFocusBrand};
     `
             : `
         &:hover {
-            background-color: ${colors.gray[100]};
+            background-color: ${props.theme.colors.bgHover};
         }
     `}
 `;
@@ -82,7 +76,7 @@ const RootOption = styled.div<{ $isSelected: boolean }>`
 const EmptyState = styled.div`
     padding: 24px;
     text-align: center;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
 `;
 
