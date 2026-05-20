@@ -28,6 +28,7 @@ import googleSheetsLogo from '@images/google-sheets-logo.png';
 import grafanaLogo from '@images/grafana.png';
 import hiveLogo from '@images/hivelogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
+import lightdashLogo from '@images/lightdashlogo.svg';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
@@ -104,6 +105,8 @@ const HIVE = 'hive';
 const HIVE_URN = `urn:li:dataPlatform:${HIVE}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
+const LIGHTDASH = 'lightdash';
+const LIGHTDASH_URN = `urn:li:dataPlatform:${LIGHTDASH}`;
 export const LOOKER = 'looker';
 export const LOOK_ML = 'lookml';
 export const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
@@ -222,6 +225,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [GRAFANA_URN]: grafanaLogo,
     [HIVE_URN]: hiveLogo,
     [KAFKA_URN]: kafkaLogo,
+    [LIGHTDASH_URN]: lightdashLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,

@@ -1,0 +1,81 @@
+{
+  "status": "ok",
+  "results": [
+    {
+      "uuid": "33333333-3333-3333-3333-000000000001",
+      "name": "Orders by Region",
+      "description": "Bar chart of order count by region",
+      "projectUuid": "11111111-1111-1111-1111-000000000001",
+      "organizationUuid": "00000000-0000-0000-0000-000000000001",
+      "spaceUuid": "22222222-2222-2222-2222-00000000000a",
+      "spaceName": "Marketing",
+      "chartType": "cartesian",
+      "chartKind": "vertical_bar",
+      "slug": "orders-by-region",
+      "updatedAt": "2025-04-10T12:00:00.000Z",
+      "updatedByUser": {
+        "userUuid": "55555555-5555-5555-5555-000000000001",
+        "firstName": "Stan",
+        "lastName": "Dmitriev",
+        "email": "stan.dmitriev@example.com"
+      }
+    },
+    {
+      "uuid": "33333333-3333-3333-3333-000000000002",
+      "name": "Revenue with Avg Discount",
+      "description": "Revenue plus an additionalMetric over discount",
+      "projectUuid": "11111111-1111-1111-1111-000000000001",
+      "organizationUuid": "00000000-0000-0000-0000-000000000001",
+      "spaceUuid": "22222222-2222-2222-2222-00000000000a",
+      "spaceName": "Marketing",
+      "chartType": "cartesian",
+      "chartKind": "line",
+      "slug": "revenue-with-discount-avg",
+      "updatedAt": "2025-04-12T12:00:00.000Z",
+      "updatedByUser": {
+        "userUuid": "55555555-5555-5555-5555-000000000001",
+        "firstName": "Stan",
+        "lastName": "Dmitriev",
+        "email": "stan.dmitriev@example.com"
+      }
+    },
+    {
+      "uuid": "33333333-3333-3333-3333-000000000003",
+      "name": "Quarterly Revenue with Bins",
+      "description": "Uses customDimension bin and customSqlDimension",
+      "projectUuid": "11111111-1111-1111-1111-000000000001",
+      "organizationUuid": "00000000-0000-0000-0000-000000000001",
+      "spaceUuid": "22222222-2222-2222-2222-00000000000b",
+      "spaceName": "Analytics",
+      "chartType": "table",
+      "chartKind": "table",
+      "slug": "quarterly-revenue-with-bins",
+      "updatedAt": "2025-04-13T12:00:00.000Z",
+      "updatedByUser": {
+        "userUuid": "55555555-5555-5555-5555-000000000001",
+        "firstName": "Stan",
+        "lastName": "Dmitriev",
+        "email": "stan.dmitriev@example.com"
+      }
+    },
+    {
+      "uuid": "33333333-3333-3333-3333-000000000004",
+      "name": "Top Customers with Calc",
+      "description": "Has a tableCalculation that should be reported as skipped",
+      "projectUuid": "11111111-1111-1111-1111-000000000001",
+      "organizationUuid": "00000000-0000-0000-0000-000000000001",
+      "spaceUuid": "22222222-2222-2222-2222-00000000000b",
+      "spaceName": "Analytics",
+      "chartType": "cartesian",
+      "chartKind": "horizontal_bar",
+      "slug": "top-customers-with-calc",
+      "updatedAt": "2025-04-14T12:00:00.000Z",
+      "updatedByUser": {
+        "userUuid": "55555555-5555-5555-5555-000000000001",
+        "firstName": "Stan",
+        "lastName": "Dmitriev",
+        "email": "stan.dmitriev@example.com"
+      }
+    }
+  ]
+}

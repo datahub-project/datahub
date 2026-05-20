@@ -1,0 +1,14 @@
+{
+  "status": "ok",
+  "results": [
+    {
+      "projectUuid": "11111111-1111-1111-1111-000000000001",
+      "name": "Acme Marketing",
+      "type": "DEFAULT",
+      "warehouseType": "clickhouse",
+      "createdAt": "2025-02-01T08:00:00.000Z",
+      "createdByUserUuid": "55555555-5555-5555-5555-000000000001",
+      "createdByUserName": "Stan Dmitriev"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+source:
+  type: lightdash
+  config:
+    connection:
+      base_url: "https://lightdash.example.com"
+      personal_access_token: "${LIGHTDASH_PAT}"
+    # Filtering (all optional, default: allow everything)
+    project_pattern:
+      allow: [".*"]
+    space_pattern:
+      allow: [".*"]
+    chart_pattern:
+      allow: [".*"]
+    dashboard_pattern:
+      allow: [".*"]
+    # Container hierarchy
+    include_organization_container: false
+    # Lineage
+    extract_lineage: true
+    extract_owners: true
+    # Optional: override the auto-detected warehouse platform / instance
+    # warehouse_platform: clickhouse
+    # warehouse_platform_instance: prod
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+
+sink:
+  # sink configs

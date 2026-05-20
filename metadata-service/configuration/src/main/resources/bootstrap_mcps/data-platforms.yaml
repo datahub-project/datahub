@@ -468,6 +468,16 @@
     displayName: Druid
     type: OLAP_DATASTORE
     logoUrl: "assets/platforms/druidlogo.png"
+- entityUrn: urn:li:dataPlatform:lightdash
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: lightdash
+    displayName: Lightdash
+    type: OTHERS
+    logoUrl: "assets/platforms/lightdashlogo.svg"
 - entityUrn: urn:li:dataPlatform:looker
   entityType: dataPlatform
   aspectName: dataPlatformInfo

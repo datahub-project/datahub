@@ -1,0 +1,16 @@
+{
+  "status": "ok",
+  "results": {
+    "projectUuid": "11111111-1111-1111-1111-000000000001",
+    "organizationUuid": "00000000-0000-0000-0000-000000000001",
+    "name": "Acme Marketing",
+    "type": "DEFAULT",
+    "warehouseConnection": {
+      "type": "clickhouse",
+      "schema": "default",
+      "host": "clickhouse.example.com",
+      "port": 8443,
+      "database": "default"
+    }
+  }
+}

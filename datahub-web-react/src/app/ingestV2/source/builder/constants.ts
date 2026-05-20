@@ -30,6 +30,7 @@ import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import informaticaLogo from '@images/informaticalogo.png';
 import kafkaLogo from '@images/kafkalogo.png';
+import lightdashLogo from '@images/lightdashlogo.svg';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
@@ -108,6 +109,8 @@ const ICEBERG = 'iceberg';
 const ICEBERG_URN = `urn:li:dataPlatform:${ICEBERG}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
+const LIGHTDASH = 'lightdash';
+const LIGHTDASH_URN = `urn:li:dataPlatform:${LIGHTDASH}`;
 export const LOOKER = 'looker';
 export const LOOK_ML = 'lookml';
 const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
@@ -234,6 +237,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
     [KAFKA_URN]: kafkaLogo,
+    [LIGHTDASH_URN]: lightdashLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
