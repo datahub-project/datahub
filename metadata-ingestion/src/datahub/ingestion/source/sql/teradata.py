@@ -277,7 +277,7 @@ def _engine_connect_with_retry(
         except PoolTimeoutError as exc:
             thread = current_thread()
             if report is not None:
-                report.num_pool_exhaustion_events += 1
+                report.increment_pool_exhaustion_events()
             if attempt == max_attempts - 1:
                 raise
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
@@ -288,7 +288,7 @@ def _engine_connect_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
-                report.num_db_retries += 1
+                report.increment_db_retries()
             time.sleep(backoff)
         except Exception as exc:
             if not _should_retry_connect(exc) or attempt == max_attempts - 1:
@@ -300,7 +300,7 @@ def _engine_connect_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
-                report.num_db_retries += 1
+                report.increment_db_retries()
             time.sleep(backoff)
 
     assert conn is not None
@@ -333,7 +333,7 @@ def _execute_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
-                report.num_db_retries += 1
+                report.increment_db_retries()
             time.sleep(backoff)
 
 
@@ -368,7 +368,7 @@ def _fetchmany_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
-                report.num_db_retries += 1
+                report.increment_db_retries()
             time.sleep(backoff)
 
 
@@ -395,7 +395,9 @@ def get_schema_columns(
     start_time = time.time()
     columns: Dict[str, List[Any]] = {}
     columns_query = f"select * from dbc.{dbc_columns} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) order by TableName, ColumnId"
-    rows = connection.execute(text(columns_query), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(
+        connection, text(columns_query), {"schema": schema}
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.TableName not in columns:
@@ -423,7 +425,7 @@ def get_schema_pk_constraints(
     dbc_indices = "IndicesV" + "X" if configure.usexviews else "IndicesV"
     primary_keys: Dict[str, List[Any]] = {}
     stmt = f"select * from dbc.{dbc_indices} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) and IndexType = 'K' order by IndexNumber"
-    rows = connection.execute(text(stmt), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(connection, text(stmt), {"schema": schema}).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.TableName not in primary_keys:
@@ -627,7 +629,7 @@ def get_schema_foreign_keys(
         FROM dbc."{dbc_child_parent_table}"
     WHERE ChildDB = '{schema}' ORDER BY "IndexID" ASC
     """
-    rows = connection.execute(text(stmt)).fetchall()
+    rows = _execute_with_retry(connection, text(stmt)).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.ChildTable not in foreign_keys:
@@ -735,6 +737,20 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
 
     # Retry statistics
     num_db_retries: int = 0
+
+    # Internal lock — not serialised, not compared.  Protects the two retry
+    # counters that are incremented from ThreadPoolExecutor worker threads.
+    _counter_lock: Lock = field(
+        default_factory=Lock, init=False, repr=False, compare=False
+    )
+
+    def increment_db_retries(self) -> None:
+        with self._counter_lock:
+            self.num_db_retries += 1
+
+    def increment_pool_exhaustion_events(self) -> None:
+        with self._counter_lock:
+            self.num_pool_exhaustion_events += 1
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -1209,7 +1225,6 @@ ORDER by DataBaseName, TableName;
 
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
-        self._report_lock = Lock()  # Thread safety for report counters
         # Populated by cache_tables_and_views() when column_extraction_watermark is set;
         # None means "extract all", a set means "only extract these (schema, table) pairs"
         self._tables_needing_column_extraction: Optional[Set[Tuple[str, str]]] = None
@@ -1432,15 +1447,14 @@ ORDER by DataBaseName, TableName;
             except Exception as exc:
                 if not _should_retry(exc) or attempt == max_attempts - 1:
                     raise
-                backoff = initial_backoff * (2**attempt)
+                backoff = _jittered_backoff(attempt, initial_backoff)
                 logger.warning(
                     f"Retryable error fetching schema names "
                     f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
-                    f"Retrying in {backoff:.1f}s..."
+                    f"Retrying in {backoff:.2f}s..."
                 )
-                self.report.num_db_retries += 1
+                self.report.increment_db_retries()
                 time.sleep(backoff)
-        raise RuntimeError("unreachable")  # loop always raises or returns
 
     def _init_schema_resolver(self) -> SchemaResolver:
         if not self.config.include_tables or not self.config.include_views:

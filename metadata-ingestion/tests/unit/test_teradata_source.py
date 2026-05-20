@@ -3,7 +3,6 @@ import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from threading import current_thread
-from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +21,7 @@ from datahub.ingestion.api.workunit import (
 )
 from datahub.ingestion.source.sql.teradata import (
     TeradataConfig,
+    TeradataReport,
     TeradataSource,
     TeradataTable,
     _engine_connect_with_retry,
@@ -622,6 +622,92 @@ class TestSQLInjectionSafety:
         assert ":schema" in query
         assert "schema" in params
         assert params["schema"] == "test_schema"
+
+
+class TestSchemaFunctionRetry:
+    """get_schema_columns/pk_constraints/foreign_keys retry on transient DB errors."""
+
+    def _make_conn(self, side_effects, fetchall_result=None):
+        """Return a mock Connection whose execute() yields *side_effects* in order."""
+        mock_conn = MagicMock()
+        if fetchall_result is None:
+            fetchall_result = []
+        good_result = MagicMock()
+        good_result.fetchall.return_value = fetchall_result
+        # side_effects is a list: exceptions are raised, non-exceptions are returned
+        mock_conn.execute.side_effect = [
+            exc if isinstance(exc, Exception) else good_result for exc in side_effects
+        ]
+        return mock_conn
+
+    def test_get_schema_columns_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_columns.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_columns(None, mock_conn, "columnsV", "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_columns_non_retryable_error_propagates(self):
+        """A non-retryable error (syntax error) propagates immediately."""
+        get_schema_columns.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_columns(None, mock_conn, "columnsV", "db1")
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_get_schema_pk_constraints_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_pk_constraints.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_pk_constraints(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_pk_constraints_non_retryable_error_propagates(self):
+        """A non-retryable error propagates immediately."""
+        get_schema_pk_constraints.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_pk_constraints(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 1
+
+    def test_get_schema_foreign_keys_retries_transient_error(self):
+        """A single transient failure is retried and the successful result is returned."""
+        get_schema_foreign_keys.cache_clear()
+        mock_conn = self._make_conn(
+            [DatabaseError("transaction aborted", None, None), None]
+        )
+
+        with patch("time.sleep"):
+            result = get_schema_foreign_keys(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 2
+        assert result == {}
+
+    def test_get_schema_foreign_keys_non_retryable_error_propagates(self):
+        """A non-retryable error propagates immediately."""
+        get_schema_foreign_keys.cache_clear()
+        mock_conn = self._make_conn([DatabaseError("syntax error", None, None)])
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            get_schema_foreign_keys(None, mock_conn, "db1")
+
+        assert mock_conn.execute.call_count == 1
 
 
 class TestMemoryEfficiency:
@@ -2932,7 +3018,7 @@ class TestShouldRetryConnect:
             OperationalError("connection reset", None, None),
             good_conn,
         ]
-        report = SimpleNamespace(num_db_retries=0, num_pool_exhaustion_events=0)
+        report = TeradataReport()
 
         with (
             patch("time.sleep"),
@@ -3073,7 +3159,7 @@ class TestConnectionPoolRetry:
             mock_conn,
         ]
 
-        report = SimpleNamespace(num_pool_exhaustion_events=0, num_db_retries=0)
+        report = TeradataReport()
 
         with (
             patch("time.sleep"),  # skip real backoff sleeps
@@ -3105,7 +3191,7 @@ class TestConnectionPoolRetry:
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = PoolTimeoutError("always exhausted")
 
-        report = SimpleNamespace(num_pool_exhaustion_events=0, num_db_retries=0)
+        report = TeradataReport()
 
         with (
             patch("time.sleep"),
@@ -3186,7 +3272,7 @@ class TestExecuteWithRetry:
             DatabaseError("transaction aborted", None, None),
             sentinel,
         ]
-        report = SimpleNamespace(num_db_retries=0)
+        report = TeradataReport()
 
         with patch("time.sleep"):
             result = _execute_with_retry(
@@ -3227,7 +3313,7 @@ class TestExecuteWithRetry:
             DatabaseError("[Error 2631] deadlock", None, None),
             sentinel,
         ]
-        report = SimpleNamespace(num_db_retries=0)
+        report = TeradataReport()
 
         with patch("time.sleep"):
             result = _execute_with_retry(
