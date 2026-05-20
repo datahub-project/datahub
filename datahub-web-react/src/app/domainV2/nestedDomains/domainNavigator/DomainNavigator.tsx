@@ -25,6 +25,7 @@ interface Props {
     isCollapsed?: boolean;
     unhideSidebar?: () => void;
     variant?: DomainNavigatorVariant;
+    selectedUrns?: string[];
 }
 
 export default function DomainNavigator({
@@ -33,9 +34,10 @@ export default function DomainNavigator({
     selectDomainOverride,
     unhideSidebar,
     variant = 'select',
+    selectedUrns,
 }: Props) {
-    const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
     const theme = useTheme();
+    const { domains, hasInitialized, loading, error, scrollRef } = useScrollDomains({});
 
     return (
         <NavigatorWrapper>
@@ -57,6 +59,7 @@ export default function DomainNavigator({
                     isCollapsed={isCollapsed}
                     unhideSidebar={unhideSidebar}
                     variant={variant}
+                    selectedUrns={selectedUrns}
                 />
             ))}
             {loading && (

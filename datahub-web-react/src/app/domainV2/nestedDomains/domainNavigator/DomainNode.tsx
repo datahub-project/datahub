@@ -11,6 +11,7 @@ import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon'
 import Loading from '@app/shared/Loading';
 import { BodyContainer, BodyGridExpander } from '@app/shared/components';
 import useToggle from '@app/shared/useToggle';
+import { SelectedMark } from '@app/sharedV2/icons/SelectedMark';
 import { RotatingTriangle } from '@app/sharedV2/sidebar/components';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -45,8 +46,7 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
 
     svg {
         font-size: 16px !important;
-        color: ${(props) =>
-            props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.textSecondary} !important;
+        color: ${(props) => (props.$isSelected ? props.theme.colors.iconBrand : props.theme.colors.icon)} !important;
     }
 
     .ant-btn {
@@ -55,14 +55,13 @@ const ButtonWrapper = styled.span<{ $addLeftPadding: boolean; $isSelected: boole
     }
 `;
 
-const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant: DomainNavigatorVariant }>`
+const RowWrapper = styled.div<{ $isSelected: boolean; $variant: DomainNavigatorVariant }>`
     align-items: center;
     display: flex;
     width: 100%;
     border-bottom: ${(props) => (props.$variant === 'select' ? 'none' : `1px solid ${props.theme.colors.border}`)};
     padding: ${({ $variant }) => ($variant === 'select' ? '6px' : '12px')};
-    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgSurface};`}
-    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSurfaceBrand};`}
+    ${(props) => props.$isSelected && `background-color: ${props.theme.colors.bgSelected};`}
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
         ${ButtonWrapper} {
@@ -78,7 +77,7 @@ const RowWrapper = styled.div<{ $isSelected: boolean; isOpen?: boolean; $variant
 
 const StyledExpander = styled(BodyGridExpander)<{ paddingLeft: number }>`
     padding-left: 0px;
-    background: ${(props) => props.theme.colors.bgSurface};
+    background: ${(props) => props.theme.colors.bg};
     display: flex;
     width: 100%;
     overflow: auto;
@@ -108,6 +107,7 @@ interface Props {
     unhideSidebar?: () => void;
     $paddingLeft?: number;
     variant?: DomainNavigatorVariant;
+    selectedUrns?: string[];
 }
 
 export default function DomainNode({
@@ -119,6 +119,7 @@ export default function DomainNode({
     unhideSidebar,
     $paddingLeft = 0,
     variant = 'select',
+    selectedUrns,
 }: Props) {
     const shouldHideDomain = domainUrnToHide === domain.urn;
     const history = useHistory();
@@ -141,6 +142,8 @@ export default function DomainNode({
         [isInSelectMode, entityData, domain.urn],
     );
     const paddingLeft = $paddingLeft + 16;
+
+    const isSelected = isInSelectMode && selectedUrns?.includes(domain.urn);
 
     useEffect(() => {
         if (shouldAutoOpen) toggleOpen();
@@ -171,7 +174,6 @@ export default function DomainNode({
             <RowWrapper
                 data-testid="domain-options-list"
                 $isSelected={isDomainNodeSelected && !isCollapsed}
-                isOpen={isOpen && !isClosing}
                 $variant={variant}
             >
                 {!isCollapsed && hasDomainChildren && (
@@ -205,6 +207,7 @@ export default function DomainNode({
                                 {!isCollapsed && displayName}
                             </DisplayName>
                         </Text>
+                        {isSelected && <SelectedMark />}
                         {!isCollapsed && hasDomainChildren && <Pill label={`${numDomainChildren}`} size="sm" />}
                     </NameWrapper>
                 </Tooltip>
@@ -223,6 +226,7 @@ export default function DomainNode({
                                     unhideSidebar={unhideSidebar}
                                     $paddingLeft={paddingLeft}
                                     variant={variant}
+                                    selectedUrns={selectedUrns}
                                 />
                             ))}
                             {loading && (
