@@ -85,6 +85,14 @@ markers = [
     "read_only: marks tests as read only (deselect with '-m \"not read_only\"')",
     "no_cypress_suite1: main smoke tests, suite 1",
     "test_run_cypress: run cypress tests",
+    "suite_a: ZDU Suite A — Aspect schema migration (TC-001..TC-023)",
+    "suite_b: ZDU Suite B — ES Phase 1 incremental reindex (TC-101..TC-112)",
+    "suite_c: ZDU Suite C — Rollback dual-write (TC-201..TC-208)",
+    "suite_d: ZDU Suite D — ES Phase 2 catch-up (TC-301..TC-309)",
+    "suite_e: ZDU Suite E — System-level sweep (TC-401..TC-408)",
+    "suite_f: ZDU Suite F — Live traffic (TC-501..TC-507)",
+    "suite_g: ZDU Suite G — Rollback (TC-601..TC-604)",
+    "suite_h: ZDU Suite H — Failure recovery (TC-701..TC-705)",
 ]
 filterwarnings = [
     # Ignore some warnings that come from dependencies.

@@ -16,7 +16,7 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
   @TimeseriesField = {}
   @Searchable = {
     "fieldType": "COUNT",
-    "hasValuesFieldName": "hasUniqueUserCount"
+    "hasValuesFieldName": "hasUniqueUserCountFlag"
   }
   uniqueUserCount: optional int
 
