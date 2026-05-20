@@ -103,6 +103,7 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
     }
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const formattedLogic = baseEntity?.dataset?.viewProperties?.formattedLogic;
+    const language = baseEntity?.dataset?.viewProperties?.language;
 
     const canShowFormatted = !!formattedLogic;
 
@@ -139,7 +140,11 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
                                 )}
                                 <CopyQuery query={showFormatted ? formattedLogic || '' : statement} showCopyText />
                             </ViewHeader>
-                            <SyntaxHighlighter language="sql" showLineNumbers lineProps={lineProps}>
+                            <SyntaxHighlighter
+                                language={language?.toLowerCase() ?? 'sql'}
+                                showLineNumbers
+                                lineProps={lineProps}
+                            >
                                 {showFormatted ? formattedLogic : statement}
                             </SyntaxHighlighter>
                         </ModalSyntaxContainer>
@@ -152,7 +157,7 @@ function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl
                         />
                     )}
                     <PreviewSyntax
-                        language="sql"
+                        language={language?.toLowerCase() ?? 'sql'}
                         showLineNumbers
                         wrapLines
                         lineNumberStyle={{ display: 'none' }}

@@ -11,7 +11,7 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
         position: relative;
         padding: 4px 8px;
-        margin: 8px 0;
+        margin: 4px 0;
         margin-bottom: 0;
         height: 36px;
         min-height: 36px;

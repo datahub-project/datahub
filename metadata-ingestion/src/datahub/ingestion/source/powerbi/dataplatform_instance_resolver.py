@@ -58,14 +58,22 @@ class ResolvePlatformInstanceFromServerToPlatformInstance(
     def get_platform_instance(
         self, data_platform_detail: PowerBIPlatformDetail
     ) -> PlatformDetail:
-        return (
-            self.config.server_to_platform_instance[
-                data_platform_detail.data_platform_server
-            ]
-            if data_platform_detail.data_platform_server
-            in self.config.server_to_platform_instance
-            else PlatformDetail.model_validate({})
-        )
+        server = data_platform_detail.data_platform_server
+        if not server:
+            return PlatformDetail.model_validate({})
+
+        mapping = self.config.server_to_platform_instance
+        if server in mapping:
+            return mapping[server]
+
+        # Oracle TNS aliases are case-insensitive in the source system but recipe
+        # keys are case-sensitive strings; fall back to case-insensitive match.
+        server_lower = server.lower()
+        for key, value in mapping.items():
+            if key.lower() == server_lower:
+                return value
+
+        return PlatformDetail.model_validate({})
 
 
 def create_dataplatform_instance_resolver(

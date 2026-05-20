@@ -333,9 +333,9 @@ module.exports = {
               className: "saasOnly",
             },
             {
-              label: "Snowflake Tag Sync",
+              label: "Snowflake Metadata Sync",
               type: "doc",
-              id: "docs/automations/snowflake-tag-propagation",
+              id: "docs/automations/snowflake-metadata-sync",
               className: "saasOnly",
             },
             {

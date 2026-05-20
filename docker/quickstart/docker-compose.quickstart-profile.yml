@@ -91,6 +91,8 @@ services:
       KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
       MAE_CONSUMER_ENABLED: 'true'
       MCE_CONSUMER_ENABLED: 'true'
+      MCL_CONSUMER_BATCH_ENABLED: 'true'
+      MCP_CONSUMER_BATCH_ENABLED: 'true'
       METADATA_SERVICE_AUTH_ENABLED: 'false'
       NEO4J_HOST: http://neo4j:7474
       NEO4J_PASSWORD: datahub
