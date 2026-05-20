@@ -125,6 +125,7 @@
         "format": "prettier --write src --list-different",
         "format-file": "prettier --write",
         "type-check": "tsc --noEmit",
+        "check-translations": "node scripts/check-translations.mjs",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
         "build-storybook": "NODE_OPTIONS='--max-old-space-size=8192 --openssl-legacy-provider' storybook build"
