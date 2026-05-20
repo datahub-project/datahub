@@ -26,6 +26,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataTable,
     _engine_connect_with_retry,
     _execute_with_retry,
+    _fetchmany_with_retry,
     _jittered_backoff,
     _should_retry,
     _should_retry_connect,
@@ -2967,6 +2968,33 @@ class TestShouldRetry:
     def test_generic_exception_not_retryable(self):
         assert _should_retry(ValueError("something went wrong")) is False
 
+    def test_all_retryable_substrings_match(self):
+        """Every substring in _RETRYABLE_ERROR_SUBSTRINGS is recognised as retryable."""
+        retryable_messages = [
+            "transaction aborted",
+            "try again",
+            "tdgss",
+            "database restart",
+            "connect timed out",
+            "i/o timeout",
+        ]
+        for msg in retryable_messages:
+            assert _should_retry(DatabaseError(msg, None, None)) is True, (
+                f"Expected {msg!r} to be retryable"
+            )
+            # Also retryable when mixed-case (check is lowercased)
+            assert _should_retry(DatabaseError(msg.upper(), None, None)) is True, (
+                f"Expected upper-case {msg!r} to be retryable"
+            )
+
+    def test_all_retryable_error_codes_match(self):
+        """Every numeric error code in _RETRYABLE_ERROR_CODE_RE is recognised as retryable."""
+        retryable_codes = [2631, 3111, 3120, 3597, 3598, 3897]
+        for code in retryable_codes:
+            assert (
+                _should_retry(OperationalError(f"[Error {code}]", None, None)) is True
+            ), f"Expected error code {code} to be retryable"
+
     def test_dead_socket_substrings_not_retryable_on_execute(self):
         """Dead-socket errors must not be retried on an existing connection."""
         for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
@@ -3342,6 +3370,234 @@ class TestExecuteWithRetry:
         _execute_with_retry(mock_conn, "SELECT :key", params=params)
 
         mock_conn.execute.assert_called_once_with("SELECT :key", params)
+
+
+class TestFetchmanyWithRetry:
+    """_fetchmany_with_retry mirrors _execute_with_retry semantics on cursor.fetchmany()."""
+
+    def test_first_fail_then_succeed_returns_batch(self):
+        """A single retryable failure is retried and the successful batch is returned."""
+        batch = [object(), object()]
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            batch,
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            result = _fetchmany_with_retry(
+                mock_result, batch_size=100, max_attempts=2, report=report
+            )
+
+        assert result is batch
+        assert mock_result.fetchmany.call_count == 2
+        assert report.num_db_retries == 1
+
+    def test_exhausts_all_attempts_and_reraises(self):
+        """When every attempt raises a retryable error the last exception propagates."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = DatabaseError(
+            "transaction aborted", None, None
+        )
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
+
+        assert mock_result.fetchmany.call_count == 3
+
+    def test_non_retryable_error_propagates_immediately(self):
+        """A non-retryable error propagates on the first attempt without retry."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = DatabaseError("syntax error", None, None)
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _fetchmany_with_retry(mock_result, batch_size=100, max_attempts=3)
+
+        assert mock_result.fetchmany.call_count == 1
+
+    def test_batch_size_forwarded(self):
+        """batch_size is passed through to result.fetchmany on every call."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.return_value = []
+
+        _fetchmany_with_retry(mock_result, batch_size=512)
+
+        mock_result.fetchmany.assert_called_once_with(512)
+
+    def test_report_counter_incremented_once_per_retry(self):
+        """num_db_retries is incremented exactly once per retry attempt."""
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("try again", None, None),
+            DatabaseError("try again", None, None),
+            [],
+        ]
+        report = TeradataReport()
+
+        with patch("time.sleep"):
+            _fetchmany_with_retry(
+                mock_result, batch_size=10, max_attempts=3, report=report
+            )
+
+        assert report.num_db_retries == 2
+
+    def test_max_attempts_less_than_one_raises(self):
+        """max_attempts=0 raises ValueError before any fetchmany call."""
+        mock_result = MagicMock()
+        with pytest.raises(ValueError, match="max_attempts"):
+            _fetchmany_with_retry(mock_result, batch_size=10, max_attempts=0)
+        mock_result.fetchmany.assert_not_called()
+
+
+class TestBackoffTiming:
+    """Retry helpers pass jittered backoff durations to time.sleep."""
+
+    def test_execute_retry_sleeps_with_jittered_backoff(self):
+        """_execute_with_retry passes the value from _jittered_backoff to time.sleep."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            "ok",
+        ]
+        fixed_backoff = 0.42
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+        ):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=2)
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_fetchmany_retry_sleeps_with_jittered_backoff(self):
+        """_fetchmany_with_retry passes the value from _jittered_backoff to time.sleep."""
+        batch = []
+        mock_result = MagicMock()
+        mock_result.fetchmany.side_effect = [
+            DatabaseError("transaction aborted", None, None),
+            batch,
+        ]
+        fixed_backoff = 0.77
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+        ):
+            _fetchmany_with_retry(mock_result, batch_size=10, max_attempts=2)
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_connect_retry_sleeps_with_jittered_backoff(self):
+        """_engine_connect_with_retry passes the value from _jittered_backoff to time.sleep."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            OperationalError("connect timed out", None, None),
+            mock_conn,
+        ]
+        fixed_backoff = 1.23
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata._jittered_backoff",
+                return_value=fixed_backoff,
+            ),
+            patch("time.sleep") as mock_sleep,
+            _engine_connect_with_retry(mock_engine, max_attempts=2),
+        ):
+            pass
+
+        mock_sleep.assert_called_once_with(fixed_backoff)
+
+    def test_backoff_grows_with_attempt_number(self):
+        """_jittered_backoff cap doubles with each attempt (exponential growth)."""
+        caps = [1.0 * (2**attempt) for attempt in range(4)]
+        for attempt, cap in enumerate(caps):
+            # Patch uniform to return its upper bound, making the cap observable.
+            with patch("random.uniform", side_effect=lambda lo, hi: hi):
+                assert _jittered_backoff(attempt, 1.0) == cap
+
+
+class TestGetInspectorsDispose:
+    """engine.dispose() is called regardless of how get_inspectors exits."""
+
+    def _make_source_with_engine(self, mock_engine, databases=("db1",)):
+        source = _create_source_patched(
+            {"database": databases[0] if len(databases) == 1 else None}
+        )
+        if len(databases) > 1:
+            source.config.databases = list(databases)
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+        return source
+
+    def test_dispose_called_after_normal_exhaustion(self):
+        """engine.dispose() is called after all databases have been yielded."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"database": "db1"})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+        ):
+            list(source.get_inspectors())  # fully consume
+
+        mock_engine.dispose.assert_called_once()
+
+    def test_dispose_called_when_consumer_raises(self):
+        """engine.dispose() is called even when the consuming loop raises mid-iteration."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"databases": ["db1", "db2"]})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+            pytest.raises(RuntimeError, match="consumer error"),
+        ):
+            for _ in source.get_inspectors():
+                raise RuntimeError("consumer error")
+
+        mock_engine.dispose.assert_called_once()
+
+    def test_dispose_called_when_generator_abandoned(self):
+        """engine.dispose() is called when the generator is GC'd without being consumed."""
+        mock_engine = MagicMock()
+        mock_conn = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        source = _create_source_patched({"database": "db1"})
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+        ):
+            gen = source.get_inspectors()
+            next(gen)  # advance past the first yield
+            gen.close()  # explicit close simulates GC / abandoned generator
+
+        mock_engine.dispose.assert_called_once()
 
 
 class TestSchemaNameRetry:
