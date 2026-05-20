@@ -370,6 +370,7 @@ def _fetchmany_with_retry(
             if report is not None:
                 report.increment_db_retries()
             time.sleep(backoff)
+    raise AssertionError("unreachable")  # loop always raises or returns
 
 
 @dataclass
@@ -1455,6 +1456,7 @@ ORDER by DataBaseName, TableName;
                 )
                 self.report.increment_db_retries()
                 time.sleep(backoff)
+        raise AssertionError("unreachable")  # loop always raises or returns
 
     def _init_schema_resolver(self) -> SchemaResolver:
         if not self.config.include_tables or not self.config.include_views:

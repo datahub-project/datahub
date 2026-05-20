@@ -3475,7 +3475,7 @@ class TestBackoffTiming:
 
     def test_fetchmany_retry_sleeps_with_jittered_backoff(self):
         """_fetchmany_with_retry passes the value from _jittered_backoff to time.sleep."""
-        batch = []
+        batch: List[Any] = []
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
             DatabaseError("transaction aborted", None, None),
