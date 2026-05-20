@@ -50,6 +50,117 @@ def _phase1_reindex_scenario(
     )
 
 
+_DEV_STACK_REQUIRES_REINDEX_CAPTURE = (
+    "Validators need ctx.upgrade_nonblocking.dual_write_disabled_indices "
+    "to be populated, which depends on BuildIndicesIncrementalStep actually "
+    "running a reindex (G20c — the framework currently mounts a single "
+    "upgrade.jar across initial-boot and Phase-4 system-update runs, so "
+    "target and current mappings match → no diff → no dual-write "
+    "transitions to capture)."
+)
+
+
+def _catchup_scenario(
+    *,
+    tc: int,
+    name: str,
+    description: str = "",
+    expected_to_fail: bool = False,
+    skip_reason: str | None = None,
+) -> ZDUTestScenario:
+    """Construct a Suite D catch-up scenario.
+
+    Catch-up scenarios validate ES Phase 2 outcomes via captures on ``ctx``
+    populated by Plans 5/7. They don't seed individual entities — Plan 5 seeds
+    the 10 shared ``zdu-gap-*`` URNs once for the whole suite.
+    """
+    return ZDUTestScenario(
+        tc_number=tc,
+        category="ES Phase 2 Catch-Up",
+        name=name,
+        description=description,
+        prerequisite_steps="",
+        test_steps="",
+        expected_result="",
+        current_status="",
+        details="",
+        starting_schema_version=None,
+        expected_schema_version=None,
+        action="catch_up",
+        aspect_name="",
+        entity_type="",
+        expected_to_fail=expected_to_fail,
+        skip_reason=skip_reason,
+        scenario_type="catch_up",
+        suite=Suite.D,
+    )
+
+
+SUITE_D_SCENARIOS: list[ZDUTestScenario] = [
+    # Active validator — data-integrity reframe. Original TC-201 targeted
+    # Phase 2's specific MCL-replay catch-up mechanism; that path is
+    # blocked on dev by an upstream gap (BuildIndicesIncrementalStep
+    # doesn't persist oldBackingIndexName). The data-integrity version
+    # asserts the OUTCOME directly: every gap and dual URN written across
+    # phases 7-9 is searchable in the entity index alias after Phase 10.
+    _catchup_scenario(
+        tc=201,
+        name="Entity index gap+dual URNs searchable post-upgrade",
+        description=(
+            "Asserts every URN in ctx.gap_urns + ctx.dual_write_urns is "
+            "findable via the dashboardindex_v2 alias after Phase 10. Tests "
+            "the data-integrity OUTCOME of rolling-restart + catch-up "
+            "without depending on the production catch-up mechanism."
+        ),
+    ),
+    # Sister assertion to TC-201, but on the systemMetadata index.
+    _catchup_scenario(
+        tc=202,
+        name="systemMetadata entries preserved for gap+dual URNs",
+        description=(
+            "Asserts every URN in ctx.gap_urns + ctx.dual_write_urns has "
+            "at least one entry in system_metadata_service_v1 after "
+            "Phase 10. Aspect-level write metadata must not be lost across "
+            "the rolling-restart + catch-up window."
+        ),
+    ),
+    # Renumbered from TC-205 to TC-203.
+    _catchup_scenario(
+        tc=203,
+        name="T0 >= T1 no-op",
+        description=(
+            "Force dualWriteStartTime <= reindexStartTime; non-blocking step "
+            "should skip catch-up and emit no MCLs."
+        ),
+    ),
+    # Renumbered from TC-206 to TC-204.
+    _catchup_scenario(
+        tc=204,
+        name="No Phase 1 result no-op",
+        description=(
+            "Skip Phase 1 entirely; non-blocking catch-up step should "
+            "return SUCCEEDED with empty captures."
+        ),
+    ),
+    # Renumbered from TC-308 to TC-205. Kept SKIP (pending G20c reindex
+    # capture); the test is correct but the precondition state isn't yet
+    # produced on dev. Not XFAIL — there's no reason to expect failure.
+    _catchup_scenario(
+        tc=205,
+        name="DUAL_WRITE_DISABLED set when rollback flag off",
+        expected_to_fail=False,
+        skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
+    ),
+    # Renumbered from TC-309 to TC-206.
+    _catchup_scenario(
+        tc=206,
+        name="DUAL_WRITE_DISABLED NOT set when flag on",
+        expected_to_fail=False,
+        skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
+    ),
+]
+
+
 SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
     # Active validator (Plan 15) — observed reindex set must match
     # ``expected_reindex_indices`` exactly. The expected set is hand-curated
@@ -192,4 +303,4 @@ SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
 
 def load_scenarios() -> list[ZDUTestScenario]:
     """Return the canonical scenario list for all currently codified suites."""
-    return list(SUITE_B_SCENARIOS)
+    return list(SUITE_B_SCENARIOS) + list(SUITE_D_SCENARIOS)

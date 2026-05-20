@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
+from .catchup_executor import CatchUpScenarioExecutor
 from .config import ZDUTestConfig
 from .constants import MAE_SERVICE, ZDU_SERVICES_IN_ORDER
 from .context import TestContext, ValidationResult
@@ -121,6 +122,8 @@ class ZDUTestRunner:
         self._aspect_executor = ScenarioExecutor(self._datahub)
         self._phase1_reindex_executor = Phase1ReindexExecutor()
         self._registry.register("phase1_reindex", self._phase1_reindex_executor)
+        self._catchup_executor = CatchUpScenarioExecutor()
+        self._registry.register("catch_up", self._catchup_executor)
 
         self._bundle_writer = FailureBundleWriter(
             docker=self._docker,
