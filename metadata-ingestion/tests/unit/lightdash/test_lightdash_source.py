@@ -70,20 +70,20 @@ def source():
     # HTTP — tests must be deterministic.
     src.client = MagicMock()
     src.client.get_organization.return_value = LightdashOrganization(
-        organizationUuid=ORG_UUID, name="Aiven"
+        organization_uuid=ORG_UUID, name="Aiven"
     )
     src.client.list_projects.return_value = [
         LightdashProjectSummary(
-            projectUuid=PROJECT_UUID,
+            project_uuid=PROJECT_UUID,
             name="Webstore",
-            warehouseType="clickhouse",
+            warehouse_type="clickhouse",
         ),
     ]
     src.client.get_project.return_value = LightdashProject(
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
         name="Webstore",
-        warehouseConnection=LightdashWarehouseConnection(
+        warehouse_connection=LightdashWarehouseConnection(
             type="clickhouse", schema="default"
         ),
     )
@@ -91,48 +91,48 @@ def source():
         LightdashSpace(
             uuid=SPACE_UUID,
             name="Shared",
-            projectUuid=PROJECT_UUID,
-            organizationUuid=ORG_UUID,
+            project_uuid=PROJECT_UUID,
+            organization_uuid=ORG_UUID,
         ),
     ]
     src.client.list_charts.return_value = [
         LightdashChartSummary(
             uuid=CHART_UUID,
             name="Live orders",
-            projectUuid=PROJECT_UUID,
-            organizationUuid=ORG_UUID,
-            spaceUuid=SPACE_UUID,
-            spaceName="Shared",
-            chartType="table",
-            chartKind="table",
+            project_uuid=PROJECT_UUID,
+            organization_uuid=ORG_UUID,
+            space_uuid=SPACE_UUID,
+            space_name="Shared",
+            chart_type="table",
+            chart_kind="table",
         ),
     ]
     src.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
         description="Most-recent orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        spaceName="Shared",
-        chartType="table",
-        chartKind="table",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(exploreName="orders_enriched"),
-        updatedAt=datetime(2026, 5, 12, 10, 28, 57),
-        updatedByUser=LightdashUserRef(
-            userUuid=USER_UUID, firstName="Stan", lastName="Dmitriev"
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        space_name="Shared",
+        chart_type="table",
+        chart_kind="table",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(explore_name="orders_enriched"),
+        updated_at=datetime(2026, 5, 12, 10, 28, 57),
+        updated_by_user=LightdashUserRef(
+            user_uuid=USER_UUID, first_name="Stan", last_name="Dmitriev"
         ),
     )
     src.client.get_explore.return_value = LightdashExplore(
         name="orders_enriched",
-        baseTable="orders_enriched",
-        joinedTables=[],
+        base_table="orders_enriched",
+        joined_tables=[],
         tables={
             "orders_enriched": LightdashExploreTable(
                 name="orders_enriched",
                 schema="default",
-                sqlTable="`default`.`orders_enriched`",
+                sql_table="`default`.`orders_enriched`",
             )
         },
     )
@@ -141,27 +141,27 @@ def source():
             uuid=DASHBOARD_UUID,
             name="Webstore Live Insights",
             description="Live mirror",
-            projectUuid=PROJECT_UUID,
-            organizationUuid=ORG_UUID,
-            spaceUuid=SPACE_UUID,
-            updatedAt=datetime(2026, 5, 13, 12, 14, 14),
-            updatedByUser=LightdashUserRef(userUuid=USER_UUID),
+            project_uuid=PROJECT_UUID,
+            organization_uuid=ORG_UUID,
+            space_uuid=SPACE_UUID,
+            updated_at=datetime(2026, 5, 13, 12, 14, 14),
+            updated_by_user=LightdashUserRef(user_uuid=USER_UUID),
         ),
     ]
     src.client.get_dashboard.return_value = LightdashDashboard(
         uuid=DASHBOARD_UUID,
         name="Webstore Live Insights",
         description="Live mirror",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        updatedAt=datetime(2026, 5, 13, 12, 14, 14),
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        updated_at=datetime(2026, 5, 13, 12, 14, 14),
         tiles=[
             LightdashDashboardTile(
                 uuid="tile-1",
                 type="saved_chart",
                 properties=LightdashDashboardTileProperties(
-                    savedChartUuid=CHART_UUID, chartName="Live orders"
+                    saved_chart_uuid=CHART_UUID, chart_name="Live orders"
                 ),
             )
         ],
@@ -238,12 +238,12 @@ def test_explore_fetched_once_even_for_multiple_charts(source):
         LightdashChartSummary(
             uuid="chart-2",
             name="Another orders chart",
-            projectUuid=PROJECT_UUID,
-            organizationUuid=ORG_UUID,
-            spaceUuid=SPACE_UUID,
-            spaceName="Shared",
-            chartType="line",
-            chartKind="line",
+            project_uuid=PROJECT_UUID,
+            organization_uuid=ORG_UUID,
+            space_uuid=SPACE_UUID,
+            space_name="Shared",
+            chart_type="line",
+            chart_kind="line",
         )
     ]
 
@@ -255,14 +255,14 @@ def test_explore_fetched_once_even_for_multiple_charts(source):
             return LightdashChart(
                 uuid="chart-2",
                 name="Another orders chart",
-                projectUuid=PROJECT_UUID,
-                organizationUuid=ORG_UUID,
-                spaceUuid=SPACE_UUID,
-                spaceName="Shared",
-                chartType="line",
-                chartKind="line",
-                tableName="orders_enriched",
-                metricQuery=LightdashMetricQuery(exploreName="orders_enriched"),
+                project_uuid=PROJECT_UUID,
+                organization_uuid=ORG_UUID,
+                space_uuid=SPACE_UUID,
+                space_name="Shared",
+                chart_type="line",
+                chart_kind="line",
+                table_name="orders_enriched",
+                metric_query=LightdashMetricQuery(explore_name="orders_enriched"),
             )
         return original_get_chart.return_value
 
@@ -313,10 +313,10 @@ def test_chart_filter_drops_chart_and_keeps_dashboard_tile_dangling(source):
 
 def test_unknown_warehouse_type_falls_back_to_lightdash_platform(source):
     source.client.get_project.return_value = LightdashProject(
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
         name="Webstore",
-        warehouseConnection=LightdashWarehouseConnection(type="duckdb_serverless"),
+        warehouse_connection=LightdashWarehouseConnection(type="duckdb_serverless"),
     )
     wus = _workunits(source)
     chart_urn = f"urn:li:chart:(lightdash,{CHART_UUID})"
@@ -368,25 +368,25 @@ def test_chart_emits_input_fields_for_column_lineage(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        chartKind="table",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(
-            exploreName="orders_enriched",
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        chart_kind="table",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(
+            explore_name="orders_enriched",
             dimensions=["orders_enriched_order_id", "orders_enriched_order_status"],
             metrics=["orders_enriched_total_revenue"],
         ),
     )
     source.client.get_explore.return_value = LightdashExplore(
         name="orders_enriched",
-        baseTable="orders_enriched",
+        base_table="orders_enriched",
         tables={
             "orders_enriched": LightdashExploreTable(
                 name="orders_enriched",
                 schema="default",
-                sqlTable="`default`.`orders_enriched`",
+                sql_table="`default`.`orders_enriched`",
                 dimensions={
                     "order_id": LightdashFieldDef(
                         name="order_id",
@@ -455,20 +455,20 @@ def test_chart_multi_column_metric_emits_one_field_per_column(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="AOV chart",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        chartKind="big_number",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(
-            exploreName="orders_enriched",
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        chart_kind="big_number",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(
+            explore_name="orders_enriched",
             dimensions=[],
             metrics=["orders_enriched_average_order_value"],
         ),
     )
     source.client.get_explore.return_value = LightdashExplore(
         name="orders_enriched",
-        baseTable="orders_enriched",
+        base_table="orders_enriched",
         tables={
             "orders_enriched": LightdashExploreTable(
                 name="orders_enriched",
@@ -519,14 +519,14 @@ def test_chart_additional_metric_emits_input_field(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        chartKind="table",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(
-            exploreName="orders_enriched",
-            additionalMetrics=[
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        chart_kind="table",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(
+            explore_name="orders_enriched",
+            additional_metrics=[
                 LightdashAdditionalMetric(
                     name="cancelled_revenue",
                     table="orders_enriched",
@@ -539,7 +539,7 @@ def test_chart_additional_metric_emits_input_field(source):
     )
     source.client.get_explore.return_value = LightdashExplore(
         name="orders_enriched",
-        baseTable="orders_enriched",
+        base_table="orders_enriched",
         tables={
             "orders_enriched": LightdashExploreTable(
                 name="orders_enriched", schema="default"
@@ -573,18 +573,18 @@ def test_chart_table_calculations_are_reported_but_not_emitted(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        chartKind="table",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(
-            exploreName="orders_enriched",
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        chart_kind="table",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(
+            explore_name="orders_enriched",
             dimensions=["orders_enriched_order_status"],
-            tableCalculations=[
+            table_calculations=[
                 LightdashTableCalculation(
                     name="running_total",
-                    displayName="Running total",
+                    display_name="Running total",
                     sql="sum(${pivot.column})",
                 )
             ],
@@ -592,7 +592,7 @@ def test_chart_table_calculations_are_reported_but_not_emitted(source):
     )
     source.client.get_explore.return_value = LightdashExplore(
         name="orders_enriched",
-        baseTable="orders_enriched",
+        base_table="orders_enriched",
         tables={
             "orders_enriched": LightdashExploreTable(
                 name="orders_enriched",
@@ -617,13 +617,13 @@ def test_chart_input_fields_skipped_when_extract_lineage_disabled(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        chartKind="table",
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(
-            exploreName="orders_enriched",
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        chart_kind="table",
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(
+            explore_name="orders_enriched",
             dimensions=["orders_enriched_order_id"],
         ),
     )
@@ -645,11 +645,11 @@ def test_chart_type_resolved_from_list_endpoint(source):
     source.client.get_chart.return_value = LightdashChart(
         uuid=CHART_UUID,
         name="Live orders",
-        projectUuid=PROJECT_UUID,
-        organizationUuid=ORG_UUID,
-        spaceUuid=SPACE_UUID,
-        tableName="orders_enriched",
-        metricQuery=LightdashMetricQuery(exploreName="orders_enriched"),
+        project_uuid=PROJECT_UUID,
+        organization_uuid=ORG_UUID,
+        space_uuid=SPACE_UUID,
+        table_name="orders_enriched",
+        metric_query=LightdashMetricQuery(explore_name="orders_enriched"),
     )
     wus = _workunits(source)
     chart_urn = f"urn:li:chart:(lightdash,{CHART_UUID})"
