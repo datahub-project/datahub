@@ -175,14 +175,16 @@ def _table_name_from_sqlglot_table(
 
     # Handle Dot expressions (more than 3-part names).
     # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
-    # identifiers while walking left, then reverse.
+    # identifiers while walking left, then reverse. Mirror of the traversal in
+    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
     if isinstance(table.this, sqlglot.exp.Dot):
         all_parts_exp: List[sqlglot.exp.Expression] = []
         exp: sqlglot.exp.Expression = table.this
         while isinstance(exp, sqlglot.exp.Dot):
-            all_parts_exp.insert(0, exp.expression)
+            all_parts_exp.append(exp.expression)
             exp = exp.this
-        all_parts_exp.insert(0, exp)
+        all_parts_exp.append(exp)
+        all_parts_exp.reverse()
 
         # Only restore MSSQL temp prefix on the rightmost part (the actual table name).
         final_exp = all_parts_exp[-1]
