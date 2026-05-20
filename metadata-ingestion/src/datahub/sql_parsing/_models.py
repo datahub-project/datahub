@@ -101,22 +101,20 @@ class _TableName(_FrozenModel):
         transform = leaf_name_transform or _default_leaf_name
 
         # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
+        # sqlglot parses every SEMANTIC_VIEW variant (simple/qualified name,
+        # METRICS, DIMENSIONS) as SemanticView(this=Table), so we just unwrap
+        # and recurse.
         if isinstance(table.this, sqlglot.exp.SemanticView):
             inner_table = table.this.this
-            if isinstance(inner_table, sqlglot.exp.Table):
-                return cls.from_sqlglot_table(
-                    inner_table,
-                    default_db=default_db,
-                    default_schema=default_schema,
-                    leaf_name_transform=leaf_name_transform,
-                )
-            elif isinstance(inner_table, sqlglot.exp.Identifier):
-                return cls(
-                    database=table.catalog or default_db,
-                    db_schema=table.db or default_schema,
-                    table=transform(inner_table),
-                    parts=None,
-                )
+            assert isinstance(inner_table, sqlglot.exp.Table), (
+                f"Unexpected SemanticView inner type: {type(inner_table).__name__}"
+            )
+            return cls.from_sqlglot_table(
+                inner_table,
+                default_db=default_db,
+                default_schema=default_schema,
+                leaf_name_transform=leaf_name_transform,
+            )
 
         if isinstance(table.this, sqlglot.exp.Dot):
             # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect
