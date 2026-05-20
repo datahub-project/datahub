@@ -17,6 +17,7 @@
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
 apply from: '../gradle/docker/docker.gradle'
+apply from: '../gradle/docker/python-docker.gradle'
 
 ext {
   python_executable = 'python3'
@@ -161,7 +162,7 @@ docker {
   if (project.hasProperty('dockerBaseImage')) {
     mergedArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
   }
-  buildArgs(mergedArgs)
+  buildArgs(resolveUvBuildArgs(mergedArgs))
 }
 
 build.dependsOn install

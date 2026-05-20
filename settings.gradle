@@ -21,6 +21,7 @@ def apkRepoUrl      = getProperty('datahub.dependencies.apkrepo.url')
 def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMirrorUrl')    : getProperty('datahub.dependencies.github.baseURL')
 def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
 def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
+def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
@@ -30,6 +31,7 @@ gradle.ext['datahub.dependencies.apkrepo.url']                = apkRepoUrl
 gradle.ext['datahub.dependencies.github.baseURL']             = githubBaseUrl
 gradle.ext['datahub.dependencies.python.pipMirrorUrl']        = pipMirrorUrl
 gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']    = pipExtraIndexUrl
+gradle.ext['datahub.dependencies.python.uvProfile']           = uvProfile
 
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.PREFER_PROJECT)
