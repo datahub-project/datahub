@@ -1,4 +1,4 @@
-[[tool.uv.index]]
+[[index]]
 name = "pypi"
 url = "https://pypi.org/simple/"
 default = true

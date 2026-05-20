@@ -7,7 +7,7 @@ set -euo pipefail
 DEFAULT_INDEX_URL="${DEFAULT_INDEX_URL:?DEFAULT_INDEX_URL is required}"
 
 cat <<EOF
-[[tool.uv.index]]
+[[index]]
 name = "custom-default"
 url = "${DEFAULT_INDEX_URL}"
 default = true
@@ -17,7 +17,7 @@ i=1
 for url in ${EXTRA_INDEX_URLS:-}; do
     cat <<EOF
 
-[[tool.uv.index]]
+[[index]]
 name = "extra-${i}"
 url = "${url}"
 EOF
