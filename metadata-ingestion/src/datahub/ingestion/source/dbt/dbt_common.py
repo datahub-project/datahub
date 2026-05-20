@@ -2881,6 +2881,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         if meta_links_aspect and self.config.enable_meta_mapping:
             aspects.append(meta_links_aspect)
 
+        # structuredProperties is not part of the DatasetSnapshot aspect union,
+        # but the create_*_platform_mces helpers automatically route any aspect
+        # not in the union into a standalone MCP.
+        meta_structured_properties_aspect = meta_aspects.get(
+            Constants.ADD_STRUCTURED_PROPERTY_OPERATION
+        )
+        if meta_structured_properties_aspect and self.config.enable_meta_mapping:
+            aspects.append(meta_structured_properties_aspect)
+
         # add schema metadata aspect
         schema_metadata = self.get_schema_metadata(self.report, node, mce_platform)
         aspects.append(schema_metadata)
@@ -2975,6 +2984,47 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             lastModified=last_modified,
             fields=canonical_schema,
         )
+
+    def _create_column_structured_property_mcps(
+        self, node: DBTNode, dataset_urn: str
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Emit a StructuredProperties MCP for each column with a matching
+        column_meta_mapping `add_structured_property` rule. The aspect attaches
+        to the column's schemaField URN, not the dataset URN."""
+        if not self.config.column_meta_mapping:
+            return
+
+        action_processor = OperationProcessor(
+            self.config.column_meta_mapping,
+            self.config.tag_prefix,
+            "SOURCE_CONTROL",
+            self.config.strip_user_ids_from_email,
+            match_nested_props=True,
+        )
+
+        for column in node.columns:
+            if not column.meta:
+                continue
+            try:
+                meta_aspects = action_processor.process(column.meta)
+            except Exception as e:
+                logger.warning(
+                    f"Failed to process column meta for {node.dbt_name}.{column.name}: {e}"
+                )
+                continue
+
+            sp_aspect = meta_aspects.get(Constants.ADD_STRUCTURED_PROPERTY_OPERATION)
+            if not sp_aspect:
+                continue
+
+            field_name = column.name
+            if self.config.convert_column_urns_to_lowercase:
+                field_name = field_name.lower()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=mce_builder.make_schema_field_urn(dataset_urn, field_name),
+                aspect=sp_aspect,
+            )
 
     def _aggregate_owners(
         self, node: DBTNode, meta_owner_aspects: Any
