@@ -895,7 +895,9 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
                     wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
                     return wrapped_init
 
-                block_cls.__init__ = make_wrapped(original_init, valid_fields, cls_name)
+                block_cls.__init__ = make_wrapped(  # type: ignore[method-assign]
+                    original_init, valid_fields, cls_name
+                )
                 patched_count += 1
 
             logger.info(
