@@ -24,11 +24,11 @@ class TestSuiteForTc:
             (109, Suite.B),
             (201, Suite.D),
             (206, Suite.D),
-            # Suite N — aspect migration (TC-301..323) + sweep invariants (TC-324..330).
+            # Suite N — aspect migration (TC-301..323) + sweep invariants (TC-324..329).
             (301, Suite.N),
             (323, Suite.N),
             (324, Suite.N),
-            (330, Suite.N),
+            (329, Suite.N),
             (401, Suite.C),
             (403, Suite.C),
         ],

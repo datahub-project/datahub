@@ -538,7 +538,7 @@ def _sweep_scenario(
 SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     # Suite N's sweep-invariant subset (was TC-401..408 in the original
     # design-doc numbering; renumbered into the Suite N range because both
-    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-330
+    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-329
     # collapse to the same outcome on the dev stack: "a second sweep run
     # finds nothing to migrate" — exactly what TC-316 (Re-run after
     # SUCCEEDED) already proves end-to-end. Resumability, idempotency on
@@ -608,27 +608,25 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
         expected_to_fail=False,
         skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
     ),
-    # TC-329 ("APP_SOURCE stamped on sweep writes") was dropped from the
-    # grid because it shares the only line of production code it could
-    # exercise (MigrateAspectsStep.java:286 — `map.put(APP_SOURCE,
-    # SYSTEM_UPDATE_SOURCE)`) with TC-322's post-sweep integrity check.
-    # Unlike TC-326 vs TC-316 (distinct SQL clauses) there is no
-    # mechanically separate code path to assert on, so TC-329 would be a
-    # syntactic duplicate rather than a redundant signal.
+    # Two scenarios were dropped from the original 8-item sweep-invariant
+    # range because their assertions had no mechanically distinct
+    # production code path to exercise:
+    #
+    #   • old TC-329 "APP_SOURCE stamped on sweep writes" — shared
+    #     MigrateAspectsStep.java:286 with TC-322's post-sweep integrity
+    #     check.
+    #   • old TC-330 "IF_VERSION_MATCH header prevents stomping" — shared
+    #     the IF_VERSION_MATCH / ConditionalWriteValidator path with
+    #     TC-403, which already forces the race deterministically via
+    #     PRE_WRITE_DELAY_MS + BATCH_URNS log sync and asserts client
+    #     writes survive.
+    #
+    # In both cases (unlike TC-326 vs TC-316, where the two probe
+    # distinct SQL clauses) a regression would surface in the existing
+    # active validator. Higher TCs shifted down to keep the range
+    # contiguous.
     _sweep_scenario(
         tc=329,
-        name="IF_VERSION_MATCH header prevents stomping",
-        expected_to_fail=False,
-        skip_reason=(
-            "Duplicate of TC-403 (Sweep + concurrent writes don't lose data). "
-            "TC-403 already asserts the outcome that IF_VERSION_MATCH "
-            "protects — every concurrent client write captured during the "
-            "sweep was preserved with passed=True. Line-by-line race-window "
-            "proof would add no additional signal."
-        ),
-    ),
-    _sweep_scenario(
-        tc=330,
         name="Chain disable after sweep completes",
         expected_to_fail=False,
         skip_reason=(
