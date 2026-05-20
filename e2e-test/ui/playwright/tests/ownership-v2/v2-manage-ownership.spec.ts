@@ -41,7 +41,7 @@ test.describe('manage ownership', () => {
     // Verify creation by navigating to fresh page state
     await page.reload();
     await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await expect(page.locator(`table tbody`).locator(`text=${testOwnershipType}`)).toBeVisible();
+    await ownershipPage.expectItemVisible(testOwnershipType);
     logger.info(`Created: ${testOwnershipType}`);
 
     // EDIT: Update the description
@@ -54,7 +54,7 @@ test.describe('manage ownership', () => {
     // Verify edit
     await page.reload();
     await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await expect(page.locator(`table tbody`).locator(`text=${editedDescription}`)).toBeVisible();
+    await ownershipPage.expectItemVisible(editedDescription);
     logger.info(`Edited: ${testOwnershipType}`);
 
     // DELETE: Remove the ownership type
@@ -65,7 +65,7 @@ test.describe('manage ownership', () => {
     // Verify deletion
     await page.reload();
     await expect(page.getByText('Manage Ownership')).toBeVisible();
-    await expect(page.locator(`table tbody`).locator(`text=${testOwnershipType}`)).toBeHidden();
+    await ownershipPage.expectItemHidden(testOwnershipType);
     logger.info(`Deleted: ${testOwnershipType}`);
 
     logger.info('Test completed successfully');

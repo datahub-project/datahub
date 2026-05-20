@@ -1,4 +1,4 @@
-import { Page, expect } from '@playwright/test';
+import { Page, Locator, expect } from '@playwright/test';
 import { DataHubLogger } from '../utils/logger';
 
 /**
@@ -12,16 +12,34 @@ import { DataHubLogger } from '../utils/logger';
  * - Table interactions (finding rows, opening dropdowns)
  */
 export class OwnershipManagementPage {
+  private readonly rowDropdownButtonSelector = '[data-testid="ownership-table-dropdown"]';
+
+  readonly createOwnershipTypeButton: Locator;
+  readonly ownershipTypeNameInput: Locator;
+  readonly ownershipTypeDescriptionInput: Locator;
+  readonly saveButton: Locator;
+  readonly tableBody: Locator;
+  readonly editMenuItem: Locator;
+  readonly deleteMenuItem: Locator;
+
   constructor(
     readonly page: Page,
     readonly logger: DataHubLogger,
     readonly logDir: string,
-  ) {}
+  ) {
+    this.createOwnershipTypeButton = page.getByTestId('create-owner-type-v2');
+    this.ownershipTypeNameInput = page.getByTestId('ownership-type-name-input');
+    this.ownershipTypeDescriptionInput = page.getByTestId('ownership-type-description-input');
+    this.saveButton = page.getByTestId('ownership-builder-save');
+    this.tableBody = page.locator('table tbody');
+    this.editMenuItem = page.getByRole('menuitem', { name: 'Edit' });
+    this.deleteMenuItem = page.getByRole('menuitem', { name: 'Delete' });
+  }
 
   /**
    * Navigate to the Ownership Types management page.
    */
-  async navigate() {
+  async navigate(): Promise<void> {
     this.logger.info('Navigating to /settings/ownership');
     await this.page.goto('/settings/ownership');
     await expect(this.page.getByText('Manage Ownership')).toBeVisible();
@@ -30,39 +48,37 @@ export class OwnershipManagementPage {
   /**
    * Click the "Create Ownership Type" button to open the modal.
    */
-  async openCreateModal() {
+  async openCreateModal(): Promise<void> {
     this.logger.info('Opening create ownership type modal');
-    await this.page.locator('[data-testid="create-owner-type-v2"]').click();
-    // Wait for the modal heading, not the button text
+    await this.createOwnershipTypeButton.click();
     await expect(this.page.getByRole('heading', { name: 'Create Ownership Type' })).toBeVisible();
   }
 
   /**
    * Fill in the ownership type name in the modal.
    */
-  async setOwnershipTypeName(name: string) {
+  async setOwnershipTypeName(name: string): Promise<void> {
     this.logger.info(`Setting ownership type name to: ${name}`);
-    await this.page.locator('[data-testid="ownership-type-name-input"]').fill(name);
+    await this.ownershipTypeNameInput.fill(name);
   }
 
   /**
    * Fill in the ownership type description in the modal.
    */
-  async setOwnershipTypeDescription(description: string) {
+  async setOwnershipTypeDescription(description: string): Promise<void> {
     this.logger.info(`Setting ownership type description to: ${description}`);
-    const field = this.page.locator('[data-testid="ownership-type-description-input"]');
-    await field.clear();
-    await field.fill(description);
+    await this.ownershipTypeDescriptionInput.clear();
+    await this.ownershipTypeDescriptionInput.fill(description);
   }
 
   /**
    * Click the Save button in the modal to create or update an ownership type.
    * Automatically waits for the modal to close and the item to appear in the list.
    */
-  async saveOwnershipType(expectedName: string) {
+  async saveOwnershipType(expectedName: string): Promise<void> {
     this.logger.info(`Saving ownership type: ${expectedName}`);
 
-    await this.page.locator('[data-testid="ownership-builder-save"]').click();
+    await this.saveButton.click();
 
     // Wait for the modal heading to be completely removed from the DOM
     const heading = this.page.getByRole('heading').filter({ hasText: /Create|Edit.*Ownership Type/ });
@@ -73,12 +89,12 @@ export class OwnershipManagementPage {
     // Try to find the item in the table. If not found, reload the page to ensure
     // fresh data is loaded from the backend.
     try {
-      await expect(this.page.locator('table tbody').locator(`text=${expectedName}`)).toBeVisible();
+      await expect(this.tableBody.locator(`text=${expectedName}`)).toBeVisible();
     } catch {
       this.logger.info(`Item not found immediately, reloading page to fetch fresh data`);
       await this.page.reload();
       await expect(this.page.getByText('Manage Ownership')).toBeVisible();
-      await expect(this.page.locator('table tbody').locator(`text=${expectedName}`)).toBeVisible();
+      await expect(this.tableBody.locator(`text=${expectedName}`)).toBeVisible();
     }
 
     this.logger.info(`Ownership type saved successfully: ${expectedName}`);
@@ -94,34 +110,33 @@ export class OwnershipManagementPage {
   /**
    * Open the dropdown menu for a specific ownership type row.
    */
-  async openRowDropdown(name: string) {
+  async openRowDropdown(name: string): Promise<void> {
     this.logger.info(`Opening dropdown for ownership type: ${name}`);
     const row = this.getRowByName(name);
-    await row.locator('[data-testid="ownership-table-dropdown"]').click();
+    await row.locator(this.rowDropdownButtonSelector).click();
   }
 
   /**
    * Click the "Edit" option in the dropdown menu.
    */
-  async clickEditMenu() {
+  async clickEditMenu(): Promise<void> {
     this.logger.info('Clicking Edit from dropdown menu');
-    await this.page.getByRole('menuitem', { name: 'Edit' }).click();
-    // Wait for the modal heading, not any text that says "Edit Ownership Type"
+    await this.editMenuItem.click();
     await expect(this.page.getByRole('heading', { name: 'Edit Ownership Type' })).toBeVisible();
   }
 
   /**
    * Click the "Delete" option in the dropdown menu.
    */
-  async clickDeleteMenu() {
+  async clickDeleteMenu(): Promise<void> {
     this.logger.info('Clicking Delete from dropdown menu');
-    await this.page.getByRole('menuitem', { name: 'Delete' }).click();
+    await this.deleteMenuItem.click();
   }
 
   /**
    * Create an ownership type with the given name and description.
    */
-  async createOwnershipType(name: string, description: string) {
+  async createOwnershipType(name: string, description: string): Promise<void> {
     this.logger.info(`Creating ownership type: ${name}`);
     await this.openCreateModal();
     await this.setOwnershipTypeName(name);
@@ -132,7 +147,7 @@ export class OwnershipManagementPage {
   /**
    * Edit an existing ownership type by name.
    */
-  async editOwnershipType(originalName: string, newDescription: string) {
+  async editOwnershipType(originalName: string, newDescription: string): Promise<void> {
     this.logger.info(`Editing ownership type: ${originalName}`);
     await this.openRowDropdown(originalName);
     await this.clickEditMenu();
@@ -143,7 +158,7 @@ export class OwnershipManagementPage {
   /**
    * Delete an ownership type by name.
    */
-  async deleteOwnershipType(name: string) {
+  async deleteOwnershipType(name: string): Promise<void> {
     this.logger.info(`Deleting ownership type: ${name}`);
     await this.openRowDropdown(name);
     await this.clickDeleteMenu();
@@ -156,7 +171,7 @@ export class OwnershipManagementPage {
   /**
    * Verify that an ownership type is visible in the list.
    */
-  async expectOwnershipTypeVisible(name: string) {
+  async expectOwnershipTypeVisible(name: string): Promise<void> {
     this.logger.info(`Verifying ownership type is visible: ${name}`);
     await expect(this.page.getByText(name)).toBeVisible();
   }
@@ -164,8 +179,24 @@ export class OwnershipManagementPage {
   /**
    * Verify that an ownership type is NOT visible in the list.
    */
-  async expectOwnershipTypeNotVisible(name: string) {
+  async expectOwnershipTypeNotVisible(name: string): Promise<void> {
     this.logger.info(`Verifying ownership type is not visible: ${name}`);
     await expect(this.page.getByText(name)).toBeHidden();
+  }
+
+  /**
+   * Verify that an item is visible in the table by text.
+   */
+  async expectItemVisible(name: string): Promise<void> {
+    this.logger.info(`Verifying item is visible in table: ${name}`);
+    await expect(this.tableBody.locator(`text=${name}`)).toBeVisible();
+  }
+
+  /**
+   * Verify that an item is hidden in the table by text.
+   */
+  async expectItemHidden(name: string): Promise<void> {
+    this.logger.info(`Verifying item is hidden in table: ${name}`);
+    await expect(this.tableBody.locator(`text=${name}`)).toBeHidden();
   }
 }
