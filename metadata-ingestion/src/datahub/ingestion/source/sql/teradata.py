@@ -2095,6 +2095,7 @@ ORDER by DataBaseName, TableName;
                     "poolclass": QueuePool,
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
+                    "pool_timeout": self.config.connection_pool_timeout_ms / 1000,
                     "pool_pre_ping": True,
                     "pool_recycle": 1800,
                     "pool_reset_on_return": "rollback",
@@ -2535,18 +2536,18 @@ ORDER by DataBaseName, TableName;
         return queries
 
     def _base_engine_options(self) -> Dict[str, Any]:
-        """Return engine kwargs shared by every non-pooled engine.
+        """Return engine kwargs shared by all engines (pooled and non-pooled).
 
-        Applies connect_timeout, request_timeout, and pool_timeout consistently
-        so that schema-discovery engines and the pooled view-processing engine
-        all honour the same user-configured timeouts.
+        Only includes options accepted by every pool class. pool_timeout is
+        QueuePool-specific and must be added separately for pooled engines;
+        passing it to SingletonThreadPool (used by the schema-discovery engine)
+        raises an Invalid argument error at create_engine() time.
         """
         opts: Dict[str, Any] = dict(self.config.options)
         connect_args = dict(opts.pop("connect_args", {}))
         connect_args.setdefault("connect_timeout", str(self.config.connect_timeout_ms))
         connect_args.setdefault("request_timeout", str(self.config.request_timeout_ms))
         opts["connect_args"] = connect_args
-        opts["pool_timeout"] = self.config.connection_pool_timeout_ms / 1000
         return opts
 
     def get_metadata_engine(self) -> Engine:

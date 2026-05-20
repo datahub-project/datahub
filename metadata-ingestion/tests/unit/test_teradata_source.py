@@ -2592,8 +2592,8 @@ class TestLineageQueryScoping:
 
 
 class TestConfigurableTimeouts:
-    """request_timeout_ms / connect_timeout_ms / connection_pool_timeout_ms flow through
-    to all engines via _base_engine_options."""
+    """request_timeout_ms / connect_timeout_ms flow through to all engines;
+    connection_pool_timeout_ms flows only to the QueuePool-based pooled engine."""
 
     def _get_engine_kwargs(
         self, extra_config: Dict[str, Any], *, engine_site: str = "pooled"
@@ -2634,31 +2634,32 @@ class TestConfigurableTimeouts:
         assert connect_args["request_timeout"] == "300000"
         assert connect_args["connect_timeout"] == "60000"
 
-    def test_pool_timeout_applied_to_metadata_engine(self) -> None:
-        """connection_pool_timeout_ms must reach the schema-discovery engine, not only
-        the pooled view-processing engine."""
-        kwargs = self._get_engine_kwargs(
+    def test_pool_timeout_applied_to_pooled_engine_only(self) -> None:
+        """connection_pool_timeout_ms reaches the pooled (QueuePool) engine but must NOT
+        be passed to the metadata/schema-discovery engine, which uses SingletonThreadPool
+        and rejects pool_timeout as an invalid argument."""
+        pooled_kwargs = self._get_engine_kwargs(
+            {"connection_pool_timeout_ms": 45000}, engine_site="pooled"
+        )
+        metadata_kwargs = self._get_engine_kwargs(
             {"connection_pool_timeout_ms": 45000}, engine_site="metadata"
         )
-        assert kwargs["pool_timeout"] == 45.0
+        assert pooled_kwargs["pool_timeout"] == 45.0
+        assert "pool_timeout" not in metadata_kwargs
 
-    def test_timeouts_consistent_across_engine_sites(self) -> None:
-        """Both engine creation paths must see identical timeout values."""
+    def test_connect_args_consistent_across_engine_sites(self) -> None:
+        """Both engine creation paths must see identical connect_args timeout values."""
         extra = {
             "request_timeout_ms": 90000,
             "connect_timeout_ms": 15000,
-            "connection_pool_timeout_ms": 45000,
         }
         pooled_kwargs = self._get_engine_kwargs(extra, engine_site="pooled")
         metadata_kwargs = self._get_engine_kwargs(extra, engine_site="metadata")
 
         assert pooled_kwargs["connect_args"]["request_timeout"] == "90000"
         assert pooled_kwargs["connect_args"]["connect_timeout"] == "15000"
-        assert pooled_kwargs["pool_timeout"] == 45.0
-
         assert metadata_kwargs["connect_args"]["request_timeout"] == "90000"
         assert metadata_kwargs["connect_args"]["connect_timeout"] == "15000"
-        assert metadata_kwargs["pool_timeout"] == 45.0
 
 
 class TestCacheCaseInsensitivity:
