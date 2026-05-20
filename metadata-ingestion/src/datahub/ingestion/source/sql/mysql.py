@@ -38,7 +38,7 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
 )
-from datahub.metadata.schema_classes import BytesTypeClass
+from datahub.metadata.schema_classes import BytesTypeClass, QueryLanguageClass
 from datahub.utilities.str_enum import StrEnum
 
 logger = logging.getLogger(__name__)
@@ -235,7 +235,13 @@ class MySQLSource(TwoTierSQLAlchemySource):
                 base_procedures.append(
                     BaseProcedure(
                         name=row.name,
-                        language=row.language,
+                        # information_schema.ROUTINES.EXTERNAL_LANGUAGE is NULL for
+                        # natively-written SQL procedures (the common case) and only
+                        # populated for MLE procedures (MySQL 8.0+ JavaScript / Java).
+                        # generate_procedure_lineage gates on QueryLanguageClass.SQL,
+                        # so without this default the lineage extractor would silently
+                        # skip every native procedure on MySQL/MariaDB.
+                        language=row.language or QueryLanguageClass.SQL,
                         argument_signature=None,
                         return_type=None,
                         procedure_definition=row.definition,

@@ -345,6 +345,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                         include_query_usage_statistics=self.config.include_query_usage_statistics,
                         top_n_queries=self.config.usage.top_n_queries,
                         region_qualifiers=self.config.region_qualifiers,
+                        region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
                     ),
                     structured_report=self.report,
                     filters=self.filters,
@@ -352,6 +353,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     redundant_run_skip_handler=redundant_queries_run_skip_handler,
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
+                    discovered_locations=self.bq_schema_extractor.discovered_locations,
                 ) as queries_extractor,
             ):
                 self.report.queries_extractor = queries_extractor.report
