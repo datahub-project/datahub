@@ -376,7 +376,11 @@ class KillSwitchSweepPhase(Phase):
             # Small batch + per-batch delay so the MySQL cursor advances
             # frequently and we can observe partial migration.
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE": "50",
-            "SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_DELAY_MS": "50",
+            # Use the production default 1000ms delay (don't override) — that
+            # gives ~20s of total sweep wall-clock time for 1000 aspects in
+            # 50-row batches, which is the window our polling+kill loop
+            # needs to catch the sweep mid-execution. Lower values (e.g.
+            # 50ms) make the sweep finish in ~5s before we can kill.
         }
         return self._docker.run_upgrade_job(
             env_overrides=env_overrides,

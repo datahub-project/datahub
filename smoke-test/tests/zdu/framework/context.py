@@ -104,6 +104,38 @@ class UpgradeBlockingResult:
 
 
 @dataclass
+class BatchDelayCapture:
+    """Captured by ``BatchDelaySweepPhase`` — TC-325 batchDelayMs respect.
+
+    The phase seeds N test aspects, runs the sweep with a known
+    ``delayMs`` setting, and polls MySQL's ``DataHubUpgradeResult``
+    cursor (``lastCreatedOnMs``) to record the timestamp of each
+    batch's completion. The inter-cursor-advance gaps are then compared
+    to the configured ``delayMs``.
+
+    Fields:
+      - ``seed_count``: how many aspects were seeded at OLD schemaVersion
+      - ``configured_batch_size``: ``SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE``
+      - ``configured_delay_ms``: ``SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS``
+      - ``cursor_advance_timestamps_s``: monotonic-time samples when each
+        batch's cursor advance was observed (one entry per advance)
+      - ``total_duration_s``: wall-clock duration of the upgrade-job process
+      - ``final_count_at_target``: count of seeded aspects at target
+        ``schemaVersion`` after the sweep completes (expected == seed_count)
+      - ``final_upgrade_state``: ``DataHubUpgradeResult.state`` value
+        (expected ``SUCCEEDED``)
+    """
+
+    seed_count: int = 0
+    configured_batch_size: int = 0
+    configured_delay_ms: int = 0
+    cursor_advance_timestamps_s: list[float] = field(default_factory=list)
+    total_duration_s: float = 0.0
+    final_count_at_target: int = 0
+    final_upgrade_state: str | None = None
+
+
+@dataclass
 class KillSwitchCapture:
     """Captured by ``KillSwitchSweepPhase`` — TC-324 cursor resumability.
 
@@ -384,6 +416,11 @@ class TestContext:
     # KillSwitchSweepPhase writes — captures TC-324 cursor resumability test
     # (seed → start sweep → kill mid-execution → restart → verify resume).
     kill_switch_capture: KillSwitchCapture | None = None
+
+    # BatchDelaySweepPhase writes — captures TC-325 batchDelayMs respect
+    # (seed → run sweep with known delay_ms → record per-batch cursor
+    # advance timestamps → assert inter-advance gaps respect the knob).
+    batch_delay_capture: BatchDelayCapture | None = None
 
     # SnapshotT1Phase writes — re-queries each ``ctx.snapshot_t0`` index via
     # its alias after upgrade_blocking_rerun completes. Consumed by TC-109

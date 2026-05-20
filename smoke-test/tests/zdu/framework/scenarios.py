@@ -574,13 +574,15 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     _sweep_scenario(
         tc=325,
         name="Sweep respects batchDelayMs",
-        expected_to_fail=False,
-        skip_reason=(
-            "Untractable on dev stack: batchDelayMs defaults to 0 here so "
-            "there's no wall-clock pause to observe. Asserting the knob "
-            "would require runtime timing instrumentation outside this "
-            "branch's scope."
+        description=(
+            "BatchDelaySweepPhase seeds 200 aspects, runs the sweep with "
+            "SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE=50 and "
+            "SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS=500, and polls MySQL "
+            "for cursor advances per batch checkpoint. Validator asserts "
+            "the median inter-batch gap is at least delay_ms * 0.7 (70% "
+            "tolerance for poll latency + batch processing slop)."
         ),
+        expected_to_fail=False,
     ),
     _sweep_scenario(
         tc=326,

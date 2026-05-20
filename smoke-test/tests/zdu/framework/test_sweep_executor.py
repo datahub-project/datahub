@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from tests.zdu.framework.context import (
+    BatchDelayCapture,
     KillSwitchCapture,
     TestContext,
     UpgradeNonBlockingResult,
@@ -165,14 +166,75 @@ class TestTC324CursorResumability:
         assert "SUCCEEDED" in (result.actual_result or "")
 
 
-class TestHonestSkipDispatch:
-    """TC-325/326/328/329/330/331 share the generic SKIP validator.
+def _good_batch_delay_capture(**overrides: object) -> BatchDelayCapture:
+    cap = BatchDelayCapture(
+        seed_count=200,
+        configured_batch_size=50,
+        configured_delay_ms=500,
+        # 3 inter-advance gaps of ~520ms each
+        cursor_advance_timestamps_s=[0.0, 0.52, 1.04, 1.58],
+        total_duration_s=12.5,
+        final_count_at_target=200,
+        final_upgrade_state="SUCCEEDED",
+    )
+    for k, v in overrides.items():
+        setattr(cap, k, v)
+    return cap
 
-    TC-324 (cursor resumability) has its own active validator —
-    ``_validate_cursor_resumability`` — and is covered separately.
+
+class TestTC325BatchDelay:
+    def _ctx_with(self, cap: BatchDelayCapture | None) -> TestContext:
+        ctx = TestContext()
+        ctx.batch_delay_capture = cap
+        return ctx
+
+    def test_passes_when_gaps_respect_delay(self) -> None:
+        result = dispatch_sweep_scenario(
+            _scenario(tc=325), self._ctx_with(_good_batch_delay_capture())
+        )
+        assert result.status == "PASS"
+        assert "median inter-batch gap" in (result.actual_result or "")
+
+    def test_skips_when_capture_missing(self) -> None:
+        result = dispatch_sweep_scenario(_scenario(tc=325), self._ctx_with(None))
+        assert result.status == "SKIP"
+
+    def test_fails_with_too_few_advances(self) -> None:
+        cap = _good_batch_delay_capture(cursor_advance_timestamps_s=[0.5])
+        result = dispatch_sweep_scenario(_scenario(tc=325), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "cursor advance" in (result.actual_result or "")
+
+    def test_fails_when_gaps_too_small(self) -> None:
+        # All gaps ~50ms — far below configured 500ms × 0.7 = 350ms threshold
+        cap = _good_batch_delay_capture(
+            cursor_advance_timestamps_s=[0.0, 0.05, 0.10, 0.15]
+        )
+        result = dispatch_sweep_scenario(_scenario(tc=325), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "median inter-batch gap" in (result.actual_result or "")
+
+    def test_fails_when_final_count_wrong(self) -> None:
+        cap = _good_batch_delay_capture(final_count_at_target=199)
+        result = dispatch_sweep_scenario(_scenario(tc=325), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "final state wrong" in (result.actual_result or "")
+
+    def test_fails_when_state_not_succeeded(self) -> None:
+        cap = _good_batch_delay_capture(final_upgrade_state="IN_PROGRESS")
+        result = dispatch_sweep_scenario(_scenario(tc=325), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "SUCCEEDED" in (result.actual_result or "")
+
+
+class TestHonestSkipDispatch:
+    """TC-326/328/329/330/331 share the generic SKIP validator.
+
+    TC-324 (cursor resumability) and TC-325 (batch delay) have their own
+    active validators — covered in their own test classes.
     """
 
-    @pytest.mark.parametrize("tc", [325, 326, 328, 329, 330, 331])
+    @pytest.mark.parametrize("tc", [326, 328, 329, 330, 331])
     def test_returns_skip_with_scenario_reason(self, tc: int) -> None:
         scen = _scenario(tc=tc, skip_reason=f"why TC-{tc} skips")
         result = dispatch_sweep_scenario(scen, TestContext())

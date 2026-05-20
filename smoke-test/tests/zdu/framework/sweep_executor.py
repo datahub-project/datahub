@@ -93,6 +93,92 @@ def _skip_with_scenario_reason(
     )
 
 
+def _validate_batch_delay(
+    scenario: ZDUTestScenario, ctx: TestContext
+) -> ValidationResult:
+    """TC-325 — Sweep respects the configured ``delayMs`` between batches.
+
+    Reads ``ctx.batch_delay_capture`` populated by ``BatchDelaySweepPhase``.
+    Asserts the median inter-cursor-advance gap is at least ``delay_ms *
+    0.7`` (70% tolerance for MySQL poll latency + batch processing time)
+    and that the sweep completed cleanly with all seeded aspects at
+    target ``schemaVersion``.
+    """
+    cap = ctx.batch_delay_capture
+    if cap is None:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="SKIP",
+            expected_to_fail=False,
+            actual_result=(
+                "ctx.batch_delay_capture is None — BatchDelaySweepPhase did not run"
+            ),
+        )
+
+    advances = cap.cursor_advance_timestamps_s
+    if len(advances) < 2:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="FAIL",
+            expected_to_fail=False,
+            actual_result=(
+                f"only {len(advances)} cursor advance(s) observed — "
+                "need at least 2 to measure inter-batch gaps"
+            ),
+            failure_reason="too few cursor advances for timing assertion",
+        )
+
+    # Compute inter-batch gaps (in milliseconds), then take the median —
+    # avoids being skewed by Spring startup or final-batch tail latency.
+    gaps_ms = sorted(
+        (advances[i + 1] - advances[i]) * 1000.0 for i in range(len(advances) - 1)
+    )
+    median_gap_ms = gaps_ms[len(gaps_ms) // 2]
+    min_expected_ms = cap.configured_delay_ms * 0.7
+
+    failures: list[str] = []
+    if median_gap_ms < min_expected_ms:
+        failures.append(
+            f"median inter-batch gap {median_gap_ms:.0f}ms < expected >= "
+            f"{min_expected_ms:.0f}ms (configured delay_ms={cap.configured_delay_ms} "
+            f"with 70% tolerance)"
+        )
+    if cap.final_count_at_target != cap.seed_count:
+        failures.append(
+            f"final state wrong: {cap.final_count_at_target}/{cap.seed_count} "
+            "at target schemaVersion"
+        )
+    if cap.final_upgrade_state != "SUCCEEDED":
+        failures.append(
+            f"final upgrade state was {cap.final_upgrade_state!r}, expected 'SUCCEEDED'"
+        )
+
+    if failures:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="FAIL",
+            expected_to_fail=False,
+            actual_result="; ".join(failures),
+            failure_reason="batchDelayMs not respected: " + failures[0],
+        )
+    return ValidationResult(
+        tc_number=scenario.tc_number,
+        name=scenario.name,
+        status="PASS",
+        expected_to_fail=False,
+        actual_result=(
+            f"Observed {len(advances)} cursor advances; median inter-batch "
+            f"gap {median_gap_ms:.0f}ms (>= configured {cap.configured_delay_ms}ms "
+            f"* 0.7 = {min_expected_ms:.0f}ms); "
+            f"{cap.final_count_at_target}/{cap.seed_count} at target, "
+            f"state SUCCEEDED"
+        ),
+    )
+
+
 def _validate_cursor_resumability(
     scenario: ZDUTestScenario, ctx: TestContext
 ) -> ValidationResult:
@@ -180,7 +266,7 @@ _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult
     # were folded into Suite N's range because both groups exercise the
     # same non-blocking sweep phase.
     324: _validate_cursor_resumability,
-    325: _skip_with_scenario_reason,  # untractable — batchDelayMs=0 on dev
+    325: _validate_batch_delay,
     326: _skip_with_scenario_reason,  # duplicate of TC-316
     327: _validate_no_mutators_noop,
     328: _skip_with_scenario_reason,  # pending G20c reindex capture

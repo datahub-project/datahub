@@ -17,6 +17,7 @@ from .live_traffic_executor import LiveTrafficExecutor
 from .mysql_client import MySQLClient
 from .phase1_reindex_executor import Phase1ReindexExecutor
 from .phases.base import PhaseResult
+from .phases.batch_delay_sweep import BatchDelaySweepPhase
 from .phases.build_images import BuildImagesPhase
 from .phases.cleanup import CleanupPhase
 from .phases.data_integrity_snapshot import DataIntegritySnapshotPhase
@@ -359,6 +360,14 @@ class ZDUTestRunner:
             (
                 "kill_switch_sweep",
                 KillSwitchSweepPhase(
+                    docker=self._docker,
+                    mysql=self._mysql,
+                    gms_service=self._config.gms_service,
+                ),
+            ),
+            (
+                "batch_delay_sweep",
+                BatchDelaySweepPhase(
                     docker=self._docker,
                     mysql=self._mysql,
                     gms_service=self._config.gms_service,

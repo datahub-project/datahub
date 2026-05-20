@@ -191,16 +191,20 @@ class MySQLClient:
         """Bulk-insert ``metadata_aspect_v2`` rows in a single multi-VALUES INSERT.
 
         Each tuple is ``(urn, aspect, metadata_json, systemmetadata_json)``.
-        Always inserts at ``version=0`` with the current timestamp and the
-        ``datahub`` system user as creator. Returns the number of rows
-        affected by the statement.
+        Always inserts at ``version=0`` with the ``datahub`` system user as
+        creator. Returns the number of rows affected by the statement.
 
-        Used by the TC-324 kill-switch test to seed ~1000 entities in a
-        single round-trip rather than 1000 serial REST calls.
+        Each row gets a ``createdon`` 1ms apart so that the
+        ``MigrateAspectsStep`` per-batch cursor (``lastCreatedOnMs``)
+        advances by a distinct value at every batch checkpoint — required
+        for TC-325's batch-delay timing assertion and for TC-324's
+        kill-switch cursor capture.
         """
         if not rows:
             return 0
-        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        from datetime import timedelta
+
+        base = datetime.utcnow()
         createdby = "urn:li:corpuser:datahub"
         placeholders = ",".join(["(%s, %s, 0, %s, %s, %s, %s)"] * len(rows))
         sql = (
@@ -212,8 +216,11 @@ class MySQLClient:
             "createdon=VALUES(createdon), createdby=VALUES(createdby)"
         )
         params: list[str] = []
-        for urn, aspect, metadata, systemmetadata in rows:
-            params.extend([urn, aspect, metadata, systemmetadata, now, createdby])
+        for i, (urn, aspect, metadata, systemmetadata) in enumerate(rows):
+            ts = (base + timedelta(milliseconds=i)).strftime("%Y-%m-%d %H:%M:%S.%f")[
+                :-3
+            ]
+            params.extend([urn, aspect, metadata, systemmetadata, ts, createdby])
         with self._conn() as c, c.cursor() as cur:
             cur.execute(sql, params)
             n = cur.rowcount
