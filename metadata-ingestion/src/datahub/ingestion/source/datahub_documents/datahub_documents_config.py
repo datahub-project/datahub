@@ -102,6 +102,13 @@ class DataHubDocumentsSourceConfig(
         description="Specific document URNs to process (if None, process all matching platforms)",
     )
 
+    include_unembedded: bool = Field(
+        default=False,
+        description="When True, include any document that has no semanticContent aspect yet, "
+        "regardless of platform_filter. Useful for initial backfill runs to catch all "
+        "documents that have never been embedded.",
+    )
+
     # Mode selection
     event_mode: EventModeConfig = Field(
         default_factory=EventModeConfig,
