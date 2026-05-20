@@ -1066,26 +1066,46 @@ class JdbcSinkConnector(BaseConnector):
             self.connector_manifest, self.platform
         )
 
-    def get_table_name_from_topic(self, topic: str, table_format: str) -> str:
+    def get_table_name_from_topic(
+        self,
+        topic: str,
+        table_format: str,
+        schema_name: Optional[str] = None,
+    ) -> str:
         """
         Extract table name from topic using connector configuration.
 
         Uses the table.name.format config or defaults to topic name.
         Common format: "${topic}" means table name = topic name
 
+        If `schema_name` is provided and the derived table name already starts
+        with `{schema_name}.`, that prefix is stripped — otherwise the caller's
+        downstream `f"{schema_name}.{table_name}"` concatenation would duplicate
+        the schema segment in the lineage URN (e.g. `mydb.public.public.clm`
+        for topic `public.clm` with `schema_name="public"`).
+
         Args:
             topic: The Kafka topic name
             table_format: Table name format from configuration
+            schema_name: Optional schema name to strip from the prefix if the
+                topic-derived table name already encodes it
 
         Returns:
-            Table name derived from topic
+            Table name derived from topic, without any duplicated schema prefix
         """
         # Replace ${topic} placeholder with actual topic name
         if "${topic}" in table_format:
-            return table_format.replace("${topic}", topic)
+            table_name = table_format.replace("${topic}", topic)
+        else:
+            # If no ${topic} placeholder, assume format IS the table name
+            table_name = table_format
 
-        # If no ${topic} placeholder, assume format IS the table name
-        return table_format
+        if schema_name:
+            schema_prefix = f"{schema_name}."
+            if table_name.startswith(schema_prefix):
+                table_name = table_name[len(schema_prefix) :]
+
+        return table_name
 
     def get_topics_from_config(self) -> List[str]:
         """
@@ -1234,9 +1254,13 @@ class JdbcSinkConnector(BaseConnector):
             for original_topic, transformed_topic in zip(
                 topic_list, transformed_topics, strict=False
             ):
-                # Get table name using format from config
+                # Get table name using format from config — passing schema_name
+                # so any pre-existing schema prefix in the topic-derived name is
+                # stripped, preventing a duplicated schema segment in the URN.
                 table_name = self.get_table_name_from_topic(
-                    transformed_topic, parser.table_name_format
+                    transformed_topic,
+                    parser.table_name_format,
+                    parser.schema_name,
                 )
 
                 # Build fully qualified dataset name using helper function

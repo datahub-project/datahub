@@ -19,6 +19,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -157,6 +163,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
