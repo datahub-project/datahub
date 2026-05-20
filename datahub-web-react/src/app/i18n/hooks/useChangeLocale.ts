@@ -16,6 +16,7 @@ export function useChangeLocale() {
                 language && isSupportedLanguage(language) ? language : DEFAULT_LANGUAGE;
             const localeConfig = LOCALE_MAP[effectiveLanguage];
 
+            await i18next.loadLanguages(localeConfig.lang);
             await updateUserLocaleSettings(language);
             i18next.changeLanguage(localeConfig.lang);
             dayjs.locale(localeConfig.dayjs);
