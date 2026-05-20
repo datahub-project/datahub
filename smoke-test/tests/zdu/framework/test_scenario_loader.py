@@ -189,10 +189,18 @@ class TestAllSuites:
 
         scenarios = load_scenarios()
         suites_present = {s.suite for s in scenarios}
-        # Suite N + B + D codified at this point. Suite C is added in the next commit.
+        # All four production-phase suites are codified.
         assert Suite.N in suites_present
         assert Suite.B in suites_present
         assert Suite.D in suites_present
+        assert Suite.C in suites_present
+
+    def test_suite_c_count(self) -> None:
+        from tests.zdu.framework.scenarios import SUITE_C_SCENARIOS
+
+        # Suite C — Concurrent operation (live read/write & swap). 3 codified.
+        assert len(SUITE_C_SCENARIOS) == 3
+        assert {s.tc_number for s in SUITE_C_SCENARIOS} == set(range(401, 404))
 
     def test_suite_n_count(self) -> None:
         from tests.zdu.framework.scenarios import (
@@ -220,5 +228,5 @@ class TestAllSuites:
     def test_total_scenarios_is_sum_of_suites(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
 
-        # 23 N_aspect + 8 N_sweep + 9 B + 6 D = 46. Suite C (3) lands next commit.
-        assert len(load_scenarios()) == 46
+        # 23 N_aspect + 8 N_sweep + 9 B + 6 D + 3 C = 49
+        assert len(load_scenarios()) == 49

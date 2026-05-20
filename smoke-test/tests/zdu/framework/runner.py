@@ -13,6 +13,7 @@ from .datahub_client import DataHubClient
 from .docker_compose import DockerComposeClient
 from .es_client import ElasticsearchClient
 from .failure_bundle import FailureBundleWriter
+from .live_traffic_executor import LiveTrafficExecutor
 from .mysql_client import MySQLClient
 from .phase1_reindex_executor import Phase1ReindexExecutor
 from .phases.base import PhaseResult
@@ -127,6 +128,8 @@ class ZDUTestRunner:
         self._registry.register("phase1_reindex", self._phase1_reindex_executor)
         self._catchup_executor = CatchUpScenarioExecutor()
         self._registry.register("catch_up", self._catchup_executor)
+        self._live_traffic_executor = LiveTrafficExecutor()
+        self._registry.register("live_traffic", self._live_traffic_executor)
 
         self._bundle_writer = FailureBundleWriter(
             docker=self._docker,

@@ -12,9 +12,8 @@ class TestSuiteEnum:
         assert Suite.B.value == "b"
 
     def test_all_codified_suites_present(self) -> None:
-        # Suites B (blocking), D (dual-write), and N (non-blocking) are
-        # codified at this point. Suite C is added in the next commit.
-        assert {s.value for s in Suite} == {"b", "d", "n"}
+        # All four production-phase suites are codified.
+        assert {s.value for s in Suite} == {"b", "d", "n", "c"}
 
 
 class TestSuiteForTc:
@@ -30,11 +29,13 @@ class TestSuiteForTc:
             (323, Suite.N),
             (324, Suite.N),
             (331, Suite.N),
+            (401, Suite.C),
+            (403, Suite.C),
         ],
     )
     def test_known_ranges(self, tc: int, expected: Suite) -> None:
         assert suite_for_tc(tc) == expected
 
-    @pytest.mark.parametrize("tc", [0, -1, 100, 110, 200, 207, 300, 332, 999])
+    @pytest.mark.parametrize("tc", [0, -1, 100, 110, 200, 207, 300, 332, 400, 404, 999])
     def test_unknown_returns_none(self, tc: int) -> None:
         assert suite_for_tc(tc) is None

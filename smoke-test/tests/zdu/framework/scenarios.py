@@ -3,9 +3,9 @@
 Each scenario is a :class:`ZDUTestScenario` instance constructed with all
 metadata fields explicit. ``load_scenarios()`` returns the canonical list.
 
-This module contains Suite B (ES Phase 1 reindexing), Suite D (ES Phase 2
-reindexing), and Suite N (Aspect schema migration & system sweep).
-Suite C (Live read/write & swap) is added in the next commit.
+This module contains all four codified suites: Suite B (ES Phase 1
+reindexing), Suite D (ES Phase 2 reindexing), Suite N (Aspect schema
+migration & system sweep), and Suite C (Live read/write & swap).
 """
 
 from __future__ import annotations
@@ -639,6 +639,91 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
 ]
 
 
+def _live_traffic_scenario(
+    *,
+    tc: int,
+    name: str,
+    description: str = "",
+    expected_to_fail: bool = False,
+    skip_reason: str | None = None,
+    expected_schema_version: int | None = None,
+) -> ZDUTestScenario:
+    """Construct a Suite C live-traffic scenario.
+
+    Live-traffic scenarios validate concurrent read/write behaviour during a
+    running sweep against captures produced by the IO-pool harness in Phase 10
+    and ``DataIntegritySnapshotPhase`` in Phase 13.
+
+    ``expected_schema_version`` parameterizes TC-401's data-integrity
+    assertion: every gap+dual URN's embed aspect must converge to this
+    schemaVersion in MySQL post-sweep.
+    """
+    return ZDUTestScenario(
+        tc_number=tc,
+        category="Live Traffic",
+        name=name,
+        description=description,
+        prerequisite_steps="",
+        test_steps="",
+        expected_result="",
+        current_status="",
+        details="",
+        starting_schema_version=None,
+        expected_schema_version=expected_schema_version,
+        action="live_traffic",
+        aspect_name="",
+        entity_type="",
+        expected_to_fail=expected_to_fail,
+        skip_reason=skip_reason,
+        scenario_type="live_traffic",
+        suite=Suite.C,
+    )
+
+
+SUITE_C_SCENARIOS: list[ZDUTestScenario] = [
+    # Suite C — concurrent operations during the upgrade. Three sequential
+    # scenarios, all PASS on the dev stack. The original Suite C design
+    # specified additional scenarios for sustained-load read mid-sweep, ES
+    # dual-write parity, in-progress catch-up timing, and an ingestion job
+    # harness — those need infrastructure outside this branch's scope
+    # (sustained load generators, OLD-physical capture before the alias
+    # swap, catch-up timing instrumentation, csv-enricher under load) and
+    # were deferred to follow-up plans.
+    _live_traffic_scenario(
+        tc=401,
+        name="Writes persist at target schemaVersion mid-sweep",
+        description=(
+            "Every gap+dual URN's embed aspect must converge to the target "
+            "schemaVersion in MySQL after the Phase 10 sweep — concurrent "
+            "writes across the rolling-restart and catch-up window must not "
+            "be left at the OLD version."
+        ),
+        expected_to_fail=False,
+        expected_schema_version=4,
+    ),
+    _live_traffic_scenario(
+        tc=402,
+        name="Read consistency: observed version monotonic per URN",
+        description=(
+            "For each URN read more than once across Phase 10, the "
+            "observed_version sequence (ordered by timestamp) must be "
+            "monotonic non-decreasing — no stale snapshot served after the "
+            "sweep advanced the row."
+        ),
+        expected_to_fail=False,
+    ),
+    _live_traffic_scenario(
+        tc=403,
+        name="Sweep + concurrent writes don't lose data",
+        description=(
+            "Every IO-pool write captured in ctx.io_write_results must have"
+            " passed=True — sweep must not clobber concurrent client writes."
+        ),
+        expected_to_fail=False,
+    ),
+]
+
+
 SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
     # Active validator (Plan 15) — observed reindex set must match
     # ``expected_reindex_indices`` exactly. The expected set is hand-curated
@@ -786,4 +871,5 @@ def load_scenarios() -> list[ZDUTestScenario]:
         + list(SUITE_N_SWEEP_INVARIANT_SCENARIOS)
         + list(SUITE_B_SCENARIOS)
         + list(SUITE_D_SCENARIOS)
+        + list(SUITE_C_SCENARIOS)
     )
