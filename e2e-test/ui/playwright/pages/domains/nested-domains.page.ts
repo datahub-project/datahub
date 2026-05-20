@@ -211,7 +211,10 @@ export class NestedDomainsPage extends BasePage {
     await urlInput.fill(url);
     await labelInput.fill(label);
 
-    const submitBtn = modal.locator('button').filter({ hasText: /Submit|Save|Add/ }).last();
+    const submitBtn = modal
+      .locator('button')
+      .filter({ hasText: /Submit|Save|Add/ })
+      .last();
     await submitBtn.click({ force: true });
     await this.page.waitForTimeout(DELAY_LARGE);
 
@@ -239,7 +242,10 @@ export class NestedDomainsPage extends BasePage {
     await this.dropdownSearchInput.pressSequentially(displayName, { delay: DELAY_TYPING });
     await this.page.waitForTimeout(DELAY_LARGE);
 
-    const ownerOption = this.page.getByTestId(/^option-/).filter({ hasText: displayName }).first();
+    const ownerOption = this.page
+      .getByTestId(/^option-/)
+      .filter({ hasText: displayName })
+      .first();
     await ownerOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await ownerOption.click({ force: true });
     await this.page.waitForTimeout(DELAY_LARGE);

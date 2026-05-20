@@ -78,5 +78,4 @@ test.describe('Domains V2 Core', () => {
     const summaryCount = await domainsPage.summaryTab.count();
     expect(summaryCount).toBeGreaterThanOrEqual(0);
   });
-
 });
