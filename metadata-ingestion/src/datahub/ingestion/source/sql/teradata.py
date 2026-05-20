@@ -1,4 +1,5 @@
 import logging
+import random
 import re
 import time
 from collections import defaultdict
@@ -172,7 +173,8 @@ register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 _RETRY_MAX_ATTEMPTS = 3
 _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
 
-# Substrings found in Teradata / network error messages that are safe to retry.
+# Substrings found in Teradata / network error messages that are safe to retry
+# on an *existing* connection (execute / fetchmany).
 _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "transaction aborted",
     "try again",
@@ -180,6 +182,16 @@ _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "database restart",
     "connect timed out",
     "i/o timeout",
+)
+
+# Additional substrings that indicate a dead/reset socket.  These are NOT safe
+# to retry on an existing connection (the socket is gone), but ARE safe to
+# retry at connect time because engine.connect() opens a fresh socket.
+_RETRYABLE_CONNECT_EXTRA_SUBSTRINGS: Tuple[str, ...] = (
+    "connection reset",
+    "broken pipe",
+    "eof",
+    "socket closed",
 )
 
 # Teradata numeric error codes that are retryable (matched in the
@@ -190,8 +202,27 @@ _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
 )
 
 
+def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
+    """Return a full-jitter exponential backoff duration for *attempt* (0-based).
+
+    Full jitter (``uniform(0, cap)``) is the recommended strategy when many
+    concurrent workers share the same resource: pure exponential backoff causes
+    a thundering-herd re-surge because all threads sleep for the *same* duration
+    and then hammer the server simultaneously.  Full jitter spreads retries
+    uniformly across the window so the server load stays roughly constant.
+    """
+    cap = initial_backoff_seconds * (2**attempt)
+    return random.uniform(0, cap)
+
+
 def _should_retry(exc: BaseException) -> bool:
-    """Return True when *exc* is a retryable Teradata / network error."""
+    """Return True when *exc* is retryable on the **same** connection.
+
+    Dead-socket errors (connection reset, broken pipe, etc.) are intentionally
+    excluded: retrying ``execute()`` or ``fetchmany()`` on a dead socket will
+    always fail again.  Use :func:`_should_retry_connect` for the connect step
+    where a fresh socket is opened on each attempt.
+    """
     if isinstance(exc, PoolTimeoutError):
         return True
     # OperationalError wraps both transient failures (network drop, timeout)
@@ -208,12 +239,29 @@ def _should_retry(exc: BaseException) -> bool:
     return False
 
 
+def _should_retry_connect(exc: BaseException) -> bool:
+    """Return True when *exc* is retryable at **connect** time.
+
+    A superset of :func:`_should_retry`: includes dead-socket signals
+    (connection reset, broken pipe, EOF, socket closed) because
+    ``engine.connect()`` opens a fresh socket on every call, so these errors
+    are recoverable by simply trying again.
+    """
+    if _should_retry(exc):
+        return True
+    if isinstance(exc, (OperationalError, DatabaseError)):
+        msg = str(exc).lower()
+        if any(s in msg for s in _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS):
+            return True
+    return False
+
+
 @contextmanager
 def _engine_connect_with_retry(
     engine: Engine,
     max_attempts: int = _RETRY_MAX_ATTEMPTS,
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
-    report: Optional[Any] = None,
+    report: Optional["TeradataReport"] = None,
 ) -> Generator[Connection, None, None]:
     """Context-manager that acquires a SQLAlchemy connection with exponential-backoff
     retries on retryable errors.  Only the *connect* step is retried; errors
@@ -232,24 +280,24 @@ def _engine_connect_with_retry(
                 report.num_pool_exhaustion_events += 1
             if attempt == max_attempts - 1:
                 raise
-            backoff = initial_backoff_seconds * (2**attempt)
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
                 f"Connection pool exhausted "
                 f"[thread={thread.name!r} tid={thread.ident}] "
                 f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.1f}s..."
+                f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
                 report.num_db_retries += 1
             time.sleep(backoff)
         except Exception as exc:
-            if not _should_retry(exc) or attempt == max_attempts - 1:
+            if not _should_retry_connect(exc) or attempt == max_attempts - 1:
                 raise
-            backoff = initial_backoff_seconds * (2**attempt)
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
                 f"Retryable DB error acquiring connection "
                 f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.1f}s..."
+                f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
                 report.num_db_retries += 1
@@ -268,7 +316,7 @@ def _execute_with_retry(
     params: Optional[Dict[str, Any]] = None,
     max_attempts: int = _RETRY_MAX_ATTEMPTS,
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
-    report: Optional[Any] = None,
+    report: Optional["TeradataReport"] = None,
 ) -> Any:
     """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors."""
     if max_attempts < 1:
@@ -279,15 +327,14 @@ def _execute_with_retry(
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
                 raise
-            backoff = initial_backoff_seconds * (2**attempt)
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
                 f"Retryable DB error on execute (attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.1f}s..."
+                f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
                 report.num_db_retries += 1
             time.sleep(backoff)
-    raise RuntimeError("unreachable")  # loop always raises or returns
 
 
 def _fetchmany_with_retry(
@@ -295,7 +342,7 @@ def _fetchmany_with_retry(
     batch_size: int,
     max_attempts: int = _RETRY_MAX_ATTEMPTS,
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
-    report: Optional[Any] = None,
+    report: Optional["TeradataReport"] = None,
 ) -> List[Any]:
     """Fetch the next batch from *result* with exponential-backoff retries on retryable errors.
 
@@ -315,15 +362,14 @@ def _fetchmany_with_retry(
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
                 raise
-            backoff = initial_backoff_seconds * (2**attempt)
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
                 f"Retryable DB error on fetchmany (attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.1f}s..."
+                f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
                 report.num_db_retries += 1
             time.sleep(backoff)
-    raise RuntimeError("unreachable")  # loop always raises or returns
 
 
 @dataclass

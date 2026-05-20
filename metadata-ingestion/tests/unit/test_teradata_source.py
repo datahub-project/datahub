@@ -26,7 +26,9 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataTable,
     _engine_connect_with_retry,
     _execute_with_retry,
+    _jittered_backoff,
     _should_retry,
+    _should_retry_connect,
     get_schema_columns,
     get_schema_foreign_keys,
     get_schema_pk_constraints,
@@ -2822,6 +2824,38 @@ class TestConfiguredDatabasesValidation:
         assert source.report.warnings == []
 
 
+class TestJitteredBackoff:
+    """_jittered_backoff produces bounded, non-deterministic delays."""
+
+    def test_result_within_bounds(self):
+        """Backoff must be in [0, initial * 2^attempt]."""
+        for attempt in range(4):
+            cap = 1.0 * (2**attempt)
+            for _ in range(20):
+                b = _jittered_backoff(attempt, 1.0)
+                assert 0 <= b <= cap, f"attempt={attempt}: {b} not in [0, {cap}]"
+
+    def test_not_always_zero(self):
+        """With many samples at least one must be > 0 (probability of all-zero is negligible)."""
+        samples = [_jittered_backoff(0, 1.0) for _ in range(50)]
+        assert any(s > 0 for s in samples)
+
+    def test_values_are_not_all_identical(self):
+        """Different calls should produce different values (jitter is actually random)."""
+        samples = [_jittered_backoff(2, 1.0) for _ in range(20)]
+        assert len(set(samples)) > 1, (
+            "All backoff values were identical — jitter missing"
+        )
+
+    def test_scales_with_initial_backoff(self):
+        """Larger initial_backoff_seconds raises the cap proportionally."""
+        cap_small = 0.5 * (2**2)
+        cap_large = 2.0 * (2**2)
+        for _ in range(20):
+            assert _jittered_backoff(2, 0.5) <= cap_small
+            assert _jittered_backoff(2, 2.0) <= cap_large
+
+
 class TestShouldRetry:
     """_should_retry classifies errors as retryable or not."""
 
@@ -2854,6 +2888,71 @@ class TestShouldRetry:
 
     def test_generic_exception_not_retryable(self):
         assert _should_retry(ValueError("something went wrong")) is False
+
+    def test_dead_socket_substrings_not_retryable_on_execute(self):
+        """Dead-socket errors must not be retried on an existing connection."""
+        for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
+            assert _should_retry(OperationalError(msg, None, None)) is False, msg
+
+
+class TestShouldRetryConnect:
+    """_should_retry_connect is a superset of _should_retry for connect-time errors."""
+
+    def test_inherits_all_execute_retryable_cases(self):
+        """Everything retryable at execute time is also retryable at connect time."""
+        assert _should_retry_connect(PoolTimeoutError("pool exhausted")) is True
+        assert (
+            _should_retry_connect(OperationalError("connect timed out", None, None))
+            is True
+        )
+        assert (
+            _should_retry_connect(OperationalError("[Error 3597]", None, None)) is True
+        )
+        assert (
+            _should_retry_connect(DatabaseError("transaction aborted", None, None))
+            is True
+        )
+
+    def test_dead_socket_errors_retryable_at_connect_time(self):
+        """Dead-socket errors are retryable at connect time since a fresh socket is opened."""
+        for msg in ("connection reset", "broken pipe", "eof", "socket closed"):
+            assert _should_retry_connect(OperationalError(msg, None, None)) is True, (
+                f"Expected {msg!r} to be retryable at connect time"
+            )
+            assert _should_retry_connect(DatabaseError(msg, None, None)) is True, (
+                f"Expected DatabaseError({msg!r}) to be retryable at connect time"
+            )
+
+    def test_non_retryable_errors_still_rejected(self):
+        """Permanent errors (auth failure, syntax error) are not retried even at connect time."""
+        assert (
+            _should_retry_connect(OperationalError("authentication failed", None, None))
+            is False
+        )
+        assert _should_retry_connect(DatabaseError("syntax error", None, None)) is False
+        assert _should_retry_connect(ValueError("something went wrong")) is False
+
+    def test_engine_connect_retries_dead_socket(self):
+        """_engine_connect_with_retry retries dead-socket errors because a new socket is opened."""
+        good_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [
+            OperationalError("connection reset", None, None),
+            good_conn,
+        ]
+        report = SimpleNamespace(num_db_retries=0, num_pool_exhaustion_events=0)
+
+        with (
+            patch("time.sleep"),
+            _engine_connect_with_retry(
+                mock_engine, max_attempts=2, report=report
+            ) as conn,
+        ):
+            assert conn is good_conn
+
+        assert mock_engine.connect.call_count == 2
+        assert report.num_db_retries == 1
+        good_conn.close.assert_called_once()
 
 
 class TestRetryConfig:
@@ -2897,9 +2996,9 @@ class TestRetryConfig:
 
     def test_retry_wrappers_honour_config(self):
         """_retry_connect / _retry_execute / _retry_fetchmany use config values."""
-        source = _create_source_patched()
-        source.config.retry_max_attempts = 2
-        source.config.retry_initial_backoff_seconds = 0.01
+        source = _create_source_patched(
+            {"retry_max_attempts": 2, "retry_initial_backoff_seconds": 0.01}
+        )
 
         mock_conn = MagicMock()
         mock_engine = MagicMock()
@@ -3007,6 +3106,8 @@ class TestConnectionPoolRetry:
             assert thread.name in record.message
             assert str(thread.ident) in record.message
 
+        mock_conn.close.assert_called_once()
+
     def test_pool_exhaustion_raises_after_max_attempts(self):
         """_engine_connect_with_retry re-raises PoolTimeoutError after all attempts fail."""
         mock_engine = MagicMock()
@@ -3024,6 +3125,31 @@ class TestConnectionPoolRetry:
         # All 3 attempts counted as exhaustion events; only 2 retries (last attempt just raises).
         assert report.num_pool_exhaustion_events == 3
         assert report.num_db_retries == 2
+
+    def test_connection_closed_on_normal_exit(self):
+        """conn.close() is called after a successful with-block."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with _engine_connect_with_retry(mock_engine, max_attempts=1):
+            pass
+
+        mock_conn.close.assert_called_once()
+
+    def test_connection_closed_when_body_raises(self):
+        """conn.close() is called even when the with-block body raises an exception."""
+        mock_conn = MagicMock()
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = mock_conn
+
+        with (
+            pytest.raises(RuntimeError, match="body error"),
+            _engine_connect_with_retry(mock_engine, max_attempts=1),
+        ):
+            raise RuntimeError("body error")
+
+        mock_conn.close.assert_called_once()
 
     def test_pool_timeout_propagated_to_sqlalchemy_pool_timeout(self):
         """connection_pool_timeout_ms / 1000 is passed as pool_timeout to QueuePool."""
@@ -3195,8 +3321,7 @@ class TestSchemaNameRetry:
 
     def test_exhausts_all_attempts_and_reraises(self):
         """When every attempt fails transiently the last exception is re-raised."""
-        source = _create_source_patched()
-        source.config.retry_max_attempts = 2
+        source = _create_source_patched({"retry_max_attempts": 2})
 
         transient = OperationalError("connect timed out", None, None)
         mock_engine = self._make_engine([transient, transient])
