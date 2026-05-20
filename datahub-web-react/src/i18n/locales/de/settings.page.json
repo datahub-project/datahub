@@ -1,0 +1,22 @@
+{
+    "logOut": "Abmelden",
+    "nav": {
+        "access": "Zugang",
+        "accessTokens": "Zugriffstoken",
+        "appearance": "Darstellung",
+        "developer": "Entwickler",
+        "features": "Funktionen",
+        "homePage": "Startseite",
+        "manage": "Verwalten",
+        "myNotifications": "Meine Benachrichtigungen",
+        "mySubscriptions": "Meine Abonnements",
+        "ownershipTypes": "Eigentümertypen",
+        "permissions": "Berechtigungen",
+        "personal": "Persönlich",
+        "preferences": "Präferenzen",
+        "usersGroups": "Benutzer & Gruppen",
+        "views": "Ansichten"
+    },
+    "subTitle": "Verwalten Sie Ihre Einstellungen",
+    "title": "Einstellungen"
+}
