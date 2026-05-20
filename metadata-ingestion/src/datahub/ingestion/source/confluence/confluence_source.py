@@ -37,6 +37,7 @@ from datahub.ingestion.source.confluence.confluence_config import ConfluenceSour
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
 )
+from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -56,6 +57,11 @@ from datahub.metadata.schema_classes import (
 from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
+
+# Bump this when the page extraction algorithm changes (e.g. HTML→Markdown
+# conversion, macro stripping, text normalization) to force re-ingestion of
+# all pages on the next run regardless of whether the raw Confluence body changed.
+EXTRACTION_ALGO_VERSION = "2"
 
 
 @platform_name("Confluence")
@@ -525,7 +531,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             # Fetch the page itself with full metadata
             page = self.confluence_client.get_page_by_id(
                 page_id,
-                expand="ancestors,version,space,body.storage",
+                expand="ancestors,version,history,space,body.storage",
             )
 
             if not page:
@@ -593,7 +599,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     space=space_key,
                     start=start,
                     limit=min(limit, self.config.max_pages_per_space - total_pages),
-                    expand="ancestors,version,space,body.storage",
+                    expand="ancestors,version,history,space,body.storage",
                 )
 
                 if not response:
@@ -680,7 +686,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                     # Just fetch this page (non-recursive)
                     page = self.confluence_client.get_page_by_id(
                         page_id,
-                        expand="ancestors,version,space,body.storage",
+                        expand="ancestors,version,history,space,body.storage",
                     )
                     if page:
                         visited_pages.add(page_id)
@@ -720,12 +726,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             if isinstance(storage, dict):
                 value = storage.get("value", "")
                 if value:
-                    # Simple HTML tag removal (unstructured will do proper parsing)
-                    import re
-
-                    clean_text = re.sub(r"<[^>]+>", " ", value)
-                    clean_text = re.sub(r"\s+", " ", clean_text).strip()
-                    text_parts.append(clean_text)
+                    text_parts.append(html_storage_to_markdown(value))
 
         return "\n\n".join(text_parts)
 
@@ -832,10 +833,25 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract parent URN
         parent_urn = self._extract_parent_urn(page, ingested_page_ids)
 
-        # Build custom properties
+        # Build custom properties, including a content_hash that encodes both
+        # the raw page body and the extraction algo version. The chunking source
+        # reads this hash to decide whether to re-embed a document; bumping
+        # EXTRACTION_ALGO_VERSION invalidates every document's hash and forces
+        # a full re-ingest on the next run.
+        import json as _json
+
+        raw_body = page.get("body", {}).get("storage", {}).get("value", "") or ""
+        _hash_input = _json.dumps(
+            {"body": raw_body, "algo_version": EXTRACTION_ALGO_VERSION},
+            sort_keys=True,
+        )
+        content_hash = hashlib.sha256(_hash_input.encode("utf-8")).hexdigest()
+
         custom_properties = {
             "space_key": space_key or "",
             "page_id": page_id,
+            "content_hash": content_hash,
+            "extraction_algo_version": EXTRACTION_ALGO_VERSION,
         }
 
         # Get timestamps if available
@@ -843,13 +859,23 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         created_time = None
         last_modified_time = None
         if isinstance(version, dict):
-            # Confluence uses "when" field for timestamps
             when = version.get("when")
             if when:
                 try:
                     from dateutil import parser as date_parser
 
                     last_modified_time = date_parser.parse(when)
+                except Exception:
+                    pass
+
+        history = page.get("history", {})
+        if isinstance(history, dict):
+            created_date = history.get("createdDate")
+            if created_date:
+                try:
+                    from dateutil import parser as date_parser
+
+                    created_time = date_parser.parse(created_date)
                 except Exception:
                     pass
 

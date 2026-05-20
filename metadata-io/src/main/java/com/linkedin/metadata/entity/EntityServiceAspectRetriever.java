@@ -58,12 +58,9 @@ public class EntityServiceAspectRetriever implements AspectRetriever {
   public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
     if (urns.isEmpty()) {
       return Map.of();
-    } else {
-      return urns.stream()
-          .collect(
-              Collectors.toMap(
-                  urn -> urn, urn -> entityService.exists(systemOperationContext, urn)));
     }
+    final Set<Urn> existing = entityService.exists(systemOperationContext, urns, true);
+    return urns.stream().collect(Collectors.toMap(urn -> urn, existing::contains));
   }
 
   @Nonnull
