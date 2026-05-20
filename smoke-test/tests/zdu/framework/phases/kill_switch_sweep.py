@@ -305,33 +305,51 @@ class KillSwitchSweepPhase(Phase):
             _RESTART_CONTAINER_NAME,
         )
         proc = self._launch_upgrade(ctx, _RESTART_CONTAINER_NAME)
-        # We tail stdout synchronously this time, looking for the resume
-        # log line and waiting for completion.
-        deadline = time.monotonic() + self._restart_timeout_s
-        assert proc.stdout is not None
-        for raw_line in proc.stdout:
-            if time.monotonic() > deadline:
-                proc.kill()
-                proc.wait(timeout=10)
-                raise RuntimeError(
-                    f"restart timed out after {self._restart_timeout_s}s"
-                )
-            line = raw_line.rstrip()
-            if not line:
-                continue
-            log.info("[kill-switch-resume] %s", line)
-            if not cap.resume_log_observed:
-                for pattern in _RESUME_LOG_PATTERNS:
-                    if pattern in line:
-                        cap.resume_log_observed = True
-                        log.info(
-                            "[kill-switch] resume cursor-load message observed: %r",
-                            pattern,
-                        )
-                        break
+        # Tail stdout synchronously, looking for the resume log line. A
+        # watchdog timer (separate thread) kills the process if it hangs
+        # past the deadline — the inline ``time.monotonic() > deadline``
+        # check inside the for-loop only fires when a new line arrives,
+        # which doesn't help if the JVM hangs silently after its last log
+        # line. The watchdog unblocks ``readline()`` by EOF-on-kill.
+        timed_out = threading.Event()
 
-        # Wait for process exit.
-        rc = proc.wait(timeout=max(deadline - time.monotonic(), 1.0))
+        def _kill_on_deadline() -> None:
+            timed_out.set()
+            try:
+                proc.kill()
+            except Exception:
+                pass
+
+        watchdog = threading.Timer(self._restart_timeout_s, _kill_on_deadline)
+        watchdog.daemon = True
+        watchdog.start()
+        try:
+            assert proc.stdout is not None
+            for raw_line in proc.stdout:
+                line = raw_line.rstrip()
+                if not line:
+                    continue
+                log.info("[kill-switch-resume] %s", line)
+                if not cap.resume_log_observed:
+                    for pattern in _RESUME_LOG_PATTERNS:
+                        if pattern in line:
+                            cap.resume_log_observed = True
+                            log.info(
+                                "[kill-switch] resume cursor-load message observed: %r",
+                                pattern,
+                            )
+                            break
+            # Wait for process exit (watchdog has already cancelled or fired).
+            rc = proc.wait(timeout=10)
+        finally:
+            watchdog.cancel()
+            self._docker.remove_container(_RESTART_CONTAINER_NAME)
+
+        if timed_out.is_set():
+            raise RuntimeError(
+                f"restart timed out after {self._restart_timeout_s}s "
+                "(watchdog killed the upgrade-job)"
+            )
         log.info("[kill-switch] restart exited rc=%d", rc)
         if rc != 0:
             raise RuntimeError(f"restart exited rc={rc}")
@@ -347,9 +365,6 @@ class KillSwitchSweepPhase(Phase):
             log.warning(
                 "[kill-switch] could not read final MigrateAspects state: %s", exc
             )
-
-        # Cleanup the restart container too.
-        self._docker.remove_container(_RESTART_CONTAINER_NAME)
 
     def _launch_upgrade(
         self, ctx: TestContext, container_name: str

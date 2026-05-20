@@ -192,41 +192,46 @@ class BatchDelaySweepPhase(Phase):
         drain_thread = threading.Thread(target=_drain_stdout, args=(proc,), daemon=True)
         drain_thread.start()
 
-        # Poll the MigrateAspects upgrade result's cursor (lastCreatedOnMs).
-        # Each time it advances, record the timestamp — this corresponds to a
-        # batch checkpoint.
-        last_cursor: int | None = None
-        deadline = time.monotonic() + self._run_timeout_s
-        while True:
-            # Process exited normally? We're done polling.
-            if proc.poll() is not None:
-                break
-            if time.monotonic() > deadline:
-                proc.kill()
-                proc.wait(timeout=10)
-                raise RuntimeError(f"sweep exceeded {self._run_timeout_s}s timeout")
-            try:
-                _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
-                    "migrate-aspects-"
-                )
-            except Exception:
-                parsed = None
-            current_cursor = self._extract_cursor(parsed)
-            if current_cursor is not None and current_cursor != last_cursor:
-                cap.cursor_advance_timestamps_s.append(time.monotonic())
-                log.info(
-                    "[batch-delay] cursor advance #%d: lastCreatedOnMs=%d",
-                    len(cap.cursor_advance_timestamps_s),
-                    current_cursor,
-                )
-                last_cursor = current_cursor
-            time.sleep(self._poll_interval_s)
+        try:
+            # Poll the MigrateAspects upgrade result's cursor
+            # (lastCreatedOnMs). Each time it advances, record the
+            # timestamp — this corresponds to a batch checkpoint.
+            last_cursor: int | None = None
+            deadline = time.monotonic() + self._run_timeout_s
+            while True:
+                # Process exited normally? We're done polling.
+                if proc.poll() is not None:
+                    break
+                if time.monotonic() > deadline:
+                    proc.kill()
+                    proc.wait(timeout=10)
+                    raise RuntimeError(f"sweep exceeded {self._run_timeout_s}s timeout")
+                try:
+                    _, parsed = self._mysql.find_upgrade_result_by_urn_prefix(
+                        "migrate-aspects-"
+                    )
+                except Exception:
+                    parsed = None
+                current_cursor = self._extract_cursor(parsed)
+                if current_cursor is not None and current_cursor != last_cursor:
+                    cap.cursor_advance_timestamps_s.append(time.monotonic())
+                    log.info(
+                        "[batch-delay] cursor advance #%d: lastCreatedOnMs=%d",
+                        len(cap.cursor_advance_timestamps_s),
+                        current_cursor,
+                    )
+                    last_cursor = current_cursor
+                time.sleep(self._poll_interval_s)
 
-        rc = proc.returncode
-        log.info("[batch-delay] upgrade-job exited rc=%d", rc)
-        if rc != 0:
-            raise RuntimeError(f"upgrade-job exited rc={rc}")
-        self._docker.remove_container(_CONTAINER_NAME)
+            rc = proc.returncode
+            log.info("[batch-delay] upgrade-job exited rc=%d", rc)
+            if rc != 0:
+                raise RuntimeError(f"upgrade-job exited rc={rc}")
+        finally:
+            # Always reap the container — both on the success path and on
+            # error paths (timeout, non-zero rc, Docker hiccup). Without
+            # this the leaked container persists until the next E2E run.
+            self._docker.remove_container(_CONTAINER_NAME)
 
     @staticmethod
     def _extract_cursor(parsed: dict | None) -> int | None:

@@ -345,7 +345,7 @@ _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult
     325: _validate_batch_delay,
     326: _validate_skip_already_migrated,
     327: _validate_no_mutators_noop,
-    328: _skip_with_scenario_reason,  # pending G20c reindex capture
+    328: _skip_with_scenario_reason,  # master feature-flag-off path; needs separate upgrade-job phase
     # Two earlier scenarios were dropped from the grid — old TC-329
     # "APP_SOURCE stamped on sweep writes" (syntactic duplicate of
     # TC-322's appSource check) and old TC-330 "IF_VERSION_MATCH header

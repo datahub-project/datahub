@@ -603,10 +603,24 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     _sweep_scenario(
         tc=328,
         name="Sweep with feature flag off",
-        # Blocked on G20c reindex-capture, not on a missing config knob per
-        # se (same root cause as TC-205 / TC-206). SKIP is the honest status.
+        # Tests the master kill switch (SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED=false).
+        # Distinct mechanism from TC-327 (chain empty / sweep runs and migrates 0):
+        # here the sweep step never executes, so no migrate-aspects-<version>
+        # upgrade-result row is written at all. The main pipeline runs the
+        # upgrade-job with the flag ON (otherwise TC-301..326 / TC-403 would
+        # all be no-ops), so an active validator would need its own phase
+        # that re-launches the upgrade-job with the env var off — out of
+        # scope for this PR. SKIP is the honest status.
         expected_to_fail=False,
-        skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
+        skip_reason=(
+            "Master feature-flag-off path "
+            "(SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED=false). The main "
+            "pipeline runs with the flag ON; toggling it off would "
+            "require a separate phase that re-launches the upgrade-job "
+            "and asserts no migrate-aspects-<version> upgrade-result "
+            "row appears — distinct mechanism from TC-327, not yet "
+            "wired into the framework."
+        ),
     ),
     # Two scenarios were dropped from the original 8-item sweep-invariant
     # range because their assertions had no mechanically distinct

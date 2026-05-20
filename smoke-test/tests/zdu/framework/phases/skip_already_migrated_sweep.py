@@ -22,8 +22,10 @@ Flow:
      via ``MySQLClient.get_aspect_raw`` — this is the bit-identical
      baseline we'll compare against post-sweep.
   3. Delete the ``migrate-aspects-<version>`` upgrade-result row so
-     state goes back to PENDING (otherwise TC-316's short-circuit fires
-     and the sweep is a no-op — masking TC-326's signal).
+     the upgrade framework's step-gating doesn't skip the
+     MigrateAspects step entirely (it short-circuits when prev
+     state=SUCCEEDED — same mechanism TC-316 asserts as a test). Without
+     this reset the sweep is a no-op and TC-326's signal is masked.
   4. Run ``system-update -u SystemUpdateNonBlocking`` with default
      config (no batch-size / delay-ms overrides — we're testing the
      filter, not the throttle).
@@ -125,8 +127,9 @@ class SkipAlreadyMigratedSweepPhase(Phase):
                 started_at, time.monotonic() - t0, f"seed/snapshot failed: {exc}"
             )
 
-        # Reset upgrade-state to PENDING (otherwise TC-316 short-circuit
-        # fires and the sweep is a no-op).
+        # Reset upgrade-state to absent (otherwise the upgrade framework's
+        # step-gating skips the entire MigrateAspects step on prev
+        # state=SUCCEEDED — the same property TC-316 asserts as a test).
         deleted = self._mysql.delete_upgrade_result_by_urn_prefix("migrate-aspects-")
         log.info(
             "[skip-migrated] cleared %d migrate-aspects upgrade-result row(s)", deleted
@@ -269,19 +272,24 @@ class SkipAlreadyMigratedSweepPhase(Phase):
         drain_thread = threading.Thread(target=_drain_stdout, args=(proc,), daemon=True)
         drain_thread.start()
 
-        deadline = time.monotonic() + self._run_timeout_s
-        while proc.poll() is None:
-            if time.monotonic() > deadline:
-                proc.kill()
-                proc.wait(timeout=10)
-                raise RuntimeError(f"sweep exceeded {self._run_timeout_s}s timeout")
-            time.sleep(0.5)
+        try:
+            deadline = time.monotonic() + self._run_timeout_s
+            while proc.poll() is None:
+                if time.monotonic() > deadline:
+                    proc.kill()
+                    proc.wait(timeout=10)
+                    raise RuntimeError(f"sweep exceeded {self._run_timeout_s}s timeout")
+                time.sleep(0.5)
 
-        rc = proc.returncode
-        log.info("[skip-migrated] upgrade-job exited rc=%d", rc)
-        if rc != 0:
-            raise RuntimeError(f"upgrade-job exited rc={rc}")
-        self._docker.remove_container(_CONTAINER_NAME)
+            rc = proc.returncode
+            log.info("[skip-migrated] upgrade-job exited rc=%d", rc)
+            if rc != 0:
+                raise RuntimeError(f"upgrade-job exited rc={rc}")
+        finally:
+            # Always reap the container — both on the success path and on
+            # error paths (timeout, non-zero rc, Docker hiccup). Without
+            # this the leaked container persists until the next E2E run.
+            self._docker.remove_container(_CONTAINER_NAME)
 
     def _launch_upgrade(self) -> "subprocess.Popen[str]":
         token_env = read_token_passthrough(
