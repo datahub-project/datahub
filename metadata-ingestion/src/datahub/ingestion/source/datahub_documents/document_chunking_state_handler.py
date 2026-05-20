@@ -137,6 +137,27 @@ class DocumentChunkingStateHandler(
                 "last_processed": last_processed,
             }
 
+    def get_all_tracked_urns(self) -> set[str]:
+        """Return URNs in the previous run's state — the set of docs datahub-documents owns."""
+        state = self.get_last_state()
+        if state:
+            return set(state.document_state.keys())
+        return set()
+
+    def carry_forward_document_state(self, document_urn: str) -> None:
+        """Copy a skipped doc's previous state entry into the current checkpoint.
+
+        Ensures the URN stays in the adopted set even when content is unchanged,
+        so ownership persists across multiple runs without re-processing.
+        """
+        last_state = self.get_last_state()
+        if last_state and document_urn in last_state.document_state:
+            current_state = self.get_current_state()
+            if current_state:
+                current_state.document_state[document_urn] = last_state.document_state[
+                    document_urn
+                ]
+
     def get_event_offset(self, topic: str) -> Optional[str]:
         """Get the stored offset for an event topic."""
         state = self.get_last_state()

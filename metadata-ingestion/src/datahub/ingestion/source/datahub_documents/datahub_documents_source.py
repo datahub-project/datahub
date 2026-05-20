@@ -254,6 +254,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         f"Skipping document {doc['urn']} (unchanged content hash)"
                     )
                     self.report.report_document_skipped_unchanged()
+                    # Carry state forward so this doc stays in the adopted set
+                    # and is included in future runs even after it gains semanticContent.
+                    self._carry_forward_document_state(doc["urn"])
                     continue
 
             # Process document and yield workunits
@@ -827,14 +830,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             search_data = response.get("search") or {}
             search_results = search_data.get("searchResults") or []
 
-            # When include_unembedded is set, fetch the set of URNs that have no
-            # semanticContent aspect yet via a single ES query, so we can include
-            # those regardless of platform_filter.
+            # When include_unembedded is set:
+            # - previously_adopted_urns: docs we've embedded before (own going forward)
+            # - unembedded_urns: docs with no semanticContent yet (new adoptions)
+            # A doc passes the filter if it's in either set.
+            previously_adopted_urns: set[str] = set()
             unembedded_urns: set[str] = set()
             if self.config.include_unembedded:
+                if self.state_handler and self.state_handler.is_checkpointing_enabled():
+                    previously_adopted_urns = self.state_handler.get_all_tracked_urns()
+                else:
+                    previously_adopted_urns = set(self.document_state.keys())
                 logger.info(
-                    "include_unembedded=True: querying Elasticsearch for documents "
-                    "without semanticContent aspect."
+                    f"include_unembedded=True: {len(previously_adopted_urns)} previously "
+                    "adopted docs; querying Elasticsearch for new unembedded docs."
                 )
                 unembedded_urns = self._get_unembedded_urns()
 
@@ -855,11 +864,18 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 contents = info.get("contents") or {}
                 text = contents.get("text") or ""
 
-                # When include_unembedded is set: include if this URN has no
-                # semanticContent aspect yet, regardless of platform_filter.
-                # Otherwise apply the normal platform/source-type filter.
-                if self.config.include_unembedded and urn in unembedded_urns:
-                    logger.debug(f"Including {urn} — no semanticContent aspect found")
+                if self.config.include_unembedded:
+                    if urn in previously_adopted_urns:
+                        # We've embedded this before — maintain ownership going forward.
+                        logger.debug(f"Maintaining {urn} — previously adopted")
+                    elif urn in unembedded_urns:
+                        # New adoption: no semanticContent yet, ingestion didn't embed it.
+                        logger.debug(
+                            f"Adopting {urn} — no semanticContent aspect found"
+                        )
+                    else:
+                        # Already has semanticContent from ingestion source — skip it.
+                        continue
                 else:
                     should_process = self._should_process_by_source_type(entity, info)
                     if not should_process:
@@ -968,6 +984,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         # Deterministic JSON serialization
         hash_str = json.dumps(hash_input, sort_keys=True)
         return hashlib.sha256(hash_str.encode("utf-8")).hexdigest()
+
+    def _carry_forward_document_state(self, document_urn: str) -> None:
+        """Carry state forward for a skipped (unchanged) doc.
+
+        Keeps the URN in the adopted set so ownership persists across runs
+        even when the document content hasn't changed.
+        """
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.carry_forward_document_state(document_urn)
+        # For file-based state (self.document_state dict), the full dict is
+        # loaded at startup and saved at close — unchanged entries persist automatically.
 
     def _update_document_state(self, document_urn: str, text: str) -> None:
         """Update state after processing document."""
