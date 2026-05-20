@@ -1,4 +1,4 @@
-import { Tooltip } from '@components';
+import { Text, Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -62,6 +62,11 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
     const renderValue = () => {
         if (!optimisticStatus) return <span>-</span>;
 
+        if (!canEditState) {
+            const displayLabel = statusOptions.find((o) => o.value === optimisticStatus)?.label ?? optimisticStatus;
+            return <Text>{displayLabel}</Text>;
+        }
+
         return (
             <StatusSelectWrapper>
                 <Tooltip title={<>Publish this document to make it visible to others</>} placement="top">
@@ -69,7 +74,7 @@ export default function DocumentStatusProperty(props: PropertyComponentProps) {
                         <SimpleSelect
                             values={[optimisticStatus]}
                             onUpdate={handleStatusChange}
-                            isDisabled={!canEditState}
+                            isDisabled={false}
                             options={statusOptions}
                             size="sm"
                             width="fit-content"

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
+import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
@@ -9,8 +10,8 @@ import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sid
 import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { EntityType } from '@types';
@@ -32,7 +33,7 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
             tabs={[
                 {
                     name: 'Summary',
-                    component: SummaryTab,
+                    component: ExternalDocumentInlineSummaryTab,
                     display: {
                         visible: () => true,
                         enabled: () => true,
@@ -82,6 +83,12 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
                     component: SidebarRelatedAssetsSection,
                     display: {
                         visible: () => true,
+                    },
+                },
+                {
+                    component: StatusSection,
+                    display: {
+                        visible: (entityData) => !!entityData?.lastIngested,
                     },
                 },
             ]}

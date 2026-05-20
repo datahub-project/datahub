@@ -1690,3 +1690,45 @@ def test_shard_pattern_respects_case_insensitivity(table_id: str) -> None:
 )
 def test_parse_external_table_options(ddl: str, expected: ExternalTableOptions) -> None:
     assert ExternalTableOptions.from_ddl(ddl) == expected
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_biglake_dataset_skipped_for_region_autodetect(
+    get_projects_client, get_bq_client_mock
+):
+    # REGRESSION PROTECTION: BigLake/Omni datasets report locations like
+    # `aws-us-east-1` that are NOT valid INFORMATION_SCHEMA region qualifiers.
+    # If we add them to discovered_locations, the queries extractor would try
+    # to scan `region-aws-us-east-1` and emit a spurious failure every run.
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "include_schema_metadata": False}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    biglake_dataset = BigqueryDataset(name="ds-biglake", location="aws-us-east-1")
+    gcp_dataset = BigqueryDataset(name="ds-gcp", location="europe-west1")
+
+    list(
+        schema_gen._process_schema(
+            project_id="test-project",
+            bigquery_dataset=biglake_dataset,
+            db_tables={},
+            db_views={},
+            db_snapshots={},
+        )
+    )
+    list(
+        schema_gen._process_schema(
+            project_id="test-project",
+            bigquery_dataset=gcp_dataset,
+            db_tables={},
+            db_views={},
+            db_snapshots={},
+        )
+    )
+
+    assert "aws-us-east-1" not in schema_gen.discovered_locations
+    assert "europe-west1" in schema_gen.discovered_locations
+    assert source.report.num_biglake_datasets_skipped_for_region_autodetect == 1
