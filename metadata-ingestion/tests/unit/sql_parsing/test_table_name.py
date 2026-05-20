@@ -175,10 +175,8 @@ class TestLeafNameTransform:
                 f"Transform leaked onto non-leaf part: {result.table}"
             )
 
-    def test_transform_applied_to_semantic_view_identifier(self):
-        """SemanticView wrapping a bare identifier still runs the transform."""
-        # SEMANTIC_VIEW(simple) parses with inner Table(this=Identifier), which is
-        # the second branch of the SemanticView handling.
+    def test_transform_propagates_through_semantic_view_to_simple_identifier(self):
+        """SemanticView wrapping a single-identifier table still runs the transform."""
         sql = "SELECT * FROM SEMANTIC_VIEW(my_view)"
         stmt = sqlglot.parse_one(sql, dialect="snowflake")
         table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
