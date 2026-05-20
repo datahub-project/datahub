@@ -17,17 +17,35 @@ import { Column } from '@src/alchemy-components/components/Table/types';
 import { useListPostsQuery } from '@graphql/post.generated';
 import { PostContentType } from '@types';
 
-const PostsContainer = styled.div`
+const PageContainer = styled.div`
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
+`;
+
+const PostsContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     gap: 16px;
+    overflow: hidden;
 `;
 
 const TableContainer = styled.div`
     flex: 1;
     min-height: 0;
-    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
+
+const PaginationContainer = styled.div`
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
 `;
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -163,7 +181,7 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
     };
 
     return (
-        <>
+        <PageContainer>
             {error && <Alert variant="error" title="Failed to load Posts! An unexpected error occurred." />}
             <PostsContainer>
                 <SearchBar
@@ -178,13 +196,15 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
                 <TableContainer>{renderContent()}</TableContainer>
                 {totalPosts > pageSize && (
-                    <Pagination
-                        currentPage={page}
-                        itemsPerPage={pageSize}
-                        total={totalPosts}
-                        onPageChange={onChangePage}
-                        showSizeChanger={false}
-                    />
+                    <PaginationContainer>
+                        <Pagination
+                            currentPage={page}
+                            itemsPerPage={pageSize}
+                            total={totalPosts}
+                            onPageChange={onChangePage}
+                            showSizeChanger={false}
+                        />
+                    </PaginationContainer>
                 )}
                 {isCreatingPost && (
                     <CreatePostModal
@@ -208,6 +228,6 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                     />
                 )}
             </PostsContainer>
-        </>
+        </PageContainer>
     );
 };
