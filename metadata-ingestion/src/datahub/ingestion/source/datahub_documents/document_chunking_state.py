@@ -24,3 +24,11 @@ class DocumentChunkingCheckpointState(CheckpointStateBase):
         default_factory=dict,
         description="Maps topic to offset_id for event-driven mode",
     )
+
+    # Processing algorithm version — bumping PROCESSING_ALGO_VERSION in the source
+    # causes a full re-process on the next run (old state is detected as stale).
+    processing_algo_version: str = pydantic.Field(
+        default="",
+        description="Version of the processing algorithm used to produce this state. "
+        "Mismatch with the current PROCESSING_ALGO_VERSION triggers a full re-process.",
+    )

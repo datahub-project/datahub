@@ -137,6 +137,19 @@ class DocumentChunkingStateHandler(
                 "last_processed": last_processed,
             }
 
+    def get_last_processing_algo_version(self) -> Optional[str]:
+        """Return the processing algo version stored in the previous run's checkpoint."""
+        state = self.get_last_state()
+        if state:
+            return state.processing_algo_version or None
+        return None
+
+    def set_processing_algo_version(self, version: str) -> None:
+        """Write the current processing algo version into the current checkpoint."""
+        current_state = self.get_current_state()
+        if current_state:
+            current_state.processing_algo_version = version
+
     def get_all_tracked_urns(self) -> set[str]:
         """Return URNs in the previous run's state — the set of docs datahub-documents owns."""
         state = self.get_last_state()

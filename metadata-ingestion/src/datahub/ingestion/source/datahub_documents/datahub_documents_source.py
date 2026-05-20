@@ -51,6 +51,12 @@ from datahub.ingestion.source.unstructured.event_consumer import DocumentEventCo
 
 logger = logging.getLogger(__name__)
 
+# Bump this when the processing algorithm changes in a way that requires all previously
+# embedded documents to be re-processed (e.g., improved chunking logic, better text
+# normalization). A mismatch with the version stored in the last checkpoint triggers a
+# full re-process for the entire run, bypassing the per-document incremental check.
+PROCESSING_ALGO_VERSION = "1"
+
 
 class DataHubDocumentsReport(StatefulIngestionReport):
     """Report for DataHub documents source."""
@@ -235,20 +241,49 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         if self.config.incremental.enabled:
             self._save_state()
 
+    def _is_bootstrap_run(self) -> bool:
+        """Return True if this run should bypass incremental and re-process everything.
+
+        True when:
+        - force_reprocess is set in config, OR
+        - the processing algorithm version in the last checkpoint differs from
+          PROCESSING_ALGO_VERSION (algorithm improved — old embeddings are stale)
+
+        False when:
+        - no previous state exists (first run — incremental handles it naturally), OR
+        - previous state exists and algo version matches (normal incremental run)
+        """
+        if self.config.incremental.force_reprocess:
+            return True
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            last_version = self.state_handler.get_last_processing_algo_version()
+            if last_version is not None and last_version != PROCESSING_ALGO_VERSION:
+                logger.info(
+                    f"Processing algorithm changed ({last_version!r} → {PROCESSING_ALGO_VERSION!r}). "
+                    "Switching to bootstrap mode — all documents will be re-processed."
+                )
+                return True
+        return False
+
     def _process_batch_mode(self) -> Iterable[MetadataWorkUnit]:
         """Process documents using GraphQL search (batch mode)."""
         logger.info("Running in batch mode")
+
+        bootstrap = self._is_bootstrap_run()
+        if bootstrap:
+            logger.info("Bootstrap mode: incremental check bypassed for this run.")
+
+        # Record current algo version in the checkpoint so future runs can detect changes.
+        if self.state_handler and self.state_handler.is_checkpointing_enabled():
+            self.state_handler.set_processing_algo_version(PROCESSING_ALGO_VERSION)
 
         # Fetch documents from DataHub
         documents = self._fetch_documents_graphql()
 
         # Process each document
         for doc in documents:
-            # Check if we should process this document (incremental mode)
-            if (
-                self.config.incremental.enabled
-                and not self.config.incremental.force_reprocess
-            ):
+            # Incremental check — skipped entirely in bootstrap mode
+            if self.config.incremental.enabled and not bootstrap:
                 if not self._should_process(doc["urn"], doc.get("text", "")):
                     logger.debug(
                         f"Skipping document {doc['urn']} (unchanged content hash)"
