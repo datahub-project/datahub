@@ -832,6 +832,82 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
+    @staticmethod
+    def _monkeypatch_blocks_filter_unknown_fields() -> None:
+        """Filter unknown kwargs on every Notion block dataclass __init__.
+
+        Notion's API regularly adds new fields to block payloads (icon, color,
+        list_start_index, list_format, ...). unstructured-ingest 0.7.2 models
+        blocks as dataclasses and parses them with ``cls(**data)``, so any new
+        field raises ``TypeError: __init__() got an unexpected keyword argument``
+        and aborts the whole ingestion.
+
+        Rather than patch each block individually as fields appear (see AI-603
+        for the Paragraph 'icon' case), this wraps __init__ on every BlockBase
+        subclass to drop unknown kwargs and log a one-shot warning per
+        (class, field). New API additions degrade to "minor metadata not
+        captured" instead of a hard failure.
+        """
+        try:
+            import dataclasses
+
+            from unstructured_ingest.processes.connectors.notion.interfaces import (
+                BlockBase,
+            )
+            from unstructured_ingest.processes.connectors.notion.types import (
+                blocks as blocks_module,
+            )
+
+            warned: Set[tuple] = set()
+            patched_count = 0
+
+            for block_cls in vars(blocks_module).values():
+                if not (
+                    isinstance(block_cls, type)
+                    and issubclass(block_cls, BlockBase)
+                    and dataclasses.is_dataclass(block_cls)
+                ):
+                    continue
+                # Skip classes we've already wrapped (idempotent if pipeline runs twice).
+                if getattr(block_cls.__init__, "_datahub_filters_unknown", False):
+                    continue
+
+                valid_fields = {f.name for f in dataclasses.fields(block_cls)}
+                original_init = block_cls.__init__
+                cls_name = block_cls.__name__
+
+                def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
+                    def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                        unknown = [k for k in kwargs if k not in valid]
+                        for k in unknown:
+                            key = (name, k)
+                            if key not in warned:
+                                warned.add(key)
+                                logger.warning(
+                                    f"Notion API returned unknown field '{k}' on "
+                                    f"{name} block — filtering. Content for this "
+                                    f"field will be dropped; consider upgrading "
+                                    f"unstructured-ingest or extending the connector."
+                                )
+                            kwargs.pop(k)
+                        orig(self, *args, **kwargs)
+
+                    wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
+                    return wrapped_init
+
+                block_cls.__init__ = make_wrapped(original_init, valid_fields, cls_name)
+                patched_count += 1
+
+            logger.info(
+                f"Applied generic unknown-field filter to {patched_count} Notion block types"
+            )
+        except ImportError as e:
+            logger.warning(
+                f"Notion block classes not found - skipping generic field filter: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply generic block field filter: {e}")
+
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
 
@@ -1367,6 +1443,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_databases_endpoint_query()
         self._monkeypatch_syncblock_from_dict()
         self._monkeypatch_numbered_list_item_new_fields()
+        self._monkeypatch_blocks_filter_unknown_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
