@@ -869,7 +869,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                         # We've embedded this before — maintain ownership going forward.
                         logger.debug(f"Maintaining {urn} — previously adopted")
                     elif urn in unembedded_urns:
-                        # New adoption: no semanticContent yet, ingestion didn't embed it.
+                        # New adoption candidate: no semanticContent yet.
+                        # Apply platform_filter to restrict new adoptions if specified.
+                        if (
+                            self.config.platform_filter
+                            and "*" not in self.config.platform_filter
+                            and "ALL" not in self.config.platform_filter
+                        ):
+                            platform = self._extract_platform_from_entity(entity)
+                            if platform not in self.config.platform_filter:
+                                logger.debug(
+                                    f"Skipping {urn} — platform '{platform}' not in "
+                                    f"platform_filter {self.config.platform_filter} "
+                                    "(new adoptions restricted)"
+                                )
+                                continue
                         logger.debug(
                             f"Adopting {urn} — no semanticContent aspect found"
                         )

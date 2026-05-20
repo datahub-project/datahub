@@ -89,11 +89,11 @@ class DataHubDocumentsSourceConfig(
     # Platform filtering (multi-platform support)
     platform_filter: Optional[list[str]] = Field(
         default=None,
-        description="Filter documents by platforms. "
-        "Default (None): Process all NATIVE documents (sourceType=NATIVE) regardless of platform. "
-        "To include external documents from specific platforms, add them here (e.g., ['notion', 'confluence']). "
-        "This will process NATIVE documents + EXTERNAL documents from the specified platforms. "
-        "Use ['*'] or ['ALL'] to process all documents regardless of source type or platform.",
+        description="Restrict which platforms are considered when adopting new unembedded documents. "
+        "Default (None): adopt unembedded documents from all platforms. "
+        "Set to a list of platform names (e.g., ['notion', 'confluence']) to restrict new adoptions "
+        "to those platforms. Previously adopted documents are always maintained regardless of this filter. "
+        "Use ['*'] or ['ALL'] as an explicit alias for 'all platforms'.",
     )
 
     # Optional URN filtering
@@ -103,10 +103,12 @@ class DataHubDocumentsSourceConfig(
     )
 
     include_unembedded: bool = Field(
-        default=False,
-        description="When True, include any document that has no semanticContent aspect yet, "
-        "regardless of platform_filter. Useful for initial backfill runs to catch all "
-        "documents that have never been embedded.",
+        default=True,
+        description="Automatically adopt and embed any document that has no semanticContent aspect yet, "
+        "regardless of platform_filter. Once adopted, the document is maintained (re-embedded on content "
+        "changes) across future runs. Documents that already have semanticContent when first seen are "
+        "left to the ingestion source that produced them. Set to False to disable this behavior and only "
+        "process documents matching platform_filter explicitly.",
     )
 
     # Mode selection
@@ -169,14 +171,6 @@ class DataHubDocumentsSourceConfig(
     @field_validator("platform_filter")
     @classmethod
     def validate_platform_filter(cls, v: list[str]) -> list[str]:
-        """Validate platform_filter.
-
-        Empty list is allowed (default - processes all NATIVE documents).
-        Non-empty list must contain at least one platform or wildcard.
-        """
-        # Empty list is valid (default behavior)
         if not v:
             return v
-        # Non-empty list must have at least one element
-        # (This check is redundant but kept for clarity)
         return v
