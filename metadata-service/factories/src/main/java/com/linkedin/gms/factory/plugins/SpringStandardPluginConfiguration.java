@@ -34,6 +34,7 @@ import com.linkedin.metadata.aspect.validation.UrnAnnotationValidator;
 import com.linkedin.metadata.aspect.validation.UserDeleteValidator;
 import com.linkedin.metadata.config.AspectSizeValidationConfiguration;
 import com.linkedin.metadata.config.PoliciesConfiguration;
+import com.linkedin.metadata.config.StructuredPropertiesConfiguration;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.entity.AspectSizePayloadValidator;
 import com.linkedin.metadata.entity.versioning.sideeffects.VersionPropertiesSideEffect;
@@ -46,7 +47,7 @@ import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect;
-import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesSoftDelete;
+import com.linkedin.metadata.structuredproperties.hooks.StructuredPropertiesAssignmentMutator;
 import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
 import com.linkedin.metadata.structuredproperties.validation.PropertyDefinitionValidator;
 import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
@@ -60,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -572,12 +574,19 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public MutationHook structuredPropertiesSoftDelete() {
-    return new StructuredPropertiesSoftDelete()
+  public MutationHook structuredPropertiesAssignmentMutator(
+      @Nonnull ConfigurationProvider configurationProvider) {
+    StructuredPropertiesConfiguration structuredPropertiesConfiguration =
+        configurationProvider.getStructuredProperties();
+    return new StructuredPropertiesAssignmentMutator()
+        .setDropMissingPropertyValuesWithWarning(
+            structuredPropertiesConfiguration != null
+                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
         .setConfig(
             AspectPluginConfig.builder()
-                .className(StructuredPropertiesSoftDelete.class.getName())
+                .className(StructuredPropertiesAssignmentMutator.class.getName())
                 .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -609,8 +618,14 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
-  public AspectPayloadValidator structuredPropertiesValidator() {
+  public AspectPayloadValidator structuredPropertiesValidator(
+      @Nonnull ConfigurationProvider configurationProvider) {
+    StructuredPropertiesConfiguration structuredPropertiesConfiguration =
+        configurationProvider.getStructuredProperties();
     return new StructuredPropertiesValidator()
+        .setDropMissingPropertyValuesWithWarning(
+            structuredPropertiesConfiguration != null
+                && structuredPropertiesConfiguration.isDropMissingPropertyValuesWithWarning())
         .setConfig(
             AspectPluginConfig.builder()
                 .className(StructuredPropertiesValidator.class.getName())

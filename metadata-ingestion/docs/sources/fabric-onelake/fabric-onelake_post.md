@@ -266,6 +266,55 @@ source:
 3. **Schema**: Column metadata is reused from the same `INFORMATION_SCHEMA.COLUMNS` query that powers table schema extraction — no extra queries per view.
 4. **Lineage**: View definitions are passed to the SQL parsing aggregator to derive view → upstream table lineage. View URNs and upstream table URNs are resolved within the same workspace and item.
 
+#### Usage Statistics
+
+The connector extracts query usage statistics from each Lakehouse and Warehouse by reading the [`queryinsights.exec_requests_history`](https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights) view on the SQL Analytics Endpoint. Each captured query is parsed by the SQL parsing aggregator and emitted as:
+
+- `datasetUsageStatistics` aspects — query counts, distinct user counts, top users, top fields, and (when enabled) top SQL queries, bucketed by the configured window.
+- `operation` aspects — per-query operation events (insert, update, delete, etc.) when `usage.include_operational_stats` is enabled.
+
+See [Query Usage Statistics](#query-usage-statistics) under Prerequisites for the required workspace role (Contributor or higher) and ODBC setup.
+
+##### Configuration
+
+```yaml
+source:
+  type: fabric-onelake
+  config:
+    # Usage extraction is enabled by default. Set to false to skip query usage.
+    usage:
+      include_usage_statistics: true
+
+      # When true, the SQL filter excludes rows where status != 'Succeeded'
+      # (canceled / failed queries are skipped at the source).
+      skip_failed_queries: true
+
+      # Optional: emit per-query operation aspects in addition to aggregated
+      # datasetUsageStatistics. Defaults to true (inherited from BaseUsageConfig).
+      include_operational_stats: true
+
+      # Optional: include top SQL queries in the usage payload.
+      include_top_n_queries: true
+      top_n_queries: 10
+
+      # Optional: window the connector queries from queryinsights. Defaults to
+      # the standard BaseUsageConfig "last bucket" window. Fabric retains
+      # queryinsights for 30 days.
+      bucket_duration: DAY
+      # start_time: "2026-04-01T00:00:00Z"
+      # end_time:   "2026-05-01T00:00:00Z"
+
+    # Usage extraction depends on the SQL Analytics Endpoint.
+    extract_schema:
+      enabled: true
+    sql_endpoint:
+      enabled: true
+```
+
+All standard `BaseUsageConfig` fields (`bucket_duration`, `start_time`, `end_time`, `top_n_queries`, `format_sql_queries`, `include_top_n_queries`, `include_operational_stats`, `user_email_pattern`, etc.) are supported under the `usage` block.
+
+When stateful ingestion is enabled, the usage time window is checkpointed only after a successful run, so a partial or failed run won't silently skip the next window.
+
 #### Schemas-Enabled vs Schemas-Disabled Lakehouses
 
 The connector automatically handles both schemas-enabled and schemas-disabled lakehouses:
@@ -304,6 +353,8 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
   - Table count limits in very large databases
 - **Graceful Degradation**: If schema extraction fails for a table, the table will still be ingested without column metadata (no ingestion failure)
 - **View Extraction Requires SQL Endpoint**: Views are only discovered through the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, or if the endpoint is unreachable for a given Lakehouse/Warehouse, views in that item will not be ingested.
+- **Usage Statistics Retention**: Fabric `queryinsights` retains query history for only **30 days**. Older usage cannot be backfilled, regardless of the configured `usage.start_time`.
+- **Usage Statistics Requires SQL Endpoint**: Usage extraction reads `queryinsights.exec_requests_history` over the SQL Analytics Endpoint. If `sql_endpoint.enabled` is `false`, the configuration validator will reject `usage.include_usage_statistics=true`. If the endpoint is unreachable for a specific Lakehouse/Warehouse, usage for that item is skipped without failing the run.
 
 ### Troubleshooting
 

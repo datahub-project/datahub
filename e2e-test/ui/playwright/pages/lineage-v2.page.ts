@@ -178,10 +178,11 @@ export class LineageV2Page extends BasePage {
   // ── Column interactions ─────────────────────────────────────────────────────
 
   async expandContractColumns(nodeUrn: string): Promise<void> {
-    await this.page
+    const button = this.page
       .locator(`[data-testid="lineage-node-${nodeUrn}"]`)
-      .locator('[data-testid="expand-contract-columns"]')
-      .click({ force: true });
+      .locator('[data-testid="expand-contract-columns"]');
+    await button.scrollIntoViewIfNeeded();
+    await button.click();
   }
 
   async hoverColumn(nodeUrn: string, columnName: string): Promise<void> {
