@@ -1,4 +1,11 @@
-import { AndFilterInput, AutoCompleteInput, EntityType, FilterOperator, SearchAcrossEntitiesInput } from '@types';
+import {
+    AndFilterInput,
+    AutoCompleteInput,
+    AutoCompleteMultipleInput,
+    EntityType,
+    FilterOperator,
+    SearchAcrossEntitiesInput,
+} from '@types';
 
 /**
  * Returns orFilters that implement "active OR displayName" logic.
@@ -48,6 +55,19 @@ export const addUserFiltersToAutoCompleteInput = (
     entityType: EntityType,
 ): AutoCompleteInput => {
     if (entityType === EntityType.CorpUser) {
+        return {
+            ...input,
+            orFilters: getUserFilters(),
+        };
+    }
+    return input;
+};
+
+export const addUserFiltersToAutoCompleteMultipleInput = (
+    input: AutoCompleteMultipleInput,
+    entityTypes: EntityType[],
+): AutoCompleteMultipleInput => {
+    if (entityTypes.includes(EntityType.CorpUser)) {
         return {
             ...input,
             orFilters: getUserFilters(),
