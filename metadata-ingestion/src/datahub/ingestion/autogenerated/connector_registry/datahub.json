@@ -2152,6 +2152,56 @@
       "platform_name": "LDAP",
       "support_status": "CERTIFIED"
     },
+    "lightdash": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Project + Space hierarchy",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Descriptions on Dashboards, Charts, Containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Soft-delete entities removed from Lightdash between runs (stateful ingestion)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Owners taken from updatedByUser",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Multi-instance Lightdash support",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Chart \u2192 warehouse dataset lineage from Explore tables (ClickHouse/Snowflake/etc.)",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Health-check + authenticated org probe",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.lightdash.source.LightdashSource",
+      "platform_id": "lightdash",
+      "platform_name": "Lightdash",
+      "support_status": "INCUBATING"
+    },
     "looker": {
       "capabilities": [
         {
