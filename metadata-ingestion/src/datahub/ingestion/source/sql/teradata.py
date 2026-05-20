@@ -1239,6 +1239,7 @@ ORDER by DataBaseName, TableName;
 
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
+        self._report_lock = Lock()  # Thread safety for report counters
         # Populated by cache_tables_and_views() when column_extraction_watermark is set;
         # None means "extract all", a set means "only extract these (schema, table) pairs"
         self._tables_needing_column_extraction: Optional[Set[Tuple[str, str]]] = None
@@ -1759,8 +1760,6 @@ ORDER by DataBaseName, TableName;
         engine = self._get_or_create_pooled_engine()
 
         try:
-            # Thread-safe result collection
-            report_lock = Lock()
 
             def process_single_view(
                 view_name: str,
@@ -1784,7 +1783,7 @@ ORDER by DataBaseName, TableName;
                         timings["connection_acquire"] = time.time() - conn_start
 
                         # Update connection pool metrics
-                        with report_lock:
+                        with self._report_lock:
                             pool_wait_time = timings["connection_acquire"]
                             self.report.connection_pool_wait_time_seconds += (
                                 pool_wait_time
@@ -1815,13 +1814,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                         # Thread-safe reporting
-                        with report_lock:
+                        with self._report_lock:
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
 
                         if not sql_config.view_pattern.allowed(dataset_name):
-                            with report_lock:
+                            with self._report_lock:
                                 self.report.report_dropped(dataset_name)
                             return results
 
@@ -1842,13 +1841,13 @@ ORDER by DataBaseName, TableName;
                     # Track individual view timing
                     timings["total"] = time.time() - total_start
 
-                    with report_lock:
+                    with self._report_lock:
                         self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             timings["total"]
                         )
 
                 except Exception as e:
-                    with report_lock:
+                    with self._report_lock:
                         self.report.num_view_processing_failures += 1
                         full_traceback = traceback.format_exc()
                         logger.error(
@@ -1917,7 +1916,7 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            with report_lock:
+                            with self._report_lock:
                                 self.report.warning(
                                     "Error in thread processing view",
                                     context=f"{schema}.{view_name}",
@@ -1943,7 +1942,7 @@ ORDER by DataBaseName, TableName;
                                 f"be blocked in I/O; it will be released when the "
                                 f"underlying call returns or the process exits."
                             )
-                            with report_lock:
+                            with self._report_lock:
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(
