@@ -2,6 +2,7 @@ import { Note } from '@phosphor-icons/react/dist/csr/Note';
 import removeMd from '@tommoor/remove-markdown';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -38,6 +39,7 @@ type PostListProps = {
 };
 
 export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) => {
+    const { t } = useTranslation('settings.posts');
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
@@ -89,20 +91,20 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
 
     const allColumns: Column<PostEntry>[] = [
         {
-            title: 'Title',
+            title: t('columnTitle'),
             key: 'title',
             sorter: (a, b) => a.title.localeCompare(b.title),
             render: (record) => record.title,
             width: '25%',
         },
         {
-            title: 'Description',
+            title: t('columnDescription'),
             key: 'description',
             render: (record) => <OverflowText text={removeMd(record.description || '')} />,
             width: '40%',
         },
         {
-            title: 'Type',
+            title: t('columnType'),
             key: 'type',
             render: (record) => (
                 <Pill
@@ -159,15 +161,15 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                 />
             );
         }
-        return <EmptyState icon={Note} title="No Posts" description="Create a new post to get started." />;
+        return <EmptyState icon={Note} title={t('emptyTitle')} description={t('emptyDescription')} />;
     };
 
     return (
         <>
-            {error && <Alert variant="error" title="Failed to load Posts! An unexpected error occurred." />}
+            {error && <Alert variant="error" title={t('loadError')} />}
             <PostsContainer>
                 <SearchBar
-                    placeholder="Search posts..."
+                    placeholder={t('searchPlaceholder')}
                     value={query || ''}
                     onChange={(value) => {
                         setPage(1);
