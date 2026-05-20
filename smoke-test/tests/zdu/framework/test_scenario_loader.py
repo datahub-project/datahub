@@ -22,12 +22,14 @@ from tests.zdu.framework.suite import Suite
 class TestLoadScenarios:
     def test_load_returns_full_suite_a(self) -> None:
         # Suite N spans TC-301..031: 23 per-URN aspect-migration scenarios
-        # + 8 sweep-invariant scenarios (originally TC-401..408 in the
-        # design doc), all sharing the non-blocking sweep phase.
+        # + 7 sweep-invariant scenarios (originally TC-401..408 in the
+        # design doc — TC-329 "APP_SOURCE stamped on sweep writes" was
+        # dropped as a syntactic duplicate of TC-322), all sharing the
+        # non-blocking sweep phase.
         ss = load_scenarios()
         suite_n = [s for s in ss if s.suite == Suite.N]
-        assert len(suite_n) == 31
-        assert {s.tc_number for s in suite_n} == set(range(301, 332))
+        assert len(suite_n) == 30
+        assert {s.tc_number for s in suite_n} == set(range(301, 331))
 
     def test_loader_class_returns_same_list(self) -> None:
         # Backward-compatible API: ScenarioLoader().load() == load_scenarios().
@@ -39,7 +41,7 @@ class TestLoadScenarios:
         # Existing callers may pass source=...; new loader ignores it.
         ss = ScenarioLoader().load(source="ignored")
         suite_n = [s for s in ss if s.suite == Suite.N]
-        assert len(suite_n) == 31
+        assert len(suite_n) == 30
 
     def test_suite_a_scenario_types(self) -> None:
         # Suite N holds two scenario_types: per-URN aspect-migration scenarios
@@ -59,7 +61,7 @@ class TestLoadScenarios:
                     f"scenario_type={s.scenario_type}"
                 )
         assert set(aspect_migration) == set(range(301, 324))
-        assert set(sweep) == set(range(324, 332))
+        assert set(sweep) == set(range(324, 331))
 
 
 class TestScenarioFields:
@@ -209,14 +211,17 @@ class TestAllSuites:
         )
 
         # Suite N has two subsets: the per-URN aspect-migration scenarios
-        # (TC-301..323) and the sweep-invariant scenarios (TC-324..331).
-        # Both groups share the non-blocking sweep phase.
+        # (TC-301..323) and the sweep-invariant scenarios (TC-324..330).
+        # Both groups share the non-blocking sweep phase. The original
+        # TC-329 ("APP_SOURCE stamped on sweep writes") was dropped from
+        # the grid as a syntactic duplicate of TC-322; higher TCs shifted
+        # down by one (so the count is 7, not 8).
         assert len(SUITE_N_SCENARIOS) == 23
-        assert len(SUITE_N_SWEEP_INVARIANT_SCENARIOS) == 8
+        assert len(SUITE_N_SWEEP_INVARIANT_SCENARIOS) == 7
         all_n_tcs = {s.tc_number for s in SUITE_N_SCENARIOS} | {
             s.tc_number for s in SUITE_N_SWEEP_INVARIANT_SCENARIOS
         }
-        assert all_n_tcs == set(range(301, 332))
+        assert all_n_tcs == set(range(301, 331))
 
     def test_suite_b_count(self) -> None:
         from tests.zdu.framework.scenarios import SUITE_B_SCENARIOS
@@ -228,5 +233,5 @@ class TestAllSuites:
     def test_total_scenarios_is_sum_of_suites(self) -> None:
         from tests.zdu.framework.scenarios import load_scenarios
 
-        # 23 N_aspect + 8 N_sweep + 9 B + 6 D + 3 C = 49
-        assert len(load_scenarios()) == 49
+        # 23 N_aspect + 7 N_sweep + 9 B + 6 D + 3 C = 48
+        assert len(load_scenarios()) == 48

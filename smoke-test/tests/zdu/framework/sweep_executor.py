@@ -346,9 +346,13 @@ _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult
     326: _validate_skip_already_migrated,
     327: _validate_no_mutators_noop,
     328: _skip_with_scenario_reason,  # pending G20c reindex capture
-    329: _skip_with_scenario_reason,  # redundant with TC-322
-    330: _skip_with_scenario_reason,  # duplicate of TC-403
-    331: _skip_with_scenario_reason,  # duplicate of TC-316
+    # The old TC-329 ("APP_SOURCE stamped on sweep writes") was dropped
+    # from the grid — would be a syntactic duplicate of TC-322 (both
+    # observe MigrateAspectsStep.java:286 stamping appSource via the
+    # same MySQL read-back path). The remaining higher TCs shifted down
+    # by one to fill the gap.
+    329: _skip_with_scenario_reason,  # duplicate of TC-403 (was TC-330)
+    330: _skip_with_scenario_reason,  # duplicate of TC-316 (was TC-331)
 }
 
 

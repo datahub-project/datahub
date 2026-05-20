@@ -82,7 +82,7 @@ class TestTC27NoMutatorsNoop:
 
 class TestUnknownTC:
     def test_unknown_tc_returns_skip(self) -> None:
-        # 999 is not in the registered range (324..331).
+        # 999 is not in the registered range (324..330).
         scen = _scenario(tc=999)
         result = dispatch_sweep_scenario(scen, TestContext())
         assert result.status == "SKIP"
@@ -286,14 +286,16 @@ class TestTC326SkipAlreadyMigrated:
 
 
 class TestHonestSkipDispatch:
-    """TC-328/329/330/331 share the generic SKIP validator.
+    """TC-328/329/330 share the generic SKIP validator.
 
     TC-324 (cursor resumability), TC-325 (batch delay), and TC-326
     (already-migrated skip) have their own active validators — covered
-    in their own test classes.
+    in their own test classes. The old TC-329 ("APP_SOURCE stamped on
+    sweep writes") was dropped from the grid (syntactic duplicate of
+    TC-322); higher TCs shifted down by one.
     """
 
-    @pytest.mark.parametrize("tc", [328, 329, 330, 331])
+    @pytest.mark.parametrize("tc", [328, 329, 330])
     def test_returns_skip_with_scenario_reason(self, tc: int) -> None:
         scen = _scenario(tc=tc, skip_reason=f"why TC-{tc} skips")
         result = dispatch_sweep_scenario(scen, TestContext())

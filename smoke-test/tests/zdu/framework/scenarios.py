@@ -184,13 +184,6 @@ _DEV_STACK_REQUIRES_RUNTIME_KNOB = (
 )
 
 
-_REDUNDANT_WITH_TC_022 = (
-    "Coverage redundant with Suite N TC-322 (APP_SOURCE stamping is already "
-    "asserted on the sweep path there). Standalone per-aspect inspection "
-    "would require a separate systemMetadata fetch — out of scope."
-)
-
-
 _DEV_STACK_REQUIRES_INTERRUPT_KIT = (
     "Requires upgrade-job kill-switch + restart instrumentation — separate plan."
 )
@@ -264,11 +257,6 @@ _DEV_STACK_REQUIRES_REINDEX_CAPTURE = (
     "upgrade.jar across initial-boot and Phase-4 system-update runs, so "
     "target and current mappings match → no diff → no dual-write "
     "transitions to capture)."
-)
-_REDUNDANT_WITH_TC_022 = (
-    "Coverage redundant with Suite N TC-322 (APP_SOURCE stamping is already "
-    "asserted on the sweep path there). Standalone per-aspect inspection "
-    "would require a separate systemMetadata fetch — out of scope."
 )
 _DEV_STACK_REQUIRES_INTERRUPT_KIT = (
     "Requires upgrade-job kill-switch + restart instrumentation — separate plan."
@@ -550,7 +538,7 @@ def _sweep_scenario(
 SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     # Suite N's sweep-invariant subset (was TC-401..408 in the original
     # design-doc numbering; renumbered into the Suite N range because both
-    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-331
+    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-330
     # collapse to the same outcome on the dev stack: "a second sweep run
     # finds nothing to migrate" — exactly what TC-316 (Re-run after
     # SUCCEEDED) already proves end-to-end. Resumability, idempotency on
@@ -620,15 +608,15 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
         expected_to_fail=False,
         skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
     ),
+    # TC-329 ("APP_SOURCE stamped on sweep writes") was dropped from the
+    # grid because it shares the only line of production code it could
+    # exercise (MigrateAspectsStep.java:286 — `map.put(APP_SOURCE,
+    # SYSTEM_UPDATE_SOURCE)`) with TC-322's post-sweep integrity check.
+    # Unlike TC-326 vs TC-316 (distinct SQL clauses) there is no
+    # mechanically separate code path to assert on, so TC-329 would be a
+    # syntactic duplicate rather than a redundant signal.
     _sweep_scenario(
         tc=329,
-        name="APP_SOURCE stamped on sweep writes",
-        # Intentionally redundant with TC-322 — SKIP rather than XFAIL.
-        expected_to_fail=False,
-        skip_reason=_REDUNDANT_WITH_TC_022,
-    ),
-    _sweep_scenario(
-        tc=330,
         name="IF_VERSION_MATCH header prevents stomping",
         expected_to_fail=False,
         skip_reason=(
@@ -640,7 +628,7 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
         ),
     ),
     _sweep_scenario(
-        tc=331,
+        tc=330,
         name="Chain disable after sweep completes",
         expected_to_fail=False,
         skip_reason=(
