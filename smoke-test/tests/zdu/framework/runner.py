@@ -23,6 +23,7 @@ from .phases.data_integrity_snapshot import DataIntegritySnapshotPhase
 from .phases.discovery import DiscoveryPhase
 from .phases.inject_traffic_dual import InjectTrafficDualPhase
 from .phases.inject_traffic_pre import InjectTrafficPrePhase
+from .phases.kill_switch_sweep import KillSwitchSweepPhase
 from .phases.nuke_and_redeploy import NukeAndRedeployPhase
 from .phases.preflight import PreflightPhase
 from .phases.prepare_old_stack import PrepareOldStackPhase
@@ -354,6 +355,14 @@ class ZDUTestRunner:
             (
                 "data_integrity_snapshot",
                 DataIntegritySnapshotPhase(es=self._es, mysql=self._mysql),
+            ),
+            (
+                "kill_switch_sweep",
+                KillSwitchSweepPhase(
+                    docker=self._docker,
+                    mysql=self._mysql,
+                    gms_service=self._config.gms_service,
+                ),
             ),
             # Plan 19's Tc112FaultInjectionPhase is intentionally NOT wired
             # in. See the plan doc + TC-112 skip_reason — the fault-injection

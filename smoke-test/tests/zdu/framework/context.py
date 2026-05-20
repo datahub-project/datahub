@@ -104,6 +104,47 @@ class UpgradeBlockingResult:
 
 
 @dataclass
+class KillSwitchCapture:
+    """Captured by ``KillSwitchSweepPhase`` — TC-324 cursor resumability.
+
+    The phase seeds N test aspects at OLD ``schemaVersion``, starts the
+    upgrade job in detached mode, polls MySQL to detect when ~half the
+    aspects have been migrated, then SIGKILLs the upgrade-job container.
+    It then restarts the upgrade job (same upgrade-id) and verifies the
+    sweep resumes from the persisted cursor.
+
+    Field semantics:
+      - ``seed_count``: total test aspects seeded at OLD schemaVersion
+      - ``kill_threshold``: planned migration count that triggers the kill
+      - ``aspects_migrated_at_kill``: actual count observed at kill time
+        (may exceed ``kill_threshold`` due to MySQL polling latency)
+      - ``cursor_at_kill``: value of ``DataHubUpgradeResult.result.lastCreatedOnMs``
+        when the kill was issued (``None`` if not set in MySQL yet)
+      - ``upgrade_state_at_kill``: ``DataHubUpgradeResult.state`` value
+        (expected ``IN_PROGRESS``)
+      - ``resume_log_observed``: True iff the restart logged a cursor-load
+        message like ``"Loading state for"`` or ``"lastCreatedOnMs"``
+      - ``final_aspect_count_at_target``: count of test aspects at target
+        ``schemaVersion`` after restart completes (expected = ``seed_count``)
+      - ``final_upgrade_state``: ``DataHubUpgradeResult.state`` after
+        restart (expected ``SUCCEEDED``)
+      - ``kill_phase_duration_s`` / ``resume_phase_duration_s``: timings
+        for diagnostic logging
+    """
+
+    seed_count: int = 0
+    kill_threshold: int = 0
+    aspects_migrated_at_kill: int = 0
+    cursor_at_kill: int | None = None
+    upgrade_state_at_kill: str | None = None
+    resume_log_observed: bool = False
+    final_aspect_count_at_target: int = 0
+    final_upgrade_state: str | None = None
+    kill_phase_duration_s: float = 0.0
+    resume_phase_duration_s: float = 0.0
+
+
+@dataclass
 class UpgradeBlockingReRunResult:
     """Captured by ``UpgradeBlockingReRunPhase`` — the second invocation of
     ``SystemUpdateBlocking``.
@@ -339,6 +380,10 @@ class TestContext:
     # UpgradeBlockingReRunPhase writes — captures second SystemUpdateBlocking
     # invocation; consumed by TC-108 validator.
     upgrade_blocking_rerun: UpgradeBlockingReRunResult | None = None
+
+    # KillSwitchSweepPhase writes — captures TC-324 cursor resumability test
+    # (seed → start sweep → kill mid-execution → restart → verify resume).
+    kill_switch_capture: KillSwitchCapture | None = None
 
     # SnapshotT1Phase writes — re-queries each ``ctx.snapshot_t0`` index via
     # its alias after upgrade_blocking_rerun completes. Consumed by TC-109

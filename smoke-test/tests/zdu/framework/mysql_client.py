@@ -162,6 +162,64 @@ class MySQLClient:
             out[key] = out.get(key, 0) + row["n"]
         return out
 
+    def count_aspects_at_schema_version_for_urn_prefix(
+        self, urn_prefix: str, aspect: str, schema_version: int
+    ) -> int:
+        """Count aspect rows whose URN starts with ``urn_prefix`` and whose
+        ``systemmetadata.schemaVersion`` equals ``schema_version``.
+
+        Used by ``KillSwitchSweepPhase`` to poll the sweep's progress on a
+        scoped set of test entities (e.g., ``urn:li:dashboard:(test,zdu-tc-324-``)
+        without being affected by other entities in the database.
+        """
+        sql = (
+            "SELECT COUNT(*) AS n FROM metadata_aspect_v2 "
+            "WHERE urn LIKE %s "
+            "AND aspect=%s "
+            "AND version=0 "
+            "AND JSON_EXTRACT(systemmetadata, '$.schemaVersion') = %s"
+        )
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(sql, (f"{urn_prefix}%", aspect, schema_version))
+            row = cur.fetchone()
+        return int(row["n"]) if row else 0
+
+    def bulk_seed_aspects(
+        self,
+        rows: list[tuple[str, str, str, str]],
+    ) -> int:
+        """Bulk-insert ``metadata_aspect_v2`` rows in a single multi-VALUES INSERT.
+
+        Each tuple is ``(urn, aspect, metadata_json, systemmetadata_json)``.
+        Always inserts at ``version=0`` with the current timestamp and the
+        ``datahub`` system user as creator. Returns the number of rows
+        affected by the statement.
+
+        Used by the TC-324 kill-switch test to seed ~1000 entities in a
+        single round-trip rather than 1000 serial REST calls.
+        """
+        if not rows:
+            return 0
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        createdby = "urn:li:corpuser:datahub"
+        placeholders = ",".join(["(%s, %s, 0, %s, %s, %s, %s)"] * len(rows))
+        sql = (
+            "INSERT INTO metadata_aspect_v2 "
+            "(urn, aspect, version, metadata, systemmetadata, createdon, createdby) "
+            f"VALUES {placeholders} "
+            "ON DUPLICATE KEY UPDATE "
+            "metadata=VALUES(metadata), systemmetadata=VALUES(systemmetadata), "
+            "createdon=VALUES(createdon), createdby=VALUES(createdby)"
+        )
+        params: list[str] = []
+        for urn, aspect, metadata, systemmetadata in rows:
+            params.extend([urn, aspect, metadata, systemmetadata, now, createdby])
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(sql, params)
+            n = cur.rowcount
+            c.commit()
+        return int(n) if n is not None else 0
+
     @staticmethod
     def _coerce_json_extract_int(v: object) -> int | None:
         """Coerce pymysql's JSON_EXTRACT return value to int | None.

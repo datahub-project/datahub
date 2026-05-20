@@ -560,12 +560,16 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     _sweep_scenario(
         tc=324,
         name="Sweep cursor resumability",
-        expected_to_fail=False,
-        skip_reason=(
-            "Duplicate of TC-316 (Re-run after SUCCEEDED is a no-op). "
-            "Cursor resumability after a hard interrupt also requires "
-            "kill-switch instrumentation that's not part of this branch."
+        description=(
+            "KillSwitchSweepPhase bulk-seeds 1000 aspects at OLD schemaVersion, "
+            "starts SystemUpdateNonBlocking, kills the upgrade-job container "
+            "mid-sweep at ~500 migrated, then restarts. Validator asserts: "
+            "(a) the kill landed mid-execution (between 200 and 800 migrated), "
+            "(b) MySQL state was IN_PROGRESS with a non-null cursor at kill, "
+            "(c) the restart logged a cursor-load message, "
+            "(d) the resume completed with all 1000 aspects at the target."
         ),
+        expected_to_fail=False,
     ),
     _sweep_scenario(
         tc=325,

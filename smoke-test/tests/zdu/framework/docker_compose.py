@@ -359,6 +359,7 @@ class DockerComposeClient:
         service: str = "system-update-debug",
         extra_args: list[str] | None = None,
         compose_env: dict[str, str] | None = None,
+        container_name: str | None = None,
     ) -> "subprocess.Popen[str]":
         """Launch the upgrade job container via ``docker compose run --rm``.
 
@@ -374,11 +375,17 @@ class DockerComposeClient:
                 read time, not container env. Used by Plan F-3 to launch the
                 upgrade container with a different image tag than what's
                 currently running in the stack.
+            container_name: optional ``--name`` for the container so a caller
+                can later ``docker kill`` it by a deterministic name (used by
+                the TC-324 kill-switch test).
         """
         env_args: list[str] = []
         for key, val in env_overrides.items():
             env_args += ["-e", f"{key}={val}"]
-        cmd = self._base_cmd() + ["run", "--rm"] + env_args + [service]
+        name_args: list[str] = []
+        if container_name is not None:
+            name_args = ["--name", container_name]
+        cmd = self._base_cmd() + ["run", "--rm"] + name_args + env_args + [service]
         if extra_args:
             cmd += extra_args
         log.debug("Running upgrade job: %s", " ".join(cmd))
@@ -405,6 +412,55 @@ class DockerComposeClient:
             stderr=subprocess.STDOUT,
             text=True,
         )
+
+    def kill_container(self, container_name: str, signal: str = "KILL") -> bool:
+        """SIGKILL (or other signal) a running container by name.
+
+        Returns ``True`` if the container was killed, ``False`` if it wasn't
+        running or didn't exist. Idempotent — calling on an already-stopped
+        container is a no-op.
+
+        Used by the TC-324 kill-switch test to forcibly interrupt the
+        upgrade job mid-sweep.
+        """
+        result = subprocess.run(
+            ["docker", "kill", f"--signal={signal}", container_name],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            log.info("[docker] killed container %s with SIG%s", container_name, signal)
+            return True
+        # Non-zero exit usually means "no such container" or "container not running".
+        log.debug(
+            "[docker] kill of %s returned rc=%d (likely already stopped): %s",
+            container_name,
+            result.returncode,
+            result.stderr.strip(),
+        )
+        return False
+
+    def remove_container(self, container_name: str) -> bool:
+        """Force-remove a container by name.
+
+        Used to clean up after a killed upgrade-job container before
+        restarting (otherwise the next ``docker compose run --name <name>``
+        fails with a name conflict).
+        """
+        result = subprocess.run(
+            ["docker", "rm", "-f", container_name],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return True
+        log.debug(
+            "[docker] rm of %s returned rc=%d: %s",
+            container_name,
+            result.returncode,
+            result.stderr.strip(),
+        )
+        return False
 
     # ── logs ──────────────────────────────────────────────────────────────
 
