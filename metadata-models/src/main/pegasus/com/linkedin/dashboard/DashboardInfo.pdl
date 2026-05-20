@@ -14,7 +14,8 @@ import com.linkedin.common.Edge
  * Information about a dashboard
  */
 @Aspect = {
-  "name": "dashboardInfo"
+  "name": "dashboardInfo",
+  "schemaVersion": 2
 }
 record DashboardInfo includes CustomProperties, ExternalReference {
 

@@ -8,6 +8,7 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 @Aspect = {
   "name": "datasetUsageStatistics",
   "type": "timeseries",
+  "schemaVersion": 2
 }
 record DatasetUsageStatistics includes TimeseriesAspectBase {
   /**
