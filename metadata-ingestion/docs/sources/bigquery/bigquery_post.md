@@ -32,7 +32,7 @@ source:
     include_queries: true # Enable query entities
     include_query_usage_statistics: true # Query popularity stats
     region_qualifiers: ["region-us", "region-eu"] # Regions to scan for INFORMATION_SCHEMA.JOBS
-    region_qualifiers_auto_discovery: false # Set to true to extend region_qualifiers automatically from dataset locations
+    region_qualifiers_auto_discovery: true # Set to true to auto-extend from discovered dataset locations (default: false)
 ```
 
 ##### Multi-Region Configuration
@@ -44,7 +44,11 @@ Two options:
 - **Auto-discovery** (recommended for multi-region projects): set `region_qualifiers_auto_discovery: true`. DataHub detects dataset locations during schema ingestion and merges any newly found regions into `region_qualifiers`. The configured `region_qualifiers` list is always used as the starting set — auto-discovery only adds to it, never removes from it.
 - **Explicit list**: add regions directly to `region_qualifiers`, e.g. `["region-us", "region-eu", "region-asia-northeast1"]`.
 
-> **Note:** `region_qualifiers_auto_discovery` defaults to `false` to avoid unexpected BigQuery query costs. Enable it only if you have datasets outside `region-us` / `region-eu`.
+:::info
+
+`region_qualifiers_auto_discovery` defaults to `false` to avoid unexpected BigQuery query costs. Enable it only if you have datasets outside `region-us` / `region-eu`.
+
+:::
 
 ##### User Email Filtering Pushdown (Performance Optimization)
 

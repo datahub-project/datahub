@@ -41,9 +41,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
 
-# Shipped defaults for region_qualifiers. The gating in queries_extractor
-# imports this constant to decide whether the user is on shipped defaults;
-# a Tuple here prevents an accidental mutation from drifting the gate.
+# Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
 DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 
 # Regexp for sharded tables.

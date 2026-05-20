@@ -645,6 +645,12 @@ class TestNormalizeLocationToRegionQualifier:
         assert _normalize_location_to_region_qualifier("us_central1") is None
         assert _normalize_location_to_region_qualifier("region-") is None
 
+    def test_biglake_locations_rejected(self):
+        assert _normalize_location_to_region_qualifier("aws-us-east-1") is None
+        assert _normalize_location_to_region_qualifier("azure-eastus") is None
+        assert _normalize_location_to_region_qualifier("region-aws-us-east-1") is None
+        assert _normalize_location_to_region_qualifier("region-azure-eastus") is None
+
 
 class TestResolveRegionQualifiers:
     """Tests for _resolve_region_qualifiers."""

@@ -447,8 +447,10 @@ class BigQueryQueriesExtractor(Closeable):
                     "No rows returned from INFORMATION_SCHEMA.JOBS in any of the "
                     "scanned regions. If the project's datasets live in a region "
                     "outside this list, usage/lineage/queries extraction will be "
-                    "silently empty. Set `region_qualifiers` explicitly to the "
-                    "regions where this project's data resides."
+                    "silently empty. Either set `region_qualifiers` explicitly to "
+                    "the regions where this project's data resides, or set "
+                    "`region_qualifiers_auto_discovery: true` to detect regions "
+                    "automatically from dataset locations."
                 ),
                 context=f"project={project.id} regions_scanned={regions}",
             )
@@ -534,7 +536,9 @@ class BigQueryQueriesExtractor(Closeable):
         self.aggregator.close()
 
 
-_REGION_BODY_RE = re.compile(r"^[a-z0-9-]+$")
+_REGION_BODY_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+# Cross-cloud BigLake locations are not valid INFORMATION_SCHEMA qualifiers: https://cloud.google.com/bigquery/docs/locations#cross-cloud-locations
+_BIGLAKE_LOCATION_PREFIXES = ("aws-", "azure-")
 
 
 def _normalize_location_to_region_qualifier(location: str) -> Optional[str]:
@@ -558,6 +562,8 @@ def _normalize_location_to_region_qualifier(location: str) -> Optional[str]:
     body = (
         normalized[len("region-") :] if normalized.startswith("region-") else normalized
     )
+    if body.startswith(_BIGLAKE_LOCATION_PREFIXES):
+        return None
     if not _REGION_BODY_RE.match(body):
         return None
     return normalized if normalized.startswith("region-") else f"region-{body}"
