@@ -96,6 +96,7 @@ def glue_source(
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
     extract_lakeformation_tags: bool = False,
+    enable_properties_merge: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
     if mock_datahub_graph_instance:
@@ -113,6 +114,7 @@ def glue_source(
             emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
+            enable_properties_merge=enable_properties_merge,
         ),
     )
 
@@ -149,6 +151,7 @@ def glue_source_with_profiling(
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
             profiling=profiling_config,
+            enable_properties_merge=False,
         ),
     )
 
@@ -444,6 +447,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     source_config_dict: Dict[str, Any] = {
         "extract_transforms": False,
         "aws_region": "eu-east-1",
+        "enable_properties_merge": False,
         **stateful_config,
     }
 
@@ -1557,6 +1561,87 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     assert _redact_secret_fields_in_dataflow_script(script) == script.replace(
         secret_value, "*****"
     )
+
+
+# ── enable_properties_merge (PATCH mode) ──────────────────────────────────────
+
+
+def test_enable_properties_merge_emits_patch_mcps(
+    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None
+) -> None:
+    source = glue_source(enable_properties_merge=True)
+
+    with Stubber(source.glue_client) as glue_stubber:
+        glue_stubber.add_response("get_databases", get_databases_response, {})
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_1,
+            {"DatabaseName": "flights-database"},
+        )
+        glue_stubber.add_response(
+            "get_tables",
+            get_tables_response_2,
+            {"DatabaseName": "test-database"},
+        )
+        glue_stubber.add_response(
+            "get_jobs",
+            get_jobs_response,
+            {},
+        )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_1,
+            {"PythonScript": "job_name_1"},
+        )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_2,
+            {"PythonScript": "job_name_2"},
+        )
+        glue_stubber.add_response(
+            "get_dataflow_graph",
+            get_dataflow_graph_response_3,
+            {"PythonScript": "job_name_3"},
+        )
+
+        workunits = list(source.get_workunits())
+
+    # Find patch MCPs for datasetProperties
+    patch_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        and wu.metadata.aspectName == "datasetProperties"
+    ]
+    assert len(patch_wus) > 0, "Expected patch MCPs for datasetProperties"
+
+    # Verify patch MCPs contain JSON Patch operations
+    for wu in patch_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        assert wu.metadata.aspect is not None
+        patch_ops = json.loads(wu.metadata.aspect.value)
+        assert isinstance(patch_ops, list)
+        assert all("op" in op and "path" in op for op in patch_ops)
+
+    # Verify that dataset MCEs do NOT contain DatasetProperties aspect
+    mce_wus = [
+        wu
+        for wu in workunits
+        if wu.metadata
+        and isinstance(wu.metadata, models.MetadataChangeEventClass)
+        and wu.metadata.proposedSnapshot
+    ]
+    for wu in mce_wus:
+        assert isinstance(wu.metadata, models.MetadataChangeEventClass)
+        snapshot = wu.metadata.proposedSnapshot
+        if snapshot and hasattr(snapshot, "aspects"):
+            for aspect in snapshot.aspects:
+                assert (
+                    not isinstance(aspect, dict)
+                    or "com.linkedin.pegasus2avro.dataset.DatasetProperties"
+                    not in aspect
+                )
 
 
 # ── extract_column_parameters (structured properties) ─────────────────────────
