@@ -79,7 +79,7 @@ const ContentContainer = styled.div`
     box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
-export const SettingsPage = () => {
+const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
@@ -285,3 +285,9 @@ export const SettingsPage = () => {
         </PageContainer>
     );
 };
+
+export const SettingsPage = () => (
+    <Suspense fallback={<SuspenseBlock />}>
+        <SettingsPageContent />
+    </Suspense>
+);
