@@ -85,7 +85,7 @@ def patched_aerospike_client():
 
 
 def _make_source(config: Dict[str, Any]) -> AerospikeSource:
-    parsed = AerospikeConfig.parse_obj(config)
+    parsed = AerospikeConfig.model_validate(config)
     return AerospikeSource(PipelineContext(run_id="test"), parsed)
 
 
@@ -151,15 +151,15 @@ class TestAerospikeSetFromInfoString:
 class TestHostsValidator:
     def test_rejects_single_element_tuple(self):
         with pytest.raises(ValueError, match="at least a hostname and port"):
-            AerospikeConfig.parse_obj({"hosts": [("h",)]})
+            AerospikeConfig.model_validate({"hosts": [("h",)]})
 
     def test_rejects_non_integer_port(self):
         with pytest.raises(ValueError, match="Port must be an integer"):
-            AerospikeConfig.parse_obj({"hosts": [("h", "not-a-port")]})
+            AerospikeConfig.model_validate({"hosts": [("h", "not-a-port")]})
 
     def test_accepts_numeric_string_port(self):
         # validate_hosts coerces via int() so "3000" passes
-        config = AerospikeConfig.parse_obj({"hosts": [("h", "3000")]})
+        config = AerospikeConfig.model_validate({"hosts": [("h", "3000")]})
         assert config.hosts == [("h", "3000")]
 
 
