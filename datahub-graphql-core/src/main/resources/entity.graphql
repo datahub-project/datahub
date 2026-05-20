@@ -13003,9 +13003,13 @@ Information required to render an embedded version of an asset
 """
 type Embed {
   """
-  A URL which can be rendered inside of an iframe.
+  Deprecated: renderUrl has been removed from the embed aspect.
   """
-  renderUrl: String
+  renderUrl: String @deprecated(reason: "Field removed in schema v2")
+  """
+  The type of embed e.g. iframe, video.
+  """
+  embedType: String
 }
 
 """
@@ -13018,9 +13022,9 @@ input UpdateEmbedInput {
   urn: String!
 
   """
-  Set or clear a URL used to render an embedded asset.
+  Deprecated: renderUrl has been removed from the embed aspect.
   """
-  renderUrl: String
+  renderUrl: String @deprecated(reason: "Field removed in schema v2")
 }
 
 """

@@ -3,14 +3,14 @@
 Each scenario is a :class:`ZDUTestScenario` instance constructed with all
 metadata fields explicit. ``load_scenarios()`` returns the canonical list.
 
-This module currently contains Suite B (ES Phase 1 reindexing). Subsequent
-commits append Suite D (ES Phase 2 reindexing), Suite N (Aspect schema
-migration & system sweep), and Suite C (Live read/write & swap).
+This module contains Suite B (ES Phase 1 reindexing), Suite D (ES Phase 2
+reindexing), and Suite N (Aspect schema migration & system sweep).
+Suite C (Live read/write & swap) is added in the next commit.
 """
 
 from __future__ import annotations
 
-from .scenario_loader import ZDUTestScenario
+from .scenario_loader import KNOWN_FAILURES, ZDUTestScenario
 from .suite import Suite
 
 
@@ -161,6 +161,484 @@ SUITE_D_SCENARIOS: list[ZDUTestScenario] = [
 ]
 
 
+_DEV_STACK_REQUIRES_ROLLING_RESTART = (
+    "Catch-up validation needs ``dual_write_start_times`` (T1) populated by "
+    "UpdateIndicesUpgradeStrategy. G20d unblocked two prereqs: (a) the "
+    "framework now tails the GMS service in the collapsed debug profile, "
+    "and (b) zdu-test.env enables ``rollbackDualWriteEnabled`` so the bean "
+    "loads. But the bean still initializes with 0 active targets because "
+    "BuildIndicesIncrementalStep's persisted state (in MySQL "
+    "dataHubUpgradeResult for ``BuildIndicesIncremental_*``) is missing the "
+    "``<index>.oldBackingIndexName`` keys the factory's loadOldIndexTargets "
+    "looks for. Until the upstream step writes that key (likely because "
+    "``ESIndexBuilder.getBackingIndices(alias)`` returns empty when called "
+    "pre-swap on a fresh-ES boot), no callback registers and no "
+    "``Recorded dual-write start time`` log line is ever emitted. "
+    "Separate plan."
+)
+
+
+_DEV_STACK_REQUIRES_RUNTIME_KNOB = (
+    "Requires runtime config knob for rollbackDualWriteEnabled — not yet "
+    "wired through the test framework."
+)
+
+
+_REDUNDANT_WITH_TC_022 = (
+    "Coverage redundant with Suite N TC-322 (APP_SOURCE stamping is already "
+    "asserted on the sweep path there). Standalone per-aspect inspection "
+    "would require a separate systemMetadata fetch — out of scope."
+)
+
+
+_DEV_STACK_REQUIRES_INTERRUPT_KIT = (
+    "Requires upgrade-job kill-switch + restart instrumentation — separate plan."
+)
+
+
+def _aspect_migration(
+    tc: int,
+    name: str,
+    aspect_name: str,
+    entity_type: str,
+    action: str,
+    expected_schema_version: int | None,
+    starting_schema_version: int | None = None,
+    description: str = "",
+    expected_result: str = "",
+    details: str = "",
+    category: str = "",
+    expected_es_fields: list[str] | None = None,
+) -> ZDUTestScenario:
+    """Construct a Suite N (aspect_migration) scenario with sensible defaults."""
+    return ZDUTestScenario(
+        tc_number=tc,
+        category=category,
+        name=name,
+        description=description,
+        prerequisite_steps="",
+        test_steps="",
+        expected_result=expected_result,
+        current_status="",
+        details=details,
+        starting_schema_version=starting_schema_version,
+        expected_schema_version=expected_schema_version,
+        action=action,
+        aspect_name=aspect_name,
+        entity_type=entity_type,
+        expected_to_fail=tc in KNOWN_FAILURES,
+        skip_reason=KNOWN_FAILURES.get(tc),
+        scenario_type="aspect_migration",
+        suite=Suite.N,
+        expected_es_fields=expected_es_fields,
+    )
+
+
+# Suite D — ES Phase 2 reindexing. Most TCs depend on a real two-image rolling
+# restart that the single-image dev stack doesn't reproduce. The codified
+# scenarios PASS on real CI runs against a two-image stack; on dev they XFAIL
+# with skip_reason documenting the dependency.
+_DEV_STACK_REQUIRES_ROLLING_RESTART = (
+    "Catch-up validation needs ``dual_write_start_times`` (T1) populated by "
+    "UpdateIndicesUpgradeStrategy. G20d unblocked two prereqs: (a) the "
+    "framework now tails the GMS service in the collapsed debug profile, "
+    "and (b) zdu-test.env enables ``rollbackDualWriteEnabled`` so the bean "
+    "loads. But the bean still initializes with 0 active targets because "
+    "BuildIndicesIncrementalStep's persisted state (in MySQL "
+    "dataHubUpgradeResult for ``BuildIndicesIncremental_*``) is missing the "
+    "``<index>.oldBackingIndexName`` keys the factory's loadOldIndexTargets "
+    "looks for. Until the upstream step writes that key (likely because "
+    "``ESIndexBuilder.getBackingIndices(alias)`` returns empty when called "
+    "pre-swap on a fresh-ES boot), no callback registers and no "
+    "``Recorded dual-write start time`` log line is ever emitted. "
+    "Separate plan."
+)
+_DEV_STACK_REQUIRES_RUNTIME_KNOB = (
+    "Requires runtime config knob for rollbackDualWriteEnabled — not yet "
+    "wired through the test framework."
+)
+_DEV_STACK_REQUIRES_REINDEX_CAPTURE = (
+    "Validators need ctx.upgrade_nonblocking.dual_write_disabled_indices "
+    "to be populated, which depends on BuildIndicesIncrementalStep actually "
+    "running a reindex (G20c — the framework currently mounts a single "
+    "upgrade.jar across initial-boot and Phase-4 system-update runs, so "
+    "target and current mappings match → no diff → no dual-write "
+    "transitions to capture)."
+)
+_REDUNDANT_WITH_TC_022 = (
+    "Coverage redundant with Suite N TC-322 (APP_SOURCE stamping is already "
+    "asserted on the sweep path there). Standalone per-aspect inspection "
+    "would require a separate systemMetadata fetch — out of scope."
+)
+_DEV_STACK_REQUIRES_INTERRUPT_KIT = (
+    "Requires upgrade-job kill-switch + restart instrumentation — separate plan."
+)
+
+
+SUITE_N_SCENARIOS: list[ZDUTestScenario] = [
+    _aspect_migration(
+        tc=301,
+        name="Full sweep single hop",
+        aspect_name="globalTags",
+        entity_type="dataset",
+        action="sweep",
+        expected_schema_version=2,
+        category="Single Hop Migration",
+    ),
+    _aspect_migration(
+        tc=302,
+        name="Read path single hop",
+        aspect_name="globalTags",
+        entity_type="dataset",
+        action="read",
+        expected_schema_version=2,
+        category="Single Hop Migration",
+    ),
+    _aspect_migration(
+        tc=303,
+        name="Write path single hop",
+        aspect_name="globalTags",
+        entity_type="dataset",
+        action="write",
+        expected_schema_version=2,
+        category="Single Hop Migration",
+    ),
+    _aspect_migration(
+        tc=304,
+        name="Full sweep multi hop",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=305,
+        name="Read path multi hop",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="read",
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=306,
+        name="Write path multi hop",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="write",
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=307,
+        name="Mid-chain start at v2",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        starting_schema_version=2,
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=308,
+        name="Already at target v4",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        starting_schema_version=4,
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=309,
+        name="Future version v5",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        starting_schema_version=5,
+        expected_schema_version=5,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=310,
+        name="Null systemMetadata",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=311,
+        name="Gap in mutator chain",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        starting_schema_version=2,
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=312,
+        name="Single-hop v3→v4 sweep",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        starting_schema_version=3,
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+        description=(
+            "Validates the v3→v4 single-hop sweep via EmbedV3ToV4Mutator. "
+            "The original 'transform() returns null' scenario can't be "
+            "exercised here — production embed mutators always return a "
+            "non-null Embed. The null-transform no-op behavior is covered "
+            "by AspectMigrationMutator unit tests; an E2E variant would "
+            "require test-only mutator injection (separate plan)."
+        ),
+    ),
+    _aspect_migration(
+        tc=313,
+        name="Invalid URN crashes sweep",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        expected_schema_version=None,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=314,
+        name="Malformed JSON in metadata",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        expected_schema_version=None,
+        category="Multi Hop Migration",
+    ),
+    _aspect_migration(
+        tc=315,
+        name="ES reindexing after migration",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="es",
+        expected_schema_version=4,
+        category="Multi Hop Migration",
+        # ``urn`` is always present in the indexed dashboard ``_source``;
+        # ``embedType`` lives on the embed aspect, not in the searchable
+        # view, so it would not appear here even after the chain runs.
+        expected_es_fields=["urn"],
+    ),
+    _aspect_migration(
+        tc=316,
+        name="Re-run after SUCCEEDED",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="lifecycle",
+        expected_schema_version=None,
+        category="Upgrade Lifecycle",
+    ),
+    _aspect_migration(
+        tc=317,
+        name="ABORTED treated as terminal",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="lifecycle",
+        expected_schema_version=None,
+        category="Upgrade Lifecycle",
+    ),
+    _aspect_migration(
+        tc=318,
+        name="IN_PROGRESS resumes sweep",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="lifecycle",
+        expected_schema_version=None,
+        category="Upgrade Lifecycle",
+    ),
+    _aspect_migration(
+        tc=319,
+        name="chain.disable() not wired",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="sweep",
+        expected_schema_version=None,
+        category="Disable Migration After Upgrade",
+    ),
+    _aspect_migration(
+        tc=320,
+        name="Read path in-memory only",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="read",
+        starting_schema_version=1,
+        expected_schema_version=4,
+        category="Data Integrity Verification",
+    ),
+    _aspect_migration(
+        tc=321,
+        name="Write path persists",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="write",
+        starting_schema_version=1,
+        expected_schema_version=4,
+        category="Data Integrity Verification",
+    ),
+    _aspect_migration(
+        tc=322,
+        name="APP_SOURCE stamped on sweep",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="integrity",
+        expected_schema_version=None,
+        category="Data Integrity Verification",
+    ),
+    # TC-323 placeholder — present in legacy _TC_ACTION as "rolling" but absent from CSV.
+    # Keep it here so future plans (Phase 6 RollingRestartPhase) can wire it up.
+    _aspect_migration(
+        tc=323,
+        name="Rolling Upgrade",
+        aspect_name="embed",
+        entity_type="dashboard",
+        action="rolling",
+        expected_schema_version=None,
+        category="Rolling Upgrade",
+    ),
+]
+
+
+def _sweep_scenario(
+    *,
+    tc: int,
+    name: str,
+    description: str = "",
+    expected_to_fail: bool = False,
+    skip_reason: str | None = None,
+) -> ZDUTestScenario:
+    """Construct a Suite N sweep-invariant scenario.
+
+    Sweep scenarios validate ``AspectMigrationMutatorChain`` sweep-job
+    invariants (cursor, batch-delay, version-match, chain-disable) via
+    captures on ``ctx`` populated by ``upgrade_nonblocking``. They share the
+    same non-blocking phase as the per-URN aspect-migration scenarios so they
+    live in Suite N; their ``scenario_type="sweep"`` dispatches to a separate
+    set of validators that read sweep-level captures rather than per-URN
+    aspect state.
+    """
+    return ZDUTestScenario(
+        tc_number=tc,
+        category="System-Level Sweep",
+        name=name,
+        description=description,
+        prerequisite_steps="",
+        test_steps="",
+        expected_result="",
+        current_status="",
+        details="",
+        starting_schema_version=None,
+        expected_schema_version=None,
+        action="sweep",
+        aspect_name="",
+        entity_type="",
+        expected_to_fail=expected_to_fail,
+        skip_reason=skip_reason,
+        scenario_type="sweep",
+        suite=Suite.N,
+    )
+
+
+SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
+    # Suite N's sweep-invariant subset (was TC-401..408 in the original
+    # design-doc numbering; renumbered into the Suite N range because both
+    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-331
+    # collapse to the same outcome on the dev stack: "a second sweep run
+    # finds nothing to migrate" — exactly what TC-316 (Re-run after
+    # SUCCEEDED) already proves end-to-end. Resumability, idempotency on
+    # already-migrated rows, and effective chain-disable all manifest as
+    # the same observable behavior. Honest SKIP with a pointer to the test
+    # that delivers the signal.
+    _sweep_scenario(
+        tc=324,
+        name="Sweep cursor resumability",
+        expected_to_fail=False,
+        skip_reason=(
+            "Duplicate of TC-316 (Re-run after SUCCEEDED is a no-op). "
+            "Cursor resumability after a hard interrupt also requires "
+            "kill-switch instrumentation that's not part of this branch."
+        ),
+    ),
+    _sweep_scenario(
+        tc=325,
+        name="Sweep respects batchDelayMs",
+        expected_to_fail=False,
+        skip_reason=(
+            "Untractable on dev stack: batchDelayMs defaults to 0 here so "
+            "there's no wall-clock pause to observe. Asserting the knob "
+            "would require runtime timing instrumentation outside this "
+            "branch's scope."
+        ),
+    ),
+    _sweep_scenario(
+        tc=326,
+        name="Sweep skips already-migrated rows",
+        expected_to_fail=False,
+        skip_reason=(
+            "Duplicate of TC-316. The observable outcome — sweep is a no-op "
+            "when all rows are at the target schemaVersion — is already "
+            "proven by re-running SystemUpdateBlocking after success."
+        ),
+    ),
+    _sweep_scenario(
+        tc=327,
+        name="Sweep with no mutators registered",
+        description=(
+            "When AspectMigrationMutatorChain is empty, sweep step is a no-op: "
+            "0 indices captured, 0 dual-write disabled markings, "
+            "sweep_total_migrated == 0."
+        ),
+        expected_to_fail=False,
+    ),
+    _sweep_scenario(
+        tc=328,
+        name="Sweep with feature flag off",
+        # Blocked on G20c reindex-capture, not on a missing config knob per
+        # se (same root cause as TC-205 / TC-206). SKIP is the honest status.
+        expected_to_fail=False,
+        skip_reason=_DEV_STACK_REQUIRES_REINDEX_CAPTURE,
+    ),
+    _sweep_scenario(
+        tc=329,
+        name="APP_SOURCE stamped on sweep writes",
+        # Intentionally redundant with TC-322 — SKIP rather than XFAIL.
+        expected_to_fail=False,
+        skip_reason=_REDUNDANT_WITH_TC_022,
+    ),
+    _sweep_scenario(
+        tc=330,
+        name="IF_VERSION_MATCH header prevents stomping",
+        expected_to_fail=False,
+        skip_reason=(
+            "Duplicate of TC-403 (Sweep + concurrent writes don't lose data). "
+            "TC-403 already asserts the outcome that IF_VERSION_MATCH "
+            "protects — every concurrent client write captured during the "
+            "sweep was preserved with passed=True. Line-by-line race-window "
+            "proof would add no additional signal."
+        ),
+    ),
+    _sweep_scenario(
+        tc=331,
+        name="Chain disable after sweep completes",
+        expected_to_fail=False,
+        skip_reason=(
+            "Duplicate of TC-316. Once all rows match the migrated "
+            "predicate, the chain is observably a no-op on re-run — the "
+            "same outcome chain-disable would produce. A log-line capture "
+            "would prove the mechanism but not the property."
+        ),
+    ),
+]
+
+
 SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
     # Active validator (Plan 15) — observed reindex set must match
     # ``expected_reindex_indices`` exactly. The expected set is hand-curated
@@ -303,4 +781,9 @@ SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
 
 def load_scenarios() -> list[ZDUTestScenario]:
     """Return the canonical scenario list for all currently codified suites."""
-    return list(SUITE_B_SCENARIOS) + list(SUITE_D_SCENARIOS)
+    return (
+        list(SUITE_N_SCENARIOS)
+        + list(SUITE_N_SWEEP_INVARIANT_SCENARIOS)
+        + list(SUITE_B_SCENARIOS)
+        + list(SUITE_D_SCENARIOS)
+    )

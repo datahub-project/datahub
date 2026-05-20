@@ -116,10 +116,13 @@ class ZDUTestRunner:
         # Strategy registry — additional executors are registered per-suite
         # in subsequent commits as their scenario types land.
         self._registry = ScenarioTypeRegistry()
-        # Used by SeedPhase for aspect_migration scenarios; the executor
-        # itself isn't registered as a scenario_type dispatch target until
-        # Suite N's scenarios land.
+        # Suite N: per-URN aspect-migration scenarios share the non-blocking
+        # phase with the sweep-invariant subset, so both dispatch through
+        # ScenarioExecutor (which delegates to sweep_executor for the
+        # ``scenario_type="sweep"`` branch).
         self._aspect_executor = ScenarioExecutor(self._datahub)
+        self._registry.register("aspect_migration", self._aspect_executor)
+        self._registry.register("sweep", self._aspect_executor)
         self._phase1_reindex_executor = Phase1ReindexExecutor()
         self._registry.register("phase1_reindex", self._phase1_reindex_executor)
         self._catchup_executor = CatchUpScenarioExecutor()

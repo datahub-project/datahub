@@ -45,8 +45,8 @@ class ZDUTestScenario:
     entity_type: str
     expected_to_fail: bool
     skip_reason: str | None
-    scenario_type: str = "phase1_reindex"
-    suite: Suite = Suite.B
+    scenario_type: str = "aspect_migration"
+    suite: Suite = Suite.N
     # Dimension 4 (ES field presence) — Phase 10 validates that the entity's
     # ES document at the entity-type alias contains every named field in its
     # ``_source``. ``None`` (the default) opts the scenario out of Dim-4

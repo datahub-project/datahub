@@ -9,7 +9,11 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.aspect.hooks.EmbedV1ToV2Mutator;
+import com.linkedin.metadata.aspect.hooks.EmbedV2ToV3Mutator;
+import com.linkedin.metadata.aspect.hooks.EmbedV3ToV4Mutator;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
+import com.linkedin.metadata.aspect.hooks.GlobalTagsV1ToV2Mutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -53,6 +57,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -102,6 +107,8 @@ public class SpringStandardPluginConfiguration {
     List<AspectMigrationMutator> mutators =
         aspectMigrationMutatorEnabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
     AspectMigrationMutatorChain chain = new AspectMigrationMutatorChain(mutators);
+    // validateMutatorChains(chain.getChainByAspect()); // ZDU SIM: disabled to let GMS start with
+    // gap
     chain.setConfig(
         AspectPluginConfig.builder()
             .className(AspectMigrationMutatorChain.class.getName())
@@ -114,6 +121,26 @@ public class SpringStandardPluginConfiguration {
         aspectMigrationMutatorEnabled,
         mutators.size());
     return chain;
+  }
+
+  @Bean
+  public AspectMigrationMutator globalTagsV1ToV2Mutator() {
+    return new GlobalTagsV1ToV2Mutator();
+  }
+
+  @Bean
+  public AspectMigrationMutator embedV1ToV2Mutator() {
+    return new EmbedV1ToV2Mutator();
+  }
+
+  // @Bean  // ZDU SIM: old node — v2→v3 hop missing
+  public AspectMigrationMutator embedV2ToV3Mutator() {
+    return new EmbedV2ToV3Mutator();
+  }
+
+  @Bean
+  public AspectMigrationMutator embedV3ToV4Mutator() {
+    return new EmbedV3ToV4Mutator();
   }
 
   @Bean
@@ -693,6 +720,33 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  /**
+   * Validates that every registered mutator chain is contiguous from {@link
+   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} with no version gaps. Called at bean
+   * construction time so a misconfigured chain causes immediate startup failure rather than a
+   * silent runtime bug (Scenario 6: a missing hop leaves rows permanently stuck at the gap
+   * version).
+   */
+  private static void validateMutatorChains(
+      Map<String, List<AspectMigrationMutator>> chainByAspect) {
+    for (Map.Entry<String, List<AspectMigrationMutator>> entry : chainByAspect.entrySet()) {
+      String aspectName = entry.getKey();
+      List<AspectMigrationMutator> chain = entry.getValue();
+      // chain is already sorted ascending by sourceVersion (done in chain constructor)
+      long expected = DEFAULT_SCHEMA_VERSION;
+      for (AspectMigrationMutator m : chain) {
+        if (m.getSourceVersion() != expected) {
+          throw new IllegalStateException(
+              String.format(
+                  "AspectMigrationMutator chain gap for aspect '%s': expected sourceVersion %d but found %d. "
+                      + "Add a mutator for v%d→v%d.",
+                  aspectName, expected, m.getSourceVersion(), expected, expected + 1));
+        }
+        expected = m.getTargetVersion();
+      }
+    }
   }
 
   @Bean

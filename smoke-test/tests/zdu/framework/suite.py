@@ -4,11 +4,12 @@ Suites map 1:1 to the production ZDU upgrade phases they exercise:
 
 * Blocking phase     → Suite B: ES Phase 1 reindexing
 * Dual-write phase   → Suite D: ES Phase 2 reindexing
+* Non-blocking phase → Suite N: Aspect schema migration & system sweep
 
-(Suite N / C are added in subsequent commits.)
+(Suite C is added in the subsequent commit.)
 
 The enum value is the lowercase short code used as the pytest marker
-(``suite_b``, ``suite_d``, ...) and the ``--suite`` CLI argument.
+(``suite_b``, ``suite_d``, ``suite_n``, ...) and the ``--suite`` CLI argument.
 """
 
 from __future__ import annotations
@@ -19,6 +20,7 @@ from enum import Enum
 class Suite(Enum):
     B = "b"  # Blocking — ES Phase 1 reindexing (TC-101..TC-109)
     D = "d"  # Dual-write — ES Phase 2 reindexing (TC-201..TC-206)
+    N = "n"  # Non-blocking — Aspect schema migration & system sweep (TC-301..TC-331)
 
 
 # Explicit mapping — keeps the source of truth in one place and avoids a
@@ -26,6 +28,7 @@ class Suite(Enum):
 _TC_RANGES: tuple[tuple[range, Suite], ...] = (
     (range(101, 110), Suite.B),
     (range(201, 207), Suite.D),
+    (range(301, 332), Suite.N),
 )
 
 
