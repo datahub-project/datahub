@@ -125,6 +125,7 @@ query appConfig {
             glossaryBasedPoliciesEnabled
             multipleDataProductsPerAsset
             showTestsInHealthIcon
+            i18nEnabled
         }
         chromeExtensionConfig {
             enabled

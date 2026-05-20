@@ -4,6 +4,8 @@ Mongodb is a data platform used to store and query analytical or operational dat
 
 The DataHub integration for Mongodb covers core metadata entities such as datasets/tables/views, schema fields, and containers. It also captures stateful deletion detection.
 
+The connector also supports Amazon DocumentDB through its MongoDB-compatible API.
+
 ## Concept Mapping
 
 While the specific concept mapping is still pending, this shows the generic concept mapping in DataHub.
