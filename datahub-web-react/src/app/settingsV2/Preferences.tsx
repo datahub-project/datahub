@@ -86,10 +86,7 @@ export const Preferences = () => {
             <SourceContainer>
                 <TokensContainer>
                     <HeaderContainer>
-                        <PageTitle
-                            title={t('appearance.title')}
-                            subTitle={t('appearance.subTitle')}
-                        />
+                        <PageTitle title={t('appearance.title')} subTitle={t('appearance.subTitle')} />
                     </HeaderContainer>
                 </TokensContainer>
                 {canManageApplicationAppearance && (
