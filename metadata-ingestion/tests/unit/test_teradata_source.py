@@ -2592,9 +2592,17 @@ class TestLineageQueryScoping:
 
 
 class TestConfigurableTimeouts:
-    """#6 — request_timeout_ms / connect_timeout_ms flow through to Teradata connect_args."""
+    """request_timeout_ms / connect_timeout_ms / connection_pool_timeout_ms flow through
+    to all engines via _base_engine_options."""
 
-    def _get_connect_args(self, extra_config: Dict[str, Any]) -> Dict[str, str]:
+    def _get_engine_kwargs(
+        self, extra_config: Dict[str, Any], *, engine_site: str = "pooled"
+    ) -> Dict[str, Any]:
+        """Capture kwargs passed to create_engine for the requested site.
+
+        engine_site: "pooled" calls _get_or_create_pooled_engine;
+                     "metadata" calls get_metadata_engine.
+        """
         source = _create_source_patched(extra_config)
         captured: Dict[str, Any] = {}
 
@@ -2605,21 +2613,52 @@ class TestConfigurableTimeouts:
         with patch(
             "datahub.ingestion.source.sql.teradata.create_engine", side_effect=capture
         ):
-            source._get_or_create_pooled_engine()
+            if engine_site == "pooled":
+                source._get_or_create_pooled_engine()
+            else:
+                source.get_metadata_engine()
 
-        return captured.get("connect_args", {})
+        return captured
 
     def test_default_timeouts_used(self) -> None:
-        connect_args = self._get_connect_args({})
+        kwargs = self._get_engine_kwargs({})
+        connect_args = kwargs["connect_args"]
         assert connect_args["request_timeout"] == "120000"
         assert connect_args["connect_timeout"] == "30000"
 
     def test_custom_timeouts_propagated(self) -> None:
-        connect_args = self._get_connect_args(
+        kwargs = self._get_engine_kwargs(
             {"request_timeout_ms": 300000, "connect_timeout_ms": 60000}
         )
+        connect_args = kwargs["connect_args"]
         assert connect_args["request_timeout"] == "300000"
         assert connect_args["connect_timeout"] == "60000"
+
+    def test_pool_timeout_applied_to_metadata_engine(self) -> None:
+        """connection_pool_timeout_ms must reach the schema-discovery engine, not only
+        the pooled view-processing engine."""
+        kwargs = self._get_engine_kwargs(
+            {"connection_pool_timeout_ms": 45000}, engine_site="metadata"
+        )
+        assert kwargs["pool_timeout"] == 45.0
+
+    def test_timeouts_consistent_across_engine_sites(self) -> None:
+        """Both engine creation paths must see identical timeout values."""
+        extra = {
+            "request_timeout_ms": 90000,
+            "connect_timeout_ms": 15000,
+            "connection_pool_timeout_ms": 45000,
+        }
+        pooled_kwargs = self._get_engine_kwargs(extra, engine_site="pooled")
+        metadata_kwargs = self._get_engine_kwargs(extra, engine_site="metadata")
+
+        assert pooled_kwargs["connect_args"]["request_timeout"] == "90000"
+        assert pooled_kwargs["connect_args"]["connect_timeout"] == "15000"
+        assert pooled_kwargs["pool_timeout"] == 45.0
+
+        assert metadata_kwargs["connect_args"]["request_timeout"] == "90000"
+        assert metadata_kwargs["connect_args"]["connect_timeout"] == "15000"
+        assert metadata_kwargs["pool_timeout"] == 45.0
 
 
 class TestCacheCaseInsensitivity:

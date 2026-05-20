@@ -324,7 +324,9 @@ def _execute_with_retry(
         raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
     for attempt in range(max_attempts):
         try:
-            return conn.execute(stmt, params) if params else conn.execute(stmt)
+            return (
+                conn.execute(stmt, params) if params is not None else conn.execute(stmt)
+            )
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
                 raise
@@ -843,12 +845,13 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     max_pool_size: int = Field(
         default=13,
-        description="Maximum number of connections in the SQLAlchemy connection pool "
-        "(base connections + overflow). Teradata drivers can be sensitive to high "
-        "connection counts; keep this conservative. Must be between 1 and 50. "
-        "If max_workers exceeds this value, the effective worker count is silently "
-        "capped to max_pool_size so that the thread pool never exceeds connection "
-        "capacity. Set max_pool_size >= max_workers to avoid this reduction.",
+        description="Ceiling on the number of concurrent Teradata connections used during "
+        "parallel view processing. The actual pool size is "
+        "min(max_workers, max_pool_size), so this value only takes effect when "
+        "max_workers exceeds it — at which point the effective worker count is "
+        "capped to max_pool_size. For example, max_workers=10 with max_pool_size=13 "
+        "creates a pool of 10, not 13. Teradata drivers can be sensitive to high "
+        "connection counts; keep this conservative. Must be between 1 and 50.",
     )
 
     @field_validator("max_pool_size")
@@ -1507,7 +1510,7 @@ ORDER by DataBaseName, TableName;
         url = self.config.get_sql_alchemy_url()
 
         logger.debug(f"sql_alchemy_url={url}")
-        engine = create_engine(url, **self.config.options)
+        engine = create_engine(url, **self._base_engine_options())
 
         try:
             # Get list of databases first.
@@ -2089,28 +2092,14 @@ ORDER by DataBaseName, TableName;
                 self._effective_max_workers = effective_max_workers
 
                 pool_options = {
-                    **self.config.options,
+                    **self._base_engine_options(),
                     "poolclass": QueuePool,
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
-                    "pool_pre_ping": True,  # Validate connections
-                    "pool_recycle": 1800,  # Recycle connections after 30 mins (more frequent)
-                    "pool_timeout": self.config.connection_pool_timeout_ms
-                    / 1000,  # Longer timeout for connection acquisition
-                    "pool_reset_on_return": "rollback",  # Explicit rollback on connection return
+                    "pool_pre_ping": True,
+                    "pool_recycle": 1800,
+                    "pool_reset_on_return": "rollback",
                 }
-
-                # Add Teradata-specific connection options for stability
-                if "connect_args" not in pool_options:
-                    pool_options["connect_args"] = {}
-
-                # Teradata-specific connection arguments for better stability
-                pool_options["connect_args"].update(
-                    {
-                        "connect_timeout": str(self.config.connect_timeout_ms),
-                        "request_timeout": str(self.config.request_timeout_ms),
-                    }
-                )
 
                 self._pooled_engine = create_engine(url, **pool_options)
                 logger.info(
@@ -2546,10 +2535,25 @@ ORDER by DataBaseName, TableName;
 
         return queries
 
+    def _base_engine_options(self) -> Dict[str, Any]:
+        """Return engine kwargs shared by every non-pooled engine.
+
+        Applies connect_timeout, request_timeout, and pool_timeout consistently
+        so that schema-discovery engines and the pooled view-processing engine
+        all honour the same user-configured timeouts.
+        """
+        opts: Dict[str, Any] = dict(self.config.options)
+        connect_args = dict(opts.pop("connect_args", {}))
+        connect_args.setdefault("connect_timeout", str(self.config.connect_timeout_ms))
+        connect_args.setdefault("request_timeout", str(self.config.request_timeout_ms))
+        opts["connect_args"] = connect_args
+        opts["pool_timeout"] = self.config.connection_pool_timeout_ms / 1000
+        return opts
+
     def get_metadata_engine(self) -> Engine:
         url = self.config.get_sql_alchemy_url()
         logger.debug(f"sql_alchemy_url={url}")
-        return create_engine(url, **self.config.options)
+        return create_engine(url, **self._base_engine_options())
 
     def _execute_with_cursor_fallback(
         self, connection: Connection, query: str, params: Optional[Dict] = None
