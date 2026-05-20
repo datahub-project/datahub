@@ -414,7 +414,7 @@ The `datahub.dependencies.python.uvProfile` property selects how uv resolves pac
 Setting `pipExtraIndexUrl` without explicitly setting `uvProfile=custom` will **automatically
 activate the `custom` profile** — you do not need to set both.
 
-Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/). 
+Profile toml files live in [`docker/snippets/uv/profiles/`](../docker/snippets/uv/profiles/).
 Add a new `.toml` file there and pass its basename as `uvProfile` to use a fully custom static profile. For example create a `ci.toml` file and pass `datahub.dependencies.python.uvProfile=ci` as a gradle property to use the ci.toml file.
 
 ##### Configuring a private index
@@ -452,7 +452,7 @@ export DATAHUB_NETRC_PATH=/path/to/.netrc
 ./gradlew :docker:datahub-ingestion:docker ...
 ```
 
-See [`docker/snippets/uv/.netrc.example`](../docker/snippets/uv/.netrc.example) for the full format
+See `docker/snippets/uv/.netrc.example` for the full format
 and examples. The file is mounted into the build via a Docker BuildKit secret — it is **never
 written to any image layer** and will not appear in `docker history` output.
 
