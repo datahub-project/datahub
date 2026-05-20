@@ -723,6 +723,39 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 return parts[-1]
         return None
 
+    def _get_unembedded_urns(self) -> set[str]:
+        """Return the set of document URNs that have NO semanticContent aspect.
+
+        Uses a single Elasticsearch query: EXISTS on the 'embeddings' field
+        (which is indexed from semanticContent) with negated=True.  One round-trip
+        regardless of how many documents exist.
+        """
+        from datahub.ingestion.graph.filters import RawSearchFilterRule
+
+        no_embeddings_filter: RawSearchFilterRule = {
+            "field": "embeddings",
+            "condition": "EXISTS",
+            "values": [],
+            "negated": True,
+        }
+        try:
+            urns = set(
+                self.graph.get_urns_by_filter(
+                    entity_types=["document"],
+                    extraFilters=[no_embeddings_filter],
+                )
+            )
+            logger.info(
+                f"Elasticsearch filter found {len(urns)} documents without semanticContent."
+            )
+            return urns
+        except Exception as e:
+            logger.warning(
+                f"Could not query unembedded documents via Elasticsearch, "
+                f"falling back to processing all documents: {e}"
+            )
+            return set()
+
     def _fetch_documents_graphql(self) -> list[dict[str, Any]]:
         """Fetch Document entities from DataHub using GraphQL."""
         query = """
@@ -760,18 +793,20 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
         }
         """
 
-        # Build search input with optional multi-platform filter
+        # Build search input — when include_unembedded is set, fetch all docs
+        # regardless of platform so we can catch every unembedded document.
         search_input: dict[str, Any] = {
             "type": "DOCUMENT",
             "query": "*",
             "start": 0,
-            "count": 1000,  # Fetch in batches
+            "count": 10000,
         }
 
-        # Only add platform filter if specific platforms are provided
-        # Empty list or wildcard ("*", "ALL") means no GraphQL filter (client-side filtering instead)
+        # Only add platform filter if specific platforms are provided and we're NOT
+        # doing an include_unembedded scan (which needs all platforms).
         if (
-            self.config.platform_filter
+            not self.config.include_unembedded
+            and self.config.platform_filter
             and "*" not in self.config.platform_filter
             and "ALL" not in self.config.platform_filter
         ):
@@ -792,6 +827,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
             search_data = response.get("search") or {}
             search_results = search_data.get("searchResults") or []
 
+            # When include_unembedded is set, fetch the set of URNs that have no
+            # semanticContent aspect yet via a single ES query, so we can include
+            # those regardless of platform_filter.
+            unembedded_urns: set[str] = set()
+            if self.config.include_unembedded:
+                logger.info(
+                    "include_unembedded=True: querying Elasticsearch for documents "
+                    "without semanticContent aspect."
+                )
+                unembedded_urns = self._get_unembedded_urns()
+
             documents = []
             for result in search_results:
                 entity = result.get("entity") or {}
@@ -809,10 +855,15 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase):
                 contents = info.get("contents") or {}
                 text = contents.get("text") or ""
 
-                # Filter by source type (NATIVE vs EXTERNAL) for batch mode
-                should_process = self._should_process_by_source_type(entity, info)
-                if not should_process:
-                    continue
+                # When include_unembedded is set: include if this URN has no
+                # semanticContent aspect yet, regardless of platform_filter.
+                # Otherwise apply the normal platform/source-type filter.
+                if self.config.include_unembedded and urn in unembedded_urns:
+                    logger.debug(f"Including {urn} — no semanticContent aspect found")
+                else:
+                    should_process = self._should_process_by_source_type(entity, info)
+                    if not should_process:
+                        continue
 
                 # Skip if no text or too short
                 if not text or (
