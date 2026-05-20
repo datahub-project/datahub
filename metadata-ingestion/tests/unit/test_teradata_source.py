@@ -360,7 +360,7 @@ class TestTeradataSource:
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_conn = MagicMock()
-                mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
+                mock_conn.execute.return_value = [mock_entry]
                 mock_engine = MagicMock()
                 mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
@@ -1771,7 +1771,7 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
+            mock_conn.execute.return_value = [mock_entry]
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -1792,7 +1792,7 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchall.return_value = [mock_entry]
+            mock_conn.execute.return_value = [mock_entry]
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -1916,10 +1916,7 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value.fetchall.return_value = [
-                entry_with_creator,
-                entry_without_creator,
-            ]
+            mock_conn.execute.return_value = [entry_with_creator, entry_without_creator]
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -2154,7 +2151,7 @@ class TestIncrementalColumnExtraction:
         ]
 
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchall.return_value = entries
+        mock_conn.execute.return_value = entries
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
@@ -2192,10 +2189,7 @@ class TestIncrementalColumnExtraction:
         mock_conn_ts.execute.return_value.fetchone.return_value = (td_server_now,)
 
         mock_conn_rows = MagicMock()
-        mock_conn_rows.execute.return_value.fetchall.return_value = [
-            recent_entry,
-            stale_entry,
-        ]
+        mock_conn_rows.execute.return_value = [recent_entry, stale_entry]
 
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [mock_conn_ts, mock_conn_rows]
@@ -2550,9 +2544,7 @@ class TestCacheCaseInsensitivity:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
         source = _create_source_patched()
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchall.return_value = [
-            _create_mock_table_entry("MY_DB", "MY_TABLE")
-        ]
+        mock_conn.execute.return_value = [_create_mock_table_entry("MY_DB", "MY_TABLE")]
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
@@ -2656,7 +2648,7 @@ class TestCacheCaseInsensitivity:
         """extract_ownership: True + lowercase databases must still find creators."""
         source = _create_source_patched()
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchall.return_value = [
+        mock_conn.execute.return_value = [
             _create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")
         ]
         mock_engine = MagicMock()
@@ -2679,7 +2671,7 @@ class TestCacheCaseInsensitivity:
             {"column_extraction_watermark": watermark.isoformat()}
         )
         mock_conn = MagicMock()
-        mock_conn.execute.return_value.fetchall.return_value = [
+        mock_conn.execute.return_value = [
             _create_mock_table_entry(
                 "MY_DB",
                 "MY_TABLE",

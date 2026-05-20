@@ -2132,56 +2132,56 @@ ORDER by DataBaseName, TableName;
                     )
 
                 with self._retry_connect(engine) as conn:
-                    rows = self._retry_execute(
+                    result = self._retry_execute(
                         conn,
                         text(self._build_tables_and_views_query()),
-                    ).fetchall()
-                for entry in rows:
-                    table = TeradataTable(
-                        database=entry.DataBaseName.strip(),
-                        name=entry.name.strip(),
-                        description=entry.description.strip()
-                        if entry.description
-                        else None,
-                        object_type=entry.object_type,
-                        create_timestamp=entry.CreateTimeStamp,
-                        last_alter_name=entry.LastAlterName,
-                        last_alter_timestamp=entry.LastAlterTimeStamp,
-                        request_text=(
-                            entry.RequestText.strip()
-                            if entry.object_type == "View" and entry.RequestText
-                            else None
-                        ),
                     )
+                    for entry in result:
+                        table = TeradataTable(
+                            database=entry.DataBaseName.strip(),
+                            name=entry.name.strip(),
+                            description=entry.description.strip()
+                            if entry.description
+                            else None,
+                            object_type=entry.object_type,
+                            create_timestamp=entry.CreateTimeStamp,
+                            last_alter_name=entry.LastAlterName,
+                            last_alter_timestamp=entry.LastAlterTimeStamp,
+                            request_text=(
+                                entry.RequestText.strip()
+                                if entry.object_type == "View" and entry.RequestText
+                                else None
+                            ),
+                        )
 
-                    # Count objects per database for metrics
-                    if table.object_type == "View":
-                        database_counts[table.database]["views"] += 1
-                    else:
-                        database_counts[table.database]["tables"] += 1
+                        # Count objects per database for metrics
+                        if table.object_type == "View":
+                            database_counts[table.database]["views"] += 1
+                        else:
+                            database_counts[table.database]["tables"] += 1
 
-                    with self._tables_cache_lock:
-                        # Cache key is lowercased so lookups by schema name from
-                        # config.databases (case as the user typed it) match entries
-                        # populated from dbc.TablesV (returned in Teradata's stored case).
-                        self._tables_cache[table.database.lower()].append(table)
-                        creator_name = (entry.CreatorName or "").strip()
-                        if creator_name:
-                            self._table_creator_cache[
-                                (table.database.lower(), table.name)
-                            ] = creator_name
+                        with self._tables_cache_lock:
+                            # Cache key is lowercased so lookups by schema name from
+                            # config.databases (case as the user typed it) match entries
+                            # populated from dbc.TablesV (returned in Teradata's stored case).
+                            self._tables_cache[table.database.lower()].append(table)
+                            creator_name = (entry.CreatorName or "").strip()
+                            if creator_name:
+                                self._table_creator_cache[
+                                    (table.database.lower(), table.name)
+                                ] = creator_name
 
-                    # Track which tables need column extraction under incremental mode
-                    if (
-                        watermark is not None
-                        and self._tables_needing_column_extraction is not None
-                    ):
-                        last_alter = table.last_alter_timestamp
-                        # Include when timestamp is missing (conservative) or at/after watermark
-                        if last_alter is None or last_alter >= watermark:
-                            self._tables_needing_column_extraction.add(
-                                (table.database.lower(), table.name)
-                            )
+                        # Track which tables need column extraction under incremental mode
+                        if (
+                            watermark is not None
+                            and self._tables_needing_column_extraction is not None
+                        ):
+                            last_alter = table.last_alter_timestamp
+                            # Include when timestamp is missing (conservative) or at/after watermark
+                            if last_alter is None or last_alter >= watermark:
+                                self._tables_needing_column_extraction.add(
+                                    (table.database.lower(), table.name)
+                                )
 
                 if self._tables_needing_column_extraction is not None:
                     total = sum(len(tables) for tables in self._tables_cache.values())
