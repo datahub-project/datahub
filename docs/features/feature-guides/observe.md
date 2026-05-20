@@ -1,5 +1,7 @@
 ---
 description: "Detect and resolve quality issues before they impact production. Automated anomaly detection and quality checks keep data reliable."
+sidebar_custom_props:
+  icon: "🔍"
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -25,10 +27,10 @@ The capability area is organized around three jobs:
 Catch issues as close to the source as possible.
 
 - **[Data Observability Agent](/docs/managed-datahub/observe/data-health-dashboard.md#data-observability-agent-private-beta)** — an AI assistant that scans your data landscape and provisions the right assertions for the right tables in minutes, not weeks. Tell it which slice of your data matters most (or let it figure that out from usage and ownership signals), and it creates Freshness, Volume, Field, and other checks automatically — closing coverage gaps without manual setup per table. _DataHub Cloud only. Private Beta._
-- **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues SQL against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — from dbt, Great Expectations, Snowflake DMFs, or any custom source pushed via the SDK.
+- **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues queries against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — from dbt, Great Expectations, Snowflake DMFs, or any custom source pushed via the SDK.
   - [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) — has the table updated recently?
   - [Volume](/docs/managed-datahub/observe/volume-assertions.md) — is row count in the expected range?
-  - [Column](/docs/managed-datahub/observe/column-assertions.md) — column-level metrics and value constraints.
+  - [Column](/docs/managed-datahub/observe/column-assertions.md) — column-level metrics and value constraints (e.g. `status` must be in `active`, `pending`, or `closed`; or null rate stays below 5%).
   - [Custom SQL](/docs/managed-datahub/observe/custom-sql-assertions.md) — arbitrary SQL returning a numeric value.
   - [Schema](/docs/managed-datahub/observe/schema-assertions.md) — expected columns and types are present.
   - [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) — DataHub Cloud auto-learns normal behavior for freshness, volume, and column metrics. _DataHub Cloud only._
