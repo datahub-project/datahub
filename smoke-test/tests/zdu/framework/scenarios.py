@@ -587,12 +587,20 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     _sweep_scenario(
         tc=326,
         name="Sweep skips already-migrated rows",
-        expected_to_fail=False,
-        skip_reason=(
-            "Duplicate of TC-316. The observable outcome — sweep is a no-op "
-            "when all rows are at the target schemaVersion — is already "
-            "proven by re-running SystemUpdateBlocking after success."
+        description=(
+            "Verifies the per-aspect schemaVersion-NOT-LIKE filter in "
+            "EbeanAspectDao.streamAspectBatchesForMigration excludes rows "
+            "already at the target schemaVersion from the migration "
+            "stream — distinct signal from TC-316 (state-machine "
+            "short-circuit on SUCCEEDED). SkipAlreadyMigratedSweepPhase "
+            "bulk-seeds 100 v1 + 100 v4 rows, snapshots the v4 rows, "
+            "wipes the migrate-aspects upgrade-result so state goes back "
+            "to PENDING, runs the sweep, then asserts the v1 rows are "
+            "now at target AND the v4 rows are bit-identical (createdon "
+            "+ systemmetadata unchanged) — proving the sweep neither "
+            "rewrote them nor clobbered their original provenance."
         ),
+        expected_to_fail=False,
     ),
     _sweep_scenario(
         tc=327,

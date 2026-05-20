@@ -242,6 +242,27 @@ class MySQLClient:
         except (TypeError, ValueError):
             return None
 
+    def delete_upgrade_result_by_urn_prefix(self, urn_prefix: str) -> int:
+        """Delete every ``dataHubUpgradeResult`` row whose upgrade-id begins
+        with ``urn_prefix`` (e.g., ``"migrate-aspects-"``). Returns the number
+        of rows deleted.
+
+        Used by ``SkipAlreadyMigratedSweepPhase`` (TC-326) to reset the
+        migrate-aspects upgrade-state to PENDING so the sweep actually runs
+        again instead of short-circuiting on ``state=SUCCEEDED``.
+        """
+        full_prefix = f"urn:li:dataHubUpgrade:{urn_prefix}"
+        with self._conn() as c, c.cursor() as cur:
+            cur.execute(
+                "DELETE FROM metadata_aspect_v2 "
+                "WHERE aspect='dataHubUpgradeResult' AND version=0 "
+                "AND urn LIKE %s",
+                (f"{full_prefix}%",),
+            )
+            n = cur.rowcount
+            c.commit()
+        return int(n) if n is not None else 0
+
     def get_upgrade_result(self, upgrade_id: str) -> dict | None:
         """Return the parsed ``DataHubUpgradeResult`` metadata for ``upgrade_id``, or None."""
         urn = f"urn:li:dataHubUpgrade:{upgrade_id}"

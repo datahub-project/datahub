@@ -7,6 +7,7 @@ import pytest
 from tests.zdu.framework.context import (
     BatchDelayCapture,
     KillSwitchCapture,
+    SkipAlreadyMigratedCapture,
     TestContext,
     UpgradeNonBlockingResult,
 )
@@ -227,14 +228,72 @@ class TestTC325BatchDelay:
         assert "SUCCEEDED" in (result.actual_result or "")
 
 
-class TestHonestSkipDispatch:
-    """TC-326/328/329/330/331 share the generic SKIP validator.
+def _good_skip_migrated_capture(**overrides: object) -> SkipAlreadyMigratedCapture:
+    cap = SkipAlreadyMigratedCapture(
+        seed_v1_count=100,
+        seed_v4_count=100,
+        post_sweep_v1_at_target_count=100,
+        post_sweep_v4_untouched_count=100,
+        final_upgrade_state="SUCCEEDED",
+        total_duration_s=15.0,
+    )
+    for k, v in overrides.items():
+        setattr(cap, k, v)
+    return cap
 
-    TC-324 (cursor resumability) and TC-325 (batch delay) have their own
-    active validators — covered in their own test classes.
+
+class TestTC326SkipAlreadyMigrated:
+    def _ctx_with(self, cap: SkipAlreadyMigratedCapture | None) -> TestContext:
+        ctx = TestContext()
+        ctx.skip_migrated_capture = cap
+        return ctx
+
+    def test_passes_on_good_capture(self) -> None:
+        result = dispatch_sweep_scenario(
+            _scenario(tc=326), self._ctx_with(_good_skip_migrated_capture())
+        )
+        assert result.status == "PASS"
+        assert "v1→target 100/100" in (result.actual_result or "")
+        assert "v4 untouched 100/100" in (result.actual_result or "")
+
+    def test_skips_when_capture_missing(self) -> None:
+        result = dispatch_sweep_scenario(_scenario(tc=326), self._ctx_with(None))
+        assert result.status == "SKIP"
+        assert "SkipAlreadyMigratedSweepPhase did not run" in (
+            result.actual_result or ""
+        )
+
+    def test_fails_when_v1_not_fully_migrated(self) -> None:
+        cap = _good_skip_migrated_capture(post_sweep_v1_at_target_count=80)
+        result = dispatch_sweep_scenario(_scenario(tc=326), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "v1 not fully migrated" in (result.actual_result or "")
+        assert "80/100" in (result.actual_result or "")
+
+    def test_fails_when_v4_rows_touched(self) -> None:
+        # The regression we care about: sweep clobbered already-v4 rows.
+        cap = _good_skip_migrated_capture(post_sweep_v4_untouched_count=30)
+        result = dispatch_sweep_scenario(_scenario(tc=326), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "v4 rows touched" in (result.actual_result or "")
+        assert "schemaVersion-NOT-LIKE filter regressed" in (result.actual_result or "")
+
+    def test_fails_when_state_not_succeeded(self) -> None:
+        cap = _good_skip_migrated_capture(final_upgrade_state="IN_PROGRESS")
+        result = dispatch_sweep_scenario(_scenario(tc=326), self._ctx_with(cap))
+        assert result.status == "FAIL"
+        assert "SUCCEEDED" in (result.actual_result or "")
+
+
+class TestHonestSkipDispatch:
+    """TC-328/329/330/331 share the generic SKIP validator.
+
+    TC-324 (cursor resumability), TC-325 (batch delay), and TC-326
+    (already-migrated skip) have their own active validators — covered
+    in their own test classes.
     """
 
-    @pytest.mark.parametrize("tc", [326, 328, 329, 330, 331])
+    @pytest.mark.parametrize("tc", [328, 329, 330, 331])
     def test_returns_skip_with_scenario_reason(self, tc: int) -> None:
         scen = _scenario(tc=tc, skip_reason=f"why TC-{tc} skips")
         result = dispatch_sweep_scenario(scen, TestContext())

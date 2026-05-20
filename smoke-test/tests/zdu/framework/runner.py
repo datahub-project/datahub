@@ -32,6 +32,7 @@ from .phases.rolling_restart import RollingRestartPhase
 from .phases.runtime_migration import RuntimeMigrationPhase
 from .phases.seed import SeedPhase
 from .phases.setup_old_stack import SetupOldStackPhase
+from .phases.skip_already_migrated_sweep import SkipAlreadyMigratedSweepPhase
 from .phases.snapshot_t0 import SnapshotT0Phase
 from .phases.snapshot_t1 import SnapshotT1Phase
 
@@ -368,6 +369,14 @@ class ZDUTestRunner:
             (
                 "batch_delay_sweep",
                 BatchDelaySweepPhase(
+                    docker=self._docker,
+                    mysql=self._mysql,
+                    gms_service=self._config.gms_service,
+                ),
+            ),
+            (
+                "skip_already_migrated_sweep",
+                SkipAlreadyMigratedSweepPhase(
                     docker=self._docker,
                     mysql=self._mysql,
                     gms_service=self._config.gms_service,

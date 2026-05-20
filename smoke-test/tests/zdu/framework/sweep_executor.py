@@ -259,6 +259,82 @@ def _validate_cursor_resumability(
     )
 
 
+def _validate_skip_already_migrated(
+    scenario: ZDUTestScenario, ctx: TestContext
+) -> ValidationResult:
+    """TC-326 — Sweep skips rows already at target ``schemaVersion``.
+
+    Reads ``ctx.skip_migrated_capture`` populated by
+    ``SkipAlreadyMigratedSweepPhase``. The phase pre-seeds a mixed batch
+    (half v1, half v4) and snapshots the v4 rows. After the sweep runs,
+    asserts:
+
+    - every v1-seeded URN is now at target (sweep DID work the rows that
+      needed it)
+    - every v4-seeded URN's ``(createdon, systemmetadata)`` is
+      bit-identical to the pre-sweep snapshot — proving the SQL filter
+      ``NOT LIKE '%"schemaVersion":<target>%'`` in
+      ``EbeanAspectDao.streamAspectBatchesForMigration`` excluded the
+      v4 rows from the stream
+    - final upgrade state is ``SUCCEEDED``
+
+    Failure mode this catches: a regression that drops the
+    schemaVersion-NOT-LIKE clause would re-write the v4 rows, replacing
+    their original ``createdon`` and ``appSource`` provenance — the
+    bit-identical check fails.
+    """
+    cap = ctx.skip_migrated_capture
+    if cap is None:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="SKIP",
+            expected_to_fail=False,
+            actual_result=(
+                "ctx.skip_migrated_capture is None — "
+                "SkipAlreadyMigratedSweepPhase did not run"
+            ),
+        )
+
+    failures: list[str] = []
+    if cap.post_sweep_v1_at_target_count != cap.seed_v1_count:
+        failures.append(
+            f"v1 not fully migrated: "
+            f"{cap.post_sweep_v1_at_target_count}/{cap.seed_v1_count} at target"
+        )
+    if cap.post_sweep_v4_untouched_count != cap.seed_v4_count:
+        failures.append(
+            f"v4 rows touched by sweep: only "
+            f"{cap.post_sweep_v4_untouched_count}/{cap.seed_v4_count} bit-identical "
+            "post-sweep — schemaVersion-NOT-LIKE filter regressed"
+        )
+    if cap.final_upgrade_state != "SUCCEEDED":
+        failures.append(
+            f"final upgrade state was {cap.final_upgrade_state!r}, expected 'SUCCEEDED'"
+        )
+
+    if failures:
+        return ValidationResult(
+            tc_number=scenario.tc_number,
+            name=scenario.name,
+            status="FAIL",
+            expected_to_fail=False,
+            actual_result="; ".join(failures),
+            failure_reason="sweep did not skip already-migrated rows: " + failures[0],
+        )
+    return ValidationResult(
+        tc_number=scenario.tc_number,
+        name=scenario.name,
+        status="PASS",
+        expected_to_fail=False,
+        actual_result=(
+            f"v1→target {cap.post_sweep_v1_at_target_count}/{cap.seed_v1_count}; "
+            f"v4 untouched {cap.post_sweep_v4_untouched_count}/{cap.seed_v4_count}; "
+            f"state SUCCEEDED ({cap.total_duration_s:.1f}s)"
+        ),
+    )
+
+
 _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult]] = {
     # Honest SKIPs: each scenario's ``skip_reason`` documents why the
     # outcome is either duplicated by another TC or untractable here.
@@ -267,7 +343,7 @@ _VALIDATORS: dict[int, Callable[[ZDUTestScenario, TestContext], ValidationResult
     # same non-blocking sweep phase.
     324: _validate_cursor_resumability,
     325: _validate_batch_delay,
-    326: _skip_with_scenario_reason,  # duplicate of TC-316
+    326: _validate_skip_already_migrated,
     327: _validate_no_mutators_noop,
     328: _skip_with_scenario_reason,  # pending G20c reindex capture
     329: _skip_with_scenario_reason,  # redundant with TC-322

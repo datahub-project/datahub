@@ -177,6 +177,39 @@ class KillSwitchCapture:
 
 
 @dataclass
+class SkipAlreadyMigratedCapture:
+    """Captured by ``SkipAlreadyMigratedSweepPhase`` — TC-326 already-at-target skip.
+
+    The phase bulk-seeds a mixed batch (half at OLD ``schemaVersion``, half
+    at target), snapshots the target rows' ``createdon`` + ``systemmetadata``,
+    deletes the ``migrate-aspects-<version>`` upgrade-result row so the
+    sweep doesn't short-circuit on ``state=SUCCEEDED``, runs the sweep, then
+    verifies (a) the OLD rows migrated to target, and (b) the target rows
+    are bit-identical to the pre-sweep snapshot (proving the SQL filter
+    ``NOT LIKE '%"schemaVersion":<target>%'`` in
+    ``EbeanAspectDao.streamAspectBatchesForMigration`` excluded them).
+
+    Fields:
+      - ``seed_v1_count`` / ``seed_v4_count``: planned row counts per shape
+      - ``post_sweep_v1_at_target_count``: how many OLD-seeded URNs are now
+        at target ``schemaVersion`` (expected = ``seed_v1_count``)
+      - ``post_sweep_v4_untouched_count``: how many target-seeded URNs have
+        bit-identical ``createdon`` + ``systemmetadata`` post-sweep
+        (expected = ``seed_v4_count``)
+      - ``final_upgrade_state``: ``DataHubUpgradeResult.state`` value
+        (expected ``SUCCEEDED``)
+      - ``total_duration_s``: wall-clock duration of the upgrade-job process
+    """
+
+    seed_v1_count: int = 0
+    seed_v4_count: int = 0
+    post_sweep_v1_at_target_count: int = 0
+    post_sweep_v4_untouched_count: int = 0
+    final_upgrade_state: str | None = None
+    total_duration_s: float = 0.0
+
+
+@dataclass
 class UpgradeBlockingReRunResult:
     """Captured by ``UpgradeBlockingReRunPhase`` — the second invocation of
     ``SystemUpdateBlocking``.
@@ -421,6 +454,11 @@ class TestContext:
     # (seed → run sweep with known delay_ms → record per-batch cursor
     # advance timestamps → assert inter-advance gaps respect the knob).
     batch_delay_capture: BatchDelayCapture | None = None
+
+    # SkipAlreadyMigratedSweepPhase writes — captures TC-326 (sweep
+    # skips already-at-target rows via the per-aspect schemaVersion
+    # NOT LIKE filter in streamAspectBatchesForMigration).
+    skip_migrated_capture: SkipAlreadyMigratedCapture | None = None
 
     # SnapshotT1Phase writes — re-queries each ``ctx.snapshot_t0`` index via
     # its alias after upgrade_blocking_rerun completes. Consumed by TC-109
