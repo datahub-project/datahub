@@ -772,3 +772,89 @@ def test_operation_processor_datahub_props_structured_properties():
         "urn:li:structuredProperty:io.acme.retention_days": [30.0],
         "urn:li:structuredProperty:io.acme.regions": ["us-east-1", "eu-west-1"],
     }
+
+
+def test_operation_processor_add_structured_property_bool_value():
+    """Boolean meta values (e.g. `pii: true`) are stringified rather than
+    silently coerced to 1.0/0.0 via Python's bool-is-int subtype quirk."""
+    raw_props = {"pii": True}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "pii": {
+                "match": True,
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.pii"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["True"]
+    assert isinstance(assignment.values[0], str)
+
+
+def test_operation_processor_add_structured_property_invalid_urn():
+    """An invalid structured_property_urn (e.g. wrong entity type from a
+    typo) is logged and the rule is skipped without breaking the run."""
+    raw_props = {"x": "value"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "x": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    # common typo: tag URN where structuredProperty URN was meant
+                    "structured_property_urn": "urn:li:tag:io.acme.something",
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map
+
+
+def test_operation_processor_add_structured_property_list_value_template():
+    """A list-typed `value` with `{{ $match }}` substitutes the capture into
+    each string element while preserving non-string elements as-is."""
+    raw_props = {"region": "us-east-1"}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "region": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {
+                    "structured_property_urn": "io.acme.region",
+                    "value": ["aws-{{ $match }}", "azure-{{ $match }}"],
+                },
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assignment = aspect_map["add_structured_property"].properties[0]
+    assert list(assignment.values) == ["aws-us-east-1", "azure-us-east-1"]
+
+
+def test_operation_processor_add_structured_property_empty_value_skipped():
+    """An empty list value coerces to no values and the rule is dropped
+    rather than producing an empty assignment that would fail server-side
+    validation."""
+    raw_props: Dict[str, Any] = {"labels": []}
+
+    processor = OperationProcessor(
+        operation_defs={
+            "labels": {
+                "match": ".*",
+                "operation": "add_structured_property",
+                "config": {"structured_property_urn": "io.acme.labels"},
+            },
+        },
+    )
+
+    aspect_map = processor.process(raw_props)
+    assert "add_structured_property" not in aspect_map

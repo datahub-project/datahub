@@ -3959,3 +3959,90 @@ def test_dbt_column_meta_mapping_no_mapping_yields_nothing():
         )
     )
     assert mcps == []
+
+
+def test_dbt_column_meta_mapping_add_structured_property_skips_columns_without_meta():
+    """Columns with no `meta` are silently skipped — most columns won't have
+    meta, so this is the common path and must not log warnings."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="BIGINT",
+                meta={},  # no meta
+            ),
+            DBTColumn(
+                name="email",
+                comment="",
+                description="",
+                index=1,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            ),
+        ],
+    )
+
+    mcps = list(
+        source._create_column_structured_property_mcps(
+            node,
+            "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)",
+        )
+    )
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn is not None and "email" in mcps[0].entityUrn
+
+
+def test_dbt_column_meta_mapping_add_structured_property_lowercases_field_name():
+    """When `convert_column_urns_to_lowercase=True`, the emitted schemaField
+    URN uses the lowercased column name. This must stay in sync with how
+    SchemaMetadata fields are emitted so they refer to the same entity."""
+    config_dict = create_base_dbt_config()
+    config_dict["enable_meta_mapping"] = True
+    config_dict["convert_column_urns_to_lowercase"] = True
+    config_dict["column_meta_mapping"] = {
+        "pii": {
+            "match": True,
+            "operation": "add_structured_property",
+            "config": {
+                "structured_property_urn": "urn:li:structuredProperty:io.acme.pii",
+                "value": "true",
+            },
+        },
+    }
+    source = DBTCoreSource(DBTCoreConfig(**config_dict), PipelineContext(run_id="t"))
+    node = _make_dbt_node_with_meta(
+        meta={},
+        columns=[
+            DBTColumn(
+                name="CustomerEmail",
+                comment="",
+                description="",
+                index=0,
+                data_type="VARCHAR",
+                meta={"pii": True},
+            ),
+        ],
+    )
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,my_db.public.orders,PROD)"
+
+    mcps = list(source._create_column_structured_property_mcps(node, dataset_urn))
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn == f"urn:li:schemaField:({dataset_urn},customeremail)"
