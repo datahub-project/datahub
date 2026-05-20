@@ -9,6 +9,7 @@ import '@utils/dayjs';
 vi.mock('i18next', () => ({
     default: {
         changeLanguage: vi.fn(),
+        loadLanguages: vi.fn().mockResolvedValue(undefined),
         isInitialized: true,
         use: vi.fn().mockReturnThis(),
         init: vi.fn(),
