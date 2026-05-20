@@ -26,69 +26,57 @@ class TestRestoreMssqlTempTablePrefix:
         return get_dialect("postgres")
 
     def test_mssql_no_flags_returns_unchanged(self):
-        """MSSQL: Table name without temp flags should be returned unchanged."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="regular_table"),
-        )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        """MSSQL: Identifier without temp flags should be returned unchanged."""
+        identifier = sqlglot.exp.Identifier(this="regular_table")
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "regular_table"
 
     def test_mssql_local_temp_adds_hash_prefix(self):
         """MSSQL: Identifier with temporary=True should add # prefix."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="temptable", temporary=True),
-        )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        identifier = sqlglot.exp.Identifier(this="temptable", temporary=True)
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "#temptable"
 
     def test_mssql_global_temp_adds_double_hash_prefix(self):
         """MSSQL: Identifier with global=True should add ## prefix."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="globaltemp", **{"global": True}),
-        )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        identifier = sqlglot.exp.Identifier(this="globaltemp", **{"global": True})
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "##globaltemp"
 
     def test_mssql_no_double_prefix_local(self):
         """MSSQL: Should not add # if already present."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="#already_prefixed", temporary=True),
-        )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        identifier = sqlglot.exp.Identifier(this="#already_prefixed", temporary=True)
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "#already_prefixed"
 
     def test_mssql_no_double_prefix_global(self):
         """MSSQL: Should not add ## if already present."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="##already_prefixed", **{"global": True}),
+        identifier = sqlglot.exp.Identifier(
+            this="##already_prefixed", **{"global": True}
         )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "##already_prefixed"
 
     def test_mssql_global_takes_precedence_over_local(self):
         """MSSQL: If both global and temporary are set, global (##) takes precedence."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(
-                this="temptable", temporary=True, **{"global": True}
-            ),
+        identifier = sqlglot.exp.Identifier(
+            this="temptable", temporary=True, **{"global": True}
         )
-        result = _restore_mssql_temp_table_prefix(table, self._get_mssql_dialect())
+        result = _restore_mssql_temp_table_prefix(identifier, self._get_mssql_dialect())
         assert result == "##temptable"
 
     def test_non_mssql_dialect_returns_unchanged(self):
         """Non-MSSQL dialects should not add # prefix even with temporary flag."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="temptable", temporary=True),
+        identifier = sqlglot.exp.Identifier(this="temptable", temporary=True)
+        result = _restore_mssql_temp_table_prefix(
+            identifier, self._get_postgres_dialect()
         )
-        result = _restore_mssql_temp_table_prefix(table, self._get_postgres_dialect())
         assert result == "temptable"
 
     def test_none_dialect_returns_unchanged(self):
         """None dialect should not add # prefix."""
-        table = sqlglot.exp.Table(
-            this=sqlglot.exp.Identifier(this="temptable", temporary=True),
-        )
-        result = _restore_mssql_temp_table_prefix(table, None)
+        identifier = sqlglot.exp.Identifier(this="temptable", temporary=True)
+        result = _restore_mssql_temp_table_prefix(identifier, None)
         assert result == "temptable"
 
 
@@ -141,6 +129,67 @@ class TestTableNameFromSqlglotTable:
         )
         assert result.database == "explicit_db"
         assert result.db_schema == "explicit_schema"
+
+
+class TestLeafNameTransform:
+    """Tests for the leaf_name_transform parameter on _TableName.from_sqlglot_table."""
+
+    def test_transform_runs_only_on_rightmost_dot_identifier(self):
+        """Transform must run on the table leaf, not on intermediate path parts."""
+        sql = 'SELECT * FROM "a"."b"."c"."d"."leaf"'
+        stmt = sqlglot.parse_one(sql, dialect="snowflake")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+        assert isinstance(table_node.this, sqlglot.exp.Dot)
+
+        result = _TableName.from_sqlglot_table(
+            table_node,
+            leaf_name_transform=lambda exp: f"<{exp.name}>",
+        )
+
+        # The rightmost identifier was wrapped; intermediate Dot parts were not.
+        assert result.table.endswith(".<leaf>"), result.table
+        assert "<a>" not in (result.database or "")
+        assert "<b>" not in (result.db_schema or "")
+        for part in ("<a>", "<b>", "<c>", "<d>"):
+            assert part not in result.table, (
+                f"Transform leaked onto non-leaf part: {result.table}"
+            )
+
+    def test_transform_propagates_through_semantic_view_to_dot_leaf(self):
+        """leaf_name_transform must survive the SemanticView recursion and still
+        run on the rightmost identifier of the inner Dot path."""
+        sql = 'SELECT * FROM SEMANTIC_VIEW("a"."b"."c"."d"."leaf")'
+        stmt = sqlglot.parse_one(sql, dialect="snowflake")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+        assert isinstance(table_node.this, sqlglot.exp.SemanticView)
+        assert isinstance(table_node.this.this.this, sqlglot.exp.Dot)
+
+        result = _TableName.from_sqlglot_table(
+            table_node,
+            leaf_name_transform=lambda exp: f"<{exp.name}>",
+        )
+
+        assert result.table.endswith(".<leaf>"), result.table
+        for part in ("<a>", "<b>", "<c>", "<d>"):
+            assert part not in result.table, (
+                f"Transform leaked onto non-leaf part: {result.table}"
+            )
+
+    def test_transform_applied_to_semantic_view_identifier(self):
+        """SemanticView wrapping a bare identifier still runs the transform."""
+        # SEMANTIC_VIEW(simple) parses with inner Table(this=Identifier), which is
+        # the second branch of the SemanticView handling.
+        sql = "SELECT * FROM SEMANTIC_VIEW(my_view)"
+        stmt = sqlglot.parse_one(sql, dialect="snowflake")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+        assert isinstance(table_node.this, sqlglot.exp.SemanticView)
+
+        result = _TableName.from_sqlglot_table(
+            table_node,
+            leaf_name_transform=lambda exp: f"<{exp.name}>",
+        )
+
+        assert result.table == "<my_view>"
 
 
 class TestTableNameFromSqlglotTableWithDialect:
@@ -604,38 +653,40 @@ class TestOtherDialectsTempTables:
 class TestDotExpressionTableNames:
     """Tests for table names with more than 3 parts (Dot expressions).
 
-    When a table has more than 3 parts (e.g., a.b.c.d.table), SQLGlot
-    represents the table name as a Dot expression rather than a simple
-    Identifier. We need to handle this case for temp table detection.
+    sqlglot represents extra path components as left-nested Dots in table.this
+    (a.b.c = Dot(Dot(a, b), c)).
     """
 
     def _get_mssql_dialect(self) -> sqlglot.Dialect:
         return get_dialect("mssql")
 
+    def _make_left_nested_dot(self, *parts: str) -> sqlglot.exp.Expression:
+        """Build a left-nested Dot chain (matches actual sqlglot parser output)."""
+        assert len(parts) >= 2
+        result: sqlglot.exp.Expression = sqlglot.exp.Identifier(this=parts[0])
+        for part in parts[1:]:
+            result = sqlglot.exp.Dot(
+                this=result,
+                expression=sqlglot.exp.Identifier(this=part),
+            )
+        return result
+
     def test_multipart_dot_table_name(self):
-        """Table with >3 parts should merge into table name."""
-        # Construct a Dot expression: a.b.tablename
-        dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="tablename"),
-            ),
-        )
+        """Table with >3 parts should merge all extra parts into table name."""
+        dot_expr = self._make_left_nested_dot("a", "b", "tablename")
         table = sqlglot.exp.Table(this=dot_expr)
 
         result = _table_name_from_sqlglot_table(table, self._get_mssql_dialect())
         assert result.table == "a.b.tablename"
 
     def test_multipart_dot_local_temp_table(self):
-        """Dot expression with temporary flag should get # prefix."""
-        # Construct a Dot expression where the final identifier has temporary=True
+        """Dot expression where the rightmost identifier has temporary=True gets # prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -645,16 +696,13 @@ class TestDotExpressionTableNames:
         )
 
     def test_multipart_dot_global_temp_table(self):
-        """Dot expression with global flag should get ## prefix."""
-        # Construct a Dot expression where the final identifier has global=True
+        """Dot expression where the rightmost identifier has global=True gets ## prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(
-                    this="globaltemp", **{"global": True}
-                ),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="globaltemp", **{"global": True}),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -665,13 +713,7 @@ class TestDotExpressionTableNames:
 
     def test_multipart_dot_no_temp_flags(self):
         """Dot expression without temp flags should not get # prefix."""
-        dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="part1"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="part2"),
-                expression=sqlglot.exp.Identifier(this="regular_table"),
-            ),
-        )
+        dot_expr = self._make_left_nested_dot("part1", "part2", "regular_table")
         table = sqlglot.exp.Table(this=dot_expr)
 
         result = _table_name_from_sqlglot_table(table, self._get_mssql_dialect())
@@ -681,11 +723,11 @@ class TestDotExpressionTableNames:
     def test_multipart_dot_non_mssql_no_prefix(self):
         """Dot expression with temporary flag but non-MSSQL dialect should not get prefix."""
         dot_expr = sqlglot.exp.Dot(
-            this=sqlglot.exp.Identifier(this="a"),
-            expression=sqlglot.exp.Dot(
-                this=sqlglot.exp.Identifier(this="b"),
-                expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
+            this=sqlglot.exp.Dot(
+                this=sqlglot.exp.Identifier(this="a"),
+                expression=sqlglot.exp.Identifier(this="b"),
             ),
+            expression=sqlglot.exp.Identifier(this="temptable", temporary=True),
         )
         table = sqlglot.exp.Table(this=dot_expr)
 
@@ -694,6 +736,37 @@ class TestDotExpressionTableNames:
         assert result.table == "a.b.temptable", (
             f"Expected a.b.temptable (no # prefix for Postgres), got {result.table}"
         )
+
+    def test_5part_path_preserves_all_components(self):
+        """Regression: 5-part paths must not drop middle components.
+
+        The old traversal used exp.this.name on an inner Dot, which returns only
+        its leaf — silently dropping one level for every extra nesting depth.
+        """
+        sql = 'SELECT * FROM "src"."ns"."sub"."schema"."my_table"'
+        stmt = sqlglot.parse_one(sql, dialect="dremio")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+        assert isinstance(table_node.this, sqlglot.exp.Dot)
+
+        result = _table_name_from_sqlglot_table(table_node, get_dialect("dremio"))
+
+        assert result.database == "src"
+        assert result.db_schema == "ns"
+        assert result.table == "sub.schema.my_table"
+
+    def test_deep_path_preserves_all_components(self):
+        """Paths of arbitrary depth (10 parts) must all be preserved."""
+        parts = [f"p{i}" for i in range(10)]
+        sql = "SELECT * FROM " + ".".join(f'"{p}"' for p in parts)
+        stmt = sqlglot.parse_one(sql, dialect="dremio")
+        table_node = list(stmt.find_all(sqlglot.exp.Table))[0]
+
+        result = _table_name_from_sqlglot_table(table_node, get_dialect("dremio"))
+
+        full_name = ".".join(
+            filter(None, [result.database, result.db_schema, result.table])
+        )
+        assert full_name == ".".join(parts)
 
     def test_mssql_4part_temp_table_real_sql(self):
         """Test 4-part temp table name with real SQL parsing.
