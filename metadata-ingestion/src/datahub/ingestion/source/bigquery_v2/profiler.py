@@ -13,7 +13,9 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     RANGE_PARTITION_NAME,
     BigqueryTable,
 )
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
+)
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -22,6 +24,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -93,7 +96,7 @@ class BigqueryProfiler(GenericProfiler):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

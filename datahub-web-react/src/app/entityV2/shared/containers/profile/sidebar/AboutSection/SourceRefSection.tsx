@@ -5,6 +5,7 @@ import styled from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { safeUrl } from '@app/shared/urlUtils';
 
 const StyledAnchor = styled.a`
     text-decoration: none;
@@ -23,7 +24,7 @@ export default function SourceRefSection() {
             title="Source"
             content={
                 sourceUrl ? (
-                    <StyledAnchor href={sourceUrl} target="_blank" rel="noreferrer">
+                    <StyledAnchor href={safeUrl(sourceUrl)} target="_blank" rel="noreferrer">
                         <Button variant="text" color="violet">
                             <Icon icon={Link} size="md" color="inherit" />
                             {sourceRef}
