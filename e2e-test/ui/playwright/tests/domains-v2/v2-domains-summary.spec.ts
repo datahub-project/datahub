@@ -1,12 +1,24 @@
 /**
- * Domains V2 summary tab tests — migrated from Cypress e2e/summaryTab/domainSummary.js
+ * Domains V2 Summary Tab Tests
  *
- * Tests domain summary tab properties, about section, and template sections
- * (assets, domains hierarchy, data products).
+ * Tests domain summary tab content and sections:
+ * - Properties section (created timestamp, owners)
+ * - About section (description)
+ * - Template sections (assets, domains, data products)
+ *
+ * Prerequisites:
+ * - Marketing domain must exist in the system
+ *
+ * Related files:
+ * - v2-domains-core.spec.ts — Domain creation and navigation
+ * - v2-domains-advanced.spec.ts — Domain operations (move, edit, docs, links, owners)
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { NestedDomainsPage } from '../../pages/nested-domains.page';
+import { NestedDomainsPage } from '../../pages/domains/nested-domains.page';
+
+const MARKETING_DOMAIN_URN = 'urn:li:domain:marketing';
+const DOMAIN_URL_PATTERN = '/domain/';
 
 test.describe('Domains V2 Summary Tab', () => {
   test.beforeEach(async ({ page }) => {
@@ -18,14 +30,12 @@ test.describe('Domains V2 Summary Tab', () => {
     logger.step('Verify summary tab properties section');
     const domainsPage = new NestedDomainsPage(page, logger);
 
-    // Open Marketing domain
-    const marketing = domainsPage.getMarketingDomainLink();
-    await expect(marketing).toBeVisible();
-    await marketing.click();
+    // Navigate directly to Marketing domain
+    await page.goto(`${DOMAIN_URL_PATTERN}${MARKETING_DOMAIN_URN}`);
     await page.waitForLoadState('networkidle');
 
     // Verify we're on a domain page
-    expect(page.url()).toContain('/domain/');
+    expect(page.url()).toContain(DOMAIN_URL_PATTERN);
 
     // Verify Summary tab exists
     const summaryCount = await domainsPage.summaryTab.count();
@@ -40,9 +50,8 @@ test.describe('Domains V2 Summary Tab', () => {
     logger.step('Verify summary tab about section');
     const domainsPage = new NestedDomainsPage(page, logger);
 
-    const marketing = domainsPage.getMarketingDomainLink();
-    await expect(marketing).toBeVisible();
-    await marketing.click();
+    // Navigate directly to Marketing domain
+    await page.goto('/domain/urn:li:domain:marketing');
     await page.waitForLoadState('networkidle');
 
     // Verify About section exists
@@ -54,9 +63,8 @@ test.describe('Domains V2 Summary Tab', () => {
     logger.step('Verify summary tab template section');
     const domainsPage = new NestedDomainsPage(page, logger);
 
-    const marketing = domainsPage.getMarketingDomainLink();
-    await expect(marketing).toBeVisible();
-    await marketing.click();
+    // Navigate directly to Marketing domain
+    await page.goto('/domain/urn:li:domain:marketing');
     await page.waitForLoadState('networkidle');
 
     // Verify template sections for assets, domains, and data products

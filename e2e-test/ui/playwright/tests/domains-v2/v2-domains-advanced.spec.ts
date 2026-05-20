@@ -1,0 +1,110 @@
+/**
+ * Domains V2 Advanced Functionality Tests
+ *
+ * Tests advanced domain operations:
+ * - Move domain to parent domain (hierarchy)
+ * - Edit domain name
+ * - Add documentation
+ * - Add related links/references
+ * - Add owners
+ *
+ * Each test creates a unique test domain, performs an operation, then cleans up.
+ *
+ * Prerequisites:
+ * - Marketing domain must exist in the system
+ *
+ * Related files:
+ * - v2-domains-core.spec.ts — Domain creation and navigation
+ * - v2-domains-summary.spec.ts — Summary tab content verification
+ */
+
+import { test } from '../../fixtures/base-test';
+import { NestedDomainsPage } from '../../pages/domains/nested-domains.page';
+
+const MARKETING_DOMAIN_NAME = 'Marketing';
+const TEST_DOCUMENTATION = 'Test documentation for domains';
+const TEST_LINK_URL = 'https://example.com';
+const TEST_LINK_LABEL = 'Example Link';
+const TEST_OWNER_NAME = 'datahub';
+const LOAD_STATE_DOMCONTENTLOADED = 'domcontentloaded';
+const LOAD_STATE_LOAD = 'load';
+const DELAY_XL = 2000;
+
+// Helper function to convert domain name to URN (lowercase, handle spaces)
+const getDomainUrn = (name: string): string => {
+  const lowerName = name.toLowerCase().replace(/\s+/g, '');
+  return `urn:li:domain:${lowerName}`;
+};
+
+// Helper to create domain, navigate to it, and run a test operation with cleanup
+async function runDomainTest(
+  page: import('@playwright/test').Page,
+  logger: import('../../utils/logger').DataHubLogger | undefined,
+  testName: string,
+  testOperation: (domainsPage: NestedDomainsPage) => Promise<void>,
+): Promise<void> {
+  const domainsPage = new NestedDomainsPage(page, logger);
+  const testDomainName = `${testName}${Date.now()}`;
+
+  try {
+    // Create domain
+    await page.goto('/domains', { waitUntil: LOAD_STATE_DOMCONTENTLOADED });
+    await page.waitForLoadState(LOAD_STATE_LOAD);
+    await page.waitForTimeout(DELAY_XL);
+
+    await domainsPage.createDomain(testDomainName);
+
+    // Navigate to domain by clicking the link (natural navigation)
+    const domainLink = page.getByRole('link').filter({ hasText: testDomainName }).first();
+    await domainLink.waitFor({ state: 'visible', timeout: 10000 });
+    await domainLink.click();
+    await page.waitForLoadState(LOAD_STATE_LOAD);
+    await page.waitForTimeout(DELAY_XL);
+
+    // Run test-specific operation
+    await testOperation(domainsPage);
+  } finally {
+    // Always clean up - navigate back to domain and delete it
+    try {
+      const domainUrn = getDomainUrn(testDomainName);
+      await page.goto(`/domain/${domainUrn}`, { waitUntil: LOAD_STATE_DOMCONTENTLOADED }).catch(() => {});
+      await page.waitForLoadState(LOAD_STATE_LOAD).catch(() => {});
+      await domainsPage.deleteDomain().catch(() => {});
+    } catch {
+      logger?.error(`Cleanup failed for domain ${testDomainName}`);
+    }
+  }
+}
+
+test.describe('Domains V2 Advanced Functionality', () => {
+  test('Verify Move domain to parent', async ({ page, logger }) => {
+    await runDomainTest(page, logger, 'MoveTest', async (domainsPage) => {
+      await domainsPage.moveDomainToParent(MARKETING_DOMAIN_NAME);
+    });
+  });
+
+  test('Verify Edit domain name', async ({ page, logger }) => {
+    await runDomainTest(page, logger, 'EditTest', async (domainsPage) => {
+      const newName = `Edited${Date.now()}`;
+      await domainsPage.editDomainName(newName);
+    });
+  });
+
+  test('Verify Add documentation to domain', async ({ page, logger }) => {
+    await runDomainTest(page, logger, 'DocsTest', async (domainsPage) => {
+      await domainsPage.addDocumentation(TEST_DOCUMENTATION);
+    });
+  });
+
+  test('Verify Add link to domain', async ({ page, logger }) => {
+    await runDomainTest(page, logger, 'LinkTest', async (domainsPage) => {
+      await domainsPage.addLink(TEST_LINK_URL, TEST_LINK_LABEL);
+    });
+  });
+
+  test('Verify Add owner to domain', async ({ page, logger }) => {
+    await runDomainTest(page, logger, 'OwnerTest', async (domainsPage) => {
+      await domainsPage.addOwner(TEST_OWNER_NAME);
+    });
+  });
+});

@@ -5,8 +5,8 @@
  */
 
 import { Locator, Page, expect } from '@playwright/test';
-import { BasePage } from './base.page';
-import type { DataHubLogger } from '../utils/logger';
+import { BasePage } from '../base.page';
+import type { DataHubLogger } from '../../utils/logger';
 
 export class DomainsPage extends BasePage {
   readonly newDomainButton: Locator;
