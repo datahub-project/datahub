@@ -1,5 +1,6 @@
 """Tests for report_aspect_changes.py"""
 
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -8,6 +9,11 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import report_aspect_changes as rac
+
+
+# ---------------------------------------------------------------------------
+# resolve_base — acryl mode (mode passed explicitly to bypass auto-detect)
+# ---------------------------------------------------------------------------
 
 
 def test_resolve_base_returns_latest_stable_cloud_tag_from_global_list():
@@ -22,7 +28,7 @@ def test_resolve_base_returns_latest_stable_cloud_tag_from_global_list():
     # the rc tags at the top and return the first stable below them.
     tag_list = "v1.1.0rc3-cloud\nv1.1.0rc2-cloud\nv1.1.0rc1-cloud\nv1.0.1-cloud\nv1.0.0-cloud\n"
     with patch("subprocess.check_output", return_value=tag_list) as m:
-        assert rac.resolve_base() == "v1.0.1-cloud"
+        assert rac.resolve_base(mode="acryl") == "v1.0.1-cloud"
     # Only one git invocation needed when stable lookup succeeds.
     assert m.call_count == 1
 
@@ -33,7 +39,7 @@ def test_resolve_base_invokes_git_tag_list_with_sort_flag():
     enumeration is core to the fix.
     """
     with patch("subprocess.check_output", return_value="v1.0.1-cloud\n") as m:
-        rac.resolve_base()
+        rac.resolve_base(mode="acryl")
     args = m.call_args[0][0]
     assert args[:3] == ["git", "tag", "--list"]
     assert "v*-cloud" in args
@@ -52,7 +58,7 @@ def test_resolve_base_falls_back_to_rc_when_no_stable_cloud():
         "subprocess.check_output",
         side_effect=[rc_only_list, rc_only_list],
     ) as m:
-        assert rac.resolve_base() == "v1.1.0rc3-cloud"
+        assert rac.resolve_base(mode="acryl") == "v1.1.0rc3-cloud"
     # First lookup exhausted (all rc), second lookup succeeded without filter.
     assert m.call_count == 2
 
@@ -63,7 +69,7 @@ def test_resolve_base_raises_when_no_cloud_tag_in_repo():
     """
     with patch("subprocess.check_output", side_effect=["", ""]):
         with pytest.raises(SystemExit) as exc:
-            rac.resolve_base()
+            rac.resolve_base(mode="acryl")
     msg = str(exc.value)
     assert "Could not find" in msg
     assert "--base" in msg
@@ -84,7 +90,147 @@ def test_resolve_base_rc_substring_filter_skips_rc_tags_only():
         "v1.0.0-cloud\n"
     )
     with patch("subprocess.check_output", return_value=tag_list):
-        assert rac.resolve_base() == "v1.0.1-cloud"
+        assert rac.resolve_base(mode="acryl") == "v1.0.1-cloud"
+
+
+# ---------------------------------------------------------------------------
+# _detect_mode — repo-flavor auto-detection
+# ---------------------------------------------------------------------------
+
+
+def test_detect_mode_returns_acryl_when_acryl_main_ref_exists():
+    """`git rev-parse --verify --quiet acryl-main` succeeds → acryl mode."""
+    with patch("subprocess.check_output", return_value="abc123\n") as m:
+        assert rac._detect_mode() == "acryl"
+    # Verify the probe command — should be `git rev-parse --verify` against
+    # `acryl-main` specifically. Other refs would give false positives.
+    args = m.call_args[0][0]
+    assert args[:3] == ["git", "rev-parse", "--verify"]
+    assert "acryl-main" in args
+
+
+def test_detect_mode_returns_oss_when_acryl_main_ref_missing():
+    """`git rev-parse --verify acryl-main` exits non-zero in the OSS repo →
+    oss mode. Triggers when the ref doesn't exist in any namespace.
+    """
+    err = subprocess.CalledProcessError(returncode=1, cmd=["git"])
+    with patch("subprocess.check_output", side_effect=err):
+        assert rac._detect_mode() == "oss"
+
+
+# ---------------------------------------------------------------------------
+# _default_head — per-mode head ref default
+# ---------------------------------------------------------------------------
+
+
+def test_default_head_acryl_mode_returns_acryl_main():
+    assert rac._default_head("acryl") == "acryl-main"
+
+
+def test_default_head_oss_mode_returns_master():
+    assert rac._default_head("oss") == "master"
+
+
+def test_default_head_auto_detects_when_mode_not_passed():
+    """When mode=None, falls back to _detect_mode(). Mocking subprocess so the
+    test doesn't depend on the local repo flavor.
+    """
+    err = subprocess.CalledProcessError(returncode=1, cmd=["git"])
+    with patch("subprocess.check_output", side_effect=err):
+        assert rac._default_head() == "master"
+
+
+# ---------------------------------------------------------------------------
+# resolve_base — OSS mode
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_base_oss_returns_latest_stable_non_cloud_tag():
+    """OSS mode: latest stable v* tag, excluding rc and -cloud. The exclude
+    filter must skip -cloud tags even when they sort newest, since a checkout
+    with both OSS and fork tags should still pick the right release line.
+    """
+    # Mixed list as `git tag --list 'v*' --sort=-v:refname` would return on a
+    # repo with both OSS and cloud tags. rc tags skipped by exclude_substr;
+    # -cloud tags skipped by exclude_extra; first surviving entry wins.
+    tag_list = (
+        "v1.6.0rc2\n"  # skip: rc
+        "v1.6.0rc1\n"  # skip: rc
+        "v1.5.0.7-cloud\n"  # skip: -cloud
+        "v1.5.0.7\n"  # ← first stable non-cloud, should be picked
+        "v1.5.0.6\n"
+        "v1.5.0\n"
+    )
+    with patch("subprocess.check_output", return_value=tag_list) as m:
+        assert rac.resolve_base(mode="oss") == "v1.5.0.7"
+    assert m.call_count == 1
+
+
+def test_resolve_base_oss_invokes_git_tag_list_with_v_star_match():
+    """OSS mode probes `v*` (not `v*-cloud`) so OSS tags without the cloud
+    suffix are returned. The -cloud filter happens Python-side.
+    """
+    with patch("subprocess.check_output", return_value="v1.5.0\n") as m:
+        rac.resolve_base(mode="oss")
+    args = m.call_args[0][0]
+    assert args[:3] == ["git", "tag", "--list"]
+    assert "v*" in args
+    assert "v*-cloud" not in args  # would over-narrow and miss OSS tags
+
+
+def test_resolve_base_oss_falls_back_to_rc_when_no_stable():
+    """OSS mode: when no stable v* tag exists (all are rc), fall back to
+    accepting rc tags (while still excluding -cloud).
+    """
+    rc_only_list = "v1.6.0rc2\nv1.6.0rc1\n"
+    with patch(
+        "subprocess.check_output",
+        side_effect=[rc_only_list, rc_only_list],
+    ) as m:
+        assert rac.resolve_base(mode="oss") == "v1.6.0rc2"
+    assert m.call_count == 2
+
+
+def test_resolve_base_oss_raises_when_no_tag_in_repo():
+    """OSS mode: both lookups empty → SystemExit. Diagnostic mentions the
+    glob used and the mode for the user to reproduce.
+    """
+    with patch("subprocess.check_output", side_effect=["", ""]):
+        with pytest.raises(SystemExit) as exc:
+            rac.resolve_base(mode="oss")
+    msg = str(exc.value)
+    assert "Could not find" in msg
+    assert "--base" in msg
+    assert "mode=oss" in msg
+
+
+def test_resolve_base_rejects_unknown_mode():
+    """Defensive: an invalid mode string should raise loudly rather than
+    silently picking one branch.
+    """
+    with pytest.raises(ValueError, match="unknown mode"):
+        rac.resolve_base(mode="nonsense")
+
+
+# ---------------------------------------------------------------------------
+# resolve_base — auto-detect (mode=None)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_base_auto_detect_uses_oss_when_no_acryl_main():
+    """When mode is not passed, resolve_base() auto-detects via _detect_mode.
+    With acryl-main missing, OSS path runs and picks a non-cloud tag.
+    """
+    err = subprocess.CalledProcessError(returncode=1, cmd=["git"])
+    oss_tag_list = "v1.5.0.7-cloud\nv1.5.0.7\nv1.5.0\n"
+    # Detection probes both `acryl-main` and `origin/acryl-main` (CI-style
+    # checkouts only have the remote-tracking form), so two failures precede
+    # the OSS tag-list lookup.
+    with patch(
+        "subprocess.check_output", side_effect=[err, err, oss_tag_list]
+    ) as m:
+        assert rac.resolve_base() == "v1.5.0.7"
+    assert m.call_count == 3
 
 
 # ---------------------------------------------------------------------------
@@ -581,7 +727,7 @@ def test_main_cumulative_bucket_follows_per_pr_spurious_slice(monkeypatch, tmp_p
     monkeypatch.setattr(
         rac, "file_at", lambda ref, p: aspect_old if ref == "BASE" else aspect_new
     )
-    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda *a, **kw: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -643,7 +789,7 @@ def test_main_cumulative_bucket_clean_when_all_slices_are_done(monkeypatch, tmp_
     monkeypatch.setattr(
         rac, "file_at", lambda ref, p: aspect_old if ref == "BASE" else aspect_new
     )
-    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda *a, **kw: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -692,7 +838,7 @@ def test_main_cumulative_mode_still_overrides_when_promoting_to_needed_or_spurio
 
     monkeypatch.setattr(rac, "changed_pdls", lambda b, h: [aspect_path])
     monkeypatch.setattr(rac, "file_at", lambda ref, p: aspect_same)
-    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda *a, **kw: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -1066,7 +1212,7 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
 
     monkeypatch.setattr(rac, "changed_pdls", fake_changed)
     monkeypatch.setattr(rac, "file_at", fake_file_at)
-    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda *a, **kw: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(
         rac, "latest_commit", lambda ref, p, base: "abc1234 feat (#9999)"
@@ -1683,7 +1829,7 @@ def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
             return aspect_old if ref == "BASE" else aspect_new
         return nested_old if ref == "BASE" else nested_new
 
-    def fake_resolve():
+    def fake_resolve(mode=None):
         return "BASE"
 
     def fake_head_sha(ref):
@@ -1863,7 +2009,7 @@ def test_render_per_pr_report_handles_empty_audit():
 def test_main_per_pr_flag_writes_per_pr_report(tmp_path, monkeypatch):
     """--per-pr swaps the renderer to render_per_pr_report. Stub out the
     git+audit machinery so the test is hermetic."""
-    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda *a, **kw: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(
         rac,

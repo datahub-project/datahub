@@ -1,6 +1,9 @@
 name: PDL Aspect Change Report
 
 on:
+  schedule:
+    # Daily at 06:00 UTC. Runs against acryl-main with auto-resolved baseline.
+    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       base:
@@ -53,4 +56,14 @@ jobs:
           [ "$INPUT_PER_PR" = "true" ] && PER_PR_ARG=(--per-pr)
           python3 .github/scripts/report_aspect_changes.py \
             "${BASE_ARG[@]}" "${HEAD_ARG[@]}" "${PER_PR_ARG[@]}" \
-            --output "$GITHUB_STEP_SUMMARY"
+            --output pdl-change-report.md
+          cat pdl-change-report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: pdl-change-report
+          path: |
+            pdl-change-report.md
+            release_test_pdl_changes.md
+          if-no-files-found: warn

@@ -2,14 +2,20 @@
 """
 Report @Aspect PDL breaking changes between two git refs.
 
-By default, compares `acryl-main` against the latest stable `-cloud` release
-tag reachable from it (falling back to the latest `-cloud` tag if no stable
-release exists yet). Used to audit aspect-level breaking changes across any
-release window — the defaults self-adjust as new releases ship.
+Auto-detects the repo flavor and picks sensible defaults:
+
+- acryl-fork (when `acryl-main` ref exists): compares `acryl-main` against
+  the latest stable `v*-cloud` release tag.
+- OSS DataHub (no `acryl-main` ref): compares `master` against the latest
+  stable `v*` release tag (rc and `-cloud` tags excluded).
+
+Each mode falls back to including rc tags if no stable release exists yet.
+The defaults self-adjust as new releases ship — no per-release config changes.
 
 Usage:
     python3 .github/scripts/report_aspect_changes.py
     python3 .github/scripts/report_aspect_changes.py --base v1.0.0rc1-cloud
+    python3 .github/scripts/report_aspect_changes.py --base v1.5.0 --head master
     python3 .github/scripts/report_aspect_changes.py --output report.md
 """
 
@@ -33,7 +39,10 @@ PDL_PREFIX = "metadata-models/src/main/pegasus"
 
 
 def _latest_tag(
-    match: str, *, exclude_substr: Optional[str] = None
+    match: str,
+    *,
+    exclude_substr: Optional[str] = None,
+    exclude_extra: Optional[str] = None,
 ) -> Optional[str]:
     """Return the latest tag (version-sorted descending) matching `match`.
 
@@ -41,8 +50,10 @@ def _latest_tag(
     no ancestry constraint. Release tags in this repo often live on parallel
     hotfix branches that aren't ancestors of trunk, so an ancestry-based
     lookup (`git describe --abbrev=0`) would miss them. Pass `exclude_substr`
-    to skip tags whose names contain a substring (e.g. "rc"). Returns None
-    if no matching tag is found or git fails.
+    to skip tags whose names contain a substring (e.g. "rc"); pass
+    `exclude_extra` for a second substring filter (e.g. exclude "-cloud"
+    when picking OSS tags since git's glob can't negate). Returns None if
+    no matching tag is found or git fails.
     """
     try:
         out = subprocess.check_output(
@@ -59,33 +70,101 @@ def _latest_tag(
             continue
         if exclude_substr and exclude_substr in tag:
             continue
+        if exclude_extra and exclude_extra in tag:
+            continue
         return tag
     return None
 
 
-def resolve_base() -> str:
-    """Pick the latest stable `-cloud` release tag (global, version-sorted).
+def _resolve_ref(*candidates: str) -> Optional[str]:
+    """Return the first candidate ref that resolves, or None.
 
-    Looks across all tags in the repo, not just ancestors of any specific
-    ref. This is required because stable `-cloud` releases are typically
-    cut on parallel hotfix branches (e.g. `origin/hotfixes/v1.0.0`) that
-    aren't ancestors of `acryl-main`. An ancestry-based lookup would never
-    find them.
-
-    Falls back to the latest `-cloud` tag of any kind (rc accepted) if no
-    stable release exists yet. The defaults self-maintain across releases
-    — no hardcoded minor-version prefix to bump at every release cut.
+    Checks each candidate via `git rev-parse --verify --quiet`. CI
+    checkouts typically only have remote-tracking refs (e.g.
+    `origin/acryl-main`), not the bare local branch name, so callers
+    pass both forms and take whichever resolves.
     """
-    stable = _latest_tag(match="v*-cloud", exclude_substr="rc")
+    for ref in candidates:
+        try:
+            subprocess.check_output(
+                ["git", "rev-parse", "--verify", "--quiet", ref],
+                cwd=REPO_ROOT,
+                stderr=subprocess.DEVNULL,
+            )
+            return ref
+        except subprocess.CalledProcessError:
+            continue
+    return None
+
+
+def _detect_mode() -> str:
+    """Return 'acryl' if any `acryl-main` ref exists in this repo, else 'oss'.
+
+    Presence of `acryl-main` is the marker: it's a fork-only branch that
+    never exists in the OSS DataHub repo. Using a branch presence check
+    (rather than remote URL inspection or tag-pattern probing) keeps the
+    signal stable across local renames and detached HEADs. Both the
+    local branch and the `origin/` remote-tracking ref are checked so
+    CI checkouts (which often only have the remote-tracking form) are
+    detected correctly.
+    """
+    if _resolve_ref("acryl-main", "origin/acryl-main"):
+        return "acryl"
+    return "oss"
+
+
+def _default_head(mode: Optional[str] = None) -> str:
+    """Return the head ref default for the given mode (auto-detected if None).
+
+    Prefers the local branch but falls back to the `origin/` remote-tracking
+    ref so the default resolves in CI checkouts.
+    """
+    if mode is None:
+        mode = _detect_mode()
+    if mode == "acryl":
+        return _resolve_ref("acryl-main", "origin/acryl-main") or "acryl-main"
+    return _resolve_ref("master", "origin/master") or "master"
+
+
+def resolve_base(mode: Optional[str] = None) -> str:
+    """Pick the latest stable release tag for the given repo flavor.
+
+    Looks across all tags in the repo (no ancestry constraint) and picks the
+    latest version-sorted tag matching the mode's release naming convention:
+
+    - acryl: `v*-cloud` tags. Stable cloud releases are cut on parallel
+      hotfix branches that aren't ancestors of `acryl-main`, so an
+      ancestry-based lookup would miss them.
+    - oss: `v*` tags excluding `-cloud`. OSS release tags don't carry the
+      cloud suffix; we strip cloud tags so a checkout that has both still
+      picks the right one.
+
+    Falls back to including rc tags if no stable release exists yet. The
+    defaults self-maintain across releases — no hardcoded prefix to bump.
+
+    `mode` defaults to auto-detection via `_detect_mode()`.
+    """
+    if mode is None:
+        mode = _detect_mode()
+    if mode == "acryl":
+        match, exclude_extra = "v*-cloud", None
+    elif mode == "oss":
+        match, exclude_extra = "v*", "-cloud"
+    else:
+        raise ValueError(f"unknown mode: {mode!r}")
+
+    stable = _latest_tag(
+        match=match, exclude_substr="rc", exclude_extra=exclude_extra
+    )
     if stable:
         return stable
-    rc_fallback = _latest_tag(match="v*-cloud")
+    rc_fallback = _latest_tag(match=match, exclude_extra=exclude_extra)
     if rc_fallback:
         return rc_fallback
     raise SystemExit(
-        "Could not find any -cloud release tag in this repo. Tried "
-        "`git tag --list 'v*-cloud' --sort=-v:refname` with and without "
-        "the rc filter. Pass --base explicitly."
+        f"Could not find any release tag in this repo (mode={mode}). Tried "
+        f"`git tag --list {match!r} --sort=-v:refname` with and without "
+        f"the rc filter. Pass --base explicitly."
     )
 
 
@@ -1717,15 +1796,18 @@ def main(argv: list[str] | None = None) -> int:
         "--base",
         default=None,
         help=(
-            "baseline ref (default: latest stable -cloud release tag in the "
-            "repo via global version-sorted tag lookup; falls back to latest "
-            "-cloud tag if no stable exists yet)"
+            "baseline ref (default: auto-detected — latest stable v*-cloud tag "
+            "in acryl-fork repos, latest stable v* tag in OSS DataHub; falls "
+            "back to rc tags if no stable release exists yet)"
         ),
     )
     p.add_argument(
         "--head",
-        default="acryl-main",
-        help="head ref (default: acryl-main)",
+        default=None,
+        help=(
+            "head ref (default: auto-detected — `acryl-main` in acryl-fork "
+            "repos, `master` in OSS DataHub)"
+        ),
     )
     p.add_argument(
         "--output", default=None, help="write markdown to FILE (default: stdout)"
@@ -1741,16 +1823,20 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
-    base = args.base or resolve_base()
-    head_sha = _head_sha(args.head)
+    # Resolve mode once so base and head defaults stay consistent (and we
+    # don't pay for two `git rev-parse` probes).
+    mode = _detect_mode()
+    base = args.base or resolve_base(mode)
+    head = args.head or _default_head(mode)
+    head_sha = _head_sha(head)
 
     if args.per_pr:
-        audit = per_pr_audit(base, args.head)
+        audit = per_pr_audit(base, head)
         report = render_per_pr_report(
-            audit, base=base, head=args.head, head_sha=head_sha
+            audit, base=base, head=head, head_sha=head_sha
         )
     else:
-        findings = _classify_window(base, args.head)
+        findings = _classify_window(base, head)
         # Enrich cumulative bump_status with per-PR-aware verdicts: walk each
         # PR in the window, classify in isolation, then override the
         # cumulative status with the highest-priority per-PR verdict. This
@@ -1758,7 +1844,7 @@ def main(argv: list[str] | None = None) -> int:
         # bump_spurious in the cumulative report even when other PRs' real
         # changes would have absorbed it under pure cumulative-diff math.
         try:
-            audit = per_pr_audit(base, args.head)
+            audit = per_pr_audit(base, head)
         except subprocess.CalledProcessError:
             audit = {}
         for f in findings:
@@ -1778,7 +1864,7 @@ def main(argv: list[str] | None = None) -> int:
         report = render_report(
             findings,
             base=base,
-            head=args.head,
+            head=head,
             head_sha=head_sha,
             audit=audit,
         )
@@ -1786,7 +1872,7 @@ def main(argv: list[str] | None = None) -> int:
     # Append mutator section (subclasses of AspectMigrationMutator added in window).
     # Same data in both modes — it's a window-level audit, not per-PR.
     mutators = find_mutators_added_in_window(
-        base, args.head, discover_mutator_hierarchy()
+        base, head, discover_mutator_hierarchy()
     )
     mutator_section = _render_mutator_section(mutators)
     if mutator_section:
@@ -1802,7 +1888,7 @@ def main(argv: list[str] | None = None) -> int:
             findings,
             mutators,
             base=base,
-            head=args.head,
+            head=head,
             head_sha=head_sha,
         )
         if sidecar and args.output:
