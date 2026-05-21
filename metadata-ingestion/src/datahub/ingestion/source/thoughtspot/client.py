@@ -450,9 +450,10 @@ class ThoughtSpotClient:
         self.report.warning(
             title=title,
             message=(
-                f"Dropped {dropped} of {total} entries because they could "
-                f"not be parsed into the response model. {consequence}"
+                "Entries could not be parsed into the response model "
+                "and were dropped. " + consequence
             ),
+            context=f"dropped={dropped}, total={total}",
             exc=exc,
         )
 
@@ -590,13 +591,16 @@ class ThoughtSpotClient:
         self.report.warning(
             title="TML Export Failed",
             message=(
-                f"Cannot download TML for {metadata_type} '{object_name}'. "
-                "Most often this means the user lacks per-object access to the "
-                "worksheet's underlying connection/tables, or the worksheet "
-                "references a deleted object. Schema and lineage for this "
-                "object will be missing from the ingestion."
+                "Cannot download TML for object. Most often this means the "
+                "user lacks per-object access to the worksheet's underlying "
+                "connection/tables, or the worksheet references a deleted "
+                "object. Schema and lineage for this object will be missing "
+                "from the ingestion."
             ),
-            context=(f"id={object_id}, error_code={error_code}, error={short_msg}"),
+            context=(
+                f"metadata_type={metadata_type}, name={object_name}, "
+                f"id={object_id}, error_code={error_code}, error={short_msg}"
+            ),
         )
         self.report.report_api_error()
         return False

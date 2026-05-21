@@ -506,16 +506,15 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                         title="External Lineage Config Keys Unmatched",
                         message=(
                             "Keys in ``external_connections`` matched no TS "
-                            f"connection: {sorted(unmatched_keys)}. Likely "
-                            "a typo — check the connection's GUID or display "
-                            "name in ThoughtSpot."
+                            "connection. Likely a typo — check the "
+                            "connection's GUID or display name in ThoughtSpot."
                         ),
+                        context=f"unmatched_keys={sorted(unmatched_keys)}",
                     )
             if self._unresolvable_external_lineage_count > 0:
                 self.report.warning(
                     title="External Lineage Resolution Failed",
                     message=(
-                        f"{self._unresolvable_external_lineage_count} "
                         "TS Logical Tables referenced connections that "
                         "couldn't be resolved (principal lacks read "
                         "access on the connection, or the connection "
@@ -524,6 +523,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                         "ingestion principal read access on the TS "
                         "Connections page to fix."
                     ),
+                    context=f"unresolvable_count={self._unresolvable_external_lineage_count}",
                 )
             # Aggregated SQL-parser-failure surfacing: per-object DEBUG/INFO
             # logs alone don't surface to operators in the run report.
@@ -534,17 +534,16 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 self.report.warning(
                     title="SQL View Lineage Parse Failures",
                     message=(
-                        f"{self.report.num_sql_parser_failures} of "
-                        f"{self.report.num_sql_parsed} SQL view "
-                        "statements could not be parsed by sqlglot. "
-                        "Upstream-lineage edges for those views are "
-                        "missing or partial; viewLogic still emits. "
-                        "Common causes: unsupported warehouse dialect, "
-                        "TS-specific SQL extensions, or graph-resolver "
-                        "errors. Check INFO logs for per-view error "
-                        "details."
+                        "SQL view statements could not be parsed by sqlglot. "
+                        "Upstream-lineage edges for those views are missing "
+                        "or partial; viewLogic still emits. Common causes: "
+                        "unsupported warehouse dialect, TS-specific SQL "
+                        "extensions, or graph-resolver errors. Check INFO "
+                        "logs for per-view error details."
                     ),
                     context=(
+                        f"failures={self.report.num_sql_parser_failures}/"
+                        f"{self.report.num_sql_parsed}, "
                         f"table_error={self.report.num_sql_parser_table_error}, "
                         f"column_error={self.report.num_sql_parser_column_error}"
                     ),
@@ -562,11 +561,9 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             yield from fetcher()
         except Exception as e:
             self.report.warning(
-                title=f"{entity_label} Extraction Failed",
-                message=(
-                    f"Failed to extract {entity_label.lower()}s. "
-                    "Continuing with other entities."
-                ),
+                title="Entity Extraction Failed",
+                message=("Failed to extract entities. Continuing with other entities."),
+                context=f"entity_label={entity_label}",
                 exc=e,
             )
 
@@ -588,18 +585,19 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                     yield from processor(entity)
                 except Exception as e:
                     self.report.warning(
-                        title=f"Failed to Process {entity_label}",
-                        message=f"Skipping this {entity_label.lower()}.",
+                        title="Failed to Process Entity",
+                        message="Skipping this entity.",
                         context=(
-                            f"{entity_label.lower()}_id="
-                            f"{getattr(entity, 'id', 'unknown')}"
+                            f"entity_label={entity_label}, "
+                            f"entity_id={getattr(entity, 'id', 'unknown')}"
                         ),
                         exc=e,
                     )
         except Exception as e:
             self.report.warning(
-                title=f"{entity_label} Extraction Failed",
-                message=f"Failed to extract {entity_label.lower()}s.",
+                title="Entity Extraction Failed",
+                message="Failed to extract entities.",
+                context=f"entity_label={entity_label}",
                 exc=e,
             )
 
@@ -649,14 +647,19 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         except ThoughtSpotPermissionError as e:
             self.report.failure(
                 title="Permission Denied",
-                message=f"Insufficient permissions to access {entity_type}. Ensure the API token has 'Can access API' permission.",
+                message=(
+                    "Insufficient permissions to access entity list. "
+                    "Ensure the API token has 'Can access API' permission."
+                ),
+                context=f"entity_type={entity_type}",
                 exc=e,
             )
             return
         except ThoughtSpotAPIError as e:
             self.report.warning(
-                title=f"Failed to Fetch {entity_type}",
-                message=f"Unable to retrieve {entity_type} list from ThoughtSpot API.",
+                title="Failed to Fetch Entities",
+                message="Unable to retrieve entity list from ThoughtSpot API.",
+                context=f"entity_type={entity_type}",
                 exc=e,
             )
             return
@@ -667,13 +670,13 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             # cause; surface it loudly so operators don't end up with a
             # silent empty run.
             self.report.warning(
-                title=f"Tag filter matched 0 {entity_type}",
+                title="Tag Filter Matched Zero Entities",
                 message=(
-                    f"Configured tag filter for {entity_type} returned "
-                    "zero entities. ThoughtSpot tag names are "
-                    "case-sensitive — check for typos."
+                    "Configured tag filter returned zero entities. "
+                    "ThoughtSpot tag names are case-sensitive — check "
+                    "for typos."
                 ),
-                context=f"tag_filter={tag_filter}",
+                context=f"entity_type={entity_type}, tag_filter={tag_filter}",
             )
         logger.info(
             f"Streamed {kept} {entity_type} to processor ({filtered_out} filtered by pattern)"

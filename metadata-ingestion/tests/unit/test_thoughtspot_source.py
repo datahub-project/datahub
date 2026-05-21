@@ -516,9 +516,17 @@ class TestTagFilterWiredToClient:
         source = ThoughtSpotSource(config, PipelineContext(run_id="t"))
         list(source.get_workunits_internal())
 
-        titles = [w.title or "" for w in source.report.warnings]
-        assert any("Tag filter matched 0 Liveboards" in t for t in titles), (
-            f"Expected zero-result tag-filter warning. Got titles: {titles}"
+        # After W4 LiteralString cleanup: title is literal, entity_type is
+        # in context. Assert on both so a regression on either half fails.
+        liveboard_tag_warnings = [
+            w
+            for w in source.report.warnings
+            if w.title == "Tag Filter Matched Zero Entities"
+            and any("entity_type=Liveboards" in c for c in (w.context or []))
+        ]
+        assert liveboard_tag_warnings, (
+            "Expected zero-result tag-filter warning for Liveboards. "
+            f"Got warnings: {list(source.report.warnings)}"
         )
 
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
@@ -547,7 +555,7 @@ class TestTagFilterWiredToClient:
         list(source.get_workunits_internal())
 
         titles = [w.title or "" for w in source.report.warnings]
-        assert not any("Tag filter matched 0" in t for t in titles), titles
+        assert not any("Tag Filter Matched Zero Entities" in t for t in titles), titles
 
 
 class TestThoughtSpotSourceErrorRecovery:
