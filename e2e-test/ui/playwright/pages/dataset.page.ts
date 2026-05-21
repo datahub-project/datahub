@@ -38,7 +38,7 @@ export class DatasetPage extends BasePage {
     this.datasetName = page.locator('[data-testid="dataset-name"]');
     this.schemaTab = page.locator('[data-testid="schema-tab"]');
     this.lineageTab = page.locator('[data-testid="lineage-tab"]');
-    this.propertiesTab = page.locator('[data-testid="properties-tab"]');
+    this.propertiesTab = page.locator('[role="tab"]:has([data-testid="Properties-entity-tab-header"])');
 
     this.sidebarGlossarySection = page.locator('#entity-profile-glossary-terms');
     this.addTermsButton = this.sidebarGlossarySection.locator('[data-testid="add-terms-button"]');
@@ -138,6 +138,11 @@ export class DatasetPage extends BasePage {
     await this.waitForPageLoad();
   }
 
+  async viewProperties(): Promise<void> {
+    await this.propertiesTab.click();
+    await this.waitForPageLoad();
+  }
+
   async getDatasetName(): Promise<string> {
     return (await this.datasetName.textContent()) || '';
   }
@@ -147,6 +152,21 @@ export class DatasetPage extends BasePage {
     if (await closeButton.isVisible()) {
       await closeButton.click();
     }
+  }
+
+  async clickSchemaFieldByName(fieldName: string): Promise<void> {
+    this.logger?.step('clickSchemaFieldByName', { fieldName });
+    await this.page.getByText(fieldName, { exact: true }).click();
+  }
+
+  getFieldDrawer(): Locator {
+    return this.page.locator('.ant-drawer-content');
+  }
+
+  async waitForFieldDrawer(timeout: number = 15000): Promise<void> {
+    this.logger?.step('waitForFieldDrawer');
+    const drawer = this.getFieldDrawer();
+    await drawer.waitFor({ state: 'visible', timeout });
   }
 
   async clickSchemaField(fieldName: string): Promise<void> {
