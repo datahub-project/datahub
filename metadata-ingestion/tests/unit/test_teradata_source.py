@@ -80,6 +80,17 @@ def _create_mock_table_entry(database, table, creator_name=None, **kwargs):
     return mock_entry
 
 
+def _mock_execute_result(rows: list) -> MagicMock:
+    """Wrap *rows* in a mock that supports .fetchmany() as cache_tables_and_views expects.
+
+    The first call returns all rows; subsequent calls return [] to signal end-of-results,
+    matching the while-True / break loop in cache_tables_and_views.
+    """
+    result = MagicMock()
+    result.fetchmany.side_effect = [rows, []]
+    return result
+
+
 def _create_source(extract_ownership=False):
     """Helper to create TeradataSource with mocked dependencies."""
     config = TeradataConfig.model_validate(
@@ -361,7 +372,7 @@ class TestTeradataSource:
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_conn = MagicMock()
-                mock_conn.execute.return_value = [mock_entry]
+                mock_conn.execute.return_value = _mock_execute_result([mock_entry])
                 mock_engine = MagicMock()
                 mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
@@ -1874,7 +1885,7 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value = [mock_entry]
+            mock_conn.execute.return_value = _mock_execute_result([mock_entry])
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -1895,7 +1906,7 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value = [mock_entry]
+            mock_conn.execute.return_value = _mock_execute_result([mock_entry])
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -2019,7 +2030,9 @@ class TestOwnershipExtraction:
 
         with patch.object(source, "get_metadata_engine") as mock_get_engine:
             mock_conn = MagicMock()
-            mock_conn.execute.return_value = [entry_with_creator, entry_without_creator]
+            mock_conn.execute.return_value = _mock_execute_result(
+                [entry_with_creator, entry_without_creator]
+            )
             mock_engine = MagicMock()
             mock_engine.connect.return_value = mock_conn
             mock_get_engine.return_value = mock_engine
@@ -2254,7 +2267,7 @@ class TestIncrementalColumnExtraction:
         ]
 
         mock_conn = MagicMock()
-        mock_conn.execute.return_value = entries
+        mock_conn.execute.return_value = _mock_execute_result(entries)
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
@@ -2292,7 +2305,9 @@ class TestIncrementalColumnExtraction:
         mock_conn_ts.execute.return_value.fetchone.return_value = (td_server_now,)
 
         mock_conn_rows = MagicMock()
-        mock_conn_rows.execute.return_value = [recent_entry, stale_entry]
+        mock_conn_rows.execute.return_value = _mock_execute_result(
+            [recent_entry, stale_entry]
+        )
 
         mock_engine = MagicMock()
         mock_engine.connect.side_effect = [mock_conn_ts, mock_conn_rows]
@@ -2687,7 +2702,9 @@ class TestCacheCaseInsensitivity:
         """Teradata returns uppercase DataBaseName; the cache stores it lowercased."""
         source = _create_source_patched()
         mock_conn = MagicMock()
-        mock_conn.execute.return_value = [_create_mock_table_entry("MY_DB", "MY_TABLE")]
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE")]
+        )
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
@@ -2791,9 +2808,9 @@ class TestCacheCaseInsensitivity:
         """extract_ownership: True + lowercase databases must still find creators."""
         source = _create_source_patched()
         mock_conn = MagicMock()
-        mock_conn.execute.return_value = [
-            _create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")
-        ]
+        mock_conn.execute.return_value = _mock_execute_result(
+            [_create_mock_table_entry("MY_DB", "MY_TABLE", creator_name="creator_user")]
+        )
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):
@@ -2814,13 +2831,15 @@ class TestCacheCaseInsensitivity:
             {"column_extraction_watermark": watermark.isoformat()}
         )
         mock_conn = MagicMock()
-        mock_conn.execute.return_value = [
-            _create_mock_table_entry(
-                "MY_DB",
-                "MY_TABLE",
-                alter_time=datetime(2024, 6, 2),
-            )
-        ]
+        mock_conn.execute.return_value = _mock_execute_result(
+            [
+                _create_mock_table_entry(
+                    "MY_DB",
+                    "MY_TABLE",
+                    alter_time=datetime(2024, 6, 2),
+                )
+            ]
+        )
         mock_engine = MagicMock()
         mock_engine.connect.return_value = mock_conn
         with patch.object(source, "get_metadata_engine", return_value=mock_engine):

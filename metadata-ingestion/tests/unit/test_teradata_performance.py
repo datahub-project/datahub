@@ -417,10 +417,8 @@ class TestPerformanceReporting:
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
                 mock_conn = MagicMock()
-                # cache_tables_and_views iterates the result directly (for entry in result:),
-                # so set up __iter__ rather than fetchall.
                 mock_result = MagicMock()
-                mock_result.__iter__ = MagicMock(side_effect=lambda: iter(mock_entries))
+                mock_result.fetchmany.side_effect = [mock_entries, []]
                 mock_conn.execute.return_value = mock_result
                 mock_engine = MagicMock()
                 mock_engine.connect.return_value = mock_conn
