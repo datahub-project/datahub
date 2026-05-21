@@ -1,8 +1,5 @@
--- 02-timescale-setup.sql - TimescaleDB-specific features (continuous aggregates, policies, etc.)
-
 \c tsdb;
 
--- Create continuous aggregate for hourly sensor metrics
 CREATE MATERIALIZED VIEW sensor_hourly_avg
 WITH (timescaledb.continuous) AS
 SELECT
@@ -19,7 +16,6 @@ FROM sensor_data
 GROUP BY hour, device_id, location
 WITH NO DATA;
 
--- Create continuous aggregate for daily system metrics
 CREATE MATERIALIZED VIEW system_daily_stats
 WITH (timescaledb.continuous) AS
 SELECT
@@ -34,7 +30,6 @@ FROM system_metrics
 GROUP BY day, host
 WITH NO DATA;
 
--- Create a more complex continuous aggregate (for lineage testing)
 CREATE MATERIALIZED VIEW device_location_hourly
 WITH (timescaledb.continuous) AS
 SELECT
@@ -47,7 +42,6 @@ FROM sensor_data s
 GROUP BY hour, s.location
 WITH NO DATA;
 
--- Add refresh policies for continuous aggregates
 SELECT add_continuous_aggregate_policy('sensor_hourly_avg',
     start_offset => INTERVAL '3 hours',
     end_offset => INTERVAL '1 hour',
@@ -63,31 +57,23 @@ SELECT add_continuous_aggregate_policy('device_location_hourly',
     end_offset => INTERVAL '1 hour',
     schedule_interval => INTERVAL '1 hour');
 
--- Configure compression for sensor_data hypertable
 ALTER TABLE sensor_data SET (
     timescaledb.compress,
     timescaledb.compress_segmentby = 'device_id, location',
     timescaledb.compress_orderby = 'time DESC'
 );
 
--- Add compression policy (compress chunks older than 7 days)
 SELECT add_compression_policy('sensor_data', INTERVAL '7 days');
-
--- Add retention policy (drop chunks older than 30 days)
 SELECT add_retention_policy('sensor_data', INTERVAL '30 days');
 
--- Configure compression for system_metrics
 ALTER TABLE system_metrics SET (
     timescaledb.compress,
     timescaledb.compress_orderby = 'time DESC, host'
 );
 
 SELECT add_compression_policy('system_metrics', INTERVAL '3 days');
-
--- Add data retention policy for system_metrics
 SELECT add_retention_policy('system_metrics', INTERVAL '14 days');
 
--- Create stored procedure for manual refresh
 CREATE OR REPLACE PROCEDURE refresh_all_aggregates()
 LANGUAGE plpgsql
 AS $$
@@ -99,7 +85,6 @@ BEGIN
 END;
 $$;
 
--- Create function that returns table (for testing function lineage)
 CREATE OR REPLACE FUNCTION get_device_stats(p_device_id INTEGER, p_hours INTEGER DEFAULT 24)
 RETURNS TABLE(
     hour TIMESTAMPTZ,
@@ -120,7 +105,6 @@ AS $$
     ORDER BY hour DESC;
 $$;
 
--- Create an informational view to see job status
 CREATE VIEW job_status AS
 SELECT
     j.job_id,
@@ -135,12 +119,11 @@ FROM timescaledb_information.jobs j
 LEFT JOIN timescaledb_information.job_stats js ON j.job_id = js.job_id
 ORDER BY j.job_id;
 
--- Refresh continuous aggregates with initial data
+-- Backfill the CAggs so the goldens are non-empty.
 CALL refresh_continuous_aggregate('sensor_hourly_avg', NULL, NULL);
 CALL refresh_continuous_aggregate('system_daily_stats', NULL, NULL);
 CALL refresh_continuous_aggregate('device_location_hourly', NULL, NULL);
 
--- Create a complex view that uses continuous aggregates (for lineage testing)
 CREATE VIEW hourly_summary AS
 SELECT
     h.hour,
@@ -156,10 +139,8 @@ SELECT
 FROM sensor_hourly_avg h
 WHERE h.hour > NOW() - INTERVAL '24 hours';
 
--- Grant permissions (if needed for testing)
 GRANT USAGE ON SCHEMA analytics TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN SCHEMA analytics TO PUBLIC;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO PUBLIC;
 
--- Final analyze to update statistics
 ANALYZE;

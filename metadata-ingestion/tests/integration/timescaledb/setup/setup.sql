@@ -1,5 +1,4 @@
--- 01-setup.sql - Initial database and table setup
--- Use SELECT to avoid errors if databases already exist
+-- Idempotent CREATE DATABASE — running this file twice must not error.
 SELECT 'CREATE DATABASE tsdb' 
 WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tsdb')\gexec
 
@@ -8,10 +7,8 @@ WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'tsdb_secondary')\gexe
 
 \c tsdb;
 
--- Enable TimescaleDB extension
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
--- Create regular table (for comparison)
 CREATE TABLE regular_metrics (
     id SERIAL PRIMARY KEY,
     metric_name VARCHAR(100),
@@ -19,7 +16,6 @@ CREATE TABLE regular_metrics (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Create main sensor data table that will become a hypertable
 CREATE TABLE sensor_data (
     time TIMESTAMPTZ NOT NULL,
     device_id INTEGER NOT NULL,
@@ -29,7 +25,6 @@ CREATE TABLE sensor_data (
     location VARCHAR(100)
 );
 
--- Convert to hypertable with time and space partitioning
 SELECT create_hypertable(
     'sensor_data',
     'time',
@@ -38,7 +33,6 @@ SELECT create_hypertable(
     number_partitions => 4
 );
 
--- Create another hypertable for testing
 CREATE TABLE system_metrics (
     time TIMESTAMPTZ NOT NULL,
     host VARCHAR(100) NOT NULL,
@@ -54,7 +48,6 @@ SELECT create_hypertable(
     chunk_time_interval => INTERVAL '1 hour'
 );
 
--- Insert sample data
 INSERT INTO sensor_data (time, device_id, temperature, humidity, pressure, location)
 SELECT
     time_bucket('1 minute', generate_series(
@@ -90,7 +83,6 @@ SELECT
     (random() * 1000000)::BIGINT AS disk_io,
     (random() * 1000000)::BIGINT AS network_io;
 
--- Create regular PostgreSQL view for comparison
 CREATE VIEW sensor_latest AS
 SELECT
     device_id,
@@ -103,10 +95,8 @@ FROM sensor_data
 WHERE time > NOW() - INTERVAL '1 hour'
 ORDER BY time DESC;
 
--- Create a second schema for testing
 CREATE SCHEMA analytics;
 
--- Create a view in the analytics schema
 CREATE VIEW analytics.location_summary AS
 SELECT
     location,
@@ -117,5 +107,35 @@ FROM sensor_data
 WHERE time > NOW() - INTERVAL '1 day'
 GROUP BY location;
 
--- Analyze tables for statistics
+ANALYZE;
+
+-- `timescaledb_all_db.yml` filters to [tsdb, tsdb_secondary]; without this
+-- secondary database the multi-DB iteration path in PostgresSource isn't
+-- actually exercised. Keep it minimal — one hypertable is enough.
+\c tsdb_secondary;
+
+CREATE EXTENSION IF NOT EXISTS timescaledb;
+
+CREATE TABLE events (
+    time TIMESTAMPTZ NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    payload JSONB
+);
+
+SELECT create_hypertable(
+    'events',
+    'time',
+    chunk_time_interval => INTERVAL '1 day'
+);
+
+INSERT INTO events (time, event_type, payload)
+SELECT
+    generate_series(
+        NOW() - INTERVAL '1 day',
+        NOW(),
+        INTERVAL '1 hour'
+    ) AS time,
+    'sample_event' AS event_type,
+    '{"source": "tsdb_secondary"}'::jsonb AS payload;
+
 ANALYZE;

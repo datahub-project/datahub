@@ -4,7 +4,7 @@ source:
     username: tsdbuser
     password: tsdbpass
     host_port: localhost:55432
-    # No database specified - will ingest all databases
+    # No `database` set — exercise the multi-database iteration path.
 
     emit_timescaledb_metadata: true
     tag_hypertables: true
@@ -13,7 +13,6 @@ source:
     include_tables: true
     include_views: true
 
-    # Database filtering
     database_pattern:
       allow:
         - tsdb

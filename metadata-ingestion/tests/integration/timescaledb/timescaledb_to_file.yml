@@ -6,21 +6,16 @@ source:
     host_port: localhost:55432
     database: tsdb
 
-    # TimescaleDB-specific options
     emit_timescaledb_metadata: true
     tag_hypertables: true
     tag_continuous_aggregates: true
-    include_background_jobs: false  # Jobs tested separately
+    include_background_jobs: false
 
-    # Include tables and views
     include_tables: true
     include_views: true
-
-    # Enable lineage
     include_view_lineage: true
     include_view_column_lineage: true
 
-    # Schema patterns
     schema_pattern:
       allow:
         - public

@@ -1,7 +1,4 @@
-"""
-Unit tests for TimescaleDB DataHub connector
-"""
-
+from datetime import datetime, timedelta
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
 
@@ -10,13 +7,27 @@ from sqlalchemy.exc import DatabaseError
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.postgres import PostgresSource
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
 from datahub.ingestion.source.sql.timescaledb import (
     ContinuousAggregate,
+    Hypertable,
+    HypertableDimension,
+    JobExecution,
+    RefreshPolicy,
+    RetentionPolicy,
     TimescaleDBConfig,
+    TimescaleDBEnvironment,
     TimescaleDBJob,
     TimescaleDBSource,
+    _SchemaMetadata,
+    format_timedelta_human_readable,
+    safe_str_convert,
 )
 from datahub.metadata.schema_classes import (
+    DataJobInfoClass,
+    DataProcessInstancePropertiesClass,
+    DataProcessInstanceRelationshipsClass,
+    DataProcessInstanceRunEventClass,
     GlobalTagsClass,
     SubTypesClass,
 )
@@ -31,43 +42,22 @@ def _base_config() -> Dict[str, Any]:
     }
 
 
-class TestTimescaleDBConfig:
-    """Test TimescaleDB configuration parsing"""
-
-    def test_default_config(self):
-        config = TimescaleDBConfig.parse_obj(_base_config())
-        assert config.emit_timescaledb_metadata is True
-        assert config.tag_hypertables is True
-        assert config.tag_continuous_aggregates is True
-        assert config.include_background_jobs is False
-
-    def test_custom_config(self):
-        custom_config = {
-            **_base_config(),
-            "include_background_jobs": True,
-            "tag_hypertables": False,
-        }
-        config = TimescaleDBConfig.parse_obj(custom_config)
-        assert config.include_background_jobs is True
-        assert config.tag_hypertables is False
+def _aspects_of_type(workunits, aspect_class):
+    return [
+        wu
+        for wu in workunits
+        if hasattr(wu, "metadata")
+        and hasattr(wu.metadata, "aspect")
+        and isinstance(wu.metadata.aspect, aspect_class)
+    ]
 
 
 class TestTimescaleDBSource:
-    """Test TimescaleDB source functionality"""
-
-    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
-    def test_platform_name(self, create_engine_mock):
-        config = TimescaleDBConfig.parse_obj(_base_config())
-        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
-        assert source.get_platform() == "timescaledb"
-
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_timescaledb_extension_check(self, create_engine_mock):
-        """Test checking if TimescaleDB extension is installed"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Mock inspector
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_result = MagicMock()
@@ -76,14 +66,12 @@ class TestTimescaleDBSource:
         mock_conn.execute.return_value = mock_result
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
-        # Test when extension is installed
         assert source._is_timescaledb_enabled(mock_inspector) is True
 
-        # Test caching - subsequent calls should use cached value
+        # Cache should prevent a second query.
         assert source._is_timescaledb_enabled(mock_inspector) is True
-        assert mock_conn.execute.call_count == 1  # Only called once due to caching
+        assert mock_conn.execute.call_count == 1
 
-        # Test when extension is not installed (new source instance)
         source2 = TimescaleDBSource(config, PipelineContext(run_id="test2"))
         mock_result2 = MagicMock()
         mock_result2.rowcount = 0
@@ -96,18 +84,15 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_hypertables(self, create_engine_mock):
-        """Test fetching hypertable metadata"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock environment detection result (schema exists)
         env_result = MagicMock()
         env_result.rowcount = 1
 
-        # Mock hypertable query result
         hypertable_result = [
             {
                 "hypertable_name": "sensor_data",
@@ -125,7 +110,6 @@ class TestTimescaleDBSource:
             }
         ]
 
-        # First call is env detection, second is hypertable query
         mock_conn.execute.side_effect = [env_result, hypertable_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -137,18 +121,15 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_continuous_aggregates(self, create_engine_mock):
-        """Test fetching continuous aggregate metadata"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock environment detection result (schema exists)
         env_result = MagicMock()
         env_result.rowcount = 1
 
-        # Mock continuous aggregate query result
         cagg_result = [
             {
                 "view_name": "hourly_metrics",
@@ -164,7 +145,6 @@ class TestTimescaleDBSource:
             }
         ]
 
-        # First call is env detection, second is cagg query
         mock_conn.execute.side_effect = [env_result, cagg_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -177,7 +157,6 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_jobs(self, create_engine_mock):
-        """Test fetching TimescaleDB background jobs"""
         config = TimescaleDBConfig.parse_obj(
             {**_base_config(), "include_background_jobs": True}
         )
@@ -186,11 +165,9 @@ class TestTimescaleDBSource:
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock environment detection result (schema exists)
         env_result = MagicMock()
         env_result.rowcount = 1
 
-        # Mock jobs query result
         job_result = [
             {
                 "job_id": 1001,
@@ -211,7 +188,6 @@ class TestTimescaleDBSource:
             }
         ]
 
-        # First call is env detection, second is jobs query
         mock_conn.execute.side_effect = [env_result, job_result]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
@@ -223,26 +199,18 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_add_information_for_schema(self, create_engine_mock):
-        """Test caching TimescaleDB metadata for a schema"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock TimescaleDB extension check
         extension_result = MagicMock()
         extension_result.rowcount = 1
-
-        # Mock environment detection query
         env_detection_result = MagicMock()
         env_detection_result.rowcount = 1
-
-        # Mock hypertables query
-        hypertables_result: list[Any] = []
-
-        # Mock continuous aggregates query
-        caggs_result: list[Any] = []
+        hypertables_result: list = []
+        caggs_result: list = []
 
         mock_conn.execute.side_effect = [
             extension_result,
@@ -258,23 +226,15 @@ class TestTimescaleDBSource:
 
         cache_key = "tsdb.public"
         assert cache_key in source._timescaledb_metadata_cache
-        assert "hypertables" in source._timescaledb_metadata_cache[cache_key]
-        assert "continuous_aggregates" in source._timescaledb_metadata_cache[cache_key]
+        metadata = source._timescaledb_metadata_cache[cache_key]
+        assert metadata.hypertables == {}
+        assert metadata.continuous_aggregates == {}
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_table_properties_for_hypertable(self, create_engine_mock):
-        """Test enriching table properties for hypertables"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Import the models for creating test data
-        from datahub.ingestion.source.sql.timescaledb import (
-            Hypertable,
-            HypertableDimension,
-            RetentionPolicy,
-        )
-
-        # Setup cache with proper models
         hypertable = Hypertable(
             name="sensor_data",
             num_dimensions=2,
@@ -295,23 +255,21 @@ class TestTimescaleDBSource:
             retention_policy=RetentionPolicy(drop_after="30 days"),
         )
 
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "hypertables": {"sensor_data": hypertable},
-            "continuous_aggregates": {},
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            hypertables={"sensor_data": hypertable},
+        )
 
         mock_inspector = MagicMock()
 
-        # Call parent method mock
         with (
             patch.object(
-                source.__class__.__bases__[0],
+                PostgresSource,
                 "get_table_properties",
                 return_value=("Table description", {}, None),
             ),
             patch.object(source, "get_db_name", return_value="tsdb"),
         ):
-            desc, props, location = source.get_table_properties(
+            _, props, _ = source.get_table_properties(
                 mock_inspector, "public", "sensor_data"
             )
 
@@ -327,17 +285,9 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_table_properties_for_continuous_aggregate(self, create_engine_mock):
-        """Test enriching view properties for continuous aggregates"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Import the models for creating test data
-        from datahub.ingestion.source.sql.timescaledb import (
-            ContinuousAggregate,
-            RefreshPolicy,
-        )
-
-        # Setup cache with proper models
         cagg = ContinuousAggregate(
             name="hourly_metrics",
             materialized_only=False,
@@ -354,27 +304,30 @@ class TestTimescaleDBSource:
             ),
         )
 
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "hypertables": {},
-            "continuous_aggregates": {"hourly_metrics": cagg},
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            continuous_aggregates={"hourly_metrics": cagg},
+        )
 
         mock_inspector = MagicMock()
 
-        # Call parent method mock
         with (
             patch.object(
-                source.__class__.__bases__[0],
+                PostgresSource,
                 "get_table_properties",
                 return_value=("View description", {"is_view": "True"}, None),
             ),
             patch.object(source, "get_db_name", return_value="tsdb"),
         ):
-            desc, props, location = source.get_table_properties(
+            _, props, _ = source.get_table_properties(
                 mock_inspector, "public", "hourly_metrics"
             )
 
         assert props["is_continuous_aggregate"] == "true"
+        # The materialized + continuous_aggregate keys must be on the parent's
+        # single DatasetPropertiesClass — emitting a second MCP would overwrite
+        # the qualified name.
+        assert props["materialized"] == "true"
+        assert props["continuous_aggregate"] == "true"
         assert props["materialized_only"] == "False"
         assert props["source_hypertable"] == "public.sensor_data"
         assert props["refresh_interval"] == "1 hour"
@@ -383,7 +336,6 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_identifier_with_database(self, create_engine_mock):
-        """Test identifier generation with database name"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
@@ -396,27 +348,19 @@ class TestTimescaleDBSource:
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_table_adds_hypertable_subtype(self, create_engine_mock):
-        """Test that hypertables get proper subtype"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Import the models for creating test data
-        from datahub.ingestion.source.sql.timescaledb import Hypertable
-
-        # Setup cache with hypertable
         hypertable = Hypertable(name="sensor_data")
-
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "hypertables": {"sensor_data": hypertable},
-            "continuous_aggregates": {},
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            hypertables={"sensor_data": hypertable},
+        )
 
         mock_inspector = MagicMock()
 
-        # Mock parent _process_table to return empty generator
         with (
             patch.object(
-                source.__class__.__bases__[0],
+                PostgresSource,
                 "_process_table",
                 return_value=iter([]),
             ),
@@ -433,56 +377,32 @@ class TestTimescaleDBSource:
                 )
             )
 
-        # Check that SubTypesClass workunit was created
-        subtype_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu, "metadata")
-            and hasattr(wu.metadata, "aspect")
-            and isinstance(wu.metadata.aspect, SubTypesClass)
-        ]
-        assert len(subtype_workunits) > 0
-
-        # Check that GlobalTagsClass workunit was created if configured
+        assert _aspects_of_type(workunits, SubTypesClass)
         if config.tag_hypertables:
-            tag_workunits = [
-                wu
-                for wu in workunits
-                if hasattr(wu, "metadata")
-                and hasattr(wu.metadata, "aspect")
-                and isinstance(wu.metadata.aspect, GlobalTagsClass)
-            ]
-            assert len(tag_workunits) > 0
+            assert _aspects_of_type(workunits, GlobalTagsClass)
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_view_adds_continuous_aggregate_subtype(self, create_engine_mock):
-        """Test that continuous aggregates get proper subtype"""
+        # _process_view must NOT emit a second DatasetPropertiesClass — the
+        # parent already emits one with the merged table properties.
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Import the models for creating test data
-        from datahub.ingestion.source.sql.timescaledb import ContinuousAggregate
-
-        # Setup cache with continuous aggregate
         cagg = ContinuousAggregate(name="hourly_metrics")
-
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "hypertables": {},
-            "continuous_aggregates": {"hourly_metrics": cagg},
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            continuous_aggregates={"hourly_metrics": cagg},
+        )
 
         mock_inspector = MagicMock()
 
-        # Mock parent _process_view to return empty generator
-        # Mock parent get_table_properties to return proper tuple
         with (
             patch.object(
-                source.__class__.__bases__[0],
+                PostgresSource,
                 "_process_view",
                 return_value=iter([]),
             ),
             patch.object(
-                source.__class__.__bases__[0],
+                PostgresSource,
                 "get_table_properties",
                 return_value=(None, {}, None),
             ),
@@ -498,32 +418,17 @@ class TestTimescaleDBSource:
                 )
             )
 
-        # Check that SubTypesClass workunit was created
-        subtype_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu, "metadata")
-            and hasattr(wu.metadata, "aspect")
-            and isinstance(wu.metadata.aspect, SubTypesClass)
-        ]
-        assert len(subtype_workunits) > 0
+        assert _aspects_of_type(workunits, SubTypesClass)
 
 
 class TestTimescaleDBJobProcessing:
-    """Test TimescaleDB job processing"""
-
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_process_timescaledb_jobs(self, create_engine_mock):
-        """Test processing TimescaleDB jobs into DataJob entities"""
         config = TimescaleDBConfig.parse_obj(
             {**_base_config(), "include_background_jobs": True}
         )
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Import the models for creating test data
-        from datahub.ingestion.source.sql.timescaledb import TimescaleDBJob
-
-        # Setup cache with jobs
         job = TimescaleDBJob(
             job_id=1001,
             application_name="Refresh Continuous Aggregate",
@@ -541,7 +446,9 @@ class TestTimescaleDBJobProcessing:
             hypertable_name="hourly_metrics",
         )
 
-        source._timescaledb_metadata_cache["tsdb.public"] = {"jobs": {1001: job}}
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            jobs={1001: job},
+        )
 
         mock_inspector = MagicMock()
 
@@ -555,28 +462,50 @@ class TestTimescaleDBJobProcessing:
                 source._process_timescaledb_jobs(mock_inspector, "public", "tsdb")
             )
 
-        # Should have created DataJobInfo, Status, and DataJobInputOutput workunits
         assert len(workunits) >= 3
+        assert len(_aspects_of_type(workunits, DataJobInfoClass)) == 1
 
-        # Check that job info was created correctly
-        job_info_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu, "metadata")
-            and hasattr(wu.metadata, "aspect")
-            and wu.metadata.aspect.__class__.__name__ == "DataJobInfoClass"
-        ]
-        assert len(job_info_workunits) == 1
+    def test_refresh_cagg_job_lineage_includes_source_hypertable(self):
+        # Refresh CAgg policies read the source hypertable and write the CAgg
+        # — both must appear on the DataJob's lineage.
+        config = TimescaleDBConfig.parse_obj(
+            {**_base_config(), "include_background_jobs": True}
+        )
+        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
+
+        job = TimescaleDBJob(
+            job_id=1001,
+            proc_name="policy_refresh_continuous_aggregate",
+            hypertable_schema="public",
+            hypertable_name="sensor_hourly_avg",
+        )
+        cagg = ContinuousAggregate(
+            name="sensor_hourly_avg",
+            hypertable_schema="public",
+            hypertable_name="sensor_data",
+        )
+
+        mock_inspector = MagicMock()
+
+        def fake_get_identifier(schema, entity, inspector):
+            return f"tsdb.{schema}.{entity}"
+
+        with patch.object(source, "get_identifier", side_effect=fake_get_identifier):
+            inputs, outputs = source._build_job_lineage(
+                inspector=mock_inspector,
+                job=job,
+                continuous_aggregates={"sensor_hourly_avg": cagg},
+            )
+
+        assert any("sensor_data" in urn for urn in inputs)
+        assert any("sensor_hourly_avg" in urn for urn in outputs)
 
     def test_emit_job_run_instances(self):
-        """Test emitting job run instances for TimescaleDB jobs"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Mock inspector
         mock_inspector = MagicMock()
 
-        # Create test job
         job = TimescaleDBJob(
             job_id=1001,
             application_name="Continuous Aggregate Policy [1001]",
@@ -596,15 +525,11 @@ class TestTimescaleDBJobProcessing:
 
         job_urn = "urn:li:dataJob:(urn:li:dataFlow:(timescaledb,tsdb.public.background_jobs,PROD),1001_sensor_data_policy_refresh_continuous_aggregate)"
 
-        # Import JobExecution for creating mock data
-        from datahub.ingestion.source.sql.timescaledb import JobExecution
-
-        # Mock execution history
         mock_executions = [
             JobExecution(
                 job_id=1001,
-                last_run_started_at="2023-01-01 12:00:00",
-                last_successful_finish="2023-01-01 12:01:00",
+                last_run_started_at=datetime(2023, 1, 1, 12, 0, 0),
+                last_successful_finish=datetime(2023, 1, 1, 12, 1, 0),
                 last_run_status="success",
                 total_runs=100,
                 total_successes=98,
@@ -620,101 +545,45 @@ class TestTimescaleDBJobProcessing:
                 source._emit_job_run_instances(mock_inspector, job_urn, 1001, job)
             )
 
-        # Should generate run instance workunits
-        assert len(workunits) > 0
-
-        # Check for DataProcessInstance properties
-        properties_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu.metadata, "aspect")
-            and wu.metadata.aspect is not None
-            and wu.metadata.aspect.__class__.__name__
-            == "DataProcessInstancePropertiesClass"
-        ]
+        properties_workunits = _aspects_of_type(
+            workunits, DataProcessInstancePropertiesClass
+        )
         assert len(properties_workunits) == 1
 
-        # Check for run event
-        run_event_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu.metadata, "aspect")
-            and wu.metadata.aspect is not None
-            and wu.metadata.aspect.__class__.__name__
-            == "DataProcessInstanceRunEventClass"
-        ]
+        run_event_workunits = _aspects_of_type(
+            workunits, DataProcessInstanceRunEventClass
+        )
         assert len(run_event_workunits) == 1
 
-        # Check for DataProcessInstance relationships (linking to job template)
-        relationship_workunits = [
-            wu
-            for wu in workunits
-            if hasattr(wu.metadata, "aspect")
-            and wu.metadata.aspect is not None
-            and wu.metadata.aspect.__class__.__name__
-            == "DataProcessInstanceRelationshipsClass"
-        ]
+        relationship_workunits = _aspects_of_type(
+            workunits, DataProcessInstanceRelationshipsClass
+        )
         assert len(relationship_workunits) == 1
+        assert relationship_workunits[0].metadata.aspect.parentTemplate == job_urn
 
-        # Verify the relationship points to the correct job template
-        if (
-            hasattr(relationship_workunits[0].metadata, "aspect")
-            and relationship_workunits[0].metadata.aspect is not None
-        ):
-            relationship_aspect = relationship_workunits[0].metadata.aspect
-            assert hasattr(relationship_aspect, "parentTemplate")
-            assert relationship_aspect.parentTemplate == job_urn
+        properties_aspect = properties_workunits[0].metadata.aspect
+        assert properties_aspect.customProperties["job_id"] == "1001"
+        assert properties_aspect.customProperties["total_runs"] == "100"
+        assert properties_aspect.customProperties["hypertable"] == "public.sensor_data"
 
-        # Verify properties contain job metadata
-        if (
-            hasattr(properties_workunits[0].metadata, "aspect")
-            and properties_workunits[0].metadata.aspect is not None
-        ):
-            properties_aspect = properties_workunits[0].metadata.aspect
-            assert hasattr(properties_aspect, "customProperties")
-            assert properties_aspect.customProperties["job_id"] == "1001"
-            assert properties_aspect.customProperties["total_runs"] == "100"
-            assert (
-                properties_aspect.customProperties["hypertable"] == "public.sensor_data"
-            )
+        # created.time must come from last_run_started_at, not ingestion-time
+        # time.time(). datetime(2023, 1, 1, 12, 0, 0).timestamp() * 1000 =
+        # 1672574400000.
+        assert properties_aspect.created.time == 1672574400000
 
 
 class TestTimescaleDBStoredProcedures:
-    def test_exclude_background_job_procedures_when_disabled(self):
-        """Test that TimescaleDB background job procedures are excluded from stored procedures when include_background_jobs is False"""
-        config = TimescaleDBConfig.parse_obj(
-            {**_base_config(), "include_background_jobs": False}
-        )
+    def test_exclude_background_job_procedures(self):
+        # Policy procs are surfaced as DataJob entities instead, so they must
+        # be filtered out of stored-procedure ingestion regardless of whether
+        # include_background_jobs is enabled.
+        config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Mock inspector
         mock_inspector = MagicMock()
-
-        # Mock TimescaleDB jobs cache with job procedures
-        job = TimescaleDBJob(
-            job_id=1000,
-            application_name="Continuous Aggregate Policy [1000]",
-            proc_name="policy_refresh_continuous_aggregate",
-            schedule_interval="1 hour",
-            max_runtime="5 minutes",
-            max_retries=3,
-            retry_period="1 minute",
-            scheduled=True,
-            fixed_schedule=False,
-            initial_start="2023-01-01 00:00:00",
-            config={},
-            hypertable_schema="public",
-            hypertable_name="sensor_data",
-        )
-
-        source._timescaledb_metadata_cache["tsdb.public"] = {"jobs": {1000: job}}
-
-        # Mock parent method returning procedures including a background job procedure
-        from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
-
         mock_procedures = [
             BaseProcedure(
-                name="policy_refresh_continuous_aggregate",  # This should be excluded
+                name="policy_refresh_continuous_aggregate",
                 language="c",
                 argument_signature="",
                 return_type=None,
@@ -725,7 +594,7 @@ class TestTimescaleDBStoredProcedures:
                 extra_properties=None,
             ),
             BaseProcedure(
-                name="user_custom_procedure",  # This should be included
+                name="user_custom_procedure",
                 language="plpgsql",
                 argument_signature="",
                 return_type=None,
@@ -748,94 +617,17 @@ class TestTimescaleDBStoredProcedures:
         ):
             result = source.get_procedures_for_schema(mock_inspector, "public", "tsdb")
 
-            # Should only return the user-defined procedure, not the background job procedure
-            assert len(result) == 1
-            assert result[0].name == "user_custom_procedure"
-
-    def test_include_background_job_procedures_when_enabled(self):
-        """Test that TimescaleDB background job procedures are included when include_background_jobs is True"""
-        config = TimescaleDBConfig.parse_obj(
-            {**_base_config(), "include_background_jobs": True}
-        )
-        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
-
-        # Mock inspector
-        mock_inspector = MagicMock()
-
-        # Mock TimescaleDB jobs cache with job procedures
-        job = TimescaleDBJob(
-            job_id=1000,
-            application_name="Continuous Aggregate Policy [1000]",
-            proc_name="policy_refresh_continuous_aggregate",
-            schedule_interval="1 hour",
-            max_runtime="5 minutes",
-            max_retries=3,
-            retry_period="1 minute",
-            scheduled=True,
-            fixed_schedule=False,
-            initial_start="2023-01-01 00:00:00",
-            config={},
-            hypertable_schema="public",
-            hypertable_name="sensor_data",
-        )
-
-        source._timescaledb_metadata_cache["tsdb.public"] = {"jobs": {1000: job}}
-
-        # Mock parent method returning procedures including a background job procedure
-        from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
-
-        mock_procedures = [
-            BaseProcedure(
-                name="policy_refresh_continuous_aggregate",  # This should be excluded (handled as background job)
-                language="c",
-                argument_signature="",
-                return_type=None,
-                procedure_definition="...",
-                created=None,
-                last_altered=None,
-                comment="TimescaleDB background job procedure",
-                extra_properties=None,
-            ),
-            BaseProcedure(
-                name="user_custom_procedure",  # This should be included
-                language="plpgsql",
-                argument_signature="",
-                return_type=None,
-                procedure_definition="...",
-                created=None,
-                last_altered=None,
-                comment="User-defined procedure",
-                extra_properties=None,
-            ),
-        ]
-
-        with (
-            patch.object(source, "get_db_name", return_value="tsdb"),
-            patch.object(source, "_is_timescaledb_enabled", return_value=True),
-            patch.object(
-                PostgresSource,
-                "get_procedures_for_schema",
-                return_value=mock_procedures,
-            ),
-        ):
-            result = source.get_procedures_for_schema(mock_inspector, "public", "tsdb")
-
-            # Should still only return the user-defined procedure
-            # (background job procedure is handled separately as DataJob)
-            assert len(result) == 1
-            assert result[0].name == "user_custom_procedure"
+        assert len(result) == 1
+        assert result[0].name == "user_custom_procedure"
 
 
 class TestTimescaleDBLineage:
     def test_get_view_definition_override(self):
-        """Test that get_view_definition returns original SQL for continuous aggregates"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Mock inspector
         mock_inspector = MagicMock()
 
-        # Create test continuous aggregate with original view definition
         cagg = ContinuousAggregate(
             name="sensor_hourly_avg",
             materialized_only=False,
@@ -845,37 +637,30 @@ class TestTimescaleDBLineage:
             view_definition="SELECT time_bucket('1 hour', time) as hour, device_id, avg(temperature) as avg_temp FROM sensor_data GROUP BY hour, device_id",
         )
 
-        # Setup cache
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "continuous_aggregates": {"sensor_hourly_avg": cagg}
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            continuous_aggregates={"sensor_hourly_avg": cagg},
+        )
 
         with patch.object(source, "get_db_name", return_value="tsdb"):
             view_definition = source._get_view_definition(
                 mock_inspector, "public", "sensor_hourly_avg"
             )
 
-            # Should return the original user-defined view definition
-            assert view_definition == cagg.view_definition
-            assert (
-                "sensor_data" in view_definition
-            )  # Original table, not internal table
-            assert (
-                "_timescaledb_internal" not in view_definition
-            )  # No internal references
+        # Must return the user-defined SQL referencing the source hypertable,
+        # not pg_views' rewritten form that points at the internal
+        # _materialized_hypertable_N — that's what makes column-level lineage
+        # back to the source hypertable possible.
+        assert view_definition == cagg.view_definition
+        assert "sensor_data" in view_definition
+        assert "_timescaledb_internal" not in view_definition
 
     def test_get_view_definition_fallback(self):
-        """Test that get_view_definition falls back to parent for regular views"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
-        # Mock inspector
         mock_inspector = MagicMock()
 
-        # Setup empty cache (no continuous aggregates)
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "continuous_aggregates": {}
-        }
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata()
 
         with (
             patch.object(source, "get_db_name", return_value="tsdb"),
@@ -889,39 +674,30 @@ class TestTimescaleDBLineage:
                 mock_inspector, "public", "regular_view"
             )
 
-            # Should call parent _get_view_definition method for regular views
-            mock_parent.assert_called_once_with(
-                mock_inspector, "public", "regular_view"
-            )
-            assert view_definition == "SELECT * FROM regular_table"
+        mock_parent.assert_called_once_with(mock_inspector, "public", "regular_view")
+        assert view_definition == "SELECT * FROM regular_table"
 
 
 class TestTimescaleDBErrorScenarios:
-    """Test error handling and edge cases"""
-
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_missing_timescaledb_extension(self, create_engine_mock):
-        """Test behavior when TimescaleDB extension is not installed"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_result = MagicMock()
-        mock_result.rowcount = 0  # No extension found
+        mock_result.rowcount = 0
 
         mock_conn.execute.return_value = mock_result
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         assert source._is_timescaledb_enabled(mock_inspector) is False
-
-        # Subsequent calls should use cached value
         assert source._is_timescaledb_enabled(mock_inspector) is False
         assert mock_conn.execute.call_count == 1
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_permission_denied_on_extension_check(self, create_engine_mock):
-        """Test handling of permission denied when checking for extension"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
@@ -932,31 +708,27 @@ class TestTimescaleDBErrorScenarios:
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
-        # Should gracefully return False and log warning
         assert source._is_timescaledb_enabled(mock_inspector) is False
+        assert source.report.warnings
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_environment_detection_unknown_schema(self, create_engine_mock):
-        """Test environment detection when timescaledb_information schema is missing"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
         mock_result = MagicMock()
-        mock_result.rowcount = 0  # No schema found
+        mock_result.rowcount = 0
 
         mock_conn.execute.return_value = mock_result
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
-
-        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
 
         env = source._detect_timescaledb_environment(mock_inspector)
         assert env == TimescaleDBEnvironment.UNKNOWN
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_environment_detection_permission_denied(self, create_engine_mock):
-        """Test environment detection with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
@@ -967,112 +739,97 @@ class TestTimescaleDBErrorScenarios:
         )
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
-        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
-
         env = source._detect_timescaledb_environment(mock_inspector)
         assert env == TimescaleDBEnvironment.UNKNOWN
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_hypertables_permission_denied(self, create_engine_mock):
-        """Test hypertable extraction with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock environment detection to succeed
         env_result = MagicMock()
         env_result.rowcount = 1
         mock_conn.execute.side_effect = [
-            env_result,  # Environment detection succeeds
+            env_result,
             DatabaseError(
                 "permission denied for schema timescaledb_information", None, None
-            ),  # Query fails
+            ),
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         with patch.object(source, "get_db_name", return_value="tsdb"):
             hypertables = source._get_hypertables(mock_inspector, "public")
 
-        # Should return empty dict and log warning
         assert hypertables == {}
+        assert source.report.warnings
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_continuous_aggregates_malformed_data(self, create_engine_mock):
-        """Test continuous aggregate extraction with malformed data"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
         mock_conn = MagicMock()
 
-        # Mock environment detection to succeed
         env_result = MagicMock()
         env_result.rowcount = 1
 
-        # Mock malformed data
         malformed_row = {
-            "view_name": None,  # Missing required field
+            "view_name": None,
             "materialized_only": False,
             "compression_enabled": False,
         }
 
         mock_conn.execute.side_effect = [
-            env_result,  # Environment detection succeeds
-            [malformed_row],  # Query returns malformed data
+            env_result,
+            [malformed_row],
         ]
         mock_inspector.engine.connect.return_value.__enter__.return_value = mock_conn
 
         with patch.object(source, "get_db_name", return_value="tsdb"):
             caggs = source._get_continuous_aggregates(mock_inspector, "public")
 
-        # Should skip malformed rows and return empty dict
         assert caggs == {}
+        # Malformed rows must surface as report.warning, not logger.warning,
+        # so users see them in the ingestion summary.
+        assert source.report.warnings
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_jobs_with_unknown_environment(self, create_engine_mock):
-        """Test job extraction when environment detection fails"""
         config = TimescaleDBConfig.parse_obj(
             {**_base_config(), "include_background_jobs": True}
         )
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
-
-        # Force unknown environment
-        from datahub.ingestion.source.sql.timescaledb import TimescaleDBEnvironment
-
         source._timescaledb_environment = TimescaleDBEnvironment.UNKNOWN
 
         jobs = source._get_jobs(mock_inspector, "public")
 
-        # Should return empty dict when environment is unknown
         assert jobs == {}
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_get_view_definition_missing_definition(self, create_engine_mock):
-        """Test view definition fallback when continuous aggregate definition is missing"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
         mock_inspector = MagicMock()
 
-        # Create continuous aggregate with no view definition
         cagg = ContinuousAggregate(
             name="hourly_metrics",
             materialized_only=False,
             compression_enabled=False,
             hypertable_schema="public",
             hypertable_name="sensor_data",
-            view_definition=None,  # Missing definition
+            view_definition=None,
         )
 
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "continuous_aggregates": {"hourly_metrics": cagg}
-        }
-
-        from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
+        source._timescaledb_metadata_cache["tsdb.public"] = _SchemaMetadata(
+            continuous_aggregates={"hourly_metrics": cagg},
+        )
 
         with (
             patch.object(source, "get_db_name", return_value="tsdb"),
@@ -1086,53 +843,11 @@ class TestTimescaleDBErrorScenarios:
                 mock_inspector, "public", "hourly_metrics"
             )
 
-        # Should fall back to parent implementation
-        mock_parent.assert_called_once()
-        assert view_definition == "SELECT * FROM fallback_view"
-
-    @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
-    def test_get_view_definition_empty_definition(self, create_engine_mock):
-        """Test view definition fallback when continuous aggregate definition is empty string"""
-        config = TimescaleDBConfig.parse_obj(_base_config())
-        source = TimescaleDBSource(config, PipelineContext(run_id="test"))
-
-        mock_inspector = MagicMock()
-
-        # Create continuous aggregate with empty view definition
-        cagg = ContinuousAggregate(
-            name="hourly_metrics",
-            materialized_only=False,
-            compression_enabled=False,
-            hypertable_schema="public",
-            hypertable_name="sensor_data",
-            view_definition="   ",  # Empty/whitespace only
-        )
-
-        source._timescaledb_metadata_cache["tsdb.public"] = {
-            "continuous_aggregates": {"hourly_metrics": cagg}
-        }
-
-        from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
-
-        with (
-            patch.object(source, "get_db_name", return_value="tsdb"),
-            patch.object(
-                SQLAlchemySource,
-                "_get_view_definition",
-                return_value="SELECT * FROM fallback_view",
-            ) as mock_parent,
-        ):
-            view_definition = source._get_view_definition(
-                mock_inspector, "public", "hourly_metrics"
-            )
-
-        # Should fall back to parent implementation
         mock_parent.assert_called_once()
         assert view_definition == "SELECT * FROM fallback_view"
 
     @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
     def test_job_execution_history_permission_denied(self, create_engine_mock):
-        """Test job execution history with permission denied"""
         config = TimescaleDBConfig.parse_obj(_base_config())
         source = TimescaleDBSource(config, PipelineContext(run_id="test"))
 
@@ -1145,22 +860,11 @@ class TestTimescaleDBErrorScenarios:
 
         executions = source._get_job_execution_history(mock_inspector, 1001, limit=10)
 
-        # Should return empty list
         assert executions == []
 
 
 class TestTimescaleDBHelperFunctions:
-    """Test helper functions"""
-
     def test_format_timedelta_human_readable(self):
-        """Test timedelta formatting to human-readable strings"""
-        from datetime import timedelta
-
-        from datahub.ingestion.source.sql.timescaledb import (
-            format_timedelta_human_readable,
-        )
-
-        # Test various timedeltas
         assert format_timedelta_human_readable(timedelta(hours=1)) == "1 hour"
         assert format_timedelta_human_readable(timedelta(hours=2)) == "2 hours"
         assert format_timedelta_human_readable(timedelta(days=1)) == "1 day"
@@ -1178,24 +882,13 @@ class TestTimescaleDBHelperFunctions:
         assert format_timedelta_human_readable(timedelta(seconds=0)) == "0 seconds"
 
     def test_safe_str_convert(self):
-        """Test safe string conversion"""
-        from datetime import timedelta
-
-        from datahub.ingestion.source.sql.timescaledb import safe_str_convert
-
-        # Test None
         assert safe_str_convert(None) is None
-
-        # Test timedelta
         assert safe_str_convert(timedelta(hours=1)) == "1 hour"
         assert safe_str_convert(timedelta(days=7)) == "7 days"
-
-        # Test regular strings
         assert safe_str_convert("test") == "test"
         assert safe_str_convert(123) == "123"
 
     def test_job_display_name_known_policies(self):
-        """Test job display name generation for known policies"""
         job = TimescaleDBJob(
             job_id=1001,
             proc_name="policy_refresh_continuous_aggregate",
@@ -1219,7 +912,6 @@ class TestTimescaleDBHelperFunctions:
         assert job.get_display_name() == "Reorder Policy - events"
 
     def test_job_display_name_unknown_procedure(self):
-        """Test job display name generation for unknown procedures"""
         job = TimescaleDBJob(
             job_id=1005,
             proc_name="custom_maintenance_job",
@@ -1231,7 +923,6 @@ class TestTimescaleDBHelperFunctions:
         assert job.get_display_name() == "Some Procedure"
 
     def test_job_description_known_policies(self):
-        """Test job description generation for known policies"""
         job = TimescaleDBJob(
             job_id=1001,
             proc_name="policy_refresh_continuous_aggregate",
@@ -1252,3 +943,21 @@ class TestTimescaleDBHelperFunctions:
         description = job.get_description()
         assert "Compresses hypertable chunks to save storage" in description
         assert "sensor_data" in description
+
+    def test_job_custom_properties_omits_empty_values(self):
+        # Empty / None values should not pollute the UI as empty-string keys.
+        job = TimescaleDBJob(
+            job_id=42,
+            proc_name="policy_compression",
+            scheduled=True,
+            fixed_schedule=False,
+            max_retries=0,
+        )
+        props = job.get_custom_properties()
+
+        assert "application_name" not in props
+        assert "schedule_interval" not in props
+        assert "max_runtime" not in props
+        assert "initial_start" not in props
+        assert props["job_id"] == "42"
+        assert props["proc_name"] == "policy_compression"

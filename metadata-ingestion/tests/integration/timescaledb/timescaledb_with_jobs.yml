@@ -6,7 +6,6 @@ source:
     host_port: localhost:55432
     database: tsdb
 
-    # Enable job extraction
     include_background_jobs: true
     job_pattern:
       allow:

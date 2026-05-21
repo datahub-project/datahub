@@ -8,13 +8,10 @@ source:
 
     emit_timescaledb_metadata: true
 
-    # Focus on views for lineage
-    include_tables: true  # Need source tables
+    include_tables: true
     include_views: true
     include_view_lineage: true
     include_view_column_lineage: true
-
-    # Include stored procedures for lineage
     include_stored_procedures: true
 
     schema_pattern:
@@ -22,7 +19,6 @@ source:
         - public
         - analytics
 
-    # Filter to specific views for focused testing
     view_pattern:
       allow:
         - ".*hourly.*"
