@@ -11,6 +11,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
 import type { DataHubLogger } from '../../utils/logger';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 const SHORT_TIMEOUT = 5000;
 const MEDIUM_TIMEOUT = SHORT_TIMEOUT * 3;
@@ -29,6 +30,8 @@ const KEY_CTRL_A = 'Control+A';
 const KEY_ENTER = 'Enter';
 
 export class NestedDomainsPage extends BasePage {
+  private readonly graphqlHelper: GraphQLHelper;
+
   readonly browseV2Container: Locator;
   readonly createDomainButton: Locator;
   readonly createDomainModal: Locator;
@@ -66,6 +69,7 @@ export class NestedDomainsPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
+    this.graphqlHelper = new GraphQLHelper(page);
     this.browseV2Container = page.locator('[id="browse-v2"]');
     this.createDomainButton = page.locator('[id="browse-v2"]').locator('button').nth(0);
     this.createDomainModal = page.getByText('Create New Domain');
@@ -107,7 +111,7 @@ export class NestedDomainsPage extends BasePage {
     await this.page.waitForLoadState('load');
   }
 
-  async createDomain(domainName: string, isSubDomain: boolean = false): Promise<void> {
+  async createDomain(domainName: string, isSubDomain: boolean = false): Promise<string> {
     await this.createDomainButton.click();
     await this.page.waitForLoadState('load');
 
@@ -126,17 +130,22 @@ export class NestedDomainsPage extends BasePage {
     await this.createDomainNameInput.click();
     await this.createDomainNameInput.pressSequentially(domainName, { delay: DELAY_SEQUENTIAL });
 
+    // Intercept GraphQL response to get the actual domain URN from API
+    const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createDomain');
     await this.createDomainConfirmButton.click();
 
     // Wait for success message indicating domain was created
     await expect(this.page.getByText('Created domain!')).toBeVisible({ timeout: LONG_TIMEOUT });
-    await this.page.waitForTimeout(DELAY_XL);
 
-    // Wait for the modal to close and page to refresh
-    await this.createDomainNameInput.waitFor({ state: 'hidden', timeout: SHORT_TIMEOUT });
+    // Get URN from GraphQL response
+    const response = await responsePromise;
+    const domainUrn = (response.data as Record<string, string>).createDomain;
 
-    // Additional wait to ensure backend indexing and list update
-    await this.page.waitForTimeout(DELAY_3XL);
+    if (!domainUrn) {
+      throw new Error(`Failed to extract domain URN from GraphQL response: ${JSON.stringify(response)}`);
+    }
+
+    return domainUrn;
   }
 
   async moveDomainToParent(parentName: string): Promise<void> {
