@@ -36,6 +36,7 @@ from datahub.emitter.mce_builder import (
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import capability
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
@@ -58,6 +59,9 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     FlowContainerSubTypes,
     SourceCapabilityModifier,
+)
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -127,9 +131,9 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import (
-        DatahubGEProfiler,
-        GEProfilerRequest,
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.profiling.common import (
+        ProfilerRequest as GEProfilerRequest,
     )
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
@@ -1338,13 +1342,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
         else:
-            # Only import GE profiler if we're actually using it
-            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,
@@ -1403,7 +1404,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
-        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+        from datahub.ingestion.source.profiling.common import (
+            ProfilerRequest as GEProfilerRequest,
+        )
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.
@@ -1598,6 +1601,34 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             "Subclasses must implement the 'get_procedures_for_schema' method."
         )
 
+    def _get_procedure_database_key(self, db_name: str) -> DatabaseKey:
+        return gen_database_key(
+            database=db_name,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def _get_procedure_schema_key(
+        self, db_name: str, schema: str
+    ) -> Optional[SchemaKey]:
+        """Schema container key for stored procedures, or None when the source
+        has no schema layer.
+
+        Two-tier sources (MySQL, MariaDB, Hive, Clickhouse, Teradata, …) pass
+        ``db_name == schema`` here; including a SchemaKey in that case would
+        produce flow names like ``test_db.test_db.stored_procedures``. Those
+        sources override this hook to return None and let the flow name fall
+        back to ``{database}.stored_procedures``.
+        """
+        return gen_schema_key(
+            db_name=db_name,
+            schema=schema,
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
     def _process_procedures(
         self,
         procedures: List[BaseProcedure],
@@ -1605,19 +1636,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
     ) -> Iterable[MetadataWorkUnit]:
         if procedures:
-            database_key = gen_database_key(
-                database=db_name,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            schema_key = gen_schema_key(
-                db_name=db_name,
-                schema=schema,
-                platform=self.platform,
-                platform_instance=self.config.platform_instance,
-                env=self.config.env,
-            )
+            database_key = self._get_procedure_database_key(db_name)
+            schema_key = self._get_procedure_schema_key(db_name, schema)
 
             # Create a single stored_procedures container for all procedures and functions
             # Individual procedures/functions will have their own subtype (FUNCTION or STORED_PROCEDURE)
@@ -1664,19 +1684,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         try:
             yield from generate_procedure_workunits(
                 procedure=procedure,
-                database_key=gen_database_key(
-                    database=db_name,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
-                schema_key=gen_schema_key(
-                    db_name=db_name,
-                    schema=schema,
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                ),
+                database_key=self._get_procedure_database_key(db_name),
+                schema_key=self._get_procedure_schema_key(db_name, schema),
                 schema_resolver=self.get_schema_resolver(),
             )
         except Exception as e:

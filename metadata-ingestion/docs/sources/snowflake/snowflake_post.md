@@ -447,3 +447,21 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.
+
+#### Snowsight Links Point to the Wrong URL (Private Link)
+
+By default, DataHub generates Snowsight links of the form `https://app.snowflake.com/<region>/<account>/...`. If Snowsight is only reachable through private link in your environment, these links will not work for your users.
+
+To fix this, set `snowsight_base_url` in the recipe to your private-link Snowsight URL. Retrieve the value from Snowflake as `ACCOUNTADMIN`:
+
+```sql
+SELECT SYSTEM$GET_PRIVATELINK_CONFIG();
+-- Use either snowsight-privatelink-url or regionless-snowsight-privatelink-url.
+```
+
+```yaml
+source:
+  type: snowflake
+  config:
+    snowsight_base_url: "https://app.us-east-1.privatelink.snowflakecomputing.com/"
+```

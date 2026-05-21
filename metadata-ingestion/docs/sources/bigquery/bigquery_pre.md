@@ -107,6 +107,33 @@ Without this permission, you'll encounter errors when the connector tries to acc
      client_id: "123456678890"
    ```
 
+#### Workload Identity Federation (keyless authentication)
+
+As an alternative to long-lived service account keys, you can authenticate with [Workload Identity Federation](https://cloud.google.com/iam/docs/workload-identity-federation) (WIF). WIF lets workloads running outside of Google Cloud (for example in AWS, Azure, on-prem Kubernetes, or self-hosted Docker) impersonate a Google service account using short-lived tokens minted from an external identity provider.
+
+To use WIF, set `auth_type: workload_identity_federation` and supply the WIF configuration in one of three mutually exclusive ways:
+
+| Field                               | Description                                                                                               |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `gcp_wif_configuration`             | Path to the WIF configuration JSON file on disk.                                                          |
+| `gcp_wif_configuration_json`        | The WIF configuration as an inline YAML/JSON dict (or JSON string). Useful when storing the value inline. |
+| `gcp_wif_configuration_json_string` | The WIF configuration as a single JSON string. Useful when injecting from a secret manager.               |
+
+The WIF configuration is the standard `external_account` JSON produced by `gcloud iam workload-identity-pools create-cred-config` — for example:
+
+```json
+{
+  "type": "external_account",
+  "audience": "//iam.googleapis.com/projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL_ID/providers/PROVIDER_ID",
+  "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+  "token_url": "https://sts.googleapis.com/v1/token",
+  "credential_source": { "file": "/var/run/secrets/tokens/gcp-ksa/token" },
+  "service_account_impersonation_url": "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/SERVICE_ACCOUNT_EMAIL:generateAccessToken"
+}
+```
+
+The impersonated service account must have the BigQuery permissions described above. When `auth_type` is `workload_identity_federation`, the `credential` field is not used and must be omitted.
+
 ##### Profiling Requirements
 
 **For external tables backed by Google Drive:**

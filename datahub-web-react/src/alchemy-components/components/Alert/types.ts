@@ -20,4 +20,6 @@ export interface AlertProps {
     className?: string;
     /** Inline styles */
     style?: React.CSSProperties;
+    /** Test selector */
+    'data-testid'?: string;
 }

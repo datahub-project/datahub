@@ -679,6 +679,13 @@ public class JavaEntityClient implements EntityClient {
     return entityService.exists(opContext, urn, includeSoftDelete);
   }
 
+  @Override
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns)
+      throws RemoteInvocationException {
+    return entityService.exists(opContext, urns, true);
+  }
+
   @SneakyThrows
   @Override
   @Deprecated

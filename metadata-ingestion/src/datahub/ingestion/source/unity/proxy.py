@@ -49,6 +49,7 @@ from datahub.ingestion.source.unity.config import (
 )
 from datahub.ingestion.source.unity.connection import get_sql_connection_params
 from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
+from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -905,9 +906,8 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         # Process table upstreams
         for upstream in lineage_info.upstreams:
             upstream_table_name = upstream.table_name
-            # Parse catalog.schema.table format
-            parts = upstream_table_name.split(".")
-            if len(parts) == 3:
+            parts = split_databricks_identifier(upstream_table_name)
+            if parts is not None and len(parts) == 3:
                 catalog_name, schema_name, table_name = parts[0], parts[1], parts[2]
                 table_ref = TableReference(
                     metastore=table.schema.catalog.metastore.id

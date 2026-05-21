@@ -48,6 +48,14 @@ const ActionsButtonStyle = {
     boxShadow: 'none',
 };
 
+export const PageContainer = styled.div`
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+`;
+
 export const UserContainer = styled.div`
     display: flex;
     flex-direction: column;
@@ -59,20 +67,10 @@ export const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: auto;
+    overflow: hidden;
 
-    /* Make table header sticky */
-    .ant-table-thead {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-        background: ${(props) => props.theme.colors.bg};
-    }
-
-    /* Ensure header cells have proper background */
-    .ant-table-thead > tr > th {
-        background: ${(props) => props.theme.colors.bg} !important;
-        border-bottom: 1px solid ${(props) => props.theme.colors.border};
+    table {
+        table-layout: fixed;
     }
 `;
 
@@ -86,6 +84,13 @@ export const FiltersHeader = styled.div`
 export const SearchContainer = styled.div`
     display: flex;
     flex-direction: column;
+    flex: 1;
+`;
+
+export const PaginationContainer = styled.div`
+    padding-top: 8px;
+    display: flex;
+    justify-content: center;
 `;
 
 export const FilterContainer = styled.div`

@@ -898,6 +898,7 @@ class SnowflakeV2Source(
                 # See https://docs.snowflake.com/en/user-guide/organizations-connect.html#private-connectivity-urls
                 privatelink=self.config.account_id.endswith(".privatelink"),
                 snowflake_domain=self.config.snowflake_domain,
+                base_url_override=self.config.snowsight_base_url,
             )
 
         except Exception as e:

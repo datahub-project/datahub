@@ -511,6 +511,20 @@ class SnowflakeV2Config(
         description="Whether to populate Snowsight url for Snowflake Objects",
     )
 
+    snowsight_base_url: Optional[str] = Field(
+        default=None,
+        description=(
+            "Override for the Snowsight base URL used when generating external URLs "
+            "for Snowflake assets. Set this when Snowsight is only reachable via "
+            "private link (for example "
+            "`https://app.<region>.privatelink.snowflakecomputing.com/` or "
+            "`https://app-<org>-<account>.privatelink.snowflakecomputing.com/`). "
+            "If unset, defaults to the public `app.snowflake.com` URL. The value "
+            "can be obtained by running "
+            "`SELECT SYSTEM$GET_PRIVATELINK_CONFIG()` in Snowflake as ACCOUNTADMIN."
+        ),
+    )
+
     _use_legacy_lineage_method_removed = pydantic_removed_field(
         "use_legacy_lineage_method",
         month="August",
@@ -699,6 +713,15 @@ class SnowflakeV2Config(
             raise ValueError(
                 "include_assertion_results must be True for include_externally_managed_dmfs to be set."
             )
+        return v
+
+    @field_validator("snowsight_base_url", mode="after")
+    @classmethod
+    def validate_snowsight_base_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        if not v.startswith(("http://", "https://")):
+            raise ValueError("snowsight_base_url must start with http:// or https://")
         return v
 
     @model_validator(mode="after")

@@ -5,8 +5,11 @@ These tests focus on performance optimizations, memory management,
 and efficiency improvements in the Teradata source.
 """
 
+from collections import defaultdict
 from datetime import datetime
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -17,6 +20,14 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Reset TeradataSource class-level caches before each test to prevent
+    cross-test state leakage."""
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config():
@@ -557,7 +568,14 @@ class TestQueryOptimizations:
 
         query = source._build_tables_and_views_query()
 
-        assert "AND DataBaseName IN ('DB_A','DB_B','DB_C')" in query
+        # (NOT CASESPECIFIC) on both sides keeps the IN-list matching even on
+        # installations whose session default is CASESPECIFIC.
+        assert (
+            "AND DataBaseName (NOT CASESPECIFIC) IN ("
+            "'DB_A' (NOT CASESPECIFIC),"
+            "'DB_B' (NOT CASESPECIFIC),"
+            "'DB_C' (NOT CASESPECIFIC))"
+        ) in query
         # System database exclusion still present
         assert "NOT IN" in query
 
