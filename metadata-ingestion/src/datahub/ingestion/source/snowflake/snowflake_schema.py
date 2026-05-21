@@ -1950,6 +1950,11 @@ class SnowflakeDataDictionary(SupportsAsObj):
                             try:
                                 if isinstance(raw_inputs, str):
                                     raw_inputs = json.loads(raw_inputs)
+                                # Coerce non-list JSON values (e.g. "null" -> None,
+                                # single object -> dict) so the comprehension below
+                                # doesn't crash the whole database scan.
+                                if not isinstance(raw_inputs, list):
+                                    raw_inputs = []
                                 upstream_tables = [
                                     SnowflakeDynamicTableInput(
                                         name=inp["name"],

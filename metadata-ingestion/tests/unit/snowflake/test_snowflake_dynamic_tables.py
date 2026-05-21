@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
+from datahub.ingestion.source.snowflake.constants import SnowflakeObjectDomain
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
@@ -12,6 +13,9 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
     SnowflakeDynamicTable,
     SnowflakeDynamicTableInput,
+)
+from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
+    SnowflakeSchemaGenerator,
 )
 
 
@@ -192,6 +196,65 @@ def test_get_dynamic_tables_with_definitions_malformed_inputs_json(
     assert good_dt.upstream_tables == [
         SnowflakeDynamicTableInput("TEST_DB.PUBLIC.SOURCE_TABLE", "TABLE")
     ]
+
+
+@pytest.mark.parametrize(
+    "raw_inputs",
+    [
+        pytest.param("null", id="json-null"),
+        pytest.param('{"name": "TEST_DB.PUBLIC.X", "kind": "TABLE"}', id="single-dict"),
+    ],
+)
+def test_get_dynamic_tables_with_definitions_inputs_non_list_json(
+    mock_snowflake_data_dictionary, raw_inputs
+):
+    """INPUTS that parses to a non-list value (null, single object) doesn't crash
+    ingestion — the table is kept with empty upstream_tables."""
+    mock_snowflake_data_dictionary.get_dynamic_table_graph_info = MagicMock(
+        return_value={
+            "TEST_DB.PUBLIC.WEIRD_TABLE": {
+                "inputs": raw_inputs,
+                "target_lag_type": None,
+                "target_lag_sec": None,
+            },
+        }
+    )
+
+    mock_cursor = MagicMock()
+    mock_cursor.__iter__.return_value = [
+        {
+            "name": "WEIRD_TABLE",
+            "schema_name": "PUBLIC",
+            "created_on": "2024-01-01 00:00:00",
+            "text": None,
+            "target_lag": None,
+            "bytes": 0,
+            "rows": 0,
+            "comment": None,
+        },
+    ]
+    mock_snowflake_data_dictionary.connection.query.return_value = mock_cursor
+
+    result = mock_snowflake_data_dictionary.get_dynamic_tables_with_definitions(
+        "TEST_DB"
+    )
+
+    assert len(result["PUBLIC"]) == 1
+    assert result["PUBLIC"][0].upstream_tables == []
+
+
+@pytest.mark.parametrize(
+    "kind,expected_domain",
+    [
+        ("TABLE", SnowflakeObjectDomain.TABLE),
+        ("MATERIALIZED_VIEW", SnowflakeObjectDomain.MATERIALIZED_VIEW),
+        ("EXTERNAL_TABLE", SnowflakeObjectDomain.EXTERNAL_TABLE),
+        ("DYNAMIC_TABLE", SnowflakeObjectDomain.DYNAMIC_TABLE),
+        ("SOMETHING_NEW", SnowflakeObjectDomain.TABLE),
+    ],
+)
+def test_resolve_input_kind_normalization(kind, expected_domain):
+    assert SnowflakeSchemaGenerator._resolve_input_kind(kind) == expected_domain
 
 
 def test_populate_dynamic_table_definitions(mock_snowflake_data_dictionary):

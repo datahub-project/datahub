@@ -586,6 +586,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             schema_name=schema_name, db_name=db_name, domain=domain
         )
 
+    @staticmethod
+    def _resolve_input_kind(kind: str) -> SnowflakeObjectDomain:
+        # DYNAMIC_TABLE_GRAPH_HISTORY INPUTS.kind is underscored uppercase
+        # (e.g. "MATERIALIZED_VIEW"); SnowflakeObjectDomain values are
+        # space-separated lowercase. Unknown kinds fall back to TABLE so we
+        # still emit lineage.
+        normalized = kind.lower().replace("_", " ")
+        try:
+            return SnowflakeObjectDomain(normalized)
+        except ValueError:
+            return SnowflakeObjectDomain.TABLE
+
     def _process_tables(
         self,
         tables: List[SnowflakeTable],
@@ -624,14 +636,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         # when DDL is unavailable. Skipped when DDL is present because SQL parsing
                         # produces accurate column-level lineage; identity CLL from INPUTS would be
                         # wrong for aliased/aggregated columns (e.g. SUM(amount) AS total).
-                        _known_domains = {d.value for d in SnowflakeObjectDomain}
                         for upstream_input in table.upstream_tables:
                             upstream_qualified_name = upstream_input.name
-                            kind_lower = upstream_input.kind.lower()
-                            upstream_domain = (
-                                SnowflakeObjectDomain(kind_lower)
-                                if kind_lower in _known_domains
-                                else SnowflakeObjectDomain.TABLE
+                            upstream_domain = self._resolve_input_kind(
+                                upstream_input.kind
                             )
                             upstream_identifier = self.identifiers.get_dataset_identifier_from_qualified_name(
                                 upstream_qualified_name
