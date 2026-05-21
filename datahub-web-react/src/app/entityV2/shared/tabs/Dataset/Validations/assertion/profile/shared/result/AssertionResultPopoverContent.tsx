@@ -15,6 +15,7 @@ import {
     getFormattedExpectedResultText,
     getFormattedReasonText,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/shared/resultMessageUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { Assertion, AssertionResult, AssertionResultType, AssertionRunEvent } from '@types';
 
@@ -227,7 +228,7 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
             externalResultsSections.push(
                 <ThinDivider key="external-results-link-divider" />,
                 <PlatformRow key="external-results-link">
-                    <a href={result.externalUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={safeUrl(result.externalUrl)} target="_blank" rel="noopener noreferrer">
                         View results in{' '}
                         {assertion.platform?.name && assertion.platform?.name?.toLowerCase() !== 'unknown'
                             ? assertion.platform?.name

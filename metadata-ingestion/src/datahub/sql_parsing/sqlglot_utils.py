@@ -311,7 +311,9 @@ def generalize_query(expression: sqlglot.exp.ExpOrStr, dialect: DialectOrStr) ->
 
         return node
 
-    return expression.transform(_strip_expression, copy=True).sql(dialect=dialect)
+    transformed = expression.transform(_strip_expression, copy=True)
+    assert transformed is not None
+    return transformed.sql(dialect=dialect)
 
 
 def get_query_fingerprint_debug(

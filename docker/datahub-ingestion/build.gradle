@@ -54,11 +54,9 @@ docker {
     def dockerBuildArgs = new HashMap(variantArgs)
 
     // Add build args if they are defined (needed for some CI or enterprise environments)
-    if (project.hasProperty('pipMirrorUrl')) {
-        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
-    }
-    if (project.hasProperty('pipExtraIndexUrls')) {
-        dockerBuildArgs.PIP_EXTRA_INDEX_URL = project.getProperty('pipExtraIndexUrls')
+    dockerBuildArgs.PIP_MIRROR_URL = gradle.ext['datahub.dependencies.python.pipMirrorUrl']
+    if (gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']) {
+        dockerBuildArgs.PIP_EXTRA_INDEX_URL = gradle.ext['datahub.dependencies.python.pipExtraIndexUrl']
     }
     buildArgs(dockerBuildArgs)
 }

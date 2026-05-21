@@ -45,6 +45,8 @@ class DatasetSubTypes(StrEnum):
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
+    THOUGHTSPOT_WORKSHEET = "Worksheet"
+    METRIC_VIEW = "Metric View"
 
     # TODO: Create separate entity...
     NOTEBOOK = "Notebook"
@@ -106,6 +108,7 @@ class BIContainerSubTypes(StrEnum):
     MODE_COLLECTION = "Collection"
     GRAFANA_FOLDER = "Folder"
     GRAFANA_DASHBOARD = "Dashboard"
+    THOUGHTSPOT_WORKSPACE = "Workspace"
 
 
 class FlowContainerSubTypes(StrEnum):
@@ -137,6 +140,11 @@ class BIAssetSubTypes(StrEnum):
 
     # Looker
     LOOKER_LOOK = "Look"
+
+    # ThoughtSpot
+    THOUGHTSPOT_ANSWER = "Answer"
+    THOUGHTSPOT_LIVEBOARD = "Liveboard"
+    THOUGHTSPOT_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"

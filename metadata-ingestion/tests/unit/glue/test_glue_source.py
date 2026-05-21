@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, cast
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
@@ -1675,8 +1675,8 @@ def test_get_column_param_workunits_values_assigned_correctly() -> None:
 
     workunits = list(source._get_column_param_workunits(table, dataset_urn))
 
-    # Find the StructuredProperties workunit for col_a
-    col_a_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),col_a)"
+    # Find the StructuredProperties workunit for col_a (v2 typed field path)
+    col_a_urn = "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
     col_a_props_wu = next(
         (
             wu
@@ -1728,3 +1728,64 @@ def test_seen_definitions_not_re_emitted_across_tables() -> None:
     ]
     assert len(first_defs) > 0
     assert second_defs == []
+
+
+def test_get_column_param_workunits_uses_v2_field_path() -> None:
+    """schemaField URNs must use the v2 typed path from get_schema_fields_for_hive_column."""
+    source = _make_glue_source_with_column_params()
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    assignment_urns = {
+        wu.get_urn()
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    }
+    # v2 typed paths must be used
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),[version=2.0].[type=string].col_a)"
+        in assignment_urns
+    )
+    # bare column names must not appear as field paths
+    assert (
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD),col_a)"
+        not in assignment_urns
+    )
+
+
+def test_get_column_param_definitions_emitted_via_graph() -> None:
+    """When ctx.graph is set, definitions are emitted synchronously via emit_mcp, not as workunits."""
+    pipeline_context = PipelineContext(run_id="test-graph-emit")
+    pipeline_context.graph = MagicMock(spec=DataHubGraph)
+    source = GlueSource(
+        ctx=pipeline_context,
+        config=GlueSourceConfig(
+            aws_region="us-west-2",
+            extract_transforms=False,
+            use_s3_bucket_tags=False,
+            use_s3_object_tags=False,
+            extract_column_parameters=True,
+        ),
+    )
+    table = _make_table_with_column_params()
+    dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,test_db.test_table,PROD)"
+
+    workunits = list(source._get_column_param_workunits(table, dataset_urn))
+
+    # definitions go to graph.emit_mcp, not into the workunit stream
+    assert pipeline_context.graph.emit_mcp.called
+    definition_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertyDefinitionClass) is not None
+    ]
+    assert definition_wus == []
+    # assignment workunits still flow through the pipeline normally
+    assignment_wus = [
+        wu
+        for wu in workunits
+        if wu.get_aspect_of_type(models.StructuredPropertiesClass) is not None
+    ]
+    assert len(assignment_wus) > 0
