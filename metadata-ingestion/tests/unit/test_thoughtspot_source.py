@@ -6379,6 +6379,10 @@ class TestResolveExternalUpstream:
         assert source._resolve_external_upstream(table) is None
 
     def test_missing_connection_returns_none(self):
+        """When the table claims a known external platform but the
+        connection isn't visible in the lookup, return None and
+        increment the unresolvable counter — real lineage gap worth
+        surfacing."""
         source, mock_client = self._make_source()
         mock_client.get_connections.return_value = []
         table = LogicalTableResponse(
@@ -6389,6 +6393,28 @@ class TestResolveExternalUpstream:
             data_source_type="DATABRICKS",
         )
         assert source._resolve_external_upstream(table) is None
+        assert source._unresolvable_external_lineage_count == 1
+
+    def test_falcon_table_with_missing_connection_does_not_warn(self):
+        """When the table's data_source_type is TS-internal (FALCON /
+        DEFAULT) the missing connection is expected — TS still puts a
+        data_source_id on the table but the connection lookup never
+        contains FALCON-shaped entries. Must skip silently without
+        bumping the counter, otherwise every TS-internal sample/system
+        table on a tenant produces a false-positive warning.
+        """
+        source, mock_client = self._make_source()
+        mock_client.get_connections.return_value = []
+        for ts_type in ("DEFAULT", "FALCON", "SOMETHING_UNMAPPED"):
+            table = LogicalTableResponse(
+                id=f"t-{ts_type}",
+                name=f"sample-{ts_type}",
+                type="LOGICAL_TABLE",
+                data_source_id="ts-internal-id",
+                data_source_type=ts_type,
+            )
+            assert source._resolve_external_upstream(table) is None
+        assert source._unresolvable_external_lineage_count == 0
 
     def test_disabled_by_config_returns_none(self):
         source, mock_client = self._make_source({"include_external_lineage": False})

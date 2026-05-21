@@ -2213,6 +2213,16 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             return None
         if not table.data_source_id:
             return None
+        # Skip silently when the table's own type isn't a known external
+        # platform — FALCON / DEFAULT / unmapped types are TS-internal
+        # stores (sample data, system tables, CSV uploads) with no
+        # external upstream to emit, so a missing connection-lookup
+        # entry isn't a real failure to warn about. Without this guard,
+        # every TS-internal table on a tenant triggers a false-positive
+        # "External Lineage Resolution Failed" warning.
+        ts_type = (table.data_source_type or "").upper()
+        if ts_type not in _TS_TO_DATAHUB_PLATFORM:
+            return None
         conn = self._get_connection_lookup().get(table.data_source_id)
         if conn is None:
             self._unresolvable_external_lineage_count += 1
