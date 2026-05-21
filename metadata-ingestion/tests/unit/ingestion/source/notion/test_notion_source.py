@@ -909,3 +909,34 @@ def test_notion_types_filter_unknown_fields_is_idempotent():
 
     paragraph = Paragraph(color="default")
     assert paragraph.color == "default"
+
+
+def test_icon_dispatcher_unknown_types_returns_none_for_named_icon():
+    """Notion's new built-in named icon type ({type: 'icon', icon: {...}})
+    must not raise — observed live breaking the indexer's page discovery."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    result = Icon.from_dict(
+        {"type": "icon", "icon": {"name": "departures", "color": "green"}}
+    )
+    assert result is None
+
+
+def test_icon_dispatcher_unknown_types_preserves_known_types():
+    """Emoji and external icons must still parse correctly after the patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        EmojiIcon,
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
+    assert isinstance(emoji_result, EmojiIcon)
+    assert emoji_result.emoji == "📝"

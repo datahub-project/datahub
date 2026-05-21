@@ -833,6 +833,52 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
     @staticmethod
+    def _monkeypatch_icon_dispatcher_unknown_types() -> None:
+        """Gracefully degrade unknown Notion icon types to None instead of raising.
+
+        unstructured-ingest 0.7.2's ``Icon.from_dict`` (in
+        ``types.blocks.callout``) only handles ``emoji`` and ``external`` icon
+        types; anything else raises ``ValueError: Unexpected icon type: ...``.
+        Notion has since introduced a built-in named icon type
+        (``{"type": "icon", "icon": {"name": "...", "color": "..."}}``) that
+        appears on Callout blocks and aborts the indexer's page-discovery walk.
+
+        This is a value-discriminator failure, not a kwargs-filter failure, so
+        it isn't covered by ``_monkeypatch_notion_types_filter_unknown_fields``.
+        Patch the dispatcher to return ``None`` for unknown icon types — the
+        Callout block still ingests with its text content preserved; only the
+        icon visualization is lost (``Callout.get_html`` already handles
+        ``icon is None``).
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+                Icon,
+            )
+
+            warned: Set[Optional[str]] = set()
+            original_from_dict = Icon.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+                t = data.get("type")
+                if t in ("emoji", "external"):
+                    return original_from_dict(cls, data)
+                if t not in warned:
+                    warned.add(t)
+                    logger.warning(
+                        f"Notion API returned unknown icon type '{t}' — "
+                        f"substituting None. Icon visualization on affected "
+                        f"blocks will be lost; page text content is preserved."
+                    )
+                return None
+
+            Icon.from_dict = classmethod(patched_from_dict)
+            logger.info("Applied monkeypatch to Icon dispatcher for unknown icon types")
+        except ImportError as e:
+            logger.warning(f"Icon dispatcher not found - skipping monkeypatch: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to apply Icon dispatcher monkeypatch: {e}")
+
+    @staticmethod
     def _monkeypatch_notion_types_filter_unknown_fields() -> None:
         """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
 
@@ -1468,6 +1514,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_databases_endpoint_query()
         self._monkeypatch_syncblock_from_dict()
         self._monkeypatch_numbered_list_item_new_fields()
+        self._monkeypatch_icon_dispatcher_unknown_types()
         self._monkeypatch_notion_types_filter_unknown_fields()
 
         # Auto-discover pages if none provided
