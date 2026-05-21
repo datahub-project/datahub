@@ -211,8 +211,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
     when(mockTokenService.validateAccessToken(sessionToken))
         .thenReturn(
-            new TokenClaims(
-                TokenVersion.ONE, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+            new TokenClaims(TokenVersion.ONE, TokenType.SESSION, ActorType.USER, "testUser", 123L));
 
     HttpHeaders headers = new HttpHeaders();
     headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
@@ -223,10 +222,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
     assertEquals(HttpStatus.OK, response.getStatusCode());
     verify(mockTokenService)
         .revokeSessionAccessToken(
-            eq(systemOperationContext),
-            eq(sessionToken),
-            eq(actor.toUrnStr()),
-            eq(123L));
+            eq(systemOperationContext), eq(sessionToken), eq(actor.toUrnStr()), eq(123L));
   }
 
   @Test
