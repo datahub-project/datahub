@@ -1248,6 +1248,12 @@ teradata = [
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
 ]
 
+thoughtspot = [
+    "patchy==2.8.0",
+    "sqlglot[c]==30.8.0",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
+]
+
 trino = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
@@ -1434,6 +1440,7 @@ all = [
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
@@ -1606,6 +1613,7 @@ dev = [
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -1797,6 +1805,7 @@ docs = [
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "time-machine<4.0.0",
     "toml>=0.10.0,<=0.10.2",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
@@ -2005,6 +2014,7 @@ openapi = "datahub.ingestion.source.openapi:OpenApiSource"
 metabase = "datahub.ingestion.source.metabase:MetabaseSource"
 teradata = "datahub.ingestion.source.sql.teradata:TeradataSource"
 starrocks = "datahub.ingestion.source.sql.starrocks:StarRocksSource"
+thoughtspot = "datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource"
 trino = "datahub.ingestion.source.sql.trino:TrinoSource"
 starburst-trino-usage = "datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource"
 nifi = "datahub.ingestion.source.nifi:NifiSource"
