@@ -13,6 +13,7 @@ type Props = {
     showAddModal: boolean;
     setShowAddModal: React.Dispatch<React.SetStateAction<boolean>>;
     addModalType: any;
+    existingUrns?: string[];
 };
 
 export default function AddTagTerm({
@@ -24,6 +25,7 @@ export default function AddTagTerm({
     showAddModal,
     setShowAddModal,
     addModalType,
+    existingUrns,
 }: Props) {
     return (
         <>
@@ -43,6 +45,7 @@ export default function AddTagTerm({
                             subResourceType: entitySubresource ? SubResourceType.DatasetField : null,
                         },
                     ]}
+                    existingUrns={existingUrns}
                 />
             )}
         </>

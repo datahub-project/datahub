@@ -41,6 +41,9 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
         arrayProperty: 'terms',
     });
 
+    const existingTermUrns =
+        glossaryTerms?.terms?.map((t: { term?: { urn?: string } }) => t.term?.urn).filter(Boolean) || [];
+
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
     return (
@@ -86,6 +89,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
                 setShowAddModal={setShowAddModal}
                 addModalType={addModalType}
                 refetch={refetch}
+                existingUrns={existingTermUrns}
             />
         </div>
     );

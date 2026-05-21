@@ -1,25 +1,23 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
-import React, { useRef, useState } from 'react';
+import { toast } from '@components';
+import { BookmarksSimple } from '@phosphor-icons/react/dist/csr/BookmarksSimple';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
-import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
-import ParentEntities from '@app/search/filters/ParentEntities';
-import { getParentEntities } from '@app/search/filters/utils';
-import ClickOutside from '@app/shared/ClickOutside';
-import { ENTER_KEY_CODE } from '@app/shared/constants';
+import { handleBatchError } from '@app/entity/shared/utils';
+import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
+import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useGetRecommendations } from '@app/shared/recommendation';
-import CreateTagModal from '@app/shared/tags/CreateTagModal';
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import TagPill from '@app/sharedV2/tags/TagPill';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal } from '@src/alchemy-components';
+import { Modal, SimpleSelect } from '@src/alchemy-components';
+import { SelectOption } from '@src/alchemy-components/components/Select/types';
 import { getModalDomContainer } from '@utils/focus';
 
 import {
@@ -29,7 +27,7 @@ import {
     useBatchRemoveTermsMutation,
 } from '@graphql/mutations.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
-import { DataHubPageModuleType, Entity, EntityType, ResourceRefInput, Tag } from '@types';
+import { DataHubPageModuleType, Entity, EntityType, GlossaryNode, GlossaryTerm, ResourceRefInput, Tag } from '@types';
 
 export enum OperationType {
     ADD,
@@ -44,19 +42,11 @@ type EditTagsModalProps = {
     operationType?: OperationType;
     defaultValues?: { urn: string; entity?: Entity | null }[];
     onOkOverride?: (result: string[]) => void;
+    // URNs already applied to the resource(s); excluded from the dropdown so the user can only ADD new items.
+    existingUrns?: string[];
 };
 
-const StyleTag = styled(CustomTag)`
-    margin: 2px;
-    display: flex;
-    justify-content: start;
-    align-items: center;
-    white-space: nowrap;
-    opacity: 1;
-    color: #434343;
-    line-height: 16px;
-`;
-
+// Kept exported for other modals that still use the V1 browser (PolicyPrivilegeForm, AddRelatedTermsModal).
 export const BrowserWrapper = styled.div<{
     isHidden: boolean;
     width?: string;
@@ -64,12 +54,9 @@ export const BrowserWrapper = styled.div<{
     minWidth?: number;
     maxWidth?: number;
 }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bgSurface};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -86,38 +73,56 @@ export const BrowserWrapper = styled.div<{
     `}
 `;
 
-const SearchResultContainer = styled.div`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+// Caret column (20px) + caret→content gap (8px). Rows under a node get this offset so their pill
+// aligns under the parent node's pill rather than the parent's caret.
+const CARET_COLUMN_WIDTH = 28;
+
+const OptionRow = styled.div<{ $depth: number; $offsetForCaret?: boolean }>`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding-left: ${(props) => props.$depth * 16 + (props.$offsetForCaret ? CARET_COLUMN_WIDTH : 0)}px;
 `;
 
-const LoadingWrapper = styled.div`
-    padding: 8px;
-    display: flex;
-    justify-content: center;
-
-    svg {
-        height: 15px;
-        width: 15px;
-        color: ${ANTD_GRAY[8]};
+// Node rows are hierarchy headers only — hide the alchemy SimpleSelect's adjacent checkbox so they
+// read as static headers rather than disabled options. They render their own caret inline, so they
+// don't need the caret-column offset.
+const NodeRow = styled(OptionRow)`
+    flex: 1;
+    & ~ * {
+        display: none !important;
     }
 `;
 
-const CREATE_TAG_VALUE = '____reserved____.createTagValue';
+interface EntityOption extends SelectOption {
+    entity?: Entity;
+    depth?: number;
+    isNode?: boolean;
+    color?: string;
+    /** URNs of any parent nodes (root → direct-parent order). Used for expand/collapse filtering. */
+    ancestorUrns?: string[];
+}
 
-const isValidTagName = (tagName: string) => {
-    return tagName && tagName.length > 0 && !FORBIDDEN_URN_CHARS_REGEX.test(tagName);
-};
+const CaretButton = styled.button`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    color: ${(props) => props.theme.colors.icon};
+    cursor: pointer;
+    flex-shrink: 0;
 
-const defaultValuesToSelectedValue = (defaultValues?: { urn: string; entity?: Entity | null }[]): any[] => {
-    return (
-        defaultValues?.map((defaultValue) => ({
-            urn: defaultValue.urn,
-            component: <TagTermLabel entity={defaultValue.entity} />,
-        })) || []
-    );
-};
+    :hover {
+        color: ${(props) => props.theme.colors.iconHover};
+    }
+`;
+
+const isAddOperation = (op?: OperationType) => op === OperationType.ADD || op === undefined;
 
 export default function EditTagTermsModal({
     open,
@@ -127,169 +132,312 @@ export default function EditTagTermsModal({
     operationType = OperationType.ADD,
     defaultValues = [],
     onOkOverride,
+    existingUrns,
 }: EditTagsModalProps) {
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
-    const [inputValue, setInputValue] = useState('');
-    const [showCreateModal, setShowCreateModal] = useState(false);
+
+    const [urns, setUrns] = useState<string[]>(defaultValues.map((v) => v.urn));
+    const [entityCache, setEntityCache] = useState<Record<string, Entity>>(() => {
+        const cache: Record<string, Entity> = {};
+        defaultValues.forEach(({ urn, entity }) => {
+            if (entity) cache[urn] = entity;
+        });
+        return cache;
+    });
+    const [searchText, setSearchText] = useState('');
     const [disableAction, setDisableAction] = useState(false);
-    const [urns, setUrns] = useState<string[]>(defaultValues.map((defaultValue) => defaultValue.urn));
-    const [selectedTerms, setSelectedTerms] = useState<any[]>(
-        type === EntityType.GlossaryTerm ? defaultValuesToSelectedValue(defaultValues) : [],
-    );
-
-    const [selectedTags, setSelectedTags] = useState<any[]>(
-        type === EntityType.Tag ? defaultValuesToSelectedValue(defaultValues) : [],
-    );
-
-    const [isFocusedOnInput, setIsFocusedOnInput] = useState(false);
 
     const [batchAddTagsMutation] = useBatchAddTagsMutation();
     const [batchRemoveTagsMutation] = useBatchRemoveTagsMutation();
     const [batchAddTermsMutation] = useBatchAddTermsMutation();
     const [batchRemoveTermsMutation] = useBatchRemoveTermsMutation();
 
-    const [tagTermSearch, { data: tagsSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const [tagTermSearch, { data: searchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    // Seed the dropdown with the top entities of the relevant type so the modal isn't empty before the user types.
+    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([type]);
 
-    const tagSearchResults: Array<Entity> = tagsSearchData?.autoComplete?.entities || [];
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.Tag]);
-    const loading = (recommendationsLoading as boolean) || searchLoading;
-    const inputEl = useRef(null);
-
-    const handleSearch = (text: string) => {
-        if (text.length > 0) {
-            tagTermSearch({
-                variables: {
-                    input: {
-                        type,
-                        query: text,
-                        limit: 10,
+    const handleSearch = useCallback(
+        (text: string) => {
+            const trimmed = text.trim();
+            setSearchText(trimmed);
+            if (trimmed.length > 0) {
+                tagTermSearch({
+                    variables: {
+                        input: { type, query: trimmed, limit: 10 },
                     },
-                },
-            });
-        }
-    };
-
-    const renderSearchResult = (entity: Entity) => {
-        const displayName =
-            entity.type === EntityType.Tag ? (entity as Tag).name : entityRegistry.getDisplayName(entity.type, entity);
-        const tagOrTermComponent = <TagTermLabel entity={entity} />;
-        return (
-            <Select.Option data-testid="tag-term-option" value={entity.urn} key={entity.urn} name={displayName}>
-                <SearchResultContainer data-testid={`tag-term-option-${displayName}`}>
-                    <ParentEntities parentEntities={getParentEntities(entity) || []} />
-                    {tagOrTermComponent}
-                </SearchResultContainer>
-            </Select.Option>
-        );
-    };
-
-    const tagResult =
-        (!inputValue || inputValue.length === 0) && type === EntityType.Tag ? recommendedData : tagSearchResults;
-
-    const tagSearchOptions = tagResult?.map((result) => {
-        return renderSearchResult(result);
-    });
-
-    const inputExistsInTagSearch = tagSearchResults.some((entity: Entity) => {
-        const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        return displayName.toLowerCase() === inputValue.toLowerCase();
-    });
-
-    if (
-        operationType === OperationType.ADD &&
-        !inputExistsInTagSearch &&
-        isValidTagName(inputValue) &&
-        type === EntityType.Tag &&
-        urns.length === 0
-    ) {
-        tagSearchOptions?.push(
-            <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
-                <Typography.Link> Create {inputValue}</Typography.Link>
-            </Select.Option>,
-        );
-    }
-
-    const tagRender = (props) => {
-        // eslint-disable-next-line react/prop-types
-        const { closable, onClose, value } = props;
-        const onPreventMouseDown = (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-        };
-        const selectedItem =
-            type === EntityType.GlossaryTerm
-                ? selectedTerms.find((term) => term.urn === value).component
-                : selectedTags.find((term) => term.urn === value).component;
-
-        return (
-            <StyleTag onMouseDown={onPreventMouseDown} closable={closable} onClose={onClose}>
-                {selectedItem}
-            </StyleTag>
-        );
-    };
-
-    // Handle the Enter press
-    useEnterKeyListener({
-        querySelectorToExecuteClick: '#addTagButton',
-    });
-
-    function handleOnClickBack() {
-        setInputValue('');
-        setShowCreateModal(false);
-    }
-
-    if (showCreateModal) {
-        return (
-            <CreateTagModal
-                open={open}
-                onClose={onCloseModal}
-                onBack={handleOnClickBack}
-                tagName={inputValue}
-                resources={resources}
-            />
-        );
-    }
-
-    // When a Tag or term search result is selected, add the urn to the Urns
-    const onSelectValue = (urn: string) => {
-        if (urn === CREATE_TAG_VALUE) {
-            if (isValidTagName(inputValue)) {
-                setShowCreateModal(true);
+                });
             }
-            return;
-        }
-        const newUrns = [...(urns || []), urn];
-        const selectedSearchOption = tagSearchOptions?.find((option) => option.props.value === urn);
-        const selectedTagOption = tagResult?.find((tag) => tag.urn === urn);
-        setUrns(newUrns);
-        setSelectedTerms([
-            ...selectedTerms,
-            { urn, component: <TagTermLabel termName={selectedSearchOption?.props?.name} /> },
-        ]);
-        setSelectedTags([
-            ...selectedTags,
-            {
-                urn,
-                component: <TagTermLabel entity={selectedTagOption} />,
-            },
-        ]);
-        if (inputEl && inputEl.current) {
-            (inputEl.current as any).blur();
-        }
-    };
+        },
+        [tagTermSearch, type],
+    );
 
-    // When a Tag or term search result is deselected, remove the urn from the Owners
-    const onDeselectValue = (urn: string) => {
-        const newUrns = urns?.filter((u) => u !== urn);
-        setUrns(newUrns);
-        setInputValue('');
-        setIsFocusedOnInput(true);
-        setSelectedTerms(selectedTerms.filter((term) => term.urn !== urn));
-        setSelectedTags(selectedTags.filter((term) => term.urn !== urn));
-    };
+    const searchEntities = useMemo<Entity[]>(
+        () => (searchData?.autoComplete?.entities as Entity[] | undefined) || [],
+        [searchData],
+    );
+    const initialEntities = useMemo<Entity[]>(
+        () => (!searchText ? (recommendedData as Entity[] | undefined) || [] : []),
+        [searchText, recommendedData],
+    );
+    const currentEntities = searchText ? searchEntities : initialEntities;
 
-    const sendAnalytics = () => {
+    // Cache entities we've seen so the selected-label area can still render them after the search clears.
+    useEffect(() => {
+        if (currentEntities.length === 0) return;
+        setEntityCache((prev) => {
+            const next = { ...prev };
+            let changed = false;
+            currentEntities.forEach((e) => {
+                if (!next[e.urn]) {
+                    next[e.urn] = e;
+                    changed = true;
+                }
+            });
+            return changed ? next : prev;
+        });
+    }, [currentEntities]);
+
+    const generateColor = useGenerateGlossaryColorFromPalette();
+
+    const computeTermColor = useCallback(
+        (entity: Entity): string => getGlossaryTermColor(entity as GlossaryTerm, generateColor),
+        [generateColor],
+    );
+
+    const toTagOption = useCallback(
+        (entity: Entity): EntityOption => ({
+            value: entity.urn,
+            label: (entity as Tag).name || entityRegistry.getDisplayName(entity.type, entity),
+            entity,
+            depth: 0,
+            color: (entity as Tag).properties?.colorHex || undefined,
+        }),
+        [entityRegistry],
+    );
+
+    const excludeSet = useMemo(() => new Set(existingUrns || []), [existingUrns]);
+
+    // Build a tree-ordered flat list of options for glossary terms.
+    // Each term carries its parent nodes; we synthesise a row per unique parent node so the dropdown
+    // reads like the sidebar tree (node header → indented term children). Node rows are disabled so
+    // the user can't accidentally select a node (we're only adding terms). Already-applied terms are
+    // dropped, and node headers are only emitted if they have at least one selectable child.
+    const termTreeOptions = useMemo<EntityOption[]>(() => {
+        const result: EntityOption[] = [];
+        const seenNodeUrns = new Set<string>();
+        const groupedByLineage = new Map<string, GlossaryTerm[]>();
+        const lineageOrder: string[] = [];
+
+        currentEntities.forEach((entity) => {
+            if (entity.type !== EntityType.GlossaryTerm) return;
+            if (excludeSet.has(entity.urn)) return;
+            const term = entity as GlossaryTerm;
+            const lineage = (term.parentNodes?.nodes || []).map((n) => n.urn).join('/');
+            if (!groupedByLineage.has(lineage)) {
+                groupedByLineage.set(lineage, []);
+                lineageOrder.push(lineage);
+            }
+            groupedByLineage.get(lineage)!.push(term);
+        });
+
+        lineageOrder.forEach((lineage) => {
+            const terms = groupedByLineage.get(lineage)!;
+            // ParentNodes are direct-parent-first; reverse to render root → leaf.
+            const nodes = [...(terms[0].parentNodes?.nodes || [])].reverse();
+            nodes.forEach((node, depth) => {
+                if (seenNodeUrns.has(node.urn)) return;
+                seenNodeUrns.add(node.urn);
+                const nodeColor = (node as GlossaryNode).displayProperties?.colorHex || generateColor(node.urn);
+                result.push({
+                    value: node.urn,
+                    label: entityRegistry.getDisplayName(node.type, node),
+                    isNode: true,
+                    depth,
+                    color: nodeColor,
+                    ancestorUrns: nodes.slice(0, depth).map((n) => n.urn),
+                });
+            });
+            const termDepth = nodes.length;
+            const rootNode = nodes[0];
+            const termColor = rootNode
+                ? (rootNode as GlossaryNode).displayProperties?.colorHex || generateColor(rootNode.urn)
+                : undefined;
+            const termAncestorUrns = nodes.map((n) => n.urn);
+            terms.forEach((term) => {
+                result.push({
+                    value: term.urn,
+                    label: entityRegistry.getDisplayName(term.type, term),
+                    entity: term,
+                    depth: termDepth,
+                    color: termColor || generateColor(term.urn),
+                    ancestorUrns: termAncestorUrns,
+                });
+            });
+        });
+
+        return result;
+    }, [currentEntities, entityRegistry, generateColor, excludeSet]);
+
+    const dropdownOptions = useMemo<EntityOption[]>(() => {
+        if (type === EntityType.Tag) {
+            const tagOptions = currentEntities.map(toTagOption);
+            return excludeSet.size === 0 ? tagOptions : tagOptions.filter((option) => !excludeSet.has(option.value));
+        }
+        return termTreeOptions;
+    }, [type, currentEntities, toTagOption, termTreeOptions, excludeSet]);
+
+    // Node URNs that have at least one descendant row — only these need an expand/collapse caret.
+    const nodesWithChildren = useMemo(() => {
+        const withChildren = new Set<string>();
+        dropdownOptions.forEach((opt) => {
+            (opt.ancestorUrns || []).forEach((urn) => withChildren.add(urn));
+        });
+        return withChildren;
+    }, [dropdownOptions]);
+
+    const [collapsedNodes, setCollapsedNodes] = useState<Set<string>>(new Set());
+
+    const toggleNodeCollapsed = useCallback((nodeUrn: string) => {
+        setCollapsedNodes((prev) => {
+            const next = new Set(prev);
+            if (next.has(nodeUrn)) next.delete(nodeUrn);
+            else next.add(nodeUrn);
+            return next;
+        });
+    }, []);
+
+    // While searching we ignore collapse state so matching descendants stay visible.
+    const visibleDropdownOptions = useMemo(() => {
+        if (type !== EntityType.GlossaryTerm || searchText || collapsedNodes.size === 0) return dropdownOptions;
+        return dropdownOptions.filter((opt) => {
+            const ancestors = opt.ancestorUrns || [];
+            return !ancestors.some((urn) => collapsedNodes.has(urn));
+        });
+    }, [dropdownOptions, collapsedNodes, type, searchText]);
+
+    // Node options are present for hierarchy only — they're not valid selections.
+    const disabledValues = useMemo(
+        () => dropdownOptions.filter((o) => o.isNode).map((o) => o.value),
+        [dropdownOptions],
+    );
+
+    const combinedOptions = useMemo<EntityOption[]>(() => {
+        const inDropdown = new Set(dropdownOptions.map((o) => o.value));
+        const extras = urns
+            .filter((urn) => !inDropdown.has(urn))
+            .map<EntityOption>((urn) => {
+                const entity = entityCache[urn];
+                if (entity) {
+                    if (type === EntityType.Tag) return toTagOption(entity);
+                    return {
+                        value: entity.urn,
+                        label: entityRegistry.getDisplayName(entity.type, entity),
+                        entity,
+                        color: computeTermColor(entity),
+                    };
+                }
+                return { value: urn, label: urn };
+            });
+        return [...dropdownOptions, ...extras];
+    }, [dropdownOptions, urns, entityCache, type, toTagOption, entityRegistry, computeTermColor]);
+
+    const renderOption = useCallback(
+        (option: EntityOption) => {
+            const depth = option.depth || 0;
+            if (option.isNode) {
+                const hasChildren = nodesWithChildren.has(option.value);
+                const isCollapsed = collapsedNodes.has(option.value);
+                const CaretIcon = isCollapsed ? CaretRight : CaretDown;
+                return (
+                    <NodeRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
+                        <CaretButton
+                            type="button"
+                            aria-label={isCollapsed ? `Expand ${option.label}` : `Collapse ${option.label}`}
+                            aria-expanded={!isCollapsed}
+                            // Stops alchemy SimpleSelect from treating this as an option click.
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasChildren) toggleNodeCollapsed(option.value);
+                            }}
+                            style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
+                        >
+                            <CaretIcon size={14} weight="regular" />
+                        </CaretButton>
+                        <GlossaryTermPill
+                            name={option.label}
+                            color={option.color ?? generateColor(option.value)}
+                            icon={BookmarksSimple}
+                        />
+                    </NodeRow>
+                );
+            }
+            const hasAncestors = (option.ancestorUrns?.length ?? 0) > 0;
+            if (option.entity?.type === EntityType.GlossaryTerm) {
+                return (
+                    <OptionRow
+                        $depth={depth}
+                        $offsetForCaret={hasAncestors}
+                        data-testid={`tag-term-option-${option.label}`}
+                    >
+                        <GlossaryTermPill name={option.label} color={option.color ?? generateColor(option.value)} />
+                    </OptionRow>
+                );
+            }
+            if (option.entity?.type === EntityType.Tag || type === EntityType.Tag) {
+                return (
+                    <OptionRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
+                        <TagPill name={option.label} color={option.color} colorHash={option.value} />
+                    </OptionRow>
+                );
+            }
+            // Fallback (term name with no entity loaded yet)
+            return (
+                <OptionRow
+                    $depth={depth}
+                    $offsetForCaret={hasAncestors}
+                    data-testid={`tag-term-option-${option.label}`}
+                >
+                    <TagTermLabel termName={option.label} />
+                </OptionRow>
+            );
+        },
+        [type, generateColor, nodesWithChildren, collapsedNodes, toggleNodeCollapsed],
+    );
+
+    const removeUrn = useCallback((urn: string) => setUrns((prev) => prev.filter((u) => u !== urn)), []);
+
+    // Selected items render in their respective sidebar pill format so the modal selection reads
+    // identically to the rest of the app.
+    const renderSelectedValue = useCallback(
+        (option: EntityOption) => {
+            if (type === EntityType.Tag) {
+                return (
+                    <TagPill
+                        key={option.value}
+                        name={option.label}
+                        color={option.color}
+                        colorHash={option.value}
+                        onRemove={() => removeUrn(option.value)}
+                        dataTestId={`selected-${option.label}`}
+                    />
+                );
+            }
+            return (
+                <GlossaryTermPill
+                    key={option.value}
+                    name={option.label}
+                    color={option.color ?? generateColor(option.value)}
+                    onRemove={() => removeUrn(option.value)}
+                    dataTestId={`selected-${option.label}`}
+                />
+            );
+        },
+        [type, removeUrn, generateColor],
+    );
+
+    const sendAnalytics = useCallback(() => {
         const isSchemaField = resources[0].subResource;
 
         let eventType;
@@ -300,70 +448,63 @@ export default function EditTagTermsModal({
             eventType = type === EntityType.Tag ? EntityActionType.UpdateTags : EntityActionType.UpdateTerms;
         }
         const isBatchAdd = resources.length > 1;
-        if (isBatchAdd)
+        if (isBatchAdd) {
             analytics.event({
                 type: EventType.BatchEntityActionEvent,
                 actionType: eventType,
                 entityUrns: resources.map((resource) => resource.resourceUrn),
             });
-        else
+        } else {
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: eventType,
                 entityType: type,
                 entityUrn: resources[0].resourceUrn,
             });
-    };
+        }
+    }, [resources, type]);
+
+    const finishMutation = useCallback(() => {
+        setDisableAction(false);
+        onCloseModal();
+        setUrns([]);
+    }, [onCloseModal]);
+
+    const showBatchError = useCallback(
+        (e: Error, defaultMessage: string) => {
+            const { content, duration } = handleBatchError(urns, e, {
+                content: defaultMessage,
+                duration: 3,
+            });
+            toast.error(content, { duration });
+        },
+        [urns],
+    );
 
     const batchAddTags = () => {
         batchAddTagsMutation({
-            variables: {
-                input: {
-                    tagUrns: urns,
-                    resources,
-                },
-            },
+            variables: { input: { tagUrns: urns, resources } },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
-                        duration: 2,
-                    });
+                    toast.success('Added Tags!', { duration: 2 });
                     sendAnalytics();
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
-                );
+                showBatchError(e, `Failed to add: \n ${e.message || ''}`);
             })
-            .finally(() => {
-                setDisableAction(false);
-                onCloseModal();
-                setUrns([]);
-            });
+            .finally(finishMutation);
     };
 
     const batchAddTerms = () => {
         batchAddTermsMutation({
-            variables: {
-                input: {
-                    termUrns: urns,
-                    resources,
-                },
-            },
+            variables: { input: { termUrns: urns, resources } },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
-                        duration: 2,
-                    });
+                    toast.success('Added Terms!', { duration: 2 });
                     sendAnalytics();
-                    // Reload modules
-                    // Assets - to updated assets on terms summary tab
                     reloadByKeyType(
                         [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
                         3000,
@@ -371,65 +512,33 @@ export default function EditTagTermsModal({
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
-                );
+                showBatchError(e, `Failed to add: \n ${e.message || ''}`);
             })
-            .finally(() => {
-                setDisableAction(false);
-                onCloseModal();
-                setUrns([]);
-            });
+            .finally(finishMutation);
     };
 
     const batchRemoveTags = () => {
         batchRemoveTagsMutation({
-            variables: {
-                input: {
-                    tagUrns: urns,
-                    resources,
-                },
-            },
+            variables: { input: { tagUrns: urns, resources } },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
-                        duration: 2,
-                    });
+                    toast.success('Removed Tags!', { duration: 2 });
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
-                );
+                showBatchError(e, `Failed to remove: \n ${e.message || ''}`);
             })
-            .finally(() => {
-                setDisableAction(false);
-                onCloseModal();
-                setUrns([]);
-            });
+            .finally(finishMutation);
     };
 
     const batchRemoveTerms = () => {
         batchRemoveTermsMutation({
-            variables: {
-                input: {
-                    termUrns: urns,
-                    resources,
-                },
-            },
+            variables: { input: { termUrns: urns, resources } },
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({
-                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
-                        duration: 2,
-                    });
-                    // Reload modules
-                    // Assets - to updated assets on terms summary tab
+                    toast.success('Removed Terms!', { duration: 2 });
                     reloadByKeyType(
                         [getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets)],
                         3000,
@@ -437,41 +546,16 @@ export default function EditTagTermsModal({
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
-                );
+                showBatchError(e, `Failed to remove: \n ${e.message || ''}`);
             })
-            .finally(() => {
-                setDisableAction(false);
-                onCloseModal();
-                setUrns([]);
-            });
+            .finally(finishMutation);
     };
 
-    const editTags = () => {
-        if (operationType === OperationType.ADD) {
-            batchAddTags();
-        } else {
-            batchRemoveTags();
-        }
-    };
-
-    const editTerms = () => {
-        if (operationType === OperationType.ADD) {
-            batchAddTerms();
-        } else {
-            batchRemoveTerms();
-        }
-    };
-
-    // Function to handle the modal action's
     const onOk = () => {
         if (onOkOverride) {
             onOkOverride(urns);
             return;
         }
-
         if (!resources) {
             onCloseModal();
             return;
@@ -479,39 +563,21 @@ export default function EditTagTermsModal({
         setDisableAction(true);
 
         if (type === EntityType.Tag) {
-            editTags();
+            if (isAddOperation(operationType)) batchAddTags();
+            else batchRemoveTags();
+        } else if (isAddOperation(operationType)) {
+            batchAddTerms();
         } else {
-            editTerms();
+            batchRemoveTerms();
         }
     };
 
-    function selectTermFromBrowser(urn: string, displayName: string) {
-        setIsFocusedOnInput(false);
-        const newUrns = [...(urns || []), urn];
-        setUrns(newUrns);
-        setSelectedTerms([...selectedTerms, { urn, component: <TagTermLabel termName={displayName} /> }]);
-    }
-
-    function clearInput() {
-        setInputValue('');
-        setTimeout(() => setIsFocusedOnInput(true), 0); // call after click outside
-    }
-
-    function handleBlur() {
-        setInputValue('');
-    }
-
-    function handleKeyDown(event) {
-        if (event.keyCode === ENTER_KEY_CODE) {
-            (inputEl.current as any).blur();
-        }
-    }
-
-    const isShowingGlossaryBrowser = !inputValue && type === EntityType.GlossaryTerm && isFocusedOnInput;
+    const entityName = entityRegistry.getEntityName(type);
+    const actionLabel = isAddOperation(operationType) ? 'Add' : 'Remove';
 
     return (
         <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
+            title={`${actionLabel} ${entityName}s`}
             open={open}
             onCancel={onCloseModal}
             buttons={[
@@ -521,7 +587,7 @@ export default function EditTagTermsModal({
                     onClick: onCloseModal,
                 },
                 {
-                    text: 'Add',
+                    text: actionLabel,
                     id: 'addTagButton',
                     buttonDataTestId: 'add-tag-term-from-modal-btn',
                     variant: 'filled',
@@ -531,62 +597,25 @@ export default function EditTagTermsModal({
             ]}
             getContainer={getModalDomContainer}
         >
-            <Form component={false}>
-                <Form.Item>
-                    <ClickOutside onClickOutside={() => setIsFocusedOnInput(false)}>
-                        <Select
-                            data-testid="tag-term-modal-input"
-                            autoFocus
-                            defaultOpen
-                            mode="multiple"
-                            ref={inputEl}
-                            filterOption={false}
-                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
-                            showSearch
-                            defaultActiveFirstOption={false}
-                            onSelect={(asset: any) => onSelectValue(asset)}
-                            onDeselect={(asset: any) => onDeselectValue(asset)}
-                            onSearch={(value: string) => {
-                                // eslint-disable-next-line react/prop-types
-                                handleSearch(value.trim());
-                                // eslint-disable-next-line react/prop-types
-                                setInputValue(value.trim());
-                            }}
-                            style={{ width: '100%' }}
-                            tagRender={tagRender}
-                            value={urns}
-                            onClear={clearInput}
-                            onFocus={() => setIsFocusedOnInput(true)}
-                            onBlur={handleBlur}
-                            onInputKeyDown={handleKeyDown}
-                            dropdownStyle={isShowingGlossaryBrowser ? { display: 'none' } : {}}
-                            loading={loading}
-                            notFoundContent={
-                                !loading ? (
-                                    <Empty
-                                        description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
-                                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
-                                    />
-                                ) : null
-                            }
-                        >
-                            {loading ? (
-                                <Select.Option value="loading">
-                                    <LoadingWrapper>
-                                        <LoadingOutlined />
-                                    </LoadingWrapper>
-                                </Select.Option>
-                            ) : (
-                                tagSearchOptions
-                            )}
-                        </Select>
-                        <BrowserWrapper isHidden={!isShowingGlossaryBrowser}>
-                            <GlossaryBrowser isSelecting selectTerm={selectTermFromBrowser} />
-                        </BrowserWrapper>
-                    </ClickOutside>
-                </Form.Item>
-            </Form>
+            <SimpleSelect
+                isMultiSelect
+                showSearch
+                showClear={false}
+                onSearchChange={handleSearch}
+                values={urns}
+                onUpdate={setUrns}
+                options={visibleDropdownOptions}
+                disabledValues={disabledValues}
+                combinedSelectedAndSearchOptions={combinedOptions}
+                renderCustomOptionText={renderOption}
+                renderCustomSelectedValue={renderSelectedValue}
+                selectLabelProps={{ variant: 'custom' }}
+                filterResultsByQuery={false}
+                isLoading={searchLoading || recommendationsLoading}
+                placeholder={`Search for ${entityName?.toLowerCase()}...`}
+                width="full"
+                dataTestId="tag-term-modal-input"
+            />
         </Modal>
     );
 }

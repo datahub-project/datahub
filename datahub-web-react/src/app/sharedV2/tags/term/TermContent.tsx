@@ -1,11 +1,11 @@
 import { ThunderboltOutlined } from '@ant-design/icons';
-import CloseIcon from '@mui/icons-material/Close';
-import { Tag, message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled, { useTheme } from 'styled-components';
 
-import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
+import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
+import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { StopPropagation } from '@app/shared/StopPropagation';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -19,52 +19,15 @@ import { DataHubPageModuleType, GlossaryTermAssociation, SubResourceType } from 
 
 const PROPAGATOR_URN = 'urn:li:corpuser:__datahub_propagator';
 
-const TermContainer = styled.div<{ $shouldHighlightBorderOnHover?: boolean }>`
+const TermContainer = styled.div<{ $showOneAndCount?: boolean }>`
     position: relative;
     max-width: 200px;
-
-    .ant-tag.ant-tag {
-        border-radius: 5px;
-        border: 1px solid ${(props) => props.theme.colors.border};
-    }
-
     ${(props) =>
-        props.$shouldHighlightBorderOnHover &&
-        `
-        :hover {
-            .ant-tag.ant-tag {
-                border: 1px solid ${props.theme.colors.borderBrand};
-            }
-        }
-    `}
-`;
-
-const StyledTerm = styled(Tag)<{ fontSize?: number; highlightTerm?: boolean; showOneAndCount?: boolean }>`
-    &&& {
-        ${(props) =>
-            props.highlightTerm &&
-            `
-                background: ${props.theme.colors.bgHighlight};
-                border: 1px solid ${props.theme.colors.borderHover};
-            `}
-    }
-    ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
-    color: ${(props) => props.theme.colors.text};
-    font-weight: 400;
-    padding: 3px 8px;
-    margin-right: 0;
-
-    display: flex;
-    position: relative;
-    overflow: hidden;
-
-    ${(props) =>
-        props.showOneAndCount &&
+        props.$showOneAndCount &&
         `
             width: 100%;
             max-width: max-content;
             overflow: hidden;
-            text-overflow: ellipsis;
             vertical-align: middle;
         `}
 `;
@@ -75,41 +38,10 @@ const PropagateThunderbolt = styled(ThunderboltOutlined)`
     font-weight: bold;
 `;
 
-const CloseButtonContainer = styled.div`
-    display: none;
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    background-color: ${(props) => props.theme.styles['primary-color']};
-    align-items: center;
-    border-radius: 100%;
-    padding: 5px;
-
-    ${TermContainer}:hover & {
-        display: flex;
-    }
-`;
-
-const CloseIconStyle = styled(CloseIcon)`
-    font-size: 10px !important;
-    color: ${(props) => props.theme.colors.textOnFillDefault};
-`;
-
-const TermRibbon = styled.span<{ color: string; opacity?: number }>`
-    position: absolute;
-    left: -20px;
-    top: 4px;
-    width: 50px;
-    transform: rotate(-45deg);
-    padding: 4px;
-    opacity: ${(props) => props.opacity || '1'};
-    background-color: ${(props) => `${props.color}`};
-`;
-
 const StyledHighlight = styled(Highlight)`
-    margin-left: 8px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 `;
 
 interface Props {
@@ -144,15 +76,12 @@ export default function TermContent({
     const { reloadByKeyType } = useReloadableContext();
     const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
     const [removeTermMutation] = useRemoveTermMutation();
-    const { parentNodes, urn, type } = term.term;
+    const { urn, type } = term.term;
     const generateColor = useGenerateGlossaryColorFromPalette();
     const [termTobeRemoved, setTermToBeRemoved] = useState<GlossaryTermAssociation | null>(null);
     const termName = termTobeRemoved && entityRegistry.getDisplayName(termTobeRemoved.term.type, termTobeRemoved.term);
     const highlightTerm = useHasMatchedFieldByUrn(urn, 'glossaryTerms');
-    const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
-    const termColor = lastParentNode
-        ? lastParentNode.displayProperties?.colorHex || generateColor(lastParentNode.urn)
-        : generateColor(urn);
+    const termColor = getGlossaryTermColor(term.term, generateColor);
     const displayName = entityRegistry.getDisplayName(type, term.term);
 
     const removeTerm = () => {
@@ -169,7 +98,7 @@ export default function TermContent({
             })
                 .then(({ errors }) => {
                     if (!errors) {
-                        message.success({ content: 'Removed Term!', duration: 2 });
+                        toast.success('Removed Term!', { duration: 2 });
                         // Reload modules
                         // RelatedTerms - to update related terms in case some of them was removed
                         // ChildHierarchy - to update contents module in glossary node
@@ -191,40 +120,35 @@ export default function TermContent({
                 })
                 .then(refetch)
                 .catch((e) => {
-                    message.destroy();
-                    message.error({ content: `Failed to remove term: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(`Failed to remove term: \n ${e.message || ''}`, { duration: 3 });
                 });
         }
     };
 
     return (
-        <TermContainer $shouldHighlightBorderOnHover={!readOnly} data-testid={`term-${displayName}`}>
-            <StyledTerm
-                style={{ cursor: 'pointer' }}
+        <TermContainer data-testid={`term-${displayName}`} $showOneAndCount={showOneAndCount}>
+            <GlossaryTermPill
+                name={displayName}
+                color={termColor}
+                clickable
+                highlight={highlightTerm}
                 fontSize={fontSize}
-                highlightTerm={highlightTerm}
-                showOneAndCount={showOneAndCount}
+                rightAdornment={term.actor?.urn === PROPAGATOR_URN ? <PropagateThunderbolt /> : undefined}
+                onRemove={
+                    canRemove && !readOnly
+                        ? (e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onOpenModal?.();
+                              setTermToBeRemoved(term);
+                          }
+                        : undefined
+                }
             >
-                <TermRibbon color={termColor} />
-
                 <StyledHighlight matchStyle={highlightMatchStyle} search={highlightText}>
                     {displayName}
                 </StyledHighlight>
-
-                {term.actor?.urn === PROPAGATOR_URN && <PropagateThunderbolt />}
-            </StyledTerm>
-            {canRemove && !readOnly && (
-                <CloseButtonContainer
-                    onClick={(e) => {
-                        e.preventDefault();
-                        onOpenModal?.();
-                        setTermToBeRemoved(term);
-                    }}
-                    data-testid="remove-icon"
-                >
-                    <CloseIconStyle />
-                </CloseButtonContainer>
-            )}
+            </GlossaryTermPill>
             <StopPropagation>
                 <ConfirmationModal
                     isOpen={!!termTobeRemoved}

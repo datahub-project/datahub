@@ -29,7 +29,7 @@ const Content = styled.div`
 `;
 
 const DomainLinkWrapper = styled.div`
-    margin-right: 12px;
+    margin-right: 4px;
     display: flex;
     align-items: center;
 `;
@@ -101,6 +101,8 @@ export const SidebarDomainSection = ({ readOnly, properties }: Props) => {
                                         setDomainToRemove(entityData?.domain?.associatedUrn);
                                     }}
                                     fontSize={12}
+                                    iconSize={20}
+                                    iconFontSize={12}
                                 />
                             </DomainLinkWrapper>
                         )}

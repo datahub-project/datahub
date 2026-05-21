@@ -62,7 +62,7 @@ const TagTermWrapper = styled.div<{ $showOneAndCount?: boolean }>`
     flex-wrap: ${(props) => (!props.$showOneAndCount ? 'wrap' : '')};
     align-items: center;
     row-gap: 4px;
-    column-gap: 8px;
+    column-gap: 4px;
     max-width: 100%;
 `;
 
