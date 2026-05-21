@@ -3028,7 +3028,7 @@ class TestShouldRetry:
         """Every substring in _RETRYABLE_ERROR_SUBSTRINGS is recognised as retryable."""
         retryable_messages = [
             "transaction aborted",
-            "try again",
+            "please try again",
             "tdgss",
             "database restart",
             "connect timed out",
@@ -3542,8 +3542,8 @@ class TestFetchmanyWithRetry:
         """num_db_retries is incremented exactly once per retry attempt."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("try again", None, None),
-            DatabaseError("try again", None, None),
+            DatabaseError("please try again", None, None),
+            DatabaseError("please try again", None, None),
             [],
         ]
         report = TeradataReport()

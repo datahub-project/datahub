@@ -178,7 +178,8 @@ _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
 # on an *existing* connection (execute / fetchmany).
 _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "transaction aborted",
-    "try again",
+    # "please try again" is specific to Teradata's transient-failure messages;
+    "please try again",
     "tdgss",  # TDGSS / authentication layer transient handshake issues
     "database restart",
     "connect timed out",
@@ -191,7 +192,7 @@ _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
 _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS: Tuple[str, ...] = (
     "connection reset",
     "broken pipe",
-    "eof",
+    " eof",
     "socket closed",
 )
 
@@ -212,7 +213,7 @@ def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
     and then hammer the server simultaneously.  Full jitter spreads retries
     uniformly across the window so the server load stays roughly constant.
     """
-    cap = initial_backoff_seconds * (2**attempt)
+    cap = min(initial_backoff_seconds * (2**attempt), 30.0)
     return random.uniform(0, cap)
 
 
@@ -338,6 +339,7 @@ def _execute_with_retry(
             if report is not None:
                 report.increment_db_retries()
             time.sleep(backoff)
+    raise AssertionError("unreachable")  # loop always raises or returns
 
 
 def _fetchmany_with_retry(
@@ -748,18 +750,16 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Retry statistics
     num_db_retries: int = 0
 
-    # Internal lock — not serialised, not compared.  Protects the two retry
-    # counters that are incremented from ThreadPoolExecutor worker threads.
-    _counter_lock: Lock = field(
-        default_factory=Lock, init=False, repr=False, compare=False
-    )
+    # Single internal lock — not serialised, not compared.  Protects all report
+    # fields that are mutated from ThreadPoolExecutor worker threads.
+    _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
 
     def increment_db_retries(self) -> None:
-        with self._counter_lock:
+        with self._lock:
             self.num_db_retries += 1
 
     def increment_pool_exhaustion_events(self) -> None:
-        with self._counter_lock:
+        with self._lock:
             self.num_pool_exhaustion_events += 1
 
 
@@ -964,9 +964,9 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         return v
 
     retry_max_attempts: int = Field(
-        default=3,
+        default=_RETRY_MAX_ATTEMPTS,
         description=(
-            "Maximum number of attempts for retryable database operations Default is 3."
+            "Maximum number of attempts for retryable database operations. Default is 3."
         ),
     )
 
@@ -978,7 +978,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         return v
 
     retry_initial_backoff_seconds: float = Field(
-        default=1.0,
+        default=_RETRY_INITIAL_BACKOFF_SECONDS,
         description=(
             "Initial backoff in seconds before the first retry. "
             "Subsequent retries use exponential backoff (initial * 2^attempt). "
@@ -1239,7 +1239,6 @@ ORDER by DataBaseName, TableName;
 
         self.report: TeradataReport = TeradataReport()
         self.graph: Optional[DataHubGraph] = ctx.graph
-        self._report_lock = Lock()  # Thread safety for report counters
         # Populated by cache_tables_and_views() when column_extraction_watermark is set;
         # None means "extract all", a set means "only extract these (schema, table) pairs"
         self._tables_needing_column_extraction: Optional[Set[Tuple[str, str]]] = None
@@ -1783,7 +1782,7 @@ ORDER by DataBaseName, TableName;
                         timings["connection_acquire"] = time.time() - conn_start
 
                         # Update connection pool metrics
-                        with self._report_lock:
+                        with self.report._lock:
                             pool_wait_time = timings["connection_acquire"]
                             self.report.connection_pool_wait_time_seconds += (
                                 pool_wait_time
@@ -1814,13 +1813,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                         # Thread-safe reporting
-                        with self._report_lock:
+                        with self.report._lock:
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
 
                         if not sql_config.view_pattern.allowed(dataset_name):
-                            with self._report_lock:
+                            with self.report._lock:
                                 self.report.report_dropped(dataset_name)
                             return results
 
@@ -1841,13 +1840,13 @@ ORDER by DataBaseName, TableName;
                     # Track individual view timing
                     timings["total"] = time.time() - total_start
 
-                    with self._report_lock:
+                    with self.report._lock:
                         self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             timings["total"]
                         )
 
                 except Exception as e:
-                    with self._report_lock:
+                    with self.report._lock:
                         self.report.num_view_processing_failures += 1
                         full_traceback = traceback.format_exc()
                         logger.error(
@@ -1916,7 +1915,7 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            with self._report_lock:
+                            with self.report._lock:
                                 self.report.warning(
                                     "Error in thread processing view",
                                     context=f"{schema}.{view_name}",
@@ -1942,7 +1941,7 @@ ORDER by DataBaseName, TableName;
                                 f"be blocked in I/O; it will be released when the "
                                 f"underlying call returns or the process exits."
                             )
-                            with self._report_lock:
+                            with self.report._lock:
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(
@@ -2095,11 +2094,15 @@ ORDER by DataBaseName, TableName;
                     "poolclass": QueuePool,
                     "pool_size": base_connections,
                     "max_overflow": max_overflow,
-                    "pool_timeout": self.config.connection_pool_timeout_ms / 1000,
                     "pool_pre_ping": True,
                     "pool_recycle": 1800,
                     "pool_reset_on_return": "rollback",
                 }
+                # Use setdefault so that a user-supplied pool_timeout in
+                # config.options is not silently overridden by the default.
+                pool_options.setdefault(
+                    "pool_timeout", self.config.connection_pool_timeout_ms / 1000
+                )
 
                 self._pooled_engine = create_engine(url, **pool_options)
                 logger.info(

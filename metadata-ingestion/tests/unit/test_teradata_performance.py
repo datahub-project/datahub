@@ -473,10 +473,10 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify report lock exists
-            assert hasattr(source, "_report_lock")
+            # Verify the single report lock exists on the report object
+            assert hasattr(source.report, "_lock")
             # Check that it's a lock object by checking its type name
-            assert source._report_lock.__class__.__name__ == "lock"
+            assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
