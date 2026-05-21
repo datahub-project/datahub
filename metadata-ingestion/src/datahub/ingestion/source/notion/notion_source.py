@@ -833,82 +833,105 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
     @staticmethod
-    def _monkeypatch_blocks_filter_unknown_fields() -> None:
-        """Filter unknown kwargs on every Notion block dataclass __init__.
+    def _monkeypatch_notion_types_filter_unknown_fields() -> None:
+        """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
 
-        Notion's API regularly adds new fields to block payloads (icon, color,
-        list_start_index, list_format, ...). unstructured-ingest 0.7.2 models
-        blocks as dataclasses and parses them with ``cls(**data)``, so any new
-        field raises ``TypeError: __init__() got an unexpected keyword argument``
-        and aborts the whole ingestion.
+        Notion's API regularly adds new fields across blocks, pages, databases,
+        and properties (icon, color, is_locked, is_archived, list_start_index,
+        list_format, ...). unstructured-ingest 0.7.2 models these as
+        dataclasses and parses them with ``cls(**data)``, so any new field
+        raises ``TypeError: __init__() got an unexpected keyword argument`` and
+        aborts the whole ingestion (AI-603: Paragraph 'icon'; also observed:
+        Page 'is_archived').
 
-        Rather than patch each block individually as fields appear (see AI-603
-        for the Paragraph 'icon' case), this wraps __init__ on every BlockBase
-        subclass to drop unknown kwargs and log a one-shot warning per
-        (class, field). New API additions degrade to "minor metadata not
-        captured" instead of a hard failure.
+        FromJSONMixin is the common ancestor of every type in
+        unstructured_ingest.processes.connectors.notion.types (blocks via
+        BlockBase, pages directly, db properties via DBPropertyBase, db cells
+        via DBCellBase). Walking its subclasses after importing all submodules
+        catches the whole surface. Each __init__ is wrapped to drop unknown
+        kwargs and log a one-shot warning per (class, field). New API
+        additions degrade to "minor metadata not captured" instead of a hard
+        failure.
         """
         try:
             import dataclasses
+            import importlib
+            import pkgutil
 
             from unstructured_ingest.processes.connectors.notion.interfaces import (
-                BlockBase,
+                FromJSONMixin,
             )
             from unstructured_ingest.processes.connectors.notion.types import (
-                blocks as blocks_module,
+                __name__ as types_name,
+                __path__ as types_path,
             )
+
+            # Eagerly import every notion type submodule so FromJSONMixin
+            # subclasses are registered before we walk them.
+            for module_info in pkgutil.walk_packages(
+                types_path, prefix=f"{types_name}."
+            ):
+                try:
+                    importlib.import_module(module_info.name)
+                except Exception as e:
+                    logger.debug(
+                        f"Skipped notion type submodule {module_info.name}: {e}"
+                    )
 
             warned: Set[tuple] = set()
             patched_count = 0
 
-            for block_cls in vars(blocks_module).values():
-                if not (
-                    isinstance(block_cls, type)
-                    and issubclass(block_cls, BlockBase)
-                    and dataclasses.is_dataclass(block_cls)
-                ):
-                    continue
-                # Skip classes we've already wrapped (idempotent if pipeline runs twice).
-                if getattr(block_cls.__init__, "_datahub_filters_unknown", False):
-                    continue
+            stack: List[type] = [FromJSONMixin]
+            seen: Set[type] = set()
+            while stack:
+                parent = stack.pop()
+                for cls in parent.__subclasses__():
+                    if cls in seen:
+                        continue
+                    seen.add(cls)
+                    stack.append(cls)
+                    if not dataclasses.is_dataclass(cls):
+                        continue
+                    if getattr(cls.__init__, "_datahub_filters_unknown", False):
+                        continue
 
-                valid_fields = {f.name for f in dataclasses.fields(block_cls)}
-                original_init = block_cls.__init__
-                cls_name = block_cls.__name__
+                    valid_fields = {f.name for f in dataclasses.fields(cls)}
+                    original_init = cls.__init__
+                    cls_name = cls.__name__
 
-                def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
-                    def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
-                        unknown = [k for k in kwargs if k not in valid]
-                        for k in unknown:
-                            key = (name, k)
-                            if key not in warned:
-                                warned.add(key)
-                                logger.warning(
-                                    f"Notion API returned unknown field '{k}' on "
-                                    f"{name} block — filtering. Content for this "
-                                    f"field will be dropped; consider upgrading "
-                                    f"unstructured-ingest or extending the connector."
-                                )
-                            kwargs.pop(k)
-                        orig(self, *args, **kwargs)
+                    def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
+                        def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                            unknown = [k for k in kwargs if k not in valid]
+                            for k in unknown:
+                                key = (name, k)
+                                if key not in warned:
+                                    warned.add(key)
+                                    logger.warning(
+                                        f"Notion API returned unknown field '{k}' on "
+                                        f"{name} — filtering. Content for this field "
+                                        f"will be dropped; consider upgrading "
+                                        f"unstructured-ingest or extending the connector."
+                                    )
+                                kwargs.pop(k)
+                            orig(self, *args, **kwargs)
 
-                    wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
-                    return wrapped_init
+                        wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
+                        return wrapped_init
 
-                block_cls.__init__ = make_wrapped(  # type: ignore[method-assign]
-                    original_init, valid_fields, cls_name
-                )
-                patched_count += 1
+                    cls.__init__ = make_wrapped(  # type: ignore[method-assign]
+                        original_init, valid_fields, cls_name
+                    )
+                    patched_count += 1
 
             logger.info(
-                f"Applied generic unknown-field filter to {patched_count} Notion block types"
+                f"Applied generic unknown-field filter to {patched_count} Notion type classes"
             )
         except ImportError as e:
             logger.warning(
-                f"Notion block classes not found - skipping generic field filter: {e}"
+                f"Notion types not found - skipping generic field filter: {e}"
             )
         except Exception as e:
-            logger.warning(f"Failed to apply generic block field filter: {e}")
+            logger.warning(f"Failed to apply generic notion-type field filter: {e}")
 
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
@@ -1445,7 +1468,7 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_databases_endpoint_query()
         self._monkeypatch_syncblock_from_dict()
         self._monkeypatch_numbered_list_item_new_fields()
-        self._monkeypatch_blocks_filter_unknown_fields()
+        self._monkeypatch_notion_types_filter_unknown_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids

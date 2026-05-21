@@ -846,21 +846,45 @@ def test_embedding_stats_aggregation(notion_source):
     assert "urn:li:document:test2: Error 2" in failures_list
 
 
-def test_blocks_filter_unknown_fields_paragraph_icon():
+def test_notion_types_filter_unknown_fields_paragraph_icon():
     """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
-    NotionSource._monkeypatch_blocks_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
-    # Direct __init__ call with the field that previously caused TypeError.
     paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
     assert paragraph.color == "default"
     assert not hasattr(paragraph, "icon")
 
 
-def test_blocks_filter_unknown_fields_generic_for_future_additions():
-    """Verify the filter applies to every block type so any future Notion field is dropped."""
+def test_notion_types_filter_unknown_fields_page_is_archived():
+    """Observed alongside AI-603: Page now includes 'is_archived'. Filter must cover Page, not just blocks."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.page import Page
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    page = Page(
+        id="abc",
+        created_time="2026-01-01T00:00:00Z",
+        created_by=None,
+        last_edited_time="2026-01-01T00:00:00Z",
+        last_edited_by=None,
+        archived=False,
+        in_trash=False,
+        properties={},
+        parent=None,
+        url="https://www.notion.so/abc",
+        public_url="",
+        is_archived=False,
+    )
+    assert page.id == "abc"
+    assert not hasattr(page, "is_archived")
+
+
+def test_notion_types_filter_unknown_fields_generic_for_future_additions():
+    """Verify the filter covers blocks AND other notion types so any future Notion field is dropped."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import (
         Heading,
@@ -868,21 +892,20 @@ def test_blocks_filter_unknown_fields_generic_for_future_additions():
         ToDo,
     )
 
-    NotionSource._monkeypatch_blocks_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
-    # Each accepts an arbitrary unknown kwarg without raising.
     Heading(color="default", is_toggleable=False, hypothetical_future_field="x")
     Quote(color="default", made_up_field=42)
     ToDo(color="default", checked=True, brand_new_2030_field=["a", "b"])
 
 
-def test_blocks_filter_unknown_fields_is_idempotent():
+def test_notion_types_filter_unknown_fields_is_idempotent():
     """Applying the patch twice must not double-wrap or break valid construction."""
     pytest.importorskip("unstructured_ingest")
     from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
 
-    NotionSource._monkeypatch_blocks_filter_unknown_fields()
-    NotionSource._monkeypatch_blocks_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
 
     paragraph = Paragraph(color="default")
     assert paragraph.color == "default"
