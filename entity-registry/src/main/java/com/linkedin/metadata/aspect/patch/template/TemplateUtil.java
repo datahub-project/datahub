@@ -80,8 +80,9 @@ public class TemplateUtil {
       // For add/replace ops we normally stop one token short of the target. But Parsson rejects
       // a JsonPointer whose final reference token is "" unless the parent already exposes that
       // key, so we scaffold all the way through trailing-empty tokens (e.g. compound-key array
-      // paths like /tags/<urn>/ where the attribution source is absent).
-      boolean trailingEmpty = keys.length > 0 && keys[keys.length - 1].isEmpty();
+      // paths like /tags/<urn>/ where the attribution source is absent). split with limit -1
+      // always returns at least one element, so the length>0 guard would be dead code.
+      boolean trailingEmpty = keys[keys.length - 1].isEmpty();
       int endIdx =
           PatchOperationType.REMOVE.equals(operationPath.getFirst()) || trailingEmpty
               ? keys.length
