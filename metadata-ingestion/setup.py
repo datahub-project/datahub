@@ -679,6 +679,7 @@ plugins: Dict[str, Set[str]] = {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
         "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "defusedxml>=0.7.1,<0.8.0",
     },
     "hive": sql_common
     | pyhive_common
@@ -1128,7 +1129,7 @@ entry_points = {
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
-        "hana = datahub.ingestion.source.sql.hana:HanaSource",
+        "hana = datahub.ingestion.source.sql.hana.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
