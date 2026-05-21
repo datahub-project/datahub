@@ -2,7 +2,7 @@
 # Manual edits can break the build and are not advised.
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-at.yawk.lz4:lz4-java:1.10.1=runtimeClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.11.0=runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.5.32=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 ch.qos.logback:logback-core:1.5.32=compileClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 com.beust:jcommander:1.82=testCompileClasspath,testRuntimeClasspath
