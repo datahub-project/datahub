@@ -291,12 +291,18 @@ class HanaCalculationViewExtractor:
             # another procedure). Skip rather than emit an empty downstream.
             return
 
-        # query_text is required by KnownQueryLineageInfo; the XML doubles
-        # as the closest thing to a "query" and lets reviewers trace
-        # lineage back to the source artefact.
+        # KnownQueryLineageInfo requires a ``query_text``; the XML
+        # definition is preserved on the dataset via ``ViewProperties``,
+        # so here we emit a synthetic SQL-shaped placeholder that
+        # surfaces the calc view's identifier in UI / debugging without
+        # stuffing an XML blob into a SQL field.
+        query_text = (
+            f"-- SAP HANA calculation view: {calc_view.qualified_identifier}\n"
+            f"-- See dataset ViewProperties.viewLogic for the XML definition."
+        )
         self.aggregator.add_known_query_lineage(
             KnownQueryLineageInfo(
-                query_text=calc_view.definition,
+                query_text=query_text,
                 downstream=downstream_urn,
                 upstreams=sorted(upstreams),
                 column_lineage=column_lineage,

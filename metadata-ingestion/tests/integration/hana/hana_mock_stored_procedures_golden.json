@@ -17,7 +17,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -33,7 +33,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -49,7 +49,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -67,7 +67,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -83,7 +83,254 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:3fff16246779511c39a4c24e01a74004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "hana",
+                "env": "PROD",
+                "database": "",
+                "schema": "REPORTING"
+            },
+            "name": "REPORTING",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hana"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Schema"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3fff16246779511c39a4c24e01a74004",
+                    "urn": "urn:li:container:3fff16246779511c39a4c24e01a74004"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "REPORTING.stored_procedures"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Procedures Container"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "UPDATE_DAILY_SALES",
+            "type": {
+                "string": "Stored Procedure"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Stored Procedure"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
+    "changeType": "UPSERT",
+    "aspectName": "dataTransformLogic",
+    "aspect": {
+        "json": {
+            "transforms": [
+                {
+                    "queryStatement": {
+                        "value": "BEGIN\n  INSERT INTO \"REPORTING\".\"DAILY_SALES\"\n    SELECT * FROM \"REPORTING\".\"SALES\" WHERE SALE_DATE = CURRENT_DATE;\nEND",
+                        "language": "SQL"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:3fff16246779511c39a4c24e01a74004",
+                    "urn": "urn:li:container:3fff16246779511c39a4c24e01a74004"
+                },
+                {
+                    "id": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1",
+                    "urn": "urn:li:container:45fa53d16cbc929c61f4f5c0fa2c1ee1"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -99,7 +346,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -158,7 +405,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -180,7 +427,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -198,7 +445,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -216,7 +463,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -232,7 +479,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -290,7 +537,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -312,7 +559,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -330,7 +577,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -348,7 +595,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -404,7 +651,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -433,7 +680,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -462,7 +709,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:aa38dd2ea7a551f9aef3d93d9ec6faab177ca39f1c699e65186b178ebb71da8e",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:hana"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1736942400000,
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -505,23 +768,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:aa38dd2ea7a551f9aef3d93d9ec6faab177ca39f1c699e65186b178ebb71da8e",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hana"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -550,7 +797,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -576,43 +823,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetUsageStatistics",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1736899200000,
-            "eventGranularity": {
-                "unit": "DAY",
-                "multiple": 1
-            },
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "uniqueUserCount": 1,
-            "totalSqlQueries": 1,
-            "topSqlQueries": [
-                "SELECT\n  *\nFROM \"REPORTING\".\"CUSTOMERS\"\nWHERE\n  \"ID\" > 100"
-            ],
-            "userCounts": [
-                {
-                    "user": "urn:li:corpuser:ALICE",
-                    "count": 1
-                }
-            ],
-            "fieldCounts": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -628,49 +839,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.sales,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "datasetUsageStatistics",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1736899200000,
-            "eventGranularity": {
-                "unit": "DAY",
-                "multiple": 1
-            },
-            "partitionSpec": {
-                "partition": "FULL_TABLE_SNAPSHOT",
-                "type": "FULL_TABLE"
-            },
-            "uniqueUserCount": 1,
-            "totalSqlQueries": 1,
-            "topSqlQueries": [
-                "SELECT\n  COUNT(*)\nFROM \"REPORTING\".\"SALES\""
-            ],
-            "userCounts": [
-                {
-                    "user": "urn:li:corpuser:BOB",
-                    "count": 1
-                }
-            ],
-            "fieldCounts": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)",
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -680,13 +855,13 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.sales,PROD)",
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(hana,REPORTING.stored_procedures,PROD),UPDATE_DAILY_SALES_66c37ee1bf82a031ce5c0477acc9f848)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -696,7 +871,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-7bjda5",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -712,7 +887,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -728,7 +903,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1736942400000,
-        "runId": "hana-2025_01_15-12_00_00-2lusab",
+        "runId": "hana-2025_01_15-12_00_00-v2c255",
         "lastRunId": "no-run-id-provided"
     }
 }

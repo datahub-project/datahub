@@ -27,6 +27,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     METADATA_EXTRACTION,
     QUERIES_EXTRACTION,
 )
+from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
@@ -41,19 +42,6 @@ logger = logging.getLogger(__name__)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(
-    SourceCapability.DELETION_DETECTION,
-    "Enabled by default via stateful ingestion",
-)
-@capability(
-    SourceCapability.LINEAGE_COARSE,
-    "Emitted for calculation views when `include_calculation_views` is enabled",
-)
-@capability(
-    SourceCapability.LINEAGE_FINE,
-    "Column-level lineage emitted for calculation views when "
-    "`include_calculation_views` is enabled",
-)
 @capability(
     SourceCapability.USAGE_STATS,
     "Optionally enabled via `include_query_usage` (queries) and "
@@ -168,7 +156,7 @@ class HanaSource(SQLAlchemySource):
                     query=row.statement_string,
                     session_id=f"hana_stmt:{row.statement_hash}",
                     timestamp=row.last_execution_timestamp,
-                    user=None,
+                    user=CorpUserUrn(row.user_name) if row.user_name else None,
                     default_db=None,
                     default_schema=row.schema_name,
                 )

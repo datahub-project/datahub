@@ -88,8 +88,10 @@ HANA_PSEUDO_TABLES = frozenset({"DUMMY"})
 # ---------------------------------------------------------------------------
 
 # HANA types whose canonical spelling carries both precision and scale, e.g.
-# ``DECIMAL(15,2)``.
-NUMERIC_WITH_PRECISION_SCALE_TYPES = frozenset({"DECIMAL", "NUMERIC", "SMALLDECIMAL"})
+# ``DECIMAL(15,2)``. ``SMALLDECIMAL`` is excluded: per the SAP HANA SQL
+# Reference it is a self-describing variable-precision decimal that does
+# not accept user-specified ``(precision, scale)``.
+NUMERIC_WITH_PRECISION_SCALE_TYPES = frozenset({"DECIMAL", "NUMERIC"})
 
 # HANA character / binary types whose canonical spelling carries a length,
 # e.g. ``NVARCHAR(100)`` or ``VARBINARY(64)``.

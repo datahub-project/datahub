@@ -1,6 +1,6 @@
 import datetime as dt
 import pathlib
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from unittest import mock
 from unittest.mock import MagicMock
 
@@ -10,74 +10,13 @@ import time_machine
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.run.pipeline_config import PipelineConfig, SourceConfig
 from datahub.testing import mce_helpers
+from tests.integration.hana._xml_fixtures import (
+    PROJECTION_VIEW_XML,
+    SQL_SCRIPT_VIEW_XML,
+)
 
 pytestmark = pytest.mark.integration_batch_5
 FROZEN_TIME = "2025-01-15 12:00:00+00:00"
-
-_PROJECTION_VIEW_XML = """\
-<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
-                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
-  <dataSources>
-    <DataSource id="CUSTOMERS" type="DATA_BASE_TABLE">
-      <columnObject schemaName="REPORTING" columnObjectName="CUSTOMERS"/>
-    </DataSource>
-  </dataSources>
-  <calculationViews>
-    <calculationView xsi:type="Calculation:ProjectionView" id="Projection_1">
-      <input node="#CUSTOMERS">
-        <mapping xsi:type="Calculation:AttributeMapping"
-                 source="ID" target="CUST_ID"/>
-        <mapping xsi:type="Calculation:AttributeMapping"
-                 source="NAME" target="CUST_NAME"/>
-      </input>
-    </calculationView>
-  </calculationViews>
-  <logicalModel>
-    <attributes>
-      <attribute id="CUSTOMER_ID">
-        <keyMapping columnObjectName="Projection_1" columnName="CUST_ID"/>
-      </attribute>
-      <attribute id="CUSTOMER_NAME">
-        <keyMapping columnObjectName="Projection_1" columnName="CUST_NAME"/>
-      </attribute>
-    </attributes>
-  </logicalModel>
-</Calculation:scenario>
-"""
-
-_SCRIPT_VIEW_XML = """\
-<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
-                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-                      calculationScenarioType="SCRIPT_BASED">
-  <dataSources/>
-  <calculationViews>
-    <calculationView xsi:type="Calculation:SqlScriptView" id="Script_View">
-      <viewAttributes>
-        <viewAttribute id="CUST_ID"/>
-        <viewAttribute id="REVENUE"/>
-      </viewAttributes>
-      <definition>BEGIN
-  RESULT_SET = SELECT "ID" AS "CUST_ID", "TOTAL" AS "REVENUE"
-               FROM "REPORTING"."SALES"
-               JOIN "REPORTING"."CUSTOMERS"
-                 ON "SALES"."CUST_ID" = "CUSTOMERS"."ID";
-END</definition>
-    </calculationView>
-  </calculationViews>
-  <logicalModel id="Script_View">
-    <attributes>
-      <attribute id="CUST_ID">
-        <keyMapping columnObjectName="Script_View" columnName="CUST_ID"/>
-      </attribute>
-    </attributes>
-    <baseMeasures>
-      <measure id="REVENUE">
-        <measureMapping columnObjectName="Script_View" columnName="REVENUE"/>
-      </measure>
-    </baseMeasures>
-  </logicalModel>
-</Calculation:scenario>
-"""
 
 
 def _make_row(mapping: Dict[str, Any]) -> MagicMock:
@@ -92,14 +31,14 @@ def _calc_view_rows() -> List[MagicMock]:
             {
                 "PACKAGE_ID": "acme.analytics",
                 "OBJECT_NAME": "SalesOverview",
-                "CDATA": _PROJECTION_VIEW_XML,
+                "CDATA": PROJECTION_VIEW_XML,
             }
         ),
         _make_row(
             {
                 "PACKAGE_ID": "acme.scripts",
                 "OBJECT_NAME": "SalesScript",
-                "CDATA": _SCRIPT_VIEW_XML,
+                "CDATA": SQL_SCRIPT_VIEW_XML,
             }
         ),
     ]
@@ -159,6 +98,28 @@ def _column_rows_for(view_name: str) -> List[MagicMock]:
     return []
 
 
+def _stored_procedure_rows() -> List[MagicMock]:
+    return [
+        _make_row(
+            {
+                "SCHEMA_NAME": "REPORTING",
+                "PROCEDURE_NAME": "UPDATE_DAILY_SALES",
+                "DEFINITION": (
+                    "BEGIN\n"
+                    '  INSERT INTO "REPORTING"."DAILY_SALES"\n'
+                    '    SELECT * FROM "REPORTING"."SALES" '
+                    "WHERE SALE_DATE = CURRENT_DATE;\n"
+                    "END"
+                ),
+                "PROCEDURE_TYPE": "PROCEDURE",
+                "CREATE_TIME": dt.datetime(2025, 1, 1, 0, 0, 0, tzinfo=dt.timezone.utc),
+                "LANGUAGE": "SQLSCRIPT",
+                "ARGUMENT_SIGNATURE": "(IN START_DATE DATE, IN END_DATE DATE)",
+            }
+        ),
+    ]
+
+
 def _observed_query_rows() -> List[MagicMock]:
     # All timestamps within the [start_time, end_time] window declared
     # in the pipeline config below.
@@ -206,6 +167,9 @@ def _build_mock_engine() -> MagicMock:
         elif "_sys_statistics.host_sql_plan_cache" in text:
             rows = _observed_query_rows()
             result.all.return_value = rows
+        elif "sys.procedures" in text:
+            rows = _stored_procedure_rows()
+            result.all.return_value = rows
         else:
             raise AssertionError(f"Unexpected query: {stmt}")
         return result
@@ -222,15 +186,19 @@ def _build_mock_engine() -> MagicMock:
     return engine
 
 
-def _build_empty_inspector(engine: MagicMock) -> MagicMock:
-    """Inspector that reports no schemas / tables / views.
+def _build_empty_inspector(
+    engine: MagicMock, *, schemas: Optional[List[str]] = None
+) -> MagicMock:
+    """Inspector reporting no tables/views; ``schemas`` controls which
+    schemas the procedure-discovery loop iterates.
 
-    Keeps the golden focused on calc-view + usage output; the standard
-    SQLAlchemy reflection path is exercised by the Docker-based test.
+    The standard SQLAlchemy reflection path (tables / views / columns) is
+    exercised by the Docker-based test; here we keep the golden focused
+    on calc-view + usage + stored-procedures output.
     """
     inspector = MagicMock()
     inspector.engine = engine
-    inspector.get_schema_names.return_value = []
+    inspector.get_schema_names.return_value = schemas or []
     inspector.get_table_names.return_value = []
     inspector.get_view_names.return_value = []
     inspector.get_columns.return_value = []
@@ -240,34 +208,27 @@ def _build_empty_inspector(engine: MagicMock) -> MagicMock:
     return inspector
 
 
-@time_machine.travel(FROZEN_TIME, tick=False)
-def test_hana_calc_views_and_usage_mock(
-    pytestconfig: pytest.Config,
+def _run_pipeline(
+    *,
     tmp_path: pathlib.Path,
-) -> None:
-    # NOTE: do NOT add ``mock_time`` from the global conftest fixture — it
-    # invokes ``time_machine.travel`` to a different epoch and nesting two
-    # travel contexts produces undefined behaviour. Use the decorator above
-    # as the single source of frozen time for this test.
-    test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
-    output_file = tmp_path / "hana_mock_mces.json"
-    golden_file = test_resources_dir / "hana_mock_calc_views_golden.json"
-
-    mock_engine = _build_mock_engine()
-    mock_inspector = _build_empty_inspector(mock_engine)
-
+    output_filename: str,
+    inspector: MagicMock,
+    engine: MagicMock,
+    extra_config: Dict[str, Any],
+) -> pathlib.Path:
+    output_file = tmp_path / output_filename
     with (
         mock.patch(
             "datahub.ingestion.source.sql.hana.hana.create_engine",
-            return_value=mock_engine,
+            return_value=engine,
         ),
         mock.patch(
             "datahub.ingestion.source.sql.sql_common.create_engine",
-            return_value=mock_engine,
+            return_value=engine,
         ),
         mock.patch(
             "datahub.ingestion.source.sql.sql_common.inspect",
-            return_value=mock_inspector,
+            return_value=inspector,
         ),
     ):
         pipeline = Pipeline(
@@ -280,11 +241,7 @@ def test_hana_calc_views_and_usage_mock(
                         "host_port": "localhost:39041",
                         "scheme": "hana+hdbcli",
                         "include_calculation_views": True,
-                        "include_stored_procedures": False,
-                        "include_query_usage": True,
-                        "include_usage_stats": True,
-                        "start_time": "2025-01-15T00:00:00+00:00",
-                        "end_time": "2025-01-15T23:59:59+00:00",
+                        **extra_config,
                     },
                 ),
                 sink={
@@ -295,6 +252,72 @@ def test_hana_calc_views_and_usage_mock(
         )
         pipeline.run()
         pipeline.raise_from_status()
+    return output_file
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_hana_calc_views_and_usage_mock(
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+) -> None:
+    # NOTE: do NOT add ``mock_time`` from the global conftest fixture — it
+    # invokes ``time_machine.travel`` to a different epoch and nesting two
+    # travel contexts produces undefined behaviour. Use the decorator above
+    # as the single source of frozen time for this test.
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
+    golden_file = test_resources_dir / "hana_mock_calc_views_golden.json"
+
+    engine = _build_mock_engine()
+    inspector = _build_empty_inspector(engine)
+
+    output_file = _run_pipeline(
+        tmp_path=tmp_path,
+        output_filename="hana_mock_mces.json",
+        inspector=inspector,
+        engine=engine,
+        extra_config={
+            "include_stored_procedures": False,
+            "include_query_usage": True,
+            "include_usage_stats": True,
+            "start_time": "2025-01-15T00:00:00+00:00",
+            "end_time": "2025-01-15T23:59:59+00:00",
+        },
+    )
+
+    mce_helpers.check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=output_file,
+        golden_path=golden_file,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+def test_hana_stored_procedures_mock(
+    pytestconfig: pytest.Config,
+    tmp_path: pathlib.Path,
+) -> None:
+    """Cover the ``include_stored_procedures=True`` (default) path that
+    the calc-view + usage test deliberately keeps off."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/hana"
+    golden_file = test_resources_dir / "hana_mock_stored_procedures_golden.json"
+
+    engine = _build_mock_engine()
+    # ``REPORTING`` is the only schema we serve stored-procedure rows for;
+    # the empty inspector reports no tables/views so the golden stays
+    # focused on the procedure path.
+    inspector = _build_empty_inspector(engine, schemas=["REPORTING"])
+
+    output_file = _run_pipeline(
+        tmp_path=tmp_path,
+        output_filename="hana_mock_stored_procedures.json",
+        inspector=inspector,
+        engine=engine,
+        extra_config={
+            "include_stored_procedures": True,
+            "include_query_usage": False,
+            "include_usage_stats": False,
+        },
+    )
 
     mce_helpers.check_golden_file(
         pytestconfig=pytestconfig,

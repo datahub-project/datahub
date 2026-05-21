@@ -1,7 +1,10 @@
 import logging
 import re
-import xml.etree.ElementTree as ET
 from typing import Dict, List, Optional, Set, Tuple
+from xml.etree.ElementTree import (  # nosec B405 - only the Element / ParseError types are imported; parsing always goes through defusedxml
+    Element,
+    ParseError,
+)
 
 import defusedxml.ElementTree as DET
 from defusedxml.common import DefusedXmlException
@@ -33,13 +36,12 @@ logger = logging.getLogger(__name__)
 
 _QUOTED_COLUMN_RE = re.compile(r'"([^"]*)"')
 
-# Trailing ``/calculationviews`` or ``/calculation_views`` segment that
-# follows the package path in a resourceUri (e.g.
-# ``/acme.analytics/calculationviews/Sales``); stripped before joining the
-# remaining segments into a dotted package id.
-_RESOURCE_URI_VIEWS_SUFFIX_RE = re.compile(
-    r"/calculation_?views?$", flags=re.IGNORECASE
-)
+# Trailing ``/calculationviews`` segment that follows the package path in
+# a resourceUri (e.g. ``/acme.analytics/calculationviews/Sales``); stripped
+# before joining the remaining segments into a dotted package id. Matches
+# only the documented SAP form (case-insensitive) — variants like
+# ``calculation_views`` are not documented and stay verbatim in the path.
+_RESOURCE_URI_VIEWS_SUFFIX_RE = re.compile(r"/calculationviews$", flags=re.IGNORECASE)
 
 
 class SAPCalculationViewParser:
@@ -87,7 +89,7 @@ class SAPCalculationViewParser:
         return _QUOTED_COLUMN_RE.findall(formula)
 
     @staticmethod
-    def _parse_xml(view_name: str, view_definition: str) -> Optional[ET.Element]:
+    def _parse_xml(view_name: str, view_definition: str) -> Optional[Element]:
         try:
             return DET.fromstring(view_definition)
         except DefusedXmlException as e:
@@ -97,14 +99,14 @@ class SAPCalculationViewParser:
                 e,
             )
             return None
-        except ET.ParseError as e:
+        except ParseError as e:
             logger.warning(
                 "Failed to parse XML for calculation view %s: %s", view_name, e
             )
             return None
 
     @staticmethod
-    def _build_model(view_name: str, xml: ET.Element) -> CalcViewModel:
+    def _build_model(view_name: str, xml: Element) -> CalcViewModel:
         model = CalcViewModel(view_name=view_name)
 
         try:
@@ -219,7 +221,7 @@ class SAPCalculationViewParser:
         return self._find_all_sources(model, edge.source, branch, visited)
 
 
-def _collect_data_sources(xml: ET.Element, model: CalcViewModel) -> None:
+def _collect_data_sources(xml: Element, model: CalcViewModel) -> None:
     for child in xml.iter(CalcViewXmlElement.DATA_SOURCE):
         type_attr = child.attrib.get(CalcViewXmlAttribute.TYPE)
         if type_attr is None:
@@ -252,7 +254,7 @@ def _collect_data_sources(xml: ET.Element, model: CalcViewModel) -> None:
             model.source_aliases.setdefault(source.name, ds_id)
 
 
-def _collect_outputs(xml: ET.Element, model: CalcViewModel) -> None:
+def _collect_outputs(xml: Element, model: CalcViewModel) -> None:
     for attr in xml.findall(LOGICAL_MODEL_ATTRIBUTES_XPATH):
         model.outputs[attr.attrib[CalcViewXmlAttribute.ID]] = _build_output_mapping(
             attr.find(CalcViewXmlElement.KEY_MAPPING),
@@ -265,7 +267,7 @@ def _collect_outputs(xml: ET.Element, model: CalcViewModel) -> None:
         )
 
 
-def _collect_nodes(xml: ET.Element, model: CalcViewModel) -> None:
+def _collect_nodes(xml: Element, model: CalcViewModel) -> None:
     for child in xml.iter(CalcViewXmlElement.CALCULATION_VIEW):
         # Skip the outer ``<Calculation:scenario>`` (and legacy exports that
         # share the bare ``calculationView`` tag without ``xsi:type``).
@@ -303,7 +305,7 @@ def _collect_nodes(xml: ET.Element, model: CalcViewModel) -> None:
         model.nodes[node_id] = node
 
 
-def _read_input_mappings(input_el: ET.Element) -> Dict[str, ColumnEdge]:
+def _read_input_mappings(input_el: Element) -> Dict[str, ColumnEdge]:
     edges: Dict[str, ColumnEdge] = {}
     for mapping in input_el.iter(CalcViewXmlElement.MAPPING):
         source = mapping.attrib.get(CalcViewXmlAttribute.SOURCE)
@@ -314,7 +316,7 @@ def _read_input_mappings(input_el: ET.Element) -> Dict[str, ColumnEdge]:
 
 
 def _build_output_mapping(
-    mapping_element: Optional[ET.Element],
+    mapping_element: Optional[Element],
     *,
     kind: OutputMappingKind,
 ) -> OutputMapping:
