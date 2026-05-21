@@ -188,6 +188,7 @@ project.ext.externalDependency = [
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
+    'graphqlJavaOtel': 'io.opentelemetry.instrumentation:opentelemetry-graphql-java-20.0:2.27.0-alpha',
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
@@ -273,6 +274,7 @@ project.ext.externalDependency = [
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
+    'opentelemetrySdkTesting': 'io.opentelemetry:opentelemetry-sdk-testing:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
     'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",
@@ -565,8 +567,11 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useVersion(rootProject.ext.reactorNettyVersion)
         details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
       }
-      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv).
-      if (details.requested.group == 'io.opentelemetry' && details.requested.name != 'opentelemetry-semconv') {
+      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv)
+      // and opentelemetry-api-incubator (separate -alpha release line; not published at the stable version).
+      if (details.requested.group == 'io.opentelemetry'
+          && details.requested.name != 'opentelemetry-semconv'
+          && details.requested.name != 'opentelemetry-api-incubator') {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
       }

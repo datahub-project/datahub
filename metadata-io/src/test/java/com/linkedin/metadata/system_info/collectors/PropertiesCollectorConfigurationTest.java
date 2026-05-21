@@ -724,6 +724,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "graphQL.shapeLogging.durationThresholdMs",
           "graphQL.shapeLogging.responseSizeThresholdBytes",
           "graphQL.shapeLogging.errorCountThreshold",
+          "graphQL.otel.enableOtelGraphqlTraces",
           "graphService.limit.results.apiDefault",
           "graphService.limit.results.max",
           "graphService.limit.results.strict",

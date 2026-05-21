@@ -109,11 +109,6 @@ const ScrollableContent = styled.div`
     scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
 `;
 
-const Spacer = styled.div`
-    flex: 1;
-    min-height: 8px;
-`;
-
 const CustomLogo = styled.img`
     object-fit: contain;
     max-height: 26px;
@@ -124,10 +119,21 @@ const CustomLogo = styled.img`
 
 const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
-const MenuWrapper = styled.div`
-    margin-top: 14px;
+const MenuWrapper = styled.div<{ $noTopMargin?: boolean }>`
+    margin-top: ${(props) => (props.$noTopMargin ? '0' : '14px')};
     display: flex;
     flex-direction: column;
+`;
+
+/**
+ * Pushes the footer (Account) menu to the bottom of the sidebar when there's
+ * room. With `min-height: 0`, the spacer collapses entirely once main-content
+ * fills the available height, letting Account flow naturally below the other
+ * groups (and scroll with them) instead of forcing an artificial gap.
+ */
+const Spacer = styled.div`
+    flex: 1;
+    min-height: 0;
 `;
 
 export const NavSidebar = () => {
@@ -493,7 +499,7 @@ export const NavSidebar = () => {
                                 />
                             </MenuWrapper>
                             <Spacer />
-                            <MenuWrapper>
+                            <MenuWrapper $noTopMargin>
                                 <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
                             </MenuWrapper>
                         </ScrollableContent>
