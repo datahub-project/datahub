@@ -1338,6 +1338,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from add_structured_properties_to_entity_wu(
                     dataset_urn,
                     self._format_tags_as_structured_properties(table.tags),
+                    write_mode=self.config.structured_properties_write_mode,
                 )
             else:
                 tag_associations = [
@@ -1514,6 +1515,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 self._format_tags_as_structured_properties(
                     table.column_tags[column_name]
                 ),
+                write_mode=self.config.structured_properties_write_mode,
             )
 
     def _build_json_props(
