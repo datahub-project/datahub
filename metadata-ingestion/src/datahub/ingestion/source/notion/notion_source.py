@@ -1799,40 +1799,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         record_locator = data_source.get("record_locator", {})
         current_page_id = record_locator.get("page_id")
 
-        # Check for Notion page ID prefix filtering
-        # If page_ids were specified, only keep docs with matching prefixes
-        if self.config.page_ids:
-            # Extract page_id from metadata
-            data_source = metadata.get("data_source", {})
-            record_locator = data_source.get("record_locator", {})
-            page_id = record_locator.get("page_id")
-            database_id = record_locator.get("database_id")
-
-            # Check if this document matches any of the page_id prefixes
-            # Normalize IDs by removing hyphens for comparison (Notion returns both formats)
-            should_keep = False
-            for configured_page_id in self.config.page_ids:
-                # Normalize configured ID (remove hyphens) and take first 13 chars
-                normalized_prefix = configured_page_id.replace("-", "")[:13]
-
-                # Keep if page_id or database_id starts with the prefix (after normalization)
-                if page_id:
-                    normalized_page_id = page_id.replace("-", "")
-                    if normalized_page_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-                if database_id:
-                    normalized_database_id = database_id.replace("-", "")
-                    if normalized_database_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-
-            if not should_keep:
-                self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"),
-                    "Notion page_id/database_id doesn't match configured page_ids prefix",
-                )
-                return True
+        # Note: we previously prefix-matched discovered page IDs against the
+        # first 13 chars of each configured page_id to "scope" the ingestion.
+        # That heuristic is broken: Notion v2 page IDs use a time-window
+        # prefix, so legitimate descendants reached via `recursive: true`
+        # often diverge in the first 8 chars and were silently dropped.
+        # The unstructured-ingest NotionIndexer with the configured
+        # page_ids/database_ids and recursive=true only walks descendants of
+        # those roots, so any document it emits is in-scope by construction —
+        # no extra filtering is needed here.
 
         # Check for empty documents
         if self.config.filtering.skip_empty_documents:

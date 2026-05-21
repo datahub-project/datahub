@@ -216,7 +216,11 @@ def test_extract_notion_parent_urn_no_parent():
     assert parent_urn is None
 
 
-def test_should_skip_file_page_id_filter_match():
+def test_should_skip_file_does_not_drop_descendants_with_different_id_prefix():
+    """The recursive walker reaches descendants whose Notion v2 IDs diverge in
+    the first 8-13 chars from the root's ID (different time-window prefix).
+    These must not be filtered out — they're legitimate descendants emitted by
+    the indexer, in-scope by construction."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -230,7 +234,8 @@ def test_should_skip_file_page_id_filter_match():
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
 
-    # Use a page_id that matches the exact configured ID (will match prefix)
+    # A descendant with a totally divergent ID — would previously have been
+    # silently dropped by the 13-char prefix heuristic.
     data = {
         "elements": [
             {
@@ -239,39 +244,12 @@ def test_should_skip_file_page_id_filter_match():
         ],
         "metadata": {
             "data_source": {
-                "record_locator": {"page_id": "2bffc6a6-4277-8024-97c9-d0f26faa4480"}
+                "record_locator": {"page_id": "2f6fc6a6-4277-81cb-b744-d1baeec0bda5"}
             }
         },
     }
 
-    # Should NOT skip because prefix matches exactly and has enough content
     assert source._should_skip_file(data, set()) is False
-
-
-def test_should_skip_file_page_id_filter_no_match():
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    ctx = PipelineContext(run_id="test")
-    source = NotionSource(config=config, ctx=ctx)
-
-    data = {
-        "elements": [{"text": "Some content"}],
-        "metadata": {
-            "data_source": {
-                "record_locator": {"page_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
-            }
-        },
-    }
-
-    assert source._should_skip_file(data, set()) is True
 
 
 def test_should_skip_file_empty_document():
