@@ -86,7 +86,10 @@ const COLOR_ENFORCEMENT_RULES = {
 // Only runs on files listed in translated-files.txt. Add a file path to that
 // list once its translations are wired up to opt it into the rule.
 // --------------------------------------------------------------------------
-const translatedFilesContent = fs.readFileSync(path.resolve(__dirname, 'translated-files.txt'), 'utf8');
+const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
+const translatedFilesContent = fs.existsSync(translatedFilesPath)
+    ? fs.readFileSync(translatedFilesPath, 'utf8')
+    : '';
 const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
 
 const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [

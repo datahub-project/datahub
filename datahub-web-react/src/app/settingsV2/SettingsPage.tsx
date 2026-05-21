@@ -274,7 +274,7 @@ export const SettingsPage = () => {
                         <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
                     </Route>
                     {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} render={() => p.content} />
+                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
                     ))}
                 </Switch>
             </ContentContainer>

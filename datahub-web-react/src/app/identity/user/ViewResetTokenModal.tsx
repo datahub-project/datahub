@@ -1,7 +1,7 @@
 import { RedoOutlined } from '@ant-design/icons';
 import { Button, Modal, Typography, message } from 'antd';
 import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -99,8 +99,12 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
                 <ModalSection>
                     <ModalSectionHeader strong>{t('resetToken.shareLink.header')}</ModalSectionHeader>
                     <ModalSectionParagraph>
-                        {t('resetToken.shareLink.description', { username })}
-                        <b>{t('resetToken.shareLink.expiry')}</b>
+                        <Trans
+                            t={t}
+                            i18nKey="resetToken.shareLink.description"
+                            values={{ username }}
+                            components={{ b: <b /> }}
+                        />
                     </ModalSectionParagraph>
                     <Typography.Paragraph copyable={{ text: inviteLink }}>
                         <pre>{inviteLink}</pre>
@@ -115,7 +119,7 @@ export default function ViewResetTokenModal({ open, userUrn, username, onClose }
             <ModalSection>
                 <ModalSectionHeader strong>{t('resetToken.generateLink.header')}</ModalSectionHeader>
                 <ModalSectionParagraph>
-                    {t('resetToken.generateLink.description')} <b>{t('resetToken.generateLink.ceaseActive')}</b>
+                    <Trans t={t} i18nKey="resetToken.generateLink.description" components={{ b: <b /> }} />
                 </ModalSectionParagraph>
                 <CreateResetTokenButton
                     onClick={createNativeUserResetToken}

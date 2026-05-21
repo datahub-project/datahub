@@ -9,7 +9,6 @@
     "createView": "Create View",
     "deleteConfirm.content": "Are you sure you want to remove this View?",
     "deleteConfirm.title": "Confirm Remove {{name}}",
-    "deleteConfirm.yes": "Yes",
     "deleteError": "Failed to delete View",
     "deleteSuccess": "View removed",
     "emptyDescription": "-",

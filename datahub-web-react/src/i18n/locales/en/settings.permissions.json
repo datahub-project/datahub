@@ -1,5 +1,4 @@
 {
-    "activate": "Activate",
     "actorFormDescription": "Select the users & groups that this policy should apply to.",
     "actorFormGroupsDescription": "Search for specific groups that this policy should apply to, or select All Groups to apply it to all groups.",
     "actorFormGroupsPlaceholder": "Search for groups...",
@@ -22,7 +21,6 @@
     "columnType": "Type",
     "createNewPolicy": "Create new policy",
     "createPolicyModalTitle": "Create a new Policy",
-    "deactivate": "Deactivate",
     "detailsAppliesToGroupsLabel": "Applies to Groups",
     "detailsAppliesToOwnersLabel": "Applies to Owners",
     "detailsAppliesToRolesLabel": "Applies to Roles",
@@ -48,7 +46,6 @@
     "pageSubTitle": "View your DataHub permissions. Take administrative actions.",
     "pageTitle": "Manage Permissions",
     "policiesTab": "Policies",
-    "previous": "Previous",
     "privilegeFormAllPrivileges": "All Privileges",
     "privilegeFormContainerPlaceholder": "Apply to ALL containers by default. Select containers to apply to specific containers.",
     "privilegeFormContainersDescription": "The policy will apply to resources only in the chosen containers. If <bold>none</bold> are selected, the policy is applied to resources in <bold>all</bold> containers.",

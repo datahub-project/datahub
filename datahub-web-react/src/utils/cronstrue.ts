@@ -1,4 +1,5 @@
-import cronstrue from 'cronstrue/i18n';
+import cronstrue from 'cronstrue';
+import 'cronstrue/locales/de';
 import i18next from 'i18next';
 
 import { SupportedLanguage } from '@app/i18n/types';

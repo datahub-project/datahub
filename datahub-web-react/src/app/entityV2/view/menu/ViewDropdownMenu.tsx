@@ -197,7 +197,7 @@ export const ViewDropdownMenu = ({
                     deleteView(view.urn);
                 },
                 onCancel() {},
-                okText: t('deleteConfirm.yes'),
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });

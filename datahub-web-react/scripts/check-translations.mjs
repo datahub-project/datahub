@@ -34,6 +34,11 @@ if (languages.length === 0) {
     process.exit(0);
 }
 
+const totalEnKeys = namespaces.reduce((acc, nsFile) => {
+    const keys = flattenKeys(JSON.parse(readFileSync(path.join(enDir, nsFile), 'utf-8')));
+    return acc + keys.length;
+}, 0);
+
 let totalMissing = 0;
 
 for (const lang of languages) {
@@ -60,7 +65,7 @@ for (const lang of languages) {
         }
     }
 
-    const coverage = Math.round(((namespaces.length * 100 - langMissing) / (namespaces.length * 100)) * 100);
+    const coverage = Math.round(((totalEnKeys - langMissing) / totalEnKeys) * 100);
     console.log(`\n[${lang}] coverage: ${langMissing === 0 ? '100%' : `~${coverage}% (${langMissing} key(s) missing)`}`);
     totalMissing += langMissing;
 }

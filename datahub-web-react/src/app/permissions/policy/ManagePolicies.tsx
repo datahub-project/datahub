@@ -399,7 +399,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                     {
                         type: 'item',
                         key: 'toggle-active',
-                        title: isActive ? t('deactivate') : t('activate'),
+                        title: isActive ? tc('deactivate') : tc('activate'),
                         icon: isActive ? Pause : Play,
                         onClick: () => {
                             onToggleActiveDuplicate(record?.policy);

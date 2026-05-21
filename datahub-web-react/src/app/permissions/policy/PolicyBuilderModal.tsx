@@ -197,7 +197,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                     <PrevButtonContainer>
                         {activeStepIndex > 0 && (
                             <Button variant="outline" color="gray" onClick={() => prev()}>
-                                {t('previous')}
+                                {tc('previous')}
                             </Button>
                         )}
                     </PrevButtonContainer>

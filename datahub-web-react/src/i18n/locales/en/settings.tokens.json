@@ -17,13 +17,11 @@
     "curlCopyLabel": "cURL command",
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "A description for the token",
-    "duration": {
-        "never": "Never",
-        "oneDay": "1 day",
-        "oneHour": "1 hour",
-        "oneMonth": "1 month",
-        "threeMonths": "3 months"
-    },
+    "duration.never": "Never",
+    "duration.oneDay": "1 day",
+    "duration.oneHour": "1 hour",
+    "duration.oneMonth": "1 month",
+    "duration.threeMonths": "3 months",
     "emptyDescription": "Generate a new token to get started.",
     "emptyTitle": "No Access Tokens",
     "expiresAtFormat": "{{date}} at {{time}} ({{timezone}})",
