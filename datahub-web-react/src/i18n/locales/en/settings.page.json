@@ -1,0 +1,22 @@
+{
+    "logOut": "Log Out",
+    "nav": {
+        "access": "Access",
+        "accessTokens": "Access Tokens",
+        "appearance": "Appearance",
+        "developer": "Developer",
+        "features": "Features",
+        "homePage": "Home Page",
+        "manage": "Manage",
+        "myNotifications": "My Notifications",
+        "mySubscriptions": "My Subscriptions",
+        "ownershipTypes": "Ownership Types",
+        "permissions": "Permissions",
+        "personal": "Personal",
+        "preferences": "Preferences",
+        "usersGroups": "Users & Groups",
+        "views": "Views"
+    },
+    "subTitle": "Manage your settings",
+    "title": "Settings"
+}

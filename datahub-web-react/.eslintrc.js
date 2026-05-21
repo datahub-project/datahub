@@ -89,6 +89,28 @@ const COLOR_ENFORCEMENT_RULES = {
 const translatedFilesContent = fs.readFileSync(path.resolve(__dirname, 'translated-files.txt'), 'utf8');
 const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
 
+const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
+    'to',
+    'path',
+    'target',
+    'type',
+    'rel',
+    'href',
+    'name',
+    '.*className$',
+    '.*ClassName$',
+    '.*testid$',
+    '.*TestId$',
+    '.*width$',
+    '.*Width$',
+    '.*key$',
+    '.*Key$',
+    '.*color$',
+    '.*Color$',
+    '.*id$',
+    '.*Id$',
+];
+
 // Files that legitimately need raw color values
 const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/colorThemes/**',
@@ -253,18 +275,13 @@ module.exports = {
                               {
                                   mode: 'jsx-only',
                                   'jsx-attributes': {
-                                      exclude: [
-                                          'className',
-                                          'data-testid',
-                                          'id',
-                                          'role',
-                                          'href',
-                                          'to',
-                                          'path',
-                                          'target',
-                                          'rel',
-                                          'type',
-                                      ],
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  'object-properties': {
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  words: {
+                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$'],
                                   },
                               },
                           ],

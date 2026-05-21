@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation": {
+        "assetLevelDescription": "Propagate new documentation from upstream to downstream assets based on data lineage relationships.",
+        "assetLevelTitle": "Asset Level Propagation",
+        "backfillButton": "Initialize",
+        "backfillTitle": "Backfill existing documentation from upstream to downstream columns/assets",
+        "columnLevelDescription": "Propagate new documentation from upstream to downstream columns based on column-level lineage relationships.",
+        "columnLevelTitle": "Column Level Propagation",
+        "comingSoon": "Coming soon!",
+        "description": "Automatically propagate documentation from upstream to downstream columns and assets.",
+        "rollbackButton": "Rollback",
+        "rollbackTitle": "Rollback Propagation Changes",
+        "title": "Documentation Propagation"
+    },
+    "learnMore": "Learn more",
+    "newLabel": "New!",
+    "onlyOnCloud": "Only available on DataHub Cloud",
+    "pageSubTitle": "Explore and configure specific features",
+    "pageTitle": "Features"
+}
