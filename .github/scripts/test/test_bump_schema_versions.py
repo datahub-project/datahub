@@ -629,14 +629,15 @@ def test_unrelated_same_namespace_record_is_not_a_dependency(tmp_path, monkeypat
 
 
 # ---------------------------------------------------------------------------
-# detect_default_branch
+# detect_default_branch / get_merge_base / get_base_pdl_changes
 # ---------------------------------------------------------------------------
 
 
-def _make_proc(returncode: int, stdout: str = "") -> MagicMock:
+def _make_proc(returncode: int, stdout: str = "", stderr: str = "") -> MagicMock:
     m = MagicMock()
     m.returncode = returncode
     m.stdout = stdout
+    m.stderr = stderr
     return m
 
 
@@ -658,6 +659,34 @@ def test_detect_default_branch_fallback_to_master(monkeypatch):
     assert bsv.detect_default_branch() == "master"
 
 
+def test_get_merge_base_returns_sha(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(0, "abc123def456\n"))
+    assert bsv.get_merge_base("refs/remotes/origin/acryl-main") == "abc123def456"
+
+
+def test_get_merge_base_failure_exits(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(1, stderr="not a git repo"))
+    with pytest.raises(SystemExit):
+        bsv.get_merge_base("refs/remotes/origin/acryl-main")
+
+
+def test_get_base_pdl_changes_returns_files(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: _make_proc(0, "a/Foo.pdl\nb/Bar.pdl\n"))
+    result = bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
+    assert result == ["a/Foo.pdl", "b/Bar.pdl"]
+
+
+def test_get_base_pdl_changes_failure_exits(monkeypatch):
+    monkeypatch.setattr(subprocess, "run",
+                        lambda *a, **kw: (_ for _ in ()).throw(
+                            subprocess.CalledProcessError(1, "git", stderr="err")))
+    with pytest.raises(SystemExit):
+        bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
+
+
 # ---------------------------------------------------------------------------
 # Version bump scenarios (via main())
 #
@@ -668,17 +697,23 @@ def test_detect_default_branch_fallback_to_master(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def _run_main(tmp_path, monkeypatch, changed_files, base_content_by_path):
+def _run_main(tmp_path, monkeypatch, changed_files, base_content_by_path, *,
+              base_pdl_changes=None):
     """
     Run main() with filesystem and git calls mocked out.
 
-    changed_files        — list of Path objects treated as "changed"
+    changed_files        — list of Path objects treated as "changed" on this branch
     base_content_by_path — dict mapping str(path) → content string on base branch,
                            or None to simulate a new file not present on base
+    base_pdl_changes     — list of str paths changed on the base branch since
+                           divergence (default: empty — no conflict)
     """
     monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
     monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py", "--base-branch", "master"])
-    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _branch: [str(f) for f in changed_files])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes",
+                        lambda _base, _ref: base_pdl_changes or [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [str(f) for f in changed_files])
     monkeypatch.setattr(bsv, "get_file_at_branch",
                         lambda path, _branch: base_content_by_path.get(path))
     return bsv.main()
@@ -730,6 +765,38 @@ def test_version_bump_new_file_stays_at_1(tmp_path, monkeypatch):
     assert bsv.get_schema_version(aspect.read_text()) == 1
 
 
+def test_conflicting_pdl_on_base_branch_exits_with_error(tmp_path, monkeypatch):
+    # Base ref is current AND the same PDL changed on both branches → block at stage 2
+    base_content = aspect_pdl("myAspect")
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+
+    rc = _run_main(
+        tmp_path, monkeypatch,
+        changed_files=[aspect],
+        base_content_by_path={str(aspect): base_content},
+        base_pdl_changes=[str(aspect)],  # same file changed on base
+    )
+
+    assert rc == 1
+    assert bsv.get_schema_version(aspect.read_text()) == 1  # untouched
+
+
+def test_unrelated_base_pdl_changes_do_not_block(tmp_path, monkeypatch):
+    # A different PDL changed on the base branch — should not block this branch's bump
+    base_content = aspect_pdl("myAspect")
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+
+    rc = _run_main(
+        tmp_path, monkeypatch,
+        changed_files=[aspect],
+        base_content_by_path={str(aspect): base_content},
+        base_pdl_changes=["com/linkedin/other/Unrelated.pdl"],  # different file on base
+    )
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 2  # bumped normally
+
+
 def test_version_bump_dry_run_does_not_write(tmp_path, monkeypatch):
     base_content = aspect_pdl("myAspect")
     aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
@@ -737,7 +804,9 @@ def test_version_bump_dry_run_does_not_write(tmp_path, monkeypatch):
 
     monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
     monkeypatch.setattr(sys, "argv", ["bump_schema_versions.py", "--base-branch", "master", "--dry-run"])
-    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _branch: [str(aspect)])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes", lambda _base, _ref: [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files", lambda _ref: [str(aspect)])
     monkeypatch.setattr(bsv, "get_file_at_branch", lambda path, _branch: base_content)
 
     rc = bsv.main()

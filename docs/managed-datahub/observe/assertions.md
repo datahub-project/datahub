@@ -99,13 +99,29 @@ If you opt for a 3rd party tool, it will be your responsibility to ensure the as
 
 ## Alerts
 
-Beyond the ability to see the results of the assertion checks (and history of the results) both on the physical asset's page in the DataHub UI and as the result of DataHub API calls, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion run event, or when an [incident](../../incidents/incidents.md) is raised or resolved. In the future, we'll also provide the ability to subscribe directly to contracts.
+Beyond the ability to see the results of the assertion checks (and result history) both on the asset's page in the DataHub UI and via the DataHub API, you can also get notified via [Slack messages](/docs/managed-datahub/slack/saas-slack-setup.md) (DMs or to a team channel) based on your [subscription](https://youtu.be/VNNZpkjHG_I?t=79) to an assertion run event, or when an [incident](../../incidents/incidents.md) is raised or resolved. In the future, we'll also provide the ability to subscribe directly to contracts.
 
 <p align="center">
   <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/assertions/slack-assertions-rich-alert.png"/>
 </p>
 
-With DataHub Cloud Observe, you can react to the Assertion Run Event by listening to API events via [AWS EventBridge](/docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md) (the availability and simplicity of setup of each solution dependent on your current DataHub Cloud setup – chat with your DataHub Cloud representative to learn more).
+With DataHub Cloud Observe, you can react to the Assertion Run Event by listening to API events via [AWS EventBridge](/docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge.md) or the [DataHub Cloud Event Source](/docs/actions/sources/datahub-cloud-event-source.md) (the availability and simplicity of setup of each solution dependent on your current DataHub Cloud setup – chat with your DataHub Cloud representative to learn more).
+
+### Assertion Failure Severity
+
+To help your team prioritize between assertion failures, the assertion run event carries a `severity` of `LOW`, `MEDIUM`, or `HIGH`.
+
+Severity can either be assigned automatically by DataHub, or manually controlled by you:
+
+- **Automatic**: DataHub assigns severity based on the deviation of expected bounds, importance of asset, and downstream impact.
+- **Manual**:
+  - Default: Choose a default severity for any failure, such as treating every failure as `HIGH`.
+  - (optional) Severity Rules: For Volume, Custom SQL, and Column assertions, define numeric rules that map observed failed values to a severity. If multiple rules match, DataHub uses the highest matching severity (`HIGH` before `MEDIUM` before `LOW`); rule order does not override severity priority. If no rule matches, the configured default severity is used. For example, a row-count assertion can treat `row count >= 1000` as `HIGH`, `row count >= 800` as `MEDIUM` and otherwise fall back to your default.
+
+Worth noting:
+
+- Assertions with Anomaly Detection do not support manual severity configuration.
+- Third-party or externally evaluated assertions can report an explicit result severity when they report assertion results.
 
 ## Sifting through the noise & Data Health Reporting
 

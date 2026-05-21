@@ -184,7 +184,7 @@ On the homepage, you'll also find a list of the most popular Domains in your org
 **Supercharge Data Mesh with Domains in DataHub**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/CyvujJWV-8A" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL

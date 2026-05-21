@@ -37,6 +37,9 @@ test.describe('glossary term entity operations', () => {
 
   test.beforeEach(async ({ page, logger, logDir }) => {
     glossaryPage = new GlossaryPage(page, logger, logDir);
+    await page.addInitScript(() => {
+      localStorage.setItem('navBarState', '{"state":"COLLAPSED"}');
+    });
   });
 
   test('can search related entities by query', async () => {

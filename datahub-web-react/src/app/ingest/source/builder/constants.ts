@@ -1,4 +1,5 @@
 import aerospikeLogo from '@images/aerospike.png';
+import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
@@ -61,6 +62,8 @@ import verticaLogo from '@images/verticalogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
+export const AIRBYTE = 'airbyte';
+export const AIRBYTE_URN = `urn:li:dataPlatform:${AIRBYTE}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -200,6 +203,7 @@ export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AEROSPIKE_URN]: aerospikeLogo,
+    [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,

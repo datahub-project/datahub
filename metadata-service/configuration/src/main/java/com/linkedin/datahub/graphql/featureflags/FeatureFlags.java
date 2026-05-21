@@ -62,4 +62,5 @@ public class FeatureFlags {
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
+  private boolean i18nEnabled = false;
 }
