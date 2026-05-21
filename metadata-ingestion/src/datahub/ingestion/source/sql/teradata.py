@@ -178,9 +178,8 @@ _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
 # on an *existing* connection (execute / fetchmany).
 _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "transaction aborted",
-    # "please try again" is specific to Teradata's transient-failure messages;
     "please try again",
-    "tdgss",  # TDGSS / authentication layer transient handshake issues
+    "tdgss",
     "database restart",
     "connect timed out",
     "i/o timeout",
