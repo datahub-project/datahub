@@ -38,14 +38,16 @@ describe('getGlossaryTermColor', () => {
     const generateColor = (urn: string) => `palette-${urn}`;
 
     it('uses the root parent node displayProperties.colorHex when set', () => {
+        // Function returns the colorHex string verbatim — any sentinel works, no need for a real hex.
+        const PARENT_COLOR = 'parent-display-color';
         const term = {
             urn: 'urn:li:glossaryTerm:t1',
             parentNodes: makeParentNodes([
                 makeParentNode('urn:li:glossaryNode:direct'),
-                makeParentNode('urn:li:glossaryNode:root', '#abcdef'),
+                makeParentNode('urn:li:glossaryNode:root', PARENT_COLOR),
             ]),
         } as unknown as GlossaryTerm;
-        expect(getGlossaryTermColor(term, generateColor)).toBe('#abcdef');
+        expect(getGlossaryTermColor(term, generateColor)).toBe(PARENT_COLOR);
     });
 
     it('derives color from the root parent URN when no colorHex on the parent', () => {
