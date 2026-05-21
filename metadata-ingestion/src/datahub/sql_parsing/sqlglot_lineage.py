@@ -173,26 +173,38 @@ def _table_name_from_sqlglot_table(
                 parts=None,
             )
 
-    # Handle Dot expressions (more than 3-part names)
+    # Handle Dot expressions (more than 3-part names).
+    # Dot is left-associative (a.b.c = Dot(Dot(a,b),c)), so collect right-side
+    # identifiers while walking left, then reverse. Mirror of the traversal in
+    # `_TableName.from_sqlglot_table`; kept in sync intentionally.
     if isinstance(table.this, sqlglot.exp.Dot):
-        parts = []
-        exp = table.this
+        all_parts_exp: List[sqlglot.exp.Expression] = []
+        exp: sqlglot.exp.Expression = table.this
         while isinstance(exp, sqlglot.exp.Dot):
-            parts.append(exp.this.name)
-            exp = exp.expression
-        # Only restore prefix on the final part (the actual table name)
-        final_part = exp.name
-        if is_dialect_instance(dialect, ["mssql"]) and hasattr(exp, "args"):
+            all_parts_exp.append(exp.expression)
+            exp = exp.this
+        all_parts_exp.append(exp)
+        all_parts_exp.reverse()
+
+        # Only restore MSSQL temp prefix on the rightmost part (the actual table name).
+        final_exp = all_parts_exp[-1]
+        final_part = final_exp.name
+        if (
+            dialect is not None
+            and is_dialect_instance(dialect, ["mssql"])
+            and hasattr(final_exp, "args")
+        ):
             # Note: sqlglot v28+ uses "global_" instead of "global"
-            is_global_temp = exp.args.get("global_", False) or exp.args.get(
+            is_global_temp = final_exp.args.get("global_", False) or final_exp.args.get(
                 "global", False
             )
-            is_local_temp = exp.args.get("temporary", False)
+            is_local_temp = final_exp.args.get("temporary", False)
             if is_global_temp and not final_part.startswith("##"):
                 final_part = f"##{final_part}"
             elif is_local_temp and not final_part.startswith("#"):
                 final_part = f"#{final_part}"
-        parts.append(final_part)
+
+        parts = [p.name for p in all_parts_exp[:-1]] + [final_part]
         table_name = ".".join(parts)
     else:
         table_name = _restore_mssql_temp_table_prefix(table, dialect)

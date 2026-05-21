@@ -54,7 +54,6 @@ const TableContainer = styled.div`
     display: flex;
     flex-direction: column;
     min-height: 0;
-    max-height: calc(100vh - 330px); /* Constrain to page height minus header/filters space */
     overflow: auto;
 
     /* Make table header sticky */
@@ -80,9 +79,11 @@ const SearchContainer = styled.div`
 `;
 
 const ViewsContainer = styled.div`
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: auto;
+    overflow: hidden;
     padding-top: 7px;
 `;
 
