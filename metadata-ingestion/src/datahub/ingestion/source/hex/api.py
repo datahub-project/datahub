@@ -209,11 +209,11 @@ class HexApiSchedule(BaseModel):
 
     cadence: str
     enabled: bool
-    hourly: Optional[Any] = None
-    daily: Optional[Any] = None
+    hourly: Optional[dict] = None
+    daily: Optional[dict] = None
     weekly: Optional[HexApiWeeklySchedule] = None
-    monthly: Optional[Any] = None
-    custom: Optional[Any] = None
+    monthly: Optional[dict] = None
+    custom: Optional[dict] = None
 
 
 class HexApiSharing(BaseModel):
@@ -221,7 +221,7 @@ class HexApiSharing(BaseModel):
 
     users: Optional[List[HexApiUserAccess]] = []
     collections: Optional[List[HexApiCollectionAccess]] = []
-    groups: Optional[List[Any]] = []
+    groups: Optional[List[dict]] = []
 
     model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
 
@@ -303,7 +303,7 @@ class _RateLimiter:
 
     Tracks call timestamps in a deque. Before each call, removes timestamps
     older than `period` seconds and sleeps if `max_calls` are still in the
-    window. Thread-safe via a reentrant lock.
+    window. Thread-safe via a mutex.
     """
 
     def __init__(self, max_calls: int, period: float) -> None:
@@ -693,6 +693,30 @@ class HexApi:
         return cells
 
     @staticmethod
+    def _make_normalized_cell(
+        cell_id: str,
+        cell_type: str,
+        label: Optional[str],
+        data_connection_id: Optional[str] = None,
+        sql_source: Optional[str] = None,
+        markdown_source: Optional[str] = None,
+    ) -> dict:
+        return {
+            "staticId": cell_id,
+            "id": cell_id,
+            "cellType": cell_type,
+            "label": label,
+            "dataConnectionId": data_connection_id,
+            "contents": {
+                "sqlCell": {"source": sql_source} if sql_source is not None else None,
+                "codeCell": None,
+                "markdownCell": (
+                    {"source": markdown_source} if markdown_source is not None else None
+                ),
+            },
+        }
+
+    @staticmethod
     def _normalize_export_cells(
         yaml_cells: List[dict],
     ) -> "tuple[List[dict], List[str]]":
@@ -716,89 +740,39 @@ class HexApi:
 
             if ct == "SQL":
                 result.append(
-                    {
-                        "staticId": cell_id,
-                        "id": cell_id,
-                        "cellType": "SQL",
-                        "label": label,
-                        "dataConnectionId": cfg.get("dataConnectionId"),
-                        "contents": {
-                            "sqlCell": {"source": cfg.get("source", "")},
-                            "codeCell": None,
-                            "markdownCell": None,
-                        },
-                    }
+                    HexApi._make_normalized_cell(
+                        cell_id,
+                        ct,
+                        label,
+                        data_connection_id=cfg.get("dataConnectionId"),
+                        sql_source=cfg.get("source", ""),
+                    )
                 )
             elif ct == "MARKDOWN":
                 result.append(
-                    {
-                        "staticId": cell_id,
-                        "id": cell_id,
-                        "cellType": "MARKDOWN",
-                        "label": label,
-                        "dataConnectionId": None,
-                        "contents": {
-                            "sqlCell": None,
-                            "codeCell": None,
-                            "markdownCell": {"source": cfg.get("source", "")},
-                        },
-                    }
+                    HexApi._make_normalized_cell(
+                        cell_id,
+                        ct,
+                        label,
+                        markdown_source=cfg.get("source", ""),
+                    )
                 )
             elif ct == "COLLAPSIBLE":
                 # Emit a stub so _parse_cells captures the section name, then
                 # recurse into the nested children.
-                result.append(
-                    {
-                        "staticId": cell_id,
-                        "id": cell_id,
-                        "cellType": "COLLAPSIBLE",
-                        "label": label,
-                        "dataConnectionId": None,
-                        "contents": {
-                            "sqlCell": None,
-                            "codeCell": None,
-                            "markdownCell": None,
-                        },
-                    }
-                )
+                result.append(HexApi._make_normalized_cell(cell_id, ct, label))
                 nested, nested_comp_ids = HexApi._normalize_export_cells(
                     cfg.get("cells", [])
                 )
                 result.extend(nested)
                 component_ids.extend(nested_comp_ids)
             elif ct == "EXPLORE":
-                result.append(
-                    {
-                        "staticId": cell_id,
-                        "id": cell_id,
-                        "cellType": "EXPLORE",
-                        "label": label,
-                        "dataConnectionId": None,
-                        "contents": {
-                            "sqlCell": None,
-                            "codeCell": None,
-                            "markdownCell": None,
-                        },
-                    }
-                )
+                result.append(HexApi._make_normalized_cell(cell_id, ct, label))
             elif ct == "COMPONENT_IMPORT":
                 comp_id = (cfg.get("component") or {}).get("id")
                 if comp_id:
                     component_ids.append(comp_id)
-                result.append(
-                    {
-                        "staticId": cell_id,
-                        "id": cell_id,
-                        "cellType": "COMPONENT_IMPORT",
-                        "label": label,
-                        "dataConnectionId": None,
-                        "contents": {
-                            "sqlCell": None,
-                            "codeCell": None,
-                            "markdownCell": None,
-                        },
-                    }
-                )
+                result.append(HexApi._make_normalized_cell(cell_id, ct, label))
 
         return result, component_ids
 

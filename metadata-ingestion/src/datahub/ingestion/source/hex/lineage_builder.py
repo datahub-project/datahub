@@ -245,6 +245,7 @@ class HexLineageBuilder:
 
             matched: List[str] = []
             unmatched_tables: Set[str] = set()
+            unmatched_field_count = 0
 
             for furn in field_urns:
                 try:
@@ -255,13 +256,12 @@ class HexLineageBuilder:
                     matched.append(furn)
                 else:
                     unmatched_tables.add(parent_urn)
+                    unmatched_field_count += 1
 
             if unmatched_tables:
                 self._report.enterprise_cells_with_mismatch += 1
-                self._report.enterprise_column_fields_skipped_mismatch += sum(
-                    1
-                    for f in field_urns
-                    if SchemaFieldUrn.from_string(f).parent not in queried_set
+                self._report.enterprise_column_fields_skipped_mismatch += (
+                    unmatched_field_count
                 )
                 if (
                     len(self._report.enterprise_sample_mismatched_cells)

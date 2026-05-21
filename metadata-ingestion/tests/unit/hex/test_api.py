@@ -1,4 +1,3 @@
-import unittest
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -19,12 +18,13 @@ from datahub.ingestion.source.hex.model import (
 from tests.unit.hex.conftest import load_json_data
 
 
-class TestHexAPI(unittest.TestCase):
-    def setUp(self):
-        self.token = "test-token"
+class TestHexAPI:
+    token = "test-token"
+    base_url = "https://test.hex.tech/api/v1"
+    page_size = 8  # Small page size to test pagination
+
+    def setup_method(self) -> None:
         self.report = HexApiReport()
-        self.base_url = "https://test.hex.tech/api/v1"
-        self.page_size = 8  # Small page size to test pagination
 
     def test_fetch_projects_pagination(self):
         page1_data = load_json_data("hex_projects_page1.json")

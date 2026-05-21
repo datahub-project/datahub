@@ -1,4 +1,3 @@
-import unittest
 from datetime import datetime
 
 from datahub.emitter.mce_builder import make_tag_urn, make_ts_millis, make_user_urn
@@ -42,7 +41,7 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DashboardUrn
 
 
-class TestMapper(unittest.TestCase):
+class TestMapper:
     workspace_name = "test-workspace"
     workspace_id = "67a12d5f-c344-44e5-111f-5c11f942abcd"
     created_at = datetime(2022, 1, 1, 0, 0, 0)

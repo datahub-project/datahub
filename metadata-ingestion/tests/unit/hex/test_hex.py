@@ -1,6 +1,7 @@
-import unittest
 import warnings
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.configuration.common import ConfigurationWarning
 from datahub.ingestion.api.common import PipelineContext
@@ -11,20 +12,19 @@ from datahub.ingestion.source.hex.hex import HexSource
 from tests.unit.hex.conftest import load_json_data
 
 
-class TestHexSourceConfig(unittest.TestCase):
-    def setUp(self):
-        self.minimum_input_config = {
-            "workspace_name": "test-workspace",
-            "token": "test-token",
-        }
+class TestHexSourceConfig:
+    minimum_input_config = {
+        "workspace_name": "test-workspace",
+        "token": "test-token",
+    }
 
     def test_required_fields(self):
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["workspace_name"]
             HexSourceConfig.model_validate(input_config)
 
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError):
             input_config = {**self.minimum_input_config}
             del input_config["token"]
             HexSourceConfig.model_validate(input_config)
@@ -232,7 +232,7 @@ class TestHexSourceConfig(unittest.TestCase):
         assert "4759f33c-1ab9-403d-92e8-9bef48de00cg" in source.component_registry
 
 
-class TestResolveConnections(unittest.TestCase):
+class TestResolveConnections:
     """Tests for HexSource._resolve_connections — the boundary that resolves
     raw API output + user overrides into a {conn_id → HexConnection} map.
     """
@@ -452,7 +452,7 @@ class TestResolveConnections(unittest.TestCase):
         assert c.default_schema == "public"
 
 
-class TestHexTestConnection(unittest.TestCase):
+class TestHexTestConnection:
     """Tests for test_connection() — especially the cells access probe."""
 
     def _make_response(self, status_code: int, json_data: dict) -> MagicMock:

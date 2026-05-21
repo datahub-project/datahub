@@ -41,10 +41,9 @@ class HexConnectionDetail(ConfigModel):
             "Default outer-scope qualifier for unqualified table refs in SQL "
             "cells. For BigQuery this is the GCP project ID; for "
             "Snowflake/Postgres/Redshift/MSSQL the database; for "
-            "Trino/Databricks/Presto the catalog; for Athena the AWS data "
-            "catalog (defaults to 'awsdatacatalog'). Leave empty for 2-part "
-            "platforms (MySQL/MariaDB/Clickhouse) — set only `default_schema` "
-            "there. Overrides the value auto-extracted from Hex's "
+            "Trino/Databricks/Presto the catalog. Leave empty for 2-part platforms "
+            "(MySQL/MariaDB/Clickhouse) — set only `default_schema` there. "
+            "Overrides the value auto-extracted from Hex's "
             "/v1/data-connections response."
         ),
     )
@@ -151,7 +150,8 @@ class HexSourceConfig(
 
     include_run_history: bool = Field(
         default=True,
-        description="Emit the most recent scheduled run as an Operation aspect.",
+        description="Emit the most recent COMPLETED run as a DashboardInfo PATCH "
+        "setting lastRefreshed.",
     )
     include_context_documents: bool = Field(
         default=True,
