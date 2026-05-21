@@ -1644,8 +1644,10 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Column-level lineage emitted for calculation views when `include_calculation_views` is enabled",
-          "subtype_modifier": null,
+          "description": "Enabled by default to get lineage for views via `include_view_column_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
@@ -1698,8 +1700,10 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Emitted for calculation views when `include_calculation_views` is enabled",
-          "subtype_modifier": null,
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
           "supported": true
         },
         {
