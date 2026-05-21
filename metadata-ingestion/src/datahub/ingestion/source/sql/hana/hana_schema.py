@@ -3,6 +3,20 @@ from typing import List, Optional
 
 from datahub.ingestion.source.sql.hana.constants import SYS_BIC_SCHEMA
 
+# HANA types whose canonical spelling carries both precision and scale, e.g.
+# ``DECIMAL(15,2)``. ``SYS.VIEW_COLUMNS.LENGTH``/``SCALE`` populate both.
+_NUMERIC_WITH_PRECISION_SCALE = frozenset({"DECIMAL", "NUMERIC", "SMALLDECIMAL"})
+
+# HANA character / binary types whose canonical spelling carries a length,
+# e.g. ``NVARCHAR(100)`` or ``VARBINARY(64)``.
+_LENGTH_BEARING_STRING = frozenset(
+    {"VARCHAR", "NVARCHAR", "ALPHANUM", "SHORTTEXT", "VARBINARY"}
+)
+
+# HANA's ``FLOAT(n)`` carries a bit-width (1-53) in ``SYS.VIEW_COLUMNS.LENGTH``
+# but no scale.
+_PRECISION_ONLY = frozenset({"FLOAT"})
+
 
 @dataclass
 class HanaCalcViewColumn:
@@ -23,14 +37,12 @@ class HanaCalcViewColumn:
         numeric/string types; this method mirrors SAP HANA documentation's
         canonical spellings so emitted ``nativeDataType`` matches SAP tooling.
         """
-        if self.data_type in ("DECIMAL", "NUMERIC", "SMALLDECIMAL"):
+        if self.data_type in _NUMERIC_WITH_PRECISION_SCALE:
             if self.length is not None and self.scale is not None:
                 return f"{self.data_type}({self.length},{self.scale})"
-        if (
-            self.data_type
-            in ("VARCHAR", "NVARCHAR", "ALPHANUM", "SHORTTEXT", "VARBINARY")
-            and self.length is not None
-        ):
+        if self.data_type in _LENGTH_BEARING_STRING and self.length is not None:
+            return f"{self.data_type}({self.length})"
+        if self.data_type in _PRECISION_ONLY and self.length is not None:
             return f"{self.data_type}({self.length})"
         return self.data_type
 
@@ -52,7 +64,12 @@ class HanaCalculationView:
 
     @property
     def runtime_view_name(self) -> str:
-        """Name HANA uses for the activated view in ``_SYS_BIC``."""
+        """Name HANA uses for the activated view in ``_SYS_BIC``.
+
+        Case-preserving on purpose: HANA tooling and ``SYS.VIEW_COLUMNS``
+        match the activated identifier exactly. :attr:`qualified_identifier`
+        lowercases for URN safety — keep the asymmetry.
+        """
         return f"{self.package_id}/{self.name}"
 
     @property

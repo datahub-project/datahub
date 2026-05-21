@@ -40,7 +40,11 @@ def get_dialect_str(platform: str) -> str:
         # functions, ANSI joins, double-quoted identifiers, schema-qualified
         # names); using "postgres" lets the parser resolve table references
         # in calculation-view SQL fragments without forcing every query to
-        # be treated as opaque.
+        # be treated as opaque. Known mis-parses: CALL, NCLOB, MERGE,
+        # SQLScript-only constructs (WITH PARAMETERS, type-cast literals,
+        # table variables) — table-ref extraction restricts itself to
+        # quoted schema-qualified identifiers in `hana_script_lineage.py`
+        # to sidestep them.
         return "postgres"
     elif platform_lower == "salesforce":
         # TODO: define SalesForce SOQL dialect

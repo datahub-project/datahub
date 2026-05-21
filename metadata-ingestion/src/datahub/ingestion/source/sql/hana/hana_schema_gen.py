@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, List, Optional
+from typing import Callable, Iterable, List, Mapping, Set, Type, Union
 
 from sqlalchemy.engine import Engine
 
@@ -60,7 +60,21 @@ from datahub.sql_parsing.sqlglot_lineage import (
 # ``SYS.VIEW_COLUMNS.DATA_TYPE_NAME``) to DataHub schema type classes.
 # Unmapped types fall through to ``NullTypeClass`` rather than guessing string
 # so downstream consumers can distinguish "we don't know" from "actually text".
-_HANA_TYPE_MAP: dict = {
+_HANA_TYPE_MAP: Mapping[
+    str,
+    Type[
+        Union[
+            ArrayTypeClass,
+            BooleanTypeClass,
+            BytesTypeClass,
+            DateTypeClass,
+            NumberTypeClass,
+            RecordTypeClass,
+            StringTypeClass,
+            TimeTypeClass,
+        ]
+    ],
+] = {
     "BOOLEAN": BooleanTypeClass,
     "TINYINT": NumberTypeClass,
     "SMALLINT": NumberTypeClass,
@@ -70,6 +84,7 @@ _HANA_TYPE_MAP: dict = {
     "DECIMAL": NumberTypeClass,
     "REAL": NumberTypeClass,
     "DOUBLE": NumberTypeClass,
+    "FLOAT": NumberTypeClass,
     "VARCHAR": StringTypeClass,
     "NVARCHAR": StringTypeClass,
     "ALPHANUM": StringTypeClass,
@@ -114,6 +129,9 @@ class HanaCalculationViewExtractor:
         self.engine_factory = engine_factory
         self.aggregator = aggregator
         self.parser = SAPCalculationViewParser()
+        # Surface unmapped HANA types once at end-of-run so users notice
+        # when SAP adds new types we silently emit as ``NullTypeClass``.
+        self._unmapped_hana_types: Set[str] = set()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         engine = self.engine_factory()
@@ -138,6 +156,15 @@ class HanaCalculationViewExtractor:
                     self._populate_lineage(calc_view)
         finally:
             engine.dispose()
+            if self._unmapped_hana_types:
+                self.report.info(
+                    title="Unmapped HANA column types",
+                    message=(
+                        "HANA native types not in _HANA_TYPE_MAP were "
+                        "emitted as NullTypeClass."
+                    ),
+                    context=", ".join(sorted(self._unmapped_hana_types)),
+                )
 
     def _emit_workunits(
         self, calc_view: HanaCalculationView
@@ -186,7 +213,7 @@ class HanaCalculationViewExtractor:
         fields = [
             SchemaFieldClass(
                 fieldPath=column.name,
-                type=_schema_field_type(column),
+                type=self._schema_field_type(column),
                 nativeDataType=column.get_precise_native_type(),
                 description=column.comment or None,
                 nullable=column.nullable,
@@ -230,7 +257,7 @@ class HanaCalculationViewExtractor:
                 upstream_urn = self.identifiers.upstream_urn_for_calc_view_source(
                     source_type=upstream.source_type,
                     source_name=upstream.source_name,
-                    source_path=upstream.source_path or None,
+                    source_path=upstream.source_path,
                 )
                 if not upstream_urn or not upstream.column:
                     continue
@@ -276,9 +303,12 @@ class HanaCalculationViewExtractor:
             )
         )
 
-
-def _schema_field_type(column: HanaCalcViewColumn) -> SchemaFieldDataTypeClass:
-    type_cls: Optional[type] = _HANA_TYPE_MAP.get(column.data_type.upper())
-    if type_cls is None:
-        return SchemaFieldDataTypeClass(type=NullTypeClass())
-    return SchemaFieldDataTypeClass(type=type_cls())
+    def _schema_field_type(
+        self, column: HanaCalcViewColumn
+    ) -> SchemaFieldDataTypeClass:
+        type_key = column.data_type.upper()
+        type_cls = _HANA_TYPE_MAP.get(type_key)
+        if type_cls is None:
+            self._unmapped_hana_types.add(type_key)
+            return SchemaFieldDataTypeClass(type=NullTypeClass())
+        return SchemaFieldDataTypeClass(type=type_cls())

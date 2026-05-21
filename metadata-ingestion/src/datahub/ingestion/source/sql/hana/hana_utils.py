@@ -1,5 +1,7 @@
 from typing import Optional
 
+from typing_extensions import assert_never
+
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.sql.hana.constants import (
     SYS_BIC_SCHEMA,
@@ -37,34 +39,35 @@ class HanaIdentifierBuilder:
     def upstream_urn_for_calc_view_source(
         self,
         *,
-        source_type: str,
+        source_type: HanaSourceType,
         source_name: str,
         source_path: Optional[str],
     ) -> Optional[str]:
         """Build a dataset URN for an upstream referenced from a calc view.
 
-        Returns ``None`` for unrecognised source types or empty source names
-        so the caller can skip emitting partial lineage.
+        Returns ``None`` for missing source names or source-types that
+        don't carry enough metadata (e.g. a calculation view without a
+        package path) so the caller can skip partial lineage.
         """
         if not source_name:
             return None
 
         sys_bic = SYS_BIC_SCHEMA.lower()
 
-        if source_type == HanaSourceType.DATA_BASE_TABLE:
+        if source_type is HanaSourceType.DATA_BASE_TABLE:
             if not source_path:
                 return None
             return self._dataset_urn(f"{source_path}.{source_name}".lower())
 
-        if source_type == HanaSourceType.TABLE_FUNCTION:
+        if source_type is HanaSourceType.TABLE_FUNCTION:
             # Table-function refs come as ``namespace::function`` (package
             # scoped) or as a bare function name; both live under _SYS_BIC.
             normalised = source_name.replace("::", ".").lstrip("/")
             return self._dataset_urn(f"{sys_bic}.{normalised}".lower())
 
-        if source_type == HanaSourceType.CALCULATION_VIEW:
+        if source_type is HanaSourceType.CALCULATION_VIEW:
             if not source_path:
                 return None
             return self._dataset_urn(f"{sys_bic}.{source_path}.{source_name}".lower())
 
-        return None
+        assert_never(source_type)

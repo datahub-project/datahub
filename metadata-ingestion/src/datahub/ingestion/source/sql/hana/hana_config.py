@@ -1,4 +1,4 @@
-from pydantic import Field, PositiveInt
+from pydantic import Field, PositiveInt, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
@@ -35,7 +35,11 @@ class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     host_port: str = Field(
         default="localhost:39041",
-        description="SAP HANA host and port, e.g. `myhost.example.com:30015`.",
+        description=(
+            "SAP HANA host and port, e.g. `myhost.example.com:30015`. "
+            "HANA Cloud requires TLS — pass `encrypt=true` via "
+            "`options.connect_args` if the driver does not enable it."
+        ),
     )
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern(deny=_DEFAULT_DENY_SCHEMAS),
@@ -63,9 +67,22 @@ class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
     )
     include_usage_stats: bool = Field(
         default=False,
-        description="If true, emit `DatasetUsageStatistics` aspects. Requires `include_query_usage`.",
+        description=(
+            "If true, emit `DatasetUsageStatistics` aspects. Requires "
+            "`include_query_usage` and the same `MONITORING` / "
+            "`CATALOG READ` privilege."
+        ),
     )
     usage_max_queries: PositiveInt = Field(
         default=10000,
         description="Maximum number of distinct `(statement_hash, last_execution_timestamp)` rows pulled from `HOST_SQL_PLAN_CACHE` per ingestion run. Distinct from `top_n_queries`, which caps the per-bucket rollup.",
     )
+
+    @model_validator(mode="after")
+    def _usage_stats_requires_query_usage(self) -> "HanaConfig":
+        if self.include_usage_stats and not self.include_query_usage:
+            raise ValueError(
+                "`include_usage_stats=true` requires `include_query_usage=true`; "
+                "usage statistics are computed from mined queries."
+            )
+        return self

@@ -90,6 +90,8 @@ def test_default_schema_pattern_denies_system_schemas():
         ({"data_type": "DECIMAL", "length": 15, "scale": 2}, "DECIMAL(15,2)"),
         ({"data_type": "NVARCHAR", "length": 100}, "NVARCHAR(100)"),
         ({"data_type": "INTEGER"}, "INTEGER"),
+        ({"data_type": "FLOAT", "length": 24}, "FLOAT(24)"),
+        ({"data_type": "BIGINT", "length": 8}, "BIGINT"),
     ],
 )
 def test_calc_view_column_precise_native_type(
@@ -97,6 +99,13 @@ def test_calc_view_column_precise_native_type(
 ) -> None:
     column = HanaCalcViewColumn(name="C", nullable=True, ordinal_position=1, **kwargs)
     assert column.get_precise_native_type() == expected
+
+
+def test_include_usage_stats_without_query_usage_rejected():
+    with pytest.raises(ValueError, match="include_query_usage"):
+        HanaConfig.model_validate(
+            {"include_usage_stats": True, "include_query_usage": False}
+        )
 
 
 def test_calc_view_urn_lower_cased_and_uses_sys_bic_prefix():
@@ -123,14 +132,34 @@ def test_upstream_urn_for_data_base_table():
     assert "reporting.customers" in urn
 
 
-def test_upstream_urn_for_calc_view_source_returns_none_for_unknown_type():
-    builder = HanaIdentifierBuilder(HanaConfig(host_port="h:1"))
-    assert (
-        builder.upstream_urn_for_calc_view_source(
-            source_type="WHO_KNOWS", source_name="X", source_path="Y"
-        )
-        is None
-    )
+def test_parser_drops_data_source_with_unknown_type():
+    xml = """
+<Calculation:scenario xmlns:Calculation="http://www.sap.com/ndb/BiModelCalculation.ecore"
+                      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dataSources>
+    <DataSource id="MYSTERY" type="HDI_FUNCTION_FROM_THE_FUTURE">
+      <columnObject schemaName="REPORTING" columnObjectName="MYSTERY"/>
+    </DataSource>
+  </dataSources>
+  <calculationViews>
+    <calculationView xsi:type="Calculation:ProjectionView" id="Projection_1">
+      <input node="#MYSTERY">
+        <mapping xsi:type="Calculation:AttributeMapping"
+                 source="X" target="X"/>
+      </input>
+    </calculationView>
+  </calculationViews>
+  <logicalModel>
+    <attributes>
+      <attribute id="X">
+        <keyMapping columnObjectName="Projection_1" columnName="X"/>
+      </attribute>
+    </attributes>
+  </logicalModel>
+</Calculation:scenario>
+"""
+    lineage = SAPCalculationViewParser().column_lineage("Mystery", xml)
+    assert lineage and lineage[0].upstreams == []
 
 
 def test_upstream_urn_for_calc_view_drops_empty_source_name():
@@ -742,6 +771,43 @@ def test_calc_view_extractor_emits_table_lineage_from_sql_script_view():
         "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.customers,PROD)",
         "urn:li:dataset:(urn:li:dataPlatform:hana,reporting.sales,PROD)",
     ]
+
+
+def test_calc_view_extractor_reports_unmapped_hana_types():
+    config = HanaConfig.model_validate({"include_calculation_views": True})
+    aggregator = MagicMock()
+    report = MagicMock()
+
+    calc_view_row = {
+        "PACKAGE_ID": "acme.analytics",
+        "OBJECT_NAME": "SalesOverview",
+        "CDATA": _SIMPLE_CALC_VIEW_XML,
+    }
+    column_rows = [
+        {
+            "COLUMN_NAME": "FUTURE_COL",
+            "COMMENTS": None,
+            "DATA_TYPE_NAME": "FUTURE_HANA_TYPE_FROM_HEAVEN",
+            "IS_NULLABLE": "TRUE",
+            "POSITION": 1,
+            "LENGTH": None,
+            "SCALE": None,
+        },
+    ]
+    engine = _build_fake_engine([calc_view_row], column_rows)
+    extractor = HanaCalculationViewExtractor(
+        config=config,
+        report=report,
+        identifiers=HanaIdentifierBuilder(config),
+        engine_factory=lambda: engine,
+        aggregator=aggregator,
+    )
+
+    list(extractor.get_workunits_internal())
+
+    report.info.assert_called_once()
+    info_kwargs = report.info.call_args.kwargs
+    assert "FUTURE_HANA_TYPE_FROM_HEAVEN" in info_kwargs["context"]
 
 
 def test_calculation_view_pattern_deny_drops_matching_views():

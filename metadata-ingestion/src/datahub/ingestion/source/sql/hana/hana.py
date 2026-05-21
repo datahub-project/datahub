@@ -177,8 +177,9 @@ class HanaSource(SQLAlchemySource):
         if not self.config.include_query_usage:
             return
 
-        engine = self._build_engine()
+        engine: Optional[Engine] = None
         try:
+            engine = self._build_engine()
             with self.report.new_stage(QUERIES_EXTRACTION):
                 logger.info(
                     "Extracting observed queries from "
@@ -190,14 +191,32 @@ class HanaSource(SQLAlchemySource):
                 )
                 count = 0
                 for observed in self._extract_queries_from_plan_cache(engine):
-                    self.aggregator.add(observed)
-                    count += 1
+                    try:
+                        self.aggregator.add(observed)
+                        count += 1
+                    except Exception as e:
+                        self.report.warning(
+                            title="Failed to add observed query to aggregator",
+                            message="One HANA query could not be ingested "
+                            "into the SQL parsing aggregator.",
+                            context=observed.session_id,
+                            exc=e,
+                        )
                 logger.info(
                     "Added %s observed HANA queries to the SQL aggregator",
                     count,
                 )
+        except Exception as e:
+            self.report.warning(
+                title="Query usage extraction unavailable",
+                message="Could not connect to HANA or initialise the query "
+                "usage extractor. Metadata ingestion will complete without "
+                "usage / operational aspects.",
+                exc=e,
+            )
         finally:
-            engine.dispose()
+            if engine is not None:
+                engine.dispose()
 
     def get_workunits_internal(
         self,
@@ -210,10 +229,10 @@ class HanaSource(SQLAlchemySource):
         # roll-up gets the right time-bucketed counts.
         self._populate_aggregator_from_queries()
 
-        if self.calc_view_extractor is None:
-            yield from super()._generate_aggregator_workunits()
-            return
+        if self.calc_view_extractor is not None:
+            with self.report.new_stage(LINEAGE_EXTRACTION):
+                yield from self.calc_view_extractor.get_workunits_internal()
 
-        with self.report.new_stage(LINEAGE_EXTRACTION):
-            yield from self.calc_view_extractor.get_workunits_internal()
-            yield from super()._generate_aggregator_workunits()
+        # Final aggregator flush runs after all add_known_query_lineage /
+        # add(ObservedQuery) calls so usage + lineage land in one rollup.
+        yield from super()._generate_aggregator_workunits()

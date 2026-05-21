@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from datahub.ingestion.source.sql.hana.constants import (
     ColumnEdgeKind,
+    HanaSourceType,
     OutputMappingKind,
 )
 
@@ -12,9 +13,9 @@ from datahub.ingestion.source.sql.hana.constants import (
 class DataSourceRef(BaseModel):
     """A ``<DataSource>`` declared inside a calculation view."""
 
-    name: str = ""
-    path: str = ""
-    type: str = ""
+    type: HanaSourceType
+    name: Optional[str] = None
+    path: Optional[str] = None
 
 
 class ColumnEdge(BaseModel):
@@ -37,8 +38,8 @@ class CalcViewNode(BaseModel):
 class OutputMapping(BaseModel):
     """A ``logicalModel`` attribute or measure mapping."""
 
-    source_column: str
-    source_node: str
+    source_column: Optional[str] = None
+    source_node: Optional[str] = None
     kind: OutputMappingKind
 
 
@@ -58,8 +59,8 @@ class UpstreamColumnRef(BaseModel):
 
     column: str
     source_name: str
-    source_type: str
-    source_path: str
+    source_type: HanaSourceType
+    source_path: Optional[str] = None
 
 
 class ColumnLineage(BaseModel):

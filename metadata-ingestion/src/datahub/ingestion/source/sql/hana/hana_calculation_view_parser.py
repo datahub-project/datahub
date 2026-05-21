@@ -15,6 +15,7 @@ from datahub.ingestion.source.sql.hana.constants import (
     CalcViewXmlAttribute,
     CalcViewXmlElement,
     ColumnEdgeKind,
+    HanaSourceType,
     OutputMappingKind,
 )
 from datahub.ingestion.source.sql.hana.models import (
@@ -53,15 +54,20 @@ class SAPCalculationViewParser:
         if root is None:
             return []
         model = self._build_model(view_name, root)
-        return [
-            ColumnLineage(
-                downstream_column=output_id,
-                upstreams=self._find_all_sources(
-                    model, output.source_column, output.source_node, set()
-                ),
+        lineage: List[ColumnLineage] = []
+        for output_id, output in model.outputs.items():
+            if output.source_column is None or output.source_node is None:
+                lineage.append(ColumnLineage(downstream_column=output_id, upstreams=[]))
+                continue
+            lineage.append(
+                ColumnLineage(
+                    downstream_column=output_id,
+                    upstreams=self._find_all_sources(
+                        model, output.source_column, output.source_node, set()
+                    ),
+                )
             )
-            for output_id, output in model.outputs.items()
-        ]
+        return lineage
 
     def script_view_definitions(
         self, view_name: str, view_definition: str
@@ -127,9 +133,9 @@ class SAPCalculationViewParser:
     ) -> List[UpstreamColumnRef]:
         """Walk the DAG to find leaf source columns for ``column``.
 
-        ``visited`` tracks ``(node, column)`` pairs along the current path:
-        cycles are detected, but formulas can still re-enter the same node
-        with a different ``column``.
+        ``visited`` tracks ``(node, column)`` pairs along the current path
+        with push/pop semantics: cycles are detected, but formulas can
+        still re-enter the same node with a different ``column``.
         """
         key = (node, column)
         if key in visited:
@@ -138,7 +144,10 @@ class SAPCalculationViewParser:
 
         node_info = model.nodes.get(node)
         if node_info is None:
-            return self._resolve_leaf(model, column, node)
+            try:
+                return self._resolve_leaf(model, column, node)
+            finally:
+                visited.discard(key)
 
         sources: List[UpstreamColumnRef] = []
         try:
@@ -146,21 +155,17 @@ class SAPCalculationViewParser:
                 for branch in node_info.union_branches:
                     edge = node_info.branches.get(branch, {}).get(column)
                     if edge is not None:
-                        sources.extend(
-                            self._traverse(model, edge, branch, visited.copy())
-                        )
+                        sources.extend(self._traverse(model, edge, branch, visited))
             else:
                 for branch, branch_cols in node_info.branches.items():
                     edge = branch_cols.get(column)
                     if edge is not None:
-                        sources.extend(
-                            self._traverse(model, edge, branch, visited.copy())
-                        )
+                        sources.extend(self._traverse(model, edge, branch, visited))
                 formula_expr = node_info.formulas.get(column)
                 if formula_expr is not None:
                     for ref_col in self._extract_columns_from_formula(formula_expr):
                         sources.extend(
-                            self._find_all_sources(model, ref_col, node, visited.copy())
+                            self._find_all_sources(model, ref_col, node, visited)
                         )
         except Exception as e:
             logger.warning(
@@ -170,6 +175,8 @@ class SAPCalculationViewParser:
                 e,
                 exc_info=True,
             )
+        finally:
+            visited.discard(key)
 
         return sources
 
@@ -185,7 +192,7 @@ class SAPCalculationViewParser:
             alias_id = model.source_aliases.get(node)
             if alias_id is not None:
                 source = model.sources.get(alias_id)
-        if source is None:
+        if source is None or source.name is None:
             return []
         return [
             UpstreamColumnRef(
@@ -207,31 +214,38 @@ class SAPCalculationViewParser:
             return [
                 source
                 for ref_col in self._extract_columns_from_formula(edge.source)
-                for source in self._find_all_sources(
-                    model, ref_col, branch, visited.copy()
-                )
+                for source in self._find_all_sources(model, ref_col, branch, visited)
             ]
-        return self._find_all_sources(model, edge.source, branch, visited.copy())
+        return self._find_all_sources(model, edge.source, branch, visited)
 
 
 def _collect_data_sources(xml: ET.Element, model: CalcViewModel) -> None:
     for child in xml.iter(CalcViewXmlElement.DATA_SOURCE):
-        source = DataSourceRef(type=child.attrib.get(CalcViewXmlAttribute.TYPE, ""))
+        type_attr = child.attrib.get(CalcViewXmlAttribute.TYPE)
+        if type_attr is None:
+            continue
+        try:
+            source_type = HanaSourceType(type_attr)
+        except ValueError:
+            # Unknown HANA source type: skip so downstream URN code only
+            # ever sees a known enum value.
+            continue
+
+        name: Optional[str] = None
+        path: Optional[str] = None
         for grandchild in child:
             if grandchild.tag == CalcViewXmlElement.COLUMN_OBJECT:
-                source.name = grandchild.attrib.get(
-                    CalcViewXmlAttribute.COLUMN_OBJECT_NAME, ""
-                )
-                source.path = grandchild.attrib.get(
-                    CalcViewXmlAttribute.SCHEMA_NAME, ""
-                )
+                name = grandchild.attrib.get(CalcViewXmlAttribute.COLUMN_OBJECT_NAME)
+                path = grandchild.attrib.get(CalcViewXmlAttribute.SCHEMA_NAME)
             elif grandchild.tag == CalcViewXmlElement.RESOURCE_URI and grandchild.text:
                 # Reference to a calculation view stored in the design-time
                 # repository: ``/<package>/calculationviews/<view>`` →
                 # ``<view>`` plus the dot-joined package path.
-                leaf, package = _split_resource_uri(grandchild.text)
-                source.name = leaf
-                source.path = package
+                name, path = _split_resource_uri(grandchild.text)
+
+        source = DataSourceRef.model_validate(
+            {"type": source_type, "name": name or None, "path": path or None}
+        )
         ds_id = child.attrib[CalcViewXmlAttribute.ID]
         model.sources[ds_id] = source
         if source.name and source.name != ds_id:
@@ -270,19 +284,16 @@ def _collect_nodes(xml: ET.Element, model: CalcViewModel) -> None:
 
         node = CalcViewNode(id=node_id, type=node_type)
 
-        if node_type == CalcViewNodeType.UNION:
-            for input_el in child.iter(CalcViewXmlElement.INPUT):
-                branch = input_el.attrib[CalcViewXmlAttribute.NODE].split(
-                    INPUT_NODE_REF_SIGIL
-                )[-1]
+        # union_branches preserves sibling order so the DAG walker iterates
+        # them deterministically; branches holds mappings for all node types.
+        is_union = node_type == CalcViewNodeType.UNION
+        for input_el in child.iter(CalcViewXmlElement.INPUT):
+            branch = input_el.attrib[CalcViewXmlAttribute.NODE].split(
+                INPUT_NODE_REF_SIGIL
+            )[-1]
+            if is_union:
                 node.union_branches.append(branch)
-                node.branches[branch] = _read_input_mappings(input_el)
-        else:
-            for input_el in child.iter(CalcViewXmlElement.INPUT):
-                branch = input_el.attrib[CalcViewXmlAttribute.NODE].split(
-                    INPUT_NODE_REF_SIGIL
-                )[-1]
-                node.branches[branch] = _read_input_mappings(input_el)
+            node.branches[branch] = _read_input_mappings(input_el)
 
         for calc_attr in child.iter(CalcViewXmlElement.CALCULATED_VIEW_ATTRIBUTE):
             formula = calc_attr.find(CalcViewXmlElement.FORMULA)
@@ -308,12 +319,12 @@ def _build_output_mapping(
     kind: OutputMappingKind,
 ) -> OutputMapping:
     if mapping_element is None:
-        return OutputMapping(source_column="", source_node="", kind=kind)
+        return OutputMapping(kind=kind)
     return OutputMapping(
-        source_column=mapping_element.attrib.get(CalcViewXmlAttribute.COLUMN_NAME, ""),
-        source_node=mapping_element.attrib.get(
-            CalcViewXmlAttribute.COLUMN_OBJECT_NAME, ""
-        ),
+        source_column=mapping_element.attrib.get(CalcViewXmlAttribute.COLUMN_NAME)
+        or None,
+        source_node=mapping_element.attrib.get(CalcViewXmlAttribute.COLUMN_OBJECT_NAME)
+        or None,
         kind=kind,
     )
 
