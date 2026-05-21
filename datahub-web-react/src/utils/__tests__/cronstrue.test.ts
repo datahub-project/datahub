@@ -1,10 +1,10 @@
-import cronstrue from 'cronstrue/i18n';
+import cronstrue from 'cronstrue';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
-vi.mock('cronstrue/i18n', () => ({
+vi.mock('cronstrue', () => ({
     default: { toString: vi.fn() },
 }));
 
@@ -24,7 +24,7 @@ describe('cronToString', () => {
 
         cronToString('0 9 * * *');
 
-        expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * *', { locale: 'de' });
+        expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * *', { trimHoursLeadingZero: true, locale: 'de' });
     });
 
     it('forwards additional options alongside the locale', () => {
@@ -33,6 +33,7 @@ describe('cronToString', () => {
         cronToString('0 9 * * 1-5', { use24HourTimeFormat: true });
 
         expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * 1-5', {
+            trimHoursLeadingZero: true,
             use24HourTimeFormat: true,
             locale: 'en',
         });
