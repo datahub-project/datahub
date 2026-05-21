@@ -12,6 +12,7 @@ import com.datahub.authentication.authenticator.DataHubTokenAuthenticatorTest;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -20,6 +21,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Date;
 import java.util.Map;
 import org.mockito.Mockito;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -36,6 +38,17 @@ public class StatefulTokenServiceTest {
     PathSpecBasedSchemaAnnotationVisitor.class
         .getClassLoader()
         .setClassAssertionStatus(PathSpecBasedSchemaAnnotationVisitor.class.getName(), false);
+  }
+
+  @BeforeMethod
+  public void resetMockService() {
+    Mockito.reset(mockService);
+    Mockito.when(mockService.exists(any(OperationContext.class), any(Urn.class), eq(true)))
+        .thenAnswer(
+            invocation -> {
+              final Urn urn = invocation.getArgument(1);
+              return Constants.ACCESS_TOKEN_ENTITY_NAME.equals(urn.getEntityType());
+            });
   }
 
   @Test

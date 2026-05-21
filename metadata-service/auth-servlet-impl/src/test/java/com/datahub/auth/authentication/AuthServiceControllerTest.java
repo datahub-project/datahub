@@ -68,8 +68,16 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @BeforeMethod
-  public void stubSessionEligibility() {
-    reset(mockUserSessionEligibilityChecker);
+  public void resetSharedMocks() {
+    reset(
+        mockUserSessionEligibilityChecker,
+        mockTokenService,
+        mockNativeUserService,
+        mockInviteTokenService,
+        mockConfigProvider,
+        mockEntityService,
+        mockSecretService,
+        mockTrackingService);
     when(mockUserSessionEligibilityChecker.checkEligibility(
             any(OperationContext.class), anyString(), anyBoolean()))
         .thenReturn(Optional.empty());
@@ -222,7 +230,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
   }
 
   @Test
-  public void testRevokeSessionTokenRejectsNonSessionToken() {
+  public void testRevokeSessionTokenRejectsNonSessionToken() throws Exception {
     final String accessToken = "personal-token";
     when(mockTokenService.validateAccessToken(accessToken))
         .thenReturn(
