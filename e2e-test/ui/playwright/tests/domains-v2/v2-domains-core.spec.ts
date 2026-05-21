@@ -17,6 +17,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { NestedDomainsPage } from '../../pages/domains/nested-domains.page';
+import { withRandomSuffix } from '../../utils/random';
 
 const MARKETING_DOMAIN_URN = 'urn:li:domain:marketing';
 const DOMAIN_URL_PATTERN = '/domain/';
@@ -47,19 +48,12 @@ test.describe('Domains V2 Core', () => {
     await expect(domainsPage.browseV2Container).toBeVisible();
   });
 
-  test('Verify Create a new domain', async ({ page, logger }) => {
-    const newDomainName = `CreateDomain${Date.now()}`;
+  test('Verify Create a new domain', async ({ page, logger, cleanup }) => {
+    const newDomainName = withRandomSuffix('CreateDomain');
     const domainsPage = new NestedDomainsPage(page, logger);
 
-    try {
-      await domainsPage.createDomain(newDomainName);
-    } finally {
-      const lowerName = newDomainName.toLowerCase().replace(/\s+/g, '');
-      const domainUrn = `urn:li:domain:${lowerName}`;
-      await page.goto(`${DOMAIN_URL_PATTERN}${domainUrn}`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      await page.waitForLoadState('load').catch(() => {});
-      await domainsPage.deleteDomain().catch(() => {});
-    }
+    const domainUrn = await domainsPage.createDomain(newDomainName);
+    cleanup.track(domainUrn);
   });
 
   test('Verify domain list displays', async ({ page, logger }) => {
