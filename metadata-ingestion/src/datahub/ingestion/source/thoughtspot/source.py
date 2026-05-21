@@ -146,6 +146,18 @@ def _looks_like_guid(s: str) -> bool:
     return bool(_GUID_RE.match(s))
 
 
+def _looks_like_login(s: str) -> bool:
+    """Return True iff ``s`` could plausibly be a corpuser login.
+
+    TS endpoints sometimes surface the display name ("John Doe") in
+    ``author.name`` when the login wasn't separately exposed via
+    ``authorName``. Constructing ``urn:li:corpuser:John Doe`` yields a
+    malformed URN that DataHub silently drops; reject any candidate with
+    whitespace before it reaches ``make_user_urn``.
+    """
+    return bool(s) and not any(c.isspace() for c in s)
+
+
 class _HasAuthor(Protocol):
     """Structural type for any TS response that may carry author info.
 
@@ -174,6 +186,8 @@ def _resolve_author_login(metadata: _HasAuthor) -> Optional[str]:
     if not login:
         return None
     if _looks_like_guid(login):
+        return None
+    if not _looks_like_login(login):
         return None
     return login
 
@@ -900,8 +914,10 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         if not self.config.include_ownership:
             return
         owner = author_name or (author.name if author else None)
-        if not owner or _looks_like_guid(owner):
-            return  # No login, or canonical GUID — not a real login
+        if not owner or _looks_like_guid(owner) or not _looks_like_login(owner):
+            # No login, canonical GUID, or display-name-with-whitespace
+            # (would yield a malformed corpuser URN).
+            return
         owner_urn = make_user_urn(owner)
         entity.set_owners([(CorpUserUrn(owner_urn), OwnershipTypeClass.DATAOWNER)])
 

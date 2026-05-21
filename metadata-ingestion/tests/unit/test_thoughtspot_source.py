@@ -849,7 +849,8 @@ class TestThoughtSpotSourceCustomProperties:
 
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_custom_properties_extracts_author_name(self, mock_client_class):
-        """Test that author name is extracted from nested structure."""
+        """When author.name carries a real login (no whitespace), it
+        surfaces as the ``author`` custom property."""
         mock_client_class.return_value = MagicMock()
 
         config_dict = {
@@ -862,7 +863,7 @@ class TestThoughtSpotSourceCustomProperties:
                 },
             }
         }
-        config = ThoughtSpotConfig.parse_obj(config_dict)
+        config = ThoughtSpotConfig.model_validate(config_dict)
         ctx = PipelineContext(run_id="test-run")
         source = ThoughtSpotSource(config, ctx)
 
@@ -871,7 +872,7 @@ class TestThoughtSpotSourceCustomProperties:
             name="Test Object",
             author=ThoughtSpotAuthor(
                 id="user123",
-                name="John Doe",
+                name="john.doe",
                 email="john@example.com",
             ),
         )
@@ -879,7 +880,48 @@ class TestThoughtSpotSourceCustomProperties:
         props = source._extract_custom_properties(metadata)
 
         assert "author" in props
-        assert props["author"] == "John Doe"
+        assert props["author"] == "john.doe"
+
+    @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
+    def test_custom_properties_skips_display_name_in_author_name(
+        self, mock_client_class
+    ):
+        """When author.name is a display name (whitespace), reject it as
+        a login candidate — otherwise we'd emit a malformed
+        ``urn:li:corpuser:John Doe`` aspect that DataHub silently drops.
+
+        This is the defensive complement to the GUID-shaped guard:
+        canonical-GUID and display-name-with-whitespace both indicate
+        ``author.name`` is not a usable login.
+        """
+        mock_client_class.return_value = MagicMock()
+
+        config_dict = {
+            "connection": {
+                "base_url": "https://example.thoughtspot.cloud",
+                "auth": {
+                    "type": "trusted",
+                    "username": "testuser",
+                    "secret_key": "test_token",
+                },
+            }
+        }
+        config = ThoughtSpotConfig.model_validate(config_dict)
+        ctx = PipelineContext(run_id="test-run")
+        source = ThoughtSpotSource(config, ctx)
+
+        metadata = WorkspaceResponse(
+            id="obj123",
+            name="Test Object",
+            author=ThoughtSpotAuthor(
+                id="user123",
+                name="John Doe",  # display name, not login
+                email="john@example.com",
+            ),
+        )
+
+        props = source._extract_custom_properties(metadata)
+        assert "author" not in props
 
 
 class TestThoughtSpotSourceOwnership:
