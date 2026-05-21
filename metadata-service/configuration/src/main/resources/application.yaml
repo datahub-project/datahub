@@ -200,6 +200,8 @@ entityService:
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
+    applyOnPolicyChange: ${ENTITY_SERVICE_RETENTION_APPLY_ON_POLICY_CHANGE:true}
+    overwriteNonSystemPolicies: ${ENTITY_SERVICE_RETENTION_OVERWRITE_NON_SYSTEM_POLICIES:false}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
@@ -1177,6 +1179,7 @@ featureFlags:
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
@@ -1364,6 +1367,13 @@ graphQL:
     # Minimum number of GraphQL errors to trigger logging (set to 1 to log any error)
     # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
     errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
+
+  # OpenTelemetry instrumentation for GraphQL operations and data fetchers
+  # Requires ENABLE_OTEL=true and a configured OTEL exporter
+  otel:
+    # Enable/disable GraphQL OTel instrumentation
+    # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
+    enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
 
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}

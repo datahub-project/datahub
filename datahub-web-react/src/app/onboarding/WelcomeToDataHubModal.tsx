@@ -104,6 +104,32 @@ export const WelcomeToDataHubModal = () => {
         setVideosReady((prev) => ({ ...prev, [videoKey]: true }));
     };
 
+    // Keyboard navigation: Left/Right cycle slides, Escape closes the modal.
+    // Bound at document level because focus inside the modal sits on a non-carousel
+    // element (close button / body), so react-slick's built-in handler never fires.
+    useEffect(() => {
+        if (!shouldShow) return undefined;
+
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                carouselRef.current?.prev();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                carouselRef.current?.next();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeTour('escape_key');
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+        // closeTour is stable for the lifetime of an open modal; depending on currentSlide
+        // would re-bind on every slide change without changing behavior.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shouldShow]);
+
     // Track page view when modal opens
     useEffect(() => {
         if (shouldShow && !hasTrackedView.current) {
@@ -162,6 +188,7 @@ export const WelcomeToDataHubModal = () => {
                 title={WELCOME_TO_DATAHUB_MODAL_TITLE}
                 width={MODAL_WIDTH}
                 onCancel={() => closeTour('close_button')}
+                keyboard={false}
                 buttons={[
                     {
                         text: 'Get Started',
@@ -192,6 +219,7 @@ export const WelcomeToDataHubModal = () => {
             title={WELCOME_TO_DATAHUB_MODAL_TITLE}
             width={MODAL_WIDTH}
             onCancel={() => closeTour('close_button')}
+            keyboard={false}
             buttons={[]}
             zIndex={ANT_NOTIFICATION_Z_INDEX + 2} // 2 higher because home settings button is 1 higher
         >

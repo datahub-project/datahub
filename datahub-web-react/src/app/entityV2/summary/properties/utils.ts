@@ -22,6 +22,7 @@ export function assetPropertyToMenuItem(
 const SUMMARY_ELEMENT_TYPE_TO_NAME = {
     [SummaryElementType.Created]: 'Created',
     [SummaryElementType.LastModified]: 'Last Modified',
+    [SummaryElementType.LastIngested]: 'Last Synced', // intentional UX rename: "Last Synced" is clearer to end users than "Last Ingested"
     [SummaryElementType.Domain]: 'Domain',
     [SummaryElementType.GlossaryTerms]: 'Glossary Terms',
     [SummaryElementType.Owners]: 'Owners',

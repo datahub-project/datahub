@@ -6,6 +6,8 @@ import {
     FilterContainer,
     FiltersHeader,
     ModalFooter,
+    PageContainer,
+    PaginationContainer,
     SearchContainer,
     TableContainer,
     UserActionsMenu,
@@ -157,7 +159,7 @@ export const UserList = () => {
     ];
 
     return (
-        <>
+        <PageContainer>
             {!data && loading && <Message type="loading" content="Loading users..." />}
             {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
 
@@ -203,7 +205,7 @@ export const UserList = () => {
                 {usersList.length > 0 ? (
                     <>
                         <Table columns={columns} data={usersList} isLoading={loading} isScrollable />
-                        <div style={{ padding: '8px 20px 0 20px', display: 'flex', justifyContent: 'center' }}>
+                        <PaginationContainer>
                             <Pagination
                                 currentPage={page}
                                 itemsPerPage={pageSize}
@@ -217,7 +219,7 @@ export const UserList = () => {
                                 showSizeChanger
                                 pageSizeOptions={[10, 25, 50, 100]}
                             />
-                        </div>
+                        </PaginationContainer>
                     </>
                 ) : (
                     <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -273,6 +275,6 @@ export const UserList = () => {
                     })()}
                 </Modal>
             )}
-        </>
+        </PageContainer>
     );
 };
