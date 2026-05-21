@@ -223,15 +223,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
     def _resolve_domain_for_listing(
         self, listing: SnowflakeMarketplaceListing
     ) -> Optional[str]:
-        """Map a marketplace organization to an existing DataHub domain.
+        """Look up the configured DataHub domain for a marketplace organization.
 
-        Returns the URN of a user-configured domain when
-        ``marketplace.organization_to_domain`` maps this organization, ``None``
-        otherwise. The handler intentionally never auto-creates domain
-        entities — doing so previously minted a separate domain per
-        ``(name, platform, platform_instance)`` tuple and orphaned them
-        against the rest of the Snowflake pipeline (which resolves by name
-        via ``DomainRegistry``).
+        Returns ``None`` when no mapping exists; never auto-creates domains,
+        which previously orphaned a per-``(name, platform, instance)`` domain
+        against the rest of the pipeline.
         """
         org_name = listing.organization_profile_name
         if not org_name:
@@ -939,17 +935,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         )
 
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
-        """Emit a marketplace listing as a Data Product, routing every
-        editable aspect through ``DataProductPatchBuilder``.
-
-        The connector forces ``name``, ``description``, and ``externalUrl``
-        from the listing (they are the source of truth for marketplace
-        entities). Owners, custom properties, structured properties, assets,
-        and institutional memory links are added as additive patches so
-        UI-added or pipeline-added entries on the same Data Product survive
-        re-ingest. ``Domain`` is emitted as a one-shot CREATE only when the
-        user has mapped this organization via
-        ``marketplace.organization_to_domain``.
+        """Emit each marketplace listing as a Data Product via
+        ``DataProductPatchBuilder``. ``name``, ``description``, and
+        ``externalUrl`` are set as field-level patches (the listing is the
+        source of truth); owners, custom/structured properties, assets, and
+        documentation links are added additively so UI edits survive re-runs.
+        ``Domain`` is emitted as a one-shot CREATE only when the listing
+        organization is mapped via ``marketplace.organization_to_domain``.
         """
         for listing in self._marketplace_listings.values():
             data_product_key = self.identifiers.gen_marketplace_data_product_key(
@@ -1228,11 +1220,9 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         if not listing_names:
             return
 
-        # Marketplace usage is a secondary signal for shared datasets; the
-        # main usage extractor owns these assets and asserts the
-        # ``(urn, timestampMillis, DAY)`` keys for them. Emitting zero-usage
-        # padding here would compete with the main extractor's real numbers
-        # and inflate workunit volume by ~30N (window-days × assets) per run.
+        # No auto_empty_dataset_usage_statistics wrapper: the regular usage
+        # extractor already emits the (urn, timestampMillis, DAY) keys for
+        # these shared datasets, so padding here would double-write per run.
         yield from self._marketplace_usage_workunits(
             start_time, end_time, listing_names
         )
