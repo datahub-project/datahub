@@ -23,10 +23,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Reuse the parsing/graph helpers from bump_schema_versions.py.
-# Read-only consumption; the source module is intentionally untouched.
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import bump_schema_versions as bsv  # noqa: E402
+# Sibling import: `.github/scripts/` is on sys.path[0] via Python's
+# script-directory rule when this file is invoked as a script.
+import bump_schema_versions as bsv
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PDL_PREFIX = "metadata-models/src/main/pegasus"
@@ -58,7 +57,7 @@ def resolve_base(head: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# PDL parsing (heuristic, ported from .claude/local/check_pdl_aspects.py)
+# PDL parsing (heuristic)
 # ---------------------------------------------------------------------------
 
 _DOC_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
