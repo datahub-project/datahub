@@ -357,6 +357,70 @@ public class StructuredPropertyUtils {
   }
 
   /**
+   * Returns property URNs whose structured property entity does not exist (hard-deleted) or has no
+   * {@code propertyDefinition} aspect.
+   */
+  @Nonnull
+  public static Set<Urn> getMissingPropertyDefinitionUrns(
+      @Nonnull Set<Urn> propertyUrns, @Nonnull AspectRetriever aspectRetriever) {
+    if (propertyUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+
+    final Map<Urn, Boolean> existsMap = aspectRetriever.entityExists(propertyUrns);
+    final Set<Urn> existing =
+        propertyUrns.stream()
+            .filter(urn -> Boolean.TRUE.equals(existsMap.get(urn)))
+            .collect(Collectors.toSet());
+
+    final Set<Urn> missing = new HashSet<>(propertyUrns);
+    missing.removeAll(existing);
+
+    if (!existing.isEmpty()) {
+      final Map<Urn, Map<String, Aspect>> definitionAspects =
+          aspectRetriever.getLatestAspectObjects(
+              existing, ImmutableSet.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+      existing.stream()
+          .filter(
+              propertyUrn ->
+                  !definitionAspects
+                      .getOrDefault(propertyUrn, Collections.emptyMap())
+                      .containsKey(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+          .forEach(missing::add);
+    }
+
+    return missing;
+  }
+
+  /**
+   * Removes assignments whose property definition is missing. Returns the filtered aspect and the
+   * dropped property URNs.
+   */
+  @Nonnull
+  public static Pair<StructuredProperties, Set<Urn>> filterMissingPropertyDefinitions(
+      @Nonnull StructuredProperties structuredProperties,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (!structuredProperties.hasProperties() || structuredProperties.getProperties().isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Set<Urn> missingPropertyUrns =
+        getMissingPropertyDefinitionUrns(
+            structuredProperties.getProperties().stream()
+                .map(StructuredPropertyValueAssignment::getPropertyUrn)
+                .collect(Collectors.toSet()),
+            aspectRetriever);
+
+    if (missingPropertyUrns.isEmpty()) {
+      return Pair.of(structuredProperties, Collections.emptySet());
+    }
+
+    final Pair<StructuredPropertyValueAssignmentArray, Boolean> filtered =
+        filterValueAssignment(structuredProperties.getProperties(), missingPropertyUrns);
+    return Pair.of(structuredProperties.setProperties(filtered.getFirst()), missingPropertyUrns);
+  }
+
+  /**
    * Given a collection of structured properties, return the structured properties with soft deleted
    * assignments removed
    *
