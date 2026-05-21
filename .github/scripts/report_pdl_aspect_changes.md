@@ -22,13 +22,13 @@ python3 .github/scripts/report_aspect_changes.py [OPTIONS]
 
 ### Options
 
-| Flag            | Default                                                                                                                           | Description                                                                                                                                                                                                                                                                                           |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--base REF`    | latest `v1.0*` non-rc tag reachable from `--head`, resolved via `git describe --tags --match 'v1.0*' --exclude '*rc*' --abbrev=0` | Baseline git ref. Accepts any tag, branch, commit SHA, or ref-spec.                                                                                                                                                                                                                                   |
-| `--head REF`    | `HEAD`                                                                                                                            | Head git ref. Accepts any tag, branch, commit SHA, or ref-spec.                                                                                                                                                                                                                                       |
-| `--output FILE` | stdout                                                                                                                            | Write the markdown report to a file (use `"$GITHUB_STEP_SUMMARY"` in CI).                                                                                                                                                                                                                             |
-| `--per-pr`      | off                                                                                                                               | Run the classifier on each PDL-touching commit in `base..head` _in isolation_ (`parent..commit` slice) and aggregate the verdicts. Catches the per-PR `bump_spurious` anti-pattern that wide cumulative windows mask. Slower (~0.5s per PR slice) but enforces the v→v+1-per-justifying-PR invariant. |
-| `-h` / `--help` | —                                                                                                                                 | Show help and exit.                                                                                                                                                                                                                                                                                   |
+| Flag            | Default                                                                                                                                                                                                                                                                                                                                                   | Description                                                                                                                                                                                                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--base REF`    | latest stable `-cloud` release tag in the repo (global version-sorted lookup via `git tag --list 'v*-cloud' --sort=-v:refname`, with rc tags filtered out). Falls back to the latest `-cloud` tag (rc accepted) if no stable release has shipped yet. Independent of `--head` ancestry — stable releases on parallel hotfix branches are correctly found. | Baseline git ref. Accepts any tag, branch, commit SHA, or ref-spec.                                                                                                                                                                                                                                   |
+| `--head REF`    | `acryl-main`                                                                                                                                                                                                                                                                                                                                              | Head git ref. Accepts any tag, branch, commit SHA, or ref-spec.                                                                                                                                                                                                                                       |
+| `--output FILE` | stdout                                                                                                                                                                                                                                                                                                                                                    | Write the markdown report to a file (use `"$GITHUB_STEP_SUMMARY"` in CI).                                                                                                                                                                                                                             |
+| `--per-pr`      | off                                                                                                                                                                                                                                                                                                                                                       | Run the classifier on each PDL-touching commit in `base..head` _in isolation_ (`parent..commit` slice) and aggregate the verdicts. Catches the per-PR `bump_spurious` anti-pattern that wide cumulative windows mask. Slower (~0.5s per PR slice) but enforces the v→v+1-per-justifying-PR invariant. |
+| `-h` / `--help` | —                                                                                                                                                                                                                                                                                                                                                         | Show help and exit.                                                                                                                                                                                                                                                                                   |
 
 ### Environment variables
 
@@ -37,7 +37,8 @@ None. PDL roots are pinned to `metadata-models/src/main/pegasus/` (matching the 
 ### Examples
 
 ```bash
-# Default: auto-resolves the v1.0.x baseline, prints to stdout
+# Default: compares acryl-main vs. the latest stable `-cloud` release tag,
+# prints to stdout. No flags needed — defaults self-maintain across releases.
 python3 .github/scripts/report_aspect_changes.py
 
 # Pin both refs explicitly (canonical v1.1.0 baseline → branch)
@@ -77,13 +78,17 @@ python3 .github/scripts/report_aspect_changes.py --output report.md
 
 ### Step 1 — Resolve baseline
 
-If `--base` is omitted, the tool runs:
+If `--base` is omitted, the tool first tries:
 
 ```
-git describe --tags --match 'v1.0*' --exclude '*rc*' --abbrev=0 <head>
+git tag --list 'v*-cloud' --sort=-v:refname
 ```
 
-to find the most recent `v1.0*` non-rc tag reachable from `--head`. Auto-rolls forward as new `v1.0.x` tags land; no code change required.
+then filters out any tag whose name contains `rc`, and returns the first remaining tag (highest version stable `-cloud` release). If every matching tag is an rc tag (e.g., early in a new release cycle before any stable has shipped), it falls back to the same lookup **without** the rc filter, returning the latest `-cloud` tag of any kind.
+
+**Why a global tag enumeration rather than `git describe`?** Stable `-cloud` releases in this repo are typically cut on parallel hotfix branches (e.g. `origin/hotfixes/v1.0.0`) that are **not ancestors of `acryl-main`**. An ancestry-based lookup via `git describe` would never see them. The global `git tag --list` lookup finds the latest shipped release regardless of branch topology.
+
+Customer-suffix tags (e.g. `-crucible-trustpilot`, `-raleigh`) are excluded by construction via the `v*-cloud` match pattern. The defaults self-adjust as new releases ship — no code change at release-cut.
 
 ### Step 2 — List changed PDL files
 

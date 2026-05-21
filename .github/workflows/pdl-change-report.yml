@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       base:
-        description: "Base ref (tag/branch/commit). Leave blank to auto-resolve latest v1.0* non-rc tag."
+        description: "Base ref (tag/branch/commit). Leave blank to auto-resolve the latest stable -cloud release tag in the repo (falls back to latest -cloud tag if no stable release exists yet). Independent of --head ancestry."
         required: false
         default: ""
       head:
-        description: "Head ref. Defaults to the branch the workflow is run from."
+        description: "Head ref (tag/branch/commit). Leave blank to default to acryl-main."
         required: false
         default: ""
       per_pr:

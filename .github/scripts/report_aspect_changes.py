@@ -2,9 +2,10 @@
 """
 Report @Aspect PDL breaking changes between two git refs.
 
-By default, compares the current branch HEAD against the most recent v1.0*
-non-rc tag reachable from it. Used during the v1.1.0 release window to monitor
-aspect-level breaking changes across the 1.0.x → 1.1.x transition.
+By default, compares `acryl-main` against the latest stable `-cloud` release
+tag reachable from it (falling back to the latest `-cloud` tag if no stable
+release exists yet). Used to audit aspect-level breaking changes across any
+release window — the defaults self-adjust as new releases ship.
 
 Usage:
     python3 .github/scripts/report_aspect_changes.py
@@ -31,29 +32,61 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PDL_PREFIX = "metadata-models/src/main/pegasus"
 
 
-def resolve_base(head: str) -> str:
-    """Pick the most recent v1.0* non-rc tag reachable from `head`."""
+def _latest_tag(
+    match: str, *, exclude_substr: Optional[str] = None
+) -> Optional[str]:
+    """Return the latest tag (version-sorted descending) matching `match`.
+
+    Uses `git tag --list --sort=-v:refname` for a global tag enumeration —
+    no ancestry constraint. Release tags in this repo often live on parallel
+    hotfix branches that aren't ancestors of trunk, so an ancestry-based
+    lookup (`git describe --abbrev=0`) would miss them. Pass `exclude_substr`
+    to skip tags whose names contain a substring (e.g. "rc"). Returns None
+    if no matching tag is found or git fails.
+    """
     try:
-        return subprocess.check_output(
-            [
-                "git",
-                "describe",
-                "--tags",
-                "--match",
-                "v1.0*",
-                "--exclude",
-                "*rc*",
-                "--abbrev=0",
-                head,
-            ],
+        out = subprocess.check_output(
+            ["git", "tag", "--list", match, "--sort=-v:refname"],
             text=True,
             cwd=REPO_ROOT,
-        ).strip()
-    except subprocess.CalledProcessError:
-        raise SystemExit(
-            f"Could not auto-resolve a v1.0* baseline ancestor of {head}. "
-            "Pass --base explicitly."
+            stderr=subprocess.DEVNULL,
         )
+    except subprocess.CalledProcessError:
+        return None
+    for line in out.splitlines():
+        tag = line.strip()
+        if not tag:
+            continue
+        if exclude_substr and exclude_substr in tag:
+            continue
+        return tag
+    return None
+
+
+def resolve_base() -> str:
+    """Pick the latest stable `-cloud` release tag (global, version-sorted).
+
+    Looks across all tags in the repo, not just ancestors of any specific
+    ref. This is required because stable `-cloud` releases are typically
+    cut on parallel hotfix branches (e.g. `origin/hotfixes/v1.0.0`) that
+    aren't ancestors of `acryl-main`. An ancestry-based lookup would never
+    find them.
+
+    Falls back to the latest `-cloud` tag of any kind (rc accepted) if no
+    stable release exists yet. The defaults self-maintain across releases
+    — no hardcoded minor-version prefix to bump at every release cut.
+    """
+    stable = _latest_tag(match="v*-cloud", exclude_substr="rc")
+    if stable:
+        return stable
+    rc_fallback = _latest_tag(match="v*-cloud")
+    if rc_fallback:
+        return rc_fallback
+    raise SystemExit(
+        "Could not find any -cloud release tag in this repo. Tried "
+        "`git tag --list 'v*-cloud' --sort=-v:refname` with and without "
+        "the rc filter. Pass --base explicitly."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1681,9 +1714,19 @@ def main(argv: list[str] | None = None) -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
-        "--base", default=None, help="baseline ref (default: latest v1.0* non-rc tag)"
+        "--base",
+        default=None,
+        help=(
+            "baseline ref (default: latest stable -cloud release tag in the "
+            "repo via global version-sorted tag lookup; falls back to latest "
+            "-cloud tag if no stable exists yet)"
+        ),
     )
-    p.add_argument("--head", default="HEAD", help="head ref (default: HEAD)")
+    p.add_argument(
+        "--head",
+        default="acryl-main",
+        help="head ref (default: acryl-main)",
+    )
     p.add_argument(
         "--output", default=None, help="write markdown to FILE (default: stdout)"
     )
@@ -1698,7 +1741,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = p.parse_args(argv)
 
-    base = args.base or resolve_base(args.head)
+    base = args.base or resolve_base()
     head_sha = _head_sha(args.head)
 
     if args.per_pr:

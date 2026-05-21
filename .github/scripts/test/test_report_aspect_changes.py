@@ -1,6 +1,5 @@
 """Tests for report_aspect_changes.py"""
 
-import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -11,32 +10,81 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import report_aspect_changes as rac
 
 
-def test_resolve_base_returns_tag_from_git_describe():
-    with patch("subprocess.check_output", return_value="v1.0.1-crucible-trustpilot\n"):
-        assert rac.resolve_base("HEAD") == "v1.0.1-crucible-trustpilot"
+def test_resolve_base_returns_latest_stable_cloud_tag_from_global_list():
+    """Happy path: `git tag --list` returns version-sorted tags; first non-rc
+    `-cloud` tag is returned. Verifies the global (ancestry-independent)
+    lookup — stable cloud releases are typically on parallel hotfix branches,
+    not ancestors of acryl-main, so an ancestry-based `git describe` would
+    miss them.
+    """
+    # Simulated `git tag --list 'v*-cloud' --sort=-v:refname` output: a mix of
+    # rc and stable tags, version-sorted descending. The filter should skip
+    # the rc tags at the top and return the first stable below them.
+    tag_list = "v1.1.0rc3-cloud\nv1.1.0rc2-cloud\nv1.1.0rc1-cloud\nv1.0.1-cloud\nv1.0.0-cloud\n"
+    with patch("subprocess.check_output", return_value=tag_list) as m:
+        assert rac.resolve_base() == "v1.0.1-cloud"
+    # Only one git invocation needed when stable lookup succeeds.
+    assert m.call_count == 1
 
 
-def test_resolve_base_invokes_git_describe_with_correct_args():
+def test_resolve_base_invokes_git_tag_list_with_sort_flag():
+    """First-pass call must use `git tag --list` (not `git describe`) with the
+    `-cloud` match pattern and version-sort flag — the ancestry-independent
+    enumeration is core to the fix.
+    """
     with patch("subprocess.check_output", return_value="v1.0.1-cloud\n") as m:
-        rac.resolve_base("acryl-main")
+        rac.resolve_base()
     args = m.call_args[0][0]
-    assert args[:2] == ["git", "describe"]
-    assert "--tags" in args
-    assert "--match" in args
-    assert "v1.0*" in args
-    assert "--exclude" in args
-    assert "*rc*" in args
-    assert "--abbrev=0" in args
-    assert "acryl-main" in args
+    assert args[:3] == ["git", "tag", "--list"]
+    assert "v*-cloud" in args
+    assert "--sort=-v:refname" in args
 
 
-def test_resolve_base_raises_with_clear_message_when_no_ancestor():
-    err = subprocess.CalledProcessError(128, ["git"], stderr="no names found")
-    with patch("subprocess.check_output", side_effect=err):
+def test_resolve_base_falls_back_to_rc_when_no_stable_cloud():
+    """When no stable `-cloud` tag exists in the repo, fall back to the latest
+    `-cloud` tag of any kind (rc accepted). Handles the early-cycle case
+    before any stable release has shipped.
+    """
+    rc_only_list = "v1.1.0rc3-cloud\nv1.1.0rc2-cloud\nv1.1.0rc1-cloud\n"
+    # First call: same list, but rc filter excludes everything → empty result.
+    # Second call: no filter, returns the latest rc-cloud tag.
+    with patch(
+        "subprocess.check_output",
+        side_effect=[rc_only_list, rc_only_list],
+    ) as m:
+        assert rac.resolve_base() == "v1.1.0rc3-cloud"
+    # First lookup exhausted (all rc), second lookup succeeded without filter.
+    assert m.call_count == 2
+
+
+def test_resolve_base_raises_when_no_cloud_tag_in_repo():
+    """Both lookups return empty → SystemExit with diagnostic listing what
+    was tried.
+    """
+    with patch("subprocess.check_output", side_effect=["", ""]):
         with pytest.raises(SystemExit) as exc:
-            rac.resolve_base("HEAD")
-    assert "Could not auto-resolve" in str(exc.value)
-    assert "--base" in str(exc.value)
+            rac.resolve_base()
+    msg = str(exc.value)
+    assert "Could not find" in msg
+    assert "--base" in msg
+    # Diagnostic should mention the git command tried so user can reproduce.
+    assert "v*-cloud" in msg
+
+
+def test_resolve_base_rc_substring_filter_skips_rc_tags_only():
+    """The Python-side filter must skip rc tags but not stable tags. Verifies
+    the filtering logic (since git tag --list returns everything matching the
+    glob; the rc filter is done in Python, not by git).
+    """
+    # Mixed list — rc tags first (newest by version), stable tags after.
+    tag_list = (
+        "v1.1.0rc1-cloud\n"  # skip: contains "rc"
+        "v1.0.2rc2-cloud\n"  # skip: contains "rc"
+        "v1.0.1-cloud\n"  # ← first stable, should be picked
+        "v1.0.0-cloud\n"
+    )
+    with patch("subprocess.check_output", return_value=tag_list):
+        assert rac.resolve_base() == "v1.0.1-cloud"
 
 
 # ---------------------------------------------------------------------------
@@ -533,7 +581,7 @@ def test_main_cumulative_bucket_follows_per_pr_spurious_slice(monkeypatch, tmp_p
     monkeypatch.setattr(
         rac, "file_at", lambda ref, p: aspect_old if ref == "BASE" else aspect_new
     )
-    monkeypatch.setattr(rac, "resolve_base", lambda head: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -595,7 +643,7 @@ def test_main_cumulative_bucket_clean_when_all_slices_are_done(monkeypatch, tmp_
     monkeypatch.setattr(
         rac, "file_at", lambda ref, p: aspect_old if ref == "BASE" else aspect_new
     )
-    monkeypatch.setattr(rac, "resolve_base", lambda head: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -644,7 +692,7 @@ def test_main_cumulative_mode_still_overrides_when_promoting_to_needed_or_spurio
 
     monkeypatch.setattr(rac, "changed_pdls", lambda b, h: [aspect_path])
     monkeypatch.setattr(rac, "file_at", lambda ref, p: aspect_same)
-    monkeypatch.setattr(rac, "resolve_base", lambda head: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(rac, "latest_commit", lambda ref, p, base: "abc1 feat (#1234)")
     monkeypatch.setattr(rac, "pr_numbers_for_file", lambda *a: ["1234"])
@@ -1018,7 +1066,7 @@ def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
 
     monkeypatch.setattr(rac, "changed_pdls", fake_changed)
     monkeypatch.setattr(rac, "file_at", fake_file_at)
-    monkeypatch.setattr(rac, "resolve_base", lambda head: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(
         rac, "latest_commit", lambda ref, p, base: "abc1234 feat (#9999)"
@@ -1635,7 +1683,7 @@ def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
             return aspect_old if ref == "BASE" else aspect_new
         return nested_old if ref == "BASE" else nested_new
 
-    def fake_resolve(head):
+    def fake_resolve():
         return "BASE"
 
     def fake_head_sha(ref):
@@ -1815,7 +1863,7 @@ def test_render_per_pr_report_handles_empty_audit():
 def test_main_per_pr_flag_writes_per_pr_report(tmp_path, monkeypatch):
     """--per-pr swaps the renderer to render_per_pr_report. Stub out the
     git+audit machinery so the test is hermetic."""
-    monkeypatch.setattr(rac, "resolve_base", lambda head: "BASE")
+    monkeypatch.setattr(rac, "resolve_base", lambda: "BASE")
     monkeypatch.setattr(rac, "_head_sha", lambda ref: "sha123")
     monkeypatch.setattr(
         rac,
