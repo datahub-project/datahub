@@ -192,8 +192,6 @@ For on-premises DataHub Cloud, use your DataHub FQDN, e.g. `https://datahub.exam
 <details>
   <summary>Claude (web, desktop, mobile)</summary>
 
-Custom remote MCP connectors are available across claude.ai, Claude Desktop, and the mobile apps on **Free, Pro, Max, Team, and Enterprise** plans (Free plans are limited to one custom connector; on Team/Enterprise only Owners can add connectors org-wide).
-
 1. In claude.ai or Claude Desktop, open **Settings → Connectors** (Team/Enterprise: **Organization settings → Connectors**).
 2. Click **Add custom connector**.
 3. Name: `DataHub`. Remote MCP server URL: `https://mcp.datahub.com/mcp`. Leave the **Advanced settings** (OAuth Client ID / Secret) empty — DataHub registers the client automatically via DCR.
@@ -258,10 +256,6 @@ Custom MCP connectors require **Developer Mode** and are available on **Plus, Pr
 3. Name: `DataHub`. MCP server URL: `https://mcp.datahub.com/mcp`. Authentication: **OAuth**.
 4. Save. ChatGPT walks you through the OAuth flow — enter your DataHub domain and sign in. Pick which DataHub tools to enable for the connector.
 
-:::note
-ChatGPT requires HTTPS streamable-HTTP MCP servers (no local stdio). If a particular ChatGPT surface only supports SSE, use [`mcp-remote`](https://github.com/geelen/mcp-remote) as a local bridge.
-:::
-
 </details>
 
 <details>
@@ -282,10 +276,10 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
      ENABLED = TRUE;
    ```
 
-2. Create the external MCP server object:
+2. Create the MCP server object:
 
    ```sql
-   CREATE EXTERNAL MCP SERVER datahub_mcp_server
+   CREATE MCP SERVER datahub_mcp_server
      WITH DISPLAY_NAME = 'DataHub'
      URL = 'https://mcp.datahub.com/mcp'
      API_INTEGRATION = datahub_mcp_api_integration;
