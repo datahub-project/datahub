@@ -15,7 +15,7 @@ import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
-import { SuspenseBlock } from '@app/shared/SuspenseBlock';
+import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
 import { ErrorCodes } from '@app/shared/constants';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -110,7 +110,7 @@ export const InnerApp: React.VFC = () => {
                     <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router basename={getRuntimeBasePath()}>
-                    <Suspense fallback={<SuspenseBlock />}>
+                    <Suspense fallback={<SuspenseGlobal />}>
                         <Routes />
                     </Suspense>
                 </Router>

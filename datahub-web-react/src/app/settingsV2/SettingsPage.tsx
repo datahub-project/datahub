@@ -8,7 +8,7 @@ import { ToggleRight } from '@phosphor-icons/react/dist/csr/ToggleRight';
 import { Users } from '@phosphor-icons/react/dist/csr/Users';
 import { UsersThree } from '@phosphor-icons/react/dist/csr/UsersThree';
 import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Redirect, Route, Switch, useHistory, useLocation, useRouteMatch } from 'react-router';
 import styled from 'styled-components';
@@ -18,6 +18,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import NavBarMenu from '@app/homeV2/layout/navBarRedesign/NavBarMenu';
 import { NavBarMenuItemTypes, NavBarMenuItems } from '@app/homeV2/layout/navBarRedesign/types';
 import { DEFAULT_PATH, PATHS } from '@app/settingsV2/settingsPaths';
+import { SuspenseBlock } from '@app/shared/SuspenseBlock';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 import { Button } from '@src/alchemy-components';
@@ -78,7 +79,7 @@ const ContentContainer = styled.div`
     box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
-export const SettingsPage = () => {
+const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
@@ -274,10 +275,22 @@ export const SettingsPage = () => {
                         <Redirect to={`${pathname}${pathname.endsWith('/') ? '' : '/'}${DEFAULT_PATH.path}`} />
                     </Route>
                     {PATHS.map((p) => (
-                        <Route path={`${path}/${p.path}`} key={p.path} render={() => p.content} />
+                        <Route
+                            path={`${path}/${p.path}`}
+                            key={p.path}
+                            render={() => <Suspense fallback={<SuspenseBlock />}>{p.content}</Suspense>}
+                        />
                     ))}
                 </Switch>
             </ContentContainer>
         </PageContainer>
+    );
+};
+
+export const SettingsPage = () => {
+    return (
+        <Suspense fallback={<SuspenseBlock />}>
+            <SettingsPageContent />
+        </Suspense>
     );
 };
