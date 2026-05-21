@@ -86,10 +86,14 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # actually comes from the underlying Oracle sqlalchemy dialect.
     # https://github.com/sqlalchemy/sqlalchemy/blob/d9b4d8ff3aae504402d324f3ebf0b8faff78f5dc/lib/sqlalchemy/dialects/oracle/base.py#L2579
     "oracle",
-    # SAP HANA identifiers are case-insensitive unless quoted; unquoted
-    # identifiers are folded to uppercase by the server, but the calc-view
-    # XML and SYS.VIEW_COLUMNS reflection both surface them mixed-case.
-    "hana",
+    # NOTE: SAP HANA also folds unquoted identifiers to uppercase and is
+    # therefore semantically case-insensitive, but we deliberately do *not*
+    # add "hana" here. ``is_dialect_instance`` resolves "hana" through
+    # ``get_dialect_str`` to the Postgres sqlglot dialect (HANA has no
+    # dedicated dialect upstream), so any membership check would also
+    # match every other Postgres-dialect parse — flipping Postgres lineage
+    # to lowercase column names and breaking unrelated golden files. HANA
+    # column-case normalisation is handled at the connector level instead.
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
