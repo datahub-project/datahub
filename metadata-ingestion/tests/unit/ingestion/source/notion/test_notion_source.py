@@ -927,6 +927,19 @@ def test_icon_dispatcher_unknown_types_returns_none_for_named_icon():
     assert result is None
 
 
+def test_icon_dispatcher_handles_none_payload():
+    """Callout.from_dict passes data.pop('icon') (which can be None for
+    callouts with no icon) straight into Icon.from_dict — must not crash."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    assert Icon.from_dict(None) is None
+
+
 def test_icon_dispatcher_unknown_types_preserves_known_types():
     """Emoji and external icons must still parse correctly after the patch."""
     pytest.importorskip("unstructured_ingest")

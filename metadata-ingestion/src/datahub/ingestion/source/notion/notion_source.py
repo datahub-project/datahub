@@ -858,7 +858,12 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
             warned: Set[Optional[str]] = set()
             original_from_dict = Icon.from_dict.__func__
 
-            def patched_from_dict(cls: Type[Any], data: dict) -> Any:
+            def patched_from_dict(cls: Type[Any], data: Optional[dict]) -> Any:
+                # Notion returns icon=null on Callouts with no icon set;
+                # Callout.from_dict passes data.pop("icon") (which may be None)
+                # straight into Icon.from_dict, so handle the None case here.
+                if data is None:
+                    return None
                 t = data.get("type")
                 if t in ("emoji", "external"):
                     return original_from_dict(cls, data)
