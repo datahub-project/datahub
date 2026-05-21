@@ -2,6 +2,7 @@ import subprocess
 from typing import List
 
 import pytest
+import yaml
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -42,7 +43,7 @@ def starrocks_runner(docker_compose_runner, test_resources_dir):
         cmd = "docker exec -i teststarrocks mysql -h 127.0.0.1 -P 9030 -u root"
         with open(setup_sql) as f:
             subprocess.run(cmd, shell=True, stdin=f, check=True)
-        yield docker_services
+        yield docker_services.port_for("teststarrocks", STARROCKS_FE_PORT)
 
 
 @pytest.mark.integration
@@ -52,8 +53,17 @@ def test_starrocks_ingest(
     test_resources_dir,
     tmp_path,
 ):
-    # Run the metadata ingestion pipeline
-    config_file = (test_resources_dir / "starrocks_to_file.yml").resolve()
+    # Run the metadata ingestion pipeline against the mapped Docker host port.
+    with open(test_resources_dir / "starrocks_to_file.yml") as f:
+        recipe = yaml.safe_load(f)
+
+    recipe.setdefault("source", {}).setdefault("config", {})["host_port"] = (
+        f"localhost:{starrocks_runner}"
+    )
+    config_file = tmp_path / "starrocks_to_file.yml"
+    with open(config_file, "w") as f:
+        yaml.safe_dump(recipe, f, sort_keys=False)
+
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
 
     # Paths that may vary between runs
