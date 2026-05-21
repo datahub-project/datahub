@@ -1,18 +1,20 @@
 """Datahub Emitter classes used to emit prefect metadata to Datahub REST."""
 
-import asyncio
 import traceback
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, ClassVar, Dict, List, Optional, cast
 from uuid import UUID
 
 from prefect import get_run_logger
 from prefect.blocks.core import Block
 from prefect.client import cloud, orchestration
 from prefect.client.schemas import FlowRun, TaskRun, Workspace
+from prefect.client.schemas.filters import FlowRunFilter, FlowRunFilterId
 from prefect.client.schemas.objects import Flow
+from prefect.client.schemas.sorting import TaskRunSort
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
-from pydantic.v1 import SecretStr
+from prefect.utilities.asyncutils import run_coro_as_sync
+from pydantic import SecretStr
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -83,7 +85,7 @@ class DatahubEmitter(Block):
     Block used to emit prefect task and flow related metadata to Datahub REST
     """
 
-    _block_type_name: Optional[str] = "datahub emitter"
+    _block_type_name: ClassVar[Optional[str]] = "datahub emitter"
 
     datahub_rest_url: str = "http://localhost:8080"
     env: str = builder.DEFAULT_ENV
@@ -127,7 +129,7 @@ class DatahubEmitter(Block):
             The workspace name.
         """
         try:
-            asyncio.run(cloud.get_cloud_client().api_healthcheck())
+            run_coro_as_sync(cloud.get_cloud_client().api_healthcheck())
         except Exception:
             get_run_logger().debug(traceback.format_exc())
             return None
@@ -140,7 +142,7 @@ class DatahubEmitter(Block):
             return None
 
         current_workspace_id = PREFECT_API_URL.value().split("/")[-1]
-        workspaces: List[Workspace] = asyncio.run(
+        workspaces: List[Workspace] = run_coro_as_sync(
             cloud.get_cloud_client().read_workspaces()
         )
 
@@ -284,7 +286,7 @@ class DatahubEmitter(Block):
         assert flow_run_ctx.flow_run
 
         try:
-            flow: Flow = asyncio.run(get_flow(flow_run_ctx.flow_run.flow_id))
+            flow: Flow = run_coro_as_sync(get_flow(flow_run_ctx.flow_run.flow_id))
         except Exception:
             get_run_logger().debug(traceback.format_exc())
             return None
@@ -332,6 +334,54 @@ class DatahubEmitter(Block):
 
         return dataflow
 
+    async def _fetch_task_runs_page(
+        self,
+        flow_run_id: str,
+        offset: int,
+    ) -> List[TaskRun]:
+        # Prefect server hard-caps read_task_runs at 200 results/request.
+        client = orchestration.get_client()
+        flow_run_filter = FlowRunFilter(
+            id=FlowRunFilterId(any_=[flow_run_id])  # type: ignore[arg-type]
+        )
+        return await client.read_task_runs(
+            flow_run_filter=flow_run_filter,
+            sort=TaskRunSort.ID_DESC,
+            limit=200,
+            offset=offset,
+        )
+
+    async def _fetch_all_task_runs_stable(self, flow_run_id: str) -> List[TaskRun]:
+        # Prefect writes task_run state asynchronously; poll until count stabilises
+        # so in-flight writes are committed before we emit DataJobs.
+        import asyncio
+
+        async def _all_pages() -> List[TaskRun]:
+            runs: List[TaskRun] = []
+            offset = 0
+            while True:
+                batch = await self._fetch_task_runs_page(flow_run_id, offset)
+                runs.extend(batch)
+                if len(batch) < 200:
+                    break
+                offset += 200
+            return runs
+
+        prev_count = -1
+        stable_rounds = 0
+        result: List[TaskRun] = []
+        for _ in range(50):
+            await asyncio.sleep(0.1)
+            result = await _all_pages()
+            if len(result) == prev_count:
+                stable_rounds += 1
+                if stable_rounds >= 3:
+                    break
+            else:
+                stable_rounds = 0
+                prev_count = len(result)
+        return result
+
     def _emit_tasks(
         self,
         flow_run_ctx: FlowRunContext,
@@ -350,56 +400,90 @@ class DatahubEmitter(Block):
         try:
             assert flow_run_ctx.flow_run
 
-            graph_json = asyncio.run(
+            graph_json = run_coro_as_sync(
                 self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
             )
 
             if graph_json is None:
                 return
 
-            task_run_key_map: Dict[str, str] = {}
+            task_runs = run_coro_as_sync(
+                self._fetch_all_task_runs_stable(str(flow_run_ctx.flow_run.id))
+            )
 
-            for prefect_future in flow_run_ctx.task_run_futures:
-                if prefect_future.task_run is not None:
-                    task_run_key_map[str(prefect_future.task_run.id)] = (
-                        prefect_future.task_run.task_key
+            # task_run_id → task_key map for upstream dependency resolution.
+            task_run_key_map: Dict[str, str] = {
+                str(tr.id): tr.task_key for tr in task_runs
+            }
+
+            # graph_json can lag task_runs (async persistence) — use only for upstream lookup.
+            graph_node_map: Dict[str, Dict] = {node[ID]: node for node in graph_json}
+
+            for task_run in task_runs:
+                try:
+                    self._emit_single_task(
+                        task_run=task_run,
+                        flow_run_ctx=flow_run_ctx,
+                        dataflow=dataflow,
+                        task_run_key_map=task_run_key_map,
+                        graph_node_map=graph_node_map,
+                        workspace_name=workspace_name,
                     )
-
-            for node in graph_json:
-                datajob_urn = DataJobUrn.create_from_ids(
-                    data_flow_urn=str(dataflow.urn),
-                    job_id=task_run_key_map[node[ID]],
-                )
-
-                datajob: Optional[DataJob] = None
-
-                if str(datajob_urn) in self._datajobs_to_emit:
-                    datajob = cast(DataJob, self._datajobs_to_emit[str(datajob_urn)])
-                else:
-                    datajob = self._generate_datajob(
-                        flow_run_ctx=flow_run_ctx, task_key=task_run_key_map[node[ID]]
-                    )
-
-                if datajob is not None:
-                    for each in node[UPSTREAM_DEPENDENCIES]:
-                        upstream_task_urn = DataJobUrn.create_from_ids(
-                            data_flow_urn=str(dataflow.urn),
-                            job_id=task_run_key_map[each[ID]],
-                        )
-                        datajob.upstream_urns.extend([upstream_task_urn])
-
-                    datajob.emit(self.emitter)
-
-                    if workspace_name is not None:
-                        self._emit_browsepath(str(datajob.urn), workspace_name)
-
-                    self._emit_task_run(
-                        datajob=datajob,
-                        flow_run_name=flow_run_ctx.flow_run.name,
-                        task_run_id=UUID(node[ID]),
-                    )
+                except Exception:
+                    get_run_logger().debug(traceback.format_exc())
         except Exception:
             get_run_logger().debug(traceback.format_exc())
+
+    def _emit_single_task(
+        self,
+        task_run: TaskRun,
+        flow_run_ctx: FlowRunContext,
+        dataflow: DataFlow,
+        task_run_key_map: Dict[str, str],
+        graph_node_map: Dict[str, Dict],
+        workspace_name: Optional[str],
+    ) -> None:
+        task_key = task_run.task_key
+
+        datajob_urn = DataJobUrn.create_from_ids(
+            data_flow_urn=str(dataflow.urn),
+            job_id=task_key,
+        )
+
+        datajob: Optional[DataJob]
+        if str(datajob_urn) in self._datajobs_to_emit:
+            datajob = cast(DataJob, self._datajobs_to_emit[str(datajob_urn)])
+        else:
+            datajob = self._generate_datajob(
+                flow_run_ctx=flow_run_ctx, task_key=task_key
+            )
+
+        if datajob is None:
+            return
+
+        node = graph_node_map.get(str(task_run.id))
+        if node is not None:
+            for each in node[UPSTREAM_DEPENDENCIES]:
+                upstream_key = task_run_key_map.get(each[ID])
+                if upstream_key is None:
+                    continue
+                upstream_task_urn = DataJobUrn.create_from_ids(
+                    data_flow_urn=str(dataflow.urn),
+                    job_id=upstream_key,
+                )
+                datajob.upstream_urns.extend([upstream_task_urn])
+
+        datajob.emit(self.emitter)
+
+        if workspace_name is not None:
+            self._emit_browsepath(str(datajob.urn), workspace_name)
+
+        assert flow_run_ctx.flow_run
+        self._emit_task_run(
+            datajob=datajob,
+            flow_run_name=flow_run_ctx.flow_run.name,
+            task_run_id=task_run.id,
+        )
 
     def _emit_flow_run(self, dataflow: DataFlow, flow_run_id: UUID) -> None:
         """
@@ -415,17 +499,11 @@ class DatahubEmitter(Block):
 
         async def get_flow_run(flow_run_id: UUID) -> FlowRun:
             client = orchestration.get_client()
-
             if not hasattr(client, "read_flow_run"):
                 raise ValueError("Client does not support async read_flow_run method")
+            return await client.read_flow_run(flow_run_id=flow_run_id)
 
-            response_coroutine = client.read_flow_run(flow_run_id=flow_run_id)
-
-            response = await response_coroutine
-
-            return FlowRun.parse_obj(response)
-
-        flow_run: FlowRun = asyncio.run(get_flow_run(flow_run_id))
+        flow_run: FlowRun = run_coro_as_sync(get_flow_run(flow_run_id))
 
         assert flow_run
 
@@ -481,17 +559,11 @@ class DatahubEmitter(Block):
 
         async def get_task_run(task_run_id: UUID) -> TaskRun:
             client = orchestration.get_client()
-
             if not hasattr(client, "read_task_run"):
                 raise ValueError("Client does not support async read_task_run method")
+            return await client.read_task_run(task_run_id=task_run_id)
 
-            response_coroutine = client.read_task_run(task_run_id=task_run_id)
-
-            response = await response_coroutine
-
-            return TaskRun.parse_obj(response)
-
-        task_run: TaskRun = asyncio.run(get_task_run(task_run_id))
+        task_run: TaskRun = run_coro_as_sync(get_task_run(task_run_id))
 
         assert task_run
 
