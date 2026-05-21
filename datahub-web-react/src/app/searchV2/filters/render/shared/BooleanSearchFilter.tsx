@@ -1,25 +1,19 @@
-import { CaretDownFilled } from '@ant-design/icons';
-import { Dropdown } from 'antd';
+import { Dropdown, Pill } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 
-const IconNameWrapper = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 8px;
-    display: flex;
-    flex-direction: column;
+const MenuContainer = styled.div`
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1050;
 `;
 
 interface Props {
-    icon?: React.ReactNode;
     title: string;
     option: string;
     count: number;
@@ -27,7 +21,7 @@ interface Props {
     onUpdate: (newValue: boolean) => void;
 }
 
-export default function BooleanSearchFilter({ icon, title, option, count, initialSelected, onUpdate }: Props) {
+export default function BooleanSearchFilter({ title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
 
@@ -38,43 +32,35 @@ export default function BooleanSearchFilter({ icon, title, option, count, initia
         setIsMenuOpen(false);
     }
 
-    const filterOptions = [
-        {
-            key: option,
-            // Re-use the Normal Filter object
-            label: (
-                <FilterOption
-                    filterOption={{ field: title, value: option, count }}
-                    selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
-                    setSelectedFilterOptions={() => setIsSelected(!isSelected)}
-                />
-            ),
-            style: { padding: 0 },
-            displayName: title,
-        },
-    ];
-
     return (
         <Dropdown
-            trigger={['click']}
-            menu={{ items: filterOptions }}
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
-            dropdownRender={(menuOption) => (
-                <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} />
+            onOpenChange={(isOpen) => setIsMenuOpen(isOpen)}
+            dropdownRender={() => (
+                <MenuContainer>
+                    <BooleanSearchFilterMenu
+                        filterOption={
+                            <FilterOption
+                                filterOption={{ field: title, value: option, count }}
+                                selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
+                                setSelectedFilterOptions={() => setIsSelected(!isSelected)}
+                            />
+                        }
+                        onUpdate={updateSelected}
+                    />
+                </MenuContainer>
             )}
         >
-            <SearchFilterLabel
+            <SearchFilterBase
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                $isActive={isSelected}
+                isOpen={isMenuOpen}
+                isActive={isSelected}
                 data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
+                onClear={() => setIsSelected(false)}
+                showClear={isSelected}
             >
-                <IconNameWrapper>
-                    {icon && <IconWrapper>{icon}</IconWrapper>}
-                    {title} {isSelected ? `(1) ` : ''}
-                </IconNameWrapper>
-                <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
-            </SearchFilterLabel>
+                {title} {isSelected ? <Pill label="1" size="sm" variant="filled" /> : ''}
+            </SearchFilterBase>
         </Dropdown>
     );
 }

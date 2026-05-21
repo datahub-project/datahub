@@ -7,7 +7,7 @@ const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
 export const DEFAULT_SORT_OPTION = RELEVANCE;
 
 export const SORT_OPTIONS = {
-    [RELEVANCE]: { label: 'Relevance (Default)', field: RELEVANCE, sortOrder: SortOrder.Descending },
+    [RELEVANCE]: { label: 'Relevance', field: RELEVANCE, sortOrder: SortOrder.Descending },
     [`${ENTITY_NAME_FIELD}_${SortOrder.Ascending}`]: {
         label: 'Name A to Z',
         field: ENTITY_NAME_FIELD,

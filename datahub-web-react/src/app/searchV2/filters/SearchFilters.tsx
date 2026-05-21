@@ -69,15 +69,15 @@ const IconContainer = styled.div<{ isActive?: boolean }>`
     display: flex;
     padding: 4px;
     transition: left 0.5s ease;
-    color: ${(props) => props.theme.colors.textTertiary};
+    color: ${(props) => props.theme.colors.icon};
 
     ${(props) =>
         props.isActive &&
         `
-background: ${props.theme.colors.bgSurface};
- border-radius: 100%;
-color: ${props.theme.colors.textSecondary};
- `}
+        background: ${props.theme.colors.bgHover};
+        border-radius: 100%;
+        color: ${props.theme.colors.text};
+    `}
 `;
 
 const SelectedFiltersContainer = styled.div`

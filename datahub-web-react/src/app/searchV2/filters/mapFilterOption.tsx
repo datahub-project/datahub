@@ -5,11 +5,13 @@ import { FilterOptionType } from '@app/searchV2/filters/types';
 import { getFilterIconAndLabel } from '@app/searchV2/filters/utils';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
+import { Entity } from '@types';
+
 interface DisplayedFilterOption {
     key: string;
     label: React.ReactNode;
-    style: any;
     displayName?: string | null;
+    entity?: Entity | null;
     nestedOptions?: FilterOptionType[];
 }
 
@@ -50,7 +52,7 @@ export function mapFilterOption({
                 includeCount={includeCount}
             />
         ),
-        style: { padding: 0 },
+        entity: filterOption.entity,
         displayName: displayName as string,
         nestedOptions,
     };
