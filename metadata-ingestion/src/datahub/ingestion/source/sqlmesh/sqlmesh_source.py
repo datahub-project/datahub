@@ -1179,23 +1179,20 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         if schema_key is not None:
             yield from add_dataset_to_container(schema_key, str(dataset.urn))
 
-        # EMBEDDED models have no warehouse object — skip sibling and emit any
-        # assertions against the sqlmesh URN (there's no physical entity to
-        # attach to). All other kinds (including EXTERNAL) have a warehouse
-        # view we sibling-stitch and attach assertions to.
-        if is_embedded:
-            assertion_target_urn = sqlmesh_urn
-        else:
+        # EMBEDDED models have no warehouse object — skip sibling.
+        # All other kinds (including EXTERNAL) have a warehouse view to link to.
+        if not is_embedded:
             warehouse_urn = self._make_warehouse_urn(fqn, effective)
             yield from self._emit_siblings(sqlmesh_urn, warehouse_urn)
-            # Attach assertions to the warehouse URN — same convention as dbt
-            # (dbt_common.py:1462). The warehouse view is where data-quality
-            # consumers actually look, and the warehouse URN here is exactly
-            # the one we just sibling-stitched, so a follow-on warehouse
-            # connector ingestion lights it up automatically.
-            assertion_target_urn = warehouse_urn
 
-        yield from self._emit_assertions(model, assertion_target_urn)
+        # Audits are properties of the SQLMesh model definition, not of any
+        # particular materialized output. In SQLMesh the "physical counterpart"
+        # is a virtual view pointing at a fingerprint table that rotates as
+        # the model evolves — there is no stable physical target equivalent to
+        # dbt's model→table mapping. The SQLMesh URN is the only stable,
+        # semantically meaningful target for the audit; siblings let users
+        # navigate from the logical model to its current materialization.
+        yield from self._emit_assertions(model, sqlmesh_urn)
 
     def _build_custom_properties(
         self,
@@ -1550,21 +1547,23 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             if not model_name or not audit_name or status == "skip":
                 continue
 
-            # Build the same warehouse URN _emit_assertions used so the
-            # derived assertion hash matches. Requires _ingest_project to
-            # have populated self._resolved_effective (target_platform
-            # auto-detected from the Context's connection_config).
+            # Build the same SQLMesh URN _emit_assertions used so the derived
+            # assertion hash matches. Requires _ingest_project to have populated
+            # self._resolved_effective so env_suffix_target / env_catalog_mapping
+            # / sqlmesh_platform_instance flow through FQN construction (the
+            # previous synthetic minimal config hardcoded environment="prod"
+            # and dropped these, producing wrong URNs in non-default setups).
             effective = self._resolved_effective
-            if effective is None or not effective.target_platform:
+            if effective is None:
                 logger.warning(
-                    "Skipping audit run events for %s — no resolved target_platform; "
-                    "_ingest_project must succeed before _emit_audit_run_events can "
-                    "build the warehouse URNs that match emitted assertion definitions.",
+                    "Skipping audit run events for %s — _ingest_project must "
+                    "succeed first to populate the resolved project config used "
+                    "for FQN construction.",
                     model_name,
                 )
                 continue
             fqn = self._build_logical_fqn(model_name, effective)
-            dataset_urn = self._make_warehouse_urn(fqn, effective)
+            dataset_urn = self._make_sqlmesh_urn(fqn, effective)
 
             # Suffix matches what _emit_single_audit uses
             params = _SQLMESH_AUDIT_MAP.get(audit_name)
