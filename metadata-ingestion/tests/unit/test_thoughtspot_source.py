@@ -4,6 +4,7 @@ Tests focus on business logic, error handling, and data transformation.
 Following testing standards from standards/testing.md - no trivial tests.
 """
 
+import logging
 from datetime import (
     datetime,
     timezone,
@@ -13,6 +14,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+import yaml
 from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from requests.exceptions import HTTPError
@@ -35,13 +37,16 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 )
 from datahub.ingestion.source.thoughtspot.client import (
     _KEY_BUILDERS,
+    _MAX_REAUTH_ATTEMPTS,
     _TS_TO_DATAHUB_PLATFORM,
     ThoughtSpotAPIError,
     ThoughtSpotAuthenticationError,
     ThoughtSpotClient,
     ThoughtSpotPermissionError,
+    _classify_http_error,
     _extract_answer_chart_type,
     _extract_sql_view_statement,
+    _http_status_code,
     _safe_load_tml_yaml,
 )
 from datahub.ingestion.source.thoughtspot.config import (
@@ -55,6 +60,7 @@ from datahub.ingestion.source.thoughtspot.models import (
     ColumnResponse,
     ColumnSourceRef,
     ConnectionResponse,
+    EntityStats,
     LiveboardResponse,
     LogicalTableResponse,
     SourceTableRef,
@@ -68,14 +74,17 @@ from datahub.ingestion.source.thoughtspot.source import (
     ExternalRef,
     SqlViewWarehouseRef,
     ThoughtSpotSource,
+    _resolve_author_login,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChartInfoClass,
     ChartUsageStatisticsClass,
     ContainerClass,
     DashboardInfoClass,
     DashboardUsageStatisticsClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
     GlobalTagsClass,
     InputFieldsClass,
     OwnershipClass,
@@ -2850,8 +2859,6 @@ class TestThoughtSpotSourceOwnerIdValidation:
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_owner_id_debug_logging_for_liveboard(self, mock_client_class, caplog):
         """Test that owner_id is logged for validation when processing Liveboards."""
-        import logging
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -2902,8 +2909,6 @@ class TestThoughtSpotSourceOwnerIdValidation:
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_owner_id_debug_logging_for_answer(self, mock_client_class, caplog):
         """Test that owner_id is logged for validation when processing Answers."""
-        import logging
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -2949,8 +2954,6 @@ class TestThoughtSpotSourceOwnerIdValidation:
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_owner_id_debug_logging_for_dataset(self, mock_client_class, caplog):
         """Test that owner_id is logged for validation when processing Datasets."""
-        import logging
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
 
@@ -3143,8 +3146,6 @@ class TestHttpStatusCodeHelper:
     def test_status_code_extracted_from_response_attribute(self):
         """Preferred path: ``e.response.status_code`` is an int — use it
         regardless of the stringified message wording."""
-        from datahub.ingestion.source.thoughtspot.client import _http_status_code
-
         e: Any = Exception("Server says ok actually")
         e.response = MagicMock(status_code=403)
 
@@ -3153,8 +3154,6 @@ class TestHttpStatusCodeHelper:
     def test_status_code_substring_used_when_response_missing(self):
         """Backup path: no ``.response`` attribute → scan the message.
         Guards against SDK wrappers that drop the underlying HTTPError."""
-        from datahub.ingestion.source.thoughtspot.client import _http_status_code
-
         assert _http_status_code(Exception("401 Unauthorized")) == 401
         assert _http_status_code(Exception("forbidden")) == 403
         assert _http_status_code(Exception("returned 404 not found")) == 404
@@ -3163,22 +3162,16 @@ class TestHttpStatusCodeHelper:
         """If a message accidentally contains a digit string AND a real
         status_code is present, the attribute wins — substring scan is
         a backup, not a peer."""
-        from datahub.ingestion.source.thoughtspot.client import _http_status_code
-
         e: Any = Exception("The 404 page is fine, this is a 401")
         e.response = MagicMock(status_code=403)
 
         assert _http_status_code(e) == 403
 
     def test_status_code_returns_none_for_unknown(self):
-        from datahub.ingestion.source.thoughtspot.client import _http_status_code
-
         assert _http_status_code(Exception("Some random error")) is None
         assert _http_status_code(Exception("500 Internal Server Error")) is None
 
     def test_classify_routes_to_auth_and_permission_errors(self):
-        from datahub.ingestion.source.thoughtspot.client import _classify_http_error
-
         assert _classify_http_error(Exception("401")) is ThoughtSpotAuthenticationError
         assert _classify_http_error(Exception("403")) is ThoughtSpotPermissionError
         # 404 has no auth/permission semantic — caller decides.
@@ -3194,8 +3187,6 @@ class TestCallSdkReauthWrapper:
     info entries."""
 
     def _make_client(self, mock_ts_client_class):
-        from datahub.ingestion.source.thoughtspot.client import ThoughtSpotClient
-
         mock_ts = MagicMock()
         mock_ts_client_class.return_value = mock_ts
         mock_ts.auth_token_full.return_value = {"token": "initial-token"}
@@ -3264,10 +3255,6 @@ class TestCallSdkReauthWrapper:
         """A principal disabled mid-run would otherwise loop forever as
         every call sees 401 → re-auth-succeeds → next call sees 401.
         The cap converts that silent failure into a hard error."""
-        from datahub.ingestion.source.thoughtspot.client import (
-            _MAX_REAUTH_ATTEMPTS,
-        )
-
         client, mock_ts = self._make_client(mock_ts_client_class)
         # Prime the counter to the cap; next 401 should raise immediately.
         client._reauth_attempts = _MAX_REAUTH_ATTEMPTS
@@ -3325,10 +3312,6 @@ class TestCallSdkReauthWrapper:
         in the middle resets the counter (covered by
         ``TestReauthCounterResetsOnSuccess``).
         """
-        from datahub.ingestion.source.thoughtspot.client import (
-            _MAX_REAUTH_ATTEMPTS,
-        )
-
         client, mock_ts = self._make_client(mock_ts_client_class)
         # MAX+1 consecutive 401s. The first MAX trigger reauth+retry;
         # the (MAX+1)th routes through the cap path and raises.
@@ -7858,10 +7841,6 @@ class TestResolveAuthorLogin:
 
     @staticmethod
     def _resolver():
-        from datahub.ingestion.source.thoughtspot.source import (
-            _resolve_author_login,
-        )
-
         return _resolve_author_login
 
     def test_author_name_wins_over_nested_author(self):
@@ -8450,8 +8429,6 @@ class TestTMLYamlLoaderQuirks:
         Python object construction. SafeLoader rejects *any* ``!!python/*``
         tag — use the benign ``list`` target as the canary.
         """
-        import yaml
-
         with pytest.raises(yaml.constructor.ConstructorError):
             _safe_load_tml_yaml("value: !!python/object/new:list [[]]\n")
 
@@ -8566,8 +8543,6 @@ class TestLineageBuilderHelpers:
         """Two columns reading from the same upstream TS table merge
         into one ``{upstream_urn: {col: [src_col]}}`` entry, not two —
         otherwise we'd emit duplicate ``UpstreamClass`` aspects."""
-        from datahub.ingestion.source.thoughtspot.models import ColumnSourceRef
-
         source = self._make_source()
         cols = [
             ColumnResponse(
@@ -8620,8 +8595,6 @@ class TestLineageBuilderHelpers:
         construction time (``min_length=1``), so the source-level
         skip-on-falsy guard is only reachable for ``col.name``.
         """
-        from datahub.ingestion.source.thoughtspot.models import ColumnSourceRef
-
         source = self._make_source()
         cols = [
             ColumnResponse(
@@ -8645,8 +8618,6 @@ class TestLineageBuilderHelpers:
         assert stamp.actor == "urn:li:corpuser:alice"
 
     def test_build_audit_stamp_falls_back_to_now_and_service_urn(self):
-        from datetime import datetime, timezone
-
         source = self._make_source()
         table = LogicalTableResponse(
             id="t1", name="orders", modified=0, author_name=None
@@ -8664,12 +8635,6 @@ class TestLineageBuilderHelpers:
         ``UpstreamClass`` entries (plus per-column fine-grained
         entries). Without this invariant, lineage edges would
         double-emit and DataHub would show them twice."""
-        from datahub.metadata.schema_classes import (
-            AuditStampClass,
-            FineGrainedLineageClass,
-            UpstreamClass,
-        )
-
         source = self._make_source()
         per_upstream = {
             "urn:li:dataset:(urn:li:dataPlatform:thoughtspot,up-1,PROD)": {
@@ -8761,12 +8726,6 @@ class TestExternalColumnCasePreservation:
     def _make_source(
         preserve_for_c1: bool,
     ) -> "tuple[ThoughtSpotSource, LogicalTableResponse]":
-        from datahub.ingestion.source.thoughtspot.models import (
-            ColumnResponse,
-            ColumnSourceRef,
-            ConnectionResponse,
-        )
-
         external_block: Dict[str, Any] = {
             "platform_instance": "prod-dbx",
         }
@@ -8890,8 +8849,6 @@ class TestMetadataSearchIncludeStats:
     def test_stats_flows_through_to_parsed_model(self, mock_sdk_class, monkeypatch):
         """When the wire response contains a ``stats`` block, the
         parsed ``LiveboardResponse`` exposes it as ``entity.stats``."""
-        from datahub.ingestion.source.thoughtspot.models import EntityStats
-
         mock_sdk = MagicMock()
         mock_sdk_class.return_value = mock_sdk
         mock_sdk.auth_token_full.return_value = {"token": "t"}
@@ -8939,11 +8896,6 @@ class TestStatsCustomProperties:
     def test_liveboard_emits_favorites_and_last_accessed_custom_props(
         self, mock_client_class
     ):
-        from datahub.ingestion.source.thoughtspot.models import (
-            EntityStats,
-            LiveboardResponse,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
@@ -8994,11 +8946,6 @@ class TestUsageStatsFromMetadataSearch:
 
     @patch("datahub.ingestion.source.thoughtspot.source.ThoughtSpotClient")
     def test_liveboard_view_count_emits_dashboard_usage_aspect(self, mock_client_class):
-        from datahub.ingestion.source.thoughtspot.models import (
-            EntityStats,
-            LiveboardResponse,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
@@ -9042,10 +8989,6 @@ class TestUsageStatsFromMetadataSearch:
         """An entity whose ``stats`` is None (or whose ``views`` is 0)
         does not emit a usage aspect — emitting ``viewsCount=0`` would
         clobber a real count from a prior run."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            LiveboardResponse,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
@@ -9080,11 +9023,6 @@ class TestUsageStatsFromMetadataSearch:
         the Chart URN built via ``make_chart_urn``. Symmetric coverage
         guards against a regression in either import (chart URN builder,
         chart usage aspect class)."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            AnswerResponse,
-            EntityStats,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
@@ -9133,12 +9071,6 @@ class TestUsageStatsFromMetadataSearch:
         (``Field(ge=0)``), so this test only needs to lock in the
         zero-case behaviour at the emit layer."""
         view_count = 0
-        from datahub.ingestion.source.thoughtspot.models import (
-            AnswerResponse,
-            EntityStats,
-            LiveboardResponse,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
@@ -9188,12 +9120,6 @@ class TestUsageStatsFromMetadataSearch:
         usage-aspect emission even when entities carry valid stats
         blocks. Without this gate test, a regression flipping the
         default or inverting the guard would slip through."""
-        from datahub.ingestion.source.thoughtspot.models import (
-            AnswerResponse,
-            EntityStats,
-            LiveboardResponse,
-        )
-
         mock_client = MagicMock()
         mock_client_class.return_value = mock_client
         mock_client.get_workspaces.return_value = []
