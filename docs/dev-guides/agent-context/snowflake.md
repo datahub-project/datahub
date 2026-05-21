@@ -4,6 +4,10 @@ Give [Cortex Agents](https://www.snowflake.com/en/developers/guides/getting-star
 
 The integration works through UDFs created by the DataHub CLI. Once set up, your Cortex Agent calls DataHub tools alongside your Snowflake tables.
 
+:::tip OAuth MCP alternative (DataHub Cloud v1.0.2+)
+If your Snowflake Intelligence agent supports external MCP servers directly, you can skip UDF setup and add `https://mcp.datahub.com/mcp` as an MCP tool with **OAuth 2.0** auth (DataHub registers a client via DCR). See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended). The UDF path below remains the most stable option for production Cortex Agents today.
+:::
+
 ## Prerequisites
 
 - `pip install datahub-agent-context[snowflake]`
