@@ -60,6 +60,9 @@ from datahub.ingestion.source.common.subtypes import (
     FlowContainerSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.profiling.common import (
+    create_datahub_ge_profiler,
+)
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
@@ -128,9 +131,9 @@ from datahub.utilities.sqlalchemy_type_converter import (
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 if TYPE_CHECKING:
-    from datahub.ingestion.source.ge_data_profiler import (
-        DatahubGEProfiler,
-        GEProfilerRequest,
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.profiling.common import (
+        ProfilerRequest as GEProfilerRequest,
     )
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
@@ -1339,13 +1342,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 env=self.config.env,
             )
         else:
-            # Only import GE profiler if we're actually using it
-            from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
-
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,
@@ -1404,7 +1404,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable["GEProfilerRequest"]:
-        from datahub.ingestion.source.ge_data_profiler import GEProfilerRequest
+        from datahub.ingestion.source.profiling.common import (
+            ProfilerRequest as GEProfilerRequest,
+        )
 
         tables_seen: Set[str] = set()
         profile_candidates = None  # Default value if profile candidates not available.

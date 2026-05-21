@@ -26,11 +26,13 @@ buildscript {
   ext.pegasusVersion = '29.74.2'
   ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '7.0.6'
+  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
+  ext.springVersion = '7.0.7'
   // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
   ext.springBootVersion = '4.0.6'
   ext.springKafkaVersion = '4.0.4'
-  ext.openTelemetryVersion = '1.60.1'
+  // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
+  ext.openTelemetryVersion = '1.62.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
@@ -66,7 +68,7 @@ buildscript {
   // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
   ext.hadoopShadedGuavaVersion = '1.5.0'
   ext.kafkaVersion = '8.1.0'
-  ext.hazelcastVersion = '5.6.0'
+  ext.hazelcastVersion = '5.7.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
@@ -80,11 +82,10 @@ buildscript {
   ext.httpClient5Version = '5.6.1'
   // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
   ext.bouncyCastleJdk18onVersion = '1.84'
-  // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
-  // Application classpath io.netty:* are forced to nettyVersion above; shaded Netty may lag until grpc-java upgrades embedded Netty.
+  // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
   ext.grpcVersion = '1.81.0'
-  // Pinned below Spring Boot’s reactor-bom (reactor-netty 1.3.x); io.netty transitives aligned via eachDependency + nettyVersion.
-  ext.reactorNettyVersion = '1.2.17'
+  // Align with Spring Boot 4.0.6 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
+  ext.reactorNettyVersion = '1.3.5'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -116,7 +117,9 @@ plugins {
 apply from: "gradle/docker/docker-utils.gradle"
 
 // Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
-ext.jacksonVersion = '2.21.1'
+ext.jacksonVersion = '2.21.3'
+// Parquet stack (parquet-jackson 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq).
+ext.parquetVersion = '1.17.1'
 // Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
 ext.jacksonMinorRelease = jacksonVersion.contains('.')
     ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
@@ -185,6 +188,7 @@ project.ext.externalDependency = [
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
+    'graphqlJavaOtel': 'io.opentelemetry.instrumentation:opentelemetry-graphql-java-20.0:2.27.0-alpha',
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
@@ -270,10 +274,12 @@ project.ext.externalDependency = [
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
+    'opentelemetrySdkTesting': 'io.opentelemetry:opentelemetry-sdk-testing:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    // Parquet stack aligned (parquet-jackson comes transitively; 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq)
-    'parquet': 'org.apache.parquet:parquet-avro:1.17.0',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.17.0',
+    // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
+    'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",
+    'parquetHadoop': "org.apache.parquet:parquet-hadoop:${parquetVersion}",
+    'parquetJackson': "org.apache.parquet:parquet-jackson:${parquetVersion}",
     'picocli': 'info.picocli:picocli:4.5.0',
     // org.playframework JARs: no version here — datahub-frontend uses platform(play-bom) and $playVersion on that BOM only.
     'playCache': "org.playframework:play-cache_$playScalaVersion",
@@ -295,7 +301,6 @@ project.ext.externalDependency = [
     'postgresql': 'org.postgresql:postgresql:42.7.11',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
-    'grpcNettyShaded': "io.grpc:grpc-netty-shaded:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
@@ -492,6 +497,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
     exclude group: 'commons-lang', module: 'commons-lang'
+    // DataHub does not use gRPC transport; Pegasus/Rest.li pull grpc-netty-shaded transitively.
+    // Excluded to drop the shaded Netty copy (CVE-2026-42579, CVE-2026-42581, CVE-2026-42584; fixed in Netty 4.1.133+ / 4.2.13+ on the app classpath via nettyVersion).
+    exclude group: 'io.grpc', module: 'grpc-netty-shaded'
 
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -553,7 +561,23 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       }
       if (details.requested.group == 'io.grpc') {
         details.useVersion(rootProject.ext.grpcVersion)
-        details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (incl. grpc-stub with grpc-netty-shaded)")
+        details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (grpc-netty-shaded excluded — no gRPC transport)")
+      }
+      if (details.requested.group == 'io.projectreactor.netty') {
+        details.useVersion(rootProject.ext.reactorNettyVersion)
+        details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
+      }
+      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv)
+      // and opentelemetry-api-incubator (separate -alpha release line; not published at the stable version).
+      if (details.requested.group == 'io.opentelemetry'
+          && details.requested.name != 'opentelemetry-semconv'
+          && details.requested.name != 'opentelemetry-api-incubator') {
+        details.useVersion(rootProject.ext.openTelemetryVersion)
+        details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
+      }
+      if (details.requested.group == 'org.apache.parquet') {
+        details.useVersion(rootProject.ext.parquetVersion)
+        details.because("Parquet stack aligned to ${rootProject.ext.parquetVersion}")
       }
     }
     resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
@@ -562,6 +586,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
     }
@@ -607,6 +632,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
 configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
   configurations.all {
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"

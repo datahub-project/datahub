@@ -245,6 +245,10 @@ class BigQuerySchemaGenerator:
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
 
+        # Dataset locations seen during schema extraction; consumed downstream
+        # to auto-extend region_qualifiers and avoid silent INFORMATION_SCHEMA misses.
+        self.discovered_locations: Set[str] = set()
+
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
         # Maps project -> snapshot_ref, so we can find all snapshots in a project
@@ -558,6 +562,14 @@ class BigQuerySchemaGenerator:
         db_snapshots: Dict[str, List[BigqueryTableSnapshot]],
     ) -> Iterable[MetadataWorkUnit]:
         dataset_name = bigquery_dataset.name
+
+        if bigquery_dataset.location:
+            # BigLake/Omni locations (aws-*, azure-*) are not valid
+            # INFORMATION_SCHEMA region qualifiers, so skip auto-detection.
+            if bigquery_dataset.is_biglake_dataset():
+                self.report.num_biglake_datasets_skipped_for_region_autodetect += 1
+            else:
+                self.discovered_locations.add(bigquery_dataset.location)
 
         if self.config.include_schema_metadata:
             yield from self.gen_dataset_containers(

@@ -19,6 +19,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -83,7 +89,7 @@ class UnityCatalogProfilerConfig(ConfigModel):
 
 class DeltaLakeDetails(ConfigModel):
     platform_instance_name: Optional[str] = Field(
-        default=None, description="Delta-lake paltform instance name"
+        default=None, description="Delta-lake platform instance name"
     )
     env: str = Field(default="PROD", description="Delta-lake environment")
 
@@ -157,6 +163,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
@@ -219,6 +227,28 @@ class UnityCatalogSourceConfig(
         ),
     )
 
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
+        ),
+    )
+
     domain: Dict[str, AllowDenyPattern] = Field(
         default=dict(),
         description='Attach domains to catalogs, schemas or tables during ingestion using regex patterns. Domain key can be a guid like *urn:li:domain:ec428203-ce86-4db3-985d-5a8ee6df32ba* or a string like "Marketing".) If you provide strings, then datahub will attempt to resolve this name to a guid, and will error out if this fails. There can be multiple domain keys specified.',
@@ -263,6 +293,26 @@ class UnityCatalogSourceConfig(
     include_column_lineage: bool = pydantic.Field(
         default=True,
         description="Option to enable/disable lineage generation. Currently we have to call a rest call per column to get column level lineage due to the Databrick api which can slow down ingestion. ",
+    )
+
+    include_table_constraints: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, fetches primary key and foreign key constraints for each table "
+            "via an additional tables.get() API call per table (one call per table). "
+            "Disabled by default to avoid unexpected API load on large catalogs. "
+            "Enables PK/FK visualisation in the DataHub schema view when set to true."
+        ),
+    )
+
+    include_partition_keys: bool = pydantic.Field(
+        default=False,
+        description=(
+            "If enabled, the `isPartitioningKey` field is populated on schema fields "
+            "for columns that are part of the table's partition key. "
+            "Partition key information is already present in the tables.list() response "
+            "so no additional API calls are made."
+        ),
     )
 
     lineage_data_source: LineageDataSource = pydantic.Field(
