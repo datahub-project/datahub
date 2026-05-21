@@ -304,7 +304,10 @@ def _engine_connect_with_retry(
                 report.increment_db_retries()
             time.sleep(backoff)
 
-    assert conn is not None
+    if conn is None:
+        raise RuntimeError(
+            "unreachable: retry loop exited without a connection or exception"
+        )
     try:
         yield conn
     finally:
@@ -2452,7 +2455,7 @@ ORDER by DataBaseName, TableName;
                 )
                 return True
         except Exception as e:
-            if _should_retry(e):
+            if _should_retry_connect(e):
                 self.report.warning(
                     title="Historical lineage table unreachable",
                     message=(
