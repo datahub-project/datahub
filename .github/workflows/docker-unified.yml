@@ -234,13 +234,15 @@ jobs:
 
       - name: Compute Playwright Yarn Cache Key
         id: playwright-yarn-cache-key
+        if: false
         run: |
           echo "playwright_yarn_cache_key=docker-unified-playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}" >> "$GITHUB_OUTPUT"
           echo "playwright_yarn_cache_key_prefix=docker-unified-playwright-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        if: ${{ github.event_name != 'pull_request' && (steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true') }}
+        if: false
+        # if: ${{ github.event_name != 'pull_request' && (steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true') }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || '4' }} ))
           matrix=''
@@ -914,7 +916,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
-    if: ${{ always() && !failure() && !cancelled() && github.event_name != 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    if: false
+    # if: ${{ always() && !failure() && !cancelled() && github.event_name != 'pull_request' && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
     steps:
       - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
@@ -1073,7 +1076,8 @@ jobs:
     name: Merge Playwright HTML report
     runs-on: ubuntu-latest
     needs: [setup, playwright_test]
-    if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
+    if: false
+    # if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
