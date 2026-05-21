@@ -4,6 +4,7 @@ from datahub.ingestion.source.hex.lineage_builder import (
     HexLineageBuilder,
     LineageBuilderReport,
     SkippedCell,
+    _qualify_table_name,
 )
 from datahub.ingestion.source.hex.model import HexConnection, SqlCell
 
@@ -160,6 +161,101 @@ def test_build_from_queried_tables_empty_table_name_skipped():
         [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": ""}]
     )
     assert urns == []
+
+
+def test_qualify_table_name_already_three_parts_unchanged():
+    assert (
+        _qualify_table_name("db.schema.t", "DEFAULT_DB", "DEFAULT_SCHEMA")
+        == "db.schema.t"
+    )
+
+
+def test_qualify_table_name_two_parts_gets_database_prefix():
+    assert (
+        _qualify_table_name("schema.t", "DEFAULT_DB", "DEFAULT_SCHEMA")
+        == "DEFAULT_DB.schema.t"
+    )
+
+
+def test_qualify_table_name_one_part_gets_both_prefixes():
+    assert (
+        _qualify_table_name("t", "DEFAULT_DB", "DEFAULT_SCHEMA")
+        == "DEFAULT_DB.DEFAULT_SCHEMA.t"
+    )
+
+
+def test_qualify_table_name_two_part_platform_prepends_only_schema():
+    # MySQL/MariaDB/Clickhouse: default_database is None, default_schema slots in.
+    assert _qualify_table_name("t", None, "DEFAULT_SCHEMA") == "DEFAULT_SCHEMA.t"
+    assert _qualify_table_name("schema.t", None, "DEFAULT_SCHEMA") == "schema.t"
+
+
+def test_qualify_table_name_no_defaults_returns_unchanged():
+    assert _qualify_table_name("t", None, None) == "t"
+    assert _qualify_table_name("schema.t", None, None) == "schema.t"
+
+
+def test_build_from_queried_tables_pads_unqualified_name():
+    """Hex returns just `orders` — connection defaults qualify it to db.schema.orders."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                default_database="ANALYTICS",
+                default_schema="PUBLIC",
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "orders"}]
+    )
+    assert len(urns) == 1
+    assert "ANALYTICS.PUBLIC.orders" in urns[0]
+
+
+def test_build_from_queried_tables_pads_two_part_name():
+    """Hex returns `schema.orders` — connection's default_database qualifies it."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                default_database="ANALYTICS",
+                default_schema="PUBLIC",
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [{"dataConnectionId": SNOWFLAKE_CONN, "tableName": "RAW.orders"}]
+    )
+    assert len(urns) == 1
+    assert "ANALYTICS.RAW.orders" in urns[0]
+
+
+def test_build_from_queried_tables_three_part_name_not_padded():
+    """Fully qualified names are passed through verbatim, even when defaults exist."""
+    b = _builder(
+        connections={
+            SNOWFLAKE_CONN: HexConnection(
+                name="A",
+                platform="snowflake",
+                default_database="ANALYTICS",
+                default_schema="PUBLIC",
+            ),
+        },
+    )
+    urns = b.build_from_queried_tables(
+        [
+            {
+                "dataConnectionId": SNOWFLAKE_CONN,
+                "tableName": "OTHER_DB.OTHER_SCHEMA.orders",
+            }
+        ]
+    )
+    assert len(urns) == 1
+    assert "OTHER_DB.OTHER_SCHEMA.orders" in urns[0]
+    assert "ANALYTICS" not in urns[0]
 
 
 def test_build_from_queried_tables_mixed_connections():

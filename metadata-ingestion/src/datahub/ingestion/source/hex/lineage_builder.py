@@ -20,6 +20,29 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _qualify_table_name(
+    table_name: str,
+    default_database: Optional[str],
+    default_schema: Optional[str],
+) -> str:
+    """Pad an under-qualified table name with the connection's defaults.
+
+    Hex's queriedTables API returns `tableName` with no guaranteed depth — it
+    may be `table`, `schema.table`, or `database.schema.table`. We pad missing
+    outer scopes from `default_database` / `default_schema` (positional,
+    outermost first) so the resulting URN matches the warehouse-side ingestion.
+    Names that already meet the expected depth are returned unchanged. For
+    2-part platforms (mysql/mariadb/clickhouse) `default_database` is None, so
+    only `default_schema` is prepended.
+    """
+    prefixes = [scope for scope in (default_database, default_schema) if scope]
+    parts = table_name.split(".")
+    missing = (len(prefixes) + 1) - len(parts)
+    if missing <= 0:
+        return table_name
+    return ".".join(prefixes[:missing] + parts)
+
+
 @dataclass
 class SkippedCell:
     project_id: str
@@ -122,9 +145,11 @@ class HexLineageBuilder:
         """
         Build upstream URN strings from queriedTables API response.
 
-        {dataConnectionId, dataConnectionName, tableName} — tableName is already
-        fully qualified; no SQL parsing needed. Only emits URNs for connections
-        whose platform can be confidently resolved.
+        {dataConnectionId, dataConnectionName, tableName} — tableName's level
+        of qualification is not guaranteed by Hex, so under-qualified names
+        are padded with the connection's default_database / default_schema
+        before URN construction. Only emits URNs for connections whose
+        platform can be confidently resolved.
         """
         seen: Set[str] = set()
         result: List[str] = []
@@ -145,9 +170,14 @@ class HexLineageBuilder:
                 )
                 continue
 
+            qualified_name = _qualify_table_name(
+                table_name,
+                default_database=connection.default_database,
+                default_schema=connection.default_schema,
+            )
             urn = make_dataset_urn_with_platform_instance(
                 platform=connection.platform,
-                name=table_name,
+                name=qualified_name,
                 platform_instance=connection.platform_instance,
                 env=self._env,
             )
