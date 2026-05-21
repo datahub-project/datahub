@@ -43,6 +43,7 @@ class DatasetSubTypes(StrEnum):
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SNOWFLAKE_STAGE_DATA = "Snowflake Stage Data"
+    SAP_HANA_CALCULATION_VIEW = "Calculation View"
     THOUGHTSPOT_WORKSHEET = "Worksheet"
     METRIC_VIEW = "Metric View"
 
