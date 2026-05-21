@@ -8,6 +8,7 @@ import { EDITING_DOCUMENTATION_URL_PARAM } from '@app/entityV2/shared/constants'
 import { useGlossaryActiveTabPath } from '@app/entityV2/shared/containers/profile/utils';
 import { SelectedMark } from '@app/glossaryV2/GlossaryBrowser/SelectedMark';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
+import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { ChildGlossaryTermFragment } from '@graphql/glossaryNode.generated';
@@ -94,6 +95,8 @@ function TermItem(props: Props) {
     const { entityData } = useGlossaryEntityData();
     const entityRegistry = useEntityRegistry();
     const activeTabPath = useGlossaryActiveTabPath();
+    const generateColor = useGenerateGlossaryColorFromPalette();
+    const resolvedIconColor = iconColor || generateColor(term.urn);
 
     function handleSelectTerm() {
         if (selectTerm) {
@@ -110,7 +113,7 @@ function TermItem(props: Props) {
 
     return (
         <TermWrapper $isSelected={entityData?.urn === term.urn} $depth={props.depth}>
-            {iconColor && <StyledTermIcon color={iconColor} icon={BookmarkSimple} size={24} iconSize={14} />}
+            <StyledTermIcon color={resolvedIconColor} icon={BookmarkSimple} size={24} iconSize={14} />
             {!isSelecting && (
                 <TermLink
                     to={`${entityRegistry.getEntityUrl(term.type, term.urn)}${
