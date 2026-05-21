@@ -3,6 +3,20 @@ import HttpBackend, { HttpBackendOptions } from 'i18next-http-backend';
 import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
+export const NAMESPACES = [
+    'common.actions',
+    'entity.identity',
+    'entity.ownership',
+    'entity.views',
+    'settings.features',
+    'settings.page',
+    'settings.permissions',
+    'settings.posts',
+    'settings.preferences',
+    'settings.tokens',
+    'shared.query-builder',
+] as const;
+
 if (import.meta.env.DEV) {
     const { HMRPlugin } = await import('i18next-hmr/plugin');
     i18n.use(new HMRPlugin({ vite: { client: true } })).use(HttpBackend);
@@ -12,6 +26,7 @@ if (import.meta.env.DEV) {
 
 i18n.use(initReactI18next).init({
     fallbackLng: 'en',
+    ns: NAMESPACES,
     ...(import.meta.env.DEV && {
         backend: { loadPath: '/assets/locales/{{lng}}/{{ns}}.json' } satisfies HttpBackendOptions,
     }),

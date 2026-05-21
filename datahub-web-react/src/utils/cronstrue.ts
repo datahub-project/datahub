@@ -13,7 +13,7 @@ const TIME_PREFIXES: Partial<Record<SupportedLanguage, RegExp>> = {
 };
 
 export function cronToString(expression: string, options?: Omit<CronOptions, 'locale'>): string {
-    return cronstrue.toString(expression, { trimHoursLeadingZero: true, ...options, locale: i18next.language });
+    return cronstrue.toString(expression, { ...options, locale: i18next.language });
 }
 
 export function removeTimePrefix(cronString: string): string {

@@ -20,11 +20,11 @@ describe('cronToString', () => {
 
     it('passes the current i18next language as locale', () => {
         (i18next as any).language = 'de';
-        vi.mocked(cronstrue.toString).mockReturnValue('Um 9:00 Uhr');
+        vi.mocked(cronstrue.toString).mockReturnValue('Um 09:00 Uhr');
 
         cronToString('0 9 * * *');
 
-        expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * *', { trimHoursLeadingZero: true, locale: 'de' });
+        expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * *', { locale: 'de' });
     });
 
     it('forwards additional options alongside the locale', () => {
@@ -33,7 +33,6 @@ describe('cronToString', () => {
         cronToString('0 9 * * 1-5', { use24HourTimeFormat: true });
 
         expect(cronstrue.toString).toHaveBeenCalledWith('0 9 * * 1-5', {
-            trimHoursLeadingZero: true,
             use24HourTimeFormat: true,
             locale: 'en',
         });

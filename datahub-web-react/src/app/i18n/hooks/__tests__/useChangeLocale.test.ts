@@ -16,6 +16,7 @@ vi.mocked(useUpdateUserLocaleSettings).mockReturnValue(mockUpdateUserLocaleSetti
 describe('useChangeLocale', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.spyOn(i18next, 'changeLanguage').mockResolvedValue('en' as any);
         vi.mocked(useUpdateUserLocaleSettings).mockReturnValue(mockUpdateUserLocaleSettings);
     });
 

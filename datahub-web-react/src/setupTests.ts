@@ -3,23 +3,55 @@
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom/vitest';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
 
+import enCommonActions from '@src/i18n/locales/en/common.actions.json';
+import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
+import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
+import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
+import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
+import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
+import enSettingsPosts from '@src/i18n/locales/en/settings.posts.json';
+import enSettingsPreferences from '@src/i18n/locales/en/settings.preferences.json';
+import enSettingsTokens from '@src/i18n/locales/en/settings.tokens.json';
+import enSharedQueryBuilder from '@src/i18n/locales/en/shared.query-builder.json';
 import '@utils/dayjs';
 
-vi.mock('i18next', () => ({
-    default: {
-        changeLanguage: vi.fn(),
-        loadLanguages: vi.fn().mockResolvedValue(undefined),
-        isInitialized: true,
-        use: vi.fn().mockReturnThis(),
-        init: vi.fn(),
-        on: vi.fn(),
-        off: vi.fn(),
-        t: vi.fn((key) => key),
-        language: 'en',
-        languages: ['en'],
+i18n.use(initReactI18next).init({
+    lng: 'en',
+    fallbackLng: 'en',
+    ns: [
+        'common.actions',
+        'entity.identity',
+        'entity.ownership',
+        'entity.views',
+        'settings.features',
+        'settings.page',
+        'settings.permissions',
+        'settings.posts',
+        'settings.preferences',
+        'settings.tokens',
+        'shared.query-builder',
+    ],
+    resources: {
+        en: {
+            'common.actions': enCommonActions,
+            'entity.identity': enEntityIdentity,
+            'entity.ownership': enEntityOwnership,
+            'entity.views': enEntityViews,
+            'settings.features': enSettingsFeatures,
+            'settings.page': enSettingsPage,
+            'settings.permissions': enSettingsPermissions,
+            'settings.posts': enSettingsPosts,
+            'settings.preferences': enSettingsPreferences,
+            'settings.tokens': enSettingsTokens,
+            'shared.query-builder': enSharedQueryBuilder,
+        },
     },
-}));
+    interpolation: { escapeValue: false },
+});
 
 // Mock window.matchMedia interface.
 // See https://jestjs.io/docs/en/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
