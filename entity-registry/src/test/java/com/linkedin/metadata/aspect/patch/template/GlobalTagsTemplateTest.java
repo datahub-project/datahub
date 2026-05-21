@@ -171,10 +171,8 @@ public class GlobalTagsTemplateTest {
 
   @Test
   public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
-    // Regression for the Parsson trailing-empty-token bug. The wire format produced by
-    // GlobalTagsPatchBuilder.addTag(urn) is /tags/<urn>/ paired with APK [tag, attribution_source]
-    // — Parsson rejects the add on an empty aspect until populateTopLevelKeys scaffolds through
-    // the trailing empty token.
+    // Regression: GlobalTagsPatchBuilder.addTag(urn) emits /tags/<urn>/ paired with APK
+    // [tag, attribution_source]; previously threw on an empty aspect.
     GlobalTags initial = new GlobalTags();
     initial.setTags(new TagAssociationArray());
 

@@ -153,9 +153,8 @@ public class GlossaryTermsTemplateTest {
 
   @Test
   public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
-    // Regression for the Parsson trailing-empty-token bug. GlossaryTermsPatchBuilder.addTerm(urn)
-    // emits /terms/<urn>/ + APK [urn, attribution_source]; before the TemplateUtil fix this threw
-    // JsonException on entities with no glossaryTerms aspect.
+    // Regression: GlossaryTermsPatchBuilder.addTerm(urn) emits /terms/<urn>/ paired with APK
+    // [urn, attribution_source]; previously threw on an empty aspect.
     GlossaryTerms initial = new GlossaryTerms();
     initial.setTerms(new GlossaryTermAssociationArray());
     initial.setAuditStamp(

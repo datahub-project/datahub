@@ -115,9 +115,8 @@ public class OwnershipTemplateTest {
 
   @Test
   public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
-    // Regression for the Parsson trailing-empty-token bug. OwnershipPatchBuilder.addOwner emits
-    // /owners/<urn>/<type>/<typeUrn>/ paired with a 4-key APK; the fix scaffolds through the
-    // trailing empty source token so this no longer throws on a fresh aspect.
+    // Regression: OwnershipPatchBuilder.addOwner emits /owners/<urn>/<type>/<typeUrn>/ paired
+    // with a 4-key APK; previously threw on an empty aspect.
     Ownership initial = new Ownership();
     initial.setOwners(new OwnerArray());
 

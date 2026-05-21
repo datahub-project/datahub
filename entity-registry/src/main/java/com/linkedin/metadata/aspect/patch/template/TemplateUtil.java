@@ -73,15 +73,14 @@ public class TemplateUtil {
     JsonNode transformedNodeClone = transformedNode.deepCopy();
     List<Pair<PatchOperationType, String>> paths = getPaths(jsonPatch);
     for (Pair<PatchOperationType, String> operationPath : paths) {
-      // Negative limit preserves trailing empty strings for paths ending in "/".
+      // Negative limit preserves trailing empty strings for paths ending with "/"
+      // e.g. unattributed operations
       String[] keys = operationPath.getSecond().split("/", -1);
       JsonNode parent = transformedNodeClone;
 
-      // For add/replace ops we normally stop one token short of the target. But Parsson rejects
-      // a JsonPointer whose final reference token is "" unless the parent already exposes that
-      // key, so we scaffold all the way through trailing-empty tokens (e.g. compound-key array
-      // paths like /tags/<urn>/ where the attribution source is absent). split with limit -1
-      // always returns at least one element, so the length>0 guard would be dead code.
+      // if not remove, skip last key as we only need to populate top level — except for
+      // trailing-empty tokens (e.g. /tags/<urn>/), which Parsson rejects unless the parent
+      // already exposes the empty key.
       boolean trailingEmpty = keys[keys.length - 1].isEmpty();
       int endIdx =
           PatchOperationType.REMOVE.equals(operationPath.getFirst()) || trailingEmpty

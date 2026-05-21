@@ -138,10 +138,8 @@ public class StructuredPropertiesTemplateTest {
 
   @Test
   public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
-    // Regression for the Parsson trailing-empty-token bug.
-    // StructuredPropertiesPatchBuilder.setNumberProperty/setStringProperty emits
-    // /properties/<urn>/ + APK [propertyUrn, attribution_source]; the fix scaffolds through the
-    // trailing empty source token so this no longer throws on a fresh aspect.
+    // Regression: StructuredPropertiesPatchBuilder.set*Property emits /properties/<urn>/ paired
+    // with APK [propertyUrn, attribution_source]; previously threw on an empty aspect.
     StructuredProperties initial = new StructuredProperties();
     initial.setProperties(new StructuredPropertyValueAssignmentArray());
 

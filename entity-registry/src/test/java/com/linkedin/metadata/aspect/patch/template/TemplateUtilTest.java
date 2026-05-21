@@ -11,8 +11,8 @@ public class TemplateUtilTest {
 
   @Test
   public void testPopulateTopLevelKeysScaffoldsTrailingEmptyTokenForAddOp() {
-    // Regression for paths ending in "/" (e.g. /tags/<urn>/), produced by every unattributed
-    // patch builder. Parsson rejects the apply unless the parent already exposes the empty key.
+    // Paths ending in "/" (e.g. /tags/<urn>/) need the parent to expose the empty key
+    // before JsonPatch apply — otherwise Parsson throws.
     JsonPatch patch =
         Json.createPatch(
             Json.createArrayBuilder()
@@ -31,14 +31,13 @@ public class TemplateUtilTest {
             patch);
 
     JsonNode entryNode = result.get("tags").get("urn:li:tag:foo");
-    Assert.assertNotNull(entryNode, "entity-key node must be scaffolded");
-    Assert.assertTrue(entryNode.has(""), "trailing empty source key must also be scaffolded");
+    Assert.assertNotNull(entryNode);
+    Assert.assertTrue(entryNode.has(""));
   }
 
   @Test
   public void testPopulateTopLevelKeysAddOpUnchangedForNonEmptyTrailingToken() {
-    // The fix must not change behavior when the trailing token is non-empty — the target key
-    // itself stays uncreated (JsonPatch will create it).
+    // Non-empty trailing token: target key stays uncreated, JsonPatch will create it.
     JsonPatch patch =
         Json.createPatch(
             Json.createArrayBuilder()
@@ -56,8 +55,6 @@ public class TemplateUtilTest {
                 .set("tags", JsonNodeFactory.instance.objectNode()),
             patch);
 
-    Assert.assertFalse(
-        result.get("tags").has("urn:li:tag:foo"),
-        "non-empty trailing token must still be left to JsonPatch to create");
+    Assert.assertFalse(result.get("tags").has("urn:li:tag:foo"));
   }
 }
