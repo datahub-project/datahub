@@ -40,7 +40,7 @@ from datahub.ingestion.source.thoughtspot.models import (
     VisualizationResponse,
     WorkspaceResponse,
 )
-from datahub.ingestion.source.thoughtspot.thoughtspot_report import ThoughtSpotReport
+from datahub.ingestion.source.thoughtspot.report import ThoughtSpotReport
 
 logger = logging.getLogger(__name__)
 
@@ -405,7 +405,10 @@ class ThoughtSpotClient:
             total=config.max_retries,
             backoff_factor=0.5,
             status_forcelist=(429, 500, 502, 503, 504),
-            allowed_methods=frozenset(["GET", "POST", "PUT", "DELETE"]),
+            # Connector is read-only — never issues PUT/DELETE. Limiting
+            # the retry set avoids accidentally re-trying mutating
+            # requests if a future SDK adds them.
+            allowed_methods=frozenset(["GET", "POST"]),
             raise_on_status=False,
         )
         retry_adapter = _TimeoutInjectingHTTPAdapter(
@@ -2397,9 +2400,16 @@ class ThoughtSpotClient:
             raise ThoughtSpotAPIError(f"Connection test failed: {e}") from e
 
     def close(self) -> None:
-        """Close HTTP session and release resources."""
-        # SDK doesn't expose session management, nothing to clean up
-        pass
+        """Close HTTP session and release resources.
+
+        The SDK doesn't expose its own teardown, but it does surface
+        the underlying ``requests.Session`` we mounted retry/timeout
+        adapters on. Closing the session promptly releases pooled
+        connections instead of waiting for GC.
+        """
+        session = getattr(self.ts_client, "requests_session", None)
+        if session is not None:
+            session.close()
 
     def __enter__(self) -> "ThoughtSpotClient":
         """Context manager entry."""

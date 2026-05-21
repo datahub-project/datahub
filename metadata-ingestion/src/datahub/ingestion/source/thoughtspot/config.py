@@ -2,7 +2,6 @@
 
 from typing import Annotated, Dict, List, Literal, Optional, Union
 
-import pydantic
 from pydantic import Field, SecretStr, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -241,7 +240,10 @@ class ExternalConnectionConfig(ConfigModel):
         ),
     )
 
-    model_config = pydantic.ConfigDict(extra="forbid")
+    # Inherits ``extra="forbid"`` from ``ConfigModel`` plus its
+    # ``ignored_types=(cached_property, ...)`` and ``json_schema_extra``.
+    # Don't override ``model_config`` here — doing so would replace the
+    # inherited settings instead of extending them.
 
 
 class ThoughtSpotConfig(

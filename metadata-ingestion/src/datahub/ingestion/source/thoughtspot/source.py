@@ -86,7 +86,7 @@ from datahub.ingestion.source.thoughtspot.models import (
     VisualizationResponse,
     WorkspaceResponse,
 )
-from datahub.ingestion.source.thoughtspot.thoughtspot_report import ThoughtSpotReport
+from datahub.ingestion.source.thoughtspot.report import ThoughtSpotReport
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
@@ -321,11 +321,6 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         self.report: ThoughtSpotReport = ThoughtSpotReport()
         self.client = ThoughtSpotClient(self.config.connection, report=self.report)
 
-        # Track processed entities for stateful ingestion
-        self.processed_workspace_urns: Set[str] = set()
-        self.processed_liveboard_urns: Set[str] = set()
-        self.processed_answer_urns: Set[str] = set()
-
         # Lazy cache of {worksheet_id -> {column_name -> ColumnResponse}}.
         # Built on first access by ``_get_worksheet_columns_lookup`` and
         # reused by both ``_process_visualization`` (for Chart InputFields
@@ -380,7 +375,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         """Test connection to ThoughtSpot API."""
         test_report = TestConnectionReport()
         try:
-            config = ThoughtSpotConfig.parse_obj(config_dict)
+            config = ThoughtSpotConfig.model_validate(config_dict)
             client = ThoughtSpotClient(config.connection)
 
             # Probe API reachability. client.test_connection() raises on
@@ -776,8 +771,11 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
             if self._logical_tables_cache is None:
                 # Read directly from the client (skip the pattern filter
                 # so we can resolve refs to worksheets that the user
-                # filtered out of the main extraction).
-                self._logical_tables_cache = self.client.get_logical_tables()
+                # filtered out of the main extraction). ``list()`` is
+                # defensive — ``get_logical_tables`` returns a real list
+                # today, but mirrors the sibling cache-population at
+                # ``_get_logical_tables`` so the two paths can't drift.
+                self._logical_tables_cache = list(self.client.get_logical_tables())
             self._worksheet_columns_lookup = {
                 t.id: {col.name: col for col in (t.columns or []) if col.name}
                 for t in self._logical_tables_cache
@@ -786,11 +784,30 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         return self._worksheet_columns_lookup
 
     def _get_tag_lookup(self) -> Dict[str, str]:
-        """Lazy {tag_id -> tag_name} map. Empty when tags aren't fetchable."""
+        """Lazy {tag_id -> tag_name} map. Empty when tags aren't fetchable.
+
+        Failures (most often FORBIDDEN on ``/tags/search`` for a
+        principal without read access on tags) emit a single warning
+        and fall back to an empty map — entities are still ingested
+        but without ``globalTags`` aspects. Without the try/except the
+        exception would propagate through the caller's per-entity
+        try/except and silently drop the entity.
+        """
         if self._tag_lookup is None:
-            self._tag_lookup = {
-                t.id: t.name for t in self.client.get_tags() if t.id and t.name
-            }
+            try:
+                self._tag_lookup = {
+                    t.id: t.name for t in self.client.get_tags() if t.id and t.name
+                }
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to Fetch Tags",
+                    message=(
+                        "Could not enumerate ThoughtSpot tags. Entities "
+                        "will be emitted without ``globalTags`` aspects."
+                    ),
+                    exc=e,
+                )
+                self._tag_lookup = {}
         return self._tag_lookup
 
     def _resolve_entity_tag_urns(self, raw_tags: Optional[List[TagRef]]) -> List[str]:
@@ -1017,9 +1034,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
-            for container_wu in containers:
-                self.processed_workspace_urns.add(container_wu.get_urn())
-                yield container_wu
+            yield from containers
 
         except Exception as e:
             self.report.warning(
@@ -1093,7 +1108,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                     viz.tags = liveboard.tags
                 for wu in self._process_visualization(viz, container_key=container_key):
                     yield wu
-                    if "chart" in wu.get_urn():
+                    # Filter to chart URNs so we only register the
+                    # visualization itself (not e.g. its container or
+                    # tag side-effects). Use a typed prefix check —
+                    # substring would also match ``urn:li:dashboardChart``
+                    # or any future URN type that embeds ``chart``.
+                    if wu.get_urn().startswith("urn:li:chart:"):
                         chart_urns.append(wu.get_urn())
 
             # Set chart references on dashboard
@@ -1118,9 +1138,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                     dashboard.set_input_datasets(upstream_dataset_urns)
 
             # Emit dashboard workunits
-            for wu in dashboard.as_workunits():
-                self.processed_liveboard_urns.add(wu.get_urn())
-                yield wu
+            yield from dashboard.as_workunits()
 
         except Exception as e:
             self.report.warning(
@@ -1378,9 +1396,7 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
                 chart.set_input_datasets(upstream_urns)
 
             # Emit workunit
-            for wu in chart.as_workunits():
-                self.processed_answer_urns.add(wu.get_urn())
-                yield wu
+            yield from chart.as_workunits()
 
             # Column-level lineage from TML's ``answer.search_query``
             # ``[bracket]`` tokens, mirroring the Visualization path. The
@@ -2028,7 +2044,24 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         external lineage — the connector already surfaced a warning.
         """
         if self._connection_lookup is None:
-            self._connection_lookup = {c.id: c for c in self.client.get_connections()}
+            try:
+                self._connection_lookup = {
+                    c.id: c for c in self.client.get_connections()
+                }
+            except Exception as e:
+                # Without the try/except the exception propagates
+                # through the caller's per-table try/except and
+                # silently drops the whole entity. With it, external
+                # lineage degrades to "warning + skip" cleanly.
+                self.report.warning(
+                    title="Failed to Fetch Connections",
+                    message=(
+                        "Could not enumerate ThoughtSpot connections. "
+                        "Cross-platform external lineage will be missing."
+                    ),
+                    exc=e,
+                )
+                self._connection_lookup = {}
         return self._connection_lookup
 
     def _external_connection_overrides(
@@ -2165,7 +2198,12 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
         if conn is None:
             self._unresolvable_external_lineage_count += 1
             return None
-        platform = _TS_TO_DATAHUB_PLATFORM.get(conn.data_source_type.upper())
+        # ``data_source_type`` is Optional on ConnectionResponse — TS
+        # occasionally omits it for legacy connections. Mirror the same
+        # ``or ""`` guard already used in ``_resolve_sql_view_warehouse``
+        # so an unset field falls through to the "platform unknown"
+        # warning rather than an AttributeError.
+        platform = _TS_TO_DATAHUB_PLATFORM.get((conn.data_source_type or "").upper())
         if not platform:
             return None  # in-memory, FALCON, or unmapped platform
 
@@ -2314,5 +2352,5 @@ class ThoughtSpotSource(StatefulIngestionSourceBase, TestableSource):
     @classmethod
     def create(cls, config_dict, ctx):
         """Create source instance from config dictionary."""
-        config = ThoughtSpotConfig.parse_obj(config_dict)
+        config = ThoughtSpotConfig.model_validate(config_dict)
         return cls(config, ctx)

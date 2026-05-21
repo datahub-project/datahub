@@ -63,12 +63,12 @@ from datahub.ingestion.source.thoughtspot.models import (
     VisualizationResponse,
     WorkspaceResponse,
 )
+from datahub.ingestion.source.thoughtspot.report import ThoughtSpotReport
 from datahub.ingestion.source.thoughtspot.source import (
     ExternalRef,
     SqlViewWarehouseRef,
     ThoughtSpotSource,
 )
-from datahub.ingestion.source.thoughtspot.thoughtspot_report import ThoughtSpotReport
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartUsageStatisticsClass,
