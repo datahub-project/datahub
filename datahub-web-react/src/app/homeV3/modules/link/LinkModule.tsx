@@ -8,6 +8,7 @@ import SmallModule from '@app/homeV3/module/components/SmallModule';
 import { ModuleProps } from '@app/homeV3/module/types';
 import ImageOrIcon from '@app/homeV3/modules/link/ImageOrIcon';
 import { DescriptionContainer, NameContainer } from '@app/homeV3/styledComponents';
+import { safeUrl } from '@app/shared/urlUtils';
 
 const Container = styled.div`
     display: flex;
@@ -40,7 +41,7 @@ export default function LinkModule(props: ModuleProps) {
 
     function goToLink() {
         if (linkParams?.linkUrl) {
-            window.open(linkParams.linkUrl, '_blank');
+            window.open(safeUrl(linkParams.linkUrl), '_blank');
             analytics.event({
                 type: EventType.HomePageTemplateModuleLinkClick,
                 link: linkParams.linkUrl,
@@ -82,7 +83,7 @@ export default function LinkModule(props: ModuleProps) {
                     </TextSection>
                 </LeftSection>
                 <RightSection>
-                    <a href={linkParams?.linkUrl} target="_blank" rel="noopener noreferrer">
+                    <a href={safeUrl(linkParams?.linkUrl)} target="_blank" rel="noopener noreferrer">
                         <Icon icon={ArrowUpRight} size="lg" />
                     </a>
                 </RightSection>

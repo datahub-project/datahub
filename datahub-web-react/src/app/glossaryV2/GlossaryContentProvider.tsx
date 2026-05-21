@@ -31,7 +31,7 @@ const ButtonContainer = styled.div`
 `;
 
 const ListWrapper = styled.div`
-    padding: 4px 12px 12px 12px;
+    padding: 4px 20px 12px 20px;
     overflow: auto;
 `;
 

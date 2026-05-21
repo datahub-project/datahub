@@ -1,4 +1,5 @@
-import { Image, Typography } from 'antd';
+import { Heading, Text } from '@components';
+import { Image } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -41,12 +42,14 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                 >
                     <Image preview={false} height={184} width={500} src={dataHubFlowDiagram} />
                 </div>
-                <Typography.Title level={3}>Welcome to DataHub Core! </Typography.Title>
-                <Typography.Paragraph style={{ lineHeight: '22px' }}>
+                <Heading type="h3" size="2xl" weight="bold">
+                    Welcome to DataHub Core!{' '}
+                </Heading>
+                <Text type="div" size="md">
                     <strong>DataHub</strong> helps you discover, govern and ensure high quality for the important data
                     within your organization. You can:
-                </Typography.Paragraph>
-                <Typography.Paragraph style={{ lineHeight: '24px' }}>
+                </Text>
+                <Text type="div" size="md">
                     <ul>
                         <li>
                             Quickly <strong>search</strong> for Tables, Dashboards, Data Pipelines, and more
@@ -77,7 +80,7 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
                             Press <strong>Cmd + Ctrl + T</strong> to open up this tutorial at any time.
                         </span>
                     </InfoBox>
-                </Typography.Paragraph>
+                </Text>
             </div>
         ),
         style: { minWidth: '650px' },
@@ -87,12 +90,12 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${V2_SEARCH_BAR_ID}`,
         title: 'Find your Data 🔍',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     This is the <strong>Search Bar</strong>. It will serve as your launch point for discovering and
                     collaborating around the data most important to you.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -100,13 +103,13 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${V2_SEARCH_BAR_VIEWS}`,
         title: 'Only the stuff you need 📷',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Views help you focus on the assets that you care about. You can switch between views using the
                     dropdown. Your admin will configure the views that make sense for your organization. You can
                     customize and create your own views as well.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -120,12 +123,12 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${V2_HOME_PAGE_DISCOVER_ID}`,
         title: 'Discover 🔍',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     The <strong> Discover</strong> section serves as your exploration center for discovering new areas
                     of your data estate. You can explore Domains, Platforms, and more.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -133,12 +136,12 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${V2_HOME_PAGE_ANNOUNCEMENTS_ID}`,
         title: 'Announcements 📣',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     The <strong> Announcements</strong> tab contains important updates and information from your
                     organization. Be sure to check it out frequently!
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -146,12 +149,12 @@ const HomePageOnboardingConfig: OnboardingStep[] = [
         selector: `#${V2_HOME_PAGE_PERSONAL_SIDEBAR_ID}`,
         title: 'Your Personal Sidebar 📌',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     This is your <strong> Personal Sidebar</strong>. It contains links to assets you own, groups you are
                     in, your subscriptions and more.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

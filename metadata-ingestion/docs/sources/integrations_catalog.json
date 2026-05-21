@@ -728,7 +728,6 @@
     "img_path": "img/logos/platforms/timescaledb.svg"
   },
   "airbyte": {
-    "api_connector": true,
     "platform_type": "ETL/ELT",
     "title": "Airbyte",
     "description": "Open-source data integration platform for syncing data from APIs, databases, and files to warehouses and lakes.",

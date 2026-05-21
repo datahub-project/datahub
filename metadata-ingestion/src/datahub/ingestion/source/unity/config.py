@@ -19,6 +19,12 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_ownership_helper import (
+    IncrementalOwnershipConfigMixin,
+)
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -157,6 +163,8 @@ class UnityCatalogSourceConfig(
     DatasetSourceConfigMixin,
     StatefulProfilingConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
+    IncrementalOwnershipConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_metastore: bool = pydantic.Field(
         default=False,
@@ -216,6 +224,28 @@ class UnityCatalogSourceConfig(
             "Regex patterns for notebooks to filter in ingestion, based on notebook *path*."
             " Specify regex to match the entire notebook path in `/<dir>/.../<name>` format."
             " e.g. to match all notebooks in the root Shared directory, use the regex `/Shared/.*`."
+        ),
+    )
+
+    metric_view_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns for Unity Catalog Metric Views to filter in ingestion."
+            " Specify regex to match the full `catalog.schema.metric_view_name`."
+            " Only applies when `include_metric_views` is True."
+        ),
+    )
+
+    include_metric_views: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Enable enriched ingestion of Unity Catalog Metric Views: subtype"
+            " 'Metric View', YAML body as ViewProperties, upstream and column-level"
+            " lineage from `source` / `joins` / `dimensions.expr` / `measures.expr`,"
+            " `Dimension` / `Measure` tags on matching columns, `materialization`"
+            " → `ViewProperties.materialized`, and `filter` as a custom property."
+            " Default `false` keeps metric views as plain Tables. Requires a"
+            " `databricks-sdk` recent enough to expose `TableType.METRIC_VIEW`."
         ),
     )
 

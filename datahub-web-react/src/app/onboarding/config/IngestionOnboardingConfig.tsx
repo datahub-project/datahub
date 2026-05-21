@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -13,7 +13,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         selector: `#${INGESTION_CREATE_SOURCE_ID}`,
         title: 'Create a new Ingestion Source',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Configure new Integrations from DataHub to your <strong>Data Platforms</strong>, including
                     Transactional Databases like <strong>MySQL</strong>, Data Warehouses such as{' '}
@@ -30,7 +30,7 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -38,9 +38,9 @@ export const IngestionOnboardingConfig: OnboardingStep[] = [
         selector: `#${INGESTION_REFRESH_SOURCES_ID}`,
         title: 'Refresh Ingestion Sources',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>Click to force a refresh of running ingestion sources.</p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {

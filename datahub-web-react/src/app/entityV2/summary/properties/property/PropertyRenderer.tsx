@@ -4,6 +4,7 @@ import CreatedProperty from '@app/entityV2/summary/properties/property/propertie
 import DocumentStatusProperty from '@app/entityV2/summary/properties/property/properties/DocumentStatusProperty';
 import DocumentTypeProperty from '@app/entityV2/summary/properties/property/properties/DocumentTypeProperty';
 import DomainProperty from '@app/entityV2/summary/properties/property/properties/DomainProperty';
+import LastIngestedProperty from '@app/entityV2/summary/properties/property/properties/LastIngestedProperty';
 import LastUpdatedProperty from '@app/entityV2/summary/properties/property/properties/LastUpdatedProperty';
 import OwnersProperty from '@app/entityV2/summary/properties/property/properties/OwnersProperty';
 import TagsProperty from '@app/entityV2/summary/properties/property/properties/TagsProperty';
@@ -27,6 +28,8 @@ export default function PropertyRenderer(props: PropertyComponentProps) {
                 return DomainProperty;
             case SummaryElementType.Created:
                 return CreatedProperty;
+            case SummaryElementType.LastIngested:
+                return LastIngestedProperty;
             case SummaryElementType.LastModified:
                 return LastUpdatedProperty;
             case SummaryElementType.StructuredProperty:
