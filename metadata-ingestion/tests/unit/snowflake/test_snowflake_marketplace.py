@@ -20,9 +20,6 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowsightUrlBuilder,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import (
-    DataProductProperties,
-)
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
@@ -48,15 +45,24 @@ def _aspect_name(wu: MetadataWorkUnit) -> Optional[str]:
 
 
 def _patch_ops(wu: MetadataWorkUnit) -> List[Dict[str, Any]]:
-    """Return the list of JSON-Patch operations from a PATCH workunit."""
+    """Return the list of JSON-Patch operations from a PATCH workunit.
+
+    Handles both the bare-list payload (plain JSON-Patch array, used when no
+    ``arrayPrimaryKeys`` are needed) and the ``GenericJsonPatch`` envelope
+    (``{"arrayPrimaryKeys": ..., "patch": [...]}``).
+    """
     aspect = getattr(wu.metadata, "aspect", None)
     if aspect is None or not hasattr(aspect, "value"):
         return []
     try:
         payload = json.loads(aspect.value)
-        return payload.get("patch", [])
     except Exception:
         return []
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        return payload.get("patch", [])
+    return []
 
 
 def _patch_paths(wu: MetadataWorkUnit) -> List[str]:
@@ -276,35 +282,56 @@ class TestMarketplaceBasicFunctionality:
 
         wus = list(handler.get_marketplace_workunits())
 
-        # Find DataProductProperties for the ACME listing via customProperties listing_global_name
-        dp_props: List[DataProductProperties] = []
+        # DataProductProperties is now emitted as PATCH ops keyed by
+        # field path; collect the ACME ops by looking at the single DP urn
+        # whose ops include listing_global_name=ACME.DATA.LISTING.
+        dp_patch_ops_by_urn: Dict[str, List[Dict[str, Any]]] = {}
         for wu in wus:
-            aspect_any = getattr(wu.metadata, "aspect", None)
-            if isinstance(aspect_any, DataProductProperties):
-                aspect = cast(DataProductProperties, aspect_any)
-                if (
-                    aspect.customProperties is not None
-                    and aspect.customProperties.get("listing_global_name")
-                    == "ACME.DATA.LISTING"
-                ):
-                    dp_props.append(aspect)
+            if _aspect_name(wu) != "dataProductProperties":
+                continue
+            entity_urn = cast(str, getattr(wu.metadata, "entityUrn", "") or "")
+            if not entity_urn:
+                continue
+            dp_patch_ops_by_urn.setdefault(entity_urn, []).extend(_patch_ops(wu))
 
-        assert len(dp_props) == 1
-        props = dp_props[0]
-        assert props.externalUrl == (
+        acme_ops: List[Dict[str, Any]] = []
+        for ops in dp_patch_ops_by_urn.values():
+            cp_lookup = {
+                op["path"]: op["value"]
+                for op in ops
+                if op.get("op") == "add"
+                and op.get("path", "").startswith("/customProperties/")
+            }
+            if cp_lookup.get("/customProperties/listing_global_name") == (
+                "ACME.DATA.LISTING"
+            ):
+                acme_ops = ops
+                break
+
+        assert acme_ops, "Expected DP property patch ops for ACME listing"
+
+        op_by_path = {
+            op["path"]: op["value"] for op in acme_ops if op.get("op") == "add"
+        }
+        assert op_by_path.get("/externalUrl") == (
             "https://app.snowflake.com/marketplace/internal/listing/ACME.DATA.LISTING"
         )
-        # Mapped properties should be present
         assert (
-            props.customProperties.get("documentation_url")
+            op_by_path.get("/customProperties/documentation_url")
             == "https://docs.acme.example"
         )
         assert (
-            props.customProperties.get("quickstart_url") == "https://quick.acme.example"
+            op_by_path.get("/customProperties/quickstart_url")
+            == "https://quick.acme.example"
         )
-        assert props.customProperties.get("support_email") == "support@acme.example"
-        assert props.customProperties.get("support_contact") == "Acme Support"
-        assert props.customProperties.get("request_approver") == "approver@acme.example"
+        assert (
+            op_by_path.get("/customProperties/support_email") == "support@acme.example"
+        )
+        assert op_by_path.get("/customProperties/support_contact") == "Acme Support"
+        assert (
+            op_by_path.get("/customProperties/request_approver")
+            == "approver@acme.example"
+        )
 
         # Check InstitutionalMemory PATCH for documentation links (marketplace URL is in externalUrl)
         im_patch_ops: List[Dict[str, Any]] = []
@@ -435,9 +462,10 @@ class TestMarketplaceUsageStatistics:
         mock_usage_events: List[Dict[str, Any]],
     ) -> None:
         """Each row produces one usage workunit on the real table Dataset URN,
-        with ``userCounts`` omitted (consumer accounts aren't users).
-        ``auto_empty_dataset_usage_statistics`` may also emit zero-bucket
-        workunits for window continuity; we assert the non-zero one here."""
+        with ``userCounts`` omitted (consumer accounts aren't users). The
+        zero-bucket padding wrapper is intentionally dropped to avoid
+        contending with the main usage extractor on shared ``(urn, ts, DAY)``
+        keys, so only the non-zero rows surface here."""
         handler = create_handler(
             base_config, mock_listings, mock_purchases, mock_usage_events
         )

@@ -596,6 +596,7 @@ class SnowflakeV2Source(
                     identifiers=self.identifiers,
                     snowsight_url_builder=snowsight_url_builder,
                     redundant_run_skip_handler=self.redundant_usage_run_skip_handler,
+                    domain_registry=self.domain_registry,
                 )
                 yield from marketplace_handler.get_marketplace_workunits()
 

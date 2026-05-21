@@ -128,7 +128,6 @@ class SnowflakeV2Report(
     marketplace_purchases_scanned: int = 0
     marketplace_usage_events_processed: int = 0
     marketplace_data_products_created: int = 0
-    marketplace_domains_created: int = 0
     marketplace_enhanced_datasets: int = 0
 
     # Lineage consistency tracking
@@ -207,9 +206,6 @@ class SnowflakeV2Report(
 
     def report_marketplace_dataset_enhanced(self) -> None:
         self.marketplace_enhanced_datasets += 1
-
-    def report_marketplace_domain_created(self) -> None:
-        self.marketplace_domains_created += 1
 
     def report_marketplace_usage_events_processed(self, count: int) -> None:
         self.marketplace_usage_events_processed += count

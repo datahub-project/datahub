@@ -1,12 +1,10 @@
 import json
 import logging
 import re
-from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, TypedDict
 
-from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import (
     get_sys_time,
     make_group_urn,
@@ -14,9 +12,7 @@ from datahub.emitter.mce_builder import (
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import DomainKey, gen_data_product
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
-from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import (
     MarketplaceMode,
@@ -48,9 +44,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.structured import (
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
     DatasetUsageStatisticsClass,
-    DomainPropertiesClass,
+    DomainsClass,
     InstitutionalMemoryMetadataClass,
+    OwnerClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
     TimeWindowSizeClass,
 )
@@ -65,6 +63,7 @@ from datahub.specific.aspect_helpers.institutional_memory import (
 )
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.specific.dataproduct import DataProductPatchBuilder
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
 class _ListingEnrichmentResult(TypedDict):
@@ -115,6 +114,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         identifiers: SnowflakeIdentifierBuilder,
         snowsight_url_builder: Optional[SnowsightUrlBuilder] = None,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
+        domain_registry: Optional[DomainRegistry] = None,
     ) -> None:
         self.config = config
         self.report = report
@@ -122,11 +122,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         self.identifiers = identifiers
         self.snowsight_url_builder = snowsight_url_builder
         self.redundant_run_skip_handler = redundant_run_skip_handler
+        self.domain_registry = domain_registry
 
         self._marketplace_listings: Dict[str, SnowflakeMarketplaceListing] = {}
         self._marketplace_purchases: Dict[str, SnowflakeMarketplacePurchase] = {}
         self._provider_shares: Dict[str, SnowflakeProviderShare] = {}
-        self._data_product_assets: Dict[str, List[str]] = defaultdict(list)
         self._purchase_to_listing: Optional[Dict[str, str]] = None
 
     def get_marketplace_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -138,9 +138,7 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
         self._load_marketplace_data()
 
-        yield from self._create_marketplace_domains()
         yield from self._create_marketplace_data_products()
-        yield from self._associate_assets_to_data_products()
         yield from self._enhance_purchased_datasets()
 
         # LISTING_ACCESS_HISTORY is provider-side, so skip the query in pure
@@ -225,15 +223,32 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
     def _resolve_domain_for_listing(
         self, listing: SnowflakeMarketplaceListing
     ) -> Optional[str]:
-        org_name = listing.organization_profile_name or "Unknown Organization"
+        """Map a marketplace organization to an existing DataHub domain.
 
-        domain_key = DomainKey(
-            name=org_name,
-            platform="snowflake",
-            instance=self.config.platform_instance,
-        )
+        Returns the URN of a user-configured domain when
+        ``marketplace.organization_to_domain`` maps this organization, ``None``
+        otherwise. The handler intentionally never auto-creates domain
+        entities — doing so previously minted a separate domain per
+        ``(name, platform, platform_instance)`` tuple and orphaned them
+        against the rest of the Snowflake pipeline (which resolves by name
+        via ``DomainRegistry``).
+        """
+        org_name = listing.organization_profile_name
+        if not org_name:
+            return None
 
-        return domain_key.as_urn()
+        mapping = self.config.marketplace.organization_to_domain
+        identifier = mapping.get(org_name)
+        if not identifier:
+            return None
+
+        if identifier.startswith("urn:li:domain:"):
+            return identifier
+        if self.domain_registry is not None:
+            resolved = self.domain_registry.get_domain_urn(identifier)
+            if resolved.startswith("urn:li:domain:"):
+                return resolved
+        return f"urn:li:domain:{identifier}"
 
     def _load_marketplace_data(self) -> None:
         self._load_marketplace_listings()
@@ -923,39 +938,19 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             documentation_links=documentation_links,
         )
 
-    def _create_marketplace_domains(self) -> Iterable[MetadataWorkUnit]:
-        organizations: Dict[str, Set[str]] = defaultdict(set)
-
-        for listing in self._marketplace_listings.values():
-            org_name = listing.organization_profile_name or "Unknown Organization"
-            organizations[org_name].add(listing.listing_global_name)
-
-        for org_name, listing_names in organizations.items():
-            domain_key = DomainKey(
-                name=org_name,
-                platform="snowflake",
-                instance=self.config.platform_instance,
-            )
-
-            logger.debug(
-                f"Creating domain for organization {org_name!r} with "
-                f"{len(listing_names)} listings"
-            )
-
-            # Create-only so re-runs don't clobber UI edits to the domain.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=domain_key.as_urn(),
-                aspect=DomainPropertiesClass(
-                    name=org_name,
-                    description=f"Internal marketplace data products from {org_name}",
-                ),
-                changeType=ChangeTypeClass.CREATE,
-                headers={"If-None-Match": "*"},
-            ).as_workunit()
-
-            self.report.report_marketplace_domain_created()
-
     def _create_marketplace_data_products(self) -> Iterable[MetadataWorkUnit]:
+        """Emit a marketplace listing as a Data Product, routing every
+        editable aspect through ``DataProductPatchBuilder``.
+
+        The connector forces ``name``, ``description``, and ``externalUrl``
+        from the listing (they are the source of truth for marketplace
+        entities). Owners, custom properties, structured properties, assets,
+        and institutional memory links are added as additive patches so
+        UI-added or pipeline-added entries on the same Data Product survive
+        re-ingest. ``Domain`` is emitted as a one-shot CREATE only when the
+        user has mapped this organization via
+        ``marketplace.organization_to_domain``.
+        """
         for listing in self._marketplace_listings.values():
             data_product_key = self.identifiers.gen_marketplace_data_product_key(
                 listing.listing_global_name
@@ -966,69 +961,68 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             metadata = self._build_data_product_metadata(listing, database_names)
 
             data_product_urn = data_product_key.as_urn()
-            if asset_urns:
-                # ``gen_data_product``'s ``assets`` only writes
-                # ``DataProductProperties``; bidirectional
-                # ``DataProductContains`` is emitted in
-                # ``_associate_assets_to_data_products``.
-                self._data_product_assets[data_product_urn] = asset_urns
 
-            structured_props: Optional[Dict[StructuredPropertyUrn, str]] = None
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_product_urn,
+                aspect=StatusClass(removed=False),
+            ).as_workunit()
+
+            if metadata.domain_urn:
+                # Create-only so a user reassignment in the UI survives re-runs.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=data_product_urn,
+                    aspect=DomainsClass(domains=[metadata.domain_urn]),
+                    changeType=ChangeTypeClass.CREATE,
+                    headers={"If-None-Match": "*"},
+                ).as_workunit()
+
+            dp_patcher = DataProductPatchBuilder(data_product_urn)
+
+            dp_patcher.set_name(metadata.name)
+            dp_patcher.set_description(metadata.description)
+            if metadata.external_url:
+                dp_patcher.set_external_url(metadata.external_url)
+
+            for k, v in metadata.custom_properties.items():
+                dp_patcher.add_custom_property(k, v)
+
             if metadata.structured_properties:
-                structured_props = {
-                    StructuredPropertyUrn(k): v
-                    for k, v in metadata.structured_properties.items()
-                }
-            yield from gen_data_product(
-                data_product_key=data_product_key,
-                name=metadata.name,
-                description=metadata.description,
-                external_url=metadata.external_url,
-                custom_properties=metadata.custom_properties,
-                structured_properties=structured_props,
-                domain_urn=metadata.domain_urn,
-                owner_urns=metadata.owner_urns if metadata.owner_urns else None,
-                ownership_type=OwnershipTypeClass.TECHNICAL_OWNER,
-                assets=asset_urns if asset_urns else None,
-            )
-
-            if metadata.documentation_links:
-                dp_patcher = DataProductPatchBuilder(data_product_urn)
-                for link in metadata.documentation_links:
-                    dp_patcher.add_institutional_memory(
-                        InstitutionalMemoryMetadataClass(
-                            url=link,
-                            description="Documentation",
-                            createStamp=AuditStamp(
-                                time=int(listing.created_on.timestamp() * 1000)
-                                if listing.created_on
-                                else 0,
-                                actor="urn:li:corpuser:datahub",
-                            ),
-                        )
-                    )
-                for mcp in dp_patcher.build():
-                    yield MetadataWorkUnit(
-                        id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+                for k, v in metadata.structured_properties.items():
+                    dp_patcher.set_structured_property(
+                        StructuredPropertyUrn(k).urn(), v
                     )
 
-            self.report.report_marketplace_data_product_created()
+            for owner_urn in metadata.owner_urns:
+                dp_patcher.add_owner(
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                )
 
-    def _associate_assets_to_data_products(self) -> Iterable[MetadataWorkUnit]:
-        """Emit bidirectional ``DataProductContains`` patches so assets show
-        up on the Data Product page and vice versa."""
-        for data_product_urn, asset_urns in self._data_product_assets.items():
-            if not asset_urns:
-                continue
-
-            patch_builder = DataProductPatchBuilder(data_product_urn)
             for asset_urn in asset_urns:
-                patch_builder.add_asset(asset_urn)
+                dp_patcher.add_asset(asset_urn)
 
-            for mcp in patch_builder.build():
+            for link in metadata.documentation_links:
+                dp_patcher.add_institutional_memory(
+                    InstitutionalMemoryMetadataClass(
+                        url=link,
+                        description="Documentation",
+                        createStamp=AuditStamp(
+                            time=int(listing.created_on.timestamp() * 1000)
+                            if listing.created_on
+                            else 0,
+                            actor="urn:li:corpuser:datahub",
+                        ),
+                    )
+                )
+
+            for mcp in dp_patcher.build():
                 yield MetadataWorkUnit(
                     id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
                 )
+
+            self.report.report_marketplace_data_product_created()
 
     def _build_purchase_to_listing_map(self) -> Dict[str, str]:
         """Compute ``database_name -> listing_global_name`` once, with
@@ -1234,20 +1228,13 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
         if not listing_names:
             return
 
-        marketplace_dataset_urns: Set[str] = {
-            urn
-            for asset_urns in self._data_product_assets.values()
-            for urn in asset_urns
-        }
-
-        yield from auto_empty_dataset_usage_statistics(
-            self._marketplace_usage_workunits(start_time, end_time, listing_names),
-            config=BaseTimeWindowConfig(
-                start_time=start_time,
-                end_time=end_time,
-                bucket_duration=self.config.bucket_duration,
-            ),
-            dataset_urns=marketplace_dataset_urns,
+        # Marketplace usage is a secondary signal for shared datasets; the
+        # main usage extractor owns these assets and asserts the
+        # ``(urn, timestampMillis, DAY)`` keys for them. Emitting zero-usage
+        # padding here would compete with the main extractor's real numbers
+        # and inflate workunit volume by ~30N (window-days × assets) per run.
+        yield from self._marketplace_usage_workunits(
+            start_time, end_time, listing_names
         )
 
     def _marketplace_usage_workunits(

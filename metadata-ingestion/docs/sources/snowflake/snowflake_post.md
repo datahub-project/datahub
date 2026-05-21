@@ -184,6 +184,22 @@ Set `marketplace_mode: "both"` to track both purchased listings (consumer) AND p
 
 For more details, see the marketplace configuration guide in the connector documentation.
 
+##### Mapping Marketplace Organizations to Existing Domains
+
+Marketplace ingestion never auto-creates domain entities. Snowflake organization names (`ORGANIZATION_PROFILE_NAME`) collide easily with UI-created or other-connector domains, so pinning Data Products to an organization-derived `DomainKey` would produce duplicate "Finance"/"Analytics" entries that nothing outside marketplace attaches to.
+
+If you want marketplace Data Products to land in a specific DataHub domain, map the organization name to an existing domain (URN, GUID, or domain name registered via the connector's `domain` config) via `marketplace.organization_to_domain`:
+
+```yaml
+marketplace:
+  enabled: true
+  organization_to_domain:
+    "ACME Corp": "urn:li:domain:finance"
+    "Weather Co": "data-products" # resolved via DomainRegistry
+```
+
+Without a mapping, the Data Product has no domain attached. The connector also writes the domain as `CREATE` only, so user reassignments in the UI survive subsequent runs.
+
 ##### Troubleshooting Marketplace Ingestion
 
 **Common Permission Errors:**

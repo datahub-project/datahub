@@ -383,6 +383,20 @@ class SnowflakeMarketplaceConfig(ConfigModel):
         ),
     )
 
+    organization_to_domain: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of Snowflake organization name (``ORGANIZATION_PROFILE_NAME``) "
+            "to an existing DataHub domain identifier (URN, GUID, or domain name "
+            "resolvable via ``DomainRegistry``). When set, marketplace Data Products "
+            "for that organization are pinned to the mapped domain. Without a "
+            "mapping, no domain is attached — marketplace ingestion never "
+            "auto-creates domain entities to avoid polluting the domain list with "
+            "per-(name, platform_instance) orphans. Example: "
+            "``{'Acme Analytics': 'urn:li:domain:finance', 'Beta Corp': 'data-products'}``."
+        ),
+    )
+
 
 # TODO: SnowflakeConfig is unused except for this inheritance. We should collapse the config inheritance hierarchy.
 class SnowflakeConfig(

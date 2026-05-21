@@ -41,7 +41,7 @@ from datahub.metadata.schema_classes import (
     FabricTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
-    GlossaryTermsClass,
+    GlossaryTermsClass as GlossaryTerms,
     MetadataChangeEventClass,
     OwnerClass,
     OwnershipClass,
@@ -579,12 +579,10 @@ def make_ownership_aspect_from_urn_list(
     )
 
 
-def make_glossary_terms_aspect_from_urn_list(
-    term_urns: List[str],
-) -> GlossaryTermsClass:
+def make_glossary_terms_aspect_from_urn_list(term_urns: List[str]) -> GlossaryTerms:
     for term_urn in term_urns:
         assert term_urn.startswith("urn:li:glossaryTerm:")
-    glossary_terms = GlossaryTermsClass(
+    glossary_terms = GlossaryTerms(
         [GlossaryTermAssociationClass(term_urn) for term_urn in term_urns],
         AuditStampClass(
             time=int(time.time() * 1000),
