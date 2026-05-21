@@ -51,6 +51,26 @@ SYS_BIC_SCHEMA = "_SYS_BIC"
 
 
 # ---------------------------------------------------------------------------
+# HANA native-type groupings used to re-assemble the canonical SQL spelling
+# from ``SYS.VIEW_COLUMNS`` (DATA_TYPE_NAME + LENGTH + SCALE).
+# ---------------------------------------------------------------------------
+
+# HANA types whose canonical spelling carries both precision and scale, e.g.
+# ``DECIMAL(15,2)``.
+NUMERIC_WITH_PRECISION_SCALE_TYPES = frozenset({"DECIMAL", "NUMERIC", "SMALLDECIMAL"})
+
+# HANA character / binary types whose canonical spelling carries a length,
+# e.g. ``NVARCHAR(100)`` or ``VARBINARY(64)``.
+LENGTH_BEARING_STRING_TYPES = frozenset(
+    {"VARCHAR", "NVARCHAR", "ALPHANUM", "SHORTTEXT", "VARBINARY"}
+)
+
+# HANA's ``FLOAT(n)`` carries a bit-width (1-53) in ``SYS.VIEW_COLUMNS.LENGTH``
+# but no scale.
+PRECISION_ONLY_TYPES = frozenset({"FLOAT"})
+
+
+# ---------------------------------------------------------------------------
 # Calculation-view XML schema names.
 #
 # These are the element and attribute names defined by SAP's
