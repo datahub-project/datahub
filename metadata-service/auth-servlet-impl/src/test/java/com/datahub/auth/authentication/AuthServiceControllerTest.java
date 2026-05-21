@@ -21,6 +21,7 @@ import com.datahub.authentication.invite.InviteTokenService;
 import com.datahub.authentication.session.UserSessionEligibilityChecker;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenClaims;
+import com.datahub.authentication.token.TokenException;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.token.TokenVersion;
 import com.datahub.authentication.user.NativeUserService;
@@ -69,6 +70,7 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
 
   @BeforeMethod
   public void resetSharedMocks() {
+    AuthenticationContext.remove();
     reset(
         mockUserSessionEligibilityChecker,
         mockTokenService,
@@ -250,6 +252,84 @@ public class AuthServiceControllerTest extends AbstractTestNGSpringContextTests 
         authServiceController.revokeSessionToken(new HttpEntity<>("")).join();
 
     assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+  }
+
+  @Test
+  public void testRevokeSessionTokenRejectsNonBearerAuthorizationHeader() {
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Basic not-a-bearer-token");
+
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
+
+    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+  }
+
+  @Test
+  public void testRevokeSessionTokenRejectsBlankBearerToken() {
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer   ");
+
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
+
+    assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+  }
+
+  @Test
+  public void testRevokeSessionTokenWithoutAuthenticationUsesNullActorUrn() throws Exception {
+    final String sessionToken = "session-token-without-auth";
+    when(mockTokenService.validateAccessToken(sessionToken))
+        .thenReturn(
+            new TokenClaims(TokenVersion.TWO, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
+
+    assertEquals(HttpStatus.OK, response.getStatusCode());
+    verify(mockTokenService)
+        .revokeSessionAccessToken(eq(systemOperationContext), eq(sessionToken), isNull(), eq(123L));
+  }
+
+  @Test
+  public void testRevokeSessionTokenInvalidTokenReturnsUnauthorized() throws Exception {
+    final String sessionToken = "invalid-session-token";
+    when(mockTokenService.validateAccessToken(sessionToken))
+        .thenThrow(new TokenException("invalid token"));
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
+
+    assertEquals(HttpStatus.UNAUTHORIZED, response.getStatusCode());
+    verify(mockTokenService, never())
+        .revokeSessionAccessToken(any(OperationContext.class), anyString(), any(), any());
+  }
+
+  @Test
+  public void testRevokeSessionTokenUnexpectedFailureReturnsInternalServerError() throws Exception {
+    final String sessionToken = "session-token";
+    final Authentication userAuth = mock(Authentication.class);
+    final Actor actor = new Actor(ActorType.USER, "testUser");
+    when(userAuth.getActor()).thenReturn(actor);
+    AuthenticationContext.setAuthentication(userAuth);
+    when(mockTokenService.validateAccessToken(sessionToken))
+        .thenReturn(
+            new TokenClaims(TokenVersion.TWO, TokenType.SESSION, ActorType.USER, "testUser", 123L));
+    org.mockito.Mockito.doThrow(new RuntimeException("revoke failed"))
+        .when(mockTokenService)
+        .revokeSessionAccessToken(
+            eq(systemOperationContext), eq(sessionToken), eq(actor.toUrnStr()), eq(123L));
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + sessionToken);
+    ResponseEntity<Void> response =
+        authServiceController.revokeSessionToken(new HttpEntity<>("", headers)).join();
+
+    assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
   }
 
   @Test(expectedExceptions = CompletionException.class)
