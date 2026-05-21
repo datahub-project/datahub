@@ -210,7 +210,11 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "created": 1640400000000,
                 "modified": 1700400000000,
                 "metadata_type": "ANSWER",
-                "source_tables": ["worksheet-1"],  # Lineage to Sales_Fact_View
+                # SourceTableRef coercer accepts {id, name} dicts; bare
+                # GUID strings are dropped with a warning.
+                "source_tables": [
+                    {"id": "worksheet-1", "name": "Sales_Fact_View"},
+                ],
             },
         },
         {
@@ -234,7 +238,9 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "created": 1640500000000,
                 "modified": 1700500000000,
                 "metadata_type": "ANSWER",
-                "source_tables": ["worksheet-2"],  # Lineage to Customer_Dimension
+                "source_tables": [
+                    {"id": "worksheet-2", "name": "Customer_Dimension"},
+                ],
             },
         },
     ]
@@ -259,6 +265,50 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "metadata_type": "LOGICAL_TABLE",
                 "type": "WORKSHEET",
             },
+            # metadata_search returns columns under metadata_detail when
+            # include_details=True. _parse_columns_from_metadata_detail
+            # reads header.{id,name,description}, dataType, type,
+            # physicalColumnName and sources from this wire shape.
+            "metadata_detail": {
+                "columns": [
+                    {
+                        "header": {
+                            "id": "col-1",
+                            "name": "order_id",
+                            "description": "Unique order identifier",
+                        },
+                        "dataType": "INT64",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-2",
+                            "name": "customer_id",
+                            "description": "Customer reference",
+                        },
+                        "dataType": "INT64",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-3",
+                            "name": "order_amount",
+                            "description": "Total order amount in USD",
+                        },
+                        "dataType": "DOUBLE",
+                        "type": "MEASURE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-4",
+                            "name": "order_date",
+                            "description": "Date order was placed",
+                        },
+                        "dataType": "DATE",
+                        "type": "ATTRIBUTE",
+                    },
+                ],
+            },
         },
         {
             "metadata_id": "table-1",
@@ -278,6 +328,46 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "metadata_type": "LOGICAL_TABLE",
                 "type": "ONE_TO_ONE_LOGICAL",
             },
+            "metadata_detail": {
+                "columns": [
+                    {
+                        "header": {
+                            "id": "col-5",
+                            "name": "id",
+                            "description": "Primary key",
+                        },
+                        "dataType": "INT64",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-6",
+                            "name": "customer_id",
+                            "description": "Foreign key to customers",
+                        },
+                        "dataType": "INT64",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-7",
+                            "name": "amount",
+                            "description": "Order total",
+                        },
+                        "dataType": "DOUBLE",
+                        "type": "MEASURE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-8",
+                            "name": "created_at",
+                            "description": "Record creation timestamp",
+                        },
+                        "dataType": "DATE_TIME",
+                        "type": "ATTRIBUTE",
+                    },
+                ],
+            },
         },
         {
             "metadata_id": "worksheet-2",
@@ -296,6 +386,46 @@ def mock_thoughtspot_api(requests_mock: Mocker, test_resources_dir: Path) -> Moc
                 "modified": 1700800000000,
                 "metadata_type": "LOGICAL_TABLE",
                 "type": "WORKSHEET",
+            },
+            "metadata_detail": {
+                "columns": [
+                    {
+                        "header": {
+                            "id": "col-9",
+                            "name": "customer_id",
+                            "description": "Customer ID",
+                        },
+                        "dataType": "INT64",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-10",
+                            "name": "customer_name",
+                            "description": "Customer full name",
+                        },
+                        "dataType": "VARCHAR",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-11",
+                            "name": "email",
+                            "description": "Customer email address",
+                        },
+                        "dataType": "VARCHAR",
+                        "type": "ATTRIBUTE",
+                    },
+                    {
+                        "header": {
+                            "id": "col-12",
+                            "name": "segment",
+                            "description": "Customer segment classification",
+                        },
+                        "dataType": "VARCHAR",
+                        "type": "ATTRIBUTE",
+                    },
+                ],
             },
         },
         {
@@ -797,14 +927,6 @@ def test_thoughtspot_connection_success(mock_thoughtspot_api):
 # through unit tests in test_thoughtspot_source.py instead.
 
 
-@pytest.mark.skip(
-    reason=(
-        "Fixture does not supply per-column ``metadata_detail.columns`` on "
-        "logical tables, so the connector emits no ``schemaMetadata`` aspects. "
-        "Enriching the fixture is tracked separately; the column-extraction "
-        "path itself is covered by unit tests in ``test_thoughtspot_source.py``."
-    )
-)
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_thoughtspot_schema_extraction(
     pytestconfig, tmp_path, mock_thoughtspot_api, test_resources_dir, mock_time
@@ -871,15 +993,6 @@ def test_thoughtspot_schema_extraction(
     assert found_columns, "No columns found in schemaMetadata aspects"
 
 
-@pytest.mark.skip(
-    reason=(
-        "Fixture's TML export callback does not produce per-viz lineage "
-        "(visualizations[].answer.tables[]), so the connector emits no chart "
-        "inputs. The lineage-extraction code path is covered by unit tests in "
-        "``test_thoughtspot_source.py``; the fixture enrichment is tracked "
-        "separately."
-    )
-)
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_thoughtspot_lineage_extraction(
     pytestconfig, tmp_path, mock_thoughtspot_api, test_resources_dir, mock_time
