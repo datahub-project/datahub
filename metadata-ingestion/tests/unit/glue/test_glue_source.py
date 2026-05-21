@@ -1569,7 +1569,12 @@ def test_glue_redact_job_script_secret_fields(secret_name):
 def test_enable_properties_merge_emits_patch_mcps(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None
 ) -> None:
-    source = glue_source(enable_properties_merge=True)
+    source = glue_source(
+        enable_properties_merge=True,
+        extract_transforms=False,
+        use_s3_bucket_tags=False,
+        use_s3_object_tags=False,
+    )
 
     with Stubber(source.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response, {})
@@ -1584,24 +1589,14 @@ def test_enable_properties_merge_emits_patch_mcps(
             {"DatabaseName": "test-database"},
         )
         glue_stubber.add_response(
+            "get_tables",
+            {"TableList": []},
+            {"DatabaseName": "empty-database"},
+        )
+        glue_stubber.add_response(
             "get_jobs",
-            get_jobs_response,
+            get_jobs_response_empty,
             {},
-        )
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_1,
-            {"PythonScript": "job_name_1"},
-        )
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_2,
-            {"PythonScript": "job_name_2"},
-        )
-        glue_stubber.add_response(
-            "get_dataflow_graph",
-            get_dataflow_graph_response_3,
-            {"PythonScript": "job_name_3"},
         )
 
         workunits = list(source.get_workunits())
