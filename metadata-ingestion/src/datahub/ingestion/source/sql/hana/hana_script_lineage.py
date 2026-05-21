@@ -1,6 +1,7 @@
 import re
 from typing import List
 
+from datahub.ingestion.source.sql.hana.constants import HANA_PSEUDO_TABLES
 from datahub.ingestion.source.sql.hana.models import ScriptTableRef
 
 # Matches ``FROM "schema"."name"`` / ``JOIN "schema"."name"``. HANA SQLScript
@@ -11,10 +12,6 @@ _QUALIFIED_TABLE_RE = re.compile(
     r'\b(?:FROM|JOIN)\s+"([^"]+)"\."([^"]+)"',
     re.IGNORECASE,
 )
-
-# HANA's ``DUMMY`` is the analogue of Oracle's ``DUAL`` — a single-row
-# pseudo-table that carries no lineage value.
-_PSEUDO_TABLES = frozenset({"DUMMY"})
 
 
 def extract_table_references(sql: str) -> List[ScriptTableRef]:
@@ -28,7 +25,7 @@ def extract_table_references(sql: str) -> List[ScriptTableRef]:
         schema, name = match.group(1), match.group(2)
         if not schema or not name:
             continue
-        if name.upper() in _PSEUDO_TABLES:
+        if name.upper() in HANA_PSEUDO_TABLES:
             continue
         key = (schema, name)
         if key in seen:

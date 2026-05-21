@@ -1,31 +1,9 @@
 from pydantic import Field, PositiveInt, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.ingestion.source.sql.hana.constants import DEFAULT_DENY_SCHEMAS
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-
-# Default deny patterns cover the SAP-managed schemas present on every tenant.
-# ``_SYS_BIC`` stays *allowed* — it exposes activated calculation views and is
-# the entry point for calc-view lineage.
-_DEFAULT_DENY_SCHEMAS = [
-    r"^SYS$",
-    r"^_SYS_AUDIT$",
-    r"^_SYS_BI$",
-    r"^_SYS_BIC_CDS$",
-    r"^_SYS_DATA_ANONYMIZATION$",
-    r"^_SYS_EPM$",
-    r"^_SYS_PLAN_STABILITY$",
-    r"^_SYS_REPO$",
-    r"^_SYS_RT$",
-    r"^_SYS_SECURITY$",
-    r"^_SYS_SQL_ANALYZER$",
-    r"^_SYS_STATISTICS$",
-    r"^_SYS_TASK$",
-    r"^_SYS_TELEMETRY$",
-    r"^_SYS_WORKLOAD_REPLAY$",
-    r"^_SYS_XS$",
-    r"^HANA_XS_BASE$",
-]
 
 
 class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
@@ -42,7 +20,7 @@ class HanaConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         ),
     )
     schema_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern(deny=_DEFAULT_DENY_SCHEMAS),
+        default=AllowDenyPattern(deny=DEFAULT_DENY_SCHEMAS),
         description="Regex patterns for schemas to filter in ingestion. SAP-managed `_SYS_*` schemas (except `_SYS_BIC`) are denied by default.",
     )
     include_calculation_views: bool = Field(

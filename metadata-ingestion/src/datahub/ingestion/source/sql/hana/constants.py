@@ -51,6 +51,38 @@ SYS_BIC_SCHEMA = "_SYS_BIC"
 
 
 # ---------------------------------------------------------------------------
+# SAP-managed schemas denied by default. ``_SYS_BIC`` stays *allowed* — it
+# exposes activated calculation views and is the entry point for calc-view
+# lineage.
+# ---------------------------------------------------------------------------
+
+DEFAULT_DENY_SCHEMAS = [
+    r"^SYS$",
+    r"^_SYS_AUDIT$",
+    r"^_SYS_BI$",
+    r"^_SYS_BIC_CDS$",
+    r"^_SYS_DATA_ANONYMIZATION$",
+    r"^_SYS_EPM$",
+    r"^_SYS_PLAN_STABILITY$",
+    r"^_SYS_REPO$",
+    r"^_SYS_RT$",
+    r"^_SYS_SECURITY$",
+    r"^_SYS_SQL_ANALYZER$",
+    r"^_SYS_STATISTICS$",
+    r"^_SYS_TASK$",
+    r"^_SYS_TELEMETRY$",
+    r"^_SYS_WORKLOAD_REPLAY$",
+    r"^_SYS_XS$",
+    r"^HANA_XS_BASE$",
+]
+
+
+# HANA's ``DUMMY`` is the analogue of Oracle's ``DUAL`` — a single-row
+# pseudo-table that carries no lineage value.
+HANA_PSEUDO_TABLES = frozenset({"DUMMY"})
+
+
+# ---------------------------------------------------------------------------
 # HANA native-type groupings used to re-assemble the canonical SQL spelling
 # from ``SYS.VIEW_COLUMNS`` (DATA_TYPE_NAME + LENGTH + SCALE).
 # ---------------------------------------------------------------------------
