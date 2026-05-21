@@ -52,6 +52,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
+
 ## v1.6.0
 
 Requirements:
