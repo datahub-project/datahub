@@ -42,6 +42,9 @@ query getMe {
                     }
                     dismissedAnnouncementUrns
                 }
+                locale {
+                    language
+                }
             }
         }
         platformPrivileges {

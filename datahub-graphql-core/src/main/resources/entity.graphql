@@ -823,6 +823,13 @@ type Mutation {
   updateUserHomePageSettings(input: UpdateUserHomePageSettingsInput!): Boolean
 
   """
+  Update the locale settings for a user.
+  """
+  updateCorpUserLocaleSettings(
+    input: UpdateCorpUserLocaleSettingsInput!
+  ): Boolean
+
+  """
   Update a user setting
   """
   updateUserSetting(input: UpdateUserSettingInput!): Boolean
@@ -4467,6 +4474,11 @@ type CorpUserSettings {
   Settings related to the home page for a user
   """
   homePage: CorpUserHomePageSettings
+
+  """
+  Locale and language preferences for a user
+  """
+  locale: CorpUserLocaleSettings
 }
 
 """
@@ -4483,6 +4495,16 @@ type CorpUserAppearanceSettings {
   Flag controlling whether the V2 UI for DataHub is shown.
   """
   showThemeV2: Boolean
+}
+
+"""
+Locale and language preferences for a user.
+"""
+type CorpUserLocaleSettings {
+  """
+  BCP 47 language tag representing the user's preferred UI language (e.g. "en", "de").
+  """
+  language: String
 }
 
 """
@@ -13016,6 +13038,17 @@ input UpdateUserHomePageSettingsInput {
   Whether to remove the page template for the user.
   """
   removePageTemplate: Boolean
+}
+
+"""
+Input required to update locale settings for a user.
+"""
+input UpdateCorpUserLocaleSettingsInput {
+  """
+  BCP 47 language tag for the user's preferred UI language (e.g. "en", "de").
+  If not provided, the language preference will be cleared.
+  """
+  language: String
 }
 
 """
