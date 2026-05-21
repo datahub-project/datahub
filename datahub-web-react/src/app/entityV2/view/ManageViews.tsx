@@ -42,13 +42,32 @@ const HeaderActionsContainer = styled.div`
 
 const ListContainer = styled.div`
     flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    color: ${(props) => props.theme.colors.text};
+
     &&& .ant-tabs-nav {
         margin: 0;
     }
-    color: ${(props) => props.theme.colors.text};
-    overflow: auto;
+
+    .ant-tabs-content-holder {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+    }
+
+    .ant-tabs-content {
+        flex: 1;
+        min-height: 0;
+    }
+
+    .ant-tabs-tabpane-active {
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+    }
 `;
 
 enum TabType {

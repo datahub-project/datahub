@@ -1,4 +1,5 @@
 import aerospikeLogo from '@images/aerospike.png';
+import airbyteLogo from '@images/airbytelogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
@@ -55,12 +56,15 @@ import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
+import thoughtspotLogo from '@images/thoughtspotlogo.svg';
 import trinoLogo from '@images/trinologo.png';
 import vertexAI from '@images/vertexai.png';
 import verticaLogo from '@images/verticalogo.png';
 
 const AEROSPIKE = 'aerospike';
 const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
+export const AIRBYTE = 'airbyte';
+export const AIRBYTE_URN = `urn:li:dataPlatform:${AIRBYTE}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
 export const AZURE = 'azure-ad';
@@ -147,6 +151,8 @@ const SUPERSET = 'superset';
 const SUPERSET_URN = `urn:li:dataPlatform:${SUPERSET}`;
 const TABLEAU = 'tableau';
 export const TABLEAU_URN = `urn:li:dataPlatform:${TABLEAU}`;
+export const THOUGHTSPOT = 'thoughtspot';
+export const THOUGHTSPOT_URN = `urn:li:dataPlatform:${THOUGHTSPOT}`;
 const TRINO = 'trino';
 const TRINO_URN = `urn:li:dataPlatform:${TRINO}`;
 export const CUSTOM = 'custom';
@@ -200,6 +206,7 @@ export const OMNI_URN = `urn:li:dataPlatform:${OMNI}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [AEROSPIKE_URN]: aerospikeLogo,
+    [AIRBYTE_URN]: airbyteLogo,
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
@@ -238,6 +245,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SNOWPLOW_URN]: snowplowLogo,
     [STARROCKS_URN]: starrocksLogo,
     [TABLEAU_URN]: tableauLogo,
+    [THOUGHTSPOT_URN]: thoughtspotLogo,
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,

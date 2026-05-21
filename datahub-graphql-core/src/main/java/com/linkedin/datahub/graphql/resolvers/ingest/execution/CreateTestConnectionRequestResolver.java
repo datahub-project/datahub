@@ -80,8 +80,9 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                 RECIPE_ARG_NAME,
                 IngestionUtils.injectPipelineName(
                     input.getRecipe(), executionRequestUrn.toString()));
-            if (input.getVersion() != null) {
-              arguments.put(VERSION_ARG_NAME, input.getVersion());
+            String testVersion = input.getVersion();
+            if (testVersion != null && !testVersion.trim().isEmpty()) {
+              arguments.put(VERSION_ARG_NAME, testVersion.trim());
             }
             execInput.setArgs(new StringMap(arguments));
 

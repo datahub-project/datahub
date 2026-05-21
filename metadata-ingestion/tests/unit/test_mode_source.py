@@ -639,3 +639,51 @@ class TestExcludePersonalCollections:
 
         assert "tok1" in result
         assert "tok2" not in result
+
+
+class TestChartFetchGating:
+    """The connector previously gated chart fetching on explorations_count
+    (private user analyses), silently dropping charts and lineage for any
+    report whose queries had explorations_count=0 but real published charts.
+    See ZD #7475."""
+
+    @staticmethod
+    def _drive(source: ModeSource, *, explorations_count: int, chart_count: int) -> int:
+        """Run _process_report_inner against one fake query and return the
+        number of times _get_charts was called."""
+        query = {
+            "id": 1,
+            "token": "qtok",
+            "name": "q",
+            "data_source_id": 1,
+            "last_run_id": 1,
+            "explorations_count": explorations_count,
+            "chart_count": chart_count,
+            "_links": {"creator": {"href": "/api/modeuser"}},
+        }
+        report = {"token": "rtok", "id": 1, "name": "r", "_links": {}}
+
+        chart_calls: List[tuple] = []
+
+        def fake_get_charts(report_token: str, query_token: str) -> List[dict]:
+            chart_calls.append((report_token, query_token))
+            return []
+
+        with (
+            patch.object(source, "_get_queries", return_value=[query]),
+            patch.object(source, "_get_charts", side_effect=fake_get_charts),
+            patch.object(source, "construct_query_or_dataset", return_value=iter([])),
+            patch.object(source, "construct_dashboard", return_value=None),
+        ):
+            list(source._process_report_inner(space_token="s", report=report))
+        return len(chart_calls)
+
+    def test_fetches_charts_when_explorations_zero_but_chart_count_positive(self):
+        source = _make_source()
+        assert self._drive(source, explorations_count=0, chart_count=1) == 1
+        assert source.report.chart_api_calls_skipped == 0
+
+    def test_skips_chart_api_when_chart_count_zero(self):
+        source = _make_source()
+        assert self._drive(source, explorations_count=5, chart_count=0) == 0
+        assert source.report.chart_api_calls_skipped == 1
