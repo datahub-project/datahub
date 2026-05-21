@@ -192,6 +192,15 @@ export const FlexContainer = styled.div`
 `;
 
 export const StyledDrawer = styled(Drawer)`
+    // AntD's Drawer portals to document.body, escaping the `.themeV2 *` Mulish
+    // override (src/AppV2.less). Without this rule the drawer chrome falls
+    // through to AntD's base @font-family (Manrope), mismatching the app font.
+    .ant-drawer-content,
+    .ant-drawer-header,
+    .ant-drawer-body {
+        font-family: ${typography.fonts.body};
+    }
+
     .ant-drawer-body {
         padding: 16px;
     }
