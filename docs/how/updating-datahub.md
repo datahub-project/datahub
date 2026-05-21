@@ -57,7 +57,9 @@ Requirements:
 Requirements:
 
 - CLI / Python SDK: 1.6.0
-- Helm Chart: TBD (set at release from acryldata/datahub-helm)
+- Helm Chart: 1.0.0
+
+**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version (with Helm chart **1.0.0** or later) and let system-update complete before turning on `global.datahub.systemUpdate.zdu` for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and Helm values required for staged index upgrades.
 
 ### Breaking Changes
 
@@ -69,7 +71,7 @@ Requirements:
 
 - #16982: **(Auth)** The deprecated `corpUserInfo.active` field is **no longer considered** for session eligibility. Users gated on `active` for login must migrate to supported CorpUser status mechanisms.
 
-- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. See Helm chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
+- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. Requires Helm chart **1.0.0** or later. See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
 
 - #16930: **(Operations / Upgrades)** Background **aspect schema version migration sweep** runs during upgrades on large deployments. The sweep migrates stale aspect schema versions and avoids overwriting aspects that were updated concurrently during the sweep window.
 
