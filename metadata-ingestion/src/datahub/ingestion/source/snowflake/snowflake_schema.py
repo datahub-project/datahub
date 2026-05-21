@@ -926,13 +926,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
             return []
 
         view_names = [view.name for view in views_with_empty_definition]
-        batches = [
-            batch[0]
+        # build_prefix_batches packs multiple PrefixGroups per batch; we issue one
+        # SHOW VIEWS query per prefix, so flatten and iterate over every group.
+        prefix_groups = [
+            group
             for batch in build_prefix_batches(
                 view_names, max_batch_size=1000, max_groups_in_batch=1
             )
-            if batch
-            # Skip empty batch if so, also max_groups_in_batch=1 makes it safe to access batch[0]
+            for group in batch
         ]
 
         view_map: Dict[str, SnowflakeView] = {
@@ -942,12 +943,14 @@ class SnowflakeDataDictionary(SupportsAsObj):
 
         logger.info(
             f"Fetching definitions for {len(view_map)} views in {db_name}.{schema_name} "
-            f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(batches)} batch(es)."
+            f"using batched 'SHOW VIEWS ... LIKE ...' queries. Found {len(prefix_groups)} batch(es)."
         )
 
-        for batch_index, prefix_group in enumerate(batches):
+        for batch_index, prefix_group in enumerate(prefix_groups):
             query = f'SHOW VIEWS LIKE \'{prefix_group.prefix}%\' IN SCHEMA "{db_name}"."{schema_name}"'
-            logger.info(f"Processing batch {batch_index + 1}/{len(batches)}: {query}")
+            logger.info(
+                f"Processing batch {batch_index + 1}/{len(prefix_groups)}: {query}"
+            )
 
             try:
                 cur = self.connection.query(query)
@@ -1562,7 +1565,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         else:
             # Build batches for full schema scan
             object_batches = build_prefix_batches(
-                all_objects, max_batch_size=10000, max_groups_in_batch=5
+                all_objects, max_batch_size=10000, max_groups_in_batch=6
             )
 
         # Process batches

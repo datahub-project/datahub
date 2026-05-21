@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -62,9 +63,8 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
 
     const renderValue = () => {
         if (!canEditType) {
-            // Show read-only value
             const displayValue = optimisticType === NONE_VALUE ? 'None' : optimisticType;
-            return <span>{displayValue}</span>;
+            return <Text>{displayValue}</Text>;
         }
 
         // If the actual type is not in the options, add it to the options
