@@ -19,6 +19,7 @@ resolution-markers = [
 [manifest]
 constraints = [
     { name = "authlib", specifier = ">=1.6.11,<2.0.0" },
+    { name = "idna", specifier = ">=3.15,<4.0.0" },
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pypdf", specifier = ">=6.10.2" },
 ]
@@ -35,6 +36,7 @@ dependencies = [
     { name = "click" },
     { name = "click-default-group" },
     { name = "click-spinner" },
+    { name = "cramjam" },
     { name = "deprecated" },
     { name = "docker" },
     { name = "expandvars" },
@@ -92,6 +94,9 @@ abs-slim = [
 aerospike = [
     { name = "aerospike" },
 ]
+airbyte = [
+    { name = "requests" },
+]
 all = [
     { name = "acryl-datahub-classify" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
@@ -147,6 +152,7 @@ all = [
     { name = "lark" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mlflow-skinny" },
     { name = "more-itertools" },
@@ -203,7 +209,7 @@ all = [
     { name = "sqlalchemy-hana", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "sqlalchemy-pytds" },
     { name = "sqlalchemy-redshift" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
     { name = "stopit" },
@@ -211,6 +217,7 @@ all = [
     { name = "tableschema" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "trino", extra = ["sqlalchemy"] },
     { name = "ujson" },
     { name = "unstructured", extra = ["md"] },
@@ -232,7 +239,7 @@ athena = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -269,7 +276,7 @@ bigquery = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "wcmatch" },
 ]
@@ -289,7 +296,7 @@ bigquery-queries = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "wcmatch" },
 ]
@@ -321,7 +328,7 @@ clickhouse = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "zstd" },
 ]
@@ -335,7 +342,7 @@ clickhouse-usage = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "zstd" },
 ]
@@ -356,7 +363,7 @@ cockroachdb = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-cockroachdb" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
@@ -365,7 +372,9 @@ confluence = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "google-auth" },
+    { name = "graphql-core" },
     { name = "jsonpath-ng" },
+    { name = "markdownify" },
     { name = "unstructured", extra = ["md"] },
     { name = "unstructured-ingest", extra = ["confluence"] },
     { name = "urllib3" },
@@ -383,7 +392,7 @@ databricks = [
     { name = "requests" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 datahub = [
@@ -398,7 +407,7 @@ datahub = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 datahub-debug = [
@@ -423,6 +432,14 @@ datahub-lite = [
     { name = "fastapi" },
     { name = "uvicorn" },
 ]
+datahub-pg-queue = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
+    { name = "fastavro" },
+    { name = "psycopg2-binary" },
+    { name = "urllib3" },
+]
 datahub-rest = [
     { name = "graphql-core" },
     { name = "requests" },
@@ -445,7 +462,7 @@ db2 = [
     { name = "pyodbc" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 dbt = [
@@ -454,14 +471,14 @@ dbt = [
     { name = "more-itertools" },
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
 dbt-cloud = [
     { name = "more-itertools" },
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 debug = [
     { name = "memray" },
@@ -517,6 +534,7 @@ dev = [
     { name = "clickhouse-sqlalchemy" },
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "coverage" },
+    { name = "cramjam" },
     { name = "cryptography" },
     { name = "dask", extra = ["dataframe"] },
     { name = "databricks-dbapi" },
@@ -563,6 +581,7 @@ dev = [
     { name = "kerberos" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
@@ -638,7 +657,7 @@ dev = [
     { name = "sqlalchemy-pytds" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlalchemy2-stubs" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
     { name = "tableauserverclient" },
@@ -646,6 +665,7 @@ dev = [
     { name = "tabulate" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "time-machine" },
     { name = "toml" },
     { name = "trino", extra = ["sqlalchemy"] },
@@ -707,6 +727,7 @@ docs = [
     { name = "clickhouse-sqlalchemy" },
     { name = "confluent-kafka", extra = ["avro", "schemaregistry"] },
     { name = "coverage" },
+    { name = "cramjam" },
     { name = "cryptography" },
     { name = "dask", extra = ["dataframe"] },
     { name = "databricks-dbapi" },
@@ -753,6 +774,7 @@ docs = [
     { name = "kerberos" },
     { name = "lkml" },
     { name = "looker-sdk" },
+    { name = "markdownify" },
     { name = "mini-racer" },
     { name = "mixpanel" },
     { name = "mlflow-skinny" },
@@ -828,7 +850,7 @@ docs = [
     { name = "sqlalchemy-pytds" },
     { name = "sqlalchemy-redshift" },
     { name = "sqlalchemy2-stubs" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
     { name = "tableauserverclient" },
@@ -836,6 +858,7 @@ docs = [
     { name = "tabulate" },
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
+    { name = "thoughtspot-rest-api" },
     { name = "time-machine" },
     { name = "toml" },
     { name = "trino", extra = ["sqlalchemy"] },
@@ -880,7 +903,7 @@ doris = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
@@ -894,7 +917,7 @@ dremio = [
     { name = "requests" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 druid = [
@@ -907,7 +930,7 @@ druid = [
     { name = "pydruid" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 dynamodb = [
@@ -955,7 +978,7 @@ fabric-onelake = [
     { name = "pyodbc" },
     { name = "requests" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 feast = [
@@ -987,7 +1010,7 @@ fivetran = [
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-bigquery" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "tenacity" },
     { name = "wcmatch" },
 ]
@@ -1032,17 +1055,18 @@ glue = [
     { name = "botocore" },
     { name = "cachetools" },
     { name = "patchy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "urllib3" },
 ]
 grafana = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 hana = [
     { name = "acryl-datahub-classify" },
     { name = "cachetools" },
+    { name = "defusedxml" },
     { name = "greenlet" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "numpy" },
@@ -1051,7 +1075,7 @@ hana = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-hana", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 hive = [
@@ -1065,7 +1089,7 @@ hive = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 hive-metastore = [
@@ -1082,7 +1106,7 @@ hive-metastore = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -1114,6 +1138,7 @@ integration-tests = [
     { name = "clickhouse-sqlalchemy" },
     { name = "dask", extra = ["dataframe"] },
     { name = "databricks-dbapi" },
+    { name = "defusedxml" },
     { name = "deltalake" },
     { name = "feast" },
     { name = "flask-openid" },
@@ -1160,7 +1185,7 @@ integration-tests = [
     { name = "sqlalchemy-bigquery" },
     { name = "sqlalchemy-hana", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "sqlalchemy-pytds" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
     { name = "tableschema" },
@@ -1195,7 +1220,7 @@ kafka-connect = [
     { name = "requests" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 ldap = [
@@ -1212,7 +1237,7 @@ looker = [
     { name = "looker-sdk" },
     { name = "patchy" },
     { name = "python-liquid" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 lookml = [
     { name = "deepmerge" },
@@ -1221,7 +1246,7 @@ lookml = [
     { name = "looker-sdk" },
     { name = "patchy" },
     { name = "python-liquid" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 mariadb = [
     { name = "acryl-datahub-classify" },
@@ -1235,20 +1260,20 @@ mariadb = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
 matillion-dpc = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 metabase = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 mlflow = [
     { name = "mlflow-skinny" },
@@ -1259,7 +1284,7 @@ mode = [
     { name = "patchy" },
     { name = "python-liquid" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "tenacity" },
 ]
 mongodb = [
@@ -1276,7 +1301,7 @@ mssql = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-pytds" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 mssql-odbc = [
@@ -1291,7 +1316,7 @@ mssql-odbc = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-pytds" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 mysql = [
@@ -1306,7 +1331,7 @@ mysql = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
@@ -1346,7 +1371,7 @@ oracle = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 pinecone = [
@@ -1365,7 +1390,7 @@ postgres = [
     { name = "psycopg2-binary" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
@@ -1375,7 +1400,7 @@ powerbi = [
     { name = "msal" },
     { name = "patchy" },
     { name = "setuptools" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "stopit" },
 ]
@@ -1386,7 +1411,7 @@ powerbi-report-server = [
 preset = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 presto = [
     { name = "acryl-datahub-classify" },
@@ -1398,7 +1423,7 @@ presto = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "trino", extra = ["sqlalchemy"] },
 ]
@@ -1416,7 +1441,7 @@ presto-on-hive = [
     { name = "pymysql" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -1439,7 +1464,7 @@ pyspark = [
 qlik-sense = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "websocket-client" },
 ]
 rdf = [
@@ -1451,7 +1476,7 @@ redash = [
     { name = "patchy" },
     { name = "redash-toolbelt" },
     { name = "sql-metadata" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 redshift = [
     { name = "acryl-datahub-classify" },
@@ -1467,7 +1492,7 @@ redshift = [
     { name = "schwifty" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-redshift" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "wcmatch" },
 ]
@@ -1483,7 +1508,7 @@ redshift-slim = [
     { name = "redshift-connector" },
     { name = "schwifty" },
     { name = "sqlalchemy-redshift" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "wcmatch" },
 ]
@@ -1530,7 +1555,7 @@ salesforce = [
 sigma = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 slack = [
@@ -1551,7 +1576,7 @@ snowflake = [
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -1569,7 +1594,7 @@ snowflake-queries = [
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -1600,7 +1625,7 @@ snowflake-summary = [
     { name = "snowflake-connector-python" },
     { name = "snowflake-sqlalchemy" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "tenacity" },
 ]
@@ -1609,14 +1634,14 @@ snowplow = [
 ]
 sql-parser = [
     { name = "patchy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 sql-queries = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "patchy" },
     { name = "smart-open", extra = ["s3"] },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "urllib3" },
 ]
@@ -1629,7 +1654,7 @@ sqlalchemy = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 starburst-trino-usage = [
@@ -1641,7 +1666,7 @@ starburst-trino-usage = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "trino", extra = ["sqlalchemy"] },
 ]
@@ -1655,21 +1680,21 @@ starrocks = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "starrocks" },
 ]
 superset = [
     { name = "patchy" },
     { name = "requests" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
 ]
 sync-file-emitter = [
     { name = "filelock" },
 ]
 tableau = [
     { name = "patchy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "tableauserverclient" },
 ]
 teradata = [
@@ -1681,7 +1706,7 @@ teradata = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "teradatasqlalchemy" },
 ]
@@ -1693,6 +1718,11 @@ testing-utils = [
     { name = "pytest-timeout" },
     { name = "pyyaml" },
 ]
+thoughtspot = [
+    { name = "patchy" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "thoughtspot-rest-api" },
+]
 trino = [
     { name = "acryl-datahub-classify" },
     { name = "cachetools" },
@@ -1702,7 +1732,7 @@ trino = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "trino", extra = ["sqlalchemy"] },
 ]
@@ -1719,7 +1749,7 @@ unity-catalog = [
     { name = "requests" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
 unstructured = [
@@ -1743,7 +1773,7 @@ vertica = [
     { name = "pip" },
     { name = "schwifty" },
     { name = "sqlalchemy" },
-    { name = "sqlglot" },
+    { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
     { name = "vertica-sqlalchemy-dialect", extra = ["vertica-python"] },
 ]
@@ -1891,10 +1921,12 @@ requires-dist = [
     { name = "azure-storage-file-datalake", marker = "extra == 'integration-tests'", specifier = ">=12.14.0,<13.0.0" },
     { name = "boto3", marker = "extra == 'all'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'aws-common'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
     { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
     { name = "botocore", marker = "extra == 'all'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'aws-common'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'datahub-pg-queue'", specifier = "!=1.23.0,<2.0.0" },
     { name = "build", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "build", marker = "extra == 'docs'", specifier = "<2.0.0" },
     { name = "cached-property", specifier = "<3.0.0" },
@@ -1982,11 +2014,15 @@ requires-dist = [
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'all'", specifier = "!=2.8.1,>=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub-kafka'", specifier = ">=1.9.0,!=2.8.1,<3.0.0" },
+    { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'datahub-pg-queue'", specifier = ">=1.9.0,!=2.8.1,<3.0.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'dev'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'docs'", specifier = ">=2.10.1,<2.13.0" },
     { name = "confluent-kafka", extras = ["avro", "schemaregistry"], marker = "extra == 'kafka'", specifier = ">=2.10.1,<2.13.0" },
     { name = "coverage", marker = "extra == 'dev'", specifier = ">=5.1,<8.0.0" },
     { name = "coverage", marker = "extra == 'docs'", specifier = ">=5.1,<8.0.0" },
+    { name = "cramjam", specifier = ">=2.8.0,<3.0.0" },
+    { name = "cramjam", marker = "extra == 'dev'", specifier = ">=2.8.0,<3.0.0" },
+    { name = "cramjam", marker = "extra == 'docs'", specifier = ">=2.8.0,<3.0.0" },
     { name = "cryptography", marker = "extra == 'all'", specifier = ">=46.0.7,<47.0.0" },
     { name = "cryptography", marker = "extra == 'dev'", specifier = ">=46.0.7,<47.0.0" },
     { name = "cryptography", marker = "extra == 'docs'", specifier = ">=46.0.7,<47.0.0" },
@@ -2030,7 +2066,9 @@ requires-dist = [
     { name = "deepmerge", marker = "extra == 'looker'", specifier = ">=1.1.1,<3.0.0" },
     { name = "deepmerge", marker = "extra == 'lookml'", specifier = ">=1.1.1,<3.0.0" },
     { name = "defusedxml", marker = "extra == 'all'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'hana'", specifier = ">=0.7.1,<0.8.0" },
     { name = "defusedxml", marker = "extra == 'informatica'", specifier = ">=0.7.1,<0.8.0" },
+    { name = "defusedxml", marker = "extra == 'integration-tests'", specifier = ">=0.7.1,<0.8.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'all'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'delta-lake'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
     { name = "deltalake", marker = "platform_machine == 'arm64' and sys_platform == 'darwin' and extra == 'dev'", specifier = ">=0.6.3,!=0.6.4,!=0.18.0,<1.0.0" },
@@ -2068,6 +2106,7 @@ requires-dist = [
     { name = "fastavro", marker = "extra == 'all'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'datahub-kafka'", specifier = ">=1.2.0,<2.0.0" },
+    { name = "fastavro", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'dev'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'docs'", specifier = ">=1.2.0,<2.0.0" },
     { name = "fastavro", marker = "extra == 'kafka'", specifier = ">=1.2.0,<2.0.0" },
@@ -2155,6 +2194,7 @@ requires-dist = [
     { name = "gql", extras = ["requests"], marker = "extra == 'circuit-breaker'", specifier = ">=4.0.0" },
     { name = "gql", extras = ["requests"], marker = "extra == 'integration-tests'", specifier = ">=4.0.0" },
     { name = "graphql-core", marker = "extra == 'all'", specifier = ">=3.0.0,<4.0.0" },
+    { name = "graphql-core", marker = "extra == 'confluence'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'datahub-rest'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'dev'", specifier = ">=3.0.0,<4.0.0" },
     { name = "graphql-core", marker = "extra == 'docs'", specifier = ">=3.0.0,<4.0.0" },
@@ -2264,6 +2304,10 @@ requires-dist = [
     { name = "looker-sdk", marker = "extra == 'docs'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'looker'", specifier = ">=23.0.0,<26.0.0" },
     { name = "looker-sdk", marker = "extra == 'lookml'", specifier = ">=23.0.0,<26.0.0" },
+    { name = "markdownify", marker = "extra == 'all'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'confluence'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'dev'", specifier = ">=0.14.1,<2.0.0" },
+    { name = "markdownify", marker = "extra == 'docs'", specifier = ">=0.14.1,<2.0.0" },
     { name = "memray", marker = "extra == 'debug'", specifier = "<2.0.0" },
     { name = "mini-racer", marker = "extra == 'all'", specifier = "==0.14.1" },
     { name = "mini-racer", marker = "extra == 'dev'", specifier = "==0.14.1" },
@@ -2471,6 +2515,7 @@ requires-dist = [
     { name = "patchy", marker = "extra == 'superset'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'tableau'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'teradata'", specifier = "==2.8.0" },
+    { name = "patchy", marker = "extra == 'thoughtspot'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'trino'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'unity-catalog'", specifier = "==2.8.0" },
     { name = "patchy", marker = "extra == 'vertica'", specifier = "==2.8.0" },
@@ -2534,6 +2579,7 @@ requires-dist = [
     { name = "psutil", marker = "extra == 'docs'", specifier = ">=5.8.0,<8.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'all'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'cockroachdb'", specifier = "<3.0.0" },
+    { name = "psycopg2-binary", marker = "extra == 'datahub-pg-queue'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'dev'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'docs'", specifier = "<3.0.0" },
     { name = "psycopg2-binary", marker = "extra == 'hive-metastore'", specifier = "<3.0.0" },
@@ -2683,6 +2729,7 @@ requires-dist = [
     { name = "redshift-connector", marker = "extra == 'docs'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'redshift'", specifier = ">=2.1.5,<3.0.0" },
     { name = "redshift-connector", marker = "extra == 'redshift-slim'", specifier = ">=2.1.5,<3.0.0" },
+    { name = "requests", marker = "extra == 'airbyte'" },
     { name = "requests", marker = "extra == 'all'", specifier = ">=2.28.0,==2.32.5,<3.0.0" },
     { name = "requests", marker = "extra == 'databricks'", specifier = "<3.0.0" },
     { name = "requests", marker = "extra == 'datahub-debug'", specifier = "<3.0.0" },
@@ -2904,66 +2951,67 @@ requires-dist = [
     { name = "sqlalchemy-redshift", marker = "extra == 'redshift-slim'", specifier = ">=0.8.3,<=0.8.14" },
     { name = "sqlalchemy2-stubs", marker = "extra == 'dev'", specifier = "<0.1.0" },
     { name = "sqlalchemy2-stubs", marker = "extra == 'docs'", specifier = "<0.1.0" },
-    { name = "sqlglot", marker = "extra == 'all'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'athena'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'bigquery'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'bigquery-queries'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'clickhouse'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'clickhouse-usage'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'cockroachdb'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'databricks'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'datahub'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'db2'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'dbt'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'dbt-cloud'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'dev'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'docs'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'doris'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'dremio'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'druid'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'fabric-onelake'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'fivetran'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'glue'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'grafana'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'hana'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'hive'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'hive-metastore'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'integration-tests'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'kafka-connect'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'looker'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'lookml'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'mariadb'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'matillion-dpc'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'metabase'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'mode'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'mssql'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'mssql-odbc'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'mysql'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'oracle'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'postgres'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'powerbi'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'preset'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'presto'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'presto-on-hive'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'qlik-sense'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'redash'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'redshift'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'redshift-slim'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'sigma'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'snowflake'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'snowflake-queries'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'snowflake-summary'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'sql-parser'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'sql-queries'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'sqlalchemy'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'starburst-trino-usage'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'starrocks'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'superset'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'tableau'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'teradata'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'trino'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'unity-catalog'", specifier = "==30.0.3" },
-    { name = "sqlglot", marker = "extra == 'vertica'", specifier = "==30.0.3" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'all'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'athena'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'bigquery-queries'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'clickhouse-usage'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'cockroachdb'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'databricks'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'datahub'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'db2'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dbt-cloud'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dev'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'docs'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'doris'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'dremio'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'druid'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'fabric-onelake'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'fivetran'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'glue'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'grafana'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hana'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'hive-metastore'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'integration-tests'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'kafka-connect'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'looker'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'lookml'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mariadb'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'matillion-dpc'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'metabase'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mode'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mssql-odbc'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'mysql'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'oracle'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'postgres'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'powerbi'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'preset'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'presto-on-hive'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'qlik-sense'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redash'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'redshift-slim'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sigma'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-queries'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'snowflake-summary'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-parser'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sql-queries'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'sqlalchemy'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'starburst-trino-usage'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'starrocks'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'superset'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'tableau'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'teradata'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'thoughtspot'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.8.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.8.0" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = "<0.6.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = "<0.6.0" },
@@ -3016,10 +3064,10 @@ requires-dist = [
     { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
-    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.24.0,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.35,<=0.40" },
     { name = "tableschema", marker = "extra == 'abs'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'abs-slim'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'all'", specifier = ">=1.20.2,<2.0.0" },
@@ -3055,6 +3103,10 @@ requires-dist = [
     { name = "teradatasqlalchemy", marker = "extra == 'dev'", specifier = ">=17.20.0.0,<=20.0.0.2" },
     { name = "teradatasqlalchemy", marker = "extra == 'docs'", specifier = ">=17.20.0.0,<=20.0.0.2" },
     { name = "teradatasqlalchemy", marker = "extra == 'teradata'", specifier = ">=17.20.0.0,<=20.0.0.2" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'all'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'dev'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'docs'", specifier = ">=2.0.0,<3.0.0" },
+    { name = "thoughtspot-rest-api", marker = "extra == 'thoughtspot'", specifier = ">=2.0.0,<3.0.0" },
     { name = "time-machine", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "time-machine", marker = "extra == 'docs'", specifier = "<4.0.0" },
     { name = "toml", specifier = ">=0.10.0,<=0.10.2" },
@@ -3135,6 +3187,7 @@ requires-dist = [
     { name = "unstructured-ingest", extras = ["notion"], marker = "extra == 'notion'", specifier = "==0.7.2" },
     { name = "urllib3", marker = "extra == 'all'", specifier = ">=2.7.0,<3.0" },
     { name = "urllib3", marker = "extra == 'aws-common'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'datahub-pg-queue'", specifier = ">=2.7.0,<3.0" },
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'docs'", specifier = "<0.41.0" },
@@ -3174,7 +3227,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-common", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "pyspark", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-common", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "pyspark", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -6738,11 +6791,11 @@ wheels = [
 
 [[package]]
 name = "idna"
-version = "3.11"
+version = "3.15"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/6f/6d/0703ccc57f3a7233505399edb88de3cbd678da106337b9fcde432b65ed60/idna-3.11.tar.gz", hash = "sha256:795dafcc9c04ed0c1fb032c2aa73654d8e8c5023a7df64a53f39190ada629902", size = 194582, upload-time = "2025-10-12T14:55:20.501Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/77/7b3966d0b9d1d31a36ddf1746926a11dface89a83409bf1483f0237aa758/idna-3.15.tar.gz", hash = "sha256:ca962446ea538f7092a95e057da437618e886f4d349216d2b1e294abfdb65fdc", size = 199245, upload-time = "2026-05-12T22:45:57.011Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/61/66938bbb5fc52dbdf84594873d5b51fb1f7c7794e9c0f5bd885f30bc507b/idna-3.11-py3-none-any.whl", hash = "sha256:771a87f49d9defaf64091e6e6fe9c18d4833f140bd19464795bc32d966ca37ea", size = 71008, upload-time = "2025-10-12T14:55:18.883Z" },
+    { url = "https://files.pythonhosted.org/packages/d2/23/408243171aa9aaba178d3e2559159c24c1171a641aa83b67bdd3394ead8e/idna-3.15-py3-none-any.whl", hash = "sha256:048adeaf8c2d788c40fee287673ccaa74c24ffd8dcf09ffa555a2fbb59f10ac8", size = 72340, upload-time = "2026-05-12T22:45:55.733Z" },
 ]
 
 [[package]]
@@ -7687,6 +7740,19 @@ wheels = [
 [package.optional-dependencies]
 linkify = [
     { name = "linkify-it-py" },
+]
+
+[[package]]
+name = "markdownify"
+version = "1.2.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "six" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3f/bc/c8c8eea5335341306b0fa7e1cb33c5e1c8d24ef70ddd684da65f41c49c92/markdownify-1.2.2.tar.gz", hash = "sha256:b274f1b5943180b031b699b199cbaeb1e2ac938b75851849a31fd0c3d6603d09", size = 18816, upload-time = "2025-11-16T19:21:18.565Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/43/ce/f1e3e9d959db134cedf06825fae8d5b294bd368aacdd0831a3975b7c4d55/markdownify-1.2.2-py3-none-any.whl", hash = "sha256:3f02d3cc52714084d6e589f70397b6fc9f2f3a8531481bf35e8cc39f975e186a", size = 15724, upload-time = "2025-11-16T19:21:17.622Z" },
 ]
 
 [[package]]
@@ -12059,11 +12125,44 @@ wheels = [
 
 [[package]]
 name = "sqlglot"
-version = "30.0.3"
+version = "30.8.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5b/7a/3b6a8853fc2fa166f785a8ea4fecde46f70588e35471bc7811373da31a49/sqlglot-30.0.3.tar.gz", hash = "sha256:35ba7514c132b54f87fd1732a65a73615efa9fd83f6e1eed0a315bc9ee3e1027", size = 5802632, upload-time = "2026-03-19T16:51:39.166Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/64/89299aefc6ebdf4fc899f5dc14c7fcb7eb9da9290a2b4d615ae7ab884b17/sqlglot-30.8.0.tar.gz", hash = "sha256:1c5f93fb742dd9aaa75eee6bb33a637794a858b9a86375fac23a2dc0f7bc127e", size = 5869750, upload-time = "2026-05-13T09:04:38.923Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c6/13/b57ab75b0f60b5ee8cb8924bc01a5c419ed3221e00f8f11f8c059a707eb7/sqlglot-30.0.3-py3-none-any.whl", hash = "sha256:5489cc98b5666f1fafc21e0304ca286e513e142aa054ee5760806a2139d07a05", size = 651853, upload-time = "2026-03-19T16:51:36.241Z" },
+    { url = "https://files.pythonhosted.org/packages/88/4e/80705091aaf9c95e125d243f0aa871bc9f3670b4c9d963e6bad3b3dce8ff/sqlglot-30.8.0-py3-none-any.whl", hash = "sha256:af903378c331d5b72277a1b41118f07bc3e50cf4478e2d47eed12c96ee6a22a4", size = 687831, upload-time = "2026-05-13T09:04:36.336Z" },
+]
+
+[package.optional-dependencies]
+c = [
+    { name = "sqlglotc" },
+]
+
+[[package]]
+name = "sqlglotc"
+version = "30.8.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/30/d6ed9c184eb2d9db727950abe9a1e2ff028584e4e728749dd45ebbd6e33c/sqlglotc-30.8.0.tar.gz", hash = "sha256:7068fcfd64ebcedc10bd174b69e0d8d312a89a18772f6312e51a8d3bb1757f1d", size = 476352, upload-time = "2026-05-13T09:03:41.38Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/53/8e/60f95746d0e525ab2195758c1c35194f96c1ef367996a82b00b99d5ffd98/sqlglotc-30.8.0-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:c445f11b470475848b75a03bc3d8ef765cf86e098c4f5003701838da435d492a", size = 31676414, upload-time = "2026-05-13T09:02:48.675Z" },
+    { url = "https://files.pythonhosted.org/packages/44/50/3c8573ca84c1c4bea33716db60bff23374075f4e0e7b9209810d342a3713/sqlglotc-30.8.0-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:62dfdd3ad97d80034ebf8d8117d15fff936aa9aa8394139f0f5f05aac25dc36b", size = 24071487, upload-time = "2026-05-13T09:02:51.177Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/f0/f4936262a723173c690ea418b0482fc305538b8f04c18ea3036856bf288e/sqlglotc-30.8.0-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f640eb821b7bf82e21557f3683f4db89302a9bac4680e8ff53dd951ad7e995d8", size = 25166091, upload-time = "2026-05-13T09:02:53.889Z" },
+    { url = "https://files.pythonhosted.org/packages/76/7b/bef61aa9fc51f1f94376ffd32485bf149f2f86bf97bf6b156c664db29fc4/sqlglotc-30.8.0-cp310-cp310-win_amd64.whl", hash = "sha256:6576f7979a506ff5cab4af781c058c0a9caa654d2cd4a864c96c2d785f44711c", size = 10577950, upload-time = "2026-05-13T09:02:56.301Z" },
+    { url = "https://files.pythonhosted.org/packages/00/9f/cb1148e20f77d8136476fa1bcfa8b250cee593ea1b106f3b7809f5a560da/sqlglotc-30.8.0-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:be6257bdbdf2fd2a4daea46c0781542b69e94d968ba745374721dc96d0e55d02", size = 31515721, upload-time = "2026-05-13T09:02:58.752Z" },
+    { url = "https://files.pythonhosted.org/packages/65/72/7f42e7a0aa25a35fcfde091211017b3983d5d6c1802922ff4d6a437a7cce/sqlglotc-30.8.0-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:1863950ef7f41467fe32f7cc55d10d4d747f2b532023c82ccbb44693e6911bc9", size = 24283758, upload-time = "2026-05-13T09:03:01.957Z" },
+    { url = "https://files.pythonhosted.org/packages/5b/f2/d7a5d1f48d19079e57f75bc5cc1415365005e038a12f428b09b5e7ab4bf4/sqlglotc-30.8.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:9f2dc50e2ca234c40dce5d5a3dfb212c6ed73278043225ac1b0ab577a2db1815", size = 25410336, upload-time = "2026-05-13T09:03:04.3Z" },
+    { url = "https://files.pythonhosted.org/packages/6a/ed/75c9d96c110670670669e367f8cbf2beb98e6904095dd8fa3a1f87a90307/sqlglotc-30.8.0-cp311-cp311-win_amd64.whl", hash = "sha256:3176d7a5dc4c97d462ef3a73eb32e513033cf61fc5a794d5e2a310621d078d9b", size = 10567009, upload-time = "2026-05-13T09:03:07.416Z" },
+    { url = "https://files.pythonhosted.org/packages/95/d7/3be4a163a35aeecffc75d8f93f59c4378c6ae85185f21086ac640edf6f12/sqlglotc-30.8.0-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:2dcdf0a8e9f07f9cd95eb0b6e653352f85862feee0fb6e7a48251e888ae42a5c", size = 31682640, upload-time = "2026-05-13T09:03:10.146Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/cb/07a1814dc3e5c3fd4af4130dec2aea60cb784160d7ed0c4ee6cb0bfc4734/sqlglotc-30.8.0-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:b7dca8aedfdd8f50694e04ea55b040e2cb685dcaf600ca4ea5dd0a141a6a6835", size = 25070477, upload-time = "2026-05-13T09:03:12.626Z" },
+    { url = "https://files.pythonhosted.org/packages/25/19/69aebbd92b8db4a1a19d39397167e2df5f6ed44b1dad0005ca604e78901f/sqlglotc-30.8.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:960ddda931beb89ae01f8d7c10fa72c486d4d04b077672f94978adb976adc60f", size = 26267286, upload-time = "2026-05-13T09:03:16.486Z" },
+    { url = "https://files.pythonhosted.org/packages/37/71/70a52b0a6d27d28881453804484618ee5bac567a4b26242bc473276014dd/sqlglotc-30.8.0-cp312-cp312-win_amd64.whl", hash = "sha256:ac64dd30ecc20421e0133883db4e10c3699354c592513aeb50b1ee243a8a5c60", size = 10781201, upload-time = "2026-05-13T09:03:18.93Z" },
+    { url = "https://files.pythonhosted.org/packages/2d/93/01e1d771320303bbc3cab9235e5e80f23574f999f249cdc39aecf5145268/sqlglotc-30.8.0-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:4fad7bceb63f831ec0ec07b5199a7e3f7448323354b9dd7b6f262b501cd76185", size = 31487252, upload-time = "2026-05-13T09:03:21.293Z" },
+    { url = "https://files.pythonhosted.org/packages/c1/5d/027309bd032dfc6d20a9d653ae1a89ee338e5cdf4ae0279f8c0e0a219de4/sqlglotc-30.8.0-cp313-cp313-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:86c974ec80867180f5bb9a67b9d801095a59b3b046da6df5d989c1572629b2ec", size = 24681704, upload-time = "2026-05-13T09:03:23.774Z" },
+    { url = "https://files.pythonhosted.org/packages/a1/52/48332d5f35db985524f51d7e53dfa2c981c2d49dcef334b90892ec5753f7/sqlglotc-30.8.0-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:e6fa017c3fbcf28b1b259e254995949733bafa2d94f3c9398e4cc4230394f8e7", size = 25931754, upload-time = "2026-05-13T09:03:26.03Z" },
+    { url = "https://files.pythonhosted.org/packages/fd/2f/46470d76bdc47dc568252583cbcb746ed829b11b007ac64a06dfd7753c41/sqlglotc-30.8.0-cp313-cp313-win_amd64.whl", hash = "sha256:ed86cbfc5b2b292e0474ca9fcf71b82b39aef150d968d8ac97d35a8ab85c43cd", size = 10783611, upload-time = "2026-05-13T09:03:28.51Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/a9/3a1cb5fc8ce5d5f24615f0aab16f504d318d2338d3d41170e44c66f4f591/sqlglotc-30.8.0-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:f79acd23fcf6ef2e5ef42df26010f699134b3653ff40cb3e403fed083e3e38dc", size = 31385571, upload-time = "2026-05-13T09:03:30.515Z" },
+    { url = "https://files.pythonhosted.org/packages/23/0b/17c364ce3c768060abdc43468a2571833e73b803a6d597debb8b629bff20/sqlglotc-30.8.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:02ead13bbaf56a7eb0fdf1eb6ea23b1d70857901a60ea5118e09151ca4051712", size = 24672963, upload-time = "2026-05-13T09:03:33.182Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/fa/9689e3247f71334339c80b63059ca5dc658c5625c6b6e744f5a00f588b0b/sqlglotc-30.8.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f5f17e336a073d7087271468155cb401687e931b5b61d6438233278c2a636baf", size = 25843368, upload-time = "2026-05-13T09:03:36.588Z" },
+    { url = "https://files.pythonhosted.org/packages/07/4b/643906fbaaf8c687d4a7fb55a5da6d3e014778fe6db7fe8d22ea2b39b54f/sqlglotc-30.8.0-cp314-cp314-win_amd64.whl", hash = "sha256:172ea79fcdcf3795134dcdff03995681c60bdc0c0874d43dc06ab06fecc0ae25", size = 10874450, upload-time = "2026-05-13T09:03:38.845Z" },
 ]
 
 [[package]]
@@ -12208,17 +12307,18 @@ wheels = [
 
 [[package]]
 name = "tableauserverclient"
-version = "0.25"
+version = "0.40"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
     { name = "packaging" },
     { name = "requests" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/78/4bf2cb8346c8a6da1c2e81114266ca0077eab2a924b8c3694a337afcaedc/tableauserverclient-0.25.tar.gz", hash = "sha256:d354d16245c459a805ad207bcef3fa063e18bc8168695920ac89bf8125a420b6", size = 519101, upload-time = "2023-03-17T08:17:14.031Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/57/4e661856ceb051acf97998cb0e75ab5300aaa29cd36937c1eca18ea3921b/tableauserverclient-0.40.tar.gz", hash = "sha256:544f38b9d4b46846ebe98b668d249e303bc5e73403fd966513918a12ce59db02", size = 630725, upload-time = "2026-02-03T20:21:08.907Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/4f/b928a99c706da7943ae2868f4a43ce4bd1df7d7e3d6e0af7969e68e8f280/tableauserverclient-0.25-py3-none-any.whl", hash = "sha256:341cea1706c8fc4ce35d28e21f420e3874ec13812497e1629d37adb4dce4c74a", size = 132414, upload-time = "2023-03-17T08:17:12.657Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/70/580952c49ded142c48cfe3999d8b4ff657f412f1c9616fbcdb6d6b3a6cec/tableauserverclient-0.40-py3-none-any.whl", hash = "sha256:346e092ae8a5237309c0638107074f6d84312dca7ca73f16fd26ac75d1ebe2fc", size = 214090, upload-time = "2026-02-03T20:21:07.222Z" },
 ]
 
 [[package]]
@@ -12349,6 +12449,19 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/82/ce/aaff1f39bcc1e9a97bec5f3d20aa771c005a9faff3944fc56c7492c24466/thinc-8.2.5-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:e8a8f2f249f2be9a5ce2a81a6efe7503b68be7b57e47ad54ab28204e1f0c723b", size = 818820, upload-time = "2024-06-19T16:41:56.868Z" },
     { url = "https://files.pythonhosted.org/packages/d7/fa/c96b01e46e5962d02de1206e497fda2902aef2b8ffb2926d66d5f0159040/thinc-8.2.5-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:87e729f33c76ec6df9b375989743252ab880d79f3a2b4175169b21dece90f102", size = 865047, upload-time = "2024-06-19T16:42:06.181Z" },
     { url = "https://files.pythonhosted.org/packages/cd/26/306b8bedb678c52464ed00e576edf9d365fce0bcae597a333bdad9fb5d67/thinc-8.2.5-cp312-cp312-win_amd64.whl", hash = "sha256:c5f750ea2dd32ca6d46947025dacfc0f6037340c4e5f7adb9af84c75f65aa7d8", size = 1447893, upload-time = "2024-06-19T16:42:12.145Z" },
+]
+
+[[package]]
+name = "thoughtspot-rest-api"
+version = "2.0.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "requests-toolbelt" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/83/ce/2f3602548e38473f780cf157437da134fd54b083350e73ba49ec2577fea2/thoughtspot_rest_api-2.0.3.tar.gz", hash = "sha256:f4bbc98d67cb7d9b7851e6def50c19cda7c901252cd73cf8396a6261fb728f1d", size = 43210, upload-time = "2025-12-10T12:49:37.304Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/d0/a1343f0842b48b2b966ab59566d6e3e68dbac583c935de6374f5d9c284d6/thoughtspot_rest_api-2.0.3-py3-none-any.whl", hash = "sha256:39f73510579020c3d57ef8e443c0c0520f47f1c98e82165b2e8f96d8a2c0f48d", size = 33849, upload-time = "2025-12-10T12:49:36.467Z" },
 ]
 
 [[package]]

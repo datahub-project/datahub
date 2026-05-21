@@ -799,7 +799,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.35,<=0.40"} | sqlglot_lib,
     "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
