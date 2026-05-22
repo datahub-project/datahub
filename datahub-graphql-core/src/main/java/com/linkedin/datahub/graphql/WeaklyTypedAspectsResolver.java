@@ -50,29 +50,14 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
   private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
   @Override
-  public CompletableFuture<List<RawAspect>> get(DataFetchingEnvironment environment)
-      throws Exception {
-    final QueryContext context = environment.getContext();
+  public CompletableFuture<List<RawAspect>> get(DataFetchingEnvironment environment) {
     final String urnStr = ((Entity) environment.getSource()).getUrn();
     final EntityType entityType = ((Entity) environment.getSource()).getType();
     final String entityTypeName = EntityTypeMapper.getName(entityType);
     final AspectParams input = bindArgument(environment.getArgument("input"), AspectParams.class);
-
-    final AspectsKey key = AspectsKey.from(urnStr, entityTypeName, input);
-
-    try {
-      DataLoader<AspectsKey, List<RawAspect>> loader = environment.getDataLoader(LOADER_NAME);
-      if (loader != null) {
-        return loader.load(key);
-      }
-    } catch (IllegalArgumentException e) {
-      // Loader not registered for this engine instance — fall through to per-URN path.
-    }
-
-    return GraphQLConcurrencyUtils.supplyAsync(
-        () -> fetchSingle(context.getOperationContext(), key, _entityClient, _entityRegistry),
-        this.getClass().getSimpleName(),
-        "get");
+    final DataLoader<AspectsKey, List<RawAspect>> loader =
+        environment.getDataLoaderRegistry().getDataLoader(LOADER_NAME);
+    return loader.load(AspectsKey.from(urnStr, entityTypeName, input));
   }
 
   public static DataLoader<AspectsKey, List<RawAspect>> createDataLoader(
@@ -147,28 +132,6 @@ public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture
       }
     }
     return results;
-  }
-
-  private static List<RawAspect> fetchSingle(
-      final OperationContext opContext,
-      final AspectsKey key,
-      final EntityClient entityClient,
-      final EntityRegistry entityRegistry) {
-    final EntitySpec entitySpec = entityRegistry.getEntitySpec(key.getEntityType());
-    final Set<String> aspectsToFetch =
-        computeAspectsToFetch(entitySpec, key.getAspectNames(), key.isAutoRenderOnly());
-    if (aspectsToFetch.isEmpty()) {
-      return new ArrayList<>();
-    }
-    try {
-      final Urn urn = Urn.createFromString(key.getUrn());
-      final Map<Urn, EntityResponse> responses =
-          entityClient.batchGetV2(
-              opContext, key.getEntityType(), Collections.singleton(urn), aspectsToFetch);
-      return buildRawAspectList(responses.get(urn), entitySpec, aspectsToFetch);
-    } catch (RemoteInvocationException | URISyntaxException e) {
-      throw new RuntimeException("Failed to fetch aspects for urn " + key.getUrn(), e);
-    }
   }
 
   private static Set<String> computeAspectsToFetch(
