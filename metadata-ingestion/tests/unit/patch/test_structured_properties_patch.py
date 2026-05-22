@@ -3,7 +3,10 @@ from typing import Any
 
 import pytest
 
-from datahub.emitter.mcp_builder import add_structured_properties_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    StructuredPropertyWriteMode,
+    add_structured_properties_to_entity_wu,
+)
 from datahub.metadata.urns import StructuredPropertyUrn
 
 ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)"
@@ -19,18 +22,30 @@ def _parse_mcp_aspect(mcp_raw: Any) -> dict:  # type: ignore[return]
     return json.loads(mcp_raw.aspect.value)
 
 
-def test_emits_patch_not_upsert() -> None:
-    """Each workunit must use changeType PATCH, never UPSERT."""
+def test_default_emits_upsert() -> None:
+    """No write_mode → backward-compatible UPSERT (full-aspect replace)."""
     wus = list(
         add_structured_properties_to_entity_wu(ENTITY_URN, {PROP_A: "sensitive"})
     )
-    assert wus, "Expected at least one workunit"
+    assert wus
     for wu in wus:
         mcp = wu.get_metadata()["metadata"]
-        assert mcp.changeType == "PATCH", (
-            f"Expected PATCH but got {mcp.changeType} — "
-            "add_structured_properties_to_entity_wu must not replace the whole aspect"
+        assert mcp.changeType == "UPSERT"
+
+
+def test_patch_mode_emits_patch() -> None:
+    """Explicit PATCH opt-in must use changeType PATCH, never UPSERT."""
+    wus = list(
+        add_structured_properties_to_entity_wu(
+            ENTITY_URN,
+            {PROP_A: "sensitive"},
+            write_mode=StructuredPropertyWriteMode.PATCH,
         )
+    )
+    assert wus
+    for wu in wus:
+        mcp = wu.get_metadata()["metadata"]
+        assert mcp.changeType == "PATCH"
 
 
 def test_patch_targets_only_specified_property() -> None:
@@ -41,7 +56,11 @@ def test_patch_targets_only_specified_property() -> None:
     (set via UI or another pipeline) is untouched.
     """
     wus = list(
-        add_structured_properties_to_entity_wu(ENTITY_URN, {PROP_A: "sensitive"})
+        add_structured_properties_to_entity_wu(
+            ENTITY_URN,
+            {PROP_A: "sensitive"},
+            write_mode=StructuredPropertyWriteMode.PATCH,
+        )
     )
     assert wus
 
@@ -53,19 +72,17 @@ def test_patch_targets_only_specified_property() -> None:
     assert len(patch_ops) == 1, f"Expected exactly one patch op, got {len(patch_ops)}"
 
     path = patch_ops[0]["path"]
-    assert PROP_A.urn() in path, (
-        f"Patch path '{path}' must reference the requested property URN"
-    )
-    assert PROP_B.urn() not in path, (
-        f"Patch path '{path}' must NOT reference a different property URN"
-    )
+    assert PROP_A.urn() in path
+    assert PROP_B.urn() not in path
 
 
 def test_multiple_properties_emit_separate_ops() -> None:
     """Each property in the dict gets its own patch op (or workunit) — not a full replace."""
     wus = list(
         add_structured_properties_to_entity_wu(
-            ENTITY_URN, {PROP_A: "sensitive", PROP_B: "7 years"}
+            ENTITY_URN,
+            {PROP_A: "sensitive", PROP_B: "7 years"},
+            write_mode=StructuredPropertyWriteMode.PATCH,
         )
     )
     assert wus
@@ -79,12 +96,8 @@ def test_multiple_properties_emit_separate_ops() -> None:
         all_patch_ops.extend(ops)
 
     paths = [op["path"] for op in all_patch_ops]
-    assert any(PROP_A.urn() in p for p in paths), (
-        "PROP_A must appear in a patch op path"
-    )
-    assert any(PROP_B.urn() in p for p in paths), (
-        "PROP_B must appear in a patch op path"
-    )
+    assert any(PROP_A.urn() in p for p in paths)
+    assert any(PROP_B.urn() in p for p in paths)
 
 
 @pytest.mark.parametrize(
@@ -94,7 +107,13 @@ def test_multiple_properties_emit_separate_ops() -> None:
 )
 def test_patch_value_is_set(value: str) -> None:
     """The patch op for add must carry the supplied value."""
-    wus = list(add_structured_properties_to_entity_wu(ENTITY_URN, {PROP_A: value}))
+    wus = list(
+        add_structured_properties_to_entity_wu(
+            ENTITY_URN,
+            {PROP_A: value},
+            write_mode=StructuredPropertyWriteMode.PATCH,
+        )
+    )
     assert wus
 
     aspect_json = _parse_mcp_aspect(wus[0].get_metadata()["metadata"])
@@ -103,6 +122,6 @@ def test_patch_value_is_set(value: str) -> None:
         ops = ops.get("patch", [])
 
     add_ops = [op for op in ops if op.get("op") == "add"]
-    assert add_ops, "Expected at least one 'add' patch op"
+    assert add_ops
     op_value = add_ops[0]["value"]
-    assert op_value is not None, "Patch op value must not be null"
+    assert op_value is not None

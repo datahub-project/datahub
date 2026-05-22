@@ -48,7 +48,7 @@ export default function DataProfileView({ profile }: Props) {
      * Returns a placeholder value to show in the column data table when data is null.
      */
     const unknownValue = () => {
-        return <Typography.Text style={{ color: theme.colors.textDisabled }}>unknown</Typography.Text>;
+        return <Typography.Text style={{ color: theme.colors.textTertiary }}>unknown</Typography.Text>;
     };
 
     /**

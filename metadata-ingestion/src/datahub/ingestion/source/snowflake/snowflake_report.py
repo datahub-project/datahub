@@ -121,6 +121,7 @@ class SnowflakeV2Report(
     num_streams_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
     num_secure_views_missing_definition: int = 0
+    num_dynamic_tables_missing_definition: int = 0
     num_structured_property_templates_created: int = 0
 
     marketplace_listings_scanned: int = 0

@@ -33,6 +33,7 @@ SNOWFLAKE_REGION_CLOUD_REGION_MAPPING = {
     "azure_northeurope": (SnowflakeCloudProvider.AZURE, "north-europe"),
     "azure_westeurope": (SnowflakeCloudProvider.AZURE, "west-europe"),
     "azure_switzerlandnorth": (SnowflakeCloudProvider.AZURE, "switzerland-north"),
+    "azure_swedencentral": (SnowflakeCloudProvider.AZURE, "sweden-central"),
     "azure_uaenorth": (SnowflakeCloudProvider.AZURE, "uae-north"),
     "azure_centralindia": (SnowflakeCloudProvider.AZURE, "central-india"),
     "azure_japaneast": (SnowflakeCloudProvider.AZURE, "japan-east"),

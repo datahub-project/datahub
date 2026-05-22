@@ -95,7 +95,7 @@ const StyledTabToolbar = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border: 1.5px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1.5px solid ${(props) => props.theme.colors.border};
 `;
 
 const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
