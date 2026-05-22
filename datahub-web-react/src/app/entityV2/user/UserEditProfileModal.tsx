@@ -93,12 +93,15 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     phone: '',
                     urn: '',
                 });
+                onClose();
             })
             .catch((e) => {
                 message.destroy();
                 message.error({ content: `Failed to Save changes!: \n ${e.message || ''}`, duration: 3 });
+                // Reset form state to original values so the rejected input is discarded
+                setData({ ...editModalData });
+                form.setFieldsValue({ ...editModalData });
             });
-        onClose();
     };
 
     return (
