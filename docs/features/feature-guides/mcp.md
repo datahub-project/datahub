@@ -146,11 +146,11 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 
 </details>
 
-## OAuth2 with Dynamic Client Registration (Recommended)
+# Connecting to Managed MCP Server with OAuth - Recommended
 
 _Available in DataHub Cloud v1.0.2+_
 
-DataHub Cloud now supports **OAuth2 with [Dynamic Client Registration (DCR)](https://datatracker.ietf.org/doc/html/rfc7591)** for MCP, so you no longer have to mint and paste a personal access token into every client. Compatible MCP clients (Claude, Claude Code, Cursor, ChatGPT, Snowflake, Databricks, etc.) discover the auth server, register themselves, and walk you through a browser-based login. Tokens are scoped to the signed-in user and refresh automatically.
+DataHub Cloud supports **OAuth2 with [Dynamic Client Registration (DCR)](https://datatracker.ietf.org/doc/html/rfc7591)** for MCP, so each DataHub user can connect with their own personal login — including SSO through providers like Okta, Azure AD, and others configured for your tenant. Compatible MCP clients (Claude, Claude Code, Cursor, ChatGPT, Snowflake, Databricks, etc.) discover the auth server, register themselves, and walk you through a browser-based login. Tokens are scoped to the signed-in user and refresh automatically.
 
 ### Single Entry Point
 
@@ -279,7 +279,7 @@ Snowflake exposes external MCP servers to Cortex Agents through an **API Integra
 2. Create the MCP server object:
 
    ```sql
-   CREATE MCP SERVER datahub_mcp_server
+   CREATE EXTERNAL MCP SERVER datahub_mcp_server
      WITH DISPLAY_NAME = 'DataHub'
      URL = 'https://mcp.datahub.com/mcp'
      API_INTEGRATION = datahub_mcp_api_integration;
@@ -298,7 +298,7 @@ See the [Snowflake agent context guide](../../dev-guides/agent-context/snowflake
 Databricks registers external MCP servers as **Unity Catalog HTTP connections** behind a managed proxy. The connection then becomes available to Agent Bricks, Genie Code, and AI Playground at `https://<workspace>/api/2.0/mcp/external/<connection_name>`.
 
 1. In your workspace, open **Catalog → External Data → Connections → Create connection** (requires `CREATE CONNECTION` on the metastore).
-2. Connection type: **HTTP**. Name: `datahub`. URL: `https://mcp.datahub.com/mcp`.
+2. Connection type: **HTTP**. Name: `datahub`. URL: `https://<tenant>.acryl.io/integrations/ai/mcp` (your tenant URL is required here — the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks).
 3. Check the **Is MCP connection** box.
 4. For **Auth type**, select **Dynamic Client Registration** (DCR per RFC 7591) — Databricks registers a client with DataHub automatically and stores refresh tokens.
 5. Save. The first time the agent uses a DataHub tool, each operator authorizes DataHub via the workspace's managed OAuth flow.
@@ -319,7 +319,7 @@ OAuth + DCR is the recommended path for **interactive** clients where a human si
 - **DataHub Cloud < v1.0.2** or self-hosted DataHub Core
 - MCP clients that don't yet implement OAuth-based remote MCP
 
-## Managed MCP Server Usage
+# Connecting to Managed MCP Server with Access Tokens
 
 For DataHub Cloud v0.3.12+, you can connect directly to the hosted MCP server endpoint — no local installation required.
 
