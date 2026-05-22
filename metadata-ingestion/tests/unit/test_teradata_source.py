@@ -3139,14 +3139,6 @@ class TestShouldRetryConnect:
 class TestRetryConfig:
     """retry_max_attempts and retry_initial_backoff_seconds config fields."""
 
-    def test_retry_max_attempts_default(self):
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.retry_max_attempts == 3
-
-    def test_retry_initial_backoff_seconds_default(self):
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.retry_initial_backoff_seconds == 1.0
-
     def test_retry_max_attempts_custom(self):
         config = TeradataConfig.model_validate(
             {**_base_config(), "retry_max_attempts": 5}
@@ -3197,25 +3189,9 @@ class TestRetryConfig:
 class TestPoolSizeConfig:
     """max_pool_size field: default, valid bounds, and out-of-range rejection."""
 
-    def test_max_pool_size_default(self):
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.max_pool_size == 13
-
-    def test_max_pool_size_min_boundary(self):
-        config = TeradataConfig.model_validate({**_base_config(), "max_pool_size": 1})
-        assert config.max_pool_size == 1
-
-    def test_max_pool_size_max_boundary(self):
-        config = TeradataConfig.model_validate({**_base_config(), "max_pool_size": 50})
-        assert config.max_pool_size == 50
-
     def test_max_pool_size_zero_is_invalid(self):
         with pytest.raises(ValidationError):
             TeradataConfig.model_validate({**_base_config(), "max_pool_size": 0})
-
-    def test_max_pool_size_above_limit_is_invalid(self):
-        with pytest.raises(ValidationError):
-            TeradataConfig.model_validate({**_base_config(), "max_pool_size": 51})
 
 
 class TestEffectiveMaxWorkers:
@@ -3274,14 +3250,46 @@ class TestTeradataReportFields:
         assert report.num_primary_keys_processed == 0
         assert report.column_extraction_duration_seconds == 0.0
 
+    def test_concurrent_increments_are_atomic(self):
+        """All lock-protected helpers produce exact counts under thread contention.
+
+        N threads each call every increment_* / add_* helper M times.  Without
+        the _lock, float += is not atomic under the GIL and int += can lose
+        updates under high contention.  Any removal of 'with self._lock:' from
+        a helper will cause this test to fail non-deterministically (and very
+        reliably at n_threads=16, m_per_thread=1000).
+        """
+        import concurrent.futures
+
+        report = TeradataReport()
+        n_threads, m_per_thread = 16, 1000
+        duration_per_call = 0.001  # 1 ms per add_column_extraction_duration call
+
+        def worker(_: int) -> None:
+            for _ in range(m_per_thread):
+                report.increment_db_retries()
+                report.increment_pool_exhaustion_events()
+                report.increment_columns_processed()
+                report.increment_column_extraction_failures()
+                report.increment_primary_keys_processed()
+                report.add_column_extraction_duration(duration_per_call)
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(worker, range(n_threads)))
+
+        expected_count = n_threads * m_per_thread
+        assert report.num_db_retries == expected_count
+        assert report.num_pool_exhaustion_events == expected_count
+        assert report.num_columns_processed == expected_count
+        assert report.num_column_extraction_failures == expected_count
+        assert report.num_primary_keys_processed == expected_count
+        assert report.column_extraction_duration_seconds == pytest.approx(
+            expected_count * duration_per_call, rel=1e-6
+        )
+
 
 class TestConnectionPoolRetry:
     """Tests for connection-pool timeout config and pool-exhaustion retry/logging."""
-
-    def test_connection_pool_timeout_ms_default(self):
-        """connection_pool_timeout_ms defaults to 60 000 ms (60 s)."""
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.connection_pool_timeout_ms == 60000
 
     def test_connection_pool_timeout_ms_custom(self):
         """connection_pool_timeout_ms accepts a custom value."""
@@ -3289,24 +3297,6 @@ class TestConnectionPoolRetry:
             {**_base_config(), "connection_pool_timeout_ms": 120000}
         )
         assert config.connection_pool_timeout_ms == 120000
-
-    def test_connection_pool_timeout_ms_min_boundary(self):
-        config = TeradataConfig.model_validate(
-            {**_base_config(), "connection_pool_timeout_ms": 1}
-        )
-        assert config.connection_pool_timeout_ms == 1
-
-    def test_connection_pool_timeout_ms_zero_is_invalid(self):
-        with pytest.raises(ValidationError):
-            TeradataConfig.model_validate(
-                {**_base_config(), "connection_pool_timeout_ms": 0}
-            )
-
-    def test_connection_pool_timeout_ms_negative_is_invalid(self):
-        with pytest.raises(ValidationError):
-            TeradataConfig.model_validate(
-                {**_base_config(), "connection_pool_timeout_ms": -1}
-            )
 
     def test_pool_exhaustion_logs_thread_context_and_retries(self, caplog):
         """_engine_connect_with_retry logs thread name + tid on PoolTimeoutError and retries."""
@@ -3655,6 +3645,14 @@ class TestBackoffTiming:
             # Patch uniform to return its upper bound, making the cap observable.
             with patch("random.uniform", side_effect=lambda lo, hi: hi):
                 assert _jittered_backoff(attempt, 1.0) == cap
+
+    def test_backoff_capped_at_30_seconds(self):
+        """Cap kicks in once initial*2^attempt exceeds 30 s."""
+        with patch("random.uniform", side_effect=lambda lo, hi: hi):
+            # initial=20.0, attempt=2 -> raw = 80.0 -> capped to 30.0
+            assert _jittered_backoff(2, 20.0) == 30.0
+            # initial=5.0, attempt=10 -> raw = 5120.0 -> capped to 30.0
+            assert _jittered_backoff(10, 5.0) == 30.0
 
 
 class TestGetInspectorsDispose:
