@@ -13397,6 +13397,11 @@ type DataProduct implements Entity {
   type: EntityType!
 
   """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+
+  """
   Properties about a Data Product
   """
   properties: DataProductProperties

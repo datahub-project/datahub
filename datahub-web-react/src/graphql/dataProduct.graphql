@@ -110,3 +110,20 @@ mutation batchAddToDataProducts($input: BatchSetDataProductsInput!) {
 mutation batchRemoveFromDataProducts($input: BatchSetDataProductsInput!) {
     batchRemoveFromDataProducts(input: $input)
 }
+
+query getDataProductEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    dataProduct(urn: $urn) {
+        urn
+        type
+        exists
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
+}

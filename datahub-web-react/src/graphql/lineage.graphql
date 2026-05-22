@@ -259,6 +259,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
     ... on Dataset {
         exists
         name
+        ...entityDataProduct
         properties {
             name
             description
@@ -794,6 +795,7 @@ fragment entityLineageV2 on Entity {
         }
     }
     ... on DataProduct {
+        exists
         properties {
             name
             description

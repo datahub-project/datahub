@@ -16,7 +16,7 @@ import { ContractLineageButton } from '@app/lineageV3/LineageEntityNode/Contract
 import { ExpandLineageButton } from '@app/lineageV3/LineageEntityNode/ExpandLineageButton';
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
 import ManageLineageMenu from '@app/lineageV3/LineageEntityNode/ManageLineageMenu';
-import useAvoidIntersections from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
+import useAvoidIntersections, { useExpandContainer } from '@app/lineageV3/LineageEntityNode/useAvoidIntersections';
 import { DisplayedColumns } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import NodeWrapper from '@app/lineageV3/NodeWrapper';
 import {
@@ -26,6 +26,7 @@ import {
     VERTICAL_HANDLE,
     isGhostEntity,
     onClickPreventSelect,
+    useNodeColor,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
@@ -210,7 +211,9 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const entityRegistry = useEntityRegistry();
 
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
-    const isVertical = !!parentDataJob;
+    const isVertical = !!parentDataJob || !!props.parentDataProduct;
+    const [nodeColor] = useNodeColor(type);
+    const isDataProduct = type === EntityType.DataProduct;
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const columnsHeight =
@@ -222,6 +225,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         (showColumns && numFilteredColumns > NUM_COLUMNS_PER_PAGE ? 40 : 0); // Pagination
 
     useAvoidIntersections(urn, columnsHeight + LINEAGE_NODE_HEIGHT, rootType, isVertical);
+    useExpandContainer(urn, columnsHeight + LINEAGE_NODE_HEIGHT, isVertical);
 
     const highlightColor = isSearchedEntity ? theme.colors.bgHighlight : theme.colors.tagsTrueYellowBg;
     const hasUpstreamChildren = !!(numUpstreams ?? !!entity?.numUpstreamChildren);
@@ -333,6 +337,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
+                $isDataProduct={isDataProduct}
+                $nodeColor={nodeColor}
             >
                 <LineageCard
                     urn={urn}

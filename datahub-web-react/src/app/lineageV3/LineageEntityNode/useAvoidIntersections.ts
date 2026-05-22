@@ -22,6 +22,68 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
     }, [id, expandHeight, rootType, getNode, getNodes, setNodes, skip]);
 }
 
+/**
+ * For nodes that live inside a parent container (e.g. members of a DataProduct bounding box),
+ * expanding their contents pushes any siblings below them downward and grows the container
+ * itself by the same amount. The cleanup reverses both effects so the layout is stable across
+ * mount/unmount cycles.
+ */
+export function useExpandContainer(id: string, expandHeight: number, skip = false) {
+    const { getNode, getNodes, setNodes } = useReactFlow();
+
+    useEffect(() => {
+        if (skip) return () => {};
+
+        const self = getNode(id);
+        if (!self?.parentId) return () => {};
+
+        const extraHeight = expandHeight - LINEAGE_NODE_HEIGHT;
+        if (extraHeight <= 0) return () => {};
+
+        const siblingsBelow = getNodes().filter(
+            (n) => n.parentId === self.parentId && n.id !== self.id && n.position.y > self.position.y,
+        );
+        const siblingIdSet = new Set(siblingsBelow.map((n) => n.id));
+        const { parentId } = self;
+
+        setNodes((nodes) =>
+            nodes.map((node) => {
+                if (siblingIdSet.has(node.id)) {
+                    return { ...node, position: { ...node.position, y: node.position.y + extraHeight } };
+                }
+                if (node.id === parentId) {
+                    const newHeight = (node.height || 0) + extraHeight;
+                    return {
+                        ...node,
+                        height: newHeight,
+                        style: { ...node.style, height: newHeight, transition: 'height 0.3s ease-in-out' },
+                    };
+                }
+                return node;
+            }),
+        );
+
+        return () => {
+            setNodes((nodes) =>
+                nodes.map((node) => {
+                    if (siblingIdSet.has(node.id)) {
+                        return { ...node, position: { ...node.position, y: node.position.y - extraHeight } };
+                    }
+                    if (node.id === parentId) {
+                        const newHeight = (node.height || 0) - extraHeight;
+                        return {
+                            ...node,
+                            height: newHeight,
+                            style: { ...node.style, height: newHeight, transition: 'height 0.3s ease-in-out' },
+                        };
+                    }
+                    return node;
+                }),
+            );
+        };
+    }, [id, expandHeight, getNode, getNodes, setNodes, skip]);
+}
+
 // Required because NodeBuilder cannot properly place Lineage Filter nodes
 // TODO: Find a cleaner way to do this
 export function useAvoidIntersectionsOften(id: string, expandHeight: number, rootType: EntityType, skip = false) {
@@ -52,10 +114,18 @@ function avoidIntersections({ id, expandHeight, rootType, getNode, getNodes, set
         return () => {};
     }
 
+    // Nodes nested inside a parent container (e.g. members of a DataProduct bounding box) are
+    // laid out relative to the parent — pushing other absolute-positioned nodes around would
+    // double-count their offset. The parent container itself is grown by useExpandContainer.
+    if (self.parentId) {
+        return () => {};
+    }
+
     const nodesToMove: Map<string, number> = new Map();
     // Iterate nodes top down
     const nodes = getNodes()
         .filter((node) => !isTransformational(node.data, rootType))
+        .filter((node) => !node.parentId)
         .filter((node) => node.id !== self.id && node.position.y >= self.position.y && overlapsX(self, node));
     nodes.sort((a, b) => a.position.y - b.position.y);
 

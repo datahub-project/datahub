@@ -1,4 +1,10 @@
-import { AppstoreOutlined, FileOutlined, ReadOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import {
+    AppstoreOutlined,
+    FileOutlined,
+    PartitionOutlined,
+    ReadOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import { Storefront } from '@phosphor-icons/react/dist/csr/Storefront';
 import * as React from 'react';
@@ -25,6 +31,7 @@ import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNotesSection';
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -69,7 +76,7 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     isBrowseEnabled = () => true;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
@@ -169,6 +176,11 @@ export class DataProductEntity implements Entity<DataProduct> {
                 icon: AppstoreOutlined,
             },
             {
+                name: 'Lineage',
+                component: LineageTab,
+                icon: PartitionOutlined,
+            },
+            {
                 name: 'Properties',
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
@@ -231,6 +243,14 @@ export class DataProductEntity implements Entity<DataProduct> {
 
     displayName = (data: DataProduct) => {
         return data?.properties?.name || data.urn;
+    };
+
+    getLineageVizConfig = (entity: DataProduct) => {
+        return {
+            urn: entity.urn,
+            name: entity.properties?.name || entity.urn,
+            type: EntityType.DataProduct,
+        };
     };
 
     getOverridePropertiesFromEntity = (data: DataProduct) => {

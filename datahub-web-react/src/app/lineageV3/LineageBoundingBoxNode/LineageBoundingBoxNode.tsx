@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { useHistory, useLocation } from 'react-router-dom';
 import { NodeProps, NodeResizer } from 'reactflow';
 import styled from 'styled-components';
 
@@ -14,13 +15,15 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import LineageCard from '@app/lineageV3/components/LineageCard';
+import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
 import usePrevious from '@app/shared/usePrevious';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
 
-const StyledNodeWrapper = styled(NodeWrapper)`
-    background-color: ${(props) => props.theme.colors.bgSurfaceBrand}50;
+const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
+    background-color: ${({ $colorHex, theme }) => ($colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`)};
     border-top-left-radius: 0;
 
     align-items: start;
@@ -54,11 +57,14 @@ const HomeIndicatorWrapper = styled.div<{ $cardHeight: number }>`
 
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity } = data;
+    const { urn, type, entity, colorHex, displayName } = data;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { searchedEntity, setIsDraggingBoundingBox } = useContext(LineageVisualizationContext);
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
+    const history = useHistory();
+    const location = useLocation();
+    const entityRegistry = useEntityRegistry();
 
     const wasDragging = usePrevious(dragging);
 
@@ -101,6 +107,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 dragging={dragging}
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
+                $colorHex={colorHex}
             >
                 {urn === rootUrn && (
                     <HomeIndicatorWrapper $cardHeight={cardHeight}>
@@ -118,11 +125,14 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                         ref={ref}
                         urn={urn}
                         type={type}
-                        loading={!entity}
-                        name={entity?.name || urn}
+                        loading={!entity && !displayName}
+                        name={displayName || entity?.name || urn}
                         properties={entity?.genericEntityProperties}
                         platformIcons={entity?.icon ? [entity.icon] : []}
                         childrenOpen={false}
+                        onDoubleClick={
+                            isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))
+                        }
                     />
                 </CardWrapper>
             </StyledNodeWrapper>

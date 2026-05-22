@@ -32,9 +32,9 @@ import ZoomControls from '@app/lineageV3/controls/ZoomControls';
 import LineageSVGs from '@app/lineageV3/lineageSVGs';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 
-const StyledReactFlow = styled(ReactFlow)<{ isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
-    ${({ isDraggingBoundingBox }) =>
-        !isDraggingBoundingBox &&
+const StyledReactFlow = styled(ReactFlow)<{ $isDraggingBoundingBox: boolean; $edgesOnTop: boolean }>`
+    ${({ $isDraggingBoundingBox }) =>
+        !$isDraggingBoundingBox &&
         `.react-flow__node-lineage-entity:not(.dragging) {
             transition: transform ${TRANSITION_DURATION_MS}ms ease-in-out;
         }`}
@@ -96,7 +96,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
         >
             <LineageSVGs />
             <StyledReactFlow
-                isDraggingBoundingBox={isDraggingBoundingBox}
+                $isDraggingBoundingBox={isDraggingBoundingBox}
                 defaultNodes={initialNodes}
                 defaultEdges={initialEdges}
                 // Selection change event does not get emitted without timeout

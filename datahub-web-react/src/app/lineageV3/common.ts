@@ -1,5 +1,6 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React, { Dispatch, SetStateAction } from 'react';
+import { useTheme } from 'styled-components';
 
 import { hashString } from '@components/components/Avatar/utils';
 
@@ -59,6 +60,7 @@ export interface LineageEntity extends NodeBase {
     fetchStatus: Record<LineageDirection, FetchStatus>;
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
+    parentDataProduct?: Urn;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -86,6 +88,9 @@ export interface LineageBoundingBox {
     type: EntityType;
     entity?: FetchedEntityV2;
     dragged?: boolean;
+    colorHex?: string;
+    /** Display name for neighbor DataProduct boxes where the full entity isn't yet loaded */
+    displayName?: string;
 }
 
 export interface LineageAnnotationNode {
@@ -129,8 +134,21 @@ export function isQuery(node: Pick<LineageNode, 'type'>): boolean {
     return node.type === EntityType.Query;
 }
 
-// If the home node has one of these types, render data jobs as non-transformational
+// If the home node has one of these types, render data jobs as non-transformational AND
+// stop counting data jobs as 0-hop in lineage walks (they're first-class entities on the page).
 const TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES = new Set([EntityType.DataFlow, EntityType.DataJob]);
+
+// Render-only override: when the home is a DataProduct or Domain, the page is a member-grouped
+// view where data jobs are first-class member assets (just like datasets / ML models). They must
+// share the main entity track so they sit inside the source bounding box. We deliberately do NOT
+// extend this to `generateIgnoreAsHops` — neighbour expansions from a member dataset should still
+// skip data jobs as hops so the user sees the dataset on the far side of an intermediate job.
+const RENDER_AS_NON_TRANSFORMATIONAL_ROOT_TYPES = new Set([
+    EntityType.DataFlow,
+    EntityType.DataJob,
+    EntityType.DataProduct,
+    EntityType.Domain,
+]);
 
 export function generateIgnoreAsHops(homeType: EntityType) {
     const base = [
@@ -150,9 +168,9 @@ export function generateIgnoreAsHops(homeType: EntityType) {
 }
 
 // TODO: Replace with value from search-across-lineage, once it's available
-// Must be kept in sync with generateIgnoreAsHops
+// Must be kept in sync with generateIgnoreAsHops for DataFlow / DataJob root types.
 export function isTransformational(node: Pick<LineageNode, 'urn' | 'type'>, rootType: EntityType): boolean {
-    if (TRANSFORMATIONAL_OVERRIDE_ROOT_TYPES.has(rootType) && node.type === EntityType.DataJob) {
+    if (RENDER_AS_NON_TRANSFORMATIONAL_ROOT_TYPES.has(rootType) && node.type === EntityType.DataJob) {
         return false;
     }
     return TRANSFORMATION_TYPES.includes(node.type) || isDbt(node);
@@ -384,4 +402,36 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
     event.preventDefault(); // Prevents selecting node in React Flow
     event.stopPropagation(); // Prevents focusing node
     return true;
+}
+
+/**
+ * Resolves the category colour and sub-asset label for a lineage node.
+ *
+ * Returns `[colour, subAssetLabel]` where `colour` is a theme-aware hex value pulled from the
+ * Glossary Palette tokens — this is the same palette the design system uses elsewhere for
+ * entity-category visual encoding, so lineage nodes pick up dark-mode and theme overrides
+ * automatically without re-introducing hardcoded hex values.
+ */
+export function useNodeColor(type?: EntityType): [string, string] {
+    const theme = useTheme();
+
+    if (type === EntityType.DataProduct) {
+        return [theme.colors.glossaryPaletteViolet, ''];
+    }
+    if (type === EntityType.Chart || type === EntityType.Dashboard) {
+        return [theme.colors.glossaryPaletteColdGrey, 'Field'];
+    }
+    if (type === EntityType.Dataset) {
+        return [theme.colors.glossaryPaletteLightOrange, 'Column'];
+    }
+    if (
+        type === EntityType.Mlmodel ||
+        type === EntityType.MlmodelGroup ||
+        type === EntityType.Mlfeature ||
+        type === EntityType.MlfeatureTable ||
+        type === EntityType.MlprimaryKey
+    ) {
+        return [theme.colors.glossaryPaletteBlue, ''];
+    }
+    return [theme.colors.glossaryPalettePeach, ''];
 }

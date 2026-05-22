@@ -83,12 +83,29 @@ export default function LineageDisplay({
             return [
                 ...oldNodes
                     .filter((n) => newNodeMap.has(n.id))
-                    .map((n) => ({
-                        ...n,
-                        position: (!n.data.dragged && newNodeMap.get(n.id)?.position) || n.position,
-                        data: newNodeMap.get(n.id)?.data ?? n.data,
-                        selectable: newNodeMap.get(n.id)?.selectable ?? n.selectable,
-                    })),
+                    .map((n) => {
+                        const newNode = newNodeMap.get(n.id);
+                        const parentChanged = newNode?.parentId !== n.parentId;
+                        return {
+                            ...n,
+                            // When parentId changes (e.g. an external node is adopted into a
+                            // neighbor DataProduct box on a later recompute after entity data
+                            // loads), the position must switch from absolute to relative at the
+                            // same time. Always take the new position when the parent changes.
+                            position: ((!n.data.dragged || parentChanged) && newNode?.position) || n.position,
+                            // Preserve the dragged flag across data updates so that a node which
+                            // the user has manually moved is not snapped back to its computed
+                            // position when a background entity fetch triggers a subsequent
+                            // setNodes call.
+                            data: { ...(newNode?.data ?? n.data), dragged: parentChanged ? false : n.data.dragged },
+                            selectable: newNode?.selectable ?? n.selectable,
+                            parentId: newNode?.parentId,
+                            extent: newNode?.extent,
+                            style: newNode?.style ?? n.style,
+                            width: newNode?.width ?? n.width,
+                            height: newNode?.height ?? n.height,
+                        };
+                    }),
                 ...nodesToAdd.map((n) => ({ ...n, data: { ...n.data, dragged: false } })),
             ].sort((a, b) => getNodePriority(b) - getNodePriority(a));
         });

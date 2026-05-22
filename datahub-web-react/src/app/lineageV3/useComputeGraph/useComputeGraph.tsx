@@ -5,6 +5,7 @@ import LineageGraphContext from '@app/lineageV3/LineageGraphContext';
 import { LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 import computeDataFlowGraph from '@app/lineageV3/useComputeGraph/computeDataFlowGraph';
+import computeDataProductGraph from '@app/lineageV3/useComputeGraph/computeDataProductGraph';
 import computeImpactAnalysisGraph from '@app/lineageV3/useComputeGraph/computeImpactAnalysisGraph';
 import getFineGrainedLineage, { FineGrainedLineageData } from '@app/lineageV3/useComputeGraph/getFineGrainedLineage';
 import { LevelsInfo } from '@app/lineageV3/useComputeGraph/limitNodes/limitNodesUtils';
@@ -65,6 +66,15 @@ export default function useComputeGraph(): ProcessedData {
 
             if (rootType === EntityType.DataFlow) {
                 const result = computeDataFlowGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
+                return {
+                    ...result,
+                    levelsInfo: {},
+                    levelsMap: new Map(),
+                };
+            }
+
+            if (rootType === EntityType.DataProduct) {
+                const result = computeDataProductGraph(rootUrn, rootType, context, ignoreSchemaFieldStatus);
                 return {
                     ...result,
                     levelsInfo: {},
