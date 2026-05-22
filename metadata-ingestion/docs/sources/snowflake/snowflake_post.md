@@ -170,7 +170,7 @@ semantic_view_pattern:
 ##### Requirements
 
 - Semantic views require appropriate Snowflake edition and privileges
-- Requires `REFERENCES` or `SELECT` privileges on semantic views (they are treated as views in Snowflake's permission model)
+- Requires explicit `REFERENCES` or `SELECT` privileges on semantic views (semantic views are a separate object type from regular views in Snowflake's permission model — regular view grants do not cover them)
 - The semantic view definition (SQL DDL) is extracted when available through the `GET_DDL` function
 
 #### Stages, Tasks, and Pipes
@@ -222,7 +222,7 @@ Module behavior is constrained by source APIs, permissions, and metadata exposed
 
 - Some features require specific Snowflake editions or additional privileges. This includes dynamic tables, semantic views, advanced lineage features, and tags.
 - Dynamic tables require the `monitor` privilege for metadata extraction. Without this privilege, dynamic tables will not be visible to DataHub.
-- Semantic views require `REFERENCES` or `SELECT` privileges for metadata extraction. Without these privileges, semantic views will not be visible to DataHub.
+- Semantic views are a separate object type from regular views in Snowflake and require their own explicit `REFERENCES` or `SELECT` grants. Regular view grants (`GRANT REFERENCES ON ALL VIEWS`) do not cover semantic views. Without these privileges, semantic views will not be visible to DataHub.
 - The underlying Snowflake views that we use to get metadata have a [latency of 45 minutes to 3 hours](https://docs.snowflake.com/en/sql-reference/account-usage.html#differences-between-account-usage-and-information-schema). So we would not be able to get very recent metadata in some cases like queries you ran within that time period etc. This is applicable particularly for lineage, usage and tags (without lineage) extraction.
 - If there is any [ongoing Snowflake incident](https://status.snowflake.com/), we will not be able to get the metadata until that incident is resolved.
 - Lineage extraction, when got directly from Snowflake access history, has some limitations, as documented [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes), [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-column-lineage), and [here](https://docs.snowflake.com/en/sql-reference/account-usage/access_history#usage-notes-object-modified-by-ddl-column).

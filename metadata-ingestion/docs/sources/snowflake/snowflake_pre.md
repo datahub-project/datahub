@@ -28,7 +28,10 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
--- Note: Semantic views are covered by the above view grants
+
+-- Grant references privileges for semantic views (separate object type from regular views)
+grant references on all semantic views in database "<your-database>" to role datahub_role;
+grant references on future semantic views in database "<your-database>" to role datahub_role;
 
 -- Grant monitor privileges for dynamic tables
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
