@@ -1255,6 +1255,24 @@ thoughtspot = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
 ]
 
+timescaledb = [
+    "acryl-datahub-classify==0.0.11",
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
+    "cachetools<6.0.0",
+    "GeoAlchemy2<0.19.0",
+    "greenlet<4.0.0",
+    "numpy<2",
+    "patchy==2.8.0",
+    "pip",
+    "psycopg2-binary<3.0.0",
+    "schwifty<2026.0.0",
+    "sqlalchemy>=1.4.39,<2",
+    "sqlglot[c]==30.8.0",
+    "sqlparse<0.6.0",
+    "urllib3>=1.26,<3.0",
+]
+
 trino = [
     "acryl-datahub-classify==0.0.11",
     "cachetools<6.0.0",
@@ -2044,6 +2062,7 @@ cassandra = "datahub.ingestion.source.cassandra.cassandra:CassandraSource"
 neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
 
