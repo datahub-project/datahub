@@ -227,7 +227,7 @@ jobs:
             echo "No PRs found in range $PREV_TAG..$TAG"
             exit 0
           fi
-          echo "PRs in this release: $(echo $PR_NUMBERS | tr '\n' ' ')"
+          echo "PRs in this release: $(echo "$PR_NUMBERS" | tr '\n' ' ')"
 
           # 4. Build a set of Linear issue identifiers whose PRs are in this release,
           #    by reading the "Linear: XXX-NNNN" comment that pr-to-linear.yml posts.
@@ -258,7 +258,7 @@ jobs:
             | jq -r '.data.release.issues.nodes[] | .id + " " + .identifier')
 
           # 6. Migrate only issues that are both in cli-next AND confirmed in this release
-          echo "$CLI_NEXT_ISSUES" | while read UUID IDENTIFIER; do
+          echo "$CLI_NEXT_ISSUES" | while read -r UUID IDENTIFIER; do
             if echo "$ISSUES_IN_RELEASE" | grep -qw "$IDENTIFIER"; then
               echo "  Migrating $IDENTIFIER..."
               curl -s -X POST https://api.linear.app/graphql \
