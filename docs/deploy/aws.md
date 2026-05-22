@@ -317,7 +317,7 @@ in datahub to point to the specific ES instance -
    quickstart files located [here](../../docker/quickstart/).
    1. Once you have modified the quickstart recipes you can run the quickstart command using a specific docker compose
       file. Sample command for that is
-      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose-without-neo4j.quickstart.yml`
+      - `datahub docker quickstart --quickstart-compose-file docker/quickstart/docker-compose.quickstart-profile.yml`
 2. If you are not using quickstart recipes, you can modify environment variable in GMS to point to the ES instance. The
    env files for datahub-gms are located [here](../../docker/datahub-gms/env/).
 

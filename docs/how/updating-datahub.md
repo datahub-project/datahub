@@ -44,6 +44,8 @@ Requirements:
 
 ### Breaking Changes
 
+- **(Docker / local development)** Removed legacy root-level Docker Compose files (`docker/docker-compose*.yml`), shell scripts (`docker/quickstart.sh`, `docker/dev*.sh`, `docker/nuke.sh`), and old generated quickstart bundles under `docker/quickstart/` (except `docker-compose.quickstart-profile.yml`). **Migration:** use `datahub docker quickstart` for CLI installs; use `./gradlew quickstartDebug` or `scripts/dev/datahub-dev.sh start` for contributors; use `datahub docker nuke`, `./gradlew quickstartDebugNuke`, or `scripts/dev/datahub-dev.sh nuke` for teardown; customize installs from `docker/quickstart/docker-compose.quickstart-profile.yml` or profiles in `docker/profiles/`.
+
 ### Known Issues
 
 ### Potential Downtime
@@ -57,7 +59,9 @@ Requirements:
 Requirements:
 
 - CLI / Python SDK: 1.6.0
-- Helm Chart: TBD (set at release from acryldata/datahub-helm)
+- Helm Chart: 1.0.0
+
+**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version (with Helm chart **1.0.0** or later) and let system-update complete before turning on `global.datahub.systemUpdate.zdu` for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and Helm values required for staged index upgrades.
 
 ### Breaking Changes
 
@@ -69,7 +73,7 @@ Requirements:
 
 - #16982: **(Auth)** The deprecated `corpUserInfo.active` field is **no longer considered** for session eligibility. Users gated on `active` for login must migrate to supported CorpUser status mechanisms.
 
-- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. See Helm chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
+- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. Requires Helm chart **1.0.0** or later. See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
 
 - #16930: **(Operations / Upgrades)** Background **aspect schema version migration sweep** runs during upgrades on large deployments. The sweep migrates stale aspect schema versions and avoids overwriting aspects that were updated concurrently during the sweep window.
 
@@ -94,6 +98,20 @@ Requirements:
   Note: `acryl-datahub[snowflake]` (and other SQL connector extras) no longer install `acryl-great-expectations` by default. Recipes that previously relied on the GE default profiler will now use the SQLAlchemy profiler automatically (no action needed in most cases). Recipes that explicitly set `profiling.method: ge` without installing `[profiling-ge]` will fail with a `ConfigurationError` pointing at the fix.
 
   **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
+
+- #17563 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+
+  ```bash
+  pip install 'acryl-datahub[unity-catalog,profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
 
 - **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
 
@@ -174,6 +192,7 @@ Requirements:
 ### Other Notable Changes
 
 - #17450 (Ingestion / Snowflake) Opt-in `structured_properties_write_mode: patch` on the Snowflake source preserves UI- and pipeline-added structured properties across ingestion runs. Default remains `upsert` (recipe-as-source-of-truth, current behaviour). When set to `patch`, properties removed from the recipe no longer propagate to DataHub — clean those up via the UI or API. The helper `add_structured_properties_to_entity_wu` gains an opt-in `write_mode` parameter; all existing callers (third-party connectors included) keep their current UPSERT behaviour. Requires the server-side TemplateUtil fix in #17449 to be deployed for `patch` mode to work end-to-end.
+- #17449 (GMS) Fix server-side handling of `PATCH` ops whose JSON Pointer path ends in `/` (e.g. `/tags/<urn>/`). Parsson previously threw `JsonException` on these paths when the targeted aspect did not yet exist, breaking unattributed `addTag`/`addTerm`/`addOwner`/`setNumberProperty` on fresh entities. No wire-format change and no client-side action required.
 - **(Security / CWE-200)** Error responses from GMS (GraphQL, OpenAPI) and the Play frontend proxy no longer leak internal Java class names, Jackson source locations, or stack traces. Previously, a malformed JSON request to `/api/v2/graphql` could return detailed internal information such as `com.fasterxml.jackson.core.JsonParseException` and `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` in the HTTP response body. All error responses now return sanitized messages (e.g. `"Invalid JSON format"`, `"Malformed request body"`, `"Bad Request"`). The frontend now uses a custom `HttpErrorHandler` that returns JSON instead of Play's default HTML error pages. **Configuration:** The frontend error handler is enabled automatically via `play.http.errorHandler` in `application.conf`. GMS error sanitization is applied in `GlobalControllerExceptionHandler` and the global `ObjectMapper` explicitly disables `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` for defense in depth. No operator action is required; internal exception details remain in server-side logs for debugging.
 - #17086 (Ingestion / Sigma) Intra-workbook element-to-element lineage is now emitted via `ChartInfo.inputEdges`. On the next ingestion run, new chart→chart edges will appear in the lineage graph for any Sigma workbook where one element feeds another. This is additive — no existing dataset or warehouse lineage edges are removed.
 - #16358 (Ingestion / dbt) **dbt URN lowercasing is now configurable via `convert_urns_to_lowercase`.** Previously, dbt unconditionally lowercased all target-platform URNs with no way to disable it. This caused lineage breaks with case-sensitive platforms like BigQuery when table names contained uppercase characters (e.g. `AM100` lowercased to `am100`). The default is `true` (preserving existing behavior). Users on case-sensitive platforms like BigQuery should set `convert_urns_to_lowercase: false` in their dbt recipe to preserve original identifier casing.
@@ -183,6 +202,7 @@ Requirements:
 - #16879 (Ingestion) PowerBI: When `convert_lineage_urns_to_lowercase` is enabled, column-level lineage and upstream dataset URNs are now consistently lowercased. Previously, only parts of the URN were lowercased, which could cause lineage mismatches. After upgrading, re-running ingestion will emit corrected URNs.
 - #17033 (Ingestion / MongoDB) `system.*` collections (e.g. `system.profile`, `system.views`) are now excluded from ingestion by default via the new `excludeSystemCollections` option (default: `true`). If you were relying on ingesting system collections, set `excludeSystemCollections: false` in your recipe. The `read` role is now sufficient for all standard ingestion use cases; `dbAdmin` is only required if `excludeSystemCollections` is disabled and MongoDB profiling is enabled.
 - #16871 (Ingestion) Postgres stored procedures: The `dataTransformLogic.queryStatement.value` for Postgres stored procedures now contains only the SQL body (from `pg_proc.prosrc`) instead of the full `CREATE OR REPLACE PROCEDURE ... AS $$ ... $$` wrapper previously returned by `pg_get_functiondef()`. This change enables lineage extraction (the parser previously skipped the `CREATE` wrapper), but may affect custom tooling that parsed the full DDL from this field. Additionally, the `language` field is now normalized to uppercase (e.g. `"SQL"` instead of `"sql"`).
+- **(Security / GMS)** Profile image URLs (`pictureLink`) on user and group profiles are now validated server-side. Only HTTPS URLs pointing to public (non-internal) hosts are accepted. Existing stored URLs are unaffected, but any new profile image update via the UI, GraphQL, or REST API that uses `http://`, `javascript:`, `data:`, `file:`, or points to a private/internal network address (localhost, 127.0.0.1, 169.254.169.254, RFC 1918 ranges) will be rejected. If you rely on HTTP image URLs for profile pictures (e.g. from an internal image server), those URLs must be migrated to HTTPS before upgrading. The default avatar relative path (`assets/…`) continues to work.
 - #17271 **(Ingestion / ClickHouse) New opt-in column profiling backend (`profiling.method: sqlalchemy`).** The default Great Expectations profiler issues `CREATE TEMPORARY TABLE ... AS SELECT` (when `custom_sql`, `limit`, or `offset` is set), but ClickHouse temporary tables are session-scoped, so the follow-up read on a different pooled connection raises `UNKNOWN_TABLE`. Set `profiling: { method: sqlalchemy }` in your ClickHouse recipe to route through a SQLAlchemy-based profiler that never creates temp tables and uses ClickHouse-native aggregates (`uniq()`, `quantile()`, `stddevSamp()`). The default is unchanged (`ge`); existing recipes are not affected. Note: `custom_sql`, `limit`, and `offset` are not supported on the SQLAlchemy path — a warning is emitted and full-table profiling is used instead.
 - #17191 (Ingestion / Airflow plugin) OpenLineage Dataset names that contain a literal `"None"` segment — typically produced by Apache Airflow providers that build dataset names with f-strings like `f"{database}.{self.schema}.{self.table}"` without a `None` guard (notably `S3ToRedshiftOperator` when `schema` is unset) — are now sanitized before the DataHub URN is constructed. Lineage edges from these operators will therefore stitch to the same URN that DataHub's native ingestion sources (e.g. the Redshift source) emit for the same physical table, instead of producing orphan `urn:li:dataset:(...,db.None.schema.tbl,PROD)` entities. A `WARNING` is logged at most once per worker process from `datahub_airflow_plugin._datahub_ol_adapter` so the offending operator can be tracked down upstream without log spam. Orphan URNs created before upgrading are not removed automatically — see the new [Orphan dataset URNs containing `.None.`](../lineage/airflow.md#orphan-dataset-urns-containing-none) section in the Airflow lineage docs for cleanup guidance.
 - (Ingestion / Fabric OneLake) The `queryinsights` schema is now excluded from table and view discovery alongside `INFORMATION_SCHEMA` and `sys`. Fabric Warehouse's Microsoft-managed Query Insights views (`exec_requests_history`, `long_running_queries`, etc.) are no longer ingested as user datasets. This is additive cleanup for most deployments.

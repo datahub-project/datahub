@@ -22,7 +22,7 @@ const Card = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) => props.$isShowNavBarRedesign && 'border-radius: 8px;'}
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
-            ${(props) => props.theme.colors.hyperlinks};
+            ${(props) => props.theme.colors.borderHover};
         cursor: pointer;
     }
     display: flex;

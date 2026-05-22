@@ -226,7 +226,7 @@ You can also specify `head` as the version to get the latest development version
 
 ### Customize installation
 
-If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
+If you would like to customize the DataHub installation further, please download the [docker-compose file](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml) used by the CLI tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
 ```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>

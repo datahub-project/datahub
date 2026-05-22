@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import CreatePostForm, { PostFormData } from '@app/settingsV2/posts/CreatePostForm';
 import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
@@ -41,6 +42,8 @@ type Props = {
 };
 
 export default function CreatePostModal({ onClose, onCreate, editData, onEdit }: Props) {
+    const { t } = useTranslation('settings.posts');
+    const { t: tc } = useTranslation('common.actions');
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [formData, setFormData] = useState<PostFormData>(() => getInitialFormData(editData));
@@ -70,7 +73,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success('Created Post!');
+                    toast.success(t('createSuccess'));
                     onCreate(
                         formData.type || PostContentType.Text,
                         formData.title,
@@ -83,8 +86,8 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to create Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to create Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('createError'),
+                    permissionMessage: t('createUnauthorized'),
                 });
             });
         onClose();
@@ -110,18 +113,18 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    toast.success('Updated Post!');
+                    toast.success(t('updateSuccess'));
                     onEdit();
                 }
             })
             .catch((e) => {
-                toast.error('Failed to update Post! An unknown error occurred.');
+                toast.error(t('updateError'));
                 console.error('Failed to update Post:', e.message);
             });
         onClose();
     };
 
-    const titleText = editData ? 'Edit' : 'Create';
+    const titleText = editData ? tc('edit') : tc('create');
 
     return (
         <Modal
@@ -131,12 +134,12 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             width={800}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                 },
                 {
-                    text: !editData ? 'Create' : 'Update',
+                    text: !editData ? tc('create') : tc('update'),
                     onClick: !editData ? onCreatePost : onUpdatePost,
                     variant: 'filled',
                     disabled: !isValid,

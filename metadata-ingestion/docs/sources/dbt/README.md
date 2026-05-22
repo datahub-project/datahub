@@ -10,7 +10,8 @@ The DataHub integration for dbt covers core metadata entities such as datasets/t
 2. It generates column lineage between the `dbt` nodes (e.g. when a model/snapshot depends on a dbt source or ephemeral model) as well as lineage between the `dbt` nodes and the underlying target platform nodes (e.g. BigQuery Table -> dbt source, dbt model -> BigQuery table/view).
 3. It automatically generates "sibling" relationships between the dbt nodes and the target / data warehouse nodes. These nodes will show up in the UI with both platform logos.
 4. We also support automated actions (like add a tag, term or owner) based on properties defined in dbt meta.
-   :::
+
+:::
 
 ## Concept Mapping
 

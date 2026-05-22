@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, Sequence, cast
 from unittest import mock
 
 import pytest
@@ -14,6 +14,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.source.tableau.tableau import (
     DEFAULT_PAGE_SIZE,
+    LineageResult,
     SiteIdContentUrl,
     TableauConfig,
     TableauPageSizeConfig,
@@ -21,6 +22,7 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
+    UpstreamTablesResult,
 )
 from datahub.ingestion.source.tableau.tableau_common import (
     TableauLineageOverrides,
@@ -798,6 +800,150 @@ def test_get_owner_identifier_empty_dict():
     assert result is None
 
 
+class TestTableauSourceNewFeatures:
+    """Test suite for new Tableau source features including VC support and column normalization."""
+
+    def setup_method(self, method):
+        """Set up test fixtures."""
+        self.config = TableauConfig.parse_obj(default_config)
+        self.ctx = PipelineContext(run_id="test")
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+            mock_site = mock.MagicMock(
+                spec=SiteItem, id="test-site-id", content_url="test-site"
+            )
+
+            self.tableau_source = TableauSiteSource(
+                config=self.config,
+                ctx=self.ctx,
+                platform="tableau",
+                site=mock_site,
+                server=mock.MagicMock(),
+                report=TableauSourceReport(),
+            )
+
+    def test_get_upstream_vc_tables_with_relationships(self):
+        """Test get_upstream_vc_tables with existing VC relationships."""
+        datasource_id = "ds-123"
+
+        # Set up VC relationships
+        self.tableau_source.vc_processor.datasource_vc_relationships[datasource_id] = [
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-1",
+                "vc_table_name": "test_table",
+                "column_name": "test_column",
+                "field_name": "test_field",
+            },
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-2",
+                "vc_table_name": "another_table",
+                "column_name": "another_column",
+                "field_name": "another_field",
+            },
+        ]
+
+        result = self.tableau_source.get_upstream_vc_tables(datasource_id)
+
+        # Should return UpstreamTablesResult dataclass
+        assert isinstance(result, UpstreamTablesResult)
+        assert len(result.upstream_tables) == 2  # Two unique VC tables
+        assert len(result.table_id_to_urn) == 2
+
+        # Check that URNs are properly formatted
+        for urn in result.table_id_to_urn.values():
+            assert "urn:li:dataset:(urn:li:dataPlatform:tableau," in urn
+            assert "vc-456." in urn  # Should contain VC ID
+
+    def test_create_upstream_table_lineage_with_vc_tables(self):
+        """Test _create_upstream_table_lineage prioritizes VC tables for embedded datasources."""
+        datasource_id = "ds-123"
+        datasource = {
+            c.ID: datasource_id,
+            c.NAME: "Test Embedded Datasource",
+            c.FIELDS: [],
+            c.UPSTREAM_TABLES: [
+                {"id": "regular-table-1", "name": "regular_table"}
+            ],  # Regular tables
+            c.UPSTREAM_DATA_SOURCES: [],
+        }
+
+        # Set up VC relationships to simulate VC tables being available
+        self.tableau_source.vc_processor.datasource_vc_relationships[datasource_id] = [
+            {
+                "vc_id": "vc-456",
+                "vc_table_id": "vc-table-1",
+                "vc_table_name": "vc_test_table",
+                "column_name": "test_column",
+                "field_name": "test_field",
+            }
+        ]
+
+        result = self.tableau_source._create_upstream_table_lineage(
+            datasource, browse_path=None, is_embedded_ds=True
+        )
+
+        # Should return LineageResult with VC tables, not regular tables
+        assert isinstance(result, LineageResult)
+        assert len(result.upstream_tables) == 1
+
+        # Check that the upstream URN contains VC information
+        upstream_urn = result.upstream_tables[0].dataset
+        assert "vc-456.vc_test_table" in upstream_urn
+
+    def test_snowflake_column_normalization_in_lineage(self):
+        """Test that Snowflake column normalization is applied during lineage creation."""
+        datasource = {
+            c.ID: "ds-123",
+            c.NAME: "Test Datasource",
+            c.FIELDS: [
+                {
+                    c.NAME: "test_field",
+                    c.UPSTREAM_COLUMNS: [
+                        {
+                            c.NAME: "Customer Name",  # Should be normalized to customer_name
+                            c.TABLE: {c.ID: "table-1", c.TYPE_NAME: "DatabaseTable"},
+                        }
+                    ],
+                }
+            ],
+        }
+
+        # Mock Snowflake URN detection and ensure ingest_tables_external is False for normalization
+        with (
+            mock.patch.object(
+                self.tableau_source, "is_snowflake_urn", return_value=True
+            ),
+            mock.patch.object(
+                self.tableau_source.config, "ingest_tables_external", False
+            ),
+        ):
+            # Mock table ID to URN mapping
+            table_id_to_urn = {
+                "table-1": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test.schema.table,PROD)"
+            }
+
+            fine_grained_lineages = (
+                self.tableau_source.get_upstream_columns_of_fields_in_datasource(
+                    datasource, "urn:li:dataset:test", table_id_to_urn
+                )
+            )
+
+            # Should have created fine-grained lineage with normalized column name
+            assert fine_grained_lineages is not None
+            assert len(fine_grained_lineages) == 1
+            lineage = fine_grained_lineages[0]
+
+            # Check that the upstream field URN contains the normalized column name
+            assert lineage.upstreams is not None
+            assert len(lineage.upstreams) > 0
+            upstream_field_urn = lineage.upstreams[0]
+            assert (
+                "customer_name" in upstream_field_urn
+            )  # Normalized from "Customer Name"
+
+
 def _extract_dataset_properties(work_units):
     for wu in work_units:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper):
@@ -1128,3 +1274,164 @@ def test_emit_datasource_does_not_add_embedded_ids_to_published_list():
         assert "published-ds-1" in source.datasource_ids_being_used
         # And the embedded one should still not be there
         assert "embedded-ds-1" not in source.datasource_ids_being_used
+
+
+def _make_site_source() -> TableauSiteSource:
+    """Create a minimal TableauSiteSource for unit testing."""
+    config = TableauConfig.model_validate(default_config)
+    ctx = PipelineContext(run_id="test")
+    with mock.patch("datahub.ingestion.source.tableau.tableau.Server"):
+        return TableauSiteSource(
+            config=config,
+            ctx=ctx,
+            platform="tableau",
+            site=SiteIdContentUrl(site_id="s1", site_content_url="s1"),
+            report=TableauSourceReport(),
+            server=mock.MagicMock(spec=Server),
+        )
+
+
+class TestNullApiResponseHandling:
+    """Tableau's Metadata API occasionally returns None entries inside list fields
+    (upstreamTables, fields, upstreamColumns).  Each affected function should
+    silently skip non-dict entries and continue processing the rest of the list.
+    """
+
+    def setup_method(self) -> None:
+        self.source = _make_site_source()
+
+    def test_get_upstream_tables_skips_non_dict_entries(self) -> None:
+        tables: Sequence[Optional[dict]] = [None, None, {c.ID: "t1", c.NAME: None}]
+
+        upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
+            tables=tables,
+            datasource_name="test_datasource",
+            browse_path=None,
+            is_custom_sql=False,
+        )
+
+        assert upstream_tables == []
+        assert table_id_to_urn == {}
+
+    def test_get_upstream_tables_processes_valid_entries_after_none(self) -> None:
+        valid_table = {
+            c.ID: "t-valid",
+            c.NAME: "my_table",
+            c.SCHEMA: "my_schema",
+            c.FULL_NAME: "db.my_schema.my_table",
+            c.CONNECTION_TYPE: "snowflake",
+            c.DATABASE: {"name": "my_db", "connectionType": "snowflake"},
+            c.COLUMNS_CONNECTION: {"totalCount": 1},
+        }
+
+        with mock.patch.object(
+            TableauUpstreamReference,
+            "create",
+            return_value=mock.MagicMock(
+                make_dataset_urn=mock.MagicMock(
+                    return_value="urn:li:dataset:(urn:li:dataPlatform:snowflake,db.my_schema.my_table,PROD)"
+                )
+            ),
+        ):
+            tables_with_none: Sequence[Optional[dict]] = [None, valid_table, None]
+            upstream_tables, table_id_to_urn = self.source.get_upstream_tables(
+                tables=tables_with_none,
+                datasource_name="ds",
+                browse_path=None,
+                is_custom_sql=False,
+            )
+
+        assert len(upstream_tables) == 1
+        assert len(table_id_to_urn) == 1
+
+    def test_get_upstream_csql_tables_skips_non_dict_fields(self) -> None:
+        fields: Sequence[Optional[dict]] = [None, None, {c.UPSTREAM_COLUMNS: None}]
+
+        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(fields)
+
+        assert upstream_csql == []
+        assert csql_id_to_urn == {}
+
+    def test_get_upstream_csql_tables_processes_valid_after_none(self) -> None:
+        valid_field = {
+            c.UPSTREAM_COLUMNS: [
+                {
+                    c.TABLE: {c.TYPE_NAME: c.CUSTOM_SQL_TABLE, c.ID: "csql-1"},
+                    c.NAME: "col1",
+                }
+            ]
+        }
+
+        fields_with_none: Sequence[Optional[dict]] = [None, valid_field, None]
+        upstream_csql, csql_id_to_urn = self.source.get_upstream_csql_tables(
+            fields_with_none
+        )
+
+        assert len(upstream_csql) == 1
+        assert "csql-1" in csql_id_to_urn
+
+    def test_get_upstream_columns_skips_non_dict_fields(self) -> None:
+        datasource = {c.ID: "ds-1", c.FIELDS: [None, "not_a_dict"]}
+
+        result = self.source.get_upstream_columns_of_fields_in_datasource(
+            datasource=datasource,
+            datasource_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-1,PROD)",
+            table_id_to_urn={
+                "t1": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.s.t,PROD)"
+            },
+        )
+
+        assert result == []
+
+    def test_get_upstream_columns_processes_valid_after_none(self) -> None:
+        datasource = {
+            c.ID: "ds-2",
+            c.FIELDS: [
+                None,
+                {
+                    c.NAME: "my_field",
+                    c.UPSTREAM_COLUMNS: [{c.NAME: "col1", c.TABLE: {c.ID: "t1"}}],
+                },
+            ],
+        }
+
+        result = self.source.get_upstream_columns_of_fields_in_datasource(
+            datasource=datasource,
+            datasource_urn="urn:li:dataset:(urn:li:dataPlatform:tableau,ds-2,PROD)",
+            table_id_to_urn={
+                "t1": "urn:li:dataset:(urn:li:dataPlatform:postgres,db.s.t,PROD)"
+            },
+        )
+
+        assert len(result) == 1
+        assert result[0].downstreams == [
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:tableau,ds-2,PROD),my_field)"
+        ]
+
+    def test_get_schema_metadata_skips_non_dict_fields(self) -> None:
+        bad_fields: Sequence[Optional[dict]] = [None, None]
+        result = self.source._get_schema_metadata_for_datasource(bad_fields)
+
+        assert result is None
+
+    def test_get_schema_metadata_processes_valid_after_none(self) -> None:
+        valid_field = {
+            c.ID: "f1",
+            c.NAME: "my_column",
+            "__typename": "DimensionField",
+            c.UPSTREAM_COLUMNS: [],
+            "isHidden": False,
+            "folderName": None,
+            "description": None,
+            "dataType": None,
+            "defaultFormat": None,
+            "aggregation": None,
+            "role": None,
+        }
+
+        fields_with_none: Sequence[Optional[dict]] = [None, valid_field]
+        result = self.source._get_schema_metadata_for_datasource(fields_with_none)
+
+        assert result is not None
+        assert len(result.fields) == 1
+        assert result.fields[0].fieldPath == "my_column"

@@ -145,7 +145,7 @@ Note that these privilege _can_ and likely _should_ be altered inside the **Poli
 :::note Pro-Tip
 To login using the `datahub` account, simply navigate to `<your-datahub-domain>/login` and enter `datahub`, `datahub`. Note that the password can be customized for your
 deployment by changing the `user.props` file within the `datahub-frontend` module. Notice that JaaS authentication must be enabled.
-:::note
+:::
 
 ## Configuration
 

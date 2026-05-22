@@ -34,7 +34,7 @@ const ScrollButton = styled.button<{
     box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     &:hover {
-        color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
