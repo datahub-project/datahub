@@ -209,7 +209,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
   hostname: datahub-mae-consumer
   image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-head}}
   ports:
-    - 9091:9091
+    - ${DATAHUB_MAPPED_MAE_CONSUMER_PORT:-9091}:9091
   expose:
     - 4319
   env_file:
@@ -240,7 +240,7 @@ x-datahub-mce-consumer-service: &datahub-mce-consumer-service
   hostname: datahub-mce-consumer
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-head}}
   ports:
-    - 9090:9090
+    - ${DATAHUB_MAPPED_MCE_CONSUMER_PORT:-9090}:9090
   expose:
     - 4319
   env_file:
@@ -258,8 +258,8 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
   <<: *datahub-mce-consumer-service
   image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_MCE_VERSION:-${DATAHUB_VERSION:-debug}}
   ports:
-    - 9090:9090
-    - 5009:5009
+    - ${DATAHUB_MAPPED_MCE_CONSUMER_PORT:-9090}:9090
+    - ${DATAHUB_MAPPED_MCE_DEBUG_PORT:-5009}:5009
   environment: &datahub-mce-consumer-env-dev
     <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
