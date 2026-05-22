@@ -14,6 +14,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     DataPlatformInstance,
@@ -37,6 +38,10 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
 )
 from datahub.metadata.urns import ContainerUrn, StructuredPropertyUrn
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
+from datahub.utilities.str_enum import StrEnum
 
 # In https://github.com/datahub-project/datahub/pull/11214, we added a
 # new env field to container properties. However, populating this field
@@ -227,9 +232,38 @@ def add_tags_to_entity_wu(
     ).as_workunit()
 
 
+class StructuredPropertyWriteMode(StrEnum):
+    """How `add_structured_properties_to_entity_wu` writes the aspect.
+
+    `UPSERT` replaces the whole `structuredProperties` aspect each run (recipe is
+    source of truth). `PATCH` adds each property individually so user/UI/other-pipeline
+    edits survive — at the cost of removals from the recipe no longer propagating;
+    clean those up via the UI or API.
+    """
+
+    UPSERT = "upsert"
+    PATCH = "patch"
+
+
+class _StructuredPropertiesPatcher(HasStructuredPropertiesPatch, MetadataPatchProposal):
+    pass
+
+
 def add_structured_properties_to_entity_wu(
-    entity_urn: str, structured_properties: Dict[StructuredPropertyUrn, str]
+    entity_urn: str,
+    structured_properties: Dict[StructuredPropertyUrn, str],
+    write_mode: StructuredPropertyWriteMode = StructuredPropertyWriteMode.UPSERT,
 ) -> Iterable[MetadataWorkUnit]:
+    if write_mode == StructuredPropertyWriteMode.PATCH:
+        patcher = _StructuredPropertiesPatcher(entity_urn)
+        for urn, value in structured_properties.items():
+            patcher.set_structured_property(urn.urn(), value)
+        for mcp in patcher.build():
+            yield MetadataWorkUnit(
+                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
+            )
+        return
+
     aspect = StructuredPropertiesClass(
         properties=[
             StructuredPropertyValueAssignmentClass(

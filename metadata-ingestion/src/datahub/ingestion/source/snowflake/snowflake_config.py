@@ -19,6 +19,7 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
 from datahub.ingestion.api.incremental_properties_helper import (
     IncrementalPropertiesConfigMixin,
 )
@@ -393,6 +394,17 @@ class SnowflakeV2Config(
     extract_tags_as_structured_properties: bool = Field(
         default=False,
         description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
+    )
+
+    structured_properties_write_mode: StructuredPropertyWriteMode = Field(
+        default=StructuredPropertyWriteMode.UPSERT,
+        description=(
+            "How to write structured properties extracted from Snowflake tags. "
+            "`upsert` (default) replaces the aspect each run — recipe is source of truth. "
+            "`patch` adds each property individually so user/UI edits survive, "
+            "but properties removed from the recipe no longer propagate to DataHub "
+            "(clean those up via the UI or API)."
+        ),
     )
 
     structured_properties_template_cache_invalidation_interval: HiddenFromDocs[int] = (
