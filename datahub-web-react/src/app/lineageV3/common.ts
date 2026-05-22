@@ -150,6 +150,12 @@ export interface LineageBoundingBox {
      * DataProduct / Domain boxes that aggregate lineage hits).
      */
     subtitle?: string;
+    /**
+     * When true the bbox renders without the default brand-tint background — used for nested
+     * containers (e.g. member DPs inside a Domain bbox) so they read as neutral structural
+     * elements rather than competing with the outer container's tint.
+     */
+    transparent?: boolean;
 }
 
 export interface LineageAnnotationNode {

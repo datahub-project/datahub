@@ -22,8 +22,11 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 export const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
 export const BOUNDING_BOX_PADDING = 50;
 
-const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string }>`
-    background-color: ${({ $colorHex, theme }) => ($colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`)};
+const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string; $transparent?: boolean }>`
+    background-color: ${({ $colorHex, $transparent, theme }) => {
+        if ($transparent) return 'transparent';
+        return $colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`;
+    }};
     border-top-left-radius: 0;
 
     align-items: start;
@@ -73,7 +76,7 @@ const BoxHandle = styled(Handle)<{ position: Position }>`
 
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, colorHex, displayName, subtitle } = data;
+    const { urn, type, entity, colorHex, displayName, subtitle, transparent } = data;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { searchedEntity, setIsDraggingBoundingBox } = useContext(LineageVisualizationContext);
@@ -124,6 +127,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 isGhost={isGhost}
                 isSearchedEntity={isSearchedEntity}
                 $colorHex={colorHex}
+                $transparent={transparent}
             >
                 <BoxHandle type="target" position={Position.Left} isConnectable={false} />
                 <BoxHandle type="source" position={Position.Right} isConnectable={false} />

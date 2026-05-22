@@ -154,8 +154,11 @@ fragment domainLineageResultFields on DomainLineageResult {
         entity {
             urn
             type
+            # Skip `id` deliberately — the lineage resolver returns partial Domain stubs (urn+type
+            # only via UrnToEntityMapper), and Domain.id is declared String!, which would bubble
+            # the entire domainLineage field up to null on any neighbour Domain that hits this code
+            # path. The lineage view only needs urn/type/properties/displayProperties for layout.
             ... on Domain {
-                id
                 properties {
                     name
                     description

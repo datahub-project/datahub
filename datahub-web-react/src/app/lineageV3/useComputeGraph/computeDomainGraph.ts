@@ -29,9 +29,12 @@ type Urn = string;
 const MEMBER_VERTICAL_GAP = 30;
 const NEIGHBOUR_VERTICAL_GAP = 30;
 const NEIGHBOUR_HORIZONTAL_GAP = 240;
-// DP card labels float above their bbox via translateY(-100%) (~54px); the gap clears the label
-// plus breathing room.
-const NESTED_DP_VERTICAL_GAP = 70;
+// Each nested DP bbox has a name card floating above it via translateY(-100%) (~54px). The next
+// DP also has its own header card eating into the gap, plus inner DP↔DP aggregated edges route
+// vertically between siblings — so we need clearance for header + edge label without crowding.
+const NESTED_DP_HEADER_HEIGHT = 54;
+const NESTED_DP_EDGE_LANE = 70;
+const NESTED_DP_VERTICAL_GAP = NESTED_DP_HEADER_HEIGHT + NESTED_DP_EDGE_LANE;
 const NESTED_ASSET_VERTICAL_GAP = 20;
 const DOMAIN_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 4;
 const DP_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 2;
@@ -289,7 +292,10 @@ function layoutNestedMembers(
     const assetsByDp = collectAssetsByDp(nodes, memberDpUrns);
 
     const flowNodes: LineageVisualizationNode[] = [];
-    let cursorY = BOUNDING_BOX_PADDING;
+    // First DP's floating header sits ABOVE its bbox (translateY(-100%) on the card wrapper),
+    // so offset the first row by NESTED_DP_HEADER_HEIGHT to keep that label inside the Domain
+    // bbox rather than clipping past the top edge.
+    let cursorY = BOUNDING_BOX_PADDING + (memberDps.length > 0 ? NESTED_DP_HEADER_HEIGHT : 0);
 
     memberDps.forEach((dp) => {
         const assets = assetsByDp.get(dp.urn) ?? [];
@@ -358,8 +364,12 @@ function makeDpBox(dp: LineageEntity, parentUrn: Urn, x: number, y: number, heig
             urn: dp.urn,
             type: EntityType.DataProduct,
             entity: dp.entity,
-            // Nested DPs stay grey so the Domain colour stays the primary tint.
+            // Nested DPs render as neutral structural containers in the Domain view — the
+            // outer Domain bbox owns the brand tint, so the inner DPs go transparent rather
+            // than competing with it. (The DataProduct lineage view keeps colour because the
+            // DP itself is the source bbox there.)
             colorHex: undefined,
+            transparent: true,
             subtitle: dp.displaySubtitle,
         },
         parentId: parentUrn,
