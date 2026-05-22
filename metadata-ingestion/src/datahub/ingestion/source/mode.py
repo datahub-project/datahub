@@ -1857,21 +1857,30 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         except Exception as e:
             try:
+                is_timeout = isinstance(e, (TimeoutError, requests.exceptions.Timeout))
                 logger.warning(
-                    f"Failed to process report {report_name} ({report_token}) "
-                    f"in space {space_token}",
+                    f"{'Timed out' if is_timeout else 'Failed'} processing report "
+                    f"{report_name} ({report_token}) in space {space_token}",
                     exc_info=True,
                 )
-                self.report.report_failure(
-                    title="Failed to Process Report",
-                    message=f"Unexpected error processing report {report_name} ({report_token}).",
-                    context=f"Space Token: {space_token}, Error: {str(e)}",
-                    exc=e,
-                )
+                if is_timeout:
+                    self.report.report_warning(
+                        title="Report Processing Timeout",
+                        message=f"Timed out processing report {report_name} ({report_token}).",
+                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        exc=e,
+                    )
+                else:
+                    self.report.report_failure(
+                        title="Failed to Process Report",
+                        message=f"Unexpected error processing report {report_name} ({report_token}).",
+                        context=f"Space Token: {space_token}, Error: {str(e)}",
+                        exc=e,
+                    )
             except Exception:
                 # Guard against the error handler itself raising (e.g., a
-                # serialization issue in report_failure). If this propagated,
-                # ThreadedIteratorExecutor would abort all remaining workers.
+                # serialization issue in report_warning/report_failure). If this
+                # propagated, ThreadedIteratorExecutor would abort all remaining workers.
                 logger.error(
                     f"Failed to record error for report {report_token}",
                     exc_info=True,
