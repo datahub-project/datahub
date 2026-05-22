@@ -1255,19 +1255,19 @@ class TableauSiteSource:
                     path=[],
                 )
             # Set parent project name
-            for _project_id, project in all_project_map.items():
-                if project.parent_id is None:
+            for _project_id, tp in all_project_map.items():
+                if tp.parent_id is None:
                     continue
 
-                if project.parent_id in all_project_map:
-                    project.parent_name = all_project_map[project.parent_id].name
+                if tp.parent_id in all_project_map:
+                    tp.parent_name = all_project_map[tp.parent_id].name
                 else:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
+                        context=f"Missing {tp.parent_id}, referenced by {tp.id} {tp.name}",
                     )
-                    project.parent_id = None
+                    tp.parent_id = None
 
             # Post-condition
             assert all(
