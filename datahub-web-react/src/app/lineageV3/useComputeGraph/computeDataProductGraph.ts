@@ -6,6 +6,10 @@ import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import {
+    AGGREGATED_LINEAGE_EDGE_NAME,
+    AggregatedLineageEdgeData,
+} from '@app/lineageV3/LineageEdge/AggregatedLineageEdge';
 import { CUSTOM_SMOOTH_STEP_EDGE_NAME } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
 import { DATA_JOB_INPUT_OUTPUT_EDGE_NAME } from '@app/lineageV3/LineageEdge/DataJobInputOutputEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
@@ -16,7 +20,6 @@ import {
     LineageBoundingBox,
     LineageEdge,
     LineageEdgeData,
-    LineageTableEdgeData,
     LineageToggles,
     NodeContext,
     parseEdgeId,
@@ -80,7 +83,7 @@ export default function computeDataProductGraph(
 
     const { displayedNodesByRoots, parents } = computeConnectedComponents(newGraphStore);
     const flowNodes: LineageVisualizationNode[] = [];
-    const flowEdges: Edge<LineageTableEdgeData>[] = [];
+    const flowEdges: Edge[] = [];
     const memberPositions = new Map<string, XYPosition>();
     const isOnLeftSideOfBox = new Map<string, boolean>();
     const isOnRightSideOfBox = new Map<string, boolean>();
@@ -196,7 +199,7 @@ export default function computeDataProductGraph(
                 .filter((e) => !e.data?.hide),
         );
 
-        addNeighborDataProductBoxes(flowNodes, nodes, memberUrns, urn);
+        addNeighborDataProductBoxes(flowNodes, flowEdges, nodes, memberUrns, urn, boundingBox);
         normalizeExternalColumns(flowNodes, memberUrns, boundingBox.width ?? (boundingBox.style?.width as number) ?? 0);
 
         for (let pass = 0; pass < 2; pass++) {
@@ -313,11 +316,7 @@ function resolveExternalNodeOverlaps(flowNodes: LineageVisualizationNode[], memb
     });
 }
 
-function addIntraProductEdges(
-    flowEdges: Edge<LineageTableEdgeData>[],
-    edges: NodeContext['edges'],
-    memberUrns: Set<Urn>,
-): void {
+function addIntraProductEdges(flowEdges: Edge[], edges: NodeContext['edges'], memberUrns: Set<Urn>): void {
     edges.forEach((edge: LineageEdge, edgeId) => {
         if (!edge.isDisplayed) return;
         const [upstream, downstream] = parseEdgeId(edgeId);
@@ -336,9 +335,11 @@ function addIntraProductEdges(
 
 function addNeighborDataProductBoxes(
     flowNodes: LineageVisualizationNode[],
+    flowEdges: Edge[],
     nodes: NodeContext['nodes'],
     memberUrns: Set<Urn>,
     rootUrn: Urn,
+    sourceBoundingBox: Node<LineageBoundingBox>,
 ): void {
     const groups = new Map<Urn, { name?: string; colorHex?: string; domain?: any; nodeIds: Urn[] }>();
 
@@ -433,7 +434,35 @@ function addNeighborDataProductBoxes(
             height,
         };
         flowNodes.unshift(boxNode);
+
+        flowEdges.push(buildNeighborDpAggregatedEdge(rootUrn, dpUrn, assetCount, boxNode, sourceBoundingBox));
     });
+}
+
+// Decides the lineage direction of an aggregated edge between the source DataProduct box and a
+// neighbour DataProduct box by comparing their horizontal positions: neighbours laid out to
+// the left of the source represent upstream lineage; those to the right are downstream.
+function buildNeighborDpAggregatedEdge(
+    rootUrn: Urn,
+    neighbourDpUrn: Urn,
+    assetCount: number,
+    neighbourBox: Node<LineageBoundingBox>,
+    sourceBox: Node<LineageBoundingBox>,
+): Edge<AggregatedLineageEdgeData> {
+    const sourceCentre = sourceBox.position.x + (sourceBox.width ?? 0) / 2;
+    const neighbourCentre = neighbourBox.position.x + (neighbourBox.width ?? 0) / 2;
+    const isUpstream = neighbourCentre < sourceCentre;
+    const edgeSource = isUpstream ? neighbourDpUrn : rootUrn;
+    const edgeTarget = isUpstream ? rootUrn : neighbourDpUrn;
+    return {
+        id: `aggregated::${edgeSource}::${edgeTarget}`,
+        source: edgeSource,
+        target: edgeTarget,
+        type: AGGREGATED_LINEAGE_EDGE_NAME,
+        data: {
+            memberMatchCount: assetCount,
+        },
+    };
 }
 
 function resolveNodeBoxConflicts(flowNodes: LineageVisualizationNode[]): void {

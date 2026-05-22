@@ -9,6 +9,7 @@ import LineageAnnotationNode, {
 import LineageBoundingBoxNode, {
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import { AGGREGATED_LINEAGE_EDGE_NAME, AggregatedLineageEdge } from '@app/lineageV3/LineageEdge/AggregatedLineageEdge';
 import { CUSTOM_SMOOTH_STEP_EDGE_NAME, CustomSmoothStepEdge } from '@app/lineageV3/LineageEdge/CustomSmoothStepEdge';
 import {
     DATA_JOB_INPUT_OUTPUT_EDGE_NAME,
@@ -61,6 +62,7 @@ const edgeTypes: EdgeTypes = {
     [TENTATIVE_EDGE_NAME]: TentativeEdge,
     [DATA_JOB_INPUT_OUTPUT_EDGE_NAME]: DataJobInputOutputEdge,
     [CUSTOM_SMOOTH_STEP_EDGE_NAME]: CustomSmoothStepEdge,
+    [AGGREGATED_LINEAGE_EDGE_NAME]: AggregatedLineageEdge,
 };
 
 interface Props {

@@ -1,6 +1,6 @@
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { NodeProps, NodeResizer } from 'reactflow';
+import { Handle, NodeProps, NodeResizer, Position } from 'reactflow';
 import styled from 'styled-components';
 
 import HomePill from '@app/lineageV3/LineageEntityNode/HomePill';
@@ -61,6 +61,16 @@ const SubtitleText = styled.span`
     font-weight: 400;
 `;
 
+// Invisible anchor handles so aggregated edges can connect to / from a bounding box.
+// Mirrors the styling pattern used by HorizontalHandle in NodeContents — visually empty
+// but still functional for ReactFlow's edge routing.
+const BoxHandle = styled(Handle)<{ position: Position }>`
+    background: initial;
+    border: initial;
+    ${({ position }) => (position === Position.Left ? 'left: 0;' : 'right: 0;')}
+    top: 50%;
+`;
+
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
     const { urn, type, entity, colorHex, displayName, subtitle } = data;
@@ -115,6 +125,8 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                 isSearchedEntity={isSearchedEntity}
                 $colorHex={colorHex}
             >
+                <BoxHandle type="target" position={Position.Left} isConnectable={false} />
+                <BoxHandle type="source" position={Position.Right} isConnectable={false} />
                 {urn === rootUrn && (
                     <HomeIndicatorWrapper $cardHeight={cardHeight}>
                         <HomePill showText />

@@ -4,6 +4,10 @@ import {
     BOUNDING_BOX_PADDING,
     LINEAGE_BOUNDING_BOX_NODE_NAME,
 } from '@app/lineageV3/LineageBoundingBoxNode/LineageBoundingBoxNode';
+import {
+    AGGREGATED_LINEAGE_EDGE_NAME,
+    AggregatedLineageEdgeData,
+} from '@app/lineageV3/LineageEdge/AggregatedLineageEdge';
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import {
     AggregatedDomainEdge,
@@ -13,7 +17,6 @@ import {
     LINEAGE_NODE_WIDTH,
     LineageBoundingBox,
     LineageEntity,
-    LineageTableEdgeData,
     LineageToggles,
     NodeContext,
 } from '@app/lineageV3/common';
@@ -40,19 +43,17 @@ type DomainGraphContext = Pick<NodeContext, GraphStoreFields | LineageToggles | 
  * 2. Neighbour Domains, taken straight from {@link AggregatedDomainEdge} entries that the
  *    {@code domainLineage} resolver returned, are rendered as standalone {@link
  *    LineageEntityNode}s — upstream neighbours to the left of the source box, downstream to
- *    the right. Each neighbour's card shows its `memberMatchCount` as a subtitle ("N assets")
- *    so the aggregated counts are visible without bespoke edge labels.
- *
- * Why no edges between BBox and neighbour nodes in v1? BBoxes don't expose ReactFlow handles
- * directly, and fanning out per-member → per-neighbour edges would produce M×N visual noise
- * that defeats the point of server-side aggregation. The follow-up "pagination UI" branch
- * will add count-labelled edges anchored on a synthetic source anchor (and Show More / Show
- * All controls driven by start/count).
+ *    the right. Each neighbour's card shows its `memberMatchCount` as a subtitle ("N assets").
+ * 3. One {@link AggregatedLineageEdge} is drawn between the source-Domain bounding box and
+ *    each neighbour Domain node, with the asset-level rollup count rendered as the edge label
+ *    and a tooltip exposing the full resolver bucket (memberMatchCount,
+ *    neighbourEntityCount, degree min/max). Bounding boxes expose anchor handles via
+ *    {@link LineageBoundingBoxNode} so ReactFlow can route these edges cleanly.
  */
 export default function computeDomainGraph(urn: string, type: EntityType, context: DomainGraphContext) {
     const { nodes, aggregatedDomainEdges } = context;
     const flowNodes: LineageVisualizationNode[] = [];
-    const flowEdges: Edge<LineageTableEdgeData>[] = [];
+    const flowEdges: Edge[] = [];
 
     const memberFlowNodes = layoutMembers(nodes, urn);
     flowNodes.push(...memberFlowNodes);
@@ -62,9 +63,36 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
     if (aggregatedDomainEdges && aggregatedDomainEdges.size > 0) {
         flowNodes.push(...layoutNeighbours(aggregatedDomainEdges, LineageDirection.Upstream, boundingBox, urn));
         flowNodes.push(...layoutNeighbours(aggregatedDomainEdges, LineageDirection.Downstream, boundingBox, urn));
+        flowEdges.push(...buildAggregatedEdges(aggregatedDomainEdges, urn));
     }
 
     return { flowNodes, flowEdges, resetPositions: false };
+}
+
+function buildAggregatedEdges(
+    edges: ReadonlyMap<string, AggregatedDomainEdge>,
+    rootUrn: Urn,
+): Edge<AggregatedLineageEdgeData>[] {
+    const flowEdges: Edge<AggregatedLineageEdgeData>[] = [];
+    edges.forEach((edge) => {
+        if (edge.neighbourUrn === rootUrn) return;
+        const isUpstream = edge.direction === LineageDirection.Upstream;
+        const source = isUpstream ? edge.neighbourUrn : rootUrn;
+        const target = isUpstream ? rootUrn : edge.neighbourUrn;
+        flowEdges.push({
+            id: `aggregated::${source}::${target}`,
+            source,
+            target,
+            type: AGGREGATED_LINEAGE_EDGE_NAME,
+            data: {
+                memberMatchCount: edge.memberMatchCount,
+                neighbourEntityCount: edge.neighbourEntityCount,
+                degreeMin: edge.degreeMin,
+                degreeMax: edge.degreeMax,
+            },
+        });
+    });
+    return flowEdges;
 }
 
 function layoutMembers(nodes: NodeContext['nodes'], rootUrn: Urn): LineageVisualizationNode[] {
