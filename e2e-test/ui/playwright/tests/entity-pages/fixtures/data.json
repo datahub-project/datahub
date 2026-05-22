@@ -1,0 +1,97 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hive dataset",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "SamplePlaywrightHiveDataset",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 1,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": {
+                  "rawSchema": ""
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "field_foo",
+                  "nullable": false,
+                  "description": "Foo field description has changed",
+                  "type": "string",
+                  "tags": []
+                },
+                {
+                  "fieldPath": "field_baz",
+                  "nullable": false,
+                  "description": "Baz field description",
+                  "type": "string",
+                  "tags": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHdfsDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "my hdfs dataset",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.Ownership": {
+              "owners": [
+                {
+                  "owner": "urn:li:corpuser:jdoe",
+                  "type": "DATAOWNER"
+                }
+              ],
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+]

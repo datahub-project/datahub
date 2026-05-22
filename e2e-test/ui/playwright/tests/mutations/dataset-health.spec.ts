@@ -9,7 +9,7 @@
  */
 
 import { test } from '../../fixtures/base-test';
-import { DatasetHealthPage } from '../../pages/dataset-health.page';
+import { DatasetPage as DatasetHealthPage } from '../../pages/entity/dataset.page';
 
 test.use({ featureName: 'mutations' });
 
