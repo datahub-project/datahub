@@ -97,7 +97,7 @@ Requirements:
 
   **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
 
-- #17469 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+- #17563 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
 
   ```bash
   pip install 'acryl-datahub[unity-catalog,profiling-ge]'

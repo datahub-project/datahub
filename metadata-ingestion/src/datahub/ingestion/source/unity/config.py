@@ -470,13 +470,6 @@ class UnityCatalogSourceConfig(
         default=None, description="Unity Catalog Stateful Ingestion Config."
     )
 
-    @field_validator("profiling", mode="before")
-    @classmethod
-    def _default_profiling_method(cls, v: object) -> object:
-        if isinstance(v, dict) and "method" not in v:
-            return {**v, "method": "sqlalchemy"}
-        return v
-
     @field_validator("start_time", mode="after")
     @classmethod
     def within_thirty_days(cls, v: datetime) -> datetime:
@@ -561,4 +554,11 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

@@ -529,6 +529,35 @@ def test_profiling_dict_without_method_defaults_to_sqlalchemy():
     assert config.profiling.enabled is True
 
 
+def test_profiling_empty_dict_defaults_to_sqlalchemy():
+    # profiling: {} with no keys at all → SQLAlchemy variant
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": {},
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
+def test_profiling_prebuilt_instance_passes_through():
+    # passing a pre-built config object bypasses the dict validator — must stay unchanged
+    prebuilt = UnityCatalogSQLAlchemyProfilerConfig()
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "token",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "profiling": prebuilt,
+        }
+    )
+    assert isinstance(config.profiling, UnityCatalogSQLAlchemyProfilerConfig)
+    assert config.profiling.method == "sqlalchemy"
+
+
 def test_profiling_explicit_ge_method_preserved():
     # profiling: {method: ge, ...} → GE variant unchanged
     config = UnityCatalogSourceConfig.model_validate(
