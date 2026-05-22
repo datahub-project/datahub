@@ -21,7 +21,7 @@ const MAX_NODES_FOR_TRANSITION = 50;
 
 export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob } = data;
+    const { urn, type, entity, id, fetchStatus, isExpanded, filters, parentDataJob, displaySubtitle } = data;
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const { rootUrn, rootType, nodes, adjacencyList } = useContext(LineageNodesContext);
     const {
@@ -75,6 +75,7 @@ export default function LineageEntityNode(props: NodeProps<LineageEntity>) {
             fetchStatus={fetchStatus}
             isExpanded={isExpanded}
             filters={filters}
+            displaySubtitle={displaySubtitle}
             transitionDuration={transitionDuration}
             rootUrn={rootUrn}
             rootType={rootType}

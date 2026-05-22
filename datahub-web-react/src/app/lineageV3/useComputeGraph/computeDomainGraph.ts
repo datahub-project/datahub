@@ -40,8 +40,8 @@ type DomainGraphContext = Pick<NodeContext, GraphStoreFields | LineageToggles | 
  * 2. Neighbour Domains, taken straight from {@link AggregatedDomainEdge} entries that the
  *    {@code domainLineage} resolver returned, are rendered as standalone {@link
  *    LineageEntityNode}s — upstream neighbours to the left of the source box, downstream to
- *    the right. Each neighbour's display name carries its `memberMatchCount` so the
- *    aggregated counts are visible without bespoke edge labels.
+ *    the right. Each neighbour's card shows its `memberMatchCount` as a subtitle ("N assets")
+ *    so the aggregated counts are visible without bespoke edge labels.
  *
  * Why no edges between BBox and neighbour nodes in v1? BBoxes don't expose ReactFlow handles
  * directly, and fanning out per-member → per-neighbour edges would produce M×N visual noise
@@ -78,11 +78,16 @@ function layoutMembers(nodes: NodeContext['nodes'], rootUrn: Urn): LineageVisual
     return members.map((member, idx) => ({
         id: member.urn,
         type: LINEAGE_ENTITY_NODE_NAME,
+        // Position is relative to the source-Domain bounding box (set as parent below).
+        // ReactFlow expects parent nodes to precede their children in the flowNodes array —
+        // the caller unshifts the bounding box once members are laid out.
         position: {
             x: BOUNDING_BOX_PADDING,
             y: BOUNDING_BOX_PADDING + idx * (LINEAGE_NODE_HEIGHT + MEMBER_VERTICAL_GAP),
         },
         data: member,
+        parentId: rootUrn,
+        extent: 'parent',
         draggable: true,
         selectable: true,
     }));
@@ -169,18 +174,17 @@ function layoutNeighbours(
 }
 
 function toNeighbourLineageEntity(edge: AggregatedDomainEdge): LineageEntity {
-    const baseName = edge.neighbourName ?? edge.neighbourUrn;
-    const displayName = `${baseName} (${edge.memberMatchCount} ${edge.memberMatchCount === 1 ? 'asset' : 'assets'})`;
+    const name = edge.neighbourName ?? edge.neighbourUrn;
 
     const fetchedEntity: FetchedEntityV2 = {
         urn: edge.neighbourUrn,
         type: edge.neighbourType,
-        name: displayName,
+        name,
         exists: true,
         genericEntityProperties: {
             type: edge.neighbourType,
             displayProperties: edge.neighbourColorHex ? { colorHex: edge.neighbourColorHex } : undefined,
-            properties: { name: displayName },
+            properties: { name },
         } as FetchedEntityV2['genericEntityProperties'],
     };
 
@@ -189,6 +193,7 @@ function toNeighbourLineageEntity(edge: AggregatedDomainEdge): LineageEntity {
         urn: edge.neighbourUrn,
         type: edge.neighbourType,
         entity: fetchedEntity,
+        displaySubtitle: formatAssetCount(edge.memberMatchCount),
         isExpanded: {
             [LineageDirection.Upstream]: false,
             [LineageDirection.Downstream]: false,
@@ -202,4 +207,8 @@ function toNeighbourLineageEntity(edge: AggregatedDomainEdge): LineageEntity {
             [LineageDirection.Downstream]: { facetFilters: new Map() },
         },
     };
+}
+
+function formatAssetCount(count: number): string {
+    return `${count} ${count === 1 ? 'asset' : 'assets'}`;
 }

@@ -203,6 +203,7 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         ignoreSchemaFieldStatus,
         numUpstreams,
         numDownstreams,
+        displaySubtitle,
     } = props;
 
     const theme = useTheme();
@@ -213,7 +214,13 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
     const isGhost = isGhostEntity(entity, ignoreSchemaFieldStatus);
     const isVertical = !!parentDataJob || !!props.parentDataProduct;
     const [nodeColor] = useNodeColor(type);
-    const isDataProduct = type === EntityType.DataProduct;
+    // DataProducts pick up their category tint only when they're a first-class node in the graph
+    // (e.g. the source DP in a DataProduct lineage view, or a neighbour DP bbox). When a DP is
+    // rendered as a *member* of a source Domain bbox, the bbox itself already carries the Domain's
+    // colour, so the inner DPs should sit in the neutral grey body so the container reads as the
+    // coloured surface and the members read as its contents — same visual hierarchy as datasets
+    // inside a DP bbox.
+    const isDataProduct = type === EntityType.DataProduct && !props.parentDomain;
 
     const numDisplayedColumns = extraHighlightedColumns.length + (showColumns ? paginatedColumns.length : 0);
     const columnsHeight =
@@ -322,6 +329,8 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
         } else {
             extraDetails = <></>; // Tells LineageCard to display a skeleton
         }
+    } else if (displaySubtitle) {
+        extraDetails = <ExtraDetailsWrapper>{displaySubtitle}</ExtraDetailsWrapper>;
     }
 
     const contents = (

@@ -62,6 +62,11 @@ export interface LineageEntity extends NodeBase {
     parentDataJob?: Urn;
     parentDataProduct?: Urn;
     parentDomain?: Urn;
+    /**
+     * Optional subtitle rendered below the entity name (e.g. "12 assets" on aggregated neighbour
+     * nodes). Lineage-only — does not flow into the underlying entity's profile or sidebar.
+     */
+    displaySubtitle?: string;
 }
 
 /**
@@ -110,6 +115,11 @@ export interface LineageBoundingBox {
     colorHex?: string;
     /** Display name for neighbor DataProduct boxes where the full entity isn't yet loaded */
     displayName?: string;
+    /**
+     * Optional subtitle rendered below the bounding-box name (e.g. "12 assets" on neighbour
+     * DataProduct / Domain boxes that aggregate lineage hits).
+     */
+    subtitle?: string;
 }
 
 export interface LineageAnnotationNode {

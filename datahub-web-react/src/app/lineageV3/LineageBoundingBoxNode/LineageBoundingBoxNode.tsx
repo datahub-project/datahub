@@ -55,9 +55,15 @@ const HomeIndicatorWrapper = styled.div<{ $cardHeight: number }>`
     z-index: -1;
 `;
 
+const SubtitleText = styled.span`
+    color: ${({ theme }) => theme.colors.textSecondary};
+    font-size: 12px;
+    font-weight: 400;
+`;
+
 export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingBox>) {
     const { data, selected, dragging } = props;
-    const { urn, type, entity, colorHex, displayName } = data;
+    const { urn, type, entity, colorHex, displayName, subtitle } = data;
 
     const { rootUrn } = useContext(LineageNodesContext);
     const { searchedEntity, setIsDraggingBoundingBox } = useContext(LineageVisualizationContext);
@@ -129,6 +135,7 @@ export default function LineageBoundingBoxNode(props: NodeProps<LineageBoundingB
                         name={displayName || entity?.name || urn}
                         properties={entity?.genericEntityProperties}
                         platformIcons={entity?.icon ? [entity.icon] : []}
+                        extraDetails={subtitle ? <SubtitleText>{subtitle}</SubtitleText> : undefined}
                         childrenOpen={false}
                         onDoubleClick={
                             isGhost ? undefined : () => history.push(getLineageUrl(urn, type, location, entityRegistry))

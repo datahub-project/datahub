@@ -413,6 +413,7 @@ function addNeighborDataProductBoxes(
               }
             : undefined;
 
+        const assetCount = nodeIdSet.size;
         const boxNode: Node<LineageBoundingBox> = {
             id: dpUrn,
             type: LINEAGE_BOUNDING_BOX_NODE_NAME,
@@ -421,6 +422,7 @@ function addNeighborDataProductBoxes(
                 urn: dpUrn,
                 type: EntityType.DataProduct,
                 displayName: dpInfo.name,
+                subtitle: `${assetCount} ${assetCount === 1 ? 'asset' : 'assets'}`,
                 colorHex: dpInfo.colorHex,
                 entity: neighborEntity,
             },
