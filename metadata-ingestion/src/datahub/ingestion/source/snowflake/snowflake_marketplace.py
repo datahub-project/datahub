@@ -960,7 +960,11 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
             ).as_workunit()
 
             if metadata.domain_urn:
-                # Create-only so a user reassignment in the UI survives re-runs.
+                # Create-only: preserves UI reassignment, but also means
+                # changes to ``marketplace.organization_to_domain`` after the
+                # first run are silently ignored. To re-map, operators must
+                # soft-delete the Data Product (or its ``domains`` aspect)
+                # and re-ingest.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=data_product_urn,
                     aspect=DomainsClass(domains=[metadata.domain_urn]),
@@ -1141,6 +1145,10 @@ class SnowflakeMarketplaceHandler(SnowflakeCommonMixin):
 
             tag_urns = [make_tag_urn("Marketplace:Imported")]
             if listing is not None and listing.organization_profile_name:
+                # Patch-add is additive: if the provider renames, the old
+                # ``Marketplace:Provider:<old>`` tag stays attached and the
+                # operator has to clean it up manually. We don't track prior
+                # tag URNs here, so we cannot emit a targeted remove.
                 tag_urns.append(
                     make_tag_urn(
                         f"Marketplace:Provider:{listing.organization_profile_name}"

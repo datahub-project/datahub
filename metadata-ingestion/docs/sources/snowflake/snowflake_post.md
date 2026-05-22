@@ -57,9 +57,9 @@ For organizations that **purchase/install** internal marketplace listings:
 
    The `marketplace` configuration inherits from `BaseTimeWindowConfig`, allowing you to control the time window for extracting marketplace usage statistics. This follows the same pattern as other DataHub connectors.
 
-3. **Configure the `shares` mapping** (REQUIRED in consumer mode for linking Data Products to their purchased databases):
+3. **Configure the `shares` mapping** (strongly recommended in consumer mode for linking Data Products to their purchased databases):
 
-   Because Snowflake does not provide a direct system field linking imported databases to their source marketplace listings, you must manually configure the `shares` section. For each imported database created from a marketplace listing:
+   Snowflake does not provide a direct system field linking imported databases to their source marketplace listings. Without `shares`, ingestion still succeeds but each affected Data Product is emitted without assets and a `structured_reporter.warning` is logged. To attach the purchased databases as Data Product assets, configure the `shares` section for each imported database created from a marketplace listing:
 
    ```yaml
    shares:
@@ -197,6 +197,8 @@ marketplace:
 ```
 
 Unmapped organizations produce Data Products with no domain. The `domains` aspect is written as `CREATE` only, so UI-assigned domains survive subsequent runs.
+
+**Re-mapping after first ingest.** Because the domain write is one-shot, changes to `organization_to_domain` for an organization that has already been ingested are silently ignored — the Data Product keeps the original assignment. To re-map, soft-delete the Data Product (or just its `domains` aspect) before re-running ingestion. Provider renames have a similar limitation for the `Marketplace:Provider:<org>` tag on purchased database containers: the new tag is added but the old one is not removed, so operators must clean up the stale provider tag manually.
 
 ##### Troubleshooting Marketplace Ingestion
 
