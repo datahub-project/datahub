@@ -16,8 +16,7 @@ export enum QuickFilterField {
     Entity = '_entityType',
 }
 
-export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry, iconColor?: string) {
-    const color = iconColor ?? 'black';
+export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: EntityRegistry, iconColor: string) {
     let label = '';
     let icon: JSX.Element | null = null;
     if (quickFilter.field === QuickFilterField.Platform) {
@@ -27,11 +26,11 @@ export function getQuickFilterDetails(quickFilter: QuickFilter, entityRegistry: 
         if (logoUrl) {
             icon = <StyledIcon alt="icon" src={logoUrl} />;
         } else {
-            icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, color);
+            icon = entityRegistry.getIcon(EntityType.DataPlatform, 14, IconStyleType.ACCENT, iconColor);
         }
     } else if (quickFilter.field === QuickFilterField.Entity) {
         label = entityRegistry.getCollectionName(quickFilter.value as EntityType);
-        icon = entityRegistry.getIcon(quickFilter.value as EntityType, 14, IconStyleType.ACCENT, color);
+        icon = entityRegistry.getIcon(quickFilter.value as EntityType, 14, IconStyleType.ACCENT, iconColor);
     }
 
     return { label, icon };

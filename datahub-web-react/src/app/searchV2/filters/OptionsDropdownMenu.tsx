@@ -100,7 +100,7 @@ export default function OptionsDropdownMenu({
                         onQueryChange={updateSearchQuery}
                         entityRegistry={entityRegistry}
                         textColor={theme.colors.text}
-                        placeholderColor={theme.colors.textDisabled}
+                        placeholderColor={theme.colors.textPlaceholder}
                     />
                 )}
                 {React.cloneElement(menu as React.ReactElement, { style: { boxShadow: 'none' } })}

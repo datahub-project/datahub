@@ -57,7 +57,9 @@ Requirements:
 Requirements:
 
 - CLI / Python SDK: 1.6.0
-- Helm Chart: TBD (set at release from acryldata/datahub-helm)
+- Helm Chart: 1.0.0
+
+**ZDU (zero-downtime upgrade):** v1.6.0 is a **must-install** release before enabling Elasticsearch/OpenSearch ZDU. Deploy this version (with Helm chart **1.0.0** or later) and let system-update complete before turning on `global.datahub.systemUpdate.zdu` for a subsequent OpenSearch/Elasticsearch version bump. This release ships the server-side ZDU infrastructure, schema version index, aspect migration sweep safeguards, and Helm values required for staged index upgrades.
 
 ### Breaking Changes
 
@@ -69,7 +71,7 @@ Requirements:
 
 - #16982: **(Auth)** The deprecated `corpUserInfo.active` field is **no longer considered** for session eligibility. Users gated on `active` for login must migrate to supported CorpUser status mechanisms.
 
-- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. See Helm chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
+- #16887: **(Operations / Elasticsearch)** Optional **Elasticsearch side zero-downtime upgrade (ZDU)** for OpenSearch/Elasticsearch version bumps. **v1.6.0 is a must-install prerequisite** — deploy it and complete system-update before enabling ZDU on a later upgrade. When enabled via Helm (`global.datahub.systemUpdate.zdu`), system-update runs staged index upgrades with reduced downtime; scale-down during system-update is disabled automatically when ZDU is enabled. Requires Helm chart **1.0.0** or later. See chart values for `preEnable` / `enable` and index upgrade tuning (`global.elasticsearch.index.upgrade`, `global.elasticsearch.buildIndices`).
 
 - #16930: **(Operations / Upgrades)** Background **aspect schema version migration sweep** runs during upgrades on large deployments. The sweep migrates stale aspect schema versions and avoids overwriting aspects that were updated concurrently during the sweep window.
 
@@ -121,6 +123,7 @@ Requirements:
   - **JVM metrics:** Some built-in JVM metric **names** changed to align with OpenMetrics (for example, memory-related series). Update Grafana panels, recording rules, and alerts that referenced the old names. See the [client_java JVM migration notes](https://prometheus.github.io/client_java/migration/simpleclient/#jvm-metrics).
   - **Labels:** When multiple MBeans map to the same metric name, series may include an **`_objectname`** label; adjust queries or aggregations if you previously assumed a single series per name.
 - #16723 (Ingestion) Dataplex source configuration cleanup: `filter_config.entries.dataset_pattern` was removed, use `filter_config.entries.pattern` instead; `entries_location` was removed, use `entries_locations` (list) instead.
+- #16889 (Ingestion) SQL parsing: Fixed a bug where table references with 5 or more path components (e.g. `catalog.namespace.subspace.schema.table`) silently dropped middle components when resolved through the sqlglot-based parser. The previous (buggy) behavior produced truncated dataset URNs like `urn:li:dataset:(urn:li:dataPlatform:dremio,catalog.namespace.schema.table,PROD)`; after this fix, the correct URN `urn:li:dataset:(urn:li:dataPlatform:dremio,catalog.namespace.subspace.schema.table,PROD)` is produced. This primarily affects connectors that ingest deep folder hierarchies (most commonly Dremio, but also any source resolving SQL through the shared parser). After upgrading, re-ingestion will create new entities under the corrected URNs, and the previously-ingested truncated entities will be orphaned along with any tags, owners, glossary terms, or lineage attached to them. To migrate, either (a) enable stateful ingestion with stale entity removal so the next run cleans up the old URNs, or (b) manually delete the old URNs (e.g. via `datahub delete --urn ...`) before or after re-ingestion.
 - (Ingestion / dbt) Assertion result mapping for dbt tests is more faithful to dbt's status semantics:
   - dbt test results with status `error` or `runtime error` (the test itself could not run due to a compilation, SQL, or infrastructure problem) are now emitted with `AssertionResult.type = ERROR` instead of `FAILURE`. Previously these were conflated with real data-quality failures.
   - dbt source freshness results with status `runtime error` are similarly emitted with `AssertionResult.type = ERROR`. Freshness status `error` (meaning the `error_after` threshold was exceeded) continues to map to `FAILURE` since it represents a legitimate verdict.
