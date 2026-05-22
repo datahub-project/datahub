@@ -708,18 +708,6 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),total_revenue)",
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),order_count)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.revenue_metrics,PROD),aov)"
-                    ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:databricks,metric_catalog.analytics.orders,PROD),o_orderkey)"
                     ],
                     "downstreamType": "FIELD",

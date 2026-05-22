@@ -1761,11 +1761,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
 
         if unresolved_refs:
             self.report.num_metric_view_unresolved_measure_refs += len(unresolved_refs)
-            self.report.report_warning(
-                "Metric view MEASURE() references unknown measure",
-                f"{table.ref.qualified_table_name}: refs="
-                f"{sorted(unresolved_refs)!r} not found in the same metric view's "
-                "measures. Intra-view lineage for affected fields was skipped.",
+            self.report.warning(
+                title="Unresolved MEASURE() reference in metric view",
+                message=(
+                    "A MEASURE() reference does not match any measure defined in "
+                    "the same metric view. Intra-view lineage for affected fields "
+                    "was skipped."
+                ),
+                context=(
+                    f"{table.ref.qualified_table_name}: refs="
+                    f"{sorted(unresolved_refs)!r}"
+                ),
             )
         return fine
 
@@ -1775,6 +1781,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         alias_map: Dict[str, TableReference],
         context: str = "",
     ) -> Tuple[List[Tuple[TableReference, str]], Set[str]]:
+        # MEASURE(name) refers to a peer measure, not a source column — strip so sqlglot can't extract the inner name.
+        expr = _MEASURE_REF_RE.sub("0", expr)
         try:
             # sqlglot internals can leak AttributeError/TypeError on malformed ASTs.
             tree = sqlglot.parse_one(expr, dialect="databricks")
@@ -2035,11 +2043,14 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         synonyms = entry.get("synonyms")
         if not isinstance(synonyms, list) or not synonyms:
             return
-        cleaned = [
-            str(s)[:_SYNONYM_MAX_LEN]
-            for s in synonyms
-            if isinstance(s, str) and s.strip()
-        ]
+        cleaned: List[str] = []
+        for s in synonyms:
+            if not isinstance(s, str) or not s.strip():
+                self.report.num_metric_view_synonyms_dropped_invalid += 1
+                continue
+            if len(s) > _SYNONYM_MAX_LEN:
+                self.report.num_metric_view_synonyms_truncated += 1
+            cleaned.append(s[:_SYNONYM_MAX_LEN])
         if len(cleaned) > _SYNONYMS_MAX_COUNT:
             self.report.num_metric_view_synonyms_overflow += 1
             cleaned = cleaned[:_SYNONYMS_MAX_COUNT]

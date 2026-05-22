@@ -2240,6 +2240,101 @@ class TestUnityCatalogMetricViews:
         stored = props.customProperties.get("metric_view.field.d.synonyms", "")
         assert len(stored.split(",")) == 10
 
+    def test_synonyms_entry_over_255_chars_truncated_and_counted(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: ['short', '{long_a}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 1
+        stored = props.customProperties.get("metric_view.field.d.synonyms", "")
+        parts = stored.split(",")
+        assert parts == ["short", "a" * 255]
+
+    def test_synonyms_invalid_entries_dropped_and_counted(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                "    synonyms: ['valid', 123, '', '   ', null, ['nested']]\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 5
+        assert props.customProperties.get("metric_view.field.d.synonyms") == "valid"
+
+    def test_synonyms_all_invalid_emits_no_property(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                "    synonyms: [123, '', '   ']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 3
+        assert "metric_view.field.d.synonyms" not in props.customProperties
+
+    def test_synonyms_truncation_and_overflow_both_fire(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        entries = ["s" + str(i) for i in range(9)] + [long_a, long_a]
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: {entries}\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        props = source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 2
+        assert source.report.num_metric_view_synonyms_overflow == 1
+        stored = props.customProperties.get("metric_view.field.d.synonyms", "")
+        assert len(stored.split(",")) == 10
+
+    def test_synonyms_counters_sum_across_entries(self):
+        source = self._build_source(include_metric_views=True)
+        long_a = "a" * 300
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n"
+                "  - name: d1\n    expr: x\n"
+                f"    synonyms: [valid1, 1, '{long_a}']\n"
+                "  - name: d2\n    expr: y\n"
+                f"    synonyms: ['', 2, '{long_a}', '{long_a}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_dropped_invalid == 3
+        assert source.report.num_metric_view_synonyms_truncated == 3
+
+    def test_synonyms_exact_255_chars_not_counted_as_truncated(self):
+        source = self._build_source(include_metric_views=True)
+        exact = "a" * 255
+        table, _ = self._build_metric_view_table(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "dimensions:\n  - name: d\n    expr: x\n"
+                f"    synonyms: ['{exact}']\n"
+            )
+        )
+        spec = source._load_metric_view_spec(table)
+        source._create_table_property_aspect(table, spec)
+        assert source.report.num_metric_view_synonyms_truncated == 0
+
     # ── Agent metadata: format ────────────────────────────────────────────────
 
     @pytest.mark.parametrize(
@@ -2507,6 +2602,28 @@ class TestUnityCatalogMetricViews:
         assert spec is not None
         source._extract_metric_view_column_lineage(table, spec)
         assert source.report.num_metric_view_unresolved_measure_refs >= 1
+
+    def test_measure_args_do_not_emit_spurious_source_upstreams(self):
+        source = self._build_source(include_metric_views=True)
+        table, _ = self._build_metric_view_with_columns(
+            view_definition=(
+                "version: 1.1\nsource: cat.sch.orders\n"
+                "measures:\n"
+                "  - name: total_revenue\n    expr: SUM(price)\n"
+                "  - name: order_count\n    expr: COUNT(1)\n"
+                "  - name: aov\n"
+                "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+            ),
+            column_names=["total_revenue", "order_count", "aov"],
+        )
+        spec = source._load_metric_view_spec(table)
+        assert spec is not None
+        result = source._extract_metric_view_column_lineage(table, spec)
+        for fg in result:
+            for u in fg.upstreams or []:
+                assert "cat.sch.orders" not in u or (
+                    "total_revenue" not in u and "order_count" not in u
+                ), f"spurious source-table upstream emitted: {u}"
 
     # ── Spec version ──────────────────────────────────────────────────────────
 
