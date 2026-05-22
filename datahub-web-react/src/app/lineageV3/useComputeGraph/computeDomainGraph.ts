@@ -29,12 +29,12 @@ type Urn = string;
 const MEMBER_VERTICAL_GAP = 30;
 const NEIGHBOUR_VERTICAL_GAP = 30;
 const NEIGHBOUR_HORIZONTAL_GAP = 240;
-// Each nested DP bbox has a name card floating above it via translateY(-100%) (~54px). The next
-// DP also has its own header card eating into the gap, plus inner DP↔DP aggregated edges route
-// vertically between siblings — so we need clearance for header + edge label without crowding.
+// Each nested DP carries its breathing room ABOVE its bbox: the floating name card
+// (translateY(-100%)) plus the lane where any aggregated inner-edge label routes into the
+// DP from above. Allocated as leading offset on each DP (see `layoutNestedMembers`), not as
+// trailing padding below — that put empty space below the last DP instead of where it was needed.
 const NESTED_DP_HEADER_HEIGHT = 54;
 const NESTED_DP_EDGE_LANE = 70;
-const NESTED_DP_VERTICAL_GAP = NESTED_DP_HEADER_HEIGHT + NESTED_DP_EDGE_LANE;
 const NESTED_ASSET_VERTICAL_GAP = 20;
 const DOMAIN_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 4;
 const DP_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 2;
@@ -292,23 +292,27 @@ function layoutNestedMembers(
     const assetsByDp = collectAssetsByDp(nodes, memberDpUrns);
 
     const flowNodes: LineageVisualizationNode[] = [];
-    // First DP's floating header sits ABOVE its bbox (translateY(-100%) on the card wrapper),
-    // so offset the first row by NESTED_DP_HEADER_HEIGHT to keep that label inside the Domain
-    // bbox rather than clipping past the top edge.
-    let cursorY = BOUNDING_BOX_PADDING + (memberDps.length > 0 ? NESTED_DP_HEADER_HEIGHT : 0);
+    let cursorY = BOUNDING_BOX_PADDING;
 
-    memberDps.forEach((dp) => {
+    // Each DP carries its breathing room ABOVE it: the floating header card (translateY(-100%))
+    // needs room for the label and any aggregated lineage edge terminating on the DP. The first
+    // DP only needs the header reservation; subsequent DPs also need an edge lane between the
+    // previous bbox's bottom and this header. Nothing extra goes BELOW the last DP — that
+    // wasted trailing space was the previous symptom.
+    memberDps.forEach((dp, idx) => {
+        cursorY += idx === 0 ? NESTED_DP_HEADER_HEIGHT : NESTED_DP_EDGE_LANE + NESTED_DP_HEADER_HEIGHT;
         const assets = assetsByDp.get(dp.urn) ?? [];
         const dpHeight = nestedDpHeight(assets.length);
         const dpX = (DOMAIN_BBOX_WIDTH - DP_BBOX_WIDTH) / 2;
         flowNodes.push(makeDpBox(dp, rootUrn, dpX, cursorY, dpHeight));
-        assets.forEach((asset, idx) => {
-            flowNodes.push(makeNestedAsset(asset, dp.urn, idx));
+        assets.forEach((nestedAsset, nestedIdx) => {
+            flowNodes.push(makeNestedAsset(nestedAsset, dp.urn, nestedIdx));
         });
-        cursorY += dpHeight + NESTED_DP_VERTICAL_GAP;
+        cursorY += dpHeight;
     });
 
     if (memberDirectAssets.length > 0) {
+        if (memberDps.length > 0) cursorY += MEMBER_VERTICAL_GAP;
         const assetX = (DOMAIN_BBOX_WIDTH - LINEAGE_NODE_WIDTH) / 2;
         memberDirectAssets.forEach((asset, idx) => {
             flowNodes.push({
@@ -323,11 +327,10 @@ function layoutNestedMembers(
             });
         });
         cursorY +=
-            memberDirectAssets.length * LINEAGE_NODE_HEIGHT +
-            (memberDirectAssets.length - 1) * MEMBER_VERTICAL_GAP +
-            NESTED_DP_VERTICAL_GAP;
+            memberDirectAssets.length * LINEAGE_NODE_HEIGHT + (memberDirectAssets.length - 1) * MEMBER_VERTICAL_GAP;
     }
 
+    cursorY += BOUNDING_BOX_PADDING;
     const memberAreaHeight = Math.max(cursorY, LINEAGE_NODE_HEIGHT + BOUNDING_BOX_PADDING);
     return { memberFlowNodes: flowNodes, memberAreaHeight, memberDpUrns };
 }
