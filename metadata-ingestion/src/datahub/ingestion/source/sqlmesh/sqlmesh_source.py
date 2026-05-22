@@ -4,7 +4,6 @@ import json
 import logging
 import os
 import re
-import sys
 import threading
 import time
 from dataclasses import dataclass
@@ -23,25 +22,33 @@ from typing import (
 try:
     from sqlmesh import Context as SqlmeshContext
 
-    if sys.platform == "darwin":
-        # SQLMesh's ProcessPoolExecutor(mp_context=fork) hangs on macOS when the
-        # DataHub async sink thread pool is already running. Patch create_process_pool_executor
-        # in every module that imported it by name so all callers get SynchronousPoolExecutor.
-        # This must happen after sqlmesh is imported (so the modules exist in sys.modules)
-        # but covers every call site regardless of sqlmesh version or constant evaluation.
-        from sqlmesh.utils.process import SynchronousPoolExecutor
+    # SQLMesh's ProcessPoolExecutor(mp_context=fork) deadlocks when the DataHub
+    # async sink thread pool is already running — the child process inherits
+    # locks held by other threads (allocator arena, stdio buffer, libcurl
+    # connection cache) but no thread alive in the child to release them.
+    # Repro is reliable on macOS (libdispatch + malloc_zone hold non-atfork
+    # locks); on Linux glibc's pthread_atfork handlers reset most of these so
+    # the same scenario "usually" works. Patch unconditionally because the
+    # remaining locks (logging, numpy C-ext init, requests session pool) can
+    # still strand a fork on Linux under contention, and the parallel-parse
+    # speedup is small in practice.
+    from sqlmesh.utils.process import SynchronousPoolExecutor
 
-        def _sync_pool(*args: object, **kwargs: object) -> SynchronousPoolExecutor:
-            return SynchronousPoolExecutor(
-                initializer=kwargs.get("initializer"),  # type: ignore[arg-type]
-                initargs=kwargs.get("initargs", ()),  # type: ignore[arg-type]
-            )
+    def _sync_pool(*args: object, **kwargs: object) -> SynchronousPoolExecutor:
+        return SynchronousPoolExecutor(
+            initializer=kwargs.get("initializer"),  # type: ignore[arg-type]
+            initargs=kwargs.get("initargs", ()),  # type: ignore[arg-type]
+        )
 
-        import sqlmesh.core.loader as _loader_mod
-        import sqlmesh.core.model.cache as _cache_mod
+    # Patch every module that captured create_process_pool_executor by name
+    # at import time. Hitting the factory in sqlmesh.utils.process is not
+    # enough — call sites that did `from ... import create_process_pool_executor`
+    # have their own binding.
+    import sqlmesh.core.loader as _loader_mod
+    import sqlmesh.core.model.cache as _cache_mod
 
-        _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
-        _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+    _loader_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
+    _cache_mod.create_process_pool_executor = _sync_pool  # type: ignore[attr-defined]
 
 except ImportError:
     # sqlmesh is an optional dependency; callers must check `SqlmeshContext is None` before use
@@ -116,6 +123,8 @@ from datahub.utilities.urns.tag_urn import TagUrn
 if TYPE_CHECKING:
     from sqlmesh import Context as SqlmeshContextType, Model as SqlmeshModel
     from sqlmesh.core.snapshot import Snapshot
+
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -425,6 +434,62 @@ class _EffectiveProjectConfig:
             self.env_catalog_mapping = {}
 
 
+@dataclass
+class _CapabilityProbes:
+    """Which data sources are reachable for this ingestion.
+
+    State store, data warehouse, and DataHub Graph are three INDEPENDENT
+    access concerns. Tobiko Cloud puts state in an HTTP API while data
+    stays on the user's warehouse; multi-gateway OSS configs can also
+    split state and data across gateways. Each emitter consults the
+    relevant probe and picks the appropriate fallback signal.
+    """
+
+    has_state: bool = False
+    has_warehouse_query: bool = False
+    has_graph: bool = False
+
+
+def _probe_capabilities(
+    sqlmesh_ctx: "SqlmeshContextType",
+    graph: Optional["DataHubGraph"],
+) -> _CapabilityProbes:
+    """Probe each signal once. Failures degrade gracefully — the emitter
+    layer decides how to handle a missing capability (skip with info log,
+    fall back to a cheaper signal, etc.).
+    """
+    probes = _CapabilityProbes(has_graph=graph is not None)
+
+    # State probe: smallest possible call into the state reader. Listing
+    # environments hits the state store but doesn't load any per-model
+    # snapshot detail, so it's cheap even on large projects.
+    try:
+        sqlmesh_ctx.state_reader.get_environments()
+        probes.has_state = True
+    except Exception as e:
+        logger.info(
+            "State store unreachable; pipeline-rebuild-lag freshness will "
+            "fall back to engine-adapter INFORMATION_SCHEMA. (%s)",
+            e,
+        )
+
+    # Warehouse-query probe: ping the engine adapter. We use a no-op
+    # `SELECT 1` rather than schema introspection so the probe stays
+    # uniform across dialects.
+    try:
+        sqlmesh_ctx.engine_adapter.fetchone("SELECT 1")
+        probes.has_warehouse_query = True
+    except Exception as e:
+        logger.info(
+            "Data warehouse unreachable via engine adapter; volume + "
+            "pipeline-freshness will fall back to DataHub Graph profile "
+            "where available. (%s)",
+            e,
+        )
+
+    return probes
+
+
 @platform_name("SQLMesh")
 @config_class(SqlmeshSourceConfig)
 @support_status(SupportStatus.INCUBATING)
@@ -492,6 +557,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # warehouse URNs identical to those used in _emit_assertions —
         # keeping assertion-definition and run-event URN hashes consistent.
         self._resolved_effective: Optional[_EffectiveProjectConfig] = None
+        # Capability probes (set after Context loads). Emitters consult these
+        # to choose signal sources; e.g. pipeline-freshness prefers state but
+        # falls back to engine_adapter, volume prefers engine_adapter but
+        # falls back to Graph profile.
+        self._capabilities: _CapabilityProbes = _CapabilityProbes()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "SqlmeshSource":
@@ -628,6 +698,19 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 exc=e,
             )
             return
+
+        # Probe capabilities once. The result drives fallback decisions for
+        # freshness and volume assertions later in the pipeline.
+        self._capabilities = _probe_capabilities(sqlmesh_ctx, self.ctx.graph)
+        self.report.has_state_store_access = self._capabilities.has_state
+        self.report.has_warehouse_query_access = self._capabilities.has_warehouse_query
+        self.report.has_graph_access = self._capabilities.has_graph
+        logger.info(
+            "SQLMesh capability probes: state=%s warehouse=%s graph=%s",
+            self._capabilities.has_state,
+            self._capabilities.has_warehouse_query,
+            self._capabilities.has_graph,
+        )
 
         # Resolve target_platform (auto-detect if not configured)
         target_platform = self._detect_target_platform(sqlmesh_ctx, effective)

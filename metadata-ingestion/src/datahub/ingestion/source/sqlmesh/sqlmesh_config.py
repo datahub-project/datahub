@@ -63,6 +63,12 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
     include_column_lineage: bool = False
     include_lineage: bool = False
 
+    # Capability probe results: which signals are available for this run.
+    # Set once after Context load; consumed by emitters to choose fallback paths.
+    has_state_store_access: Optional[bool] = None
+    has_warehouse_query_access: Optional[bool] = None
+    has_graph_access: Optional[bool] = None
+
     # Per-phase performance timers (use as context managers: `with self.report.context_load_sec:`)
     context_load_sec: PerfTimer = field(default_factory=PerfTimer)
     schema_extraction_sec: PerfTimer = field(default_factory=PerfTimer)
@@ -233,6 +239,25 @@ class SqlmeshSourceConfig(
             "Disable to ingest schema and lineage only."
         ),
     )
+    detect_stale_fingerprints: bool = Field(
+        default=False,
+        description=(
+            "When enabled, detect SQLMesh fingerprint tables that haven't been regenerated "
+            "recently (no plan/apply runs). Use this to monitor if SQLMesh transformations "
+            "are running on their expected schedules. Requires DataHub graph access. "
+            "When a fingerprint is stale, a custom property 'sqlmesh.fingerprint_stale' "
+            "is added to the dataset."
+        ),
+    )
+    fingerprint_staleness_threshold_hours: int = Field(
+        default=48,
+        description=(
+            "Number of hours before a fingerprint table is considered stale. "
+            "Only used when detect_stale_fingerprints=True. "
+            "A fingerprint that hasn't been updated (via plan/apply) within this many "
+            "hours will be flagged as stale. Default: 48 hours (2 days)."
+        ),
+    )
     incremental_lineage: bool = Field(
         default=True,
         description=(
@@ -332,6 +357,49 @@ class SqlmeshSourceConfig(
             "existing metadata. "
             "PATCH (default): adds alongside existing metadata from other sources. "
             "OVERRIDE: replaces all tags/ownership managed by this connector."
+        ),
+    )
+    # ------------------------------------------------------------------
+    # Per-feature toggles for extras (default ON, opt out individually)
+    # ------------------------------------------------------------------
+    emit_metadata_tests: bool = Field(
+        default=True,
+        description=(
+            "Emit DataHub Metadata Test entities derived from the SQLMesh project's "
+            "linter rules and ``model_defaults.audits``. Metadata Tests evaluate "
+            "metadata completeness (has owner, has description, has required audit) "
+            "and are an **Acryl Cloud feature**: on OSS DataHub the ``urn:li:test:…`` "
+            "entities are accepted but the server-side test runner is not present, "
+            "so they sit inert. Set to false on OSS to keep the UI clean."
+        ),
+    )
+    emit_freshness_assertions: bool = Field(
+        default=True,
+        description=(
+            "Emit FRESHNESS assertions for each model. Two assertions are emitted "
+            "per model: one for upstream freshness (MIN(upstream lastModified) vs "
+            "SLA) and one for pipeline-rebuild lag (when the fingerprint table was "
+            "last re-written by SQLMesh). Works on both OSS and Acryl Cloud."
+        ),
+    )
+    emit_volume_assertions: bool = Field(
+        default=True,
+        description=(
+            "Emit VOLUME assertions with row-count run events for each model. The "
+            "row count is queried from the warehouse INFORMATION_SCHEMA via "
+            "SQLMesh's engine adapter (falling back to DataHub Graph profile if "
+            "available). Works on both OSS and Acryl Cloud; the run-event history "
+            "feeds Cloud's anomaly detector when enabled."
+        ),
+    )
+    emit_smart_assertion_anomaly_detection: bool = Field(
+        default=True,
+        description=(
+            "Opt emitted assertions into Acryl Cloud's smart-anomaly detector by "
+            "attaching the anomaly-detection flag to ``AssertionInfo``. **Acryl "
+            "Cloud feature**: the flag is silently ignored on OSS DataHub, where "
+            "assertions still work as static pass/fail. Set to false on OSS only "
+            "if the extra property is undesirable."
         ),
     )
 
