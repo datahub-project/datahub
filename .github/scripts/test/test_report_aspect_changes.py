@@ -55,8 +55,8 @@ def test_resolve_base_falls_back_to_rc_when_no_stable_cloud():
     # First call: same list, but rc filter excludes everything → empty result.
     # Second call: no filter, returns the latest rc-cloud tag.
     with patch(
-        "subprocess.check_output",
-        side_effect=[rc_only_list, rc_only_list],
+            "subprocess.check_output",
+            side_effect=[rc_only_list, rc_only_list],
     ) as m:
         assert rac.resolve_base(mode="acryl") == "v1.1.0rc3-cloud"
     # First lookup exhausted (all rc), second lookup succeeded without filter.
@@ -128,7 +128,12 @@ def test_default_head_acryl_mode_returns_acryl_main():
 
 
 def test_default_head_oss_mode_returns_master():
-    assert rac._default_head("oss") == "master"
+    """OSS mode returns `master` when the local ref resolves. Mocked so the
+    result doesn't depend on whether the test environment is a fork checkout
+    (where only `origin/master` exists) or an OSS checkout.
+    """
+    with patch("subprocess.check_output", return_value="abc123\n"):
+        assert rac._default_head("oss") == "master"
 
 
 def test_default_head_auto_detects_when_mode_not_passed():
@@ -184,8 +189,8 @@ def test_resolve_base_oss_falls_back_to_rc_when_no_stable():
     """
     rc_only_list = "v1.6.0rc2\nv1.6.0rc1\n"
     with patch(
-        "subprocess.check_output",
-        side_effect=[rc_only_list, rc_only_list],
+            "subprocess.check_output",
+            side_effect=[rc_only_list, rc_only_list],
     ) as m:
         assert rac.resolve_base(mode="oss") == "v1.6.0rc2"
     assert m.call_count == 2
@@ -219,17 +224,14 @@ def test_resolve_base_rejects_unknown_mode():
 
 def test_resolve_base_auto_detect_uses_oss_when_no_acryl_main():
     """When mode is not passed, resolve_base() auto-detects via _detect_mode.
-    With acryl-main missing, OSS path runs and picks a non-cloud tag.
+    With both `acryl-main` and `origin/acryl-main` missing, OSS path runs and
+    picks a non-cloud tag.
     """
     err = subprocess.CalledProcessError(returncode=1, cmd=["git"])
     oss_tag_list = "v1.5.0.7-cloud\nv1.5.0.7\nv1.5.0\n"
-    # Detection probes both `acryl-main` and `origin/acryl-main` (CI-style
-    # checkouts only have the remote-tracking form), so two failures precede
-    # the OSS tag-list lookup.
-    with patch(
-        "subprocess.check_output", side_effect=[err, err, oss_tag_list]
-    ) as m:
+    with patch("subprocess.check_output", side_effect=[err, err, oss_tag_list]) as m:
         assert rac.resolve_base() == "v1.5.0.7"
+    # First two calls: detection probes (acryl-main, origin/acryl-main); third: tag list.
     assert m.call_count == 3
 
 
@@ -502,7 +504,7 @@ def test_analyze_structural_change_without_schema_version_bump_is_breaking(monke
 
 
 def test_find_transitive_aspects_resolves_via_bump_schema_helpers(
-    monkeypatch, tmp_path
+        monkeypatch, tmp_path
 ):
     # Simulate: changed non-aspect file NonAspect.pdl is depended on by
     # one aspect AspectA.pdl. find_transitive_aspects must return AspectA.
@@ -538,14 +540,14 @@ def test_find_transitive_aspects_resolves_via_bump_schema_helpers(
 
 
 def _finding(
-    path: str,
-    breaking=None,
-    additive=None,
-    noisy=None,
-    is_aspect=True,
-    aspect_name="a",
-    head_commit="abc1234 msg",
-    affected_via=None,
+        path: str,
+        breaking=None,
+        additive=None,
+        noisy=None,
+        is_aspect=True,
+        aspect_name="a",
+        head_commit="abc1234 msg",
+        affected_via=None,
 ):
     return rac.FileFinding(
         path=path,
@@ -568,7 +570,7 @@ def test_render_empty_diff_emits_no_changes_message():
 
 
 def test_upstream_attribution_for_transitive_aggregates_across_non_aspects(
-    monkeypatch,
+        monkeypatch,
 ):
     """For purely-transitive aspects (the file itself has no commits in the
     window), the helper should pull PRs/owner/date from the changed non-aspect
@@ -629,42 +631,42 @@ def test_upstream_attribution_dedupes_prs_across_sources(monkeypatch):
 def test_aggregate_per_pr_verdict_priority_order():
     """Highest-priority verdict wins: spurious > needed > done > bump_not_needed."""
     assert (
-        rac._aggregate_per_pr_verdict(
-            [
-                {"bump_status": rac.BUMP_DONE},
-                {"bump_status": rac.BUMP_SPURIOUS},
-                {"bump_status": rac.BUMP_NEEDED},
-            ]
-        )
-        == rac.BUMP_SPURIOUS
+            rac._aggregate_per_pr_verdict(
+                [
+                    {"bump_status": rac.BUMP_DONE},
+                    {"bump_status": rac.BUMP_SPURIOUS},
+                    {"bump_status": rac.BUMP_NEEDED},
+                ]
+            )
+            == rac.BUMP_SPURIOUS
     )
     assert (
-        rac._aggregate_per_pr_verdict(
-            [
-                {"bump_status": rac.BUMP_DONE},
-                {"bump_status": rac.BUMP_NEEDED},
-            ]
-        )
-        == rac.BUMP_NEEDED
+            rac._aggregate_per_pr_verdict(
+                [
+                    {"bump_status": rac.BUMP_DONE},
+                    {"bump_status": rac.BUMP_NEEDED},
+                ]
+            )
+            == rac.BUMP_NEEDED
     )
     assert (
-        rac._aggregate_per_pr_verdict(
-            [
-                {"bump_status": rac.BUMP_DONE},
-                {"bump_status": rac.BUMP_DONE},
-            ]
-        )
-        == rac.BUMP_DONE
+            rac._aggregate_per_pr_verdict(
+                [
+                    {"bump_status": rac.BUMP_DONE},
+                    {"bump_status": rac.BUMP_DONE},
+                ]
+            )
+            == rac.BUMP_DONE
     )
     # bump_not_needed (formerly not_sure / n/a) is the lowest-priority fallback
     assert (
-        rac._aggregate_per_pr_verdict(
-            [
-                {"bump_status": rac.BUMP_DONE},
-                {"bump_status": rac.BUMP_NOT_NEEDED},
-            ]
-        )
-        == rac.BUMP_DONE
+            rac._aggregate_per_pr_verdict(
+                [
+                    {"bump_status": rac.BUMP_DONE},
+                    {"bump_status": rac.BUMP_NOT_NEEDED},
+                ]
+            )
+            == rac.BUMP_DONE
     )
     assert rac._aggregate_per_pr_verdict([]) == rac.BUMP_NOT_NEEDED
 
@@ -825,7 +827,7 @@ def test_main_cumulative_bucket_clean_when_all_slices_are_done(monkeypatch, tmp_
 
 
 def test_main_cumulative_mode_still_overrides_when_promoting_to_needed_or_spurious(
-    monkeypatch, tmp_path
+        monkeypatch, tmp_path
 ):
     """The fix only protects cumulative bump_done from being downgraded by
     per-PR spurious slices. Other cumulative→per-PR transitions still flow
@@ -930,21 +932,21 @@ def test_render_all_pdls_section_lists_every_finding():
     assert nested_idx < aspect_idx < transitive_idx
     # NestedX row uses the bump_reason from the classifier (non-aspect record)
     assert (
-        "| NestedX.pdl | nested | #9579 | Bob | 2026-05-15 | "
-        "non-aspect record (no schemaVersion concept applies) |" in out
+            "| NestedX.pdl | nested | #9579 | Bob | 2026-05-15 | "
+            "non-aspect record (no schemaVersion concept applies) |" in out
     )
     # AspectA's Why reflects bump_needed (direct schema change, no bump)
     assert (
-        "| AspectA.pdl | ASPECT | #9555 | Alice | 2026-05-05 | "
-        "direct schema change in this file — schemaVersion was NOT bumped |" in out
+            "| AspectA.pdl | ASPECT | #9555 | Alice | 2026-05-05 | "
+            "direct schema change in this file — schemaVersion was NOT bumped |" in out
     )
     # TransitiveZ row marks the transitive-via reason via bump_needed Why
     assert (
-        "| TransitiveZ.pdl | ASPECT (transitive) | (no-PR) "
-        "| _(no owner — file wasn't directly touched)_ "
-        "| _(unknown)_ | "
-        "transitively affected via `ChangedRecord` (file's own schema unchanged) "
-        "— schemaVersion was NOT bumped |" in out
+            "| TransitiveZ.pdl | ASPECT (transitive) | (no-PR) "
+            "| _(no owner — file wasn't directly touched)_ "
+            "| _(unknown)_ | "
+            "transitively affected via `ChangedRecord` (file's own schema unchanged) "
+            "— schemaVersion was NOT bumped |" in out
     )
 
 
@@ -1024,8 +1026,8 @@ def test_render_summary_counts_are_correct():
     out = rac.render_report(fs, base="B", head="H", head_sha="sha")
     # Summary line shows file count + bump-bucket roll-up
     assert (
-        "**Summary:** 4 PDL files changed · "
-        "1 bump_done · 1 bump_needed · 1 bump_spurious · 1 bump_not_needed" in out
+            "**Summary:** 4 PDL files changed · "
+            "1 bump_done · 1 bump_needed · 1 bump_spurious · 1 bump_not_needed" in out
     )
 
 
@@ -1084,8 +1086,8 @@ def test_classify_bump_missing_schema_version_treated_as_one():
     old_no_version = '@Aspect = {"name": "a"}\nrecord A { x: string }'
     new_v2 = '@Aspect = {"name": "a", "schemaVersion": 2}\nrecord A { x: string }'
     assert (
-        rac._classify_bump(True, old_no_version, new_v2, has_structural=False)
-        == rac.BUMP_SPURIOUS
+            rac._classify_bump(True, old_no_version, new_v2, has_structural=False)
+            == rac.BUMP_SPURIOUS
     )
 
 
@@ -1181,7 +1183,7 @@ def test_bump_breakdown_handles_findings_without_pr_reference():
 
 
 def test_main_routes_two_hop_transitive_aspect_to_transitive_section(
-    monkeypatch, tmp_path
+        monkeypatch, tmp_path
 ):
     """A directly-edited aspect that depends on a changed non-aspect via a
     multi-hop chain (so the proximate dep is NOT named in the aspect's content)
@@ -1263,8 +1265,8 @@ def test_pr_numbers_for_file_returns_all_prs_in_window(monkeypatch):
 def test_last_author_for_file_returns_most_recent_author(monkeypatch):
     monkeypatch.setattr(rac, "_git", lambda *args: "Alice Example\n")
     assert (
-        rac.last_author_for_file("acryl-main", "path.pdl", "v1.0.0rc1-cloud")
-        == "Alice Example"
+            rac.last_author_for_file("acryl-main", "path.pdl", "v1.0.0rc1-cloud")
+            == "Alice Example"
     )
 
 
@@ -1328,16 +1330,16 @@ def test_bump_breakdown_table_renders_rows_with_owner_and_pr():
     assert rows[1] == "| --- | --- | --- | --- | --- |"
     # Sorted by date DESC — B (2026-05-10) before A (2026-05-01)
     assert (
-        rows[2]
-        == "| B.pdl | #9272 | Chris Collins | 2026-05-10 | "
-        + rac._BUMP_WHY[rac.BUMP_NEEDED]
-        + " |"
+            rows[2]
+            == "| B.pdl | #9272 | Chris Collins | 2026-05-10 | "
+            + rac._BUMP_WHY[rac.BUMP_NEEDED]
+            + " |"
     )
     assert (
-        rows[3]
-        == "| A.pdl | #9242 | John Joyce | 2026-05-01 | "
-        + rac._BUMP_WHY[rac.BUMP_NEEDED]
-        + " |"
+            rows[3]
+            == "| A.pdl | #9242 | John Joyce | 2026-05-01 | "
+            + rac._BUMP_WHY[rac.BUMP_NEEDED]
+            + " |"
     )
 
 
@@ -1347,8 +1349,8 @@ def test_bump_breakdown_table_uses_no_pr_and_no_owner_placeholders():
     # pr_numbers stays empty, last_author stays None — transitively-affected case
     rows = rac._bump_breakdown_table([f], rac.BUMP_NEEDED)
     assert rows[2] == (
-        "| X.pdl | (no-PR) | _(no owner — file wasn't directly touched)_ "
-        "| _(unknown)_ | " + rac._BUMP_WHY[rac.BUMP_NEEDED] + " |"
+            "| X.pdl | (no-PR) | _(no owner — file wasn't directly touched)_ "
+            "| _(unknown)_ | " + rac._BUMP_WHY[rac.BUMP_NEEDED] + " |"
     )
 
 
@@ -1560,14 +1562,14 @@ def test_release_test_pdl_file_returns_empty_when_no_relevant_findings():
     """Empty input or all-bump_not_needed → return empty string so the caller
     skips writing the sidecar file."""
     assert (
-        rac._render_release_test_pdl_file([], [], base="B", head="H", head_sha="sha")
-        == ""
+            rac._render_release_test_pdl_file([], [], base="B", head="H", head_sha="sha")
+            == ""
     )
     f = _finding("path/X.pdl")
     f.bump_status = rac.BUMP_NOT_NEEDED
     assert (
-        rac._render_release_test_pdl_file([f], [], base="B", head="H", head_sha="sha")
-        == ""
+            rac._render_release_test_pdl_file([f], [], base="B", head="H", head_sha="sha")
+            == ""
     )
 
 
@@ -1802,14 +1804,14 @@ def test_bump_breakdown_table_renders_multiple_prs_per_aspect():
     f.last_commit_date = "2026-05-15"
     rows = rac._bump_breakdown_table([f], rac.BUMP_DONE)
     assert rows[2] == (
-        "| Shared.pdl | #9000, #9579 | Some Author | 2026-05-15 | "
-        + rac._BUMP_WHY[rac.BUMP_DONE]
-        + " |"
+            "| Shared.pdl | #9000, #9579 | Some Author | 2026-05-15 | "
+            + rac._BUMP_WHY[rac.BUMP_DONE]
+            + " |"
     )
 
 
 def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
-    monkeypatch, tmp_path
+        monkeypatch, tmp_path
 ):
     """An aspect that was bumped AND has a changed non-aspect dependency in the
     same diff should be bump_done, not bump_spurious."""
@@ -1874,10 +1876,10 @@ def test_main_reclassifies_aspect_bump_as_done_when_transitively_affected(
 def test_classify_bump_transitive_affected_with_no_version_change_is_bump_needed():
     same = '@Aspect = {"name": "a", "schemaVersion": 1}\nrecord A { x: string }'
     assert (
-        rac._classify_bump(
-            True, same, same, has_structural=False, transitively_affected=True
-        )
-        == rac.BUMP_NEEDED
+            rac._classify_bump(
+                True, same, same, has_structural=False, transitively_affected=True
+            )
+            == rac.BUMP_NEEDED
     )
 
 
@@ -1992,8 +1994,8 @@ def test_render_per_pr_report_buckets_aspects_correctly():
     assert "### `AssertionInfo.pdl`" in out
     # The spurious row appears
     assert (
-        "| #9579 | `def4567890` | `bump_spurious` | Bob | feat: telemetry (#9579) |"
-        in out
+            "| #9579 | `def4567890` | `bump_spurious` | Bob | feat: telemetry (#9579) |"
+            in out
     )
     # DataHubTaskInfo lands in needed bucket
     assert "### `DataHubTaskInfo.pdl`" in out
@@ -2138,12 +2140,12 @@ def test_render_mutator_section_emits_table_with_date_sorted_rows():
     beta_idx = text.index("BetaMutator")
     assert alpha_idx < beta_idx
     assert (
-        "| #9555 | `aaaaaaaaaa` | `AlphaMutator` | `AspectMigrationMutator` "
-        "| Alice | 2026-05-20 | feat (#9555) |" in text
+            "| #9555 | `aaaaaaaaaa` | `AlphaMutator` | `AspectMigrationMutator` "
+            "| Alice | 2026-05-20 | feat (#9555) |" in text
     )
     assert (
-        "| #9579 | `bbbbbbbbbb` | `BetaMutator` | `BaseMutator` | Bob "
-        "| 2026-05-15 | feat (#9579) |" in text
+            "| #9579 | `bbbbbbbbbb` | `BetaMutator` | `BaseMutator` | Bob "
+            "| 2026-05-15 | feat (#9579) |" in text
     )
 
 
@@ -2162,8 +2164,8 @@ def test_render_mutator_section_uses_no_pr_placeholder():
     ]
     text = "\n".join(rac._render_mutator_section(mutators))
     assert (
-        "| (no-PR) | `abc1234567` | `XMutator` | `AspectMigrationMutator` "
-        "| Eve | 2026-05-12 | noref |" in text
+            "| (no-PR) | `abc1234567` | `XMutator` | `AspectMigrationMutator` "
+            "| Eve | 2026-05-12 | noref |" in text
     )
 
 
