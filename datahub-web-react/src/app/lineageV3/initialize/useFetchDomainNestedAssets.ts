@@ -54,7 +54,7 @@ export default function useFetchDomainNestedAssets(): boolean {
         // Claim the DPs up front so a re-entrant render doesn't re-queue them mid-fetch.
         candidateDps.forEach((urn) => fetchedDpUrns.current.add(urn));
 
-        runBoundedFetch(client, rootUrn, candidateDps, nodes, () => setNodeVersion((v) => v + 1))
+        runBoundedFetch(client, candidateDps, nodes, () => setNodeVersion((v) => v + 1))
             .catch(() => undefined)
             .finally(() => setInitialized(true));
     }, [enabled, rootUrn, nodes, nodeVersion, client, setNodeVersion]);
@@ -65,7 +65,6 @@ export default function useFetchDomainNestedAssets(): boolean {
 
 async function fetchDpAssets(
     client: ReturnType<typeof useApolloClient>,
-    rootUrn: string,
     dpUrn: string,
     nodes: Map<string, LineageEntity>,
 ): Promise<number> {
@@ -81,11 +80,10 @@ async function fetchDpAssets(
             if (!row?.entity) return;
             const wasNew = !nodes.has(row.entity.urn);
             const node = setDefault(nodes, row.entity.urn, makeAssetNode(row.entity));
-            // Source-Domain pinning takes precedence: a directly-tagged Domain asset stays at the
-            // Domain level rather than being adopted into a DP bbox.
-            if (node.parentDomain !== rootUrn) {
-                node.parentDataProduct = dpUrn;
-            }
+            // DP membership wins over direct Domain tagging — visually we always want the asset
+            // inside its DP bbox. Domain pinning then only applies to assets that don't belong
+            // to any source-Domain DP.
+            node.parentDataProduct = dpUrn;
             if (wasNew) added += 1;
         });
         return added;
@@ -98,7 +96,6 @@ async function fetchDpAssets(
 
 async function runBoundedFetch(
     client: ReturnType<typeof useApolloClient>,
-    rootUrn: string,
     dpUrns: string[],
     nodes: Map<string, LineageEntity>,
     bumpNodeVersion: () => void,
@@ -112,7 +109,7 @@ async function runBoundedFetch(
             if (dpUrn === undefined) return added;
             // Sequential per worker; concurrency comes from running MAX_PARALLEL_DP_FETCHES of them.
             // eslint-disable-next-line no-await-in-loop
-            added += await fetchDpAssets(client, rootUrn, dpUrn, nodes);
+            added += await fetchDpAssets(client, dpUrn, nodes);
         }
     }
 

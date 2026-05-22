@@ -194,10 +194,10 @@ describe('computeDomainGraph layout (nested DP members)', () => {
         expect(idxDp1).toBeLessThan(idxDs1a);
     });
 
-    it('renders directly-tagged Domain assets at the Domain level (not inside any DP)', () => {
-        // A dataset that's tagged with the Domain directly but is also a member of a DP should
-        // stay at the Domain level so the user sees it as a top-level Domain asset rather than
-        // getting buried inside a DP bbox.
+    it('nests DP-member assets inside the DP bbox even when also tagged to the Domain', () => {
+        // DP membership wins over direct Domain tagging — an asset that belongs to a member DP
+        // renders inside that DP's bbox rather than parallel to it at the Domain level.
+        // Assets that aren't in any DP fall back to the Domain bbox.
         const nodes = new Map<string, LineageEntity>();
         nodes.set(ROOT, makeNode(ROOT, EntityType.Domain));
         const dp = 'urn:li:dataProduct:dp';
@@ -211,11 +211,9 @@ describe('computeDomainGraph layout (nested DP members)', () => {
 
         const byId = new Map(flowNodes.map((n) => [n.id, n]));
         expect(byId.get(dsDirect)?.parentId).toBe(ROOT);
-        // dsBoth has both parentDomain and parentDataProduct, but Domain takes precedence so it
-        // doesn't double-render and ends up at the Domain level.
-        expect(byId.get(dsBoth)?.parentId).toBe(ROOT);
-        const directNodes = flowNodes.filter((n) => n.id === dsBoth);
-        expect(directNodes).toHaveLength(1);
+        expect(byId.get(dsBoth)?.parentId).toBe(dp);
+        const dsBothInstances = flowNodes.filter((n) => n.id === dsBoth);
+        expect(dsBothInstances).toHaveLength(1);
     });
 
     it('grows the Domain bbox vertically with the number of nested DP rows', () => {

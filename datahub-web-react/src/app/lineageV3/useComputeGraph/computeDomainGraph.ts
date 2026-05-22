@@ -262,21 +262,31 @@ function layoutNestedMembers(
     nodes: NodeContext['nodes'],
     rootUrn: Urn,
 ): { memberFlowNodes: LineageVisualizationNode[]; memberAreaHeight: number; memberDpUrns: Set<Urn> } {
+    // Pass 1: pick out the member DataProducts so we can compute the URN set used by the
+    // direct-asset filter below.
     const memberDps: LineageEntity[] = [];
+    nodes.forEach((node) => {
+        if (node.urn === rootUrn) return;
+        if (node.type !== EntityType.DataProduct) return;
+        if (node.parentDomain !== rootUrn) return;
+        memberDps.push(node);
+    });
+    memberDps.sort((a, b) => a.urn.localeCompare(b.urn));
+    const memberDpUrns = new Set<Urn>(memberDps.map((dp) => dp.urn));
+
+    // Pass 2: direct assets. DP membership wins, so an asset that's also a DP member renders
+    // inside its DP bbox (via collectAssetsByDp) rather than at the Domain level.
     const memberDirectAssets: LineageEntity[] = [];
     nodes.forEach((node) => {
-        if (node.parentDomain !== rootUrn || node.urn === rootUrn) return;
-        if (node.type === EntityType.DataProduct) memberDps.push(node);
-        else memberDirectAssets.push(node);
+        if (node.urn === rootUrn) return;
+        if (node.type === EntityType.DataProduct) return;
+        if (node.parentDataProduct && memberDpUrns.has(node.parentDataProduct)) return;
+        if (node.parentDomain !== rootUrn) return;
+        memberDirectAssets.push(node);
     });
-    // Stable ordering: by URN. Avoids node-reshuffle on each re-render when nodes Map iteration
-    // order is unstable across versions.
-    // Stable URN-based ordering — Map iteration order isn't guaranteed across re-renders.
-    memberDps.sort((a, b) => a.urn.localeCompare(b.urn));
     memberDirectAssets.sort((a, b) => a.urn.localeCompare(b.urn));
 
-    const memberDpUrns = new Set<Urn>(memberDps.map((dp) => dp.urn));
-    const assetsByDp = collectAssetsByDp(nodes, memberDpUrns, rootUrn);
+    const assetsByDp = collectAssetsByDp(nodes, memberDpUrns);
 
     const flowNodes: LineageVisualizationNode[] = [];
     let cursorY = BOUNDING_BOX_PADDING;
@@ -316,18 +326,11 @@ function layoutNestedMembers(
     return { memberFlowNodes: flowNodes, memberAreaHeight, memberDpUrns };
 }
 
-function collectAssetsByDp(
-    nodes: NodeContext['nodes'],
-    memberDpUrns: Set<Urn>,
-    rootUrn: Urn,
-): Map<Urn, LineageEntity[]> {
+function collectAssetsByDp(nodes: NodeContext['nodes'], memberDpUrns: Set<Urn>): Map<Urn, LineageEntity[]> {
     const out = new Map<Urn, LineageEntity[]>();
     nodes.forEach((node) => {
         const dpUrn = node.parentDataProduct;
         if (!dpUrn || !memberDpUrns.has(dpUrn)) return;
-        // Source-Domain pinning wins: don't double-render an asset both at the Domain level and
-        // inside its DP.
-        if (node.parentDomain === rootUrn) return;
         const list = out.get(dpUrn);
         if (list) list.push(node);
         else out.set(dpUrn, [node]);
@@ -336,9 +339,14 @@ function collectAssetsByDp(
     return out;
 }
 
+// A DP bbox with no nested assets collapses to a thin band — its name label floats above the
+// bbox via translateY(-100%) so the band only needs enough room to be a visible marker rather
+// than reserving a full LINEAGE_NODE_HEIGHT row of empty interior.
+const EMPTY_DP_BAND_HEIGHT = 24;
+
 function nestedDpHeight(assetCount: number): number {
-    const rows = Math.max(assetCount, 1);
-    return BOUNDING_BOX_PADDING * 2 + rows * LINEAGE_NODE_HEIGHT + (rows - 1) * NESTED_ASSET_VERTICAL_GAP;
+    if (assetCount === 0) return EMPTY_DP_BAND_HEIGHT;
+    return BOUNDING_BOX_PADDING * 2 + assetCount * LINEAGE_NODE_HEIGHT + (assetCount - 1) * NESTED_ASSET_VERTICAL_GAP;
 }
 
 function makeDpBox(dp: LineageEntity, parentUrn: Urn, x: number, y: number, height: number): Node<LineageBoundingBox> {
