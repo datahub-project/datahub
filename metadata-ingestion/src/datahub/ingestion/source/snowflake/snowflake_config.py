@@ -69,6 +69,12 @@ class TagOption(StrEnum):
     skip = "skip"
 
 
+class MarketplaceMode(StrEnum):
+    consumer = "consumer"
+    provider = "provider"
+    both = "both"
+
+
 @dataclass(frozen=True)
 class DatabaseId:
     # Database created from share in consumer account
@@ -278,6 +284,114 @@ class SnowflakeUsageConfig(BaseUsageConfig):
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
+    )
+
+
+class SnowflakeMarketplaceConfig(ConfigModel):
+    """
+    Configuration for Snowflake Internal Marketplace (Private Data Sharing).
+
+    IMPORTANT: This is for the INTERNAL Snowflake Marketplace where organizations privately share
+    data within their account using Data Exchange. This is NOT for the public Snowflake Marketplace
+    (Snowflake Data Marketplace) where external providers publicly list datasets.
+
+    Use this when you want to track:
+    - Internal marketplace listings (from SHOW AVAILABLE LISTINGS IS_ORGANIZATION = TRUE)
+    - Databases purchased/imported from internal listings (IMPORTED DATABASE type - consumer mode)
+    - Databases you're sharing via OUTBOUND shares (provider mode)
+    - Usage of internal marketplace data products
+
+    The usage time window and bucket duration come from the parent connector's
+    ``start_time`` / ``end_time`` / ``bucket_duration`` (and from the same
+    ``RedundantUsageRunSkipHandler`` as the main usage extractor when stateful
+    usage ingestion is enabled), so marketplace usage follows the connector's
+    overall schedule.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Whether to ingest Snowflake INTERNAL marketplace (private data exchange) listings as Data Products. "
+            "When enabled, also ingests databases and usage statistics based on the marketplace_mode setting. "
+            "NOTE: This is for INTERNAL marketplace only (IS_ORGANIZATION = TRUE), not the public Snowflake Data Marketplace."
+        ),
+    )
+
+    marketplace_mode: MarketplaceMode = Field(
+        default=MarketplaceMode.consumer,
+        description=(
+            "Mode for marketplace ingestion: "
+            "'consumer' (default) - Track purchased/imported databases (IMPORTED DATABASE type), "
+            "'provider' - Track databases you're sharing via OUTBOUND shares and marketplace listings, "
+            "'both' - Track both consumer and provider perspectives. "
+            "Consumer mode requires shares config to link imported databases to listings. "
+            "Provider mode works with OUTBOUND shares without requiring imported databases. "
+            "IMPORTANT: For 'provider' or 'both' modes, you MUST grant 'imported privileges on database snowflake' "
+            "to the USER (not just the role), as share access is granted at the user level in Snowflake."
+        ),
+    )
+
+    listing_to_share_overrides: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> share name (top-level key in `shares`) "
+            "to explicitly link a marketplace listing to a share. Useful when "
+            "`SHOW SHARES` doesn't return `listing_global_name` or when "
+            "automatic name-based matching fails."
+        ),
+    )
+
+    listing_to_schemas_overrides: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map of `listing_global_name` -> list of schema names to enumerate "
+            "when falling back to database-level asset discovery. Used in provider "
+            "mode when `DESC SHARE` is not permitted (Snowflake requires share "
+            "ownership for that command). Without this override the fallback enumerates "
+            "all schemas in the source database, which may include schemas not exposed "
+            "by the share. Example: `{GZSTZGQTPEW: [TPCH]}`."
+        ),
+    )
+
+    internal_marketplace_listing_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for INTERNAL marketplace listings to include in ingestion",
+    )
+
+    internal_marketplace_owner_patterns: Dict[str, List[str]] = Field(
+        default={},
+        description=(
+            "Map regex patterns (matched against INTERNAL listing title or provider) to owner identifiers. "
+            "Owners can be usernames, group names, or full URNs. "
+            "Example: {'^Finance.*': ['finance-team'], '^.*Analytics.*': ['analytics-lead', 'urn:li:corpGroup:data']}"
+        ),
+    )
+
+    fetch_internal_marketplace_listing_details: bool = Field(
+        default=False,
+        description=(
+            "If enabled, fetches additional details for each INTERNAL marketplace listing via DESCRIBE AVAILABLE LISTING. "
+            "WARNING: This executes one additional query per listing and may impact performance for many listings."
+        ),
+    )
+
+    marketplace_properties_as_structured_properties: bool = Field(
+        default=False,
+        description=(
+            "If enabled, ingests INTERNAL marketplace custom properties (provider, category, listing_created_on, etc.) "
+            "as DataHub structured properties instead of simple custom properties. This makes marketplace metadata "
+            "searchable and filterable in the DataHub UI."
+        ),
+    )
+
+    organization_to_domain: Dict[str, str] = Field(
+        default={},
+        description=(
+            "Map of Snowflake ``ORGANIZATION_PROFILE_NAME`` to an existing DataHub "
+            "domain (URN, GUID, or name resolvable via ``DomainRegistry``). "
+            "Unmapped organizations get no domain; marketplace never auto-creates "
+            "domain entities."
+        ),
     )
 
 
@@ -495,6 +609,11 @@ class SnowflakeV2Config(
     include_pipes: bool = Field(
         default=False,
         description="If enabled, Snowflake Snowpipe objects will be ingested as DataJobs with COPY INTO lineage.",
+    )
+
+    marketplace: SnowflakeMarketplaceConfig = Field(
+        default_factory=SnowflakeMarketplaceConfig,
+        description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
     )
 
     structured_property_pattern: AllowDenyPattern = Field(
