@@ -98,7 +98,7 @@ using this mechanism. It is highly recommended that admins change or remove the 
 
 ## Adding new users using a user.props file
 
-:::NOTE
+:::note
 Adding users via the `user.props` will require disabling existence checks on GMS using the `METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED=false` environment variable or using the API to enable the user prior to login.
 The directions below demonstrate using the API to enable the user.
 :::
