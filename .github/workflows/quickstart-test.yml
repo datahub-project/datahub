@@ -48,9 +48,11 @@ jobs:
       - name: Run quickstart
         run: |
           source metadata-ingestion/venv/bin/activate
-          # Use compose and version mapping from PR; quickstart tag so system-update runs SqlSetup
+          # Use compose and version mapping from PR. Pull pinned release images (default key);
+          # the :quickstart tag is not on Docker Hub until after a green master build publishes it.
+          # head→quickstart mapping is covered by unit tests in test_quickstart_version_mapping.py.
           export FORCE_LOCAL_QUICKSTART_MAPPING=docker/quickstart/quickstart_version_mapping.yaml
-          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml --version head
+          datahub docker quickstart -f docker/quickstart/docker-compose.quickstart-profile.yml --version default
           docker images
 
       - name: Store logs
@@ -177,7 +179,8 @@ jobs:
     strategy:
       matrix:
         # TODO: once more supported versions are added, this should become list last n versions
-        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "head"]
+        # Use a published release tag for "latest"; :quickstart is validated on master via docker-unified.
+        datahub_version: ["v1.1.0", "v1.2.0", "v1.3.0.1", "v1.5.0.6"]
       fail-fast: false
     steps:
       - name: Free up disk space
