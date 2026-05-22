@@ -151,9 +151,10 @@ export interface LineageBoundingBox {
      */
     subtitle?: string;
     /**
-     * When true the bbox renders without the default brand-tint background — used for nested
-     * containers (e.g. member DPs inside a Domain bbox) so they read as neutral structural
-     * elements rather than competing with the outer container's tint.
+     * When true the bbox renders with the default entity-node background (white in light theme)
+     * instead of the brand-tinted bbox surface — used for nested containers (e.g. member DPs
+     * inside a Domain bbox) so they match the assets stacked inside them rather than competing
+     * with the outer container's tint.
      */
     transparent?: boolean;
 }

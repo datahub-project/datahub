@@ -24,7 +24,10 @@ export const BOUNDING_BOX_PADDING = 50;
 
 const StyledNodeWrapper = styled(NodeWrapper)<{ $colorHex?: string; $transparent?: boolean }>`
     background-color: ${({ $colorHex, $transparent, theme }) => {
-        if ($transparent) return 'transparent';
+        // Nested-container variant: match the default entity-node background (theme.bg, white in
+        // the light theme) so member DP bboxes read like the dataset/dashboard cards inside them
+        // rather than tinting with the outer Domain's brand colour.
+        if ($transparent) return theme.colors.bg;
         return $colorHex ? `${$colorHex}30` : `${theme.colors.bgSurfaceBrand}50`;
     }};
     border-top-left-radius: 0;
