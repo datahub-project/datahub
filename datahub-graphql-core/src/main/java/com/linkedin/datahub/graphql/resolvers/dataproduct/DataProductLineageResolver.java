@@ -28,17 +28,15 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver for {@code DataProduct.dataProductLineage}.
- *
- * <p>Members are enumerated by reading the {@code DataProductProperties.assets} aspect (via {@link
- * DataProductService#getDataProductProperties}) — the canonical source of truth for DataProduct
- * membership. Owners are always resolved via {@link DataProductOwnerResolutionStrategy} (a
- * DataProduct's lineage neighbours are bucketed by *their* owning DataProducts, not by Domain).
+ * Resolver for {@code DataProduct.dataProductLineage}. Members come from {@code
+ * DataProductProperties.assets}; owners are always resolved via {@link
+ * DataProductOwnerResolutionStrategy}.
  */
 @Slf4j
 public class DataProductLineageResolver
     extends AggregatedLineageResolver<DataProductLineageInput, DataProductLineageResult> {
 
+  // Lineage-bearing entity types (excludes governance entities); mirrors impact-analysis.
   private static final List<com.linkedin.datahub.graphql.generated.EntityType>
       LINEAGE_BEARING_TYPES =
           List.of(

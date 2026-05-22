@@ -7,11 +7,8 @@ import lombok.Builder;
 import lombok.Value;
 
 /**
- * Canonical internal response shape produced by {@link AggregatedLineageResolver}. Subclasses
- * marshal this into the appropriate auto-generated GraphQL result type ({@code DomainLineageResult}
- * or {@code DataProductLineageResult}). Keeping the algorithm result decoupled from the GraphQL
- * types avoids duplicating the algorithm per result class and lets tests assert on the canonical
- * shape.
+ * Canonical response shape produced by {@link AggregatedLineageResolver}. Subclasses marshal this
+ * into the appropriate auto-generated GraphQL result type.
  */
 @Value
 @Builder
@@ -23,32 +20,22 @@ public class AggregatedLineageResponse {
   int memberScanCount;
   int memberTotal;
   boolean isPartial;
-
-  /** Echoes the request direction; every relationship in the response shares this value. */
   LineageDirection direction;
-
   List<Relationship> relationships;
 
   @Value
   @Builder
   public static class Relationship {
-    /**
-     * The neighbour entity — already restricted-wrapped when appropriate. Typed as the GraphQL
-     * {@link Entity} interface because it may be Domain / DataProduct / Restricted depending on
-     * caller permissions and {@link AggregatedLineageRequest#isGroupByDataProduct()}.
-     */
+    /** Already restricted-wrapped when the caller cannot view the underlying owner. */
     Entity entity;
 
-    /** How many distinct source members produced a lineage hit that bucketed into this owner. */
+    /** Distinct source members that produced a hit bucketed into this owner. */
     int memberMatchCount;
 
-    /** How many distinct neighbour entities in this owner bucket were touched. */
+    /** Distinct neighbour entities in this owner's bucket. */
     int neighbourEntityCount;
 
-    /** Minimum hop count across all contributing paths. */
     int degreeMin;
-
-    /** Maximum hop count across all contributing paths. */
     int degreeMax;
   }
 }

@@ -47,11 +47,7 @@ public class DomainLineageResolver
 
   private static final String DOMAINS_FIELD = "domains";
 
-  /**
-   * Entity types we consider as Domain members for lineage purposes. Excludes governance entities
-   * (CorpUser, CorpGroup, Role, Tag, GlossaryTerm/Node, BusinessAttribute, SchemaField) since those
-   * rarely have meaningful lineage. Mirrors the existing impact-analysis convention.
-   */
+  // Lineage-bearing entity types (excludes governance entities); mirrors impact-analysis.
   private static final List<com.linkedin.datahub.graphql.generated.EntityType>
       LINEAGE_BEARING_TYPES =
           List.of(

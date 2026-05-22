@@ -17,19 +17,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolves neighbour assets to their owning Domain URNs by batched reads of the {@code Domains}
- * aspect off each neighbour.
- *
- * <p>Why aspect read and not the indexed {@code domains} field on the search hit: every lineage hit
- * goes through {@code searchAcrossLineage}, which returns a {@link
- * com.linkedin.metadata.search.LineageSearchEntity}. That entity does carry {@code matchedFields}
- * populated from ES, but only for fields the query actually matched on — domains aren't matched
- * here (we run with {@code query="*"}), so we'd be relying on undocumented behaviour. Fetching the
- * aspect explicitly is a single batched call per entity type and is robust to that.
- *
- * <p>Performance: one {@link EntityClient#batchGetV2} call per distinct neighbour entity type
- * (typically 2–5: dataset, chart, dashboard, ML*). Acceptable for v1; if larger fan-outs ever
- * become a hot path the obvious next step is a multi-type batch API.
+ * Resolves neighbour assets to their owning Domain URNs by batch-reading the {@code Domains}
+ * aspect, one batched call per distinct neighbour entity type (typically 2–5: dataset, chart,
+ * dashboard, ML*).
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -67,12 +57,9 @@ public class DomainOwnerResolutionStrategy implements OwnerResolutionStrategy {
           }
         }
       } catch (Exception e) {
-        // A failure for a single entity type degrades to "no owner for those neighbours" (so the
-        // hits get filtered + isPartial=true is set upstream) rather than failing the whole
-        // resolver. This matches the partial-result posture documented in the roadmap.
+        // Degrade to "no owner" for these neighbours rather than failing the whole resolver.
         log.warn(
-            "Failed to batch-fetch Domains aspect for entity type {} (count={}); these neighbours"
-                + " will be treated as ownerless.",
+            "Failed to batch-fetch Domains aspect for entity type {} (count={}); treating as ownerless.",
             entityType,
             urnsOfType.size(),
             e);
@@ -83,10 +70,9 @@ public class DomainOwnerResolutionStrategy implements OwnerResolutionStrategy {
   }
 
   private static Set<Urn> extractDomainUrns(final EntityResponse response) {
-    if (response == null || response.getAspects() == null) {
-      return Collections.emptySet();
-    }
-    if (!response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
+    if (response == null
+        || response.getAspects() == null
+        || !response.getAspects().containsKey(Constants.DOMAINS_ASPECT_NAME)) {
       return Collections.emptySet();
     }
     final Domains domains =

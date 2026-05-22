@@ -16,20 +16,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolves neighbour assets to their owning DataProduct URNs via the {@code DataProductContains}
- * graph relationship.
+ * Resolves neighbour assets to owning DataProduct URNs via the {@code DataProductContains} graph
+ * relationship.
  *
- * <p>Implementation: per-neighbour {@link GraphClient#getRelatedEntities} call with {@code
- * direction=INCOMING}. This mirrors the established pattern in {@code
- * DataProductService.unsetDataProduct} and works against the existing GMS surface without requiring
- * a new {@code GraphService} injection.
- *
- * <p>Performance caveat: O(N) ES queries where N = distinct neighbour URNs across all members.
- * Acceptable for v1 (a Domain with ~1000 members × ~100 hits/member dedupes to ~few thousand unique
- * neighbours in practice). The natural follow-up is to plumb {@link
- * com.linkedin.metadata.graph.GraphService} through {@code GmsGraphQLEngineArgs} and replace this
- * with a single batched {@code findRelatedEntities} call using a {@code Condition.IN} criterion
- * over the neighbour URN set.
+ * <p>Performance: O(N) per-neighbour {@link GraphClient#getRelatedEntities} calls. The natural
+ * batched follow-up is to plumb {@link com.linkedin.metadata.graph.GraphService} through and use a
+ * single {@code findRelatedEntities} call with {@code Condition.IN} over the neighbour set; see the
+ * roadmap's "Layer B" section.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -38,11 +31,7 @@ public class DataProductOwnerResolutionStrategy implements OwnerResolutionStrate
   private static final Set<String> DATA_PRODUCT_CONTAINS_REL =
       ImmutableSet.of("DataProductContains");
 
-  /**
-   * Upper bound on owners-per-neighbour. {@code MULTIPLE_DATA_PRODUCTS_PER_ASSET} is gated by a
-   * feature flag, so in most deployments this is 1; we ask for a small margin so we don't silently
-   * truncate when the flag is on.
-   */
+  // Small margin for the feature-flagged multi-DP-per-asset case; typically 1 in single-DP setups.
   private static final int MAX_OWNERS_PER_NEIGHBOUR = 10;
 
   private final GraphClient graphClient;
@@ -80,8 +69,6 @@ public class DataProductOwnerResolutionStrategy implements OwnerResolutionStrate
           ownersByNeighbour.put(neighbourUrn, dpUrns);
         }
       } catch (Exception e) {
-        // Per-neighbour failure degrades to "no owner" for that one neighbour (so the hit gets
-        // filtered + isPartial=true is set upstream) rather than failing the whole resolver.
         log.warn(
             "Failed to resolve DataProductContains owners for {}; treating as ownerless.",
             neighbourUrn,

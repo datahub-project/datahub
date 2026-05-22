@@ -48,15 +48,7 @@ import java.util.Set;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-/**
- * Behavioural tests for {@link DomainLineageResolver}.
- *
- * <p>These cover the aggregated-lineage algorithm via the Domain-binding surface (member
- * enumeration → per-member fan-out → owner bucketing → pagination). The Restricted-wrapping path is
- * deliberately not exercised here — it mirrors the well-tested pattern in {@code
- * EntityLineageResultResolver} and adds substantial mock-setup overhead for negligible behavioural
- * coverage; if a regression ever happens there it'll surface in smoke tests.
- */
+/** Behavioural tests for {@link DomainLineageResolver}. */
 public class DomainLineageResolverTest {
 
   private static final String SOURCE_DOMAIN_URN = "urn:li:domain:source";
@@ -74,12 +66,8 @@ public class DomainLineageResolverTest {
   private DataFetchingEnvironment env;
   private DomainLineageResolver resolver;
 
-  /**
-   * Per-member lineage hits keyed by source URN. We use a single {@code thenAnswer} stub keyed on
-   * the URN argument (instead of one {@code thenReturn} stub per member) so the parallel fan-out in
-   * {@link com.linkedin.datahub.graphql.resolvers.lineage.aggregate.AggregatedLineageResolver}
-   * doesn't trip on Mockito's per-thread stub-resolution behaviour.
-   */
+  // Per-member hits keyed by source URN; resolved via a single thenAnswer stub so the
+  // resolver's parallel fan-out doesn't race Mockito's stub bookkeeping.
   private Map<Urn, LineageSearchResult> hitsByMember;
 
   @BeforeMethod
@@ -291,9 +279,7 @@ public class DomainLineageResolverTest {
       throws Exception {
     setMembers(MEMBER_1, MEMBER_2);
     setLineageHits(MEMBER_1, hit(NEIGHBOUR_1, 1));
-    // MEMBER_2 throws — must not bring the whole resolver down. We splice the throw into the
-    // shared thenAnswer stub: any call for MEMBER_2 raises, everything else falls back to the
-    // hitsByMember map.
+    // MEMBER_2 throws — must not bring the whole resolver down.
     Urn member2Urn = UrnUtils.getUrn(MEMBER_2);
     when(entityClient.searchAcrossLineage(
             any(),
@@ -320,9 +306,6 @@ public class DomainLineageResolverTest {
 
     DomainLineageResult result = resolver.get(env).join();
 
-    // Per-member failures degrade silently to "no neighbours from that member"; isPartial is only
-    // flipped when downstream signals partial-ness (owner missing, memberScanCap exceeded, or
-    // LineageSearchResult.isPartial=true). The other member's hits still make it through.
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getRelationships().get(0).getEntity().getUrn(), NEIGHBOUR_DOMAIN_A);
   }
@@ -344,10 +327,6 @@ public class DomainLineageResolverTest {
     return input;
   }
 
-  /**
-   * graphql-java passes input objects as Maps, not as the auto-generated POJO. We emit a Map of the
-   * input fields so the resolver's {@code bindArgument} call wires correctly.
-   */
   private void setMembers(String... memberUrns) throws Exception {
     setMembersWithTotal(memberUrns.length, memberUrns.length, memberUrns);
   }
@@ -401,10 +380,6 @@ public class DomainLineageResolverTest {
     setDomainOwners(single);
   }
 
-  /**
-   * Wires the {@code DomainOwnerResolutionStrategy} call. Builds per-entity-type batchGetV2
-   * responses based on the URN's entity type (always dataset in these tests).
-   */
   @SuppressWarnings("unchecked")
   private void setDomainOwners(Map<String, String[]> ownersByNeighbour) throws Exception {
     Map<Urn, EntityResponse> responses = new HashMap<>();
