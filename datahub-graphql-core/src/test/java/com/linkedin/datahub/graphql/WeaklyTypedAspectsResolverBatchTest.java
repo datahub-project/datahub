@@ -87,7 +87,11 @@ public class WeaklyTypedAspectsResolverBatchTest {
       final Urn urn, final String... aspectNames) {
     final EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     for (String name : aspectNames) {
-      aspectMap.put(name, new EnvelopedAspect().setValue(new Aspect(new DataMap())));
+      // Stamp the URN into each aspect payload so tests can verify which response landed
+      // in which result slot (the positional DataLoader contract).
+      final DataMap payload = new DataMap();
+      payload.put("_testUrn", urn.toString());
+      aspectMap.put(name, new EnvelopedAspect().setValue(new Aspect(payload)));
     }
     return new EntityResponse().setUrn(urn).setAspects(aspectMap);
   }
@@ -188,9 +192,14 @@ public class WeaklyTypedAspectsResolverBatchTest {
         WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
 
     assertEquals(result.size(), 3);
+    // Input order interleaves entity types ([dataset, chart, dataset]); grouping by type
+    // could easily re-order the output if the positional contract is broken.
     assertEquals(result.get(0).get(0).getAspectName(), ASPECT_A);
+    assertTrue(result.get(0).get(0).getPayload().contains(DATASET_URN_1.toString()));
     assertEquals(result.get(1).get(0).getAspectName(), ASPECT_A);
+    assertTrue(result.get(1).get(0).getPayload().contains(CHART_URN_1.toString()));
     assertEquals(result.get(2).get(0).getAspectName(), ASPECT_A);
+    assertTrue(result.get(2).get(0).getPayload().contains(DATASET_URN_2.toString()));
     Mockito.verify(client, Mockito.times(1))
         .batchGetV2(
             nullable(OperationContext.class), eq(DATASET_TYPE), Mockito.anySet(), Mockito.anySet());
@@ -384,7 +393,9 @@ public class WeaklyTypedAspectsResolverBatchTest {
                 DATASET_URN_2, entityResponseWithAspects(DATASET_URN_2, ASPECT_A),
                 DATASET_URN_3, entityResponseWithAspects(DATASET_URN_3, ASPECT_A)));
 
-    // Input order: 3, 1, 2 — result must follow same order.
+    // Input order: 3, 1, 2 — result slots must follow the same order. Each URN's mocked
+    // response stamps its URN into the aspect payload so we can detect any permutation.
+    final List<Urn> expectedOrder = ImmutableList.of(DATASET_URN_3, DATASET_URN_1, DATASET_URN_2);
     final List<AspectsKey> keys =
         ImmutableList.of(
             datasetKey(DATASET_URN_3, ImmutableSet.of(ASPECT_A)),
@@ -395,10 +406,12 @@ public class WeaklyTypedAspectsResolverBatchTest {
         WeaklyTypedAspectsResolver.batchLoad(keys, ctx, client, registry);
 
     assertEquals(result.size(), 3);
-    // Each entry corresponds to its key's URN; payload is non-empty (aspectA was returned).
     for (int i = 0; i < 3; i++) {
       assertEquals(result.get(i).size(), 1, "index " + i);
       assertEquals(result.get(i).get(0).getAspectName(), ASPECT_A);
+      assertTrue(
+          result.get(i).get(0).getPayload().contains(expectedOrder.get(i).toString()),
+          "slot " + i + " should hold response for " + expectedOrder.get(i));
     }
   }
 
