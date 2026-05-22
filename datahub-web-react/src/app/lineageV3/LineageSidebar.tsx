@@ -5,6 +5,7 @@ import styled from 'styled-components/macro';
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { LineageDisplayContext, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import CompactContext from '@app/shared/CompactContext';
+import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 import EntitySidebarContext, { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -32,6 +33,14 @@ export default function LineageSidebar() {
     const resetSelectedElements = useStore((actions) => actions.resetSelectedElements);
     const queryDetails = useQueryDetails(selectedEntity);
     const width = useSidebarWidth();
+    // When the lineage graph is mounted inside a profile tab (Domain / DataProduct / Dataset
+    // lineage tab), the host page already renders its own EntityProfileSidebar on the right.
+    // Rendering the click-popup on top stacks two parallel right-rail tab strips side by side,
+    // which is confusing — suppress the popup in that case. We still want it on the full-screen
+    // standalone lineage page (?is_lineage_mode=true, where `setTabFullsize` is undefined) and
+    // when the user manually expands the lineage tab to fullsize (the host sidebar is hidden).
+    const { isTabFullsize, setTabFullsize } = useContext(TabFullsizedContext);
+    const isInsideProfileTab = !!setTabFullsize && !isTabFullsize;
 
     const setSidebarClosed = useCallback(
         (closed) => {
@@ -49,7 +58,7 @@ export default function LineageSidebar() {
     }, [rootUrn]);
 
     // This manages closing, rather than isClosed
-    if (!selectedEntity) {
+    if (!selectedEntity || isInsideProfileTab) {
         return null;
     }
 
