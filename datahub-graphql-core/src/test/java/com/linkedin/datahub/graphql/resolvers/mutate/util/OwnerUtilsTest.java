@@ -12,13 +12,16 @@ import com.linkedin.assertion.DatasetAssertionInfo;
 import com.linkedin.assertion.DatasetAssertionScope;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
+@SuppressWarnings("null")
 public class OwnerUtilsTest {
 
   private static final String DATASET_URN =
@@ -69,6 +72,31 @@ public class OwnerUtilsTest {
 
     OwnerUtils.validateAuthorizedToUpdateOwners(
         context, Urn.createFromString(DATASET_URN), mockClient, mockService);
+  }
+
+  @Test
+  public void testValidateAuthorizedToUpdateOwnersAssertionDelegationAllowed() throws Exception {
+    QueryContext context = getMockDenyContext();
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityService<?> mockService = getMockEntityService();
+
+    Mockito.when(
+            mockService.getAspect(
+                any(),
+                eq(Urn.createFromString(ASSERTION_URN)),
+                eq(Constants.ASSERTION_INFO_ASPECT_NAME),
+                eq(0L)))
+        .thenReturn(datasetAssertionInfoFor(DATASET_URN));
+
+    try (MockedStatic<AuthorizationUtils> authorizationUtils =
+        Mockito.mockStatic(AuthorizationUtils.class)) {
+      authorizationUtils
+          .when(() -> AuthorizationUtils.isAuthorized(eq(context), any(), any(), any()))
+          .thenReturn(false, false, true);
+
+      OwnerUtils.validateAuthorizedToUpdateOwners(
+          context, Urn.createFromString(ASSERTION_URN), mockClient, mockService);
+    }
   }
 
   @Test(expectedExceptions = AuthorizationException.class)

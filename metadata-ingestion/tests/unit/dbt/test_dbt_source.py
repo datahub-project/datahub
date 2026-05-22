@@ -2938,11 +2938,14 @@ def test_create_test_entity_mcps_emits_assertion_ownership_from_test_owner():
 
     ownership_mcps = [mcp for mcp in mcps if isinstance(mcp.aspect, OwnershipClass)]
     assert len(ownership_mcps) == 1
-    assert ownership_mcps[0].entityUrn.startswith("urn:li:assertion:")
-    assert ownership_mcps[0].aspect.owners[0].owner == (
+    ownership_mcp = ownership_mcps[0]
+    assert ownership_mcp.entityUrn is not None
+    assert isinstance(ownership_mcp.aspect, OwnershipClass)
+    assert ownership_mcp.entityUrn.startswith("urn:li:assertion:")
+    assert ownership_mcp.aspect.owners[0].owner == (
         "urn:li:corpuser:assertion_owner@example.com"
     )
-    assert ownership_mcps[0].aspect.owners[0].type == OwnershipTypeClass.DATAOWNER
+    assert ownership_mcp.aspect.owners[0].type == OwnershipTypeClass.DATAOWNER
 
 
 def test_create_freshness_assertion_mcps_does_not_copy_source_owner():
