@@ -1,9 +1,9 @@
 # Using Docker Images During Development
 
-Local development uses [Docker Compose profiles](https://github.com/datahub-project/datahub/blob/master/docker/profiles/README.md) under `docker/profiles/`. The `debug`
+Local development uses [Docker Compose profiles](../../docker/profiles/docker-compose.yml) under `docker/profiles/`. The `debug`
 profile mounts locally built artifacts into containers tagged `debug`, so you avoid rebuilding images on every change.
 
-We highly recommend `./gradlew quickstartDebug` (or [`scripts/dev/datahub-dev.sh`](https://github.com/datahub-project/datahub/blob/master/scripts/dev/datahub-dev.sh) for agent workflows).
+We highly recommend `./gradlew quickstartDebug` (or [`scripts/dev/datahub-dev.sh`](../../scripts/dev/datahub-dev.sh) for agent workflows).
 
 ```shell
 ./gradlew quickstartDebug
@@ -149,4 +149,4 @@ To start only GMS without dependencies:
 docker compose --project-directory docker/profiles --profile debug -p datahub up --no-deps datahub-gms
 ```
 
-See [`docker/profiles/README.md`](https://github.com/datahub-project/datahub/blob/master/docker/profiles/README.md) for available profiles.
+See `docker/profiles/README.md` in the repository for available profiles.
