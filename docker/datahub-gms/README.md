@@ -20,4 +20,4 @@ For example, use Docker Compose profiles under `docker/profiles/`:
 cd docker/profiles && docker compose --profile quickstart-postgres up
 ```
 
-See [`docker/profiles/README.md`](../profiles/README.md) for all profile options.
+See [`docker/profiles/README.md`](https://github.com/datahub-project/datahub/blob/master/docker/profiles/README.md) for all profile options.

@@ -34,7 +34,7 @@ which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acrylda
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).
 
-**Compose layout:** Quickstart and local development use [Docker Compose profiles](profiles/README.md) under
+**Compose layout:** Quickstart and local development use [Docker Compose profiles](https://github.com/datahub-project/datahub/blob/master/docker/profiles/README.md) under
 `docker/profiles/`. The CLI downloads a flattened compose file at
 `docker/quickstart/docker-compose.quickstart-profile.yml`. Legacy root-level `docker-compose*.yml` files and shell
 scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
