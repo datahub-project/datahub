@@ -29,6 +29,17 @@ type Urn = string;
 const MEMBER_VERTICAL_GAP = 30;
 const NEIGHBOUR_VERTICAL_GAP = 30;
 const NEIGHBOUR_HORIZONTAL_GAP = 240;
+// Vertical clearance between stacked DP bboxes inside the Domain bbox. The next DP's card label
+// floats above its bbox via translateY(-100%) (~54px); the gap needs to clear that plus a small
+// breathing buffer so labels don't kiss the bbox below.
+const NESTED_DP_VERTICAL_GAP = 70;
+// Inner spacing between asset rows stacked inside a DP bbox.
+const NESTED_ASSET_VERTICAL_GAP = 20;
+// Width of the Domain (outer) bbox in pixels. Wide enough to host a DP (inner) bbox plus the
+// Domain's own padding on either side.
+const DOMAIN_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 4;
+// Width of each DP (inner) bbox. Centered horizontally inside the Domain bbox.
+const DP_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 2;
 
 type DomainGraphContext = Pick<
     NodeContext,
@@ -39,28 +50,30 @@ type DomainGraphContext = Pick<
  * Computes the lineage graph for a Domain.
  *
  * Layout:
- * 1. The source Domain renders as a bounding box at the origin, containing its child
- *    DataProducts (member nodes) stacked vertically.
+ * 1. The source Domain renders as an outer bounding box at the origin. Inside it, each member
+ *    DataProduct renders as its own inner bounding box containing the DP's asset members
+ *    (datasets / ML models / data jobs) stacked vertically. Directly-tagged Domain assets that
+ *    aren't part of any DP render as plain rows at the Domain level beneath the nested DP bboxes.
  * 2. Neighbour Domains (placed via {@link layoutNeighbours}) come from BFS over the union of
  *    `aggregatedDomainEdges` (initial root load + every multi-hop expansion the user has
  *    triggered). Each Domain is positioned at column = its hop depth and on the side it was
  *    first discovered from (upstream / downstream of source). The single source bbox is the
- *    only bbox; further Domain hops render as standalone entity nodes so the layout stays
+ *    only outer bbox; further Domain hops render as standalone entity nodes so the layout stays
  *    linear and predictable as the user drills out.
  * 3. {@link AggregatedLineageEdge}s connect every (source, neighbour) pair we know about — this
  *    is what gives the user "actual lineage between data domains" once a chain is expanded.
  * 4. Intra-Domain DP↔DP rollups from {@code aggregatedInnerEdges} render as edges inside the
- *    source bbox.
+ *    source bbox, between adjacent DP bboxes.
  */
 export default function computeDomainGraph(urn: string, type: EntityType, context: DomainGraphContext) {
     const { nodes, aggregatedDomainEdges, aggregatedInnerEdges } = context;
     const flowNodes: LineageVisualizationNode[] = [];
     const flowEdges: Edge[] = [];
 
-    const memberFlowNodes = layoutMembers(nodes, urn);
+    const { memberFlowNodes, memberAreaHeight, memberDpUrns } = layoutNestedMembers(nodes, urn);
     flowNodes.push(...memberFlowNodes);
 
-    const boundingBox = addSourceBoundingBox(flowNodes, memberFlowNodes, nodes.get(urn));
+    const boundingBox = addSourceBoundingBox(flowNodes, memberAreaHeight, nodes.get(urn));
 
     if (aggregatedDomainEdges && aggregatedDomainEdges.size > 0) {
         const { neighbourNodes, sides } = layoutNeighbours(aggregatedDomainEdges, nodes, urn, boundingBox);
@@ -69,7 +82,6 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
     }
 
     if (aggregatedInnerEdges && aggregatedInnerEdges.size > 0) {
-        const memberDpUrns = new Set(memberFlowNodes.map((n) => n.id));
         flowEdges.push(...buildInnerAggregatedEdges(aggregatedInnerEdges, memberDpUrns));
     }
 
@@ -274,46 +286,148 @@ function buildAggregatedEdges(
     return flowEdges;
 }
 
-function layoutMembers(nodes: NodeContext['nodes'], rootUrn: Urn): LineageVisualizationNode[] {
-    const members: LineageEntity[] = [];
+/**
+ * Lays out the Domain's interior: member DataProduct bboxes (each containing its asset members)
+ * stacked vertically, followed by any directly-tagged Domain assets that aren't part of a DP.
+ *
+ * Returns the ReactFlow nodes in parent-then-children order (ReactFlow requires bbox parents to
+ * precede their children), the total Y-extent of the laid-out interior (used to size the outer
+ * Domain bbox), and the set of DP URNs we actually rendered (used to filter inner-edge
+ * endpoints — see {@code buildInnerAggregatedEdges}).
+ */
+function layoutNestedMembers(
+    nodes: NodeContext['nodes'],
+    rootUrn: Urn,
+): { memberFlowNodes: LineageVisualizationNode[]; memberAreaHeight: number; memberDpUrns: Set<Urn> } {
+    const memberDps: LineageEntity[] = [];
+    const memberDirectAssets: LineageEntity[] = [];
     nodes.forEach((node) => {
-        if (node.parentDomain === rootUrn && node.urn !== rootUrn) {
-            members.push(node);
-        }
+        if (node.parentDomain !== rootUrn || node.urn === rootUrn) return;
+        if (node.type === EntityType.DataProduct) memberDps.push(node);
+        else memberDirectAssets.push(node);
+    });
+    // Stable ordering: by URN. Avoids node-reshuffle on each re-render when nodes Map iteration
+    // order is unstable across versions.
+    memberDps.sort((a, b) => a.urn.localeCompare(b.urn));
+    memberDirectAssets.sort((a, b) => a.urn.localeCompare(b.urn));
+
+    const memberDpUrns = new Set<Urn>(memberDps.map((dp) => dp.urn));
+    const assetsByDp = collectAssetsByDp(nodes, memberDpUrns, rootUrn);
+
+    const flowNodes: LineageVisualizationNode[] = [];
+    let cursorY = BOUNDING_BOX_PADDING;
+
+    memberDps.forEach((dp) => {
+        const assets = assetsByDp.get(dp.urn) ?? [];
+        const dpHeight = nestedDpHeight(assets.length);
+        const dpX = (DOMAIN_BBOX_WIDTH - DP_BBOX_WIDTH) / 2;
+        flowNodes.push(makeDpBox(dp, rootUrn, dpX, cursorY, dpHeight));
+        assets.forEach((asset, idx) => {
+            flowNodes.push(makeNestedAsset(asset, dp.urn, idx));
+        });
+        cursorY += dpHeight + NESTED_DP_VERTICAL_GAP;
     });
 
-    return members.map((member, idx) => ({
-        id: member.urn,
+    if (memberDirectAssets.length > 0) {
+        // Directly-tagged Domain assets render as a single column under the DP bboxes. Indent
+        // them to the same X as the inner DP bboxes so the visual gridlines align.
+        const assetX = (DOMAIN_BBOX_WIDTH - LINEAGE_NODE_WIDTH) / 2;
+        memberDirectAssets.forEach((asset, idx) => {
+            flowNodes.push({
+                id: asset.urn,
+                type: LINEAGE_ENTITY_NODE_NAME,
+                position: { x: assetX, y: cursorY + idx * (LINEAGE_NODE_HEIGHT + MEMBER_VERTICAL_GAP) },
+                data: asset,
+                parentId: rootUrn,
+                extent: 'parent',
+                draggable: true,
+                selectable: true,
+            });
+        });
+        cursorY +=
+            memberDirectAssets.length * LINEAGE_NODE_HEIGHT +
+            (memberDirectAssets.length - 1) * MEMBER_VERTICAL_GAP +
+            NESTED_DP_VERTICAL_GAP;
+    }
+
+    // Floor for an empty Domain so the outer bbox still has a sensible footprint.
+    const memberAreaHeight = Math.max(cursorY, LINEAGE_NODE_HEIGHT + BOUNDING_BOX_PADDING);
+    return { memberFlowNodes: flowNodes, memberAreaHeight, memberDpUrns };
+}
+
+function collectAssetsByDp(
+    nodes: NodeContext['nodes'],
+    memberDpUrns: Set<Urn>,
+    rootUrn: Urn,
+): Map<Urn, LineageEntity[]> {
+    const out = new Map<Urn, LineageEntity[]>();
+    nodes.forEach((node) => {
+        const dpUrn = node.parentDataProduct;
+        if (!dpUrn || !memberDpUrns.has(dpUrn)) return;
+        // Assets directly pinned to the source Domain stay at the Domain level (rendered by the
+        // direct-asset path); don't double-render them inside their DP.
+        if (node.parentDomain === rootUrn) return;
+        const list = out.get(dpUrn);
+        if (list) list.push(node);
+        else out.set(dpUrn, [node]);
+    });
+    // Stable per-DP ordering by URN.
+    out.forEach((list) => list.sort((a, b) => a.urn.localeCompare(b.urn)));
+    return out;
+}
+
+function nestedDpHeight(assetCount: number): number {
+    const rows = Math.max(assetCount, 1);
+    return BOUNDING_BOX_PADDING * 2 + rows * LINEAGE_NODE_HEIGHT + (rows - 1) * NESTED_ASSET_VERTICAL_GAP;
+}
+
+function makeDpBox(dp: LineageEntity, parentUrn: Urn, x: number, y: number, height: number): Node<LineageBoundingBox> {
+    return {
+        id: dp.urn,
+        type: LINEAGE_BOUNDING_BOX_NODE_NAME,
+        position: { x, y },
+        data: {
+            urn: dp.urn,
+            type: EntityType.DataProduct,
+            entity: dp.entity,
+            // Nested DP bboxes stay grey to keep the Domain colour as the primary tint — matches
+            // the existing rule in NodeContents.tsx that drops the DP tint when the DP is a
+            // Domain member.
+            colorHex: undefined,
+            subtitle: dp.displaySubtitle,
+        },
+        parentId: parentUrn,
+        extent: 'parent',
+        selectable: true,
+        draggable: true,
+        style: { width: DP_BBOX_WIDTH, height, zIndex: -1 },
+        width: DP_BBOX_WIDTH,
+        height,
+    };
+}
+
+function makeNestedAsset(asset: LineageEntity, dpUrn: Urn, idx: number): LineageVisualizationNode {
+    return {
+        id: asset.urn,
         type: LINEAGE_ENTITY_NODE_NAME,
-        // Position is relative to the source-Domain bounding box (set as parent below).
-        // ReactFlow expects parent nodes to precede their children in the flowNodes array —
-        // the caller unshifts the bounding box once members are laid out.
         position: {
             x: BOUNDING_BOX_PADDING,
-            y: BOUNDING_BOX_PADDING + idx * (LINEAGE_NODE_HEIGHT + MEMBER_VERTICAL_GAP),
+            y: BOUNDING_BOX_PADDING + idx * (LINEAGE_NODE_HEIGHT + NESTED_ASSET_VERTICAL_GAP),
         },
-        data: member,
-        parentId: rootUrn,
+        data: asset,
+        parentId: dpUrn,
         extent: 'parent',
         draggable: true,
         selectable: true,
-    }));
+    };
 }
 
 function addSourceBoundingBox(
     flowNodes: LineageVisualizationNode[],
-    memberFlowNodes: LineageVisualizationNode[],
+    memberAreaHeight: number,
     rootNode: LineageEntity | undefined,
 ): Node<LineageBoundingBox> {
-    const width = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 2;
-
-    // Always size the box for at least one row so an empty Domain still gets a visible card.
-    const memberCount = Math.max(memberFlowNodes.length, 1);
-    const height =
-        LINEAGE_NODE_HEIGHT +
-        BOUNDING_BOX_PADDING * 2 +
-        (memberCount - 1) * (LINEAGE_NODE_HEIGHT + MEMBER_VERTICAL_GAP);
-
+    const height = memberAreaHeight + BOUNDING_BOX_PADDING;
     const colorHex = rootNode?.entity?.genericEntityProperties?.displayProperties?.colorHex ?? undefined;
 
     const box: Node<LineageBoundingBox> = {
@@ -328,8 +442,8 @@ function addSourceBoundingBox(
         },
         selectable: true,
         draggable: true,
-        style: { width, height, zIndex: -2 },
-        width,
+        style: { width: DOMAIN_BBOX_WIDTH, height, zIndex: -2 },
+        width: DOMAIN_BBOX_WIDTH,
         height,
     };
 

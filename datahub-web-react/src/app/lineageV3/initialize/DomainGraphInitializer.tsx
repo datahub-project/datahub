@@ -5,6 +5,7 @@ import LineageDisplay from '@app/lineageV3/LineageDisplay';
 import { FetchStatus, LineageEntity, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import useFetchDomainEntities from '@app/lineageV3/initialize/useFetchDomainEntities';
 import useFetchDomainLineageRelationships from '@app/lineageV3/initialize/useFetchDomainLineageRelationships';
+import useFetchDomainNestedAssets from '@app/lineageV3/initialize/useFetchDomainNestedAssets';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -14,12 +15,14 @@ interface Props {
 }
 
 /**
- * Initialises the lineage graph for a Domain. Two parallel fetches:
+ * Initialises the lineage graph for a Domain. Three parallel fetches:
  * 1) {@link useFetchDomainEntities} — the Domain's child DataProducts / directly-tagged assets,
  *    registered as members of the source Domain bounding box.
  * 2) {@link useFetchDomainLineageRelationships} — server-aggregated neighbour-Domain edges
  *    (memberMatchCount + degree range per neighbour). No per-member lineage walking happens
  *    on the client; the resolver does the fan-out under fixed-size batches.
+ * 3) {@link useFetchDomainNestedAssets} — per-DP asset rosters so {@code computeDomainGraph}
+ *    can nest each DP's first {@code ASSETS_PER_DP_CAP} assets inside its DP bbox.
  *
  * The root Domain itself has no direct lineage of its own — neighbours are surfaced via the
  * aggregated edges, not via the standard `searchAcrossLineage` walk on the root URN.
@@ -64,6 +67,9 @@ function useInitializeNodes(urn: string, type: EntityType): boolean {
 
     const membersInitialized = useFetchDomainEntities();
     const lineageInitialized = useFetchDomainLineageRelationships();
+    // Nested-asset fetch is best-effort; we don't block initialization on it so the Domain bbox
+    // and its DP members render even if per-DP queries are still in flight.
+    useFetchDomainNestedAssets();
     return membersInitialized && lineageInitialized;
 }
 

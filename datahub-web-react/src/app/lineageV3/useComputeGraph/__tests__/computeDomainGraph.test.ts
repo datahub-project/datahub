@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
-import { AggregatedDomainEdge, domainEdgeKey } from '@app/lineageV3/common';
-import { computeNeighbourPlacements } from '@app/lineageV3/useComputeGraph/computeDomainGraph';
+import { AggregatedDomainEdge, FetchStatus, LineageEntity, domainEdgeKey } from '@app/lineageV3/common';
+import computeDomainGraph, { computeNeighbourPlacements } from '@app/lineageV3/useComputeGraph/computeDomainGraph';
 
 import { EntityType, LineageDirection } from '@types';
+
+// String literals duplicated from LineageBoundingBoxNode.tsx / LineageEntityNode.tsx — those
+// modules pull in styled-components, which doesn't initialise cleanly in this Vitest config,
+// and re-importing the constants would drag the whole tree in.
+const LINEAGE_BOUNDING_BOX_NODE_NAME = 'lineage-bounding-box';
+const LINEAGE_ENTITY_NODE_NAME = 'lineage-entity';
 
 const ROOT = 'urn:li:domain:root';
 const A = 'urn:li:domain:A';
@@ -101,5 +107,137 @@ describe('computeNeighbourPlacements', () => {
         expect(side1).toBeDefined();
         expect(side1).toBe(side2);
         expect(placements1.get(A)?.depth).toBe(1);
+    });
+});
+
+function makeNode(urn: string, type: EntityType, overrides: Partial<LineageEntity> = {}): LineageEntity {
+    return {
+        id: urn,
+        urn,
+        type,
+        isExpanded: {
+            [LineageDirection.Upstream]: false,
+            [LineageDirection.Downstream]: false,
+        },
+        fetchStatus: {
+            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+        },
+        filters: {
+            [LineageDirection.Upstream]: { facetFilters: new Map() },
+            [LineageDirection.Downstream]: { facetFilters: new Map() },
+        },
+        ...overrides,
+    };
+}
+
+// computeDomainGraph reads only nodes / aggregatedDomainEdges / aggregatedInnerEdges from its
+// context; the remaining graph store fields are accepted in the type signature but not consumed,
+// so empty stubs are sufficient for layout-level assertions.
+function makeContext(nodes: Map<string, LineageEntity>) {
+    return {
+        nodes,
+        edges: new Map(),
+        adjacencyList: {
+            [LineageDirection.Upstream]: new Map(),
+            [LineageDirection.Downstream]: new Map(),
+        },
+        rootType: EntityType.Domain,
+        showDataProcessInstances: false,
+        showGhostEntities: false,
+        showTransformations: false,
+        hideTransformations: false,
+        aggregatedDomainEdges: undefined,
+        aggregatedInnerEdges: undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any;
+}
+
+describe('computeDomainGraph layout (nested DP members)', () => {
+    it('nests DP bboxes inside the Domain bbox and asset rows inside their DP bbox', () => {
+        // ROOT Domain contains DP1 (with two datasets) and DP2 (with one dataset). Both DPs
+        // become inner bboxes; assets sit inside their DP bbox via parentId.
+        const nodes = new Map<string, LineageEntity>();
+        nodes.set(ROOT, makeNode(ROOT, EntityType.Domain));
+        const dp1 = 'urn:li:dataProduct:dp1';
+        const dp2 = 'urn:li:dataProduct:dp2';
+        const ds1a = 'urn:li:dataset:ds1a';
+        const ds1b = 'urn:li:dataset:ds1b';
+        const ds2 = 'urn:li:dataset:ds2';
+        nodes.set(dp1, makeNode(dp1, EntityType.DataProduct, { parentDomain: ROOT }));
+        nodes.set(dp2, makeNode(dp2, EntityType.DataProduct, { parentDomain: ROOT }));
+        nodes.set(ds1a, makeNode(ds1a, EntityType.Dataset, { parentDataProduct: dp1 }));
+        nodes.set(ds1b, makeNode(ds1b, EntityType.Dataset, { parentDataProduct: dp1 }));
+        nodes.set(ds2, makeNode(ds2, EntityType.Dataset, { parentDataProduct: dp2 }));
+
+        const { flowNodes } = computeDomainGraph(ROOT, EntityType.Domain, makeContext(nodes));
+
+        const byId = new Map(flowNodes.map((n) => [n.id, n]));
+        // Outer Domain bbox is the parent for the DP bboxes.
+        expect(byId.get(ROOT)?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        expect(byId.get(dp1)?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        expect(byId.get(dp1)?.parentId).toBe(ROOT);
+        expect(byId.get(dp2)?.type).toBe(LINEAGE_BOUNDING_BOX_NODE_NAME);
+        expect(byId.get(dp2)?.parentId).toBe(ROOT);
+
+        // Assets are nested inside their DP bbox, not the Domain bbox.
+        expect(byId.get(ds1a)?.type).toBe(LINEAGE_ENTITY_NODE_NAME);
+        expect(byId.get(ds1a)?.parentId).toBe(dp1);
+        expect(byId.get(ds1b)?.parentId).toBe(dp1);
+        expect(byId.get(ds2)?.parentId).toBe(dp2);
+
+        // ReactFlow requires parents to precede their children in the node list.
+        const idxRoot = flowNodes.findIndex((n) => n.id === ROOT);
+        const idxDp1 = flowNodes.findIndex((n) => n.id === dp1);
+        const idxDs1a = flowNodes.findIndex((n) => n.id === ds1a);
+        expect(idxRoot).toBeLessThan(idxDp1);
+        expect(idxDp1).toBeLessThan(idxDs1a);
+    });
+
+    it('renders directly-tagged Domain assets at the Domain level (not inside any DP)', () => {
+        // A dataset that's tagged with the Domain directly but is also a member of a DP should
+        // stay at the Domain level so the user sees it as a top-level Domain asset rather than
+        // getting buried inside a DP bbox.
+        const nodes = new Map<string, LineageEntity>();
+        nodes.set(ROOT, makeNode(ROOT, EntityType.Domain));
+        const dp = 'urn:li:dataProduct:dp';
+        const dsDirect = 'urn:li:dataset:direct';
+        const dsBoth = 'urn:li:dataset:both';
+        nodes.set(dp, makeNode(dp, EntityType.DataProduct, { parentDomain: ROOT }));
+        nodes.set(dsDirect, makeNode(dsDirect, EntityType.Dataset, { parentDomain: ROOT }));
+        nodes.set(dsBoth, makeNode(dsBoth, EntityType.Dataset, { parentDomain: ROOT, parentDataProduct: dp }));
+
+        const { flowNodes } = computeDomainGraph(ROOT, EntityType.Domain, makeContext(nodes));
+
+        const byId = new Map(flowNodes.map((n) => [n.id, n]));
+        expect(byId.get(dsDirect)?.parentId).toBe(ROOT);
+        // dsBoth has both parentDomain and parentDataProduct, but Domain takes precedence so it
+        // doesn't double-render and ends up at the Domain level.
+        expect(byId.get(dsBoth)?.parentId).toBe(ROOT);
+        const directNodes = flowNodes.filter((n) => n.id === dsBoth);
+        expect(directNodes).toHaveLength(1);
+    });
+
+    it('grows the Domain bbox vertically with the number of nested DP rows', () => {
+        // One-DP Domain vs three-DP Domain — the outer Domain bbox should be visibly taller in
+        // the three-DP case so all members fit without overlap.
+        function buildNodes(dpCount: number): Map<string, LineageEntity> {
+            const nodes = new Map<string, LineageEntity>();
+            nodes.set(ROOT, makeNode(ROOT, EntityType.Domain));
+            for (let i = 0; i < dpCount; i += 1) {
+                const urn = `urn:li:dataProduct:dp${i}`;
+                nodes.set(urn, makeNode(urn, EntityType.DataProduct, { parentDomain: ROOT }));
+            }
+            return nodes;
+        }
+        const oneDpHeight = computeDomainGraph(ROOT, EntityType.Domain, makeContext(buildNodes(1))).flowNodes.find(
+            (n) => n.id === ROOT,
+        )?.height;
+        const threeDpHeight = computeDomainGraph(ROOT, EntityType.Domain, makeContext(buildNodes(3))).flowNodes.find(
+            (n) => n.id === ROOT,
+        )?.height;
+        expect(oneDpHeight).toBeDefined();
+        expect(threeDpHeight).toBeDefined();
+        expect(threeDpHeight as number).toBeGreaterThan(oneDpHeight as number);
     });
 });
