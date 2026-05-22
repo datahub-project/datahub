@@ -23,10 +23,21 @@ export default function useAvoidIntersections(id: string, expandHeight: number, 
 }
 
 /**
- * For nodes that live inside a parent container (e.g. members of a DataProduct bounding box),
- * expanding their contents pushes any siblings below them downward and grows the container
- * itself by the same amount. The cleanup reverses both effects so the layout is stable across
- * mount/unmount cycles.
+ * For nodes that live inside a parent container (e.g. assets inside a DataProduct that's itself
+ * inside a Domain bbox), expanding their contents must propagate up the full ancestor chain:
+ *
+ *   - Siblings below the node within its immediate parent shift down.
+ *   - The immediate parent's height grows so the expanded content stays inside its bbox.
+ *   - The same applies one level up — the parent's siblings (e.g. other DPs / direct-Domain
+ *     assets stacked below it inside the Domain bbox) shift down, and the grandparent (Domain)
+ *     grows. This continues until we reach a root node without a parent.
+ *
+ * Previously this only walked one level up, which meant the Domain bbox stayed at its layout-time
+ * height even when an asset inside one of its DPs expanded — content overflowed and DPs below the
+ * expanded one overlapped instead of shifting.
+ *
+ * The cleanup reverses every shift / grow in the same chain so the layout is stable across
+ * mount/unmount cycles and collapse toggles.
  */
 export function useExpandContainer(id: string, expandHeight: number, skip = false) {
     const { getNode, getNodes, setNodes } = useReactFlow();
@@ -40,18 +51,27 @@ export function useExpandContainer(id: string, expandHeight: number, skip = fals
         const extraHeight = expandHeight - LINEAGE_NODE_HEIGHT;
         if (extraHeight <= 0) return () => {};
 
-        const siblingsBelow = getNodes().filter(
-            (n) => n.parentId === self.parentId && n.id !== self.id && n.position.y > self.position.y,
-        );
-        const siblingIdSet = new Set(siblingsBelow.map((n) => n.id));
-        const { parentId } = self;
+        const siblingIdSet = new Set<string>();
+        const parentIdSet = new Set<string>();
+        let current: ReturnType<typeof getNode> = self;
+        while (current?.parentId) {
+            const { parentId } = current;
+            const currentNode = current;
+            getNodes()
+                .filter(
+                    (n) => n.parentId === parentId && n.id !== currentNode.id && n.position.y > currentNode.position.y,
+                )
+                .forEach((n) => siblingIdSet.add(n.id));
+            parentIdSet.add(parentId);
+            current = getNode(parentId);
+        }
 
         setNodes((nodes) =>
             nodes.map((node) => {
                 if (siblingIdSet.has(node.id)) {
                     return { ...node, position: { ...node.position, y: node.position.y + extraHeight } };
                 }
-                if (node.id === parentId) {
+                if (parentIdSet.has(node.id)) {
                     const newHeight = (node.height || 0) + extraHeight;
                     return {
                         ...node,
@@ -69,7 +89,7 @@ export function useExpandContainer(id: string, expandHeight: number, skip = fals
                     if (siblingIdSet.has(node.id)) {
                         return { ...node, position: { ...node.position, y: node.position.y - extraHeight } };
                     }
-                    if (node.id === parentId) {
+                    if (parentIdSet.has(node.id)) {
                         const newHeight = (node.height || 0) - extraHeight;
                         return {
                             ...node,
