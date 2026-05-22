@@ -53,7 +53,7 @@ const AdvancedCheckBox = styled(Typography.Text)`
 `;
 
 const CronSuccessCheck = styled(CheckCircleOutlined)`
-    color: ${(props) => props.theme.colors.textInformation};
+    color: ${(props) => props.theme.colors.textBrand};
     margin-right: 4px;
 `;
 
