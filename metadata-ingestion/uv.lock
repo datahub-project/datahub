@@ -23,6 +23,7 @@ constraints = [
     { name = "jaraco-context", specifier = ">=6.1.0,<7" },
     { name = "pypdf", specifier = ">=6.10.2" },
 ]
+overrides = [{ name = "urllib3", specifier = ">=2.7.0,<3.0" }]
 
 [[package]]
 name = "acryl-datahub"
@@ -99,7 +100,6 @@ airbyte = [
 ]
 all = [
     { name = "acryl-datahub-classify" },
-    { name = "acryl-great-expectations" },
     { name = "acryl-pyhive", extra = ["hive-pure-sasl"] },
     { name = "aerospike" },
     { name = "atlassian-python-api" },
@@ -147,11 +147,9 @@ all = [
     { name = "grpcio-tools" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64'" },
     { name = "ibm-db-sa", marker = "platform_machine == 'x86_64' or sys_platform == 'darwin'" },
-    { name = "ipython" },
     { name = "jdk4py" },
     { name = "jpype1" },
     { name = "jsonpath-ng" },
-    { name = "jupyter-server" },
     { name = "kerberos" },
     { name = "lark" },
     { name = "lkml" },
@@ -200,8 +198,6 @@ all = [
     { name = "requests-gssapi" },
     { name = "requests-ntlm" },
     { name = "schwifty" },
-    { name = "scipy", version = "1.15.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
-    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "setuptools" },
     { name = "simple-salesforce" },
     { name = "slack-sdk" },
@@ -224,7 +220,6 @@ all = [
     { name = "tenacity" },
     { name = "teradatasqlalchemy" },
     { name = "thoughtspot-rest-api" },
-    { name = "traitlets" },
     { name = "trino", extra = ["sqlalchemy"] },
     { name = "ujson" },
     { name = "unstructured", extra = ["md"] },
@@ -1845,7 +1840,6 @@ requires-dist = [
     { name = "acryl-datahub-classify", marker = "extra == 'unity-catalog'", specifier = "==0.0.11" },
     { name = "acryl-datahub-classify", marker = "extra == 'vertica'", specifier = "==0.0.11" },
     { name = "acryl-datahub-cloud", marker = "extra == 'cloud'" },
-    { name = "acryl-great-expectations", marker = "extra == 'all'", specifier = "==0.15.50.1" },
     { name = "acryl-great-expectations", marker = "extra == 'profiling-ge'", specifier = "==0.15.50.1" },
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'all'", specifier = "==0.6.18" },
     { name = "acryl-pyhive", extras = ["hive-pure-sasl"], marker = "extra == 'dev'", specifier = "==0.6.18" },
@@ -2139,10 +2133,10 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'datahub-lite'", specifier = ">=1.0.0,<2.0.0" },
     { name = "duckdb", marker = "extra == 'dev'", specifier = ">=1.0.0,<2.0.0" },
     { name = "duckdb", marker = "extra == 'docs'", specifier = ">=1.0.0,<2.0.0" },
-    { name = "elasticsearch", marker = "extra == 'all'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'dev'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'docs'", specifier = "==7.13.4" },
-    { name = "elasticsearch", marker = "extra == 'elasticsearch'", specifier = "==7.13.4" },
+    { name = "elasticsearch", marker = "extra == 'all'", specifier = ">=7.13.4,<=7.17.13" },
+    { name = "elasticsearch", marker = "extra == 'dev'", specifier = ">=7.13.4,<=7.17.13" },
+    { name = "elasticsearch", marker = "extra == 'docs'", specifier = ">=7.13.4,<=7.17.13" },
+    { name = "elasticsearch", marker = "extra == 'elasticsearch'", specifier = ">=7.13.4,<=7.17.13" },
     { name = "expandvars", specifier = ">=0.6.5,<2.0.0" },
     { name = "expandvars", marker = "extra == 'dev'", specifier = ">=0.6.5,<2.0.0" },
     { name = "expandvars", marker = "extra == 'docs'", specifier = ">=0.6.5,<2.0.0" },
@@ -2308,7 +2302,6 @@ requires-dist = [
     { name = "ijson", specifier = "<4.0.0" },
     { name = "ijson", marker = "extra == 'dev'", specifier = "<4.0.0" },
     { name = "ijson", marker = "extra == 'docs'", specifier = "<4.0.0" },
-    { name = "ipython", marker = "extra == 'all'", specifier = "!=8.22.0,<9.0.0" },
     { name = "ipython", marker = "extra == 'profiling-ge'", specifier = "!=8.22.0,<9.0.0" },
     { name = "jdk4py", marker = "extra == 'all'", specifier = ">=21.0,<22.0" },
     { name = "jdk4py", marker = "extra == 'dev'", specifier = ">=21.0,<22.0" },
@@ -2335,7 +2328,6 @@ requires-dist = [
     { name = "jsonschema", specifier = "<5.0.0" },
     { name = "jsonschema", marker = "extra == 'dev'", specifier = "<5.0.0" },
     { name = "jsonschema", marker = "extra == 'docs'", specifier = "<5.0.0" },
-    { name = "jupyter-server", marker = "extra == 'all'", specifier = ">=2.14.1,<3.0.0" },
     { name = "jupyter-server", marker = "extra == 'profiling-ge'", specifier = ">=2.14.1,<3.0.0" },
     { name = "kerberos", marker = "extra == 'all'", specifier = ">=1.3.0,<2.0.0" },
     { name = "kerberos", marker = "extra == 'dev'", specifier = ">=1.3.0,<2.0.0" },
@@ -2889,7 +2881,6 @@ requires-dist = [
     { name = "schwifty", marker = "extra == 'trino'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'unity-catalog'", specifier = "<2026.0.0" },
     { name = "schwifty", marker = "extra == 'vertica'", specifier = "<2026.0.0" },
-    { name = "scipy", marker = "extra == 'all'", specifier = ">=1.7.2,<2.0.0" },
     { name = "scipy", marker = "extra == 'profiling-ge'", specifier = ">=1.7.2,<2.0.0" },
     { name = "sentry-sdk", specifier = ">=1.33.1,<3.0.0" },
     { name = "sentry-sdk", marker = "extra == 'dev'", specifier = ">=1.33.1,<3.0.0" },
@@ -3129,10 +3120,10 @@ requires-dist = [
     { name = "stopit", marker = "extra == 'dev'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'docs'", specifier = "==1.1.2" },
     { name = "stopit", marker = "extra == 'powerbi'", specifier = "==1.1.2" },
-    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.24.0,<=0.40" },
-    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.24.0,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'all'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'dev'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'docs'", specifier = ">=0.35,<=0.40" },
+    { name = "tableauserverclient", marker = "extra == 'tableau'", specifier = ">=0.35,<=0.40" },
     { name = "tableschema", marker = "extra == 'abs'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'abs-slim'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 'all'", specifier = ">=1.20.2,<2.0.0" },
@@ -3177,7 +3168,6 @@ requires-dist = [
     { name = "toml", specifier = ">=0.10.0,<=0.10.2" },
     { name = "toml", marker = "extra == 'dev'", specifier = ">=0.10.0,<=0.10.2" },
     { name = "toml", marker = "extra == 'docs'", specifier = ">=0.10.0,<=0.10.2" },
-    { name = "traitlets", marker = "extra == 'all'", specifier = "!=5.2.2,<6.0.0" },
     { name = "traitlets", marker = "extra == 'profiling-ge'", specifier = "!=5.2.2,<6.0.0" },
     { name = "trino", extras = ["sqlalchemy"], marker = "extra == 'all'", specifier = ">=0.308,<=0.336.0" },
     { name = "trino", extras = ["sqlalchemy"], marker = "extra == 'dev'", specifier = ">=0.308,<=0.336.0" },
@@ -3251,34 +3241,34 @@ requires-dist = [
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'dev'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["confluence", "notion"], marker = "extra == 'docs'", specifier = "==0.7.2" },
     { name = "unstructured-ingest", extras = ["notion"], marker = "extra == 'notion'", specifier = "==0.7.2" },
-    { name = "urllib3", marker = "extra == 'all'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'aws-secret-manager'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'cockroachdb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'confluence'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'datahub-documents'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'datahub-pg-queue'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dbt'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'delta-lake'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dev'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'docs'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'doris'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'dynamodb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'excel'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'gcs'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'gcs-slim'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'glue'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'iceberg-catalog'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'integration-tests'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 's3'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'sql-queries'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'timescaledb'", specifier = ">=1.26,<3.0" },
-    { name = "urllib3", marker = "extra == 'unstructured'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'all'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'aws-secret-manager'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'cockroachdb'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'confluence'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'datahub-documents'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'datahub-pg-queue'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'dbt'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'delta-lake'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'dev'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'docs'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'doris'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'dynamodb'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'excel'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'gcs'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'gcs-slim'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'glue'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'iceberg-catalog'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'integration-tests'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'notion'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'postgres'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 's3'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 's3-slim'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'sagemaker'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'sql-queries'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'timescaledb'", specifier = ">=2.7.0,<3.0" },
+    { name = "urllib3", marker = "extra == 'unstructured'", specifier = ">=2.7.0,<3.0" },
     { name = "uvicorn", marker = "extra == 'datahub-lite'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'dev'", specifier = "<0.41.0" },
     { name = "uvicorn", marker = "extra == 'docs'", specifier = "<0.41.0" },
@@ -5632,15 +5622,15 @@ wheels = [
 
 [[package]]
 name = "elasticsearch"
-version = "7.13.4"
+version = "7.17.13"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/06/50/220b2d903eccaf6065b4d2d546c06d216e3c8eabcb8d9cd56af691cb712b/elasticsearch-7.13.4.tar.gz", hash = "sha256:52dda85f76eeb85ec873bf9ffe0ba6849e544e591f66d4048a5e48016de268e0", size = 218961, upload-time = "2021-07-20T17:09:12.967Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0b/27/5b7e801213c16452d13eaddeae40810da5cd6152103f94e582e1d14d8c65/elasticsearch-7.17.13.tar.gz", hash = "sha256:ba1b87322045fc37831009c7c49ef0e2777165a2ad3390df4d9e2b7a09d90c86", size = 248490, upload-time = "2026-01-12T18:12:30.656Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/7f/82/c3ce164af6f1e4f82e747c50e684b3fd74c418b194c2062e0e30ade933f0/elasticsearch-7.13.4-py2.py3-none-any.whl", hash = "sha256:5920df0ab2630778680376d86bea349dc99860977eec9b6d2bd0860f337313f2", size = 356300, upload-time = "2021-07-20T17:09:09.711Z" },
+    { url = "https://files.pythonhosted.org/packages/d4/06/be118b997069ff6643b5dafb13e60442bf65ec6530f3ef714d6455b11ae5/elasticsearch-7.17.13-py2.py3-none-any.whl", hash = "sha256:dac73df9a9070b9c96be45d99f4316badc525f8b17f418e9c86da2bb5855c892", size = 386157, upload-time = "2026-01-12T18:12:25.496Z" },
 ]
 
 [[package]]
@@ -9262,7 +9252,7 @@ dependencies = [
     { name = "pinecone-plugin-interface" },
     { name = "tqdm" },
     { name = "typing-extensions" },
-    { name = "urllib3", marker = "python_full_version < '4'" },
+    { name = "urllib3" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/98/a4/739fe0a4a173658d541206ec7fdb0cc4c9ddc364de216af668b988bf0868/pinecone_client-5.0.1.tar.gz", hash = "sha256:11c33ff5d1c38a6ce69e69fe532c0f22f312fb28d761bb30b3767816d3181d64", size = 122207, upload-time = "2024-08-01T20:47:05.26Z" }
 wheels = [
@@ -11977,6 +11967,7 @@ dependencies = [
     { name = "sortedcontainers" },
     { name = "tomlkit" },
     { name = "typing-extensions" },
+    { name = "urllib3" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/01/b1/11c03e05bd2a2da590c1b77c8455f40eb505888a2683c4e41b487d79568c/snowflake_connector_python-4.4.0.tar.gz", hash = "sha256:648f49029d699591af0f253e81c5bf60efc4411c7b0149ef074a59a038210a3b", size = 924803, upload-time = "2026-03-25T23:31:27.368Z" }
 wheels = [
@@ -12397,17 +12388,18 @@ wheels = [
 
 [[package]]
 name = "tableauserverclient"
-version = "0.25"
+version = "0.40"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "defusedxml" },
     { name = "packaging" },
     { name = "requests" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/8f/78/4bf2cb8346c8a6da1c2e81114266ca0077eab2a924b8c3694a337afcaedc/tableauserverclient-0.25.tar.gz", hash = "sha256:d354d16245c459a805ad207bcef3fa063e18bc8168695920ac89bf8125a420b6", size = 519101, upload-time = "2023-03-17T08:17:14.031Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d4/57/4e661856ceb051acf97998cb0e75ab5300aaa29cd36937c1eca18ea3921b/tableauserverclient-0.40.tar.gz", hash = "sha256:544f38b9d4b46846ebe98b668d249e303bc5e73403fd966513918a12ce59db02", size = 630725, upload-time = "2026-02-03T20:21:08.907Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/5b/4f/b928a99c706da7943ae2868f4a43ce4bd1df7d7e3d6e0af7969e68e8f280/tableauserverclient-0.25-py3-none-any.whl", hash = "sha256:341cea1706c8fc4ce35d28e21f420e3874ec13812497e1629d37adb4dce4c74a", size = 132414, upload-time = "2023-03-17T08:17:12.657Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/70/580952c49ded142c48cfe3999d8b4ff657f412f1c9616fbcdb6d6b3a6cec/tableauserverclient-0.40-py3-none-any.whl", hash = "sha256:346e092ae8a5237309c0638107074f6d84312dca7ca73f16fd26ac75d1ebe2fc", size = 214090, upload-time = "2026-02-03T20:21:07.222Z" },
 ]
 
 [[package]]
@@ -13338,11 +13330,11 @@ wheels = [
 
 [[package]]
 name = "urllib3"
-version = "1.26.20"
+version = "2.7.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e4/e8/6ff5e6bc22095cfc59b6ea711b687e2b7ed4bdb373f7eeec370a97d7392f/urllib3-1.26.20.tar.gz", hash = "sha256:40c2dc0c681e47eb8f90e7e27bf6ff7df2e677421fd46756da1161c39ca70d32", size = 307380, upload-time = "2024-08-29T15:43:11.37Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/53/0c/06f8b233b8fd13b9e5ee11424ef85419ba0d8ba0b3138bf360be2ff56953/urllib3-2.7.0.tar.gz", hash = "sha256:231e0ec3b63ceb14667c67be60f2f2c40a518cb38b03af60abc813da26505f4c", size = 433602, upload-time = "2026-05-07T16:13:18.596Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/33/cf/8435d5a7159e2a9c83a95896ed596f68cf798005fe107cc655b5c5c14704/urllib3-1.26.20-py2.py3-none-any.whl", hash = "sha256:0ed14ccfbf1c30a9072c7ca157e4319b70d65f623e91e7b32fadb2853431016e", size = 144225, upload-time = "2024-08-29T15:43:08.921Z" },
+    { url = "https://files.pythonhosted.org/packages/7f/3e/5db95bcf282c52709639744ca2a8b149baccf648e39c8cc87553df9eae0c/urllib3-2.7.0-py3-none-any.whl", hash = "sha256:9fb4c81ebbb1ce9531cce37674bbc6f1360472bc18ca9a553ede278ef7276897", size = 131087, upload-time = "2026-05-07T16:13:17.151Z" },
 ]
 
 [[package]]

@@ -143,7 +143,7 @@ aws-secret-manager = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 azure-ad = []
@@ -264,7 +264,7 @@ cockroachdb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 confluence = [
@@ -277,7 +277,7 @@ confluence = [
     "markdownify>=0.14.1,<2.0.0",
     "unstructured-ingest[confluence]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 databricks = [
@@ -328,7 +328,7 @@ datahub-documents = [
     "jsonpath-ng==1.7.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 datahub-gc = []
@@ -352,7 +352,7 @@ datahub-pg-queue = [
     "confluent_kafka[schemaregistry,avro]>=1.9.0,!= 2.8.1,<3.0.0",
     "fastavro>=1.2.0,<2.0.0",
     "psycopg2-binary<3.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 datahub-rest = [
@@ -390,7 +390,7 @@ dbt = [
     "patchy==2.8.0",
     "requests<3.0.0",
     "sqlglot[c]==30.8.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 dbt-cloud = [
@@ -424,7 +424,7 @@ delta-lake = [
     "smart-open[azure,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -446,7 +446,7 @@ doris = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 dremio = [
@@ -484,12 +484,12 @@ dynamodb = [
     "numpy<2",
     "pip",
     "schwifty<2026.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 elasticsearch = [
     "cachetools<6.0.0",
-    "elasticsearch==7.13.4",
+    "elasticsearch>=7.13.4,<=7.17.13",
 ]
 
 excel = [
@@ -510,7 +510,7 @@ excel = [
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -587,7 +587,7 @@ gcs = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -601,7 +601,7 @@ gcs-slim = [
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -611,7 +611,7 @@ glue = [
     "cachetools<6.0.0",
     "patchy==2.8.0",
     "sqlglot[c]==30.8.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 grafana = [
@@ -679,7 +679,7 @@ iceberg = [
 iceberg-catalog = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 informatica = [
@@ -753,7 +753,7 @@ mariadb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 matillion-dpc = [
@@ -832,7 +832,7 @@ mysql = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 neo4j = [
@@ -852,7 +852,7 @@ notion = [
     "jsonpath-ng==1.7.0",
     "unstructured-ingest[notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 okta = [
@@ -899,7 +899,7 @@ postgres = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 powerbi = [
@@ -1038,7 +1038,7 @@ s3 = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1052,7 +1052,7 @@ s3-slim = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "wcmatch<11.0.0",
 ]
 
@@ -1065,7 +1065,7 @@ sac = [
 sagemaker = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 salesforce = [
@@ -1174,7 +1174,7 @@ sql-queries = [
     "smart-open[s3]>=5.2.1,<8.0.0",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 sqlalchemy = [
@@ -1232,7 +1232,7 @@ sync-file-emitter = [
 tableau = [
     "patchy==2.8.0",
     "sqlglot[c]==30.8.0",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.35,<=0.40",
 ]
 
 teradata = [
@@ -1270,7 +1270,7 @@ timescaledb = [
     "sqlalchemy>=1.4.39,<2",
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 trino = [
@@ -1312,7 +1312,7 @@ unstructured = [
     "jsonpath-ng==1.7.0",
     "unstructured-ingest==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
 ]
 
 vertexai = [
@@ -1333,10 +1333,9 @@ vertica = [
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
 ]
 
-# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc)
+# All plugins (excluding: airflow, datahub-lite, debug-recording, feast, great-expectations, mssql-odbc, profiling-ge)
 all = [
     "acryl-datahub-classify==0.0.11",
-    "acryl-great-expectations==0.15.50.1",
     "acryl-pyhive[hive-pure-sasl]==0.6.18",
     "aerospike>=15.0.0,<20.0.0",
     "atlassian-python-api>=3.41.0,<5.0.0",
@@ -1363,7 +1362,7 @@ all = [
     "deltalake>=0.6.3, != 0.6.4, <1.0.0; platform_system != 'Darwin' or platform_machine != 'arm64'",
     "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
-    "elasticsearch==7.13.4",
+    "elasticsearch>=7.13.4,<=7.17.13",
     "fastavro>=1.2.0,<2.0.0",
     "filelock>=3.13.1,<4.0.0",
     "flatdict!=4.0.1",
@@ -1385,11 +1384,9 @@ all = [
     "grpcio>=1.44.0,<2.0.0",
     "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
     "ibm_db_sa==0.4.3; platform_machine == 'x86_64' or platform_system == 'Darwin'",
-    "IPython!=8.22.0,<9.0.0",
     "jdk4py>=21.0,<22.0",
     "JPype1<2.0.0",
     "jsonpath-ng==1.7.0",
-    "jupyter_server>=2.14.1,<3.0.0",
     "kerberos>=1.3.0,<2.0.0",
     "lark>=1.3.1,<2.0",
     "lkml>=1.3.4,<2.0.0",
@@ -1437,7 +1434,6 @@ all = [
     "requests_file==3.0.1",
     "requests_ntlm<2.0.0",
     "schwifty<2026.0.0",
-    "scipy>=1.7.2,<2.0.0",
     "setuptools<82",
     "simple-salesforce<2.0.0",
     "slack-sdk==3.18.1",
@@ -1455,17 +1451,16 @@ all = [
     "sqlparse<0.6.0",
     "starrocks>=1.3.3,<2.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.35,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
-    "traitlets!=5.2.2,<6.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
     "websocket-client<2.0.0",
@@ -1515,7 +1510,7 @@ dev = [
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
-    "elasticsearch==7.13.4",
+    "elasticsearch>=7.13.4,<=7.17.13",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi<0.129.0",
@@ -1627,7 +1622,7 @@ dev = [
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.35,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1658,7 +1653,7 @@ dev = [
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1707,7 +1702,7 @@ docs = [
     "dlt>=1.0.0,<2.0.0",
     "docker<8.0.0",
     "duckdb>=1.0.0,<2.0.0",
-    "elasticsearch==7.13.4",
+    "elasticsearch>=7.13.4,<=7.17.13",
     "expandvars>=0.6.5,<2.0.0",
     "faker>=18.4.0,<41.0.0",
     "fastapi<0.129.0",
@@ -1819,7 +1814,7 @@ docs = [
     "sqlglot[c]==30.8.0",
     "sqlparse<0.6.0",
     "stopit==1.1.2",
-    "tableauserverclient>=0.24.0,<=0.40",
+    "tableauserverclient>=0.35,<=0.40",
     "tableschema>=1.20.2,<2.0.0",
     "tabulate<0.10.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
@@ -1850,7 +1845,7 @@ docs = [
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==0.7.2",
     "unstructured[md]==0.18.24",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "uvicorn<0.41.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -1940,7 +1935,7 @@ integration-tests = [
     "tableschema>=1.20.2,<2.0.0",
     "tenacity>=8.0.1,!=8.4.0,<9.0.0",
     "ujson>=5.12.1,<6.0.0",
-    "urllib3>=1.26,<3.0",
+    "urllib3>=2.7.0,<3.0",
     "vcrpy>=8.0.0,<9.0",
     "vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2",
     "wcmatch<11.0.0",
@@ -2161,6 +2156,10 @@ constraint-dependencies = [
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
     "idna>=3.15,<4.0.0",
 ]
+# profiling-ge (acryl-great-expectations) pins urllib3<1.27, conflicting with the
+# urllib3>=2.7.0 floor required for CVE remediation. Override forces the secure
+# version for all extras; profiling-ge has a known urllib3 runtime mismatch as a result.
+override-dependencies = ["urllib3>=2.7.0,<3.0"]
 
 [tool.ruff]
 target-version = "py310"
