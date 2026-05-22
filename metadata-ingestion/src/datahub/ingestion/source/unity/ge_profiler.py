@@ -2,11 +2,17 @@ import concurrent.futures
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
-from typing import Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+    from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+        SQLAlchemyProfiler,
+    )
 
 from databricks.sdk.service.catalog import DataSourceFormat
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.engine import Connection
 
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_generic import BaseTable
@@ -25,6 +31,7 @@ from datahub.ingestion.source.unity.connection import (
 )
 from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+from datahub.utilities.groupby import groupby_unsorted
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +58,7 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
+    config: UnityCatalogSourceConfig  # narrows GenericProfiler.config for mypy
     profiling_config: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
     ]
@@ -82,9 +90,57 @@ class UnityCatalogGEProfiler(GenericProfiler):
         # TODO: Consider passing dataset urn builder directly
         # So there is no repeated logic between this class and source.py
 
-    def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
-        url = self.config.get_sql_alchemy_url()
+    def get_profiler_instance(
+        self, db_name: Optional[str] = None
+    ) -> Union["DatahubGEProfiler", "SQLAlchemyProfiler"]:
+        # Use the catalog-specific URL so profiling queries target the right catalog.
+        url = (
+            self.config.get_sql_alchemy_url(database=db_name)
+            if db_name
+            else self.config.get_sql_alchemy_url()
+        )
+        logger.debug(f"sql_alchemy_url={url}")
+
         engine = create_engine(url, **self.config.options)
+        with engine.connect() as conn:
+            inspector = inspect(conn)
+
+        if self.config.profiling.method == "sqlalchemy":
+            from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
+                SQLAlchemyProfiler,
+            )
+
+            return SQLAlchemyProfiler(
+                conn=inspector.bind,
+                report=self.report,
+                config=self.config.profiling,
+                platform=self.platform,
+                env=self.config.env,
+            )
+        from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
+
+        return create_datahub_ge_profiler(
+            conn=inspector.bind,
+            report=self.report,
+            config=self.config.profiling,
+            platform=self.platform,
+            env=self.config.env,
+        )
+
+    def get_workunits(self, tables: List[Table]) -> Iterable[MetadataWorkUnit]:
+        # Group tables by catalog using the groupby_unsorted utility
+        tables_by_catalog = groupby_unsorted(tables, lambda table: table.ref.catalog)
+
+        # Process each catalog separately to ensure proper database context.
+        for catalog, catalog_tables in tables_by_catalog:
+            yield from self._get_workunits_for_catalog(catalog, list(catalog_tables))
+
+    def _get_workunits_for_catalog(
+        self, catalog: str, catalog_tables: List[Table]
+    ) -> Iterable[MetadataWorkUnit]:
+        url = self.config.get_sql_alchemy_url(database=catalog)
+        engine = create_engine(url, **self.config.options)
+        conn = engine.connect()
 
         profile_requests = []
         with ThreadPoolExecutor(
@@ -94,9 +150,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
                 executor.submit(
                     self.get_unity_profile_request,
                     UnityCatalogSQLGenericTable(table),
-                    engine,
+                    conn,
                 )
-                for table in tables
+                for table in catalog_tables
             ]
 
             try:
@@ -107,16 +163,26 @@ class UnityCatalogGEProfiler(GenericProfiler):
                     if profile_request is not None:
                         profile_requests.append(profile_request)
                     if i > 0 and i % 100 == 0:
-                        logger.info(f"Finished table-level profiling for {i} tables")
+                        logger.info(
+                            f"Finished table-level profiling for {i} tables "
+                            f"in catalog {catalog}"
+                        )
             except (TimeoutError, concurrent.futures.TimeoutError):
-                logger.warning("Timed out waiting to complete table-level profiling.")
+                logger.warning(
+                    f"Timed out waiting to complete table-level profiling "
+                    f"for catalog {catalog}."
+                )
+
+        conn.close()
 
         if len(profile_requests) == 0:
             return
 
+        # Generate profile workunits for this catalog specifically
         yield from self.generate_profile_workunits(
             profile_requests,
             max_workers=self.config.profiling.max_workers,
+            db_name=catalog,  # Pass the catalog as db_name
             platform=self.platform,
             profiler_args=self.get_profile_args(),
         )
@@ -126,79 +192,82 @@ class UnityCatalogGEProfiler(GenericProfiler):
         return f"{db_name}.{schema_name}.{table_name}"
 
     def get_unity_profile_request(
-        self, table: UnityCatalogSQLGenericTable, engine: Engine
+        self, table: UnityCatalogSQLGenericTable, conn: Connection
     ) -> Optional[TableProfilerRequest]:
-        with engine.connect() as conn:
-            # TODO: Reduce code duplication with get_profile_request
-            skip_profiling = False
-            profile_table_level_only = self.profiling_config.profile_table_level_only
+        # TODO: Reduce code duplication with get_profile_request
+        skip_profiling = False
+        profile_table_level_only = self.profiling_config.profile_table_level_only
 
-            dataset_name = table.ref.qualified_table_name
-            if table.is_delta_table:
-                try:
-                    table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
-                except Exception as e:
-                    self.report.warning(
-                        title="Incomplete Dataset Profile",
-                        message="Failed to get table size",
-                        context=dataset_name,
-                        exc=e,
-                    )
+        dataset_name = table.ref.qualified_table_name
+        if table.is_delta_table:
+            try:
+                table.size_in_bytes = _get_dataset_size_in_bytes(table, conn)
+            except Exception as e:
+                self.report.warning(
+                    title="Incomplete Dataset Profile",
+                    message="Failed to get table size",
+                    context=dataset_name,
+                    exc=e,
+                )
 
-            if table.size_in_bytes is None:
-                self.report.num_profile_missing_size_in_bytes += 1
+        if table.size_in_bytes is None:
+            self.report.num_profile_missing_size_in_bytes += 1
 
-            if not self.is_dataset_eligible_for_profiling(
+        if not self.is_dataset_eligible_for_profiling(
+            dataset_name,
+            size_in_bytes=table.size_in_bytes,
+            last_altered=table.last_altered,
+            rows_count=0,  # Can't get row count ahead of time
+        ):
+            # Profile only table level if dataset is filtered from profiling
+            # due to size limits alone
+            if self.is_dataset_eligible_for_profiling(
                 dataset_name,
-                size_in_bytes=table.size_in_bytes,
                 last_altered=table.last_altered,
-                rows_count=0,  # Can't get row count ahead of time
+                size_in_bytes=None,
+                rows_count=None,
             ):
-                # Profile only table level if dataset is filtered from profiling
-                # due to size limits alone
-                if self.is_dataset_eligible_for_profiling(
-                    dataset_name,
-                    last_altered=table.last_altered,
-                    size_in_bytes=None,
-                    rows_count=None,
-                ):
-                    profile_table_level_only = True
-                else:
-                    skip_profiling = True
-
-            if table.column_count == 0:
+                profile_table_level_only = True
+            else:
                 skip_profiling = True
 
-            if skip_profiling:
-                if self.profiling_config.report_dropped_profiles:
-                    self.report.report_dropped(dataset_name)
-                return None
+        if table.column_count == 0:
+            skip_profiling = True
 
-            if profile_table_level_only and table.is_delta_table:
-                # For requests with profile_table_level_only set, dataset profile is generated
-                # by looking at table.rows_count. For delta tables (a typical databricks table)
-                # count(*) is an efficient query to compute row count.
-                try:
-                    table.rows_count = _get_dataset_row_count(table, conn)
-                except Exception as e:
-                    self.report.warning(
-                        title="Incomplete Dataset Profile",
-                        message="Failed to get table row count",
-                        context=dataset_name,
-                        exc=e,
-                    )
+        if skip_profiling:
+            if self.profiling_config.report_dropped_profiles:
+                self.report.report_dropped(dataset_name)
+            return None
 
-            if table.rows_count is None:
-                self.report.num_profile_missing_row_count += 1
+        if profile_table_level_only and table.is_delta_table:
+            # For requests with profile_table_level_only set, dataset profile is generated
+            # by looking at table.rows_count. For delta tables (a typical databricks table)
+            # count(*) is an efficient query to compute row count.
+            try:
+                table.rows_count = _get_dataset_row_count(table, conn)
+            except Exception as e:
+                self.report.warning(
+                    title="Incomplete Dataset Profile",
+                    message="Failed to get table row count",
+                    context=dataset_name,
+                    exc=e,
+                )
 
-            self.report.report_entity_profiled(dataset_name)
-            logger.debug(f"Preparing profiling request for {dataset_name}")
-            return TableProfilerRequest(
-                table=table,
-                pretty_name=dataset_name,
-                batch_kwargs=dict(schema=table.ref.schema, table=table.name),
-                profile_table_level_only=profile_table_level_only,
-            )
+        if table.rows_count is None:
+            self.report.num_profile_missing_row_count += 1
+
+        self.report.report_entity_profiled(dataset_name)
+        logger.debug(f"Preparing profiling request for {dataset_name}")
+        return TableProfilerRequest(
+            table=table,
+            pretty_name=dataset_name,
+            batch_kwargs=dict(
+                catalog=table.ref.catalog,
+                schema=table.ref.schema,
+                table=table.name,
+            ),
+            profile_table_level_only=profile_table_level_only,
+        )
 
 
 def _get_dataset_size_in_bytes(

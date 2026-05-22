@@ -44,6 +44,23 @@ Requirements:
 
 ### Breaking Changes
 
+- **PySpark is no longer installed by default** with the `s3`, `abs`, or `databricks`/`unity-catalog` extras. PySpark-dependent features now require explicitly opting in:
+
+  - **S3 / ABS column profiling** — previously bundled; now requires the `[pyspark]` extra:
+
+    ```bash
+    pip install 'acryl-datahub[s3,pyspark]'    # S3 with profiling
+    pip install 'acryl-datahub[abs,pyspark]'   # ABS with profiling
+    ```
+
+    Recipes with `profiling.enabled: true` and no `[pyspark]` extra will fail at startup with a `ConfigurationError` pointing at the fix.
+
+  - **Unity Catalog / Databricks** — the Spark SQL plan parser (used as a secondary lineage fallback when sqlglot fails) is now disabled when pyspark is not installed. Queries that cannot be parsed by sqlglot are counted in `num_queries_dropped_parse_failure` instead of being retried via Spark. This affects roughly 0.5% of queries in practice. To restore the Spark fallback:
+
+    ```bash
+    pip install 'acryl-datahub[unity-catalog,pyspark]'
+    ```
+
 ### Known Issues
 
 ### Potential Downtime
@@ -96,6 +113,20 @@ Requirements:
   Note: `acryl-datahub[snowflake]` (and other SQL connector extras) no longer install `acryl-great-expectations` by default. Recipes that previously relied on the GE default profiler will now use the SQLAlchemy profiler automatically (no action needed in most cases). Recipes that explicitly set `profiling.method: ge` without installing `[profiling-ge]` will fail with a `ConfigurationError` pointing at the fix.
 
   **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
+
+- #17469 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+
+  ```bash
+  pip install 'acryl-datahub[unity-catalog,profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
 
 - **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
 

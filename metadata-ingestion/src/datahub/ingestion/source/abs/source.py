@@ -14,6 +14,7 @@ import smart_open.compression as so_compression
 from more_itertools import peekable
 from smart_open import open as smart_open
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -165,6 +166,17 @@ class ABSSource(StatefulIngestionSourceBase):
             "data_lake_config",
             config_report,
         )
+
+        if config.is_profiling_enabled():
+            os.environ.setdefault("SPARK_VERSION", "3.5")
+            try:
+                import pyspark  # noqa: F401
+            except (ImportError, ModuleNotFoundError) as e:
+                raise ConfigurationError(
+                    "ABS profiling dependencies are not installed "
+                    f"(missing module: {e.name!r}). "
+                    "Install with: pip install 'acryl-datahub[abs,pyspark]'"
+                ) from e
 
     @classmethod
     def create(cls, config_dict, ctx):
