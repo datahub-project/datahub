@@ -106,12 +106,18 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    CalendarIntervalClass,
     DataPlatformInfoClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
+    FixedIntervalScheduleClass,
+    FreshnessAssertionInfoClass,
+    FreshnessAssertionScheduleClass,
+    FreshnessAssertionScheduleTypeClass,
+    FreshnessAssertionTypeClass,
     NullTypeClass,
     PlatformTypeClass,
     SiblingsClass,
@@ -409,6 +415,43 @@ _SQLMESH_AUDIT_MAP: Dict[str, _AuditAssertionParams] = {
         aggregation=AssertionStdAggregationClass.IDENTITY,
     ),
 }
+
+
+# Freshness SLA windows derived from a model's interval_unit. The values are
+# (CalendarIntervalClass.X, multiple) tuples meaning "the model is considered
+# stale if it hasn't been refreshed in N units". Roughly 3× the cron interval
+# with a 1-hour floor for sub-hourly schedules — tight enough to catch a
+# stalled pipeline within a couple of missed runs, loose enough to absorb
+# normal scheduling jitter.
+#
+# Keys are SQLMesh IntervalUnit string values (see sqlmesh.core.node.IntervalUnit).
+_INTERVAL_UNIT_TO_SLA: Dict[str, Tuple[str, int]] = {
+    "five_minute": (CalendarIntervalClass.HOUR, 1),
+    "quarter_hour": (CalendarIntervalClass.HOUR, 1),
+    "half_hour": (CalendarIntervalClass.HOUR, 2),
+    "hour": (CalendarIntervalClass.HOUR, 3),
+    "day": (CalendarIntervalClass.HOUR, 36),
+    "month": (CalendarIntervalClass.DAY, 35),
+    "year": (CalendarIntervalClass.DAY, 366),
+}
+# Fallback when interval_unit is missing or unrecognised (rare; only happens
+# for embedded/external models with no cron).
+_DEFAULT_FRESHNESS_SLA: Tuple[str, int] = (CalendarIntervalClass.HOUR, 24)
+
+
+def _freshness_sla_for_model(model: "SqlmeshModel") -> Tuple[str, int]:
+    """Pick a (CalendarInterval, multiple) SLA window for the given model.
+
+    Reads ``model.interval_unit`` (SQLMesh's inferred granularity from the
+    cron string). Returns a sensible default when interval_unit isn't set
+    or maps to an unknown value.
+    """
+    interval_unit = getattr(model, "interval_unit", None)
+    if interval_unit is None:
+        return _DEFAULT_FRESHNESS_SLA
+    # IntervalUnit is a str-Enum in sqlmesh; both .value and str() work.
+    key = getattr(interval_unit, "value", str(interval_unit)).lower()
+    return _INTERVAL_UNIT_TO_SLA.get(key, _DEFAULT_FRESHNESS_SLA)
 
 
 @dataclass
@@ -1276,6 +1319,7 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # semantically meaningful target for the audit; siblings let users
         # navigate from the logical model to its current materialization.
         yield from self._emit_assertions(model, sqlmesh_urn)
+        yield from self._emit_freshness_assertions(model, sqlmesh_urn)
 
     def _build_custom_properties(
         self,
@@ -1718,6 +1762,90 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                     sqlmesh_urn,
                     e,
                 )
+
+    def _emit_freshness_assertions(
+        self,
+        model: "SqlmeshModel",
+        sqlmesh_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit two FRESHNESS assertions per model:
+
+          1. ``pipeline_freshness`` — fails when SQLMesh stops rebuilding the
+             fingerprint table on schedule (plan/apply skipped, failed, paused).
+          2. ``upstream_freshness`` — fails when MIN(upstream lastModified) is
+             older than the SLA, signalling that source data is behind.
+
+        Both use the same SLA window (3× the model's cron interval, with a
+        1-hour floor) — separation is purely diagnostic so the Validation tab
+        shows which side broke. Customer-side tuning happens by overriding
+        the assertion on DataHub directly; we don't expose per-model thresholds
+        in config to keep the connector declarative.
+
+        Only emits the assertion **definitions** here. The actual evaluation
+        is performed by DataHub's monitor framework against the dataset's
+        lastModified property (set by the warehouse connector / freshness
+        compute). On OSS without monitors, the assertions appear in the UI
+        but won't fire automatically — a future commit will add explicit
+        AssertionRunEvent emission for OSS users.
+        """
+        if not self.config.emit_freshness_assertions:
+            return
+
+        # External and embedded models have no rebuild schedule — they're
+        # source tables (external) or inlined (embedded). Skip freshness on
+        # them; we'd be asserting against data we don't produce.
+        kind_name = self._get_kind_name(model) or ""
+        if kind_name.upper() in ("EXTERNAL", "EMBEDDED"):
+            return
+
+        unit, multiple = _freshness_sla_for_model(model)
+        schedule = FreshnessAssertionScheduleClass(
+            type=FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL,
+            fixedInterval=FixedIntervalScheduleClass(unit=unit, multiple=multiple),
+        )
+
+        for kind, description in (
+            (
+                "pipeline_freshness",
+                "SQLMesh fingerprint table must be rebuilt within "
+                f"{multiple} {unit.lower()}(s) of its cron schedule. Fires "
+                "when plan/apply stops running, signalling pipeline drift.",
+            ),
+            (
+                "upstream_freshness",
+                "Upstream source tables must have been updated within "
+                f"{multiple} {unit.lower()}(s). Fires when raw data feeding "
+                "the model is behind schedule.",
+            ),
+        ):
+            assertion_urn = self._freshness_assertion_urn(sqlmesh_urn, kind)
+            assertion_info = AssertionInfoClass(
+                type=AssertionTypeClass.FRESHNESS,
+                source=mce_builder.make_assertion_source(),
+                customProperties={
+                    "sqlmesh.freshness_kind": kind,
+                    "sqlmesh.interval_unit": str(
+                        getattr(model, "interval_unit", "") or ""
+                    ),
+                },
+                description=description,
+                freshnessAssertion=FreshnessAssertionInfoClass(
+                    type=FreshnessAssertionTypeClass.DATASET_CHANGE,
+                    entity=sqlmesh_urn,
+                    schedule=schedule,
+                ),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn, aspect=StatusClass(removed=False)
+            ).as_workunit()
+            yield MetadataChangeProposalWrapper(
+                entityUrn=assertion_urn, aspect=assertion_info
+            ).as_workunit()
+
+    def _freshness_assertion_urn(self, sqlmesh_urn: str, kind: str) -> str:
+        """Stable urn:li:assertion:... for the named freshness assertion."""
+        raw = f"{sqlmesh_urn}:freshness:{kind}"
+        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
 
     def _emit_single_audit(
         self,

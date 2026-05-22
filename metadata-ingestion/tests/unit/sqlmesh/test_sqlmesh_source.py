@@ -278,6 +278,112 @@ class TestAssertionTarget:
         assert SQLMESH_PLATFORM in assertion_infos[0].datasetAssertion.dataset
 
 
+class TestFreshnessAssertions:
+    """Each FULL model gets two FRESHNESS assertions (pipeline + upstream).
+
+    The pair lets the Validation tab show which side broke when freshness
+    drifts: pipeline_freshness fires when SQLMesh stops rebuilding the
+    fingerprint, upstream_freshness fires when sources are stale.
+    """
+
+    def _freshness_infos(self, workunits):
+        from datahub.metadata.schema_classes import (
+            AssertionInfoClass,
+            AssertionTypeClass,
+        )
+
+        return [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+            and wu.metadata.aspect.type == AssertionTypeClass.FRESHNESS
+        ]
+
+    def test_two_freshness_assertions_emitted_per_model(self):
+        source = _make_source()
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._freshness_infos(workunits)
+
+        assert len(infos) == 2
+        kinds = {i.customProperties["sqlmesh.freshness_kind"] for i in infos}
+        assert kinds == {"pipeline_freshness", "upstream_freshness"}
+
+    def test_sla_derived_from_interval_unit_hour(self):
+        """Hour-cadence models get a 3-hour SLA window."""
+        from datahub.metadata.schema_classes import (
+            CalendarIntervalClass,
+            FreshnessAssertionScheduleTypeClass,
+        )
+
+        source = _make_source()
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._freshness_infos(workunits)
+
+        # Both assertions share the same schedule shape.
+        schedule = infos[0].freshnessAssertion.schedule
+        assert schedule.type == FreshnessAssertionScheduleTypeClass.FIXED_INTERVAL
+        assert schedule.fixedInterval.unit == CalendarIntervalClass.HOUR
+        assert schedule.fixedInterval.multiple == 3
+
+    def test_sla_derived_from_interval_unit_day(self):
+        """Daily-cadence models get a 36-hour SLA window (1.5 days)."""
+        from datahub.metadata.schema_classes import CalendarIntervalClass
+
+        source = _make_source()
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="day")
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._freshness_infos(workunits)
+
+        schedule = infos[0].freshnessAssertion.schedule
+        assert schedule.fixedInterval.unit == CalendarIntervalClass.HOUR
+        assert schedule.fixedInterval.multiple == 36
+
+    def test_freshness_attaches_to_sqlmesh_urn(self):
+        """Same target rule as audits: SQLMesh logical URN, never warehouse URN."""
+        source = _make_source()
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._freshness_infos(workunits)
+
+        for info in infos:
+            assert SQLMESH_PLATFORM in info.freshnessAssertion.entity
+            assert WAREHOUSE_PLATFORM not in info.freshnessAssertion.entity
+
+    def test_external_model_skips_freshness(self):
+        """External models have no rebuild schedule; freshness wouldn't make sense."""
+        source = _make_source()
+        model = _make_mock_model(kind_name="EXTERNAL")
+
+        workunits = _run_project(source, {"star.raw_orders": model}, {})
+        assert self._freshness_infos(workunits) == []
+
+    def test_embedded_model_skips_freshness(self):
+        """Embedded models are inlined into consumers — they have no own freshness."""
+        source = _make_source()
+        model = _make_mock_model(kind_name="EMBEDDED", is_embedded=True)
+
+        workunits = _run_project(source, {"star.embedded_helper": model}, {})
+        assert self._freshness_infos(workunits) == []
+
+    def test_disable_via_config(self):
+        source = _make_source({"emit_freshness_assertions": False})
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        assert self._freshness_infos(workunits) == []
+
+
 class TestLineageEmission:
     def test_lineage_points_to_sqlmesh_urns(self):
         """Lineage edges for managed deps target sqlmesh URNs, not warehouse URNs."""
