@@ -48,15 +48,11 @@ import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Resolver for {@code Domain.domainLineage}.
- *
- * <p>Members are enumerated as the union of (a) assets whose indexed {@code domains} field matches
- * the source Domain URN directly, and (b) assets that belong to a DataProduct contained in the
- * source Domain ({@code DataProductContains} graph edges). The latter is the common case in
- * real-world deployments: governance teams tag DataProducts with a Domain and leave the underlying
- * assets untagged. Owners are resolved by either the {@link DomainOwnerResolutionStrategy}
- * (default) or {@link DataProductOwnerResolutionStrategy} when the input flag {@code
- * groupByDataProduct=true} is set.
+ * Resolver for {@code Domain.domainLineage}. Members are enumerated as the union of (a) assets
+ * tagged with the source Domain directly and (b) assets reachable via {@code DataProductContains}
+ * from a DataProduct in the source Domain — governance teams typically tag DPs and leave the
+ * underlying assets untagged, so (b) is the common case. Owners are resolved by the Domain strategy
+ * (default) or the DataProduct strategy when {@code groupByDataProduct=true}.
  */
 @Slf4j
 public class DomainLineageResolver
@@ -66,22 +62,15 @@ public class DomainLineageResolver
   private static final Set<String> DATA_PRODUCT_CONTAINS_REL =
       Collections.singleton("DataProductContains");
 
-  /**
-   * Upper bound on how many DataProducts we enumerate inside the source Domain for inner-edge
-   * computation and for transitive member enumeration. A larger cap would just produce more DP↔DP
-   * buckets without changing accuracy (membership beyond the cap is silently ignored); in practice
-   * Domains rarely exceed a few hundred DataProducts.
-   */
+  // Caps DataProduct enumeration in the source Domain (used for inner-edge buckets and transitive
+  // member expansion). Membership beyond this is silently ignored.
   private static final int INNER_EDGE_DP_ENUMERATION_CAP = 1_000;
 
-  /**
-   * Upper bound on how many member assets we pull per DataProduct when expanding the source
-   * Domain's members via {@code DataProductContains}. Bounds the worst-case per-DP graph response
-   * size; total transitive enumeration is also bounded by {@code memberScanCap} across all DPs.
-   */
+  // Per-DP cap on assets pulled via DataProductContains. Total transitive enumeration is also
+  // bounded by memberScanCap across all DPs.
   private static final int MAX_MEMBERS_PER_DP_ENUMERATION = 500;
 
-  // Lineage-bearing entity types (excludes governance entities); mirrors impact-analysis.
+  // Lineage-bearing entity types; mirrors impact-analysis.
   private static final List<com.linkedin.datahub.graphql.generated.EntityType>
       LINEAGE_BEARING_TYPES =
           List.of(
@@ -146,10 +135,6 @@ public class DomainLineageResolver
   protected MembersResult enumerateMembers(
       final QueryContext context, final Urn sourceUrn, final int memberScanCap) {
     final MembersResult direct = enumerateDirectMembers(context, sourceUrn, memberScanCap);
-
-    // Real-world domain hierarchies typically tag DataProducts with their Domain and leave the
-    // underlying assets untagged, so a direct search alone misses most of the lineage surface.
-    // Expand transitively via DPs.
     final Set<Urn> dpsInDomain = enumerateDataProductsInDomain(context, sourceUrn);
     final TransitiveMembers transitive =
         collectAssetsFromDataProducts(context, dpsInDomain, memberScanCap);
@@ -158,9 +143,8 @@ public class DomainLineageResolver
     union.addAll(transitive.urns);
     final List<Urn> cappedUrns = union.stream().limit(memberScanCap).collect(Collectors.toList());
 
-    // Total accounting: we can't cheaply compute an exact deduped total across two enumeration
-    // paths. Use the union size as a baseline; if either source signaled "more available", lift
-    // total above the cap so the wrapping resolver flips isPartial=true.
+    // We can't cheaply compute an exact deduped total across two enumeration paths; if either
+    // signalled more-available, lift total above the cap so the wrapper flips isPartial=true.
     final boolean directHasMore = direct.getTotal() > direct.getUrns().size();
     final int total;
     if (directHasMore || transitive.truncated) {
@@ -212,9 +196,9 @@ public class DomainLineageResolver
   }
 
   /**
-   * Collects member assets from every DataProduct in {@code dpUrns} via the {@code
-   * DataProductContains} graph relationship, filtered to lineage-bearing entity types. Bounded by
-   * {@code memberScanCap} across all DPs and by {@link #MAX_MEMBERS_PER_DP_ENUMERATION} per DP.
+   * Collects lineage-bearing assets from every DP in {@code dpUrns} via {@code
+   * DataProductContains}. Bounded by {@code memberScanCap} across all DPs and {@link
+   * #MAX_MEMBERS_PER_DP_ENUMERATION} per DP.
    */
   private TransitiveMembers collectAssetsFromDataProducts(
       final QueryContext context, final Set<Urn> dpUrns, final int memberScanCap) {
@@ -311,17 +295,9 @@ public class DomainLineageResolver
   }
 
   /**
-   * Inner-edge computation for Domain views: surfaces DataProduct ↔ DataProduct edges where both
-   * DPs belong to the source Domain. Input is the within-scope hit map produced by {@link
-   * AggregatedLineageResolver#collectHits} — i.e. asset-level edges where the neighbour is itself a
-   * source-Domain member. We look up the DP membership of every involved asset and emit a bucket
-   * keyed by {@code (upstreamDp, downstreamDp)} for each DP pair where the member's DP differs from
-   * the within-scope neighbour's DP.
-   *
-   * <p>Cost: one Elasticsearch search for the DP set in the source Domain, plus a fan-out of {@link
-   * DataProductOwnerResolutionStrategy#resolveOwners} over the source-member set (which already
-   * includes any within-scope neighbours, since they're members). The frontend dedupes {@code
-   * (upstream, downstream)} pairs across the upstream/downstream query pair before drawing.
+   * Surfaces DP↔DP edges where both DPs belong to the source Domain. Looks up DP membership for
+   * every contributing member and within-scope neighbour, then emits a bucket per {@code
+   * (upstreamDp, downstreamDp)} pair. The frontend dedupes across the two direction queries.
    */
   @Override
   protected List<AggregatedLineageResponse.InnerEdge> computeInnerEdges(

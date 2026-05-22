@@ -6,20 +6,6 @@ import { AggregatedDomainEdge, FetchStatus, LineageNodesContext, domainEdgeKey }
 import { GetDomainLineageDocument, GetDomainLineageQuery } from '@graphql/domain.generated';
 import { EntityType, LineageDirection } from '@types';
 
-function setEntityChildCount(
-    entity: { numUpstreamChildren?: number; numDownstreamChildren?: number },
-    direction: LineageDirection,
-    count: number,
-): void {
-    if (direction === LineageDirection.Upstream) {
-        // eslint-disable-next-line no-param-reassign
-        entity.numUpstreamChildren = count;
-    } else {
-        // eslint-disable-next-line no-param-reassign
-        entity.numDownstreamChildren = count;
-    }
-}
-
 const EXPANSION_HOPS = 1;
 const EXPANSION_COUNT = 25;
 
@@ -38,13 +24,8 @@ interface DomainLineageRelationship {
 
 /**
  * Returns an imperative {@code expand(urn, direction)} that fires `domainLineage` against the
- * clicked Domain and merges the resulting neighbour edges into
- * {@link LineageNodesContext.aggregatedDomainEdges}.
- *
- * The result map is keyed by {@code <sourceUrn>::<neighbourUrn>::<direction>}, so multi-hop
- * expansions stack additively without overwriting the initial root-page load. Errors are logged
- * and swallowed — a failed expansion leaves the node in its prior fetch state so the user can
- * retry.
+ * clicked Domain and merges the neighbours into {@link LineageNodesContext.aggregatedDomainEdges}.
+ * Keys include direction so multi-hop expansions stack additively rather than overwriting.
  */
 export default function useExpandDomainNeighbours() {
     const client = useApolloClient();
@@ -91,16 +72,18 @@ export default function useExpandDomainNeighbours() {
                     newEdges.forEach(([key, edge]) => next.set(key, edge));
                     return next;
                 });
-                // Replace the optimistic placeholder count (1) with the real neighbour count for
-                // this direction. Zero neighbours hides the contract button after the user collapses
-                // the expansion; non-zero keeps it available for re-expansion.
-                const expandedNode = nodes.get(urn);
-                if (expandedNode?.entity) {
-                    setEntityChildCount(expandedNode.entity, direction, newEdges.length);
+                // Replace the optimistic placeholder count with the real neighbour count for this
+                // direction so zero-neighbour directions hide the expand button on re-collapse.
+                const expandedEntity = nodes.get(urn)?.entity;
+                if (expandedEntity) {
+                    if (direction === LineageDirection.Upstream) {
+                        expandedEntity.numUpstreamChildren = newEdges.length;
+                    } else {
+                        expandedEntity.numDownstreamChildren = newEdges.length;
+                    }
                 }
                 return FetchStatus.COMPLETE;
             } catch (err) {
-                // Leave the node as UNFETCHED so the user can retry.
                 // eslint-disable-next-line no-console
                 console.warn('Failed to expand Domain lineage', { urn, direction, err });
                 return FetchStatus.UNFETCHED;

@@ -29,16 +29,11 @@ type Urn = string;
 const MEMBER_VERTICAL_GAP = 30;
 const NEIGHBOUR_VERTICAL_GAP = 30;
 const NEIGHBOUR_HORIZONTAL_GAP = 240;
-// Vertical clearance between stacked DP bboxes inside the Domain bbox. The next DP's card label
-// floats above its bbox via translateY(-100%) (~54px); the gap needs to clear that plus a small
-// breathing buffer so labels don't kiss the bbox below.
+// DP card labels float above their bbox via translateY(-100%) (~54px); the gap clears the label
+// plus breathing room.
 const NESTED_DP_VERTICAL_GAP = 70;
-// Inner spacing between asset rows stacked inside a DP bbox.
 const NESTED_ASSET_VERTICAL_GAP = 20;
-// Width of the Domain (outer) bbox in pixels. Wide enough to host a DP (inner) bbox plus the
-// Domain's own padding on either side.
 const DOMAIN_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 4;
-// Width of each DP (inner) bbox. Centered horizontally inside the Domain bbox.
 const DP_BBOX_WIDTH = LINEAGE_NODE_WIDTH + BOUNDING_BOX_PADDING * 2;
 
 type DomainGraphContext = Pick<
@@ -47,23 +42,13 @@ type DomainGraphContext = Pick<
 >;
 
 /**
- * Computes the lineage graph for a Domain.
- *
- * Layout:
- * 1. The source Domain renders as an outer bounding box at the origin. Inside it, each member
- *    DataProduct renders as its own inner bounding box containing the DP's asset members
- *    (datasets / ML models / data jobs) stacked vertically. Directly-tagged Domain assets that
- *    aren't part of any DP render as plain rows at the Domain level beneath the nested DP bboxes.
- * 2. Neighbour Domains (placed via {@link layoutNeighbours}) come from BFS over the union of
- *    `aggregatedDomainEdges` (initial root load + every multi-hop expansion the user has
- *    triggered). Each Domain is positioned at column = its hop depth and on the side it was
- *    first discovered from (upstream / downstream of source). The single source bbox is the
- *    only outer bbox; further Domain hops render as standalone entity nodes so the layout stays
- *    linear and predictable as the user drills out.
- * 3. {@link AggregatedLineageEdge}s connect every (source, neighbour) pair we know about — this
- *    is what gives the user "actual lineage between data domains" once a chain is expanded.
- * 4. Intra-Domain DP↔DP rollups from {@code aggregatedInnerEdges} render as edges inside the
- *    source bbox, between adjacent DP bboxes.
+ * Layout for the Domain lineage view:
+ * - Source Domain renders as an outer bbox; each member DP renders as a nested bbox containing
+ *   its asset rows. Directly-tagged Domain assets (no DP) stack below the DP bboxes.
+ * - Neighbour Domains are placed by BFS depth/side (see {@link layoutNeighbours}); deeper hops
+ *   render as plain entity nodes rather than nested bboxes to keep the layout linear.
+ * - Edges: {@link AggregatedLineageEdge}s connect source↔neighbour Domains; DP↔DP inner edges
+ *   from {@code aggregatedInnerEdges} render between adjacent DP bboxes.
  */
 export default function computeDomainGraph(urn: string, type: EntityType, context: DomainGraphContext) {
     const { nodes, aggregatedDomainEdges, aggregatedInnerEdges } = context;
@@ -89,14 +74,8 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
 }
 
 /**
- * Per-Domain placement metadata derived by BFS from the source Domain.
- *
- * `side` is what we draw — once a Domain is first reached from the source via an upstream edge
- * we anchor it on the left; subsequent edges from the opposite direction don't move the node.
- * This avoids oscillation when a Domain is reachable both ways.
- *
- * `depth` is the BFS hop count from source (1 for direct neighbours, 2 for next hop, …) and
- * drives the horizontal column position.
+ * BFS placement metadata for a neighbour Domain. `side` is sticky (first discovery wins, so
+ * Domains reachable both ways don't oscillate); `depth` drives the horizontal column position.
  */
 export type NeighbourPlacement = {
     side: LineageDirection;
@@ -151,7 +130,7 @@ function layoutNeighbours(
 
         sorted.forEach((neighbourUrn, idx) => {
             const node = nodes.get(neighbourUrn);
-            if (!node) return; // Defensive: ingest hook should have registered every neighbour.
+            if (!node) return;
             result.push({
                 id: neighbourUrn,
                 type: LINEAGE_ENTITY_NODE_NAME,
@@ -169,19 +148,15 @@ function layoutNeighbours(
 }
 
 /**
- * BFS from `rootUrn` over the directed edges in `aggregatedDomainEdges`. Returns each reachable
- * Domain's discovered side (left/right of source) and BFS depth (hop count from source).
- *
- * Self-loops (edges back to `rootUrn`) are skipped so the source bbox stays the single anchor.
- * Cycles are handled naturally because we only assign placement on first visit.
+ * BFS from `rootUrn` returning each reachable Domain's side (relative to source) and hop depth.
+ * Side is carried through the chain — the user's mental model is "this column is upstream of
+ * source", so once we're on the upstream side every further hop stays upstream regardless of
+ * the edge direction used to reach the next node.
  */
 export function computeNeighbourPlacements(
     edges: ReadonlyMap<string, AggregatedDomainEdge>,
     rootUrn: Urn,
 ): Map<Urn, NeighbourPlacement> {
-    // Build adjacency: from-source-perspective, "discovered via upstream edge" → side=Upstream.
-    // A 2-hop neighbour reached from a 1-hop upstream is also placed upstream — we don't flip
-    // sides mid-chain because the user's mental model is "this column is upstream of source".
     const outgoing = new Map<Urn, Array<{ to: Urn; via: LineageDirection }>>();
     edges.forEach((edge) => {
         if (edge.neighbourUrn === rootUrn) return;
@@ -203,9 +178,6 @@ export function computeNeighbourPlacements(
         neighbours.forEach((next) => {
             if (visited.has(next.to)) return;
             visited.add(next.to);
-            // The "side" carries through the chain: if I'm already on the upstream side, every
-            // further hop from me stays upstream regardless of the edge direction taken to reach
-            // the next node (the chain is "upstream of source").
             const side = head.side ?? next.via;
             placements.set(next.to, { side, depth: head.depth + 1 });
             queue.push({ urn: next.to, side, depth: head.depth + 1 });
@@ -230,10 +202,7 @@ function buildInnerAggregatedEdges(
 ): Edge<AggregatedLineageEdgeData>[] {
     const out: Edge<AggregatedLineageEdgeData>[] = [];
     innerEdges.forEach((edge) => {
-        // Only render edges whose endpoints are both member DPs we actually laid out in the
-        // source bbox. Stray endpoints (e.g. a DP that's referenced by inner-edge data but
-        // isn't in the current member set) have no node to anchor onto and would render as
-        // dangling ReactFlow edges, so we skip them.
+        // Skip edges with endpoints we didn't lay out — they'd render as dangling ReactFlow edges.
         if (!memberDpUrns.has(edge.upstreamUrn) || !memberDpUrns.has(edge.downstreamUrn)) {
             return;
         }
@@ -260,10 +229,7 @@ function buildAggregatedEdges(
     const flowEdges: Edge<AggregatedLineageEdgeData>[] = [];
     edges.forEach((edge) => {
         if (edge.neighbourUrn === rootUrn) return;
-        // We can only draw an edge if both endpoints were placed in the layout. The source side
-        // is always laid out (source bbox is fixed; expansion-source Domains are always already
-        // placed via the BFS that produced them); the neighbour might still be missing if the
-        // ingest hook hasn't registered it yet, in which case skip until the next render tick.
+        // Skip until both endpoints have been placed — the neighbour may not be registered yet.
         if (edge.sourceUrn !== rootUrn && !sides.has(edge.sourceUrn)) return;
         if (!sides.has(edge.neighbourUrn)) return;
 
@@ -287,13 +253,10 @@ function buildAggregatedEdges(
 }
 
 /**
- * Lays out the Domain's interior: member DataProduct bboxes (each containing its asset members)
- * stacked vertically, followed by any directly-tagged Domain assets that aren't part of a DP.
- *
- * Returns the ReactFlow nodes in parent-then-children order (ReactFlow requires bbox parents to
- * precede their children), the total Y-extent of the laid-out interior (used to size the outer
- * Domain bbox), and the set of DP URNs we actually rendered (used to filter inner-edge
- * endpoints — see {@code buildInnerAggregatedEdges}).
+ * Lays out the Domain interior: member DP bboxes (with their assets) stacked vertically, then
+ * any directly-tagged Domain assets beneath. Returns nodes in parent-then-children order (a
+ * ReactFlow requirement for nested bboxes), the total interior Y-extent (used to size the
+ * outer Domain bbox), and the DP URN set used to filter inner-edge endpoints.
  */
 function layoutNestedMembers(
     nodes: NodeContext['nodes'],
@@ -308,6 +271,7 @@ function layoutNestedMembers(
     });
     // Stable ordering: by URN. Avoids node-reshuffle on each re-render when nodes Map iteration
     // order is unstable across versions.
+    // Stable URN-based ordering — Map iteration order isn't guaranteed across re-renders.
     memberDps.sort((a, b) => a.urn.localeCompare(b.urn));
     memberDirectAssets.sort((a, b) => a.urn.localeCompare(b.urn));
 
@@ -329,8 +293,6 @@ function layoutNestedMembers(
     });
 
     if (memberDirectAssets.length > 0) {
-        // Directly-tagged Domain assets render as a single column under the DP bboxes. Indent
-        // them to the same X as the inner DP bboxes so the visual gridlines align.
         const assetX = (DOMAIN_BBOX_WIDTH - LINEAGE_NODE_WIDTH) / 2;
         memberDirectAssets.forEach((asset, idx) => {
             flowNodes.push({
@@ -350,7 +312,6 @@ function layoutNestedMembers(
             NESTED_DP_VERTICAL_GAP;
     }
 
-    // Floor for an empty Domain so the outer bbox still has a sensible footprint.
     const memberAreaHeight = Math.max(cursorY, LINEAGE_NODE_HEIGHT + BOUNDING_BOX_PADDING);
     return { memberFlowNodes: flowNodes, memberAreaHeight, memberDpUrns };
 }
@@ -364,14 +325,13 @@ function collectAssetsByDp(
     nodes.forEach((node) => {
         const dpUrn = node.parentDataProduct;
         if (!dpUrn || !memberDpUrns.has(dpUrn)) return;
-        // Assets directly pinned to the source Domain stay at the Domain level (rendered by the
-        // direct-asset path); don't double-render them inside their DP.
+        // Source-Domain pinning wins: don't double-render an asset both at the Domain level and
+        // inside its DP.
         if (node.parentDomain === rootUrn) return;
         const list = out.get(dpUrn);
         if (list) list.push(node);
         else out.set(dpUrn, [node]);
     });
-    // Stable per-DP ordering by URN.
     out.forEach((list) => list.sort((a, b) => a.urn.localeCompare(b.urn)));
     return out;
 }
@@ -390,9 +350,7 @@ function makeDpBox(dp: LineageEntity, parentUrn: Urn, x: number, y: number, heig
             urn: dp.urn,
             type: EntityType.DataProduct,
             entity: dp.entity,
-            // Nested DP bboxes stay grey to keep the Domain colour as the primary tint — matches
-            // the existing rule in NodeContents.tsx that drops the DP tint when the DP is a
-            // Domain member.
+            // Nested DPs stay grey so the Domain colour stays the primary tint.
             colorHex: undefined,
             subtitle: dp.displaySubtitle,
         },

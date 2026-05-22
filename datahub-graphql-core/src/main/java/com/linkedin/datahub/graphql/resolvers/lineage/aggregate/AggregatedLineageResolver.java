@@ -52,18 +52,12 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   static final int MAX_COUNT = 200;
   static final int MAX_HOPS = 20;
 
-  /**
-   * Maximum concurrent {@code searchAcrossLineage} calls in flight. Bounds load on the shared
-   * GraphQL executor and on Elasticsearch when a Domain has thousands of members.
-   */
+  // Bounds concurrent searchAcrossLineage calls so a wide fan-out doesn't starve other GraphQL
+  // requests or slam Elasticsearch.
   static final int MAX_PARALLEL_FANOUT = 16;
 
-  /**
-   * Maximum distinct neighbour URNs we resolve owners for. Above this we keep the neighbours with
-   * the most contributing members (they dominate the sort anyway) and set {@code isPartial=true}.
-   * Bounds the worst case for {@link DataProductOwnerResolutionStrategy}, which is O(N) graph
-   * calls.
-   */
+  // Above this we keep the top-N neighbours by contributing-member count and set isPartial=true.
+  // Bounds the worst case for DataProductOwnerResolutionStrategy, which is O(N) graph calls.
   static final int MAX_OWNER_LOOKUP_NEIGHBOURS = 2_000;
 
   protected final EntityClient entityClient;
@@ -96,13 +90,9 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   protected abstract List<String> getNeighbourEntityTypes();
 
   /**
-   * Optional hook: subclasses can compute "inner edges" that live entirely inside the source scope
-   * (e.g. DP↔DP edges where both DPs belong to the source Domain). Default no-op.
-   *
-   * <p>Implementations receive the raw per-neighbour hit map BEFORE neighbour-set truncation —
-   * truncation only affects the main bucket list and is intentionally not applied here so that
-   * inner edges within the source scope remain complete even when a Domain has thousands of
-   * cross-Domain neighbours.
+   * Optional hook for edges that live entirely inside the source scope (e.g. DP↔DP edges where both
+   * DPs belong to the source Domain). Receives the within-scope hit map BEFORE truncation so inner
+   * edges stay complete even when cross-scope neighbours are capped. Default no-op.
    */
   protected List<AggregatedLineageResponse.InnerEdge> computeInnerEdges(
       QueryContext context,
@@ -161,8 +151,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       return buildResult(emptyResponse(request, members, isPartial));
     }
     if (rawHits.isEmpty()) {
-      // Only within-scope hits exist (all lineage stays inside the source). No cross-scope
-      // relationships to bucket, but inner edges may still be present.
+      // All lineage stays inside the source — no cross-scope buckets, but inner edges may exist.
       final List<AggregatedLineageResponse.InnerEdge> innerOnly =
           computeInnerEdges(context, request, members, splitHits.withinScope);
       return buildResult(
@@ -194,8 +183,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       final LineageHit hit = entry.getValue();
       final Set<Urn> owners = ownersByNeighbour.get(neighbourUrn);
       if (owners == null || owners.isEmpty()) {
-        // Drop neighbours we couldn't map to an owner; mark the response partial so the UI can
-        // surface a "results incomplete" hint.
+        // Drop unowned neighbours and mark partial so the UI can hint "results incomplete".
         isPartial = true;
         continue;
       }
@@ -247,11 +235,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
             .build());
   }
 
-  /**
-   * Fan out {@code searchAcrossLineage} across all members, in fixed-size batches so we never have
-   * more than {@link #MAX_PARALLEL_FANOUT} simultaneous tasks queued on the shared GraphQL executor
-   * (which would starve other GraphQL requests and slam Elasticsearch).
-   */
+  /** Fan out searchAcrossLineage in batches of {@link #MAX_PARALLEL_FANOUT}. */
   private List<LineageSearchResult> fanOutSearchAcrossLineage(
       final QueryContext context, final AggregatedLineageRequest request, final List<Urn> members) {
     final OperationContext opContext = applyFlags(context.getOperationContext(), request);
@@ -368,9 +352,8 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   }
 
   /**
-   * Keep the {@code cap} neighbours with the most contributing members; drop the rest. The dropped
-   * ones contribute fewer paths and would rank lower in the final sort anyway, so this is a
-   * loss-of-tail rather than a loss-of-head. Caller flips {@code isPartial} when this fires.
+   * Keep the top {@code cap} neighbours by contributing-member count. Loss-of-tail — the dropped
+   * neighbours would have ranked low in the final sort anyway. Caller flips {@code isPartial}.
    */
   private static Map<Urn, LineageHit> truncateHitsToTop(
       final Map<Urn, LineageHit> hits, final int cap) {
@@ -388,16 +371,10 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   }
 
   /**
-   * Collect per-neighbour hits and split into two maps:
-   *
-   * <ul>
-   *   <li>{@code crossScope}: neighbours that are NOT source members — drive the main bucketing /
-   *       relationships output. This is what callers historically consumed.
-   *   <li>{@code withinScope}: neighbours that ARE source members — drive {@link
-   *       #computeInnerEdges} for inner-scope edge computation (e.g. DP↔DP edges inside the source
-   *       Domain). Without this split, in-scope hits would be silently dropped because they'd
-   *       surface as self-loop noise in the cross-scope relationships output.
-   * </ul>
+   * Splits per-neighbour hits into {@code crossScope} (neighbours that aren't source members —
+   * drive the main relationships output) and {@code withinScope} (neighbours that ARE source
+   * members — drive {@link #computeInnerEdges}). Without the split, in-scope hits would surface as
+   * self-loop noise in the cross-scope output.
    */
   private static HitsByScope collectHits(
       final List<Urn> members, final List<LineageSearchResult> perMemberResults) {
@@ -482,8 +459,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
     if (mapped != null) {
       return mapped;
     }
-    // Unknown entity type: fall back to a Restricted placeholder so the non-null schema
-    // contract still holds and the frontend renders conservatively.
+    // Unknown entity type — fall back to Restricted so the non-null schema contract still holds.
     final Restricted fallback = new Restricted();
     fallback.setType(EntityType.RESTRICTED);
     fallback.setUrn(ownerUrn.toString());
@@ -507,9 +483,8 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   }
 
   /**
-   * Per-neighbour record produced by {@link #collectHits}. Exposed as protected so that subclasses
-   * overriding {@link #computeInnerEdges} can inspect which source members contributed to each
-   * neighbour without recomputing.
+   * Per-neighbour record produced by {@link #collectHits}. Exposed so subclasses overriding {@link
+   * #computeInnerEdges} can see which source members contributed to each neighbour.
    */
   public static final class LineageHit {
     public final Set<Urn> contributingMembers = new HashSet<>();

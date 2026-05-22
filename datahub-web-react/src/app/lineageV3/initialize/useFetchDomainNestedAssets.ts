@@ -9,21 +9,14 @@ import {
 } from '@graphql/dataProduct.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 
-// Cap assets shown per DP inside the Domain view. The Domain view is a high-level overview;
-// surfacing every asset of every DP would explode the layout. 25 matches the resolver-side
-// `perMemberCount` and DOMAIN_ENTITIES_PAGE_SIZE conventions used elsewhere in the stack.
+// Matches the resolver-side perMemberCount default and DOMAIN_ENTITIES_PAGE_SIZE used elsewhere
+// in the stack — keeps the Domain view's per-DP footprint bounded.
 const ASSETS_PER_DP_CAP = 25;
-// Bound concurrent per-DP fetches to keep the page responsive when a Domain has many DPs.
 const MAX_PARALLEL_DP_FETCHES = 4;
 
 /**
- * Fetches the assets belonging to each member DataProduct of the current Domain and registers
- * them as nodes with {@code parentDataProduct} set so {@code computeDomainGraph} can nest them
- * inside their DP's bounding box.
- *
- * Runs after {@link useFetchDomainEntities} has populated the DP roster. Each DP triggers a
- * single capped query against `getDataProductEntitiesForLineage`; DPs already processed in a
- * prior tick are skipped via a per-instance set.
+ * Fetches each member DataProduct's first {@link ASSETS_PER_DP_CAP} assets and stamps them with
+ * {@code parentDataProduct} so {@code computeDomainGraph} nests them inside their DP bbox.
  */
 export default function useFetchDomainNestedAssets(): boolean {
     const client = useApolloClient();
@@ -58,9 +51,7 @@ export default function useFetchDomainNestedAssets(): boolean {
             return;
         }
 
-        // Optimistically claim the DPs we're about to fetch so a re-entrant render doesn't
-        // re-queue them. Failures still resolve (we just won't see their assets), and the user
-        // can refresh to retry.
+        // Claim the DPs up front so a re-entrant render doesn't re-queue them mid-fetch.
         candidateDps.forEach((urn) => fetchedDpUrns.current.add(urn));
 
         runBoundedFetch(client, rootUrn, candidateDps, nodes, () => setNodeVersion((v) => v + 1))
@@ -77,7 +68,7 @@ async function fetchDpAssets(
     rootUrn: string,
     dpUrn: string,
     nodes: Map<string, LineageEntity>,
-): Promise<boolean> {
+): Promise<number> {
     try {
         const result = await client.query<GetDataProductEntitiesForLineageQuery>({
             query: GetDataProductEntitiesForLineageDocument,
@@ -85,27 +76,23 @@ async function fetchDpAssets(
             fetchPolicy: 'cache-first',
         });
         const searchResults = result.data?.dataProduct?.entities?.searchResults ?? [];
-        let added = false;
+        let added = 0;
         searchResults.forEach((row) => {
             if (!row?.entity) return;
             const wasNew = !nodes.has(row.entity.urn);
             const node = setDefault(nodes, row.entity.urn, makeAssetNode(row.entity));
-            // Only adopt the asset into the current DP if it isn't already pinned to the source
-            // Domain (i.e. a directly-tagged Domain asset that also happens to belong to a DP).
-            // Source-Domain pinning takes precedence so the asset stays at the Domain level
-            // rather than getting shoved inside a DP bbox.
+            // Source-Domain pinning takes precedence: a directly-tagged Domain asset stays at the
+            // Domain level rather than being adopted into a DP bbox.
             if (node.parentDomain !== rootUrn) {
                 node.parentDataProduct = dpUrn;
             }
-            if (wasNew) added = true;
+            if (wasNew) added += 1;
         });
         return added;
     } catch (err) {
-        // Swallow per-DP failures so one bad DP doesn't take the whole view down. The user will
-        // simply see fewer nested assets for that DP.
         // eslint-disable-next-line no-console
         console.warn('Failed to fetch DP assets for nested Domain view', { dpUrn, err });
-        return false;
+        return 0;
     }
 }
 
@@ -117,26 +104,23 @@ async function runBoundedFetch(
     bumpNodeVersion: () => void,
 ): Promise<void> {
     const queue = [...dpUrns];
-    const counts: number[] = [];
 
-    async function worker(): Promise<void> {
+    async function worker(): Promise<number> {
+        let added = 0;
         for (;;) {
             const dpUrn = queue.shift();
-            if (dpUrn === undefined) return;
-            // Sequential per-worker by design — concurrency is provided by running multiple
-            // workers in parallel below. Single worker awaiting in a loop is exactly the
-            // intended bounded-concurrency pattern.
+            if (dpUrn === undefined) return added;
+            // Sequential per worker; concurrency comes from running MAX_PARALLEL_DP_FETCHES of them.
             // eslint-disable-next-line no-await-in-loop
-            const added = await fetchDpAssets(client, rootUrn, dpUrn, nodes);
-            if (added) counts.push(1);
+            added += await fetchDpAssets(client, rootUrn, dpUrn, nodes);
         }
     }
 
     const workerCount = Math.min(MAX_PARALLEL_DP_FETCHES, dpUrns.length);
-    const workers: Promise<void>[] = [];
+    const workers: Promise<number>[] = [];
     for (let i = 0; i < workerCount; i += 1) workers.push(worker());
-    await Promise.all(workers);
-    if (counts.length > 0) bumpNodeVersion();
+    const counts = await Promise.all(workers);
+    if (counts.some((c) => c > 0)) bumpNodeVersion();
 }
 
 function makeAssetNode({ urn, type }: Entity): LineageEntity {

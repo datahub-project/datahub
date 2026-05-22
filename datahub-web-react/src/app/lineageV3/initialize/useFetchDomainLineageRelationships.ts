@@ -18,18 +18,11 @@ const DEFAULT_HOPS = 1;
 const DEFAULT_COUNT = 25;
 
 /**
- * Fires the `domainLineage` resolver once per direction and merges the resulting aggregated
- * edges into {@link LineageNodesContext.aggregatedDomainEdges}. `computeDomainGraph` consumes
- * that map to draw neighbour-Domain boxes + count-labelled edges without doing any per-asset
- * lineage walking on the client.
- *
- * Inner DP↔DP edges (resolver-computed for the source Domain) are merged into
- * {@link LineageNodesContext.aggregatedInnerEdges} with the same per-edge dedupe key — both
- * direction queries will surface the same canonical {@code (upstream, downstream)} pair so the
- * last write wins and the counts are stable across direction queries.
- *
- * The resolver clamps `memberScanCap`/`perMemberCount`/`hops` server-side and flips `isPartial`
- * when truncation kicks in; we surface that on the consumer side via the relationship object.
+ * Fires the `domainLineage` resolver per direction and merges the result into
+ * {@link LineageNodesContext.aggregatedDomainEdges} (neighbour-Domain rollups) and
+ * {@link LineageNodesContext.aggregatedInnerEdges} (DP↔DP edges inside the source Domain).
+ * Inner-edge dedupe keys are direction-agnostic — both direction queries surface the same
+ * canonical {@code (upstream, downstream)} pair so the counts stay stable.
  */
 export default function useFetchDomainLineageRelationships(): boolean {
     const {
@@ -97,10 +90,8 @@ export default function useFetchDomainLineageRelationships(): boolean {
         setAggregatedDomainEdges(merged);
     }, [enabled, merged, setAggregatedDomainEdges]);
 
-    // Register each neighbour Domain as a `LineageNodesContext.nodes` entry so the standard
-    // expand-lineage UI (ExpandLineageButton + useOnClickExpandLineage) treats them as
-    // first-class graph nodes. Without this, neighbour Domains are pure render-time projections
-    // and have no persistent fetch-status state for multi-hop drill-down.
+    // Register each neighbour Domain as a `nodes` entry so ExpandLineageButton + multi-hop
+    // drill-down treat them as first-class graph nodes with persistent fetch state.
     useEffect(() => {
         if (!enabled || !merged) return;
         let added = false;
@@ -123,8 +114,8 @@ export default function useFetchDomainLineageRelationships(): boolean {
 
     if (!enabled) return true;
 
-    // Treat partial / failed loads as initialised — `computeDomainGraph` will simply render fewer
-    // neighbour boxes; not blocking the rest of the page is the right UX.
+    // Partial / failed loads count as initialised: `computeDomainGraph` simply renders fewer
+    // neighbour boxes rather than blocking the page.
     return (
         (aggregatedDomainEdges !== undefined || !upstream.loading) &&
         (aggregatedDomainEdges !== undefined || !downstream.loading)
@@ -168,11 +159,8 @@ function ingestInnerEdges(
 }
 
 function makeNeighbourDomainNode(urn: string): LineageEntity {
-    // Both directions start UNFETCHED so the ExpandLineageButton renders — the user can drill into
-    // either direction from any visible Domain. `numUpstreamChildren`/`numDownstreamChildren` are
-    // optimistic hints (we don't know the real counts until the user expands, and the resolver
-    // doesn't precompute them); set to 1 so the button shows. If a direction returns zero, the
-    // status flips to COMPLETE and the button disappears via the existing `isFetchComplete` gate.
+    // Both directions start UNFETCHED so ExpandLineageButton renders for drill-down. Real
+    // child counts (set in applyNeighbourMetadata) replace the placeholder once we know them.
     return {
         id: urn,
         urn,
@@ -209,10 +197,8 @@ function applyNeighbourMetadata(node: LineageEntity, edge: AggregatedDomainEdge)
     };
     // eslint-disable-next-line no-param-reassign
     node.entity = fetchedEntity;
-    // The subtitle reflects the asset-rollup count for the edge connecting this neighbour to its
-    // source. If the same neighbour has edges from multiple sources, the last-written subtitle wins
-    // — acceptable because the count semantics ("N assets touch this Domain") only meaningfully
-    // resolve in the context of the source bbox at hand.
+    // Subtitle is the asset-rollup count from this edge. With multiple source edges the last
+    // write wins, which is fine — the count only makes sense relative to one source bbox at a time.
     // eslint-disable-next-line no-param-reassign
     node.displaySubtitle = formatAssetCount(edge.memberMatchCount);
 }
