@@ -1,4 +1,5 @@
 const { execSync } = require('child_process');
+const fs = require('fs');
 const path = require('path');
 
 // --------------------------------------------------------------------------
@@ -79,6 +80,40 @@ const COLOR_ENFORCEMENT_RULES = {
     'rulesdir/no-hardcoded-colors': 'error',
 };
 
+// --------------------------------------------------------------------------
+// i18n string enforcement
+//
+// Only runs on files listed in translated-files.txt. Add a file path to that
+// list once its translations are wired up to opt it into the rule.
+// --------------------------------------------------------------------------
+const translatedFilesPath = path.resolve(__dirname, 'translated-files.txt');
+const translatedFilesContent = fs.existsSync(translatedFilesPath)
+    ? fs.readFileSync(translatedFilesPath, 'utf8')
+    : '';
+const translatedFiles = new Set(translatedFilesContent.split('\n').filter(Boolean));
+
+const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
+    'to',
+    'path',
+    'target',
+    'type',
+    'rel',
+    'href',
+    'name',
+    '.*className$',
+    '.*ClassName$',
+    '.*testid$',
+    '.*TestId$',
+    '.*width$',
+    '.*Width$',
+    '.*key$',
+    '.*Key$',
+    '.*color$',
+    '.*Color$',
+    '.*id$',
+    '.*Id$',
+];
+
 // Files that legitimately need raw color values
 const COLOR_RULE_EXCLUDED_FILES = [
     'src/conf/theme/colorThemes/**',
@@ -97,7 +132,7 @@ module.exports = {
         'plugin:vitest/recommended',
         'prettier',
     ],
-    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias', 'rulesdir'],
+    plugins: ['@typescript-eslint', '@stylistic/js', 'react-refresh', 'import-alias', 'rulesdir', 'i18next'],
     parserOptions: {
         ecmaVersion: 2020,
         sourceType: 'module',
@@ -118,8 +153,7 @@ module.exports = {
                     },
                     {
                         name: 'moment-timezone',
-                        message:
-                            'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
+                        message: 'moment-timezone was removed for bundle size. Use dayjs with timezone plugin instead.',
                     },
                     {
                         name: 'moment/moment',
@@ -153,7 +187,8 @@ module.exports = {
                     {
                         name: '@monaco-editor/react',
                         importNames: ['loader'],
-                        message: "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
+                        message:
+                            "Configure Monaco's loader path via `import '@conf/monaco'` instead of calling loader.config() directly.",
                     },
                 ],
             },
@@ -229,6 +264,31 @@ module.exports = {
                       files: changedTsFiles,
                       excludedFiles: COLOR_RULE_EXCLUDED_FILES,
                       rules: COLOR_ENFORCEMENT_RULES,
+                  },
+              ]
+            : []),
+        // i18n enforcement — only on files listed in translated-files.txt
+        ...(translatedFiles.size > 0
+            ? [
+                  {
+                      files: [...translatedFiles],
+                      rules: {
+                          'i18next/no-literal-string': [
+                              'error',
+                              {
+                                  mode: 'jsx-only',
+                                  'jsx-attributes': {
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  'object-properties': {
+                                      exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
+                                  },
+                                  words: {
+                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$'],
+                                  },
+                              },
+                          ],
+                      },
                   },
               ]
             : []),
