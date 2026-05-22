@@ -3119,7 +3119,13 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient, groupService))
-                .dataFetcher("domainLineage", new DomainLineageResolver()));
+                .dataFetcher(
+                    "domainLineage",
+                    new DomainLineageResolver(
+                        entityClient,
+                        graphClient,
+                        restrictedService,
+                        this.authorizationConfiguration)));
     builder.type(
         "DomainAssociation",
         typeWiring ->
@@ -3219,7 +3225,14 @@ public class GmsGraphQLEngine {
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
                         documentService, entityClient, groupService))
-                .dataFetcher("dataProductLineage", new DataProductLineageResolver()));
+                .dataFetcher(
+                    "dataProductLineage",
+                    new DataProductLineageResolver(
+                        entityClient,
+                        graphClient,
+                        dataProductService,
+                        restrictedService,
+                        this.authorizationConfiguration)));
   }
 
   private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {
