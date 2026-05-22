@@ -168,7 +168,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `fill: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
         width: 20px;
         height: 20px;
         min-width: 20px;
@@ -188,7 +188,7 @@ const IconWrapper = styled.div<{ $isSelected?: boolean }>`
         ${(props) =>
             props.$isSelected
                 ? `color: url(#menu-item-selected-gradient) ${props.theme.colors.iconSelected};`
-                : `color: ${props.theme.colors.textTertiary};`}
+                : `color: ${props.theme.colors.icon};`}
         width: 20px;
         height: 20px;
 

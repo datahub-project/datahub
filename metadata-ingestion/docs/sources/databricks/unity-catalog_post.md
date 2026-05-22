@@ -84,3 +84,5 @@ Also check the [Unity Catalog limitations](https://docs.databricks.com/data-gove
 #### Lineage extraction is too slow
 
 Unity Catalog REST API requires one call per table (table lineage) and one call per column (column lineage). To improve performance, disable column lineage with `include_column_lineage: false`.
+
+Similarly, `include_table_constraints: true` adds one `tables.get()` call per non-Hive table to fetch primary key and foreign key constraints. For workspaces with thousands of tables this adds latency; leave the flag disabled (the default) if Primary Key / Foreign Key metadata is not needed.

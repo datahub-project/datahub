@@ -5,6 +5,7 @@ import logging
 import re
 import time
 from typing import (
+    AbstractSet,
     Any,
     Dict,
     FrozenSet,
@@ -150,6 +151,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     DomainsClass,
+    ForeignKeyConstraintClass,
     MLModelPropertiesClass,
     MySqlDDLClass,
     NullTypeClass,
@@ -1896,6 +1898,72 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         table: Table,
         metric_view_spec: Optional[Dict[str, Any]] = None,
     ) -> Tuple[SchemaMetadataClass, Iterable[MetadataWorkUnit]]:
+        # Collect primary-key column names and FK constraints from the API when
+        # enabled. `tables.get()` is required because `tables.list()` does not
+        # return table_constraints. Partition index values (used for
+        # `isPartitioningKey`) come from `tables.list()` — no extra API call needed.
+        primary_key_columns: Optional[Set[str]] = None
+        datahub_foreign_keys: Optional[List[ForeignKeyConstraintClass]] = None
+
+        # Fetch PK/FK constraints if requested
+        if self.config.include_table_constraints:
+            primary_key_columns = set()
+            raw_constraints = self.unity_catalog_api_proxy.get_table_constraints(table)
+            for constraint in raw_constraints:
+                if constraint.primary_key_constraint:
+                    primary_key_columns.update(
+                        constraint.primary_key_constraint.child_columns or []
+                    )
+
+            fk_raw = [
+                c.foreign_key_constraint
+                for c in raw_constraints
+                if c.foreign_key_constraint
+            ]
+            if fk_raw:
+                dataset_urn = self.gen_dataset_urn(table.ref)
+                datahub_foreign_keys = []
+                for fk in fk_raw:
+                    if not fk.name:
+                        logger.warning(
+                            f"FK constraint on {table.ref} has no name — skipping"
+                        )
+                        continue
+                    if not fk.parent_columns or not fk.child_columns:
+                        logger.warning(
+                            f"FK constraint '{fk.name}' on {table.ref} has empty "
+                            f"column list — skipping"
+                        )
+                        continue
+                    parent_parts = (fk.parent_table or "").split(".")
+                    if len(parent_parts) != 3:
+                        logger.warning(
+                            f"Unexpected parent_table format in FK constraint "
+                            f"'{fk.name}': {fk.parent_table!r} — skipping"
+                        )
+                        continue
+                    parent_ref = TableReference(
+                        metastore=table.ref.metastore,
+                        catalog=parent_parts[0],
+                        schema=parent_parts[1],
+                        table=parent_parts[2],
+                    )
+                    foreign_dataset_urn = self.gen_dataset_urn(parent_ref)
+                    datahub_foreign_keys.append(
+                        ForeignKeyConstraintClass(
+                            name=fk.name,
+                            foreignDataset=foreign_dataset_urn,
+                            foreignFields=[
+                                make_schema_field_urn(foreign_dataset_urn, col)
+                                for col in fk.parent_columns
+                            ],
+                            sourceFields=[
+                                make_schema_field_urn(dataset_urn, col)
+                                for col in fk.child_columns
+                            ],
+                        )
+                    )
+
         schema_fields: List[SchemaFieldClass] = []
         unique_tags: Set[UnityCatalogTag] = set()
         dim_measure_tags, dim_measure_descriptions = (
@@ -1917,6 +1985,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     tag_urns,
                     extra_tags=extra_tags,
                     description_override=description_override,
+                    primary_key_columns=primary_key_columns,
+                    include_partition_keys=self.config.include_partition_keys,
                 )
             )
 
@@ -1929,6 +1999,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 hash="",
                 version=0,
                 platformSchema=MySqlDDLClass(tableSchema=""),
+                primaryKeys=(
+                    sorted(primary_key_columns)
+                    if primary_key_columns is not None
+                    else None
+                ),
+                foreignKeys=datahub_foreign_keys if datahub_foreign_keys else None,
             ),
             platform_resources,
         )
@@ -2106,6 +2182,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         tags: Optional[List[TagUrn]],
         extra_tags: Optional[List[TagUrn]] = None,
         description_override: Optional[str] = None,
+        primary_key_columns: Optional[AbstractSet[str]] = None,
+        include_partition_keys: bool = False,
     ) -> List[SchemaFieldClass]:
         _COMPLEX_TYPE = re.compile("^(struct|array)")
         attribution = MetadataAttribution(
@@ -2150,6 +2228,17 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 nullable=column.nullable,
                 description=description,
                 globalTags=global_tags,
+                isPartOfKey=(
+                    True
+                    if primary_key_columns is not None
+                    and column.name in primary_key_columns
+                    else None
+                ),
+                isPartitioningKey=(
+                    True
+                    if include_partition_keys and column.partition_index is not None
+                    else None
+                ),
             )
         ]
 

@@ -925,13 +925,21 @@ class SnowflakeDataDictionary(SupportsAsObj):
         if not views_with_empty_definition:
             return []
 
+        # Max view names per prefix group; bounds the rows returned by
+        # each SHOW VIEWS LIKE 'prefix%' query.
+        _SHOW_VIEWS_MAX_BATCH_SIZE = 1000
+        # One prefix per batch: we issue one SHOW VIEWS query per group.
+        _SHOW_VIEWS_MAX_GROUPS_IN_BATCH = 1
+
         view_names = [view.name for view in views_with_empty_definition]
         # build_prefix_batches packs multiple PrefixGroups per batch; we issue one
         # SHOW VIEWS query per prefix, so flatten and iterate over every group.
         prefix_groups = [
             group
             for batch in build_prefix_batches(
-                view_names, max_batch_size=1000, max_groups_in_batch=1
+                view_names,
+                max_batch_size=_SHOW_VIEWS_MAX_BATCH_SIZE,
+                max_groups_in_batch=_SHOW_VIEWS_MAX_GROUPS_IN_BATCH,
             )
             for group in batch
         ]
@@ -1564,8 +1572,17 @@ class SnowflakeDataDictionary(SupportsAsObj):
             ]
         else:
             # Build batches for full schema scan
+            # Max object names per batch; bounds the WHERE clause size of the
+            # per-batch SELECT against information_schema.columns.
+            _COLUMN_FETCH_MAX_BATCH_SIZE = 10000
+            # Max prefix groups per batch; limits how many table_name LIKE
+            # clauses are OR'd together in one query.
+            _COLUMN_FETCH_MAX_GROUPS_IN_BATCH = 6
+
             object_batches = build_prefix_batches(
-                all_objects, max_batch_size=10000, max_groups_in_batch=6
+                all_objects,
+                max_batch_size=_COLUMN_FETCH_MAX_BATCH_SIZE,
+                max_groups_in_batch=_COLUMN_FETCH_MAX_GROUPS_IN_BATCH,
             )
 
         # Process batches
