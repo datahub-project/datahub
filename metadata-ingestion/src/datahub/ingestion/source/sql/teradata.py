@@ -400,6 +400,20 @@ def _execute_with_retry(
             )
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
+                # Only emitted when the error was retryable (i.e. we actually slept and retried) and
+                # at least one retry was made; permanent errors are left for callers
+                # which have the higher-level context (schema, table name, etc.).
+                if report is not None and _should_retry(exc) and attempt > 0:
+                    report.failure(
+                        title="Database execute failed after retries",
+                        message=(
+                            f"A retryable error persisted after {attempt + 1} attempts. "
+                            "The operation has been abandoned. "
+                            "Check Teradata connectivity and cluster stability."
+                        ),
+                        context=str(exc),
+                        exc=exc,
+                    )
                 raise
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
@@ -409,6 +423,7 @@ def _execute_with_retry(
             if report is not None:
                 report.increment_db_retries()
             time.sleep(backoff)
+
     raise AssertionError("unreachable")  # loop always raises or returns
 
 
@@ -436,6 +451,17 @@ def _fetchmany_with_retry(
             return result.fetchmany(batch_size)  # type: ignore[no-any-return]
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
+                if report is not None and _should_retry(exc) and attempt > 0:
+                    report.failure(
+                        title="Database fetchmany failed after retries",
+                        message=(
+                            f"A retryable error persisted after {attempt + 1} attempts. "
+                            "The fetch has been abandoned. "
+                            "Check Teradata connectivity and cluster stability."
+                        ),
+                        context=str(exc),
+                        exc=exc,
+                    )
                 raise
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
