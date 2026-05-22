@@ -58,6 +58,7 @@ class UnityCatalogSQLGenericTable(BaseTable):
 
 
 class UnityCatalogGEProfiler(GenericProfiler):
+    config: UnityCatalogSourceConfig  # narrows GenericProfiler.config for mypy
     profiling_config: Union[
         UnityCatalogGEProfilerConfig, UnityCatalogSQLAlchemyProfilerConfig
     ]
