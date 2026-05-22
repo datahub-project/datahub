@@ -175,6 +175,29 @@ fragment domainLineageResultFields on DomainLineageResult {
             }
         }
     }
+    innerEdges {
+        memberMatchCount
+        degreeMin
+        degreeMax
+        upstream {
+            urn
+            type
+            ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+        }
+        downstream {
+            urn
+            type
+            ... on DataProduct {
+                properties {
+                    name
+                }
+            }
+        }
+    }
 }
 
 # We should replace this with a cached summary object on the domain

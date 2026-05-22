@@ -11,6 +11,7 @@ import {
 import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/LineageEntityNode';
 import {
     AggregatedDomainEdge,
+    AggregatedInnerEdge,
     FetchStatus,
     GraphStoreFields,
     LINEAGE_NODE_HEIGHT,
@@ -31,7 +32,10 @@ const MEMBER_VERTICAL_GAP = 30;
 const NEIGHBOUR_VERTICAL_GAP = 30;
 const NEIGHBOUR_HORIZONTAL_GAP = 240;
 
-type DomainGraphContext = Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType' | 'aggregatedDomainEdges'>;
+type DomainGraphContext = Pick<
+    NodeContext,
+    GraphStoreFields | LineageToggles | 'rootType' | 'aggregatedDomainEdges' | 'aggregatedInnerEdges'
+>;
 
 /**
  * Computes the lineage graph for a Domain.
@@ -49,9 +53,13 @@ type DomainGraphContext = Pick<NodeContext, GraphStoreFields | LineageToggles | 
  *    and a tooltip exposing the full resolver bucket (memberMatchCount,
  *    neighbourEntityCount, degree min/max). Bounding boxes expose anchor handles via
  *    {@link LineageBoundingBoxNode} so ReactFlow can route these edges cleanly.
+ * 4. Inner edges from {@code aggregatedInnerEdges} (server-computed DP↔DP rollups where both
+ *    DPs belong to the source Domain) become {@link AggregatedLineageEdge}s drawn between the
+ *    member DP nodes inside the source bbox. These edges only appear when assets across two
+ *    member DPs have direct asset-level lineage — they're not a transitive rollup.
  */
 export default function computeDomainGraph(urn: string, type: EntityType, context: DomainGraphContext) {
-    const { nodes, aggregatedDomainEdges } = context;
+    const { nodes, aggregatedDomainEdges, aggregatedInnerEdges } = context;
     const flowNodes: LineageVisualizationNode[] = [];
     const flowEdges: Edge[] = [];
 
@@ -66,7 +74,40 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
         flowEdges.push(...buildAggregatedEdges(aggregatedDomainEdges, urn));
     }
 
+    if (aggregatedInnerEdges && aggregatedInnerEdges.size > 0) {
+        const memberDpUrns = new Set(memberFlowNodes.map((n) => n.id));
+        flowEdges.push(...buildInnerAggregatedEdges(aggregatedInnerEdges, memberDpUrns));
+    }
+
     return { flowNodes, flowEdges, resetPositions: false };
+}
+
+function buildInnerAggregatedEdges(
+    innerEdges: ReadonlyMap<string, AggregatedInnerEdge>,
+    memberDpUrns: Set<Urn>,
+): Edge<AggregatedLineageEdgeData>[] {
+    const out: Edge<AggregatedLineageEdgeData>[] = [];
+    innerEdges.forEach((edge) => {
+        // Only render edges whose endpoints are both member DPs we actually laid out in the
+        // source bbox. Stray endpoints (e.g. a DP that's referenced by inner-edge data but
+        // isn't in the current member set) have no node to anchor onto and would render as
+        // dangling ReactFlow edges, so we skip them.
+        if (!memberDpUrns.has(edge.upstreamUrn) || !memberDpUrns.has(edge.downstreamUrn)) {
+            return;
+        }
+        out.push({
+            id: `aggregated::inner::${edge.upstreamUrn}::${edge.downstreamUrn}`,
+            source: edge.upstreamUrn,
+            target: edge.downstreamUrn,
+            type: AGGREGATED_LINEAGE_EDGE_NAME,
+            data: {
+                memberMatchCount: edge.memberMatchCount,
+                degreeMin: edge.degreeMin,
+                degreeMax: edge.degreeMax,
+            },
+        });
+    });
+    return out;
 }
 
 function buildAggregatedEdges(

@@ -41,6 +41,7 @@ export default function useComputeGraph(): ProcessedData {
         showDataProcessInstances,
         showGhostEntities,
         aggregatedDomainEdges,
+        aggregatedInnerEdges,
     } = useContext(LineageNodesContext);
     const displayVersionNumber = displayVersion[0];
     const { isModuleView } = useContext(LineageGraphContext);
@@ -65,6 +66,7 @@ export default function useComputeGraph(): ProcessedData {
                 showDataProcessInstances,
                 showGhostEntities,
                 aggregatedDomainEdges,
+                aggregatedInnerEdges,
             };
 
             if (rootType === EntityType.DataFlow) {
@@ -120,6 +122,7 @@ export default function useComputeGraph(): ProcessedData {
             dataVersion,
             isModuleView,
             aggregatedDomainEdges,
+            aggregatedInnerEdges,
         ],
     );
 

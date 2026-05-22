@@ -87,6 +87,21 @@ export interface AggregatedDomainEdge {
     degreeMax: number;
 }
 
+/**
+ * Canonicalised inner DP↔DP edge that the `domainLineage` resolver computes for the source
+ * Domain. Always emitted with `(upstreamDp, downstreamDp)` ordering so the frontend can dedupe
+ * the same physical edge that the upstream and downstream queries both surface.
+ */
+export interface AggregatedInnerEdge {
+    upstreamUrn: Urn;
+    upstreamName?: string;
+    downstreamUrn: Urn;
+    downstreamName?: string;
+    memberMatchCount: number;
+    degreeMin: number;
+    degreeMax: number;
+}
+
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
 const LINEAGE_FILTER_ID_PREFIX = 'lf:';
 
@@ -322,6 +337,8 @@ export interface NodeContext {
      */
     aggregatedDomainEdges?: Map<string, AggregatedDomainEdge>;
     setAggregatedDomainEdges?: Dispatch<SetStateAction<Map<string, AggregatedDomainEdge> | undefined>>;
+    aggregatedInnerEdges?: Map<string, AggregatedInnerEdge>;
+    setAggregatedInnerEdges?: Dispatch<SetStateAction<Map<string, AggregatedInnerEdge> | undefined>>;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({

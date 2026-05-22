@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 
 import {
     AggregatedDomainEdge,
+    AggregatedInnerEdge,
     EdgeId,
     LineageEdge,
     LineageEntity,
@@ -43,6 +44,9 @@ export default function LineageExplorer(props: Props) {
     const [aggregatedDomainEdges, setAggregatedDomainEdges] = useState<Map<string, AggregatedDomainEdge> | undefined>(
         undefined,
     );
+    const [aggregatedInnerEdges, setAggregatedInnerEdges] = useState<Map<string, AggregatedInnerEdge> | undefined>(
+        undefined,
+    );
 
     const context: NodeContext = {
         rootUrn: urn,
@@ -66,6 +70,8 @@ export default function LineageExplorer(props: Props) {
         setShowGhostEntities,
         aggregatedDomainEdges,
         setAggregatedDomainEdges,
+        aggregatedInnerEdges,
+        setAggregatedInnerEdges,
     };
 
     return (

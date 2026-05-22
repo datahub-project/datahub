@@ -95,6 +95,23 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
 
   protected abstract List<String> getNeighbourEntityTypes();
 
+  /**
+   * Optional hook: subclasses can compute "inner edges" that live entirely inside the source scope
+   * (e.g. DP↔DP edges where both DPs belong to the source Domain). Default no-op.
+   *
+   * <p>Implementations receive the raw per-neighbour hit map BEFORE neighbour-set truncation —
+   * truncation only affects the main bucket list and is intentionally not applied here so that
+   * inner edges within the source scope remain complete even when a Domain has thousands of
+   * cross-Domain neighbours.
+   */
+  protected List<AggregatedLineageResponse.InnerEdge> computeInnerEdges(
+      QueryContext context,
+      AggregatedLineageRequest request,
+      MembersResult members,
+      Map<Urn, LineageHit> hitsByNeighbour) {
+    return Collections.emptyList();
+  }
+
   @Override
   public final CompletableFuture<R> get(final DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
@@ -138,9 +155,28 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       }
     }
 
-    final Map<Urn, LineageHit> rawHits = collectHits(members.getUrns(), perMemberResults);
-    if (rawHits.isEmpty()) {
+    final HitsByScope splitHits = collectHits(members.getUrns(), perMemberResults);
+    final Map<Urn, LineageHit> rawHits = splitHits.crossScope;
+    if (rawHits.isEmpty() && splitHits.withinScope.isEmpty()) {
       return buildResult(emptyResponse(request, members, isPartial));
+    }
+    if (rawHits.isEmpty()) {
+      // Only within-scope hits exist (all lineage stays inside the source). No cross-scope
+      // relationships to bucket, but inner edges may still be present.
+      final List<AggregatedLineageResponse.InnerEdge> innerOnly =
+          computeInnerEdges(context, request, members, splitHits.withinScope);
+      return buildResult(
+          AggregatedLineageResponse.builder()
+              .start(request.getStart())
+              .count(0)
+              .total(0)
+              .memberScanCount(members.getUrns().size())
+              .memberTotal(members.getTotal())
+              .isPartial(isPartial)
+              .direction(request.getDirection())
+              .relationships(Collections.emptyList())
+              .innerEdges(innerOnly)
+              .build());
     }
     final Map<Urn, LineageHit> hitsByNeighbour;
     if (rawHits.size() > MAX_OWNER_LOOKUP_NEIGHBOURS) {
@@ -194,6 +230,9 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
             .map(b -> toRelationship(context, b))
             .collect(Collectors.toList());
 
+    final List<AggregatedLineageResponse.InnerEdge> innerEdges =
+        computeInnerEdges(context, request, members, splitHits.withinScope);
+
     return buildResult(
         AggregatedLineageResponse.builder()
             .start(request.getStart())
@@ -204,6 +243,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
             .isPartial(isPartial)
             .direction(request.getDirection())
             .relationships(relationships)
+            .innerEdges(innerEdges)
             .build());
   }
 
@@ -347,10 +387,23 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
     return capped;
   }
 
-  private static Map<Urn, LineageHit> collectHits(
+  /**
+   * Collect per-neighbour hits and split into two maps:
+   *
+   * <ul>
+   *   <li>{@code crossScope}: neighbours that are NOT source members — drive the main bucketing /
+   *       relationships output. This is what callers historically consumed.
+   *   <li>{@code withinScope}: neighbours that ARE source members — drive {@link
+   *       #computeInnerEdges} for inner-scope edge computation (e.g. DP↔DP edges inside the source
+   *       Domain). Without this split, in-scope hits would be silently dropped because they'd
+   *       surface as self-loop noise in the cross-scope relationships output.
+   * </ul>
+   */
+  private static HitsByScope collectHits(
       final List<Urn> members, final List<LineageSearchResult> perMemberResults) {
     final Set<Urn> memberSet = new HashSet<>(members);
-    final Map<Urn, LineageHit> byNeighbour = new HashMap<>();
+    final Map<Urn, LineageHit> crossScope = new HashMap<>();
+    final Map<Urn, LineageHit> withinScope = new HashMap<>();
     for (int i = 0; i < members.size(); i++) {
       final Urn memberUrn = members.get(i);
       final LineageSearchResult result = perMemberResults.get(i);
@@ -359,20 +412,32 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       }
       for (final LineageSearchEntity entity : result.getEntities()) {
         final Urn neighbourUrn = entity.getEntity();
-        if (neighbourUrn == null || memberSet.contains(neighbourUrn)) {
+        if (neighbourUrn == null || neighbourUrn.equals(memberUrn)) {
           continue;
         }
         final int degree =
             entity.getDegrees() != null && !entity.getDegrees().isEmpty()
                 ? entity.getDegrees().stream().mapToInt(Integer::intValue).min().orElse(1)
                 : 1;
-        final LineageHit hit = byNeighbour.computeIfAbsent(neighbourUrn, k -> new LineageHit());
+        final Map<Urn, LineageHit> targetMap =
+            memberSet.contains(neighbourUrn) ? withinScope : crossScope;
+        final LineageHit hit = targetMap.computeIfAbsent(neighbourUrn, k -> new LineageHit());
         hit.contributingMembers.add(memberUrn);
         hit.minDegree = Math.min(hit.minDegree, degree);
         hit.maxDegree = Math.max(hit.maxDegree, degree);
       }
     }
-    return byNeighbour;
+    return new HitsByScope(crossScope, withinScope);
+  }
+
+  private static final class HitsByScope {
+    final Map<Urn, LineageHit> crossScope;
+    final Map<Urn, LineageHit> withinScope;
+
+    HitsByScope(Map<Urn, LineageHit> crossScope, Map<Urn, LineageHit> withinScope) {
+      this.crossScope = crossScope;
+      this.withinScope = withinScope;
+    }
   }
 
   private Map<Urn, OwnerBucket> applyAuthorization(
@@ -406,7 +471,7 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
         .build();
   }
 
-  private Entity buildEntity(final QueryContext context, final Urn ownerUrn) {
+  protected Entity buildEntity(final QueryContext context, final Urn ownerUrn) {
     if (RestrictedService.RESTRICTED_ENTITY_TYPE.equals(ownerUrn.getEntityType())) {
       final Restricted restricted = new Restricted();
       restricted.setType(EntityType.RESTRICTED);
@@ -441,10 +506,15 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
         .build();
   }
 
-  private static final class LineageHit {
-    final Set<Urn> contributingMembers = new HashSet<>();
-    int minDegree = Integer.MAX_VALUE;
-    int maxDegree = Integer.MIN_VALUE;
+  /**
+   * Per-neighbour record produced by {@link #collectHits}. Exposed as protected so that subclasses
+   * overriding {@link #computeInnerEdges} can inspect which source members contributed to each
+   * neighbour without recomputing.
+   */
+  public static final class LineageHit {
+    public final Set<Urn> contributingMembers = new HashSet<>();
+    public int minDegree = Integer.MAX_VALUE;
+    public int maxDegree = Integer.MIN_VALUE;
   }
 
   private static final class OwnerBucket {

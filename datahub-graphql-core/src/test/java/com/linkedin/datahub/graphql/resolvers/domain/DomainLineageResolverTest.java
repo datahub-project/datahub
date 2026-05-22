@@ -14,12 +14,16 @@ import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationConfiguration;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
+import com.linkedin.common.EntityRelationship;
+import com.linkedin.common.EntityRelationshipArray;
+import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.IntegerArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
+import com.linkedin.datahub.graphql.generated.DomainAggregatedInnerEdge;
 import com.linkedin.datahub.graphql.generated.DomainLineageInput;
 import com.linkedin.datahub.graphql.generated.DomainLineageRelationship;
 import com.linkedin.datahub.graphql.generated.DomainLineageResult;
@@ -32,6 +36,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.graph.GraphClient;
+import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.LineageSearchEntity;
 import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
@@ -43,8 +48,10 @@ import io.datahubproject.metadata.services.RestrictedService;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.mockito.ArgumentMatchers;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -346,6 +353,105 @@ public class DomainLineageResolverTest {
     assertEquals(result.getRelationships().get(0).getEntity().getUrn(), NEIGHBOUR_DOMAIN_A);
   }
 
+  @Test
+  public void testTransitiveMembersEnumeratedViaDataProduct() throws Exception {
+    // No assets have `domains==sourceDomain` set directly. Instead, DP "dpA" is in the source
+    // Domain and contains MEMBER_1 + MEMBER_2 via DataProductContains. The resolver must walk via
+    // the DP to discover them as source-Domain members and then aggregate their lineage normally.
+    String dpA = "urn:li:dataProduct:dpA";
+
+    setMembers(); // zero direct members
+    setDataProductsInSourceDomain(dpA);
+    setDataProductContains(dpA, MEMBER_1, MEMBER_2);
+    setLineageHits(MEMBER_1, hit(NEIGHBOUR_1, 1));
+    setLineageHits(MEMBER_2, hit(NEIGHBOUR_1, 1));
+    setDomainOwners(NEIGHBOUR_1, NEIGHBOUR_DOMAIN_A);
+
+    when(env.getArgument(eq("input"))).thenReturn(downstreamInput());
+
+    DomainLineageResult result = resolver.get(env).join();
+
+    assertEquals(
+        result.getMemberScanCount(),
+        2,
+        "both DP-contained assets must be enumerated as source-Domain members");
+    assertEquals(result.getTotal(), 1, "two transitive members both reach the same owner Domain");
+    assertEquals(result.getRelationships().size(), 1);
+    DomainLineageRelationship rel = result.getRelationships().get(0);
+    assertEquals(rel.getEntity().getUrn(), NEIGHBOUR_DOMAIN_A);
+    assertEquals(rel.getMemberMatchCount(), 2);
+  }
+
+  @Test
+  public void testDirectAndTransitiveMembersAreDeduped() throws Exception {
+    // MEMBER_1 is tagged directly with the source Domain AND is contained by dpA which also
+    // belongs to the source Domain. It must appear once in the scanned-member set, not twice.
+    String dpA = "urn:li:dataProduct:dpA";
+
+    setMembers(MEMBER_1);
+    setDataProductsInSourceDomain(dpA);
+    setDataProductContains(dpA, MEMBER_1);
+    setLineageHits(MEMBER_1, hit(NEIGHBOUR_1, 1));
+    setDomainOwners(NEIGHBOUR_1, NEIGHBOUR_DOMAIN_A);
+
+    when(env.getArgument(eq("input"))).thenReturn(downstreamInput());
+
+    DomainLineageResult result = resolver.get(env).join();
+
+    assertEquals(result.getMemberScanCount(), 1, "MEMBER_1 must not be double-counted");
+    assertEquals(result.getRelationships().get(0).getMemberMatchCount(), 1);
+  }
+
+  @Test
+  public void testInnerEdgesEmittedBetweenMemberDpsForWithinDomainLineage() throws Exception {
+    // Source Domain has two member DPs (dpA, dpB), each containing one dataset.
+    // MEMBER_1 (in dpA) has downstream lineage to MEMBER_2 (in dpB).
+    // Both ends are source-Domain members so the within-scope split picks the hit up;
+    // the main relationships list is empty (no cross-Domain neighbours), but innerEdges
+    // must contain one canonical (upstream=dpA, downstream=dpB) entry.
+    String dpA = "urn:li:dataProduct:dpA";
+    String dpB = "urn:li:dataProduct:dpB";
+
+    setMembers(MEMBER_1, MEMBER_2);
+    setLineageHits(MEMBER_1, hit(MEMBER_2, 1));
+    setDataProductsInSourceDomain(dpA, dpB);
+    setDataProductOwnership(MEMBER_1, dpA);
+    setDataProductOwnership(MEMBER_2, dpB);
+
+    when(env.getArgument(eq("input"))).thenReturn(downstreamInput());
+
+    DomainLineageResult result = resolver.get(env).join();
+
+    assertEquals(result.getTotal(), 0, "no cross-Domain neighbours");
+    assertTrue(result.getRelationships().isEmpty());
+    assertEquals(result.getInnerEdges().size(), 1, "one inner DP↔DP edge expected");
+    DomainAggregatedInnerEdge edge = result.getInnerEdges().get(0);
+    assertEquals(edge.getUpstream().getUrn(), dpA);
+    assertEquals(edge.getDownstream().getUrn(), dpB);
+    assertEquals(edge.getMemberMatchCount(), 1);
+    assertEquals(edge.getDegreeMin(), 1);
+    assertEquals(edge.getDegreeMax(), 1);
+  }
+
+  @Test
+  public void testInnerEdgesNotEmittedForSameDpLineage() throws Exception {
+    // MEMBER_1 and MEMBER_2 are both in dpA. Lineage between them must NOT produce an inner
+    // edge (no DP↔DP boundary crossed).
+    String dpA = "urn:li:dataProduct:dpA";
+
+    setMembers(MEMBER_1, MEMBER_2);
+    setLineageHits(MEMBER_1, hit(MEMBER_2, 1));
+    setDataProductsInSourceDomain(dpA);
+    setDataProductOwnership(MEMBER_1, dpA);
+    setDataProductOwnership(MEMBER_2, dpA);
+
+    when(env.getArgument(eq("input"))).thenReturn(downstreamInput());
+
+    DomainLineageResult result = resolver.get(env).join();
+
+    assertTrue(result.getInnerEdges().isEmpty(), "same-DP lineage must not produce inner edges");
+  }
+
   // ---------------------------------------------------------------------------
   // Mock-wiring helpers
   // ---------------------------------------------------------------------------
@@ -414,6 +520,78 @@ public class DomainLineageResolverTest {
     Map<String, String[]> single = new HashMap<>();
     single.put(neighbourUrn, ownerUrns);
     setDomainOwners(single);
+  }
+
+  /**
+   * Layers a more-specific {@code searchAcrossEntities} stub on top of the generic one in {@link
+   * #setMembersWithTotal}: when the resolver enumerates {@code [dataProduct]} entities for the
+   * inner-edge code path, return the provided URN set. Other entity-type lists fall through to the
+   * existing member-enumeration stub.
+   */
+  private void setDataProductsInSourceDomain(String... dpUrns) throws Exception {
+    SearchEntityArray entities = new SearchEntityArray();
+    for (String urn : dpUrns) {
+      entities.add(new SearchEntity().setEntity(UrnUtils.getUrn(urn)));
+    }
+    SearchResult dpResult = new SearchResult().setEntities(entities).setNumEntities(dpUrns.length);
+    when(entityClient.searchAcrossEntities(
+            any(),
+            ArgumentMatchers.<List<String>>argThat(
+                types ->
+                    types != null
+                        && types.size() == 1
+                        && types.contains(Constants.DATA_PRODUCT_ENTITY_NAME)),
+            anyString(),
+            any(),
+            anyInt(),
+            anyInt(),
+            anyList()))
+        .thenReturn(dpResult);
+  }
+
+  /**
+   * Mocks the OUTGOING side of {@code DataProductContains} on a DataProduct: from {@code dpUrn},
+   * return each {@code assetUrn} as a contained entity. Used to drive transitive Domain member
+   * enumeration via DPs.
+   */
+  private void setDataProductContains(String dpUrn, String... assetUrns) {
+    EntityRelationshipArray rels = new EntityRelationshipArray();
+    for (String assetUrn : assetUrns) {
+      EntityRelationship rel = new EntityRelationship();
+      rel.setEntity(UrnUtils.getUrn(assetUrn));
+      rels.add(rel);
+    }
+    EntityRelationships relationships = new EntityRelationships().setRelationships(rels);
+    when(graphClient.getRelatedEntities(
+            eq(dpUrn),
+            eq(Set.of("DataProductContains")),
+            eq(RelationshipDirection.OUTGOING),
+            anyInt(),
+            anyInt(),
+            anyString()))
+        .thenReturn(relationships);
+  }
+
+  /**
+   * Mocks {@link GraphClient#getRelatedEntities} for {@code DataProductContains} on the given asset
+   * to return the given DP URNs. Multiple calls accumulate across different assets.
+   */
+  private void setDataProductOwnership(String assetUrn, String... dpUrns) {
+    EntityRelationshipArray rels = new EntityRelationshipArray();
+    for (String dpUrn : dpUrns) {
+      EntityRelationship rel = new EntityRelationship();
+      rel.setEntity(UrnUtils.getUrn(dpUrn));
+      rels.add(rel);
+    }
+    EntityRelationships relationships = new EntityRelationships().setRelationships(rels);
+    when(graphClient.getRelatedEntities(
+            eq(assetUrn),
+            eq(Set.of("DataProductContains")),
+            eq(RelationshipDirection.INCOMING),
+            anyInt(),
+            anyInt(),
+            anyString()))
+        .thenReturn(relationships);
   }
 
   @SuppressWarnings("unchecked")

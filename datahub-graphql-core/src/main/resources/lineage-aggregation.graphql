@@ -121,6 +121,48 @@ type DomainLineageResult {
   The page of aggregated neighbour relationships.
   """
   relationships: [DomainLineageRelationship!]!
+
+  """
+  Aggregated lineage edges between DataProducts that both belong to the source Domain. Each
+  entry is an edge between two member DataProducts where at least one asset in the upstream DP
+  has lineage to at least one asset in the downstream DP. Used by the Domain lineage view to
+  show inter-DataProduct edges INSIDE the source Domain bounding box.
+  """
+  innerEdges: [DomainAggregatedInnerEdge!]!
+}
+
+"""
+An aggregated lineage edge between two DataProducts that both belong to the same source Domain.
+Direction is canonicalised: the {@code upstream} field always points to the DataProduct on the
+upstream side, regardless of which lineage direction the query that produced it used.
+"""
+type DomainAggregatedInnerEdge {
+  """
+  The DataProduct on the upstream side of the edge. Restricted placeholder if the caller
+  cannot view it.
+  """
+  upstream: Entity!
+
+  """
+  The DataProduct on the downstream side of the edge.
+  """
+  downstream: Entity!
+
+  """
+  Count of distinct (sourceMember, neighbour) asset pairs that contributed to this DP↔DP edge.
+  Higher values indicate more asset-level paths between the two DataProducts.
+  """
+  memberMatchCount: Int!
+
+  """
+  Minimum hop count across all contributing asset-level lineage paths.
+  """
+  degreeMin: Int!
+
+  """
+  Maximum hop count across all contributing asset-level lineage paths.
+  """
+  degreeMax: Int!
 }
 
 """

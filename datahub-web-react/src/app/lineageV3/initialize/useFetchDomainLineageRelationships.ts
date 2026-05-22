@@ -1,6 +1,6 @@
 import { useContext, useEffect, useMemo } from 'react';
 
-import { AggregatedDomainEdge, LineageNodesContext } from '@app/lineageV3/common';
+import { AggregatedDomainEdge, AggregatedInnerEdge, LineageNodesContext } from '@app/lineageV3/common';
 
 import { DomainLineageResultFieldsFragment, useGetDomainLineageQuery } from '@graphql/domain.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -14,11 +14,17 @@ const DEFAULT_COUNT = 25;
  * that map to draw neighbour-Domain boxes + count-labelled edges without doing any per-asset
  * lineage walking on the client.
  *
+ * Inner DP↔DP edges (resolver-computed for the source Domain) are merged into
+ * {@link LineageNodesContext.aggregatedInnerEdges} with the same per-edge dedupe key — both
+ * direction queries will surface the same canonical {@code (upstream, downstream)} pair so the
+ * last write wins and the counts are stable across direction queries.
+ *
  * The resolver clamps `memberScanCap`/`perMemberCount`/`hops` server-side and flips `isPartial`
  * when truncation kicks in; we surface that on the consumer side via the relationship object.
  */
 export default function useFetchDomainLineageRelationships(): boolean {
-    const { rootUrn, rootType, aggregatedDomainEdges, setAggregatedDomainEdges } = useContext(LineageNodesContext);
+    const { rootUrn, rootType, aggregatedDomainEdges, setAggregatedDomainEdges, setAggregatedInnerEdges } =
+        useContext(LineageNodesContext);
 
     const enabled = rootType === EntityType.Domain && !!setAggregatedDomainEdges;
 
@@ -58,10 +64,27 @@ export default function useFetchDomainLineageRelationships(): boolean {
         return map;
     }, [enabled, upstream.data, downstream.data]);
 
+    const mergedInnerEdges = useMemo<Map<string, AggregatedInnerEdge> | undefined>(() => {
+        if (!enabled) return undefined;
+        const upstreamResult = upstream.data?.domain?.domainLineage ?? undefined;
+        const downstreamResult = downstream.data?.domain?.domainLineage ?? undefined;
+        if (!upstreamResult && !downstreamResult) return undefined;
+
+        const map = new Map<string, AggregatedInnerEdge>();
+        ingestInnerEdges(map, upstreamResult);
+        ingestInnerEdges(map, downstreamResult);
+        return map;
+    }, [enabled, upstream.data, downstream.data]);
+
     useEffect(() => {
         if (!enabled || !setAggregatedDomainEdges) return;
         setAggregatedDomainEdges(merged);
     }, [enabled, merged, setAggregatedDomainEdges]);
+
+    useEffect(() => {
+        if (!enabled || !setAggregatedInnerEdges) return;
+        setAggregatedInnerEdges(mergedInnerEdges);
+    }, [enabled, mergedInnerEdges, setAggregatedInnerEdges]);
 
     if (!enabled) return true;
 
@@ -83,6 +106,28 @@ function ingest(
         if (!rel?.entity?.urn) return;
         const key = `${rel.entity.urn}::${direction}`;
         out.set(key, toAggregatedEdge(rel, direction));
+    });
+}
+
+function ingestInnerEdges(
+    out: Map<string, AggregatedInnerEdge>,
+    result: DomainLineageResultFieldsFragment | null | undefined,
+): void {
+    if (!result?.innerEdges) return;
+    result.innerEdges.forEach((rawEdge) => {
+        if (!rawEdge?.upstream?.urn || !rawEdge?.downstream?.urn) return;
+        const upstream = rawEdge.upstream as { urn: string; properties?: { name?: string | null } | null };
+        const downstream = rawEdge.downstream as { urn: string; properties?: { name?: string | null } | null };
+        const key = `${upstream.urn}::${downstream.urn}`;
+        out.set(key, {
+            upstreamUrn: upstream.urn,
+            upstreamName: upstream.properties?.name ?? undefined,
+            downstreamUrn: downstream.urn,
+            downstreamName: downstream.properties?.name ?? undefined,
+            memberMatchCount: rawEdge.memberMatchCount,
+            degreeMin: rawEdge.degreeMin,
+            degreeMax: rawEdge.degreeMax,
+        });
     });
 }
 
