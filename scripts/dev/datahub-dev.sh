@@ -4,23 +4,35 @@
 #   scripts/datahub-dev.sh rebuild --wait
 # etc.
 
-# Inject runner path from ~/.datahub/dev/config.json when not already set and
-# not running on a remote machine (DATAHUB_REMOTE_EXEC=1 means we are already
-# on the remote side of a runner invocation — no further proxying).
-if [ -z "$DATAHUB_RUNNER" ] && [ "$DATAHUB_REMOTE_EXEC" != "1" ]; then
-  DATAHUB_RUNNER=$(python3 - <<'EOF' 2>/dev/null
-import json, pathlib
+# Read per-user config from ~/.datahub/dev/config.json.
+# Reads two keys (runner, compose_project) in a single Python call to avoid
+# paying the interpreter startup cost twice.
+if [ "$DATAHUB_REMOTE_EXEC" != "1" ]; then
+  _dh_cfg=$(python3 - <<'EOF' 2>/dev/null
+import json, pathlib, sys
 cfg = pathlib.Path.home() / ".datahub/dev/config.json"
 try:
     d = json.loads(cfg.read_text())
     r = d.get("runner", "")
+    p = d.get("compose_project", "")
     if r:
-        print(str(pathlib.Path(r).expanduser()))
+        r = str(pathlib.Path(r).expanduser())
+    print(r)
+    print(p)
 except Exception:
-    pass
+    print("")
+    print("")
 EOF
 )
-  [ -n "$DATAHUB_RUNNER" ] && export DATAHUB_RUNNER
+  if [ -z "$DATAHUB_RUNNER" ]; then
+    DATAHUB_RUNNER=$(echo "$_dh_cfg" | sed -n '1p')
+    [ -n "$DATAHUB_RUNNER" ] && export DATAHUB_RUNNER
+  fi
+  if [ -z "$COMPOSE_PROJECT_NAME" ]; then
+    COMPOSE_PROJECT_NAME=$(echo "$_dh_cfg" | sed -n '2p')
+    [ -n "$COMPOSE_PROJECT_NAME" ] && export COMPOSE_PROJECT_NAME
+  fi
+  unset _dh_cfg
 fi
 
 # When a runner is configured and we're not already on the remote side,

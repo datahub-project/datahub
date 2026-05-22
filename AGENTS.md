@@ -593,6 +593,19 @@ eval $(scripts/dev/datahub-dev.sh shell-env)
 | 2    | 10080 | 11002    | First remote instance     |
 | …    | …     | …        | Each worktree is isolated |
 
+**Backwards compatibility / opting out of isolation** — if the new per-worktree
+project names cause problems (lost data in old volumes, tooling that expects
+`datahub-*` container names, CI environments that don't need isolation), set
+`compose_project` in `~/.datahub/dev/config.json`:
+
+```json
+{ "compose_project": "datahub" }
+```
+
+This reverts to the old single-instance behaviour: one `datahub` Docker project,
+same container names, existing volumes fully accessible. The env var
+`COMPOSE_PROJECT_NAME=datahub` has the same effect without touching the config file.
+
 **Runner interface** — a runner is any executable that speaks four verbs:
 
 ```bash
