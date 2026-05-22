@@ -3020,8 +3020,10 @@ class TestShouldRetry:
         assert _should_retry(OperationalError("connect timed out", None, None)) is True
 
     def test_operational_error_with_retryable_error_code(self):
-        # Error codes 2631, 3111, 3120, 3597, 3598, 3897 are explicitly retryable.
-        assert _should_retry(OperationalError("[Error 3597]", None, None)) is True
+        # Error codes 2631, 3111, 3120, 3598, 3897, 3603 are explicitly retryable.
+        assert _should_retry(OperationalError("[Error 3598]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 3897]", None, None)) is True
+        assert _should_retry(OperationalError("[Error 3603]", None, None)) is True
         assert _should_retry(OperationalError("[Error 2631]", None, None)) is True
 
     def test_operational_error_non_retryable_auth_failure(self):
@@ -3047,8 +3049,6 @@ class TestShouldRetry:
         """Every substring in _RETRYABLE_ERROR_SUBSTRINGS is recognised as retryable."""
         retryable_messages = [
             "transaction aborted",
-            "please try again",
-            "tdgss",
             "database restart",
             "connect timed out",
             "i/o timeout",
@@ -3064,7 +3064,7 @@ class TestShouldRetry:
 
     def test_all_retryable_error_codes_match(self):
         """Every numeric error code in _RETRYABLE_ERROR_CODE_RE is recognised as retryable."""
-        retryable_codes = [2631, 3111, 3120, 3597, 3598, 3897]
+        retryable_codes = [2631, 2639, 3111, 3120, 3598, 3897, 3603]
         for code in retryable_codes:
             assert (
                 _should_retry(OperationalError(f"[Error {code}]", None, None)) is True
@@ -3087,7 +3087,7 @@ class TestShouldRetryConnect:
             is True
         )
         assert (
-            _should_retry_connect(OperationalError("[Error 3597]", None, None)) is True
+            _should_retry_connect(OperationalError("[Error 3598]", None, None)) is True
         )
         assert (
             _should_retry_connect(DatabaseError("transaction aborted", None, None))
@@ -3561,8 +3561,8 @@ class TestFetchmanyWithRetry:
         """num_db_retries is incremented exactly once per retry attempt."""
         mock_result = MagicMock()
         mock_result.fetchmany.side_effect = [
-            DatabaseError("please try again", None, None),
-            DatabaseError("please try again", None, None),
+            DatabaseError("transaction aborted", None, None),
+            DatabaseError("transaction aborted", None, None),
             [],
         ]
         report = TeradataReport()

@@ -38,6 +38,7 @@ from sqlalchemy.engine.base import Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import (
     DatabaseError,
+    NotSupportedError,
     OperationalError,
     TimeoutError as PoolTimeoutError,
 )
@@ -174,14 +175,59 @@ register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 _RETRY_MAX_ATTEMPTS = 3
 _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
 
+# Numeric Teradata error codes that indicate a PERMANENT failure.  Matched
+# against str(exc) before any retry logic — codes are stable across driver
+# versions and more reliable than substring matching.
+#
+#   8017 — "The UserId, Password or Account is invalid." (auth failure)
+#   3003 — "Logon failed." / "Invalid password." (auth failure)
+#   3523 — "[user] does not have [access type] access to [db].[table]."
+#   3524 — "[user] does not have [access type] access to database [db]."
+#
+# Source: Teradata Database Messages, doc B035-1096.
+_PERMANENT_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:8017|3003|3523|3524)\]")
+
+# Substrings in Teradata / network error messages that indicate a PERMANENT
+# failure — auth, authorisation, or configuration errors that no amount of
+# backoff can resolve.  Secondary fallback after _PERMANENT_ERROR_CODE_RE for
+# messages that carry no numeric code or use unusual driver formatting.
+_PERMANENT_ERROR_SUBSTRINGS: Tuple[str, ...] = (
+    "authentication failed",
+    "logon failed",
+    "invalid logon",
+    "invalid user",
+    "password",
+    "permission denied",
+    "access denied",
+    "does not exist",
+    "no access",
+    "tdgss configuration",  # permanent TDGSS mis-configuration (vs. transient handshake)
+    "invalid configuration",
+)
+
 # Substrings found in Teradata / network error messages that are safe to retry
 # on an *existing* connection (execute / fetchmany).
+#
+# Prefer _RETRYABLE_ERROR_CODE_RE for primary classification — numeric codes are
+# stable across Teradata versions and driver wordings.  These substrings are a
+# secondary fallback for messages that carry no numeric code.  Each entry is
+# documented with the exact Teradata / driver message it targets so future
+# maintainers can verify and prune false matches.
+#
+#   "transaction aborted" — backup for [Error 2631] / [Error 3111]; Teradata
+#                           prints "Transaction aborted." ahead of the numeric
+#                           code in some driver versions.
+#   "database restart"    — backup for [Error 3597] / [Error 3111]; appears as
+#                           "Database restart in progress, please resubmit."
+#   "timed out"           — network / I-O timeout (not auth or config related);
+#                           matches "connect timed out", "connection timed out",
+#                           "request timed out", etc.  The deny-list above
+#                           prevents overlap with auth-failure messages.
+#   "i/o timeout"         — driver-level I/O timeout distinct from "timed out".
 _RETRYABLE_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "transaction aborted",
-    "please try again",
-    "tdgss",
     "database restart",
-    "connect timed out",
+    "timed out",
     "i/o timeout",
 )
 
@@ -195,11 +241,22 @@ _RETRYABLE_CONNECT_EXTRA_SUBSTRINGS: Tuple[str, ...] = (
     "socket closed",
 )
 
-# Teradata numeric error codes that are retryable (matched in the
-# stringified exception which typically contains "[Error NNNN]").
+# Teradata numeric error codes that are safe to retry.  Matched against
+# str(exc) because the driver formats messages as "[Error NNNN]: <text>".
+#
+#   2631 — deadlock; transaction aborted due to deadlock
+#   2639 — sorry, too many simultaneous transactions
+#   3111 — the transaction has been timed out
+#   3120 — the request is aborted because of a database recovery
+#   3598 — concurrent change conflict on database - try again
+#   3897 — request aborted due to system crash. Resubmit
+#   3603 — concurrent change conflict on table - try again
+#
+# Source: Teradata Database Messages, doc B035-1096.
+# Link: https://docs.teradata.com/r/Enterprise_IntelliFlex_Lake_VMware/Teradata-Call-Level-Interface-Version-2-Reference-for-Mainframe-Attached-Systems-20.00/Error-and-Failure-Codes/Error-and-Failure-Codes
+#
 _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
-    r"\[Error (?:2631|3111|3120|3597|3598|3897)\]",
-    re.IGNORECASE,
+    r"\[Error (?:2631|2639|3111|3120|3598|3897|3603)\]"
 )
 
 
@@ -223,19 +280,30 @@ def _should_retry(exc: BaseException) -> bool:
     excluded: retrying ``execute()`` or ``fetchmany()`` on a dead socket will
     always fail again.  Use :func:`_should_retry_connect` for the connect step
     where a fresh socket is opened on each attempt.
+
+    Classification order (deny checked before allow at each layer):
+    1. Permanent error codes (_PERMANENT_ERROR_CODE_RE) — most reliable signal;
+       stable numeric codes that unambiguously identify unrecoverable errors.
+    2. Permanent substrings (_PERMANENT_ERROR_SUBSTRINGS) — catches messages
+       from driver versions that omit or reformat the numeric code.
+    3. Retryable error codes (_RETRYABLE_ERROR_CODE_RE) — primary allow signal.
+    4. Retryable substrings (_RETRYABLE_ERROR_SUBSTRINGS) — secondary fallback
+       for transient messages that carry no numeric code.
     """
     if isinstance(exc, PoolTimeoutError):
         return True
-    # OperationalError wraps both transient failures (network drop, timeout)
-    # and permanent config errors (auth failure, database does not exist,
-    # permission denied).  Apply the same content-based check as DatabaseError
-    # so we only retry errors whose message or error code identifies them as
-    # genuinely transient — avoiding 3x wasted time on unrecoverable errors.
     if isinstance(exc, (OperationalError, DatabaseError)):
-        msg = str(exc).lower()
-        if any(s in msg for s in _RETRYABLE_ERROR_SUBSTRINGS):
+        raw = str(exc)
+        msg = raw.lower()
+        # Steps 1-2: deny-list — permanent errors are never retried.
+        if _PERMANENT_ERROR_CODE_RE.search(raw):
+            return False
+        if any(s in msg for s in _PERMANENT_ERROR_SUBSTRINGS):
+            return False
+        # Steps 3-4: allow-list — retry only on confirmed transient signals.
+        if _RETRYABLE_ERROR_CODE_RE.search(raw):
             return True
-        if _RETRYABLE_ERROR_CODE_RE.search(str(exc)):
+        if any(s in msg for s in _RETRYABLE_ERROR_SUBSTRINGS):
             return True
     return False
 
@@ -404,7 +472,10 @@ def get_schema_columns(
     columns: Dict[str, List[Any]] = {}
     columns_query = f"select * from dbc.{dbc_columns} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) order by TableName, ColumnId"
     rows = _execute_with_retry(
-        connection, text(columns_query), {"schema": schema}
+        connection,
+        text(columns_query),
+        {"schema": schema},
+        report=getattr(self, "report", None),
     ).fetchall()
     for row in rows:
         row_mapping = row._mapping
@@ -419,9 +490,8 @@ def get_schema_columns(
         f"Column extraction for schema '{schema}' completed in {extraction_time:.2f} seconds"
     )
 
-    # Update report if available
     if hasattr(self, "report"):
-        self.report.column_extraction_duration_seconds += extraction_time
+        self.report.add_column_extraction_duration(extraction_time)
 
     return columns
 
@@ -433,7 +503,12 @@ def get_schema_pk_constraints(
     dbc_indices = "IndicesV" + "X" if configure.usexviews else "IndicesV"
     primary_keys: Dict[str, List[Any]] = {}
     stmt = f"select * from dbc.{dbc_indices} where DatabaseName (NOT CASESPECIFIC) = :schema (NOT CASESPECIFIC) and IndexType = 'K' order by IndexNumber"
-    rows = _execute_with_retry(connection, text(stmt), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(
+        connection,
+        text(stmt),
+        {"schema": schema},
+        report=getattr(self, "report", None),
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.TableName not in primary_keys:
@@ -480,9 +555,8 @@ def optimized_get_pk_constraint(
             index_column.IndexName
         )  # There should be just one IndexName
 
-        # Update counter if available
         if hasattr(self, "report"):
-            self.report.num_primary_keys_processed += 1
+            self.report.increment_primary_keys_processed()
 
     return {"constrained_columns": index_columns, "name": index_name}
 
@@ -604,22 +678,19 @@ def optimized_get_columns(
                     continue
             final_column_info.append(col_info)
 
-            # Update counter - access report through self from the connection context
             if hasattr(self, "report"):
-                self.report.num_columns_processed += 1
+                self.report.increment_columns_processed()
 
         except Exception as e:
             logger.error(
                 f"Failed to process column {getattr(row, 'ColumnName', 'unknown')}: {e}"
             )
             if hasattr(self, "report"):
-                self.report.num_column_extraction_failures += 1
+                self.report.increment_column_extraction_failures()
             continue
 
-    # Update timing
     if hasattr(self, "report"):
-        end_time = time.time()
-        self.report.column_extraction_duration_seconds += end_time - start_time
+        self.report.add_column_extraction_duration(time.time() - start_time)
 
     return final_column_info
 
@@ -637,7 +708,12 @@ def get_schema_foreign_keys(
         FROM dbc."{dbc_child_parent_table}"
     WHERE ChildDB = :schema ORDER BY "IndexID" ASC
     """
-    rows = _execute_with_retry(connection, text(stmt), {"schema": schema}).fetchall()
+    rows = _execute_with_retry(
+        connection,
+        text(stmt),
+        {"schema": schema},
+        report=getattr(self, "report", None),
+    ).fetchall()
     for row in rows:
         row_mapping = row._mapping
         if row_mapping.ChildTable not in foreign_keys:
@@ -763,6 +839,22 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_pool_exhaustion_events(self) -> None:
         with self._lock:
             self.num_pool_exhaustion_events += 1
+
+    def increment_columns_processed(self) -> None:
+        with self._lock:
+            self.num_columns_processed += 1
+
+    def increment_column_extraction_failures(self) -> None:
+        with self._lock:
+            self.num_column_extraction_failures += 1
+
+    def increment_primary_keys_processed(self) -> None:
+        with self._lock:
+            self.num_primary_keys_processed += 1
+
+    def add_column_extraction_duration(self, seconds: float) -> None:
+        with self._lock:
+            self.column_extraction_duration_seconds += seconds
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -2591,7 +2683,6 @@ ORDER by DataBaseName, TableName;
         """
         if self.config.use_server_side_cursors:
             try:
-                # Try server-side cursor first
                 streaming_conn = connection.execution_options(stream_results=True)
                 result = self._retry_execute(
                     streaming_conn,
@@ -2603,13 +2694,41 @@ ORDER by DataBaseName, TableName;
                 )
                 return result
 
-            except Exception as e:
-                logger.warning(
-                    f"Server-side cursor failed, falling back to client-side execution: {e}"
+            except NotSupportedError as e:
+                # Driver explicitly signals that server-side cursors / stream_results
+                # are not supported.  Fall back to client-side buffering.
+                self.report.warning(
+                    title="Server-side cursor not supported — falling back to client-side execution",
+                    message=(
+                        "stream_results=True is not supported by this Teradata driver version. "
+                        "Client-side buffering will be used instead, which may increase memory usage "
+                        "for large result sets. Consider setting use_server_side_cursors: false."
+                    ),
+                    exc=e,
                 )
-                # Fall through to regular execution
+            except (OperationalError, DatabaseError) as e:
+                msg = str(e).lower()
+                # Only fall back for errors that plausibly indicate cursor-mode is
+                # unsupported (e.g. "not supported", "cursor", "stream").  All other
+                # OperationalError / DatabaseError instances (auth failures, "database
+                # does not exist", SQL syntax errors, OOM) must propagate so the caller
+                # can handle or surface them correctly.
+                if not any(
+                    s in msg
+                    for s in ("not supported", "cursor", "stream", "unsupported")
+                ):
+                    raise
+                self.report.warning(
+                    title="Server-side cursor not supported — falling back to client-side execution",
+                    message=(
+                        "Streaming cursor mode failed with a driver-level error. "
+                        "Falling back to client-side buffering. "
+                        "Consider setting use_server_side_cursors: false to suppress this warning."
+                    ),
+                    exc=e,
+                )
 
-        # Regular execution (client-side)
+        # Client-side buffered execution (fallback or use_server_side_cursors=False).
         return self._retry_execute(
             connection,
             text(query),
