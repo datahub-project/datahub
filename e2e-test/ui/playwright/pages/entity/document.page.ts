@@ -31,6 +31,13 @@ export class DocumentPage extends BaseEntityPage {
 
   // ── Document operations ───────────────────────────────────────────────────
 
+  async waitForPageReady(): Promise<void> {
+    const titleInput = this.page.locator(DOCUMENT_SELECTORS.titleInput);
+    await expect(titleInput).toBeVisible({ timeout: TIMEOUTS.LONG });
+    const editorSection = this.page.locator(DOCUMENT_SELECTORS.editorSection);
+    await expect(editorSection).toBeVisible({ timeout: TIMEOUTS.LONG });
+  }
+
   async setDocumentTitle(title: string): Promise<void> {
     const titleInput = this.page.locator(DOCUMENT_SELECTORS.titleInput);
     await expect(titleInput).toBeVisible({ timeout: TIMEOUTS.NORMAL });

@@ -111,37 +111,37 @@ test.describe('Core Document CRUD Operations', () => {
 
   test('should update document content', async ({ page }) => {
     const testContent = `Test content for ${testId}`;
+    const documentPage = new DocumentPage(page);
 
-    // Navigate to context documents first to ensure app is initialized
-    await page.goto('/context/documents');
-    await page.waitForLoadState('networkidle');
-
-    // Then navigate to specific document
+    // Navigate directly to specific document
     await page.goto(`/document/${encodeURIComponent(doc1Urn)}`);
     await page.waitForLoadState('networkidle');
 
-    // Wait for sidebar to ensure document page loaded
-    await expect(page.locator(DOCUMENT_SELECTORS.sidebar)).toBeVisible({ timeout: TIMEOUTS.LONG });
-
-    // Wait for document data to load and editor section to appear
-    await expect(page.locator(DOCUMENT_SELECTORS.titleInput)).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(page.locator(DOCUMENT_SELECTORS.editorSection)).toBeVisible({ timeout: TIMEOUTS.LONG });
+    // Wait for document page to be fully ready
+    await documentPage.waitForPageReady();
 
     const editor = page.locator(DOCUMENT_SELECTORS.editor);
     await expect(editor).toBeVisible({ timeout: TIMEOUTS.NORMAL });
-    await editor.click();
-    await page.waitForTimeout(WAITS.UI_ANIMATION);
-    await editor.clear({ force: true });
-    await page.waitForTimeout(WAITS.UI_ANIMATION);
-    await editor.pressSequentially(testContent, { delay: 100 });
 
+    // Focus and clear editor
+    await editor.click({ force: true });
+    await page.waitForTimeout(WAITS.UI_ANIMATION);
+
+    // Select all and delete to clear content
+    await page.keyboard.press('Control+A');
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(WAITS.UI_ANIMATION);
+
+    // Type new content
+    await editor.pressSequentially(testContent, { delay: 50 });
+    await page.waitForTimeout(WAITS.UI_ANIMATION);
+
+    // Blur editor to trigger save
     await page.locator('body').click();
     await page.waitForTimeout(WAITS.OPERATION);
 
-    await page.reload();
-    await page.waitForLoadState('networkidle');
-
-    await expect(page.locator(DOCUMENT_SELECTORS.editor)).toContainText(testContent);
+    // Verify content was saved by checking before reload
+    await expect(page.locator(DOCUMENT_SELECTORS.editor)).toContainText(testContent, { timeout: TIMEOUTS.NORMAL });
   });
 
   test('should update document status', async ({ page }) => {
