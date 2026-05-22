@@ -1,11 +1,10 @@
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { Select } from 'antd';
 import React, { CSSProperties, useEffect, useRef, useState } from 'react';
-import { VscTriangleDown } from 'react-icons/vsc';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY_V2 } from '@app/entity/shared/constants';
 import { ViewBuilder } from '@app/entity/view/builder/ViewBuilder';
 import { ViewBuilderMode } from '@app/entity/view/builder/types';
 import { ViewSelectDropdown } from '@app/entity/view/select/ViewSelectDropdown';
@@ -22,8 +21,8 @@ type ViewBuilderDisplayState = {
     view?: DataHubView;
 };
 
-const TriangleIcon = styled(VscTriangleDown)<{ isOpen: boolean }>`
-    color: ${(props) => (props.isOpen ? props.theme.styles['primary-color'] : ANTD_GRAY_V2[10])};
+const TriangleIcon = styled(CaretDown)<{ isOpen: boolean }>`
+    color: ${(props) => (props.isOpen ? props.theme.colors.textBrand : props.theme.colors.textSecondary)};
 `;
 
 const DEFAULT_VIEW_BUILDER_DISPLAY_STATE = {
@@ -44,13 +43,13 @@ const ViewSelectContainer = styled.div`
             &.ant-select-open {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${(props) => props.theme.styles['primary-color']};
+                    color: ${(props) => props.theme.colors.textBrand};
                 }
             }
             &:not(.ant-select-open) {
                 .ant-select-selection-placeholder,
                 .ant-select-selection-item {
-                    color: ${ANTD_GRAY_V2[10]};
+                    color: ${(props) => props.theme.colors.textSecondary};
                 }
             }
             .ant-select-selection-placeholder,

@@ -1,7 +1,7 @@
 import { CopyOutlined } from '@ant-design/icons';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
 import { Dropdown, Menu } from 'antd';
 import React from 'react';
-import { VscGraphLeft } from 'react-icons/vsc';
 import styled from 'styled-components/macro';
 
 import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
@@ -10,7 +10,7 @@ import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils'
 
 import { SchemaField } from '@types';
 
-export const ImpactAnalysisIcon = styled(VscGraphLeft)`
+export const ImpactAnalysisIcon = styled(TreeStructure)`
     transform: scaleX(-1);
     font-size: 18px;
 `;
