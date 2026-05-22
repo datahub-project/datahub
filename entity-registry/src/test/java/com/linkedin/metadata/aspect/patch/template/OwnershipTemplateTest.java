@@ -6,10 +6,14 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
 import com.linkedin.metadata.aspect.patch.template.common.OwnershipTemplate;
 import jakarta.json.Json;
 import jakarta.json.JsonPatch;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -107,6 +111,42 @@ public class OwnershipTemplateTest {
         result.getOwners().stream().map(o -> o.getOwner().toString()).collect(Collectors.toList());
     Assert.assertFalse(ownerUrns.contains("urn:li:corpuser:userA"), "userA should be removed");
     Assert.assertTrue(ownerUrns.contains("urn:li:corpuser:userB"), "userB should remain");
+  }
+
+  @Test
+  public void testAddWithTrailingEmptyPathTokenSucceedsOnFreshAspect() throws Exception {
+    // Regression: OwnershipPatchBuilder.addOwner emits /owners/<urn>/<type>/<typeUrn>/ paired
+    // with a 4-key APK; previously threw on an empty aspect.
+    Ownership initial = new Ownership();
+    initial.setOwners(new OwnerArray());
+
+    GenericJsonPatch.PatchOp addOp = new GenericJsonPatch.PatchOp();
+    addOp.setOp("add");
+    addOp.setPath("/owners/urn:li:corpuser:userA/DATAOWNER//");
+    addOp.setValue(
+        Json.createObjectBuilder()
+            .add("owner", "urn:li:corpuser:userA")
+            .add("type", "DATAOWNER")
+            .build());
+
+    GenericJsonPatch patch =
+        GenericJsonPatch.builder()
+            .patch(List.of(addOp))
+            .arrayPrimaryKeys(
+                Map.of("owners", Arrays.asList("owner", "type", "typeUrn", "attribution␟source")))
+            .build();
+
+    Ownership result =
+        GenericPatchTemplate.<Ownership>builder()
+            .genericJsonPatch(patch)
+            .templateType(Ownership.class)
+            .templateDefault(new OwnershipTemplate().getDefault())
+            .build()
+            .applyPatch(initial);
+
+    Assert.assertEquals(result.getOwners().size(), 1);
+    Assert.assertEquals(result.getOwners().get(0).getOwner().toString(), "urn:li:corpuser:userA");
+    Assert.assertEquals(result.getOwners().get(0).getType(), OwnershipType.DATAOWNER);
   }
 
   @Test
