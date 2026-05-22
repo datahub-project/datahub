@@ -679,6 +679,7 @@ plugins: Dict[str, Set[str]] = {
         # Note: sqlalchemy-hana>=4.0 requires SQLAlchemy>=2, so constrained to 3.x automatically
         "sqlalchemy-hana>=0.5.0,<5.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
         "hdbcli>=2.11.20,<3.0.0; platform_machine != 'aarch64' and platform_machine != 'arm64'",
+        "defusedxml>=0.7.1,<0.8.0",
     },
     "hive": sql_common
     | pyhive_common
@@ -791,6 +792,7 @@ plugins: Dict[str, Set[str]] = {
     "superset": superset_common,
     "preset": superset_common,
     "tableau": {"tableauserverclient>=0.24.0,<=0.40"} | sqlglot_lib,
+    "thoughtspot": {"thoughtspot_rest_api>=2.0.0,<3.0.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -1002,6 +1004,7 @@ base_dev_requirements = {
             "slack",
             "tableau",
             "teradata",
+            "thoughtspot",
             "trino",
             "hive",
             "hive-metastore",
@@ -1123,7 +1126,7 @@ entry_points = {
         "grafana = datahub.ingestion.source.grafana.grafana_source:GrafanaSource",
         "glue = datahub.ingestion.source.aws.glue:GlueSource",
         "sagemaker = datahub.ingestion.source.aws.sagemaker:SagemakerSource",
-        "hana = datahub.ingestion.source.sql.hana:HanaSource",
+        "hana = datahub.ingestion.source.sql.hana.hana:HanaSource",
         "hive = datahub.ingestion.source.sql.hive.hive_source:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive.hive_metastore_source:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
@@ -1166,6 +1169,7 @@ entry_points = {
         "metabase = datahub.ingestion.source.metabase:MetabaseSource",
         "teradata = datahub.ingestion.source.sql.teradata:TeradataSource",
         "starrocks = datahub.ingestion.source.sql.starrocks:StarRocksSource",
+        "thoughtspot = datahub.ingestion.source.thoughtspot.source:ThoughtSpotSource",
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",

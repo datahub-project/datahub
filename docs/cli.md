@@ -11,6 +11,27 @@ DataHub comes with a friendly cli called `datahub` that allows you to perform a 
 
 ## Installation
 
+### Using Homebrew (macOS / Linux)
+
+The simplest way to install the DataHub CLI on macOS or Linux:
+
+```shell
+brew install datahub-project/tap/datahub
+datahub version
+datahub init
+# authenticate your datahub CLI with your datahub instance
+```
+
+Homebrew manages an isolated Python environment for `datahub`, so there's no venv to activate and no PATH conflicts with system Python. To upgrade later, run `brew upgrade datahub`.
+
+**Note:** The Homebrew formula installs the **core CLI only**. To add ingestion connectors (Snowflake, BigQuery, Looker, etc.), install them into the brew-managed environment:
+
+```shell
+"$(brew --prefix datahub)/libexec/bin/pip" install 'acryl-datahub[snowflake,bigquery]'
+```
+
+The full list of available connector extras is shown in the [Installing Plugins](#installing-plugins) section below.
+
 ### Using pip
 
 We recommend Python virtual environments (venv-s) to namespace pip modules. Here's an example setup:
