@@ -223,6 +223,15 @@ _MetricViewYamlLoader.add_implicit_resolver(
 )
 
 
+def _safe_load_metric_view_yaml(stream: str) -> Any:
+    """Safe-load (SafeLoader subclass) with YAML 1.2 bool spelling so `on:` stays a string key."""
+    loader = _MetricViewYamlLoader(stream)
+    try:
+        return loader.get_single_data()
+    finally:
+        loader.dispose()
+
+
 def _collect_join_name_source_pairs(
     joins: object,
 ) -> List[Tuple[str, str]]:
@@ -1500,7 +1509,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
         try:
-            spec = yaml.load(table.view_definition, Loader=_MetricViewYamlLoader)
+            spec = _safe_load_metric_view_yaml(table.view_definition)
         except (yaml.YAMLError, RecursionError, UnicodeDecodeError) as e:
             self.report.num_metric_views_yaml_parse_failures += 1
             self.report.report_warning(
