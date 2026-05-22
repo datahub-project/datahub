@@ -30,10 +30,14 @@ export default function LineageGraph({ isFullscreen }: Props) {
 
     const lineageUrn = (!onIndividualSiblingPage && entityData?.lineageUrn) || urn;
     const props = { urn: lineageUrn, type: entityType };
-    // DataFlow and DataProduct have V3-only initializers (the V2 explorer does not know how to
-    // build a member-pass-through graph for them), so they always render with the V3 explorer.
+    // DataFlow, DataProduct and Domain have V3-only initializers (the V2 explorer does not know
+    // how to build a member-pass-through or aggregated-edge graph for them), so they always
+    // render with the V3 explorer.
     const explorer =
-        lineageGraphV3 || entityType === EntityType.DataFlow || entityType === EntityType.DataProduct ? (
+        lineageGraphV3 ||
+        entityType === EntityType.DataFlow ||
+        entityType === EntityType.DataProduct ||
+        entityType === EntityType.Domain ? (
             <LineageExplorerV3 {...props} />
         ) : (
             <LineageExplorerV2 {...props} />

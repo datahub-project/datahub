@@ -112,6 +112,71 @@ mutation deleteDomain($urn: String!) {
     deleteDomain(urn: $urn)
 }
 
+query getDomainEntitiesForLineage($urn: String!, $start: Int!, $count: Int!) {
+    domain(urn: $urn) {
+        urn
+        type
+        entities(input: { start: $start, count: $count, query: "*" }) {
+            total
+            searchResults {
+                entity {
+                    urn
+                    type
+                }
+            }
+        }
+    }
+}
+
+query getDomainLineage($urn: String!, $input: DomainLineageInput!) {
+    domain(urn: $urn) {
+        urn
+        type
+        domainLineage(input: $input) {
+            ...domainLineageResultFields
+        }
+    }
+}
+
+fragment domainLineageResultFields on DomainLineageResult {
+    start
+    count
+    total
+    isPartial
+    memberScanCount
+    memberTotal
+    relationships {
+        direction
+        memberMatchCount
+        neighbourEntityCount
+        degreeMin
+        degreeMax
+        entity {
+            urn
+            type
+            ... on Domain {
+                id
+                properties {
+                    name
+                    description
+                }
+                displayProperties {
+                    ...displayPropertiesFields
+                }
+            }
+            ... on DataProduct {
+                properties {
+                    name
+                    description
+                }
+                domain {
+                    ...entityDomain
+                }
+            }
+        }
+    }
+}
+
 # We should replace this with a cached summary object on the domain
 query getDomainEntitySummary($urn: String!) {
     aggregateAcrossEntities(

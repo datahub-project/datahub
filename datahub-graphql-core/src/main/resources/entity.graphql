@@ -11875,7 +11875,7 @@ type Domain implements Entity {
   Returns Domain neighbours by default, or DataProduct neighbours when input.groupByDataProduct
   is true. See lineage-aggregation.graphql for the full input/output shape.
   """
-  domainLineage(input: DomainLineageInput!): DomainLineageResult!
+  domainLineage(input: DomainLineageInput!): DomainLineageResult
 }
 
 """
@@ -13496,7 +13496,7 @@ type DataProduct implements Entity {
   Returns DataProduct neighbours bucketed by their owning DataProduct. See
   lineage-aggregation.graphql for the full input/output shape.
   """
-  dataProductLineage(input: DataProductLineageInput!): DataProductLineageResult!
+  dataProductLineage(input: DataProductLineageInput!): DataProductLineageResult
 }
 
 """

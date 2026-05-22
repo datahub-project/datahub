@@ -61,6 +61,25 @@ export interface LineageEntity extends NodeBase {
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
     parentDataProduct?: Urn;
+    parentDomain?: Urn;
+}
+
+/**
+ * Server-aggregated edge from a source Domain to a neighbour Domain (or DataProduct, when
+ * `groupByDataProduct=true`). Populated by {@link useFetchDomainLineageRelationships} from the
+ * `domainLineage` resolver result; consumed by `computeDomainGraph` to draw neighbour boxes and
+ * counted edges without doing client-side aggregation.
+ */
+export interface AggregatedDomainEdge {
+    neighbourUrn: Urn;
+    neighbourType: EntityType;
+    neighbourName?: string;
+    neighbourColorHex?: string;
+    direction: LineageDirection;
+    memberMatchCount: number;
+    neighbourEntityCount: number;
+    degreeMin: number;
+    degreeMax: number;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -285,6 +304,14 @@ export interface NodeContext {
     setShowDataProcessInstances: (hide: boolean) => void;
     showGhostEntities: boolean;
     setShowGhostEntities: (hide: boolean) => void;
+    /**
+     * Server-aggregated edges produced by `domainLineage`. Populated only on Domain root pages;
+     * `undefined` elsewhere. Keyed by neighbour URN — a single neighbour with both upstream and
+     * downstream contributions appears under a synthetic `<urn>::<direction>` key so we don't lose
+     * one direction.
+     */
+    aggregatedDomainEdges?: Map<string, AggregatedDomainEdge>;
+    setAggregatedDomainEdges?: Dispatch<SetStateAction<Map<string, AggregatedDomainEdge> | undefined>>;
 }
 
 export const LineageNodesContext = React.createContext<NodeContext>({
@@ -415,6 +442,9 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
 export function useNodeColor(type?: EntityType): [string, string] {
     const theme = useTheme();
 
+    if (type === EntityType.Domain) {
+        return [theme.colors.glossaryPaletteGreen, ''];
+    }
     if (type === EntityType.DataProduct) {
         return [theme.colors.glossaryPaletteViolet, ''];
     }

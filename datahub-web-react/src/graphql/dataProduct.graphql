@@ -127,3 +127,42 @@ query getDataProductEntitiesForLineage($urn: String!, $start: Int!, $count: Int!
         }
     }
 }
+
+query getDataProductLineage($urn: String!, $input: DataProductLineageInput!) {
+    dataProduct(urn: $urn) {
+        urn
+        type
+        dataProductLineage(input: $input) {
+            ...dataProductLineageResultFields
+        }
+    }
+}
+
+fragment dataProductLineageResultFields on DataProductLineageResult {
+    start
+    count
+    total
+    isPartial
+    memberScanCount
+    memberTotal
+    relationships {
+        direction
+        memberMatchCount
+        neighbourEntityCount
+        degreeMin
+        degreeMax
+        entity {
+            urn
+            type
+            ... on DataProduct {
+                properties {
+                    name
+                    description
+                }
+                domain {
+                    ...entityDomain
+                }
+            }
+        }
+    }
+}
