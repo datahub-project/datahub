@@ -1803,7 +1803,52 @@ public class GmsGraphQLEngine {
                         new BatchGetEntitiesResolver(
                             entityTypes,
                             (env) ->
-                                ((StructuredPropertiesEntry) env.getSource()).getValueEntities())));
+                                ((StructuredPropertiesEntry) env.getSource()).getValueEntities())))
+        // Aggregated lineage resolvers return partial entity stubs (urn + type via
+        // UrnToEntityMapper) — wire EntityTypeResolver on the Entity-typed fields so the
+        // DataLoader hydrates name/properties/displayProperties on each neighbour/DP.
+        .type(
+            "DomainLineageRelationship",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated.DomainLineageRelationship)
+                                    env.getSource())
+                                .getEntity())))
+        .type(
+            "DomainAggregatedInnerEdge",
+            typeWiring ->
+                typeWiring
+                    .dataFetcher(
+                        "upstream",
+                        new EntityTypeResolver(
+                            entityTypes,
+                            (env) ->
+                                ((com.linkedin.datahub.graphql.generated.DomainAggregatedInnerEdge)
+                                        env.getSource())
+                                    .getUpstream()))
+                    .dataFetcher(
+                        "downstream",
+                        new EntityTypeResolver(
+                            entityTypes,
+                            (env) ->
+                                ((com.linkedin.datahub.graphql.generated.DomainAggregatedInnerEdge)
+                                        env.getSource())
+                                    .getDownstream())))
+        .type(
+            "DataProductLineageRelationship",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) ->
+                            ((com.linkedin.datahub.graphql.generated.DataProductLineageRelationship)
+                                    env.getSource())
+                                .getEntity())));
   }
 
   /**
