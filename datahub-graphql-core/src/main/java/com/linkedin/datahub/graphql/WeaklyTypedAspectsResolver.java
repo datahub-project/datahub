@@ -32,7 +32,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.AllArgsConstructor;
 import lombok.Value;
 import lombok.extern.slf4j.Slf4j;
 import org.dataloader.BatchLoaderContextProvider;
@@ -40,13 +39,10 @@ import org.dataloader.DataLoader;
 import org.dataloader.DataLoaderOptions;
 
 @Slf4j
-@AllArgsConstructor
 public class WeaklyTypedAspectsResolver implements DataFetcher<CompletableFuture<List<RawAspect>>> {
 
   public static final String LOADER_NAME = "WeaklyTypedAspects";
 
-  private final EntityClient _entityClient;
-  private final EntityRegistry _entityRegistry;
   private static final JacksonDataCodec CODEC = new JacksonDataCodec();
 
   @Override
