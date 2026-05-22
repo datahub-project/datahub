@@ -82,35 +82,25 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:5e359958be02ce647cd9ac196dbd4585",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "structuredProperties",
     "aspect": {
         "json": {
-            "arrayPrimaryKeys": {
-                "properties": [
-                    "propertyUrn",
-                    "attribution\u241fsource"
-                ]
-            },
-            "patch": [
+            "properties": [
                 {
-                    "op": "add",
-                    "path": "/properties/urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag/",
-                    "value": {
-                        "propertyUrn": "urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag",
-                        "values": [
-                            {
-                                "string": "other"
-                            }
-                        ]
-                    }
+                    "propertyUrn": "urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag",
+                    "values": [
+                        {
+                            "string": "other"
+                        }
+                    ]
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2021_03_11-06_16_28-8uv1fu",
+        "runId": "snowflake-2021_03_11-06_16_28-mx1sdu",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -262,35 +252,25 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:94c696a054bab40b73e640a7f82e3b1c",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "structuredProperties",
     "aspect": {
         "json": {
-            "arrayPrimaryKeys": {
-                "properties": [
-                    "propertyUrn",
-                    "attribution\u241fsource"
-                ]
-            },
-            "patch": [
+            "properties": [
                 {
-                    "op": "add",
-                    "path": "/properties/urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag/",
-                    "value": {
-                        "propertyUrn": "urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag",
-                        "values": [
-                            {
-                                "string": "other"
-                            }
-                        ]
-                    }
+                    "propertyUrn": "urn:li:structuredProperty:snowflake.other_db.other_schema.my_other_tag",
+                    "values": [
+                        {
+                            "string": "other"
+                        }
+                    ]
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2021_03_11-06_16_28-8uv1fu",
+        "runId": "snowflake-2021_03_11-06_16_28-mx1sdu",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3253,35 +3233,25 @@
 {
     "entityType": "schemaField",
     "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_1,PROD),COL_1)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "structuredProperties",
     "aspect": {
         "json": {
-            "arrayPrimaryKeys": {
-                "properties": [
-                    "propertyUrn",
-                    "attribution\u241fsource"
-                ]
-            },
-            "patch": [
+            "properties": [
                 {
-                    "op": "add",
-                    "path": "/properties/urn:li:structuredProperty:snowflake.test_db.test_schema.security/",
-                    "value": {
-                        "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.security",
-                        "values": [
-                            {
-                                "string": "pii"
-                            }
-                        ]
-                    }
+                    "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.security",
+                    "values": [
+                        {
+                            "string": "pii"
+                        }
+                    ]
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2021_03_11-06_16_28-8uv1fu",
+        "runId": "snowflake-2021_03_11-06_16_28-mx1sdu",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3670,47 +3640,33 @@
 {
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.view_2,PROD)",
-    "changeType": "PATCH",
+    "changeType": "UPSERT",
     "aspectName": "structuredProperties",
     "aspect": {
         "json": {
-            "arrayPrimaryKeys": {
-                "properties": [
-                    "propertyUrn",
-                    "attribution\u241fsource"
-                ]
-            },
-            "patch": [
+            "properties": [
                 {
-                    "op": "add",
-                    "path": "/properties/urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_0/",
-                    "value": {
-                        "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_0",
-                        "values": [
-                            {
-                                "string": "my_value_0"
-                            }
-                        ]
-                    }
+                    "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_0",
+                    "values": [
+                        {
+                            "string": "my_value_0"
+                        }
+                    ]
                 },
                 {
-                    "op": "add",
-                    "path": "/properties/urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_1/",
-                    "value": {
-                        "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_1",
-                        "values": [
-                            {
-                                "string": "my_value_1"
-                            }
-                        ]
-                    }
+                    "propertyUrn": "urn:li:structuredProperty:snowflake.test_db.test_schema.my_tag_1",
+                    "values": [
+                        {
+                            "string": "my_value_1"
+                        }
+                    ]
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2021_03_11-06_16_28-8uv1fu",
+        "runId": "snowflake-2021_03_11-06_16_28-mx1sdu",
         "lastRunId": "no-run-id-provided"
     }
 },
