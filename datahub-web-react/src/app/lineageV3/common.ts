@@ -74,8 +74,14 @@ export interface LineageEntity extends NodeBase {
  * `groupByDataProduct=true`). Populated by {@link useFetchDomainLineageRelationships} from the
  * `domainLineage` resolver result; consumed by `computeDomainGraph` to draw neighbour boxes and
  * counted edges without doing client-side aggregation.
+ *
+ * `sourceUrn` identifies the Domain we ran `domainLineage` on to discover this neighbour. For the
+ * initial root-page load that's always the root Domain, but multi-hop drill-down (clicking expand
+ * on a neighbour Domain) ingests further edges with `sourceUrn` set to the clicked neighbour, so
+ * the same map can describe an arbitrary multi-hop Domain↔Domain subgraph.
  */
 export interface AggregatedDomainEdge {
+    sourceUrn: Urn;
     neighbourUrn: Urn;
     neighbourType: EntityType;
     neighbourName?: string;
@@ -85,6 +91,15 @@ export interface AggregatedDomainEdge {
     neighbourEntityCount: number;
     degreeMin: number;
     degreeMax: number;
+}
+
+/**
+ * Builds the canonical {@link AggregatedDomainEdge} map key: {@code <sourceUrn>::<neighbourUrn>::<direction>}.
+ * Each (source, neighbour, direction) tuple is unique — the same neighbour can appear under multiple sources
+ * (when the user has expanded a chain) or in both directions of the same source.
+ */
+export function domainEdgeKey(sourceUrn: Urn, neighbourUrn: Urn, direction: LineageDirection): string {
+    return `${sourceUrn}::${neighbourUrn}::${direction}`;
 }
 
 /**

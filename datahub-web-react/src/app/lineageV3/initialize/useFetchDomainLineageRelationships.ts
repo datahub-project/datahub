@@ -1,6 +1,15 @@
 import { useContext, useEffect, useMemo } from 'react';
 
-import { AggregatedDomainEdge, AggregatedInnerEdge, LineageNodesContext } from '@app/lineageV3/common';
+import {
+    AggregatedDomainEdge,
+    AggregatedInnerEdge,
+    FetchStatus,
+    LineageEntity,
+    LineageNodesContext,
+    domainEdgeKey,
+    setDefault,
+} from '@app/lineageV3/common';
+import { FetchedEntityV2 } from '@app/lineageV3/types';
 
 import { DomainLineageResultFieldsFragment, useGetDomainLineageQuery } from '@graphql/domain.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -23,8 +32,15 @@ const DEFAULT_COUNT = 25;
  * when truncation kicks in; we surface that on the consumer side via the relationship object.
  */
 export default function useFetchDomainLineageRelationships(): boolean {
-    const { rootUrn, rootType, aggregatedDomainEdges, setAggregatedDomainEdges, setAggregatedInnerEdges } =
-        useContext(LineageNodesContext);
+    const {
+        rootUrn,
+        rootType,
+        nodes,
+        aggregatedDomainEdges,
+        setAggregatedDomainEdges,
+        setAggregatedInnerEdges,
+        setNodeVersion,
+    } = useContext(LineageNodesContext);
 
     const enabled = rootType === EntityType.Domain && !!setAggregatedDomainEdges;
 
@@ -59,10 +75,10 @@ export default function useFetchDomainLineageRelationships(): boolean {
         if (!upstreamResult && !downstreamResult) return undefined;
 
         const map = new Map<string, AggregatedDomainEdge>();
-        ingest(map, upstreamResult, LineageDirection.Upstream);
-        ingest(map, downstreamResult, LineageDirection.Downstream);
+        ingest(map, rootUrn, upstreamResult, LineageDirection.Upstream);
+        ingest(map, rootUrn, downstreamResult, LineageDirection.Downstream);
         return map;
-    }, [enabled, upstream.data, downstream.data]);
+    }, [enabled, rootUrn, upstream.data, downstream.data]);
 
     const mergedInnerEdges = useMemo<Map<string, AggregatedInnerEdge> | undefined>(() => {
         if (!enabled) return undefined;
@@ -81,6 +97,25 @@ export default function useFetchDomainLineageRelationships(): boolean {
         setAggregatedDomainEdges(merged);
     }, [enabled, merged, setAggregatedDomainEdges]);
 
+    // Register each neighbour Domain as a `LineageNodesContext.nodes` entry so the standard
+    // expand-lineage UI (ExpandLineageButton + useOnClickExpandLineage) treats them as
+    // first-class graph nodes. Without this, neighbour Domains are pure render-time projections
+    // and have no persistent fetch-status state for multi-hop drill-down.
+    useEffect(() => {
+        if (!enabled || !merged) return;
+        let added = false;
+        merged.forEach((edge) => {
+            if (edge.neighbourUrn === rootUrn) return;
+            if (edge.neighbourType !== EntityType.Domain) return;
+            if (!nodes.has(edge.neighbourUrn)) {
+                added = true;
+            }
+            const node = setDefault(nodes, edge.neighbourUrn, makeNeighbourDomainNode(edge.neighbourUrn));
+            applyNeighbourMetadata(node, edge);
+        });
+        if (added) setNodeVersion((v) => v + 1);
+    }, [enabled, merged, rootUrn, nodes, setNodeVersion]);
+
     useEffect(() => {
         if (!enabled || !setAggregatedInnerEdges) return;
         setAggregatedInnerEdges(mergedInnerEdges);
@@ -98,14 +133,15 @@ export default function useFetchDomainLineageRelationships(): boolean {
 
 function ingest(
     out: Map<string, AggregatedDomainEdge>,
+    sourceUrn: string,
     result: DomainLineageResultFieldsFragment | null | undefined,
     direction: LineageDirection,
 ): void {
     if (!result?.relationships) return;
     result.relationships.forEach((rel) => {
         if (!rel?.entity?.urn) return;
-        const key = `${rel.entity.urn}::${direction}`;
-        out.set(key, toAggregatedEdge(rel, direction));
+        const key = domainEdgeKey(sourceUrn, rel.entity.urn, direction);
+        out.set(key, toAggregatedEdge(sourceUrn, rel, direction));
     });
 }
 
@@ -131,7 +167,62 @@ function ingestInnerEdges(
     });
 }
 
+function makeNeighbourDomainNode(urn: string): LineageEntity {
+    // Both directions start UNFETCHED so the ExpandLineageButton renders — the user can drill into
+    // either direction from any visible Domain. `numUpstreamChildren`/`numDownstreamChildren` are
+    // optimistic hints (we don't know the real counts until the user expands, and the resolver
+    // doesn't precompute them); set to 1 so the button shows. If a direction returns zero, the
+    // status flips to COMPLETE and the button disappears via the existing `isFetchComplete` gate.
+    return {
+        id: urn,
+        urn,
+        type: EntityType.Domain,
+        isExpanded: {
+            [LineageDirection.Upstream]: false,
+            [LineageDirection.Downstream]: false,
+        },
+        fetchStatus: {
+            [LineageDirection.Upstream]: FetchStatus.UNFETCHED,
+            [LineageDirection.Downstream]: FetchStatus.UNFETCHED,
+        },
+        filters: {
+            [LineageDirection.Upstream]: { limit: undefined, facetFilters: new Map() },
+            [LineageDirection.Downstream]: { limit: undefined, facetFilters: new Map() },
+        },
+    };
+}
+
+function applyNeighbourMetadata(node: LineageEntity, edge: AggregatedDomainEdge): void {
+    const name = edge.neighbourName ?? edge.neighbourUrn;
+    const fetchedEntity: FetchedEntityV2 = {
+        urn: edge.neighbourUrn,
+        type: edge.neighbourType,
+        name,
+        exists: true,
+        numUpstreamChildren: 1,
+        numDownstreamChildren: 1,
+        genericEntityProperties: {
+            type: edge.neighbourType,
+            displayProperties: edge.neighbourColorHex ? { colorHex: edge.neighbourColorHex } : undefined,
+            properties: { name },
+        } as FetchedEntityV2['genericEntityProperties'],
+    };
+    // eslint-disable-next-line no-param-reassign
+    node.entity = fetchedEntity;
+    // The subtitle reflects the asset-rollup count for the edge connecting this neighbour to its
+    // source. If the same neighbour has edges from multiple sources, the last-written subtitle wins
+    // — acceptable because the count semantics ("N assets touch this Domain") only meaningfully
+    // resolve in the context of the source bbox at hand.
+    // eslint-disable-next-line no-param-reassign
+    node.displaySubtitle = formatAssetCount(edge.memberMatchCount);
+}
+
+function formatAssetCount(count: number): string {
+    return `${count} ${count === 1 ? 'asset' : 'assets'}`;
+}
+
 function toAggregatedEdge(
+    sourceUrn: string,
     rel: DomainLineageResultFieldsFragment['relationships'][number],
     direction: LineageDirection,
 ): AggregatedDomainEdge {
@@ -142,6 +233,7 @@ function toAggregatedEdge(
         displayProperties?: { colorHex?: string | null } | null;
     };
     return {
+        sourceUrn,
         neighbourUrn: entity.urn,
         neighbourType: entity.type,
         neighbourName: entity.properties?.name ?? undefined,

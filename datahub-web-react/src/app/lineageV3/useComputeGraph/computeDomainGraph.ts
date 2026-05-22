@@ -12,7 +12,6 @@ import { LINEAGE_ENTITY_NODE_NAME } from '@app/lineageV3/LineageEntityNode/Linea
 import {
     AggregatedDomainEdge,
     AggregatedInnerEdge,
-    FetchStatus,
     GraphStoreFields,
     LINEAGE_NODE_HEIGHT,
     LINEAGE_NODE_WIDTH,
@@ -21,7 +20,6 @@ import {
     LineageToggles,
     NodeContext,
 } from '@app/lineageV3/common';
-import { FetchedEntityV2 } from '@app/lineageV3/types';
 import { LineageVisualizationNode } from '@app/lineageV3/useComputeGraph/NodeBuilder';
 
 import { EntityType, LineageDirection } from '@types';
@@ -41,22 +39,18 @@ type DomainGraphContext = Pick<
  * Computes the lineage graph for a Domain.
  *
  * Layout:
- * 1. The source Domain is rendered as a bounding box at the origin, containing its child
- *    DataProducts (member nodes) stacked vertically. There are no intra-box edges in v1 —
- *    members aren't lineage-expanded individually because the resolver does the aggregation.
- * 2. Neighbour Domains, taken straight from {@link AggregatedDomainEdge} entries that the
- *    {@code domainLineage} resolver returned, are rendered as standalone {@link
- *    LineageEntityNode}s — upstream neighbours to the left of the source box, downstream to
- *    the right. Each neighbour's card shows its `memberMatchCount` as a subtitle ("N assets").
- * 3. One {@link AggregatedLineageEdge} is drawn between the source-Domain bounding box and
- *    each neighbour Domain node, with the asset-level rollup count rendered as the edge label
- *    and a tooltip exposing the full resolver bucket (memberMatchCount,
- *    neighbourEntityCount, degree min/max). Bounding boxes expose anchor handles via
- *    {@link LineageBoundingBoxNode} so ReactFlow can route these edges cleanly.
- * 4. Inner edges from {@code aggregatedInnerEdges} (server-computed DP↔DP rollups where both
- *    DPs belong to the source Domain) become {@link AggregatedLineageEdge}s drawn between the
- *    member DP nodes inside the source bbox. These edges only appear when assets across two
- *    member DPs have direct asset-level lineage — they're not a transitive rollup.
+ * 1. The source Domain renders as a bounding box at the origin, containing its child
+ *    DataProducts (member nodes) stacked vertically.
+ * 2. Neighbour Domains (placed via {@link layoutNeighbours}) come from BFS over the union of
+ *    `aggregatedDomainEdges` (initial root load + every multi-hop expansion the user has
+ *    triggered). Each Domain is positioned at column = its hop depth and on the side it was
+ *    first discovered from (upstream / downstream of source). The single source bbox is the
+ *    only bbox; further Domain hops render as standalone entity nodes so the layout stays
+ *    linear and predictable as the user drills out.
+ * 3. {@link AggregatedLineageEdge}s connect every (source, neighbour) pair we know about — this
+ *    is what gives the user "actual lineage between data domains" once a chain is expanded.
+ * 4. Intra-Domain DP↔DP rollups from {@code aggregatedInnerEdges} render as edges inside the
+ *    source bbox.
  */
 export default function computeDomainGraph(urn: string, type: EntityType, context: DomainGraphContext) {
     const { nodes, aggregatedDomainEdges, aggregatedInnerEdges } = context;
@@ -69,9 +63,9 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
     const boundingBox = addSourceBoundingBox(flowNodes, memberFlowNodes, nodes.get(urn));
 
     if (aggregatedDomainEdges && aggregatedDomainEdges.size > 0) {
-        flowNodes.push(...layoutNeighbours(aggregatedDomainEdges, LineageDirection.Upstream, boundingBox, urn));
-        flowNodes.push(...layoutNeighbours(aggregatedDomainEdges, LineageDirection.Downstream, boundingBox, urn));
-        flowEdges.push(...buildAggregatedEdges(aggregatedDomainEdges, urn));
+        const { neighbourNodes, sides } = layoutNeighbours(aggregatedDomainEdges, nodes, urn, boundingBox);
+        flowNodes.push(...neighbourNodes);
+        flowEdges.push(...buildAggregatedEdges(aggregatedDomainEdges, urn, sides));
     }
 
     if (aggregatedInnerEdges && aggregatedInnerEdges.size > 0) {
@@ -80,6 +74,142 @@ export default function computeDomainGraph(urn: string, type: EntityType, contex
     }
 
     return { flowNodes, flowEdges, resetPositions: false };
+}
+
+/**
+ * Per-Domain placement metadata derived by BFS from the source Domain.
+ *
+ * `side` is what we draw — once a Domain is first reached from the source via an upstream edge
+ * we anchor it on the left; subsequent edges from the opposite direction don't move the node.
+ * This avoids oscillation when a Domain is reachable both ways.
+ *
+ * `depth` is the BFS hop count from source (1 for direct neighbours, 2 for next hop, …) and
+ * drives the horizontal column position.
+ */
+export type NeighbourPlacement = {
+    side: LineageDirection;
+    depth: number;
+};
+
+function layoutNeighbours(
+    edges: ReadonlyMap<string, AggregatedDomainEdge>,
+    nodes: NodeContext['nodes'],
+    rootUrn: Urn,
+    sourceBox: Node<LineageBoundingBox>,
+): { neighbourNodes: LineageVisualizationNode[]; sides: ReadonlyMap<Urn, NeighbourPlacement> } {
+    const placements = computeNeighbourPlacements(edges, rootUrn);
+    if (placements.size === 0) {
+        return { neighbourNodes: [], sides: placements };
+    }
+
+    // Group Domains by (side, depth) so we can stack them vertically inside each column.
+    const columns = new Map<string, Urn[]>();
+    placements.forEach((placement, neighbourUrn) => {
+        const key = `${placement.side}::${placement.depth}`;
+        const arr = columns.get(key);
+        if (arr) arr.push(neighbourUrn);
+        else columns.set(key, [neighbourUrn]);
+    });
+
+    const boxWidth = sourceBox.width ?? (sourceBox.style?.width as number) ?? LINEAGE_NODE_WIDTH;
+    const boxHeight = sourceBox.height ?? (sourceBox.style?.height as number) ?? LINEAGE_NODE_HEIGHT;
+    const sourceCenterY = sourceBox.position.y + boxHeight / 2;
+
+    const result: LineageVisualizationNode[] = [];
+    columns.forEach((urnsInColumn, key) => {
+        // Stable per-column ordering: by memberMatchCount desc (largest first), then URN tiebreak.
+        const sorted = [...urnsInColumn].sort((a, b) => {
+            const ma = bestMemberMatchCount(edges, a);
+            const mb = bestMemberMatchCount(edges, b);
+            if (mb !== ma) return mb - ma;
+            return a.localeCompare(b);
+        });
+
+        const [sideStr, depthStr] = key.split('::');
+        const direction = sideStr as LineageDirection;
+        const depth = Number(depthStr);
+        const totalSpan = sorted.length * (LINEAGE_NODE_HEIGHT + NEIGHBOUR_VERTICAL_GAP) - NEIGHBOUR_VERTICAL_GAP;
+        const startY = sourceCenterY - totalSpan / 2;
+
+        const xOffset = depth * (LINEAGE_NODE_WIDTH + NEIGHBOUR_HORIZONTAL_GAP);
+        const x =
+            direction === LineageDirection.Upstream
+                ? sourceBox.position.x - xOffset - LINEAGE_NODE_WIDTH + NEIGHBOUR_HORIZONTAL_GAP
+                : sourceBox.position.x + boxWidth + xOffset - NEIGHBOUR_HORIZONTAL_GAP;
+
+        sorted.forEach((neighbourUrn, idx) => {
+            const node = nodes.get(neighbourUrn);
+            if (!node) return; // Defensive: ingest hook should have registered every neighbour.
+            result.push({
+                id: neighbourUrn,
+                type: LINEAGE_ENTITY_NODE_NAME,
+                position: {
+                    x,
+                    y: startY + idx * (LINEAGE_NODE_HEIGHT + NEIGHBOUR_VERTICAL_GAP),
+                },
+                data: node,
+                draggable: true,
+                selectable: true,
+            });
+        });
+    });
+    return { neighbourNodes: result, sides: placements };
+}
+
+/**
+ * BFS from `rootUrn` over the directed edges in `aggregatedDomainEdges`. Returns each reachable
+ * Domain's discovered side (left/right of source) and BFS depth (hop count from source).
+ *
+ * Self-loops (edges back to `rootUrn`) are skipped so the source bbox stays the single anchor.
+ * Cycles are handled naturally because we only assign placement on first visit.
+ */
+export function computeNeighbourPlacements(
+    edges: ReadonlyMap<string, AggregatedDomainEdge>,
+    rootUrn: Urn,
+): Map<Urn, NeighbourPlacement> {
+    // Build adjacency: from-source-perspective, "discovered via upstream edge" → side=Upstream.
+    // A 2-hop neighbour reached from a 1-hop upstream is also placed upstream — we don't flip
+    // sides mid-chain because the user's mental model is "this column is upstream of source".
+    const outgoing = new Map<Urn, Array<{ to: Urn; via: LineageDirection }>>();
+    edges.forEach((edge) => {
+        if (edge.neighbourUrn === rootUrn) return;
+        const fromList = outgoing.get(edge.sourceUrn);
+        const entry = { to: edge.neighbourUrn, via: edge.direction };
+        if (fromList) fromList.push(entry);
+        else outgoing.set(edge.sourceUrn, [entry]);
+    });
+
+    const placements = new Map<Urn, NeighbourPlacement>();
+    type QueueEntry = { urn: Urn; side: LineageDirection | null; depth: number };
+    const queue: QueueEntry[] = [{ urn: rootUrn, side: null, depth: 0 }];
+    const visited = new Set<Urn>([rootUrn]);
+
+    while (queue.length > 0) {
+        const head = queue.shift();
+        if (!head) break;
+        const neighbours = outgoing.get(head.urn) ?? [];
+        neighbours.forEach((next) => {
+            if (visited.has(next.to)) return;
+            visited.add(next.to);
+            // The "side" carries through the chain: if I'm already on the upstream side, every
+            // further hop from me stays upstream regardless of the edge direction taken to reach
+            // the next node (the chain is "upstream of source").
+            const side = head.side ?? next.via;
+            placements.set(next.to, { side, depth: head.depth + 1 });
+            queue.push({ urn: next.to, side, depth: head.depth + 1 });
+        });
+    }
+    return placements;
+}
+
+function bestMemberMatchCount(edges: ReadonlyMap<string, AggregatedDomainEdge>, urn: Urn): number {
+    let best = 0;
+    edges.forEach((edge) => {
+        if (edge.neighbourUrn === urn && edge.memberMatchCount > best) {
+            best = edge.memberMatchCount;
+        }
+    });
+    return best;
 }
 
 function buildInnerAggregatedEdges(
@@ -113,15 +243,23 @@ function buildInnerAggregatedEdges(
 function buildAggregatedEdges(
     edges: ReadonlyMap<string, AggregatedDomainEdge>,
     rootUrn: Urn,
+    sides: ReadonlyMap<Urn, NeighbourPlacement>,
 ): Edge<AggregatedLineageEdgeData>[] {
     const flowEdges: Edge<AggregatedLineageEdgeData>[] = [];
     edges.forEach((edge) => {
         if (edge.neighbourUrn === rootUrn) return;
+        // We can only draw an edge if both endpoints were placed in the layout. The source side
+        // is always laid out (source bbox is fixed; expansion-source Domains are always already
+        // placed via the BFS that produced them); the neighbour might still be missing if the
+        // ingest hook hasn't registered it yet, in which case skip until the next render tick.
+        if (edge.sourceUrn !== rootUrn && !sides.has(edge.sourceUrn)) return;
+        if (!sides.has(edge.neighbourUrn)) return;
+
         const isUpstream = edge.direction === LineageDirection.Upstream;
-        const source = isUpstream ? edge.neighbourUrn : rootUrn;
-        const target = isUpstream ? rootUrn : edge.neighbourUrn;
+        const source = isUpstream ? edge.neighbourUrn : edge.sourceUrn;
+        const target = isUpstream ? edge.sourceUrn : edge.neighbourUrn;
         flowEdges.push({
-            id: `aggregated::${source}::${target}`,
+            id: `aggregated::${edge.sourceUrn}::${edge.neighbourUrn}::${edge.direction}`,
             source,
             target,
             type: AGGREGATED_LINEAGE_EDGE_NAME,
@@ -197,87 +335,4 @@ function addSourceBoundingBox(
 
     flowNodes.unshift(box);
     return box;
-}
-
-function layoutNeighbours(
-    edges: ReadonlyMap<string, AggregatedDomainEdge>,
-    direction: LineageDirection,
-    sourceBox: Node<LineageBoundingBox>,
-    rootUrn: Urn,
-): LineageVisualizationNode[] {
-    const matching: AggregatedDomainEdge[] = [];
-    edges.forEach((edge) => {
-        if (edge.direction !== direction) return;
-        if (edge.neighbourUrn === rootUrn) return;
-        matching.push(edge);
-    });
-
-    // Stable ordering: by member-match count desc, then by URN — same tiebreak the resolver uses.
-    matching.sort((a, b) => {
-        if (b.memberMatchCount !== a.memberMatchCount) return b.memberMatchCount - a.memberMatchCount;
-        return a.neighbourUrn.localeCompare(b.neighbourUrn);
-    });
-
-    const boxWidth = sourceBox.width ?? (sourceBox.style?.width as number) ?? LINEAGE_NODE_WIDTH;
-    const boxHeight = sourceBox.height ?? (sourceBox.style?.height as number) ?? LINEAGE_NODE_HEIGHT;
-
-    const totalSpan = matching.length * (LINEAGE_NODE_HEIGHT + NEIGHBOUR_VERTICAL_GAP) - NEIGHBOUR_VERTICAL_GAP;
-    const startY = sourceBox.position.y + (boxHeight - totalSpan) / 2;
-
-    const x =
-        direction === LineageDirection.Upstream
-            ? sourceBox.position.x - NEIGHBOUR_HORIZONTAL_GAP - LINEAGE_NODE_WIDTH
-            : sourceBox.position.x + boxWidth + NEIGHBOUR_HORIZONTAL_GAP;
-
-    return matching.map((edge, idx) => ({
-        id: edge.neighbourUrn,
-        type: LINEAGE_ENTITY_NODE_NAME,
-        position: {
-            x,
-            y: startY + idx * (LINEAGE_NODE_HEIGHT + NEIGHBOUR_VERTICAL_GAP),
-        },
-        data: toNeighbourLineageEntity(edge),
-        draggable: true,
-        selectable: true,
-    }));
-}
-
-function toNeighbourLineageEntity(edge: AggregatedDomainEdge): LineageEntity {
-    const name = edge.neighbourName ?? edge.neighbourUrn;
-
-    const fetchedEntity: FetchedEntityV2 = {
-        urn: edge.neighbourUrn,
-        type: edge.neighbourType,
-        name,
-        exists: true,
-        genericEntityProperties: {
-            type: edge.neighbourType,
-            displayProperties: edge.neighbourColorHex ? { colorHex: edge.neighbourColorHex } : undefined,
-            properties: { name },
-        } as FetchedEntityV2['genericEntityProperties'],
-    };
-
-    return {
-        id: edge.neighbourUrn,
-        urn: edge.neighbourUrn,
-        type: edge.neighbourType,
-        entity: fetchedEntity,
-        displaySubtitle: formatAssetCount(edge.memberMatchCount),
-        isExpanded: {
-            [LineageDirection.Upstream]: false,
-            [LineageDirection.Downstream]: false,
-        },
-        fetchStatus: {
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
-        },
-        filters: {
-            [LineageDirection.Upstream]: { facetFilters: new Map() },
-            [LineageDirection.Downstream]: { facetFilters: new Map() },
-        },
-    };
-}
-
-function formatAssetCount(count: number): string {
-    return `${count} ${count === 1 ? 'asset' : 'assets'}`;
 }
