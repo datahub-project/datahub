@@ -72,6 +72,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchAddToDataProducts
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchRemoveFromDataProductsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.BatchSetDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
@@ -83,6 +84,7 @@ import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResol
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
+import com.linkedin.datahub.graphql.resolvers.domain.DomainLineageResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ListDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.ParentDomainsResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.SetDomainResolver;
@@ -881,6 +883,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(LINEAGE_AGGREGATION_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
@@ -3105,6 +3108,7 @@ public class GmsGraphQLEngine {
         "Domain",
         typeWiring ->
             typeWiring
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
                 .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
@@ -3114,7 +3118,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
-                        documentService, entityClient, groupService)));
+                        documentService, entityClient, groupService))
+                .dataFetcher("domainLineage", new DomainLineageResolver()));
     builder.type(
         "DomainAssociation",
         typeWiring ->
@@ -3213,7 +3218,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "relatedDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.RelatedDocumentsResolver(
-                        documentService, entityClient, groupService)));
+                        documentService, entityClient, groupService))
+                .dataFetcher("dataProductLineage", new DataProductLineageResolver()));
   }
 
   private void configureApplicationResolvers(final RuntimeWiring.Builder builder) {

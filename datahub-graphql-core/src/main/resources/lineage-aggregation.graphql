@@ -1,0 +1,297 @@
+# GraphQL schema for aggregated lineage between Domain ↔ Domain and DataProduct ↔ DataProduct.
+#
+# These types power the drillable lineage views described in the roadmap:
+#   * Top-level Domain → Domain relationships, derived from the underlying lineage of each domain's assets.
+#   * DataProduct → DataProduct relationships, derived from the underlying lineage of each data product's assets.
+#
+# The aggregation is implemented by the resolver layer — see DomainLineageResolver and
+# DataProductLineageResolver. Neither Domain nor DataProduct currently participate in the
+# entity-lineage graph as first-class nodes (DataProductContains / Domains relationships are not
+# @Relationship.isLineage = true), so the resolver scans each member's lineage individually and
+# buckets the resulting neighbours by their owning Domain / DataProduct.
+
+"""
+Input for fetching aggregated Domain-level lineage neighbours, derived from the lineage of the
+source Domain's member assets.
+"""
+input DomainLineageInput {
+  """
+  Whether to fetch upstream or downstream neighbours from the source Domain's perspective.
+  """
+  direction: LineageDirection!
+
+  """
+  Maximum hop depth to traverse per member. Clamped server-side by graph.lineageMaxHops.
+  """
+  hops: Int = 1
+
+  """
+  Offset into the aggregated neighbour list. Pagination is applied AFTER all source members have
+  been scanned and bucketed (the sort order depends on scanning all members).
+  """
+  start: Int = 0
+
+  """
+  Initial page size for aggregated neighbours. The UI typically increments this via "Show More"
+  rather than rerunning the query with a higher start offset.
+  """
+  count: Int = 25
+
+  """
+  When false (default), each aggregated relationship's entity is a neighbour Domain.
+  When true, neighbours are re-bucketed by the DataProduct that contains them, returning
+  DataProduct entities instead of Domain entities. Useful for the "domain → data products"
+  drill-down lens.
+  """
+  groupByDataProduct: Boolean = false
+
+  """
+  When true, neighbours the caller cannot view are returned as Restricted placeholders so the
+  UI can show "you have N relationships you can't see". When false they are dropped entirely.
+  """
+  includeRestricted: Boolean = true
+
+  """
+  Optional search flags forwarded to the per-member searchAcrossLineage calls.
+  """
+  searchFlags: SearchFlags
+
+  """
+  Optional lineage flags (time window, propagation filters, etc.) forwarded to each per-member call.
+  """
+  lineageFlags: LineageFlags
+
+  """
+  Server-side hard cap on the number of source-Domain members to enumerate. If the source has
+  more members than this, isPartial is set to true and excess members are skipped. NOT
+  user-pageable. Default 1000, clamped to 5000 to bound worst-case latency.
+  """
+  memberScanCap: Int = 1000
+
+  """
+  Per-member searchAcrossLineage page size. Bounds the fan-out of each underlying call.
+  Default 100, clamped to 1000.
+  """
+  perMemberCount: Int = 100
+
+  """
+  Optional filters applied to each per-member searchAcrossLineage call. Useful for restricting
+  the neighbour set to a particular entity type or platform.
+  """
+  orFilters: [AndFilterInput!]
+}
+
+"""
+Result of an aggregated Domain-level lineage query.
+"""
+type DomainLineageResult {
+  """
+  Offset of the first relationship in this page (echoes input.start).
+  """
+  start: Int!
+
+  """
+  Number of relationships in this page (≤ input.count).
+  """
+  count: Int!
+
+  """
+  Total distinct neighbour buckets after auth filtering, across all source members.
+  """
+  total: Int!
+
+  """
+  True if any of: (a) memberScanCap was exceeded, (b) a per-member searchAcrossLineage call
+  returned partial results, or (c) hits with no resolvable owning Domain/DataProduct were
+  filtered out. UI should surface a "showing partial results" hint when true.
+  """
+  isPartial: Boolean!
+
+  """
+  Number of source members actually scanned (useful for "X of Y" progress text).
+  """
+  memberScanCount: Int!
+
+  """
+  Total members in the source Domain, regardless of memberScanCap.
+  """
+  memberTotal: Int!
+
+  """
+  The page of aggregated neighbour relationships.
+  """
+  relationships: [DomainLineageRelationship!]!
+}
+
+"""
+A single aggregated neighbour relationship: a Domain (or DataProduct, with groupByDataProduct=true,
+or Restricted) that is reachable from the source Domain's members via lineage.
+"""
+type DomainLineageRelationship {
+  """
+  The neighbour entity. Typically a Domain; a DataProduct when input.groupByDataProduct=true;
+  a Restricted placeholder when the caller cannot view it.
+  """
+  entity: Entity!
+
+  """
+  Direction of the edges that contribute to this aggregation (echoes input.direction).
+  """
+  direction: LineageDirection!
+
+  """
+  How many distinct source-Domain members produced at least one lineage hit that resolved to
+  this neighbour. Useful as a "strength of relationship" signal — higher means more of the
+  source's members participate in lineage with this neighbour.
+  """
+  memberMatchCount: Int!
+
+  """
+  How many distinct entities in the neighbour bucket were touched by lineage hits.
+  """
+  neighbourEntityCount: Int!
+
+  """
+  Minimum hop count across all contributing lineage paths. 1 means direct neighbour.
+  """
+  degreeMin: Int!
+
+  """
+  Maximum hop count across all contributing lineage paths.
+  """
+  degreeMax: Int!
+}
+
+"""
+Input for fetching aggregated DataProduct-level lineage neighbours, derived from the lineage of
+the source DataProduct's member assets.
+"""
+input DataProductLineageInput {
+  """
+  Whether to fetch upstream or downstream neighbours from the source DataProduct's perspective.
+  """
+  direction: LineageDirection!
+
+  """
+  Maximum hop depth to traverse per member. Clamped server-side by graph.lineageMaxHops.
+  """
+  hops: Int = 1
+
+  """
+  Offset into the aggregated neighbour list. Pagination is applied AFTER all source members
+  have been scanned and bucketed.
+  """
+  start: Int = 0
+
+  """
+  Initial page size for aggregated neighbours.
+  """
+  count: Int = 25
+
+  """
+  When true, neighbours the caller cannot view are returned as Restricted placeholders.
+  """
+  includeRestricted: Boolean = true
+
+  """
+  Optional search flags forwarded to the per-member searchAcrossLineage calls.
+  """
+  searchFlags: SearchFlags
+
+  """
+  Optional lineage flags forwarded to each per-member call.
+  """
+  lineageFlags: LineageFlags
+
+  """
+  Server-side hard cap on the number of source-DataProduct members to enumerate. Default 1000,
+  clamped to 5000. NOT user-pageable.
+  """
+  memberScanCap: Int = 1000
+
+  """
+  Per-member searchAcrossLineage page size. Default 100, clamped to 1000.
+  """
+  perMemberCount: Int = 100
+
+  """
+  Optional filters applied to each per-member searchAcrossLineage call.
+  """
+  orFilters: [AndFilterInput!]
+}
+
+"""
+Result of an aggregated DataProduct-level lineage query.
+"""
+type DataProductLineageResult {
+  """
+  Offset of the first relationship in this page.
+  """
+  start: Int!
+
+  """
+  Number of relationships in this page.
+  """
+  count: Int!
+
+  """
+  Total distinct neighbour buckets after auth filtering.
+  """
+  total: Int!
+
+  """
+  True if results are partial (see DomainLineageResult.isPartial for the conditions).
+  """
+  isPartial: Boolean!
+
+  """
+  Number of source members actually scanned.
+  """
+  memberScanCount: Int!
+
+  """
+  Total members in the source DataProduct.
+  """
+  memberTotal: Int!
+
+  """
+  The page of aggregated neighbour relationships.
+  """
+  relationships: [DataProductLineageRelationship!]!
+}
+
+"""
+A single aggregated neighbour relationship for DataProduct-level lineage.
+"""
+type DataProductLineageRelationship {
+  """
+  The neighbour DataProduct, or a Restricted placeholder when the caller cannot view it.
+  """
+  entity: Entity!
+
+  """
+  Direction of the edges that contribute to this aggregation.
+  """
+  direction: LineageDirection!
+
+  """
+  How many distinct source-DataProduct members produced at least one lineage hit that resolved
+  to this neighbour.
+  """
+  memberMatchCount: Int!
+
+  """
+  How many distinct entities in the neighbour DataProduct were touched by lineage hits.
+  """
+  neighbourEntityCount: Int!
+
+  """
+  Minimum hop count across all contributing lineage paths.
+  """
+  degreeMin: Int!
+
+  """
+  Maximum hop count across all contributing lineage paths.
+  """
+  degreeMax: Int!
+}

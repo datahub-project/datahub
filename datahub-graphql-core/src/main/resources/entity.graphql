@@ -11800,6 +11800,11 @@ type Domain implements Entity {
   type: EntityType!
 
   """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+
+  """
   Id of the domain
   """
   id: String!
@@ -11864,6 +11869,13 @@ type Domain implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Aggregated lineage neighbours derived from the lineage of this domain's member assets.
+  Returns Domain neighbours by default, or DataProduct neighbours when input.groupByDataProduct
+  is true. See lineage-aggregation.graphql for the full input/output shape.
+  """
+  domainLineage(input: DomainLineageInput!): DomainLineageResult!
 }
 
 """
@@ -13478,6 +13490,13 @@ type DataProduct implements Entity {
   Privileges given to a user relevant to this entity
   """
   privileges: EntityPrivileges
+
+  """
+  Aggregated lineage neighbours derived from the lineage of this data product's member assets.
+  Returns DataProduct neighbours bucketed by their owning DataProduct. See
+  lineage-aggregation.graphql for the full input/output shape.
+  """
+  dataProductLineage(input: DataProductLineageInput!): DataProductLineageResult!
 }
 
 """

@@ -23,6 +23,7 @@ public class Constants {
   public static final String TESTS_SCHEMA_FILE = "tests.graphql";
   public static final String STEPS_SCHEMA_FILE = "step.graphql";
   public static final String LINEAGE_SCHEMA_FILE = "lineage.graphql";
+  public static final String LINEAGE_AGGREGATION_SCHEMA_FILE = "lineage-aggregation.graphql";
   public static final String PROPERTIES_SCHEMA_FILE = "properties.graphql";
   public static final String FORMS_SCHEMA_FILE = "forms.graphql";
   public static final String ASSERTIONS_SCHEMA_FILE = "assertions.graphql";
