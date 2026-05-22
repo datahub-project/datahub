@@ -250,7 +250,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
 
     const tableColumns = [
         {
-            title: t('columnName'),
+            title: t('column.name'),
             key: 'name',
             width: '20%',
             render: (record: any) => (
@@ -263,7 +263,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             ),
         },
         {
-            title: t('columnType'),
+            title: t('column.type'),
             key: 'type',
             width: '10%',
             render: (record: any) => {
@@ -281,13 +281,13 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             },
         },
         {
-            title: t('columnDescription'),
+            title: t('column.description'),
             key: 'description',
             width: '25%',
             render: (record: any) => record?.description || '',
         },
         {
-            title: t('columnActors'),
+            title: t('column.actors'),
             key: 'actors',
             width: '20%',
             render: (record: any) => {
@@ -326,7 +326,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
                                 showRemainingNumber
                                 totalCount={avatars.length}
                                 entityRegistry={entityRegistry as any}
-                                title={t('columnActors')}
+                                title={t('column.actors')}
                             />
                         )}
                         {record?.allUsers && (
@@ -343,7 +343,7 @@ export const ManagePolicies = ({ onRegisterCreatePolicy }: ManagePoliciesProps) 
             },
         },
         {
-            title: t('columnState'),
+            title: t('column.state'),
             key: 'state',
             width: '10%',
             render: (record: any) => {

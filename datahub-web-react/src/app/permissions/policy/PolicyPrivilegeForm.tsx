@@ -543,16 +543,16 @@ export default function PolicyPrivilegeForm({
         <PrivilegesForm layout="vertical">
             {showResourceFilterInput && (
                 <Form.Item
-                    label={<Typography.Text strong>{t('privilegeFormResourceTypeLabel')}</Typography.Text>}
+                    label={<Typography.Text strong>{t('privilegeForm.resourceTypeLabel')}</Typography.Text>}
                     labelAlign="right"
                 >
                     <Typography.Paragraph>
-                        <Trans t={t} i18nKey="privilegeFormResourceTypeDescription" components={{ bold: <b /> }} />
+                        <Trans t={t} i18nKey="privilegeForm.resourceTypeDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
                         value={resourceTypeSelectValue}
                         mode="multiple"
-                        placeholder={t('privilegeFormResourceTypePlaceholder')}
+                        placeholder={t('privilegeForm.resourceTypePlaceholder')}
                         onSelect={onSelectResourceType}
                         onDeselect={onDeselectResourceType}
                         tagRender={(tagProps) => (
@@ -574,16 +574,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeFormResourceLabel')}</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.resourceLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        <Trans t={t} i18nKey="privilegeFormResourceDescription" components={{ bold: <b /> }} />
+                        <Trans t={t} i18nKey="privilegeForm.resourceDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
-                        notFoundContent={t('privilegeFormResourceNotFound')}
+                        notFoundContent={t('privilegeForm.resourceNotFound')}
                         value={resourceSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder={t('privilegeFormResourcePlaceholder')}
+                        placeholder={t('privilegeForm.resourcePlaceholder')}
                         onSelect={onSelectResource}
                         onDeselect={onDeselectResource}
                         onSearch={handleResourceSearch}
@@ -608,14 +608,14 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeFormTagsLabel')}</Typography.Text>}>
-                    <Typography.Paragraph>{t('privilegeFormTagsDescription')}</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.tagsLabel')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('privilegeForm.tagsDescription')}</Typography.Paragraph>
                     <TagSelect
                         data-testid="tag-term-modal-input"
                         mode="multiple"
                         ref={inputEl}
                         filterOption={false}
-                        placeholder={t('privilegeFormTagSearchPlaceholder', {
+                        placeholder={t('privilegeForm.tagSearchPlaceholder', {
                             entityName: entityRegistry.getEntityName(type)?.toLowerCase(),
                         })}
                         showSearch
@@ -639,9 +639,9 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeFormDomainsLabel')}</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.domainsLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        <Trans t={t} i18nKey="privilegeFormDomainsDescription" components={{ bold: <b /> }} />
+                        <Trans t={t} i18nKey="privilegeForm.domainsDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <ClickOutside onClickOutside={handleCLickOutside}>
                         <Select
@@ -649,7 +649,7 @@ export default function PolicyPrivilegeForm({
                             value={domainSelectValue}
                             mode="multiple"
                             filterOption={false}
-                            placeholder={t('privilegeFormDomainPlaceholder')}
+                            placeholder={t('privilegeForm.domainPlaceholder')}
                             onSelect={(value) => onSelectDomain(value)}
                             onDeselect={onDeselectDomain}
                             onSearch={handleDomainSearch}
@@ -678,16 +678,16 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeFormContainersLabel')}</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.containersLabel')}</Typography.Text>}>
                     <Typography.Paragraph>
-                        <Trans t={t} i18nKey="privilegeFormContainersDescription" components={{ bold: <b /> }} />
+                        <Trans t={t} i18nKey="privilegeForm.containersDescription" components={{ bold: <b /> }} />
                     </Typography.Paragraph>
                     <Select
                         showSearch
                         value={containerSelectValue}
                         mode="multiple"
                         filterOption={false}
-                        placeholder={t('privilegeFormContainerPlaceholder')}
+                        placeholder={t('privilegeForm.containerPlaceholder')}
                         onSelect={(value) => onSelectContainer(value)}
                         onDeselect={onDeselectContainer}
                         onSearch={handleContainerSearch}
@@ -711,12 +711,12 @@ export default function PolicyPrivilegeForm({
                 </Form.Item>
             )}
             {showResourceFilterInput && isGlossaryBasedPoliciesEnabled && (
-                <Form.Item label={<Typography.Text strong>{t('privilegeFormGlossaryTermsLabel')}</Typography.Text>}>
+                <Form.Item label={<Typography.Text strong>{t('privilegeForm.glossaryTermsLabel')}</Typography.Text>}>
                     <GlossarySelector resources={resources} setResources={setResources} />
                 </Form.Item>
             )}
             <Form.Item label={<Typography.Text strong>{t('privilegesLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('privilegeFormPrivilegesDescription')}</Typography.Paragraph>
+                <Typography.Paragraph>{t('privilegeForm.privilegesDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="privileges"
                     value={privilegesSelectValue}
@@ -740,7 +740,7 @@ export default function PolicyPrivilegeForm({
                             </Select.Option>
                         );
                     })}
-                    <Select.Option value={ALL_PRIVILEGES_VALUE}>{t('privilegeFormAllPrivileges')}</Select.Option>
+                    <Select.Option value={ALL_PRIVILEGES_VALUE}>{t('privilegeForm.allPrivileges')}</Select.Option>
                 </Select>
             </Form.Item>
         </PrivilegesForm>

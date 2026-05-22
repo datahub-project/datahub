@@ -66,7 +66,7 @@ export const ManagePermissions = () => {
     const getTabs = () => {
         return [
             {
-                name: t('rolesTab'),
+                name: t('roles.tab'),
                 path: TabType.Roles.toLocaleLowerCase(),
                 content: <ManageRoles />,
                 display: {

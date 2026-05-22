@@ -91,7 +91,7 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
             <PolicyContainer>
                 <Section>
                     <Heading type="h5" size="sm" weight="bold">
-                        {t('columnDescription')}
+                        {t('column.description')}
                     </Heading>
                     <Text color="gray" size="md">
                         {role?.description}

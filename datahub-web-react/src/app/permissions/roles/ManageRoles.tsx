@@ -139,7 +139,7 @@ export const ManageRoles = () => {
                         roleUrn: focusRole?.urn,
                         userUrns: actorUrns,
                     });
-                    showToastMessage(ToastType.SUCCESS, t('rolesAssignSuccess'), 2);
+                    showToastMessage(ToastType.SUCCESS, t('roles.assignSuccess'), 2);
                     setTimeout(() => {
                         rolesRefetch();
                         clearUserListCache(client);
@@ -147,7 +147,7 @@ export const ManageRoles = () => {
                 }
             })
             .catch((e) => {
-                showToastMessage(ToastType.ERROR, t('rolesAssignError', { error: e.message || '' }), 3);
+                showToastMessage(ToastType.ERROR, t('roles.assignError', { error: e.message || '' }), 3);
             })
             .finally(() => {
                 resetRoleState();
@@ -160,7 +160,7 @@ export const ManageRoles = () => {
 
     const tableColumns = [
         {
-            title: t('columnName'),
+            title: t('column.name'),
             key: 'name',
             width: '15%',
             render: (record: any) => (
@@ -170,7 +170,7 @@ export const ManageRoles = () => {
             ),
         },
         {
-            title: t('columnDescription'),
+            title: t('column.description'),
             key: 'description',
             width: '25%',
             render: (record: any) => record?.description || '',
@@ -263,7 +263,7 @@ export const ManageRoles = () => {
                             setFocusRole(record.role);
                         }}
                     >
-                        {t('rolesAssignUsersButton')}
+                        {t('roles.assignUsersButton')}
                     </Button>
                 </ActionsContainer>
             ),
@@ -284,7 +284,7 @@ export const ManageRoles = () => {
     return (
         <PageContainer>
             <OnboardingTour stepIds={[ROLES_INTRO_ID]} />
-            {rolesError && showToastMessage(ToastType.ERROR, t('rolesLoadError'), 3)}
+            {rolesError && showToastMessage(ToastType.ERROR, t('roles.loadError'), 3)}
             <SearchBar
                 placeholder={t('searchRolesPlaceholder')}
                 value={query || ''}
@@ -297,7 +297,7 @@ export const ManageRoles = () => {
             />
             {isBatchAddRolesModalVisible && (
                 <Modal
-                    title={t('rolesAssignTitle', { roleName: focusRole?.name })}
+                    title={t('roles.assignTitle', { roleName: focusRole?.name })}
                     onCancel={resetRoleState}
                     buttons={[
                         { text: tc('cancel'), variant: 'text', onClick: resetRoleState },
@@ -312,7 +312,7 @@ export const ManageRoles = () => {
                     <ActorsSearchSelect
                         selectedActorUrns={selectedUserUrns}
                         onUpdate={(actors) => setSelectedUserUrns(actors.map((a) => a.urn))}
-                        placeholder={t('rolesSearchUsersPlaceholder')}
+                        placeholder={t('roles.searchUsersPlaceholder')}
                     />
                 </Modal>
             )}
@@ -320,7 +320,7 @@ export const ManageRoles = () => {
                 {!rolesLoading && tableData?.length === 0 ? (
                     <EmptyContainer>
                         <Text size="md" color="gray">
-                            {t('rolesEmpty')}
+                            {t('roles.empty')}
                         </Text>
                     </EmptyContainer>
                 ) : (

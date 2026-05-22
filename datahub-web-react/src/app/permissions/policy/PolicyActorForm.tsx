@@ -255,23 +255,23 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
     return (
         <ActorForm layout="vertical">
             <ActorFormHeader>
-                <Typography.Title level={4}>{t('actorFormTitle')}</Typography.Title>
-                <Typography.Paragraph>{t('actorFormDescription')}</Typography.Paragraph>
+                <Typography.Title level={4}>{t('actorForm.title')}</Typography.Title>
+                <Typography.Paragraph>{t('actorForm.description')}</Typography.Paragraph>
             </ActorFormHeader>
             {showAppliesToOwners && (
                 <Form.Item
-                    label={<Typography.Text strong>{t('actorFormOwnersLabel')}</Typography.Text>}
+                    label={<Typography.Text strong>{t('actorForm.ownersLabel')}</Typography.Text>}
                     labelAlign="right"
                 >
-                    <Typography.Paragraph>{t('actorFormOwnersDescription')}</Typography.Paragraph>
+                    <Typography.Paragraph>{t('actorForm.ownersDescription')}</Typography.Paragraph>
                     <Switch size="small" checked={actors.resourceOwners} onChange={onToggleAppliesToOwners} />
                     {actors.resourceOwners && (
                         <OwnershipWrapper>
-                            <Typography.Paragraph>{t('actorFormOwnershipTypesDescription')}</Typography.Paragraph>
+                            <Typography.Paragraph>{t('actorForm.ownershipTypesDescription')}</Typography.Paragraph>
                             <Select
                                 value={ownershipTypesSelectValue}
                                 mode="multiple"
-                                placeholder={t('actorFormOwnershipTypesPlaceholder')}
+                                placeholder={t('actorForm.ownershipTypesPlaceholder')}
                                 onSelect={(asset: any) => onSelectOwnershipTypeActor(asset)}
                                 onDeselect={(asset: any) => onDeselectOwnershipTypeActor(asset)}
                                 tagRender={(tagProps) => {
@@ -294,14 +294,14 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                     )}
                 </Form.Item>
             )}
-            <Form.Item label={<Typography.Text strong>{t('actorFormUsersLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('actorFormUsersDescription')}</Typography.Paragraph>
+            <Form.Item label={<Typography.Text strong>{t('actorForm.usersLabel')}</Typography.Text>}>
+                <Typography.Paragraph>{t('actorForm.usersDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="users"
                     value={usersSelectUrns}
                     mode="multiple"
                     filterOption={false}
-                    placeholder={t('actorFormUsersPlaceholder')}
+                    placeholder={t('actorForm.usersPlaceholder')}
                     onSelect={(asset: any) => onSelectUserActor(asset)}
                     onDeselect={(asset: any) => onDeselectUserActor(asset)}
                     onSearch={handleUserSearch}
@@ -336,12 +336,12 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
                 </Select>
             </Form.Item>
             <Form.Item label={<Typography.Text strong>{t('groupsLabel')}</Typography.Text>}>
-                <Typography.Paragraph>{t('actorFormGroupsDescription')}</Typography.Paragraph>
+                <Typography.Paragraph>{t('actorForm.groupsDescription')}</Typography.Paragraph>
                 <Select
                     data-testid="groups"
                     value={groupsSelectUrns}
                     mode="multiple"
-                    placeholder={t('actorFormGroupsPlaceholder')}
+                    placeholder={t('actorForm.groupsPlaceholder')}
                     onSelect={(asset: any) => onSelectGroupActor(asset)}
                     onDeselect={(asset: any) => onDeselectGroupActor(asset)}
                     onSearch={handleGroupSearch}
