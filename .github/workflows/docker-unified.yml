@@ -10,7 +10,7 @@ on:
       playwright_shard_count:
         description: "Number of parallel shards for Playwright E2E tests"
         required: false
-        default: "4"
+        default: "5"
         type: string
   push:
     branches:
@@ -50,6 +50,7 @@ env:
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+  PLAYWRIGHT_SHARD_COUNT: "5"
 
 permissions:
   contents: read
@@ -242,7 +243,7 @@ jobs:
         id: set-playwright-matrix
         if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
-          shard_count=$(( ${{ github.event.inputs.playwright_shard_count || '4' }} ))
+          shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
           for i in $(seq 1 "$shard_count"); do
             if [[ -n "$matrix" ]]; then
@@ -910,7 +911,7 @@ jobs:
     name: Playwright E2E Tests (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup, base_build]
-    timeout-minutes: 15
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}

@@ -19,6 +19,7 @@ import { LineageV2Page } from '../../pages/lineage-v2.page';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { gmsUrl } from '../../utils/constants';
 import { readGmsToken } from '../../fixtures/login';
+import { users } from '../../data/users';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ test.describe('impact analysis', () => {
   test.beforeAll(async () => {
     const apiContext = await playwrightRequest.newContext({ baseURL: gmsUrl() });
     try {
-      const gmsToken = readGmsToken('datahub');
+      const gmsToken = readGmsToken(users.admin.username);
       await seedTimeRangeLineage(apiContext, gmsToken);
     } finally {
       await apiContext.dispose();
