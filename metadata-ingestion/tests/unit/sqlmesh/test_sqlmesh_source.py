@@ -384,6 +384,125 @@ class TestFreshnessAssertions:
         assert self._freshness_infos(workunits) == []
 
 
+class TestVolumeAssertions:
+    """Each non-external, non-embedded model gets one VOLUME assertion:
+    row count must be >= 1. Detects the catastrophic empty-table-after-
+    rebuild failure mode and gives the Cloud anomaly detector a baseline.
+    """
+
+    def _volume_infos(self, workunits):
+        from datahub.metadata.schema_classes import (
+            AssertionInfoClass,
+            AssertionTypeClass,
+        )
+
+        return [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+            and wu.metadata.aspect.type == AssertionTypeClass.VOLUME
+        ]
+
+    def test_volume_assertion_emitted_per_model(self):
+        from datahub.metadata.schema_classes import (
+            AssertionStdOperatorClass,
+            VolumeAssertionTypeClass,
+        )
+
+        source = _make_source()
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._volume_infos(workunits)
+
+        assert len(infos) == 1
+        info = infos[0]
+        assert info.volumeAssertion.type == VolumeAssertionTypeClass.ROW_COUNT_TOTAL
+        assert (
+            info.volumeAssertion.rowCountTotal.operator
+            == AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO
+        )
+        assert info.volumeAssertion.rowCountTotal.parameters.value.value == "1"
+
+    def test_volume_attaches_to_sqlmesh_urn(self):
+        source = _make_source()
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._volume_infos(workunits)
+
+        assert SQLMESH_PLATFORM in infos[0].volumeAssertion.entity
+        assert WAREHOUSE_PLATFORM not in infos[0].volumeAssertion.entity
+
+    def test_external_model_skips_volume(self):
+        source = _make_source()
+        model = _make_mock_model(kind_name="EXTERNAL")
+
+        workunits = _run_project(source, {"star.raw_orders": model}, {})
+        assert self._volume_infos(workunits) == []
+
+    def test_embedded_model_skips_volume(self):
+        source = _make_source()
+        model = _make_mock_model(kind_name="EMBEDDED", is_embedded=True)
+
+        workunits = _run_project(source, {"star.embedded_helper": model}, {})
+        assert self._volume_infos(workunits) == []
+
+    def test_disable_via_config(self):
+        source = _make_source({"emit_volume_assertions": False})
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        assert self._volume_infos(workunits) == []
+
+
+class TestSmartAnomalyDetection:
+    """Cloud anomaly-detection opt-in: when emit_smart_assertion_anomaly_detection
+    is True (default), every emitted assertion carries
+    customProperties["sqlmesh.anomaly_detection"] = "requested". Cloud
+    monitors read this to decide whether to wrap the assertion's static
+    threshold in their ML detector. Inert on OSS.
+    """
+
+    def _all_assertion_infos(self, workunits):
+        from datahub.metadata.schema_classes import AssertionInfoClass
+
+        return [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+        ]
+
+    def test_anomaly_marker_on_all_assertion_kinds_by_default(self):
+        """One marker per emitted assertion — audit, freshness, and volume all
+        get it when the flag is on (which is the default)."""
+        source = _make_source()
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+        model.audits = [("some_custom_audit", {})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._all_assertion_infos(workunits)
+
+        # 1 audit + 2 freshness + 1 volume = 4 assertions
+        assert len(infos) == 4
+        for info in infos:
+            assert info.customProperties.get("sqlmesh.anomaly_detection") == "requested"
+
+    def test_no_marker_when_flag_disabled(self):
+        source = _make_source({"emit_smart_assertion_anomaly_detection": False})
+        model = _make_mock_model()
+        model.interval_unit = MagicMock(value="hour")
+        model.audits = [("some_custom_audit", {})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+        infos = self._all_assertion_infos(workunits)
+
+        assert infos  # still emit assertions
+        for info in infos:
+            assert "sqlmesh.anomaly_detection" not in info.customProperties
+
+
 class TestLineageEmission:
     def test_lineage_points_to_sqlmesh_urns(self):
         """Lineage edges for managed deps target sqlmesh URNs, not warehouse URNs."""

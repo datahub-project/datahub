@@ -120,8 +120,11 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionTypeClass,
     NullTypeClass,
     PlatformTypeClass,
+    RowCountTotalClass,
     SiblingsClass,
     StatusClass,
+    VolumeAssertionInfoClass,
+    VolumeAssertionTypeClass,
 )
 from datahub.sdk import Dataset
 from datahub.utilities.urns.tag_urn import TagUrn
@@ -1320,6 +1323,7 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # navigate from the logical model to its current materialization.
         yield from self._emit_assertions(model, sqlmesh_urn)
         yield from self._emit_freshness_assertions(model, sqlmesh_urn)
+        yield from self._emit_volume_assertions(model, sqlmesh_urn)
 
     def _build_custom_properties(
         self,
@@ -1822,12 +1826,14 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             assertion_info = AssertionInfoClass(
                 type=AssertionTypeClass.FRESHNESS,
                 source=mce_builder.make_assertion_source(),
-                customProperties={
-                    "sqlmesh.freshness_kind": kind,
-                    "sqlmesh.interval_unit": str(
-                        getattr(model, "interval_unit", "") or ""
-                    ),
-                },
+                customProperties=self._anomaly_custom_props(
+                    {
+                        "sqlmesh.freshness_kind": kind,
+                        "sqlmesh.interval_unit": str(
+                            getattr(model, "interval_unit", "") or ""
+                        ),
+                    }
+                ),
                 description=description,
                 freshnessAssertion=FreshnessAssertionInfoClass(
                     type=FreshnessAssertionTypeClass.DATASET_CHANGE,
@@ -1847,6 +1853,89 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         raw = f"{sqlmesh_urn}:freshness:{kind}"
         return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
 
+    def _volume_assertion_urn(self, sqlmesh_urn: str) -> str:
+        """Stable urn:li:assertion:... for the model's row-count assertion."""
+        raw = f"{sqlmesh_urn}:volume:row_count"
+        return mce_builder.make_assertion_urn(hashlib.md5(raw.encode()).hexdigest())
+
+    def _emit_volume_assertions(
+        self,
+        model: "SqlmeshModel",
+        sqlmesh_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a VOLUME assertion per model — row count must be >= 1.
+
+        The "at least one row" floor is universally true for healthy models
+        and detects the most catastrophic failure mode (empty table after
+        rebuild). Tighter expected-value thresholds aren't predictable from
+        the model definition alone — those come from anomaly detection on
+        the run-event history that DataHub monitors accumulate over time.
+
+        When emit_smart_assertion_anomaly_detection is set, a customProperty
+        marker requests Acryl Cloud's monitor framework to treat the
+        threshold as a baseline rather than a hard rule, so the ML detector
+        flags drops below historical norms even when the count stays >= 1.
+
+        External and embedded models are skipped (no warehouse output to
+        count).
+        """
+        if not self.config.emit_volume_assertions:
+            return
+
+        kind_name = self._get_kind_name(model) or ""
+        if kind_name.upper() in ("EXTERNAL", "EMBEDDED"):
+            return
+
+        assertion_urn = self._volume_assertion_urn(sqlmesh_urn)
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.VOLUME,
+            source=mce_builder.make_assertion_source(),
+            customProperties=self._anomaly_custom_props(
+                {"sqlmesh.volume_kind": "row_count_min"}
+            ),
+            description=(
+                "Row count must be at least 1. Detects catastrophic rebuild "
+                "failures (empty table). Cloud anomaly detection, when "
+                "opted in, flags drops below historical norms."
+            ),
+            volumeAssertion=VolumeAssertionInfoClass(
+                type=VolumeAssertionTypeClass.ROW_COUNT_TOTAL,
+                entity=sqlmesh_urn,
+                rowCountTotal=RowCountTotalClass(
+                    operator=AssertionStdOperatorClass.GREATER_THAN_OR_EQUAL_TO,
+                    parameters=AssertionStdParametersClass(
+                        value=AssertionStdParameterClass(
+                            value="1",
+                            type=AssertionStdParameterTypeClass.NUMBER,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=assertion_info
+        ).as_workunit()
+
+    def _anomaly_custom_props(
+        self, base: Optional[Dict[str, str]] = None
+    ) -> Dict[str, str]:
+        """Return customProperties dict with the anomaly-detection opt-in marker
+        applied when config.emit_smart_assertion_anomaly_detection is set.
+
+        Acryl Cloud's monitor framework reads this marker to decide whether
+        to wrap the assertion's static threshold in its ML anomaly detector
+        (so a drop-below-historical-baseline fires even when the static rule
+        passes). The marker is silently ignored on OSS DataHub — assertions
+        still evaluate as static pass/fail.
+        """
+        props = dict(base or {})
+        if self.config.emit_smart_assertion_anomaly_detection:
+            props["sqlmesh.anomaly_detection"] = "requested"
+        return props
+
     def _emit_single_audit(
         self,
         audit_name: str,
@@ -1860,7 +1949,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             assertion_info = AssertionInfoClass(
                 type=AssertionTypeClass.DATASET,
                 source=mce_builder.make_assertion_source(),
-                customProperties={"sqlmesh.audit": audit_name},
+                customProperties=self._anomaly_custom_props(
+                    {"sqlmesh.audit": audit_name}
+                ),
                 datasetAssertion=DatasetAssertionInfoClass(
                     dataset=dataset_urn,
                     scope=DatasetAssertionScopeClass.DATASET_ROWS,
@@ -1923,7 +2014,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 assertion_info = AssertionInfoClass(
                     type=AssertionTypeClass.DATASET,
                     source=mce_builder.make_assertion_source(),
-                    customProperties={"sqlmesh.audit": audit_name},
+                    customProperties=self._anomaly_custom_props(
+                        {"sqlmesh.audit": audit_name}
+                    ),
                     datasetAssertion=DatasetAssertionInfoClass(
                         dataset=dataset_urn,
                         scope=params.scope,
@@ -1962,7 +2055,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             assertion_info = AssertionInfoClass(
                 type=AssertionTypeClass.DATASET,
                 source=mce_builder.make_assertion_source(),
-                customProperties={"sqlmesh.audit": audit_name},
+                customProperties=self._anomaly_custom_props(
+                    {"sqlmesh.audit": audit_name}
+                ),
                 datasetAssertion=DatasetAssertionInfoClass(
                     dataset=dataset_urn,
                     scope=params.scope,
