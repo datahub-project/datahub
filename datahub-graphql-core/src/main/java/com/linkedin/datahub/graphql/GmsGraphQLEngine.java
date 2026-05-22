@@ -913,6 +913,10 @@ public class GmsGraphQLEngine {
     builder
         .addDataLoaders(loaderSuppliers(loadableTypes))
         .addDataLoader("Aspect", context -> createDataLoader(aspectType, context))
+        .addDataLoader(
+            WeaklyTypedAspectsResolver.LOADER_NAME,
+            context ->
+                WeaklyTypedAspectsResolver.createDataLoader(entityClient, entityRegistry, context))
         .setGraphQLConfiguration(graphQLConfiguration)
         .setMetricUtils(metricUtils)
         .configureRuntimeWiring(this::configureRuntimeWiring);
