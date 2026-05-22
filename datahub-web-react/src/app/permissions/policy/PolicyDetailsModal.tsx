@@ -13,7 +13,7 @@ import {
 } from '@app/permissions/policy/policyUtils';
 import { useIsGlossaryBasedPoliciesEnabled } from '@app/shared/hooks/useIsGlossaryBasedPoliciesEnabled';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
+import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '@types';
 
@@ -70,7 +70,7 @@ const Privileges = styled.div`
  * Component used for displaying the details about an existing Policy.
  */
 export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
-    const entityRegistry = useEntityRegistry();
+    const entityRegistry = useEntityRegistryV2();
     const isGlossaryBasedPoliciesEnabled = useIsGlossaryBasedPoliciesEnabled();
 
     const isActive = policy?.state === PolicyState.Active;
@@ -261,7 +261,12 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                 <div>
                     <Typography.Title level={5}>Applies to Users</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup users={policy?.actors?.resolvedUsers} entityRegistry={entityRegistry} maxCount={50} />
+                    <AvatarsGroup
+                        users={policy?.actors?.resolvedUsers}
+                        entityRegistry={entityRegistry}
+                        maxCount={50}
+                        title=""
+                    />
                     {policy?.actors?.allUsers ? <Tag>All Users</Tag> : null}
                 </div>
                 <div>
@@ -271,13 +276,19 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
                         groups={policy?.actors?.resolvedGroups}
                         entityRegistry={entityRegistry}
                         maxCount={50}
+                        title=""
                     />
                     {policy?.actors?.allGroups ? <Tag>All Groups</Tag> : null}
                 </div>
                 <div>
                     <Typography.Title level={5}>Applies to Roles</Typography.Title>
                     <ThinDivider />
-                    <AvatarsGroup roles={policy?.actors?.resolvedRoles} entityRegistry={entityRegistry} maxCount={50} />
+                    <AvatarsGroup
+                        roles={policy?.actors?.resolvedRoles}
+                        entityRegistry={entityRegistry}
+                        maxCount={50}
+                        title=""
+                    />
                 </div>
             </PolicyContainer>
         </Modal>

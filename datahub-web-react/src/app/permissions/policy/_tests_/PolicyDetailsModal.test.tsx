@@ -12,6 +12,10 @@ vi.mock('@app/useEntityRegistry', () => ({
         getEntityUrl: vi.fn().mockReturnValue('/test'),
         getDisplayName: vi.fn().mockReturnValue('Test Entity'),
     }),
+    useEntityRegistryV2: () => ({
+        getEntityUrl: vi.fn().mockReturnValue('/test'),
+        getDisplayName: vi.fn().mockReturnValue('Test Entity'),
+    }),
 }));
 
 vi.mock('@app/useAppConfig', () => ({
