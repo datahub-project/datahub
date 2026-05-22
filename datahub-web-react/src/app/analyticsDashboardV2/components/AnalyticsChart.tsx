@@ -62,22 +62,22 @@ const LegendScrollArea = styled.div`
     }
 
     &::-webkit-scrollbar-track {
-        background: ${(props) => props.theme.colors.border};
+        background: ${(props) => props.theme.colors.scrollbarTrack};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumb};
         border-radius: 3px;
     }
 
     &::-webkit-scrollbar-thumb:hover {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.scrollbarThumbHover};
     }
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
-    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.border};
+    scrollbar-color: ${(props) => props.theme.colors.textDisabled} ${(props) => props.theme.colors.scrollbarThumb};
 `;
 
 const LegendItem = styled.div<{ $isSelected?: boolean }>`

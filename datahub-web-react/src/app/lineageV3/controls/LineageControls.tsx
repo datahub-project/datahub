@@ -44,12 +44,12 @@ const StyledExpandContractButton = styled(Button)`
     align-items: center;
     display: flex;
     background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.text};
+    color: ${(props) => props.theme.colors.icon};
     border-color: ${(props) => props.theme.colors.border};
 
     &:hover {
-        color: ${(props) => props.theme.colors.textBrand};
-        border-color: ${(props) => props.theme.colors.borderBrand};
+        color: ${(props) => props.theme.colors.iconHover};
+        border-color: ${(props) => props.theme.colors.borderHover};
     }
 `;
 
@@ -115,7 +115,7 @@ export default function LineageControls() {
                             style={{
                                 color:
                                     hideTransformations || !showDataProcessInstances || showGhostEntities
-                                        ? theme.colors.textInformation
+                                        ? theme.colors.iconSelected
                                         : undefined,
                             }}
                         />
