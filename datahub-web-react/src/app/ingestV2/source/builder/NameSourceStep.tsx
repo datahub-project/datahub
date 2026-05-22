@@ -61,14 +61,20 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
         [updateState, state],
     );
 
-    // Initialize state with default owners while source creation
+    // Initialize owners in parent state now that ActorsSearchSelect is controlled-only.
     useEffect(() => {
         if (me.loaded && !isEditing && !areOwnersInitialized) {
             setOwners(initialOwners);
             setSelectedOwnerUrns(initialOwners.map((actor) => actor.urn));
             setAreOwnersInitialized(true);
+            return;
         }
-    }, [initialOwners, isEditing, me.loaded, areOwnersInitialized, setOwners]);
+        if (isEditing && selectedSource && !areOwnersInitialized) {
+            setOwners(initialOwners);
+            setSelectedOwnerUrns(initialOwners.map((actor) => actor.urn));
+            setAreOwnersInitialized(true);
+        }
+    }, [initialOwners, isEditing, me.loaded, areOwnersInitialized, selectedSource, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {

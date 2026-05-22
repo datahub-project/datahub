@@ -131,7 +131,7 @@ export function useActorOptions({
 
     const actorOptions = useMemo(() => {
         if (isSearching) {
-            return deduplicateActors([selectedActors, typedSearchActors]);
+            return deduplicateActors([typedSearchActors]);
         }
         return deduplicateActors([
             selectedActors,
@@ -152,6 +152,7 @@ export function useActorOptions({
 
     return {
         actorOptions,
+        selectedActors,
         loading: hydratedEntitiesLoading || userGroupsLoading || (!isSearching && recommendationsLoading),
     };
 }

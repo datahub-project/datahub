@@ -47,6 +47,7 @@ const OwnersSection = ({ selectedOwnerUrns, setSelectedOwnerUrns, entityUrn, isD
                     isDisabled={isDisabled}
                     isLoading={isLoading}
                     width="full"
+                    dataTestId="add-owners-select"
                 />
             </FormSection>
         </SectionContainer>

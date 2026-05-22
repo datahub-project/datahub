@@ -263,7 +263,7 @@ describe('ActorsSearchSelect', () => {
         expect(options[0]).toHaveAttribute('data-testid', `option-${SELECTED_USER.urn}`);
     });
 
-    it('shows selected actors and typed search results once the user searches', async () => {
+    it('shows typed search results while keeping selected actors renderable once the user searches', async () => {
         const onUpdate = vi.fn();
 
         vi.useFakeTimers();
@@ -299,7 +299,8 @@ describe('ActorsSearchSelect', () => {
         vi.useRealTimers();
 
         await waitFor(() => expect(within(dropdown).getByText('Katherine Johnson')).toBeInTheDocument());
-        expect(within(dropdown).getByText('Grace Hopper')).toBeInTheDocument();
+        expect(screen.getByText('Grace Hopper')).toBeInTheDocument();
+        expect(within(dropdown).queryByText('Grace Hopper')).not.toBeInTheDocument();
         expect(within(dropdown).queryByText('Ada Lovelace')).not.toBeInTheDocument();
     });
 

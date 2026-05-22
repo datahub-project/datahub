@@ -124,7 +124,11 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     }, [autocompleteData?.autoCompleteForMultiple, debouncedSearchQuery]);
 
     const isSearching = !!searchQuery.trim();
-    const { actorOptions: allActorEntities, loading: actorOptionsLoading } = useActorOptions({
+    const {
+        actorOptions: dropdownActorEntities,
+        selectedActors,
+        loading: actorOptionsLoading,
+    } = useActorOptions({
         selectedActorUrns,
         entityTypes,
         entityUrn,
@@ -134,10 +138,24 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
         isSearching,
     });
 
+    const selectedAndDropdownActorEntities = useMemo(() => {
+        const seenUrns = new Set<string>();
+        return [...selectedActors, ...dropdownActorEntities].filter((actor) => {
+            if (seenUrns.has(actor.urn)) return false;
+            seenUrns.add(actor.urn);
+            return true;
+        });
+    }, [dropdownActorEntities, selectedActors]);
+
     // Convert entities to SelectOption format using utility
     const selectOptions = useMemo(
-        () => entitiesToSelectOptions(allActorEntities, entityRegistry),
-        [allActorEntities, entityRegistry],
+        () => entitiesToSelectOptions(dropdownActorEntities, entityRegistry),
+        [dropdownActorEntities, entityRegistry],
+    );
+
+    const selectedAndDropdownOptions = useMemo(
+        () => entitiesToSelectOptions(selectedAndDropdownActorEntities, entityRegistry),
+        [selectedAndDropdownActorEntities, entityRegistry],
     );
 
     // Handle search
@@ -172,7 +190,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
     // Render selected actor label
     const renderSelectedActorLabel = useCallback(
         (selectedOption: OptionType) => {
-            const entity = allActorEntities.find((e) => e.urn === selectedOption.value);
+            const entity = selectedAndDropdownActorEntities.find((e) => e.urn === selectedOption.value);
             if (!entity) return selectedOption.label;
 
             const displayName = entityRegistry.getDisplayName(entity.type, entity);
@@ -181,19 +199,19 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
 
             return <Avatar name={displayName || ''} imageUrl={imageUrl} type={avatarType} showInPill />;
         },
-        [allActorEntities, entityRegistry],
+        [selectedAndDropdownActorEntities, entityRegistry],
     );
 
     // Handle select change
     const handleSelectChange = useCallback(
         (newValues: string[]) => {
             const newEntities = resolveActorsFromUrns(newValues, {
-                placeholderActors: allActorEntities,
+                placeholderActors: selectedAndDropdownActorEntities,
             });
 
             onUpdate(newEntities);
         },
-        [onUpdate, allActorEntities],
+        [onUpdate, selectedAndDropdownActorEntities],
     );
 
     // Loading state for the select
@@ -206,6 +224,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             }}
             label={label}
             options={selectOptions}
+            combinedSelectedAndSearchOptions={selectedAndDropdownOptions}
             isLoading={isSelectLoading}
             values={selectedActorUrns}
             onUpdate={handleSelectChange}
@@ -219,7 +238,7 @@ export const ActorsSearchSelect: React.FC<ActorsSearchSelectProps> = ({
             dataTestId={dataTestId}
             renderCustomSelectedValue={renderSelectedActorLabel}
             renderCustomOptionText={(option) => {
-                const entity = allActorEntities.find((e) => e.urn === option.value);
+                const entity = dropdownActorEntities.find((e) => e.urn === option.value);
                 return entity ? renderDropdownActorLabel(entity) : option.label;
             }}
         />

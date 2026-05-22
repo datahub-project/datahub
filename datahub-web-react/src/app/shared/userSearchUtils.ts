@@ -12,7 +12,7 @@ import {
  *
  * @returns Array of AndFilterInput for server-side user filtering
  */
-const getUserFilters = (): AndFilterInput[] => [
+export const getUserFilters = (): AndFilterInput[] => [
     {
         // Include users with active status = true
         and: [{ field: 'active', values: ['true'] }],
