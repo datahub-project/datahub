@@ -64,15 +64,15 @@ input DomainLineageInput {
   """
   Server-side hard cap on the number of source-Domain members to enumerate. If the source has
   more members than this, isPartial is set to true and excess members are skipped. NOT
-  user-pageable. Default 1000, clamped to 5000 to bound worst-case latency.
+  user-pageable. Default 300 (approximate / fast path); clamped to 5000.
   """
-  memberScanCap: Int = 1000
+  memberScanCap: Int = 300
 
   """
   Per-member searchAcrossLineage page size. Bounds the fan-out of each underlying call.
-  Default 100, clamped to 1000.
+  Default 25; clamped to 1000.
   """
-  perMemberCount: Int = 100
+  perMemberCount: Int = 25
 
   """
   Optional filters applied to each per-member searchAcrossLineage call. Useful for restricting
@@ -204,15 +204,15 @@ input DataProductLineageInput {
   lineageFlags: LineageFlags
 
   """
-  Server-side hard cap on the number of source-DataProduct members to enumerate. Default 1000,
-  clamped to 5000. NOT user-pageable.
+  Server-side hard cap on the number of source-DataProduct members to enumerate. Default 300
+  (approximate / fast path); clamped to 5000. NOT user-pageable.
   """
-  memberScanCap: Int = 1000
+  memberScanCap: Int = 300
 
   """
-  Per-member searchAcrossLineage page size. Default 100, clamped to 1000.
+  Per-member searchAcrossLineage page size. Default 25; clamped to 1000.
   """
-  perMemberCount: Int = 100
+  perMemberCount: Int = 25
 
   """
   Optional filters applied to each per-member searchAcrossLineage call.

@@ -275,6 +275,42 @@ public class DomainLineageResolverTest {
   }
 
   @Test
+  public void testTooManyDistinctNeighboursTruncatesAndFlipsIsPartial() throws Exception {
+    // One member produces > MAX_OWNER_LOOKUP_NEIGHBOURS (2000) distinct neighbours, each owned by
+    // its own neighbour Domain. The resolver must truncate to the top N (keeping the
+    // most-contributing first; here all have equal contribution so it's URN-asc tiebreak) and flip
+    // isPartial. perMemberCount must be raised above the cap for this test to actually exercise
+    // the truncation path.
+    setMembers(MEMBER_1);
+    int totalNeighbours = 2100;
+    LineageSearchEntity[] hits = new LineageSearchEntity[totalNeighbours];
+    Map<String, String[]> ownerMap = new HashMap<>();
+    for (int i = 0; i < totalNeighbours; i++) {
+      String nbrUrn = String.format("urn:li:dataset:(urn:li:dataPlatform:foo,nbr-%04d,PROD)", i);
+      String ownerUrn = String.format("urn:li:domain:owner-%04d", i);
+      hits[i] = hit(nbrUrn, 1);
+      ownerMap.put(nbrUrn, new String[] {ownerUrn});
+    }
+    setLineageHits(MEMBER_1, hits);
+    setDomainOwners(ownerMap);
+
+    DomainLineageInput input = downstreamInput();
+    input.setPerMemberCount(totalNeighbours);
+    input.setCount(50);
+    when(env.getArgument(eq("input"))).thenReturn(input);
+
+    DomainLineageResult result = resolver.get(env).join();
+
+    assertTrue(result.getIsPartial(), "neighbour truncation must flip isPartial");
+    // The cap is MAX_OWNER_LOOKUP_NEIGHBOURS=2000 distinct neighbours; we'd expect ≤2000 total
+    // buckets (one owner per neighbour in this test setup).
+    assertTrue(
+        result.getTotal() <= 2000,
+        "result.total must be ≤ MAX_OWNER_LOOKUP_NEIGHBOURS; was " + result.getTotal());
+    assertEquals(result.getCount(), 50);
+  }
+
+  @Test
   public void testPerMemberLineageFailureToleratedAndOtherMembersStillContribute()
       throws Exception {
     setMembers(MEMBER_1, MEMBER_2);

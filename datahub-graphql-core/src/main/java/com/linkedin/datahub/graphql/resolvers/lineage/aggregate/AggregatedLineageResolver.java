@@ -19,10 +19,12 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,6 +51,20 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
   static final int MAX_PER_MEMBER_COUNT = 1_000;
   static final int MAX_COUNT = 200;
   static final int MAX_HOPS = 20;
+
+  /**
+   * Maximum concurrent {@code searchAcrossLineage} calls in flight. Bounds load on the shared
+   * GraphQL executor and on Elasticsearch when a Domain has thousands of members.
+   */
+  static final int MAX_PARALLEL_FANOUT = 16;
+
+  /**
+   * Maximum distinct neighbour URNs we resolve owners for. Above this we keep the neighbours with
+   * the most contributing members (they dominate the sort anyway) and set {@code isPartial=true}.
+   * Bounds the worst case for {@link DataProductOwnerResolutionStrategy}, which is O(N) graph
+   * calls.
+   */
+  static final int MAX_OWNER_LOOKUP_NEIGHBOURS = 2_000;
 
   protected final EntityClient entityClient;
   protected final RestrictedService restrictedService;
@@ -122,9 +138,16 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       }
     }
 
-    final Map<Urn, LineageHit> hitsByNeighbour = collectHits(members.getUrns(), perMemberResults);
-    if (hitsByNeighbour.isEmpty()) {
+    final Map<Urn, LineageHit> rawHits = collectHits(members.getUrns(), perMemberResults);
+    if (rawHits.isEmpty()) {
       return buildResult(emptyResponse(request, members, isPartial));
+    }
+    final Map<Urn, LineageHit> hitsByNeighbour;
+    if (rawHits.size() > MAX_OWNER_LOOKUP_NEIGHBOURS) {
+      hitsByNeighbour = truncateHitsToTop(rawHits, MAX_OWNER_LOOKUP_NEIGHBOURS);
+      isPartial = true;
+    } else {
+      hitsByNeighbour = rawHits;
     }
     final Map<Urn, Set<Urn>> ownersByNeighbour =
         ownerStrategy.resolveOwners(context.getOperationContext(), hitsByNeighbour.keySet());
@@ -184,6 +207,11 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
             .build());
   }
 
+  /**
+   * Fan out {@code searchAcrossLineage} across all members, in fixed-size batches so we never have
+   * more than {@link #MAX_PARALLEL_FANOUT} simultaneous tasks queued on the shared GraphQL executor
+   * (which would starve other GraphQL requests and slam Elasticsearch).
+   */
   private List<LineageSearchResult> fanOutSearchAcrossLineage(
       final QueryContext context, final AggregatedLineageRequest request, final List<Urn> members) {
     final OperationContext opContext = applyFlags(context.getOperationContext(), request);
@@ -194,41 +222,61 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
     final List<String> entityNames = getNeighbourEntityTypes();
     final ExecutorService executor = GraphQLConcurrencyUtils.getExecutorService();
 
-    final List<CompletableFuture<LineageSearchResult>> futures =
-        members.stream()
-            .map(
-                memberUrn -> {
-                  final java.util.function.Supplier<LineageSearchResult> task =
-                      () -> {
-                        try {
-                          return entityClient.searchAcrossLineage(
-                              opContext,
-                              memberUrn,
-                              internalDirection,
-                              entityNames,
-                              "*",
-                              request.getHops(),
-                              filter,
-                              Collections.emptyList(),
-                              0,
-                              request.getPerMemberCount());
-                        } catch (Exception e) {
-                          log.warn(
-                              "searchAcrossLineage failed for member {} (direction={}, hops={}); skipping.",
-                              memberUrn,
-                              request.getDirection(),
-                              request.getHops(),
-                              e);
-                          return null;
-                        }
-                      };
-                  return executor != null
-                      ? CompletableFuture.supplyAsync(task, executor)
-                      : CompletableFuture.supplyAsync(task);
-                })
-            .collect(Collectors.toList());
+    final List<LineageSearchResult> results = new ArrayList<>(members.size());
+    for (int batchStart = 0; batchStart < members.size(); batchStart += MAX_PARALLEL_FANOUT) {
+      final List<Urn> batch =
+          members.subList(batchStart, Math.min(batchStart + MAX_PARALLEL_FANOUT, members.size()));
+      final List<CompletableFuture<LineageSearchResult>> futures =
+          batch.stream()
+              .map(
+                  memberUrn -> {
+                    final java.util.function.Supplier<LineageSearchResult> task =
+                        () ->
+                            searchLineageForMember(
+                                opContext,
+                                memberUrn,
+                                internalDirection,
+                                entityNames,
+                                filter,
+                                request);
+                    return executor != null
+                        ? CompletableFuture.supplyAsync(task, executor)
+                        : CompletableFuture.supplyAsync(task);
+                  })
+              .collect(Collectors.toList());
+      futures.forEach(f -> results.add(f.join()));
+    }
+    return results;
+  }
 
-    return futures.stream().map(CompletableFuture::join).collect(Collectors.toList());
+  private LineageSearchResult searchLineageForMember(
+      final OperationContext opContext,
+      final Urn memberUrn,
+      final com.linkedin.metadata.graph.LineageDirection direction,
+      final List<String> entityNames,
+      final com.linkedin.metadata.query.filter.Filter filter,
+      final AggregatedLineageRequest request) {
+    try {
+      return entityClient.searchAcrossLineage(
+          opContext,
+          memberUrn,
+          direction,
+          entityNames,
+          "*",
+          request.getHops(),
+          filter,
+          Collections.emptyList(),
+          0,
+          request.getPerMemberCount());
+    } catch (Exception e) {
+      log.warn(
+          "searchAcrossLineage failed for member {} (direction={}, hops={}); skipping.",
+          memberUrn,
+          request.getDirection(),
+          request.getHops(),
+          e);
+      return null;
+    }
   }
 
   private static OperationContext applyFlags(
@@ -277,6 +325,26 @@ public abstract class AggregatedLineageResolver<I, R> implements DataFetcher<Com
       wire.setEntitiesExploredPerHopLimit(graphqlFlags.getEntitiesExploredPerHopLimit());
     }
     return wire;
+  }
+
+  /**
+   * Keep the {@code cap} neighbours with the most contributing members; drop the rest. The dropped
+   * ones contribute fewer paths and would rank lower in the final sort anyway, so this is a
+   * loss-of-tail rather than a loss-of-head. Caller flips {@code isPartial} when this fires.
+   */
+  private static Map<Urn, LineageHit> truncateHitsToTop(
+      final Map<Urn, LineageHit> hits, final int cap) {
+    final List<Map.Entry<Urn, LineageHit>> sorted = new ArrayList<>(hits.entrySet());
+    sorted.sort(
+        Comparator.<Map.Entry<Urn, LineageHit>>comparingInt(
+                e -> e.getValue().contributingMembers.size())
+            .reversed()
+            .thenComparing(e -> e.getKey().toString()));
+    final Map<Urn, LineageHit> capped = new LinkedHashMap<>(cap);
+    for (int i = 0; i < cap && i < sorted.size(); i++) {
+      capped.put(sorted.get(i).getKey(), sorted.get(i).getValue());
+    }
+    return capped;
   }
 
   private static Map<Urn, LineageHit> collectHits(
