@@ -138,6 +138,15 @@ class HexSourceConfig(
         "or falls back to parsing SQL from cells (all workspaces). No warehouse ingestion "
         "dependency required.",
     )
+    use_queried_tables_lineage: bool = Field(
+        default=False,
+        description=(
+            "Use Hex's queriedTables API (ENTERPRISE only) as the primary lineage source "
+            "for published projects and components. Unpublished entities always fall back "
+            "to SQL-cell parsing since queriedTables is only populated for published runs. "
+            "Set to False to force SQL-cell parsing for everything."
+        ),
+    )
     connection_platform_map: Dict[str, HexConnectionDetail] = Field(
         default_factory=dict,
         description=(

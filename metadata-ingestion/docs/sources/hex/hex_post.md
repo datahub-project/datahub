@@ -2,10 +2,9 @@
 
 #### Upstream Lineage
 
-Two tiers are tried in order:
+By default, lineage comes from **SQL parsing** of cells using [`sqlglot`](https://github.com/tobymao/sqlglot) with each connection's dialect. Unqualified `FROM table` refs are resolved using the connection's default database/schema from `/v1/data-connections`, overridable via `connection_platform_map`.
 
-1. **`queriedTables` API (Hex ENTERPRISE tier).** The connector calls `/v1/projects/{id}/queriedTables`, which returns Hex's own list of fully qualified tables queried by each project. A `403` falls back to tier 2.
-2. **SQL parsing (all tiers).** SQL cells are parsed with [`sqlglot`](https://github.com/tobymao/sqlglot) using each connection's dialect. Unqualified `FROM table` refs are resolved using the connection's default database/schema from `/v1/data-connections`, overridable via `connection_platform_map`.
+Set `use_queried_tables_lineage: true` (Hex ENTERPRISE tier only) to use Hex's `/v1/projects/{id}/queriedTables` API as the primary lineage source for published projects and components. Unpublished entities still fall back to SQL parsing since `queriedTables` is only populated for published runs. A `403` falls back to SQL parsing for everything.
 
 ##### Connection Platform Resolution
 
@@ -54,9 +53,10 @@ Each Project and Component emits an all-time `viewsCount` and a rolling 7-day wi
 
 ### Limitations
 
-1. **`queriedTables` is ENTERPRISE-only.** Workspaces on lower Hex tiers fall back to SQL parsing for lineage.
+1. **`queriedTables` is ENTERPRISE-only and opt-in.** Defaults to SQL parsing; enable `use_queried_tables_lineage` on ENTERPRISE workspaces to use Hex's API as the primary source.
 2. **Non-SQL query paths produce no lineage.** SQL parsing cannot recover table references from `hextoolkit` Python cells, dynamic SQL built from variables, or parameterized table names — the resulting projects will be missing those upstreams.
 3. **Context documents are not a complete mirror of the Hex notebook.** Only a subset of cell types is captured, so the rendered document will not match the source notebook exactly.
+4. **Upstream warehouse URNs may mismatch when Hex's connection metadata is incomplete.** Set `connection_platform_map` with the correct `platform_instance` / `default_database` / `default_schema` to align URNs with the warehouse ingestion.
 
 ### Troubleshooting
 
@@ -68,4 +68,4 @@ The source report lists every skipped cell with its `dataConnectionId` and a rea
 
 #### Column Lineage Looks Sparse
 
-On ENTERPRISE, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.
+When `use_queried_tables_lineage` is enabled on ENTERPRISE, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.

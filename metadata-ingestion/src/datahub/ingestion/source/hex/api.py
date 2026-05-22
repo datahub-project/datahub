@@ -352,6 +352,11 @@ class HexApi:
         self.report = report
         self.page_size = page_size
         self.session = self._create_retry_session()
+        # Tri-state cache for queriedTables tier availability, learned from
+        # the first call's response. 403 → permanently False so subsequent
+        # entities skip the API hop entirely. Per-entity failures (unpublished,
+        # network errors) do NOT flip this flag.
+        self._queried_tables_tier_available: Optional[bool] = None
         # Callable attribute, not a method, so @_api_call(paginated=True) can
         # override it via self._track_page = ... without a [method-assign] error.
         self._track_page: Callable[[], None] = lambda: None
@@ -816,29 +821,29 @@ class HexApi:
         return HexApi._normalize_export_cells(content.get("cells", []))
 
     @_api_call("queried_tables")
-    def fetch_queried_tables(self, project_id: str) -> Optional[List[dict]]:
-        """
-        Return [{dataConnectionId, dataConnectionName, tableName}] for all
-        warehouse tables touched by this project, or None on 403 (non-ENTERPRISE).
+    def fetch_queried_tables(self, hex_item_id: str) -> Optional[List[dict]]:
+        """Return Hex's pre-resolved warehouse tables for a project or
+        component, or None if unavailable."""
+        if self._queried_tables_tier_available is False:
+            return None  # workspace already known to be non-ENTERPRISE
 
-        This is the most accurate lineage source — Hex's own pre-resolved table
-        list requiring no SQL parsing on the DataHub side.
-        """
         try:
             resp = self.session.get(
-                url=f"{self.base_url}/projects/{project_id}/queriedTables",
+                url=f"{self.base_url}/projects/{hex_item_id}/queriedTables",
                 headers=self._auth_header(),
                 timeout=30,
             )
             if resp.status_code == 403:
-                return None  # non-ENTERPRISE workspace
+                self._queried_tables_tier_available = False
+                return None
             resp.raise_for_status()
+            self._queried_tables_tier_available = True
             return resp.json().get("values", [])
         except Exception as e:
             self.report.warning(
                 title="Failed to fetch queriedTables",
                 message="queriedTables call failed; falling back to cell-based lineage",
-                context=f"project_id={project_id}",
+                context=f"hex_item_id={hex_item_id}",
                 exc=e,
             )
             return None

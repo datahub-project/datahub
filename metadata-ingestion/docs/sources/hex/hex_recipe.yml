@@ -20,6 +20,11 @@ source:
     # status_as_tag: false
     # categories_as_tags: false
 
+    # (Optional) Hex ENTERPRISE only — use Hex's queriedTables API as the
+    # primary lineage source for published projects/components. Defaults to
+    # false (SQL-cell parsing for everything).
+    # use_queried_tables_lineage: true
+
     # (Optional) Match the platform_instance under which the upstream warehouses
     # were ingested. Required so Hex's lineage URNs collide with the
     # warehouse-ingested ones. Keyed by Hex dataConnectionId (UUID).

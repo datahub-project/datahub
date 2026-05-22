@@ -2,7 +2,7 @@
 
 [Hex](https://hex.tech/) is a collaborative data workspace where teams build interactive notebooks combining SQL, Python, and visualizations.
 
-The DataHub integration emits Hex Projects (Dashboards) and Components (Charts) along with workspace containers, ownership, tags from Collections/Status/Categories, usage statistics, and upstream lineage to the warehouses Hex queries. It supports incremental ingestion, per-project run history, and per-project context documents for AI agent retrieval. Upstream lineage is produced directly from Hex's own APIs (`queriedTables` on ENTERPRISE, SQL parsing as a fallback) — no warehouse ingestion dependency is required.
+The DataHub integration emits Hex Projects (Dashboards) and Components (Charts) along with workspace containers, ownership, tags from Collections/Status/Categories, usage statistics, and upstream lineage to the warehouses Hex queries. It supports incremental ingestion, per-project run history, and per-project context documents for AI agent retrieval. Upstream lineage is produced directly from Hex's own APIs (SQL parsing by default; Hex's `queriedTables` API can be enabled on ENTERPRISE workspaces) — no warehouse ingestion dependency is required.
 
 ## Concept Mapping
 

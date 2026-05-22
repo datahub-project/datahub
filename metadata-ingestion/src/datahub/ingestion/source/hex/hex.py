@@ -67,7 +67,9 @@ class HexReport(
     LineageBuilderReport,
 ):
     projects_with_lineage: int = 0
+    components_with_lineage: int = 0
     projects_without_sql_cells: int = 0
+    components_without_sql_cells: int = 0
     # Incremental ingestion counters — visible in ingestion run summary
     projects_full_refresh: int = 0
     projects_incremental_skip: int = 0
@@ -114,6 +116,7 @@ class _HexIncrementalHandler(StatefulIngestionUsecaseHandlerBase):
 @capability(
     SourceCapability.LINEAGE_COARSE,
     "Enabled by default via queriedTables API (ENTERPRISE) or SQL parsing from cells (all tiers). "
+    "Applied to both projects and components. Unpublished entities always use SQL parsing. "
     "No warehouse ingestion dependency required.",
 )
 @capability(
@@ -155,7 +158,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # Timestamp of the last successful checkpoint (millis). Used to guard
         # against re-emitting run history that was already captured.
         self._last_ingested_at_ms: Optional[int] = None
-        self._queried_tables_available: Optional[bool] = None
         # Register the incremental ingestion use-case handler.
         _HexIncrementalHandler(self)
 
@@ -739,28 +741,28 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
     def _apply_cell_based_lineage(
         self,
-        entity: Union[Project, Component],
+        hex_item: Union[Project, Component],
         all_cells: List[dict],
         lineage_builder: HexLineageBuilder,
     ) -> List[SqlCell]:
         """Compute Tier 2 (cell-based SQL parsing) lineage.
 
-        Mutates entity.upstream_datasets and entity.input_fields in place.
+        Mutates hex_item.upstream_datasets and hex_item.input_fields in place.
         Returns the SQL cells that were found so callers can update
-        entity-specific counters.
+        per-item counters.
         """
         sql_cells = _extract_sql_cells(all_cells)
         if not sql_cells:
             return []
-        lineage_builder.set_project_id(entity.id)
+        lineage_builder.set_project_id(hex_item.id)
         upstream_urns, input_fields = lineage_builder.build_upstream_urns(sql_cells)
-        entity.upstream_datasets = upstream_urns
-        entity.input_fields = input_fields
+        hex_item.upstream_datasets = upstream_urns
+        hex_item.input_fields = input_fields
         return sql_cells
 
     def _emit_context_document(
         self,
-        entity: Union[Project, Component],
+        hex_item: Union[Project, Component],
         all_cells: List[dict],
         connections: Dict[str, HexConnection],
         parent_urn: str,
@@ -772,7 +774,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             connections=connections,
         )
         yield from doc_builder.build_document(
-            project=entity,
+            project=hex_item,
             sql_cells=sql_cells,
             explore_cells=explore_cells,
             section_names=section_names,
@@ -780,51 +782,60 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             dashboard_urn=parent_urn,
         )
 
-    def _build_project_lineage(
+    def _build_lineage(
         self,
-        project: Project,
+        hex_item: Union[Project, Component],
         all_cells: List[dict],
         lineage_builder: HexLineageBuilder,
-        queried_tables_available: "Optional[bool]",
-    ) -> "Optional[bool]":
-        """
-        Build lineage for a single project, mutating project.upstream_datasets
-        and project.input_fields in place.
+    ) -> None:
+        """Build lineage for a Project or Component, mutating upstream_datasets
+        and input_fields in place.
 
-        Returns the updated queried_tables_available state (None/True/False).
+        Tier 1 (queriedTables) is attempted when:
+          - `use_queried_tables_lineage` is enabled
+          - the item has been published (drafts skip Tier 1; queriedTables
+            is only populated post-publish)
+          - HexApi hasn't already cached a 403 from a prior call
+
+        Tier 2 (SQL-cell parsing) runs as fallback or primary. ENTERPRISE
+        workspaces with a graph client also extract validated column-level
+        lineage from SQL cells using Tier 1's URNs as the truth set.
         """
-        # Tier 1: queriedTables (ENTERPRISE)
-        if queried_tables_available is not False:
-            queried = self.hex_api.fetch_queried_tables(project.id)
+        used_queried_tables = False
+        if (
+            self.source_config.use_queried_tables_lineage
+            and hex_item.last_published_at is not None
+        ):
+            queried = self.hex_api.fetch_queried_tables(hex_item.id)
             if queried is not None:
-                lineage_builder.set_project_id(project.id)
+                lineage_builder.set_project_id(hex_item.id)
                 upstream_urns = lineage_builder.build_from_queried_tables(queried)
-                project.upstream_datasets = upstream_urns
+                hex_item.upstream_datasets = upstream_urns
                 if upstream_urns and self.ctx.graph:
                     sql_cells = _extract_sql_cells(all_cells)
                     if sql_cells:
-                        project.input_fields = (
+                        hex_item.input_fields = (
                             lineage_builder.build_validated_column_lineage(
                                 sql_cells, upstream_urns
                             )
                         )
+                used_queried_tables = True
+
+        if not used_queried_tables:
+            sql_cells = self._apply_cell_based_lineage(
+                hex_item, all_cells, lineage_builder
+            )
+            if not sql_cells:
+                if isinstance(hex_item, Project):
+                    self.report.projects_without_sql_cells += 1
+                else:
+                    self.report.components_without_sql_cells += 1
+
+        if hex_item.upstream_datasets:
+            if isinstance(hex_item, Project):
                 self.report.projects_with_lineage += 1
-                return True
-            elif queried_tables_available is None:
-                queried_tables_available = False
-                logger.info(
-                    "queriedTables returned 403 — workspace is not ENTERPRISE tier; "
-                    "using cell-based SQL parsing for all projects"
-                )
-
-        # Tier 2: SQL parsing
-        sql_cells = self._apply_cell_based_lineage(project, all_cells, lineage_builder)
-        if not sql_cells:
-            self.report.projects_without_sql_cells += 1
-        elif project.upstream_datasets:
-            self.report.projects_with_lineage += 1
-
-        return queried_tables_available
+            else:
+                self.report.components_with_lineage += 1
 
     def _stream_component(
         self,
@@ -838,13 +849,14 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self.component_registry[component.id] = component
 
         comp_cells = self._fetch_cells(component.id)
-        self._apply_cell_based_lineage(component, comp_cells, lineage_builder)
+        if self.source_config.include_lineage:
+            self._build_lineage(component, comp_cells, lineage_builder)
 
         yield from self.mapper.map_component(component=component)
 
         if self.source_config.include_context_documents:
             yield from self._emit_context_document(
-                entity=component,
+                hex_item=component,
                 all_cells=comp_cells,
                 connections=connections,
                 parent_urn=self.mapper.get_chart_urn(component.id).urn(),
@@ -904,9 +916,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         # Lineage
         if self.source_config.include_lineage:
-            self._queried_tables_available = self._build_project_lineage(
-                project, all_cells, lineage_builder, self._queried_tables_available
-            )
+            self._build_lineage(project, all_cells, lineage_builder)
 
         # Run history — only published projects have runs queryable via the API
         if self.source_config.include_run_history and project.last_published_at:
@@ -925,7 +935,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         # Context document
         if self.source_config.include_context_documents:
             yield from self._emit_context_document(
-                entity=project,
+                hex_item=project,
                 all_cells=all_cells,
                 connections=connections,
                 parent_urn=self.mapper.get_dashboard_urn(project.id).urn(),
