@@ -1,0 +1,13 @@
+{
+    "addTitle": "Add Asset Collection",
+    "dynamicFilterTab": "Dynamic Filter",
+    "editTitle": "Edit Asset Collection",
+    "emptyDescription": "Edit the module and add assets to see them in this list",
+    "emptyTitle": "No Assets",
+    "noAssetsFound": "No assets found.",
+    "noAssetsSelected": "No assets selected.",
+    "searchAndSelectHeader": "Search and Select Assets",
+    "selectAssetsTab": "Select Assets",
+    "selectedAssetsHeader": "Selected Assets",
+    "subtitle": "Create a module by selecting assets and information that will be shown to your users"
+}

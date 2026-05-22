@@ -1,5 +1,6 @@
 import { Form } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
@@ -17,6 +18,7 @@ const ModalContent = styled.div`
 
 // Modal for editing rich text modules
 const DocumentationModal = () => {
+    const { t } = useTranslation('module.documentation');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -51,8 +53,8 @@ const DocumentationModal = () => {
 
     return (
         <BaseModuleModal
-            title={`${isEditing ? 'Edit' : 'Add'} Documentation`}
-            subtitle="Document important information for you users"
+            title={isEditing ? t('editTitle') : t('addTitle')}
+            subtitle={t('subtitle')}
             onUpsert={handleUpsertDocumentationModule}
             submitButtonProps={{ disabled: isDisabled }}
         >

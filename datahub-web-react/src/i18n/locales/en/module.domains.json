@@ -1,0 +1,9 @@
+{
+    "assetCount_one": "{{formattedCount}} asset",
+    "assetCount_other": "{{formattedCount}} assets",
+    "dataProductCount_one": "{{formattedCount}} data product",
+    "dataProductCount_other": "{{formattedCount}} data products",
+    "emptyDescription": "Start by creating a domain in order to see it on your list",
+    "emptyLink": "Configure your data domains",
+    "emptyTitle": "No Domains Created"
+}

@@ -1,0 +1,14 @@
+{
+    "addTitle": "Add Quick Link",
+    "descriptionLabel": "Description (Optional)",
+    "descriptionPlaceholder": "Add description...",
+    "editTitle": "Edit Quick Link",
+    "imageAlt": "Link image",
+    "imageUrlLabel": "Image URL (Optional)",
+    "imageUrlPlaceholder": "Your image URL",
+    "imageUrlValidation": "Please enter a valid URL",
+    "subtitle": "Add links to your home page",
+    "urlLabel": "Link",
+    "urlValidation": "Please enter the link URL",
+    "urlValidationInvalid": "Please enter a valid URL"
+}
