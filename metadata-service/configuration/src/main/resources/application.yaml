@@ -1179,6 +1179,7 @@ featureFlags:
   multipleDataProductsPerAsset: ${MULTIPLE_DATA_PRODUCTS_PER_ASSET:true} # Enables assets to belong to multiple data products simultaneously
   glossaryBasedPoliciesEnabled: ${GLOSSARY_BASED_POLICIES_ENABLED:false} # Enables glossary-based policies to be created
   showTestsInHealthIcon: ${SHOW_TESTS_IN_HEALTH_ICON:false} # If enabled, shows tests status in the health icon on entity pages
+  i18nEnabled: ${I18N_ENABLED:false} # If enabled, internationalization (i18n) features are active
   createSchemaVersionIndex: ${CREATE_SCHEMA_VERSION_INDEX:${ZDU_STAGE_10:false}} # Creates schemaVersionIndex on metadata_aspect_v2 for ZDU schema version queries
   aspectMigrationMutatorEnabled: ${ASPECT_MIGRATION_MUTATOR_ENABLED:${ZDU_STAGE_20:false}} # Populates AspectMigrationMutatorChain with registered mutators
 
@@ -1367,6 +1368,13 @@ graphQL:
     # Override: GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD=2
     errorCountThreshold: ${GRAPHQL_SHAPE_LOGGING_ERROR_COUNT_THRESHOLD:1}
 
+  # OpenTelemetry instrumentation for GraphQL operations and data fetchers
+  # Requires ENABLE_OTEL=true and a configured OTEL exporter
+  otel:
+    # Enable/disable GraphQL OTel instrumentation
+    # Override: ENABLE_OTEL_GRAPHQL_TRACES=true
+    enableOtelGraphqlTraces: ${ENABLE_OTEL_GRAPHQL_TRACES:false}
+
 chromeExtension:
   enabled: ${CHROME_EXTENSION_ENABLED:true}
   lineageEnabled: ${CHROME_EXTENSION_LINEAGE_ENABLED:true}
@@ -1393,6 +1401,10 @@ metadataChangeProposal:
       enabled: ${MCP_VALIDATION_PRIVILEGE_CONSTRAINTS:true}
     extensions:
       enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
+    urlValidation:
+      enabled: ${MCP_VALIDATION_URL_ENABLED:true}
+      allowHttp: ${MCP_VALIDATION_URL_ALLOW_HTTP:false}
+      extraDenyHosts: ${MCP_VALIDATION_URL_EXTRA_DENY_HOSTS:}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

@@ -2,6 +2,7 @@ import { Button, Pill, StructuredPopover, Switch } from '@components';
 import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Card, Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 const StyledCard = styled(Card)`
@@ -108,97 +109,101 @@ export interface FeatureType {
     learnMoreLink?: string;
 }
 
-export const Feature = ({ key, title, description, settings, options, isNew, learnMoreLink }: FeatureType) => (
-    <StyledCard key={key}>
-        <FeatureRow>
-            <SettingTitle>
-                <Title>
-                    {title} {isNew && <Pill color="blue" size="sm" label="New!" />}
-                </Title>
-                <TitleDescriptionText>{description}</TitleDescriptionText>
-            </SettingTitle>
-            <div>
-                {learnMoreLink && (
-                    <Button
-                        variant="text"
-                        onClick={() => window.open(learnMoreLink, '_blank')}
-                        icon={{ icon: ArrowRight }}
-                        iconPosition="right"
-                    >
-                        Learn more
-                    </Button>
-                )}
-            </div>
-        </FeatureRow>
-        <StyledCard>
-            {options.map((option, index) => (
+export const Feature = ({ key, title, description, settings, options, isNew, learnMoreLink }: FeatureType) => {
+    const { t } = useTranslation('settings.features');
+
+    return (
+        <StyledCard key={key}>
+            <FeatureRow>
+                <SettingTitle>
+                    <Title>
+                        {title} {isNew && <Pill color="blue" size="sm" label={t('newLabel')} />}
+                    </Title>
+                    <TitleDescriptionText>{description}</TitleDescriptionText>
+                </SettingTitle>
+                <div>
+                    {learnMoreLink && (
+                        <Button
+                            variant="text"
+                            onClick={() => window.open(learnMoreLink, '_blank')}
+                            icon={{ icon: ArrowRight }}
+                            iconPosition="right"
+                        >
+                            {t('learnMore')}
+                        </Button>
+                    )}
+                </div>
+            </FeatureRow>
+            <StyledCard>
+                {options.map((option, index) => (
+                    <>
+                        <FeatureOptionRow key={option.key}>
+                            <span>
+                                <OptionTitle>
+                                    <span>{option.title}</span>
+                                    {!option.isAvailable && <Pill color="violet" size="sm" label={t('onlyOnCloud')} />}
+                                </OptionTitle>
+                                <div>
+                                    <DescriptionText>{option.description}</DescriptionText>
+                                </div>
+                            </span>
+                            {option.disabledMessage ? (
+                                <StructuredPopover
+                                    title={option.disabledMessage}
+                                    placement="top"
+                                    showArrow
+                                    mouseEnterDelay={0.1}
+                                    mouseLeaveDelay={0.1}
+                                >
+                                    <span style={{ cursor: 'default' }}>
+                                        <Switch
+                                            label=""
+                                            checked={option.checked}
+                                            onChange={(e) =>
+                                                option.onChange ? option.onChange(e.target.checked) : null
+                                            }
+                                            disabled={!option.isAvailable || option.isDisabled}
+                                        />
+                                    </span>
+                                </StructuredPopover>
+                            ) : (
+                                <Switch
+                                    label=""
+                                    checked={option.checked}
+                                    onChange={(e) => (option.onChange ? option.onChange(e.target.checked) : null)}
+                                    disabled={!option.isAvailable || option.isDisabled}
+                                />
+                            )}
+                        </FeatureOptionRow>
+                        {index !== options.length - 1 && <StyledDivider />}
+                    </>
+                ))}
+            </StyledCard>
+            {settings.map((option) => (
                 <>
-                    <FeatureOptionRow key={option.key}>
+                    <SettingsOptionRow key={option.key}>
                         <span>
                             <OptionTitle>
                                 <span>{option.title}</span>
-                                {!option.isAvailable && (
-                                    <Pill color="violet" size="sm" label="Only available on DataHub Cloud" />
-                                )}
+                                <Pill color="violet" size="sm" label={t('cloudLabel')} />
                             </OptionTitle>
-                            <div>
-                                <DescriptionText>{option.description}</DescriptionText>
-                            </div>
                         </span>
-                        {option.disabledMessage ? (
-                            <StructuredPopover
-                                title={option.disabledMessage}
-                                placement="top"
-                                showArrow
-                                mouseEnterDelay={0.1}
-                                mouseLeaveDelay={0.1}
-                            >
-                                <span style={{ cursor: 'default' }}>
-                                    <Switch
-                                        label=""
-                                        checked={option.checked}
-                                        onChange={(e) => (option.onChange ? option.onChange(e.target.checked) : null)}
-                                        disabled={!option.isAvailable || option.isDisabled}
-                                    />
-                                </span>
-                            </StructuredPopover>
-                        ) : (
-                            <Switch
-                                label=""
-                                checked={option.checked}
-                                onChange={(e) => (option.onChange ? option.onChange(e.target.checked) : null)}
-                                disabled={!option.isAvailable || option.isDisabled}
-                            />
-                        )}
-                    </FeatureOptionRow>
-                    {index !== options.length - 1 && <StyledDivider />}
+                        <StructuredPopover
+                            title={option.isAvailable ? '' : t('onlyOnCloud')}
+                            placement="left"
+                            showArrow
+                            mouseEnterDelay={0.1}
+                            mouseLeaveDelay={0.1}
+                        >
+                            <span>
+                                <Button onClick={option.onClick} disabled={!option.isAvailable}>
+                                    {option.buttonText}
+                                </Button>
+                            </span>
+                        </StructuredPopover>
+                    </SettingsOptionRow>
                 </>
             ))}
         </StyledCard>
-        {settings.map((option) => (
-            <>
-                <SettingsOptionRow key={option.key}>
-                    <span>
-                        <OptionTitle>
-                            <span>{option.title}</span>
-                            <Pill color="violet" size="sm" label="DataHub Cloud" />
-                        </OptionTitle>
-                    </span>
-                    <StructuredPopover
-                        title={option.isAvailable ? '' : 'Only available on DataHub Cloud'}
-                        placement="left"
-                        showArrow
-                        mouseEnterDelay={0.1}
-                        mouseLeaveDelay={0.1}
-                    >
-                        <span>
-                            <Button onClick={option.onClick} disabled={!option.isAvailable}>
-                                {option.buttonText}
-                            </Button>
-                        </span>
-                    </StructuredPopover>
-                </SettingsOptionRow>
-            </>
-        ))}
-    </StyledCard>
-);
+    );
+};

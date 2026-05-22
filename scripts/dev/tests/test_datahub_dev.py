@@ -67,7 +67,9 @@ def test_plugin_loading_extend_config(tmp_path, monkeypatch):
     monkeypatch.setattr(datahub_dev, "__file__", str(tmp_path / "datahub_dev.py"))
     config = datahub_dev._load_config()
     assert "integrations" in config.rebuild_module_aliases
-    assert config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
+    assert (
+        config.rebuild_module_aliases["integrations"] == "datahub-integrations-service"
+    )
     assert any(svc.name == "integrations" for svc in config.services)
 
 
@@ -151,7 +153,9 @@ def test_env_clean_removes_sentinel(tmp_path, monkeypatch):
     stale_sentinel.write_text("12345")
 
     monkeypatch.setattr(datahub_dev, "DOCKER_DIR", tmp_path)
-    monkeypatch.setattr(datahub_dev, "DEV_ENV_FILE", tmp_path / "datahub-dev-current.env")
+    monkeypatch.setattr(
+        datahub_dev, "DEV_ENV_FILE", tmp_path / "datahub-dev-current.env"
+    )
     # No local branches → only 'local' fallback is active
     monkeypatch.setattr(
         datahub_dev,
