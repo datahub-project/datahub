@@ -13,7 +13,7 @@ import { useUpdateLastViewedAnnouncementTime } from '@app/homeV2/shared/updateLa
 import OnboardingContext from '@app/onboarding/OnboardingContext';
 
 const Card = styled.div`
-    border: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 11px;
     background-color: ${(props) => props.theme.colors.bg};
     overflow: hidden;
@@ -54,7 +54,7 @@ const StyledCarousel = styled(Carousel)`
     overflow: hidden;
 
     > .slick-dots li button {
-        background-color: ${(props) => props.theme.colors.border};
+        background-color: ${(props) => props.theme.colors.iconDisabled};
     }
 
     > .slick-dots li.slick-active button {

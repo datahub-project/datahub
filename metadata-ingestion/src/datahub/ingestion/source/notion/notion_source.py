@@ -832,6 +832,158 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         except Exception as e:
             logger.warning(f"Failed to apply NumberedListItem monkeypatch: {e}")
 
+    @staticmethod
+    def _monkeypatch_icon_dispatcher_unknown_types() -> None:
+        """Gracefully degrade unknown Notion icon types to None instead of raising.
+
+        unstructured-ingest 0.7.2's ``Icon.from_dict`` (in
+        ``types.blocks.callout``) only handles ``emoji`` and ``external`` icon
+        types; anything else raises ``ValueError: Unexpected icon type: ...``.
+        Notion has since introduced a built-in named icon type
+        (``{"type": "icon", "icon": {"name": "...", "color": "..."}}``) that
+        appears on Callout blocks and aborts the indexer's page-discovery walk.
+
+        This is a value-discriminator failure, not a kwargs-filter failure, so
+        it isn't covered by ``_monkeypatch_notion_types_filter_unknown_fields``.
+        Patch the dispatcher to return ``None`` for unknown icon types — the
+        Callout block still ingests with its text content preserved; only the
+        icon visualization is lost (``Callout.get_html`` already handles
+        ``icon is None``).
+        """
+        try:
+            from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+                Icon,
+            )
+
+            warned: Set[Optional[str]] = set()
+            original_from_dict = Icon.from_dict.__func__
+
+            def patched_from_dict(cls: Type[Any], data: Optional[dict]) -> Any:
+                # Notion returns icon=null on Callouts with no icon set;
+                # Callout.from_dict passes data.pop("icon") (which may be None)
+                # straight into Icon.from_dict, so handle the None case here.
+                if data is None:
+                    return None
+                t = data.get("type")
+                if t in ("emoji", "external"):
+                    return original_from_dict(cls, data)
+                if t not in warned:
+                    warned.add(t)
+                    logger.warning(
+                        f"Notion API returned unknown icon type '{t}' — "
+                        f"substituting None. Icon visualization on affected "
+                        f"blocks will be lost; page text content is preserved."
+                    )
+                return None
+
+            Icon.from_dict = classmethod(patched_from_dict)
+            logger.info("Applied monkeypatch to Icon dispatcher for unknown icon types")
+        except ImportError as e:
+            logger.warning(f"Icon dispatcher not found - skipping monkeypatch: {e}")
+        except Exception as e:
+            logger.warning(f"Failed to apply Icon dispatcher monkeypatch: {e}")
+
+    @staticmethod
+    def _monkeypatch_notion_types_filter_unknown_fields() -> None:
+        """Filter unknown kwargs on every FromJSONMixin dataclass in notion types.
+
+        Notion's API regularly adds new fields across blocks, pages, databases,
+        and properties (icon, color, is_locked, is_archived, list_start_index,
+        list_format, ...). unstructured-ingest 0.7.2 models these as
+        dataclasses and parses them with ``cls(**data)``, so any new field
+        raises ``TypeError: __init__() got an unexpected keyword argument`` and
+        aborts the whole ingestion (AI-603: Paragraph 'icon'; also observed:
+        Page 'is_archived').
+
+        FromJSONMixin is the common ancestor of every type in
+        unstructured_ingest.processes.connectors.notion.types (blocks via
+        BlockBase, pages directly, db properties via DBPropertyBase, db cells
+        via DBCellBase). Walking its subclasses after importing all submodules
+        catches the whole surface. Each __init__ is wrapped to drop unknown
+        kwargs and log a one-shot warning per (class, field). New API
+        additions degrade to "minor metadata not captured" instead of a hard
+        failure.
+        """
+        try:
+            import dataclasses
+            import importlib
+            import pkgutil
+
+            from unstructured_ingest.processes.connectors.notion.interfaces import (
+                FromJSONMixin,
+            )
+            from unstructured_ingest.processes.connectors.notion.types import (
+                __name__ as types_name,
+                __path__ as types_path,
+            )
+
+            # Eagerly import every notion type submodule so FromJSONMixin
+            # subclasses are registered before we walk them.
+            for module_info in pkgutil.walk_packages(
+                types_path, prefix=f"{types_name}."
+            ):
+                try:
+                    importlib.import_module(module_info.name)
+                except Exception as e:
+                    logger.debug(
+                        f"Skipped notion type submodule {module_info.name}: {e}"
+                    )
+
+            warned: Set[tuple] = set()
+            patched_count = 0
+
+            stack: List[type] = [FromJSONMixin]
+            seen: Set[type] = set()
+            while stack:
+                parent = stack.pop()
+                for cls in parent.__subclasses__():
+                    if cls in seen:
+                        continue
+                    seen.add(cls)
+                    stack.append(cls)
+                    if not dataclasses.is_dataclass(cls):
+                        continue
+                    if getattr(cls.__init__, "_datahub_filters_unknown", False):
+                        continue
+
+                    valid_fields = {f.name for f in dataclasses.fields(cls)}
+                    original_init = cls.__init__
+                    cls_name = cls.__name__
+
+                    def make_wrapped(orig: Any, valid: Set[str], name: str) -> Any:
+                        def wrapped_init(self: Any, *args: Any, **kwargs: Any) -> None:
+                            unknown = [k for k in kwargs if k not in valid]
+                            for k in unknown:
+                                key = (name, k)
+                                if key not in warned:
+                                    warned.add(key)
+                                    logger.warning(
+                                        f"Notion API returned unknown field '{k}' on "
+                                        f"{name} — filtering. Content for this field "
+                                        f"will be dropped; consider upgrading "
+                                        f"unstructured-ingest or extending the connector."
+                                    )
+                                kwargs.pop(k)
+                            orig(self, *args, **kwargs)
+
+                        wrapped_init._datahub_filters_unknown = True  # type: ignore[attr-defined]
+                        return wrapped_init
+
+                    cls.__init__ = make_wrapped(  # type: ignore[method-assign]
+                        original_init, valid_fields, cls_name
+                    )
+                    patched_count += 1
+
+            logger.info(
+                f"Applied generic unknown-field filter to {patched_count} Notion type classes"
+            )
+        except ImportError as e:
+            logger.warning(
+                f"Notion types not found - skipping generic field filter: {e}"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to apply generic notion-type field filter: {e}")
+
     def _initialize_state_tracking(self) -> None:
         """Initialize state tracking for content-based change detection.
 
@@ -1367,6 +1519,8 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         self._monkeypatch_databases_endpoint_query()
         self._monkeypatch_syncblock_from_dict()
         self._monkeypatch_numbered_list_item_new_fields()
+        self._monkeypatch_icon_dispatcher_unknown_types()
+        self._monkeypatch_notion_types_filter_unknown_fields()
 
         # Auto-discover pages if none provided
         page_ids = self.config.page_ids
@@ -1645,40 +1799,15 @@ class NotionSource(StatefulIngestionSourceBase, TestableSource):
         record_locator = data_source.get("record_locator", {})
         current_page_id = record_locator.get("page_id")
 
-        # Check for Notion page ID prefix filtering
-        # If page_ids were specified, only keep docs with matching prefixes
-        if self.config.page_ids:
-            # Extract page_id from metadata
-            data_source = metadata.get("data_source", {})
-            record_locator = data_source.get("record_locator", {})
-            page_id = record_locator.get("page_id")
-            database_id = record_locator.get("database_id")
-
-            # Check if this document matches any of the page_id prefixes
-            # Normalize IDs by removing hyphens for comparison (Notion returns both formats)
-            should_keep = False
-            for configured_page_id in self.config.page_ids:
-                # Normalize configured ID (remove hyphens) and take first 13 chars
-                normalized_prefix = configured_page_id.replace("-", "")[:13]
-
-                # Keep if page_id or database_id starts with the prefix (after normalization)
-                if page_id:
-                    normalized_page_id = page_id.replace("-", "")
-                    if normalized_page_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-                if database_id:
-                    normalized_database_id = database_id.replace("-", "")
-                    if normalized_database_id.startswith(normalized_prefix):
-                        should_keep = True
-                        break
-
-            if not should_keep:
-                self.report.report_file_skipped(
-                    metadata.get("filename", "unknown"),
-                    "Notion page_id/database_id doesn't match configured page_ids prefix",
-                )
-                return True
+        # Note: we previously prefix-matched discovered page IDs against the
+        # first 13 chars of each configured page_id to "scope" the ingestion.
+        # That heuristic is broken: Notion v2 page IDs use a time-window
+        # prefix, so legitimate descendants reached via `recursive: true`
+        # often diverge in the first 8 chars and were silently dropped.
+        # The unstructured-ingest NotionIndexer with the configured
+        # page_ids/database_ids and recursive=true only walks descendants of
+        # those roots, so any document it emits is in-scope by construction —
+        # no extra filtering is needed here.
 
         # Check for empty documents
         if self.config.filtering.skip_empty_documents:

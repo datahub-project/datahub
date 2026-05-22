@@ -16,7 +16,7 @@ const CreateButton = styled(Button)`
     width: calc(100% - 24px);
 
     &:hover {
-        color: ${(props) => props.theme.colors.textBrand};
+        color: ${(props) => props.theme.colors.textHover};
     }
 
     .anticon-plus {

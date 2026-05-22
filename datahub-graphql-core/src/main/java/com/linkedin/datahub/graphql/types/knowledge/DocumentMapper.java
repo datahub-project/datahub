@@ -26,6 +26,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAsp
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -54,6 +55,18 @@ public class DocumentMapper {
 
     // Map Document Info aspect
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.DOCUMENT_INFO_ASPECT_NAME);
+
+    // Compute lastIngested: prefer a proper run-based time, but fall back to lastObserved from
+    // documentInfo's systemMetadata because datahub writes with DEFAULT_RUN_ID.
+    Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
+    if (lastIngested == null
+        && envelopedInfo != null
+        && envelopedInfo.hasSystemMetadata()
+        && envelopedInfo.getSystemMetadata().hasLastObserved()) {
+      lastIngested = envelopedInfo.getSystemMetadata().getLastObserved();
+    }
+    result.setLastIngested(lastIngested);
+
     if (envelopedInfo != null) {
       result.setInfo(
           mapDocumentInfo(

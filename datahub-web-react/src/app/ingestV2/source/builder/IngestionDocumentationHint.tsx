@@ -31,7 +31,7 @@ const Description = styled.div`
 `;
 
 const StyledCloseOutlined = styled(CloseOutlined)`
-    color: ${(props) => props.theme.colors.textDisabled};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 interface Props {

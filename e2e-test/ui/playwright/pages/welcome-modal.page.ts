@@ -102,10 +102,24 @@ export class WelcomeModalPage extends BasePage {
   }
 
   async closeViaEscape(): Promise<void> {
-    // Ensure the modal has focus so the Escape key event is captured by Ant Design.
+    // The modal's keydown listener is bound to document, so focus inside the modal
+    // is not required — but a defensive click is kept for older code paths that
+    // expected antd's built-in Esc handler (which needs focus inside the modal).
     await this.modal.click({ position: { x: 5, y: 5 }, force: true }).catch(() => {});
     await this.page.keyboard.press('Escape');
     await this.modal.waitFor({ state: 'hidden' });
+  }
+
+  async pressArrowRight(): Promise<void> {
+    await this.page.keyboard.press('ArrowRight');
+    // react-slick afterChange fires via setTimeout(speed=500ms). Match the
+    // wait used by clickCarouselDot for consistency.
+    await this.page.waitForTimeout(500);
+  }
+
+  async pressArrowLeft(): Promise<void> {
+    await this.page.keyboard.press('ArrowLeft');
+    await this.page.waitForTimeout(500);
   }
 
   async closeViaOutsideClick(): Promise<void> {
