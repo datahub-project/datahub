@@ -3,71 +3,145 @@ name: Linear — Ingestion CLI/PyPI Release Tracking
 # Tracks ingestion releases in the "Ingestion CLI/PyPI Releases" Linear pipeline.
 #
 # Release lifecycle for acryl-datahub PyPI:
-#   1. PRs merge to master continuously        → issues synced to the current in-progress release
-#   2. RC tag published (e.g. v0.3.17.7rc1)   → Linear release moved to "Testing Release" stage
-#   3. Stable tag published (e.g. v0.3.17.7)  → release completed + Linear LLM generates release notes
+#   1. PR merges to master          → issue added to cli-next release (staging area)
+#   2. Any release published (RC or stable) → issue migrated from cli-next to versioned release;
+#                                     RC advances to "Testing Release" stage;
+#                                     stable is completed
+#   3. Release deleted in GitHub    → corresponding Linear release is deleted
 #
 # Manual dispatch supports backfilling past releases and one-off stage overrides.
 #
-# Required secret: LINEAR_ACCESS_KEY
-#   → Copy the pipeline access key from Linear Settings → Releases → "Ingestion CLI/PyPI Releases" → CI setup
+# Required secrets:
+#   LINEAR_ACCESS_KEY   — pipeline access key (Linear Settings → Releases → CI setup)
+#   LINEAR_API_KEY      — personal API key (for issueToRelease mutations)
 
 on:
+  pull_request_target:
+    types: [closed]
+    branches: [master]
+    paths:
+      - "metadata-ingestion/**"
+      - "docs/**"
+
   push:
     branches:
       - master
     paths:
-      # Match the path filters already configured in the Linear pipeline settings
       - "metadata-ingestion/**"
       - "docs/**"
 
   release:
-    types: [published] # fires for both RC and stable GitHub releases
+    types: [published, deleted]
 
   workflow_dispatch:
     inputs:
       command:
-        description: "Release command"
+        description: >
+          Release command. Typical backfill sequence: run sync first to create the
+          release and establish baseline, then update to set the stage, then complete
+          to finalize and trigger Linear AI release notes.
+          sync = create release if missing + attach issues from commit history.
+          update = advance to a named stage (requires stage field below).
+          complete = mark released + trigger Linear AI to generate release notes.
         required: true
         type: choice
         options:
-          - update # advance to a specific stage (e.g. backfill an RC transition)
-          - complete # mark released + trigger Linear LLM release note generation
-      stage:
-        description: 'Stage name — only used with "update" (e.g. "testing release")'
-        required: false
-        type: string
+          - sync
+          - update
+          - complete
       version:
-        description: "Release version (e.g. v0.3.17.7 or v0.3.17.7rc1) — required; used to backfill past releases"
+        description: >
+          Release version matching the GitHub tag exactly, including the v prefix
+          (e.g. v1.5.0.19 or v1.5.0.19rc1). Must match the version stored in Linear.
+          For backfilling: run sync first with this version to create the Linear
+          release, then run update or complete as needed.
         required: true
         type: string
+      stage:
+        description: >
+          Stage name — only used with the update command. Must match a stage name
+          in the Linear pipeline exactly (case-insensitive). Current stages:
+          Planned, Started, In Progress, Testing Release, Released, Canceled.
+          Example: to mark an RC as under validation, use "testing release".
+        required: false
+        type: string
+
+env:
+  CLI_NEXT_RELEASE_ID: "7de48387-0024-4156-9c60-33a237985f65"
+  LINEAR_PIPELINE_ID: "1dded0ef-0a6a-421a-805b-2761579688b4"
 
 jobs:
+  # ── JOB 1: PR MERGED → add associated Linear issue to cli-next ──────────────
+  add-to-cli-next:
+    if: >
+      github.event_name == 'pull_request_target' &&
+      github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Find Linear issue from PR comment
+        id: find-issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          ISSUE=$(gh pr view "$PR_NUMBER" \
+            --repo acryldata/datahub \
+            --json comments \
+            --jq '[.comments[].body | match("Linear: ([A-Z]+-[0-9]+)") | .captures[0].string] | first // ""')
+          echo "issue=$ISSUE" >> "$GITHUB_OUTPUT"
+          echo "Found Linear issue: ${ISSUE:-none}"
+
+      - name: Add issue to cli-next release
+        if: steps.find-issue.outputs.issue != ''
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          IDENTIFIER: ${{ steps.find-issue.outputs.issue }}
+        run: |
+          # Resolve identifier (e.g. ING-2504) → internal UUID
+          ISSUE_UUID=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ issue(id: \\\"$IDENTIFIER\\\") { id } }\"}" \
+            | jq -r '.data.issue.id // empty')
+
+          if [ -z "$ISSUE_UUID" ]; then
+            echo "Could not resolve $IDENTIFIER — skipping"
+            exit 0
+          fi
+
+          RESULT=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { issueToReleaseCreate(input: { releaseId: \\\"$CLI_NEXT_RELEASE_ID\\\", issueId: \\\"$ISSUE_UUID\\\" }) { success } }\"}" \
+            | jq -r '.data.issueToReleaseCreate.success')
+
+          echo "Added $IDENTIFIER to cli-next: $RESULT"
+
+  # ── JOB 2: RELEASE PUBLISHED or MANUAL DISPATCH ─────────────────────────────
   linear-release:
+    if: >
+      github.event_name == 'push' ||
+      (github.event_name == 'release' && github.event.action == 'published') ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # required — action scans full commit history to find ING-XXXX references
+          fetch-depth: 0 # required — action scans full commit history
 
-      # ── 1. MERGE TO MASTER ──────────────────────────────────────────────────
-      # Scans new commits for ING-XXXX references and adds matching issues to
-      # the current in-progress release (no version needed — attaches to latest open release).
-      # Path filter on the trigger above ensures this only runs for ingestion-relevant commits.
+      # ── 1. MERGE TO MASTER ────────────────────────────────────────────────
       - name: Sync issues on merge to master
         if: github.event_name == 'push'
         uses: linear/linear-release-action@v0
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
 
-      # ── 2. RC PUBLISHED ─────────────────────────────────────────────────────
-      # Triggered when a pre-release GitHub release is published (tag contains "rc").
-      # Step 1: associate the version + sync any issues not yet captured.
-      # Step 2: advance the release to "Testing Release" stage (RC is in validation).
+      # ── 2. ANY RELEASE PUBLISHED ─────────────────────────────────────────
       - name: Extract version from GitHub release tag
         if: github.event_name == 'release'
         run: echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_ENV"
 
+      # RC: sync issues to versioned release + advance to Testing Release stage
       - name: Sync issues on RC publish
         if: github.event_name == 'release' && contains(github.event.release.tag_name, 'rc')
         uses: linear/linear-release-action@v0
@@ -81,15 +155,10 @@ jobs:
         with:
           access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
           command: update
-          stage: testing release # matches the "Testing Release" stage in the Linear pipeline
+          stage: testing release
           version: ${{ env.RELEASE_VERSION }}
 
-      # ── 3. STABLE RELEASE PUBLISHED ─────────────────────────────────────────
-      # Triggered when a stable (non-RC) GitHub release is published — same moment
-      # PyPI publish workflows fire. This is the final state of the release.
-      # Step 1: sync any final issues (e.g. last-minute hotfix commits).
-      # Step 2: complete the release → triggers Linear's LLM to auto-generate release notes
-      #         using the release notes template configured in the pipeline settings.
+      # Stable: sync issues + complete release
       - name: Sync issues on stable release
         if: github.event_name == 'release' && !contains(github.event.release.tag_name, 'rc')
         uses: linear/linear-release-action@v0
@@ -105,11 +174,98 @@ jobs:
           command: complete
           version: ${{ env.RELEASE_VERSION }}
 
-      # ── 4. MANUAL DISPATCH ───────────────────────────────────────────────────
-      # Use cases:
-      #   - Backfill a past release:   command=complete, version=v0.3.17.5
-      #   - Fix a missed RC transition: command=update, stage=testing release, version=v0.3.17.7rc1
-      #   - Manually complete a release that didn't auto-trigger
+      # Both RC and stable: migrate cli-next issues that are confirmed in this release's commit range
+      - name: Migrate issues from cli-next to versioned release
+        if: github.event_name == 'release'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # 1. Find the Linear release we just created/synced (match by version + pipeline)
+          RELEASE_ID=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ releasePipelines { nodes { id releases(filter: { version: { eq: \\\"$TAG\\\" } }) { nodes { id } } } } }\"}" \
+            | jq -r ".data.releasePipelines.nodes[] | select(.id == \"$LINEAR_PIPELINE_ID\") | .releases.nodes[0].id // empty")
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "Could not find Linear release for $TAG — skipping migration"
+            exit 0
+          fi
+          echo "Linear release ID for $TAG: $RELEASE_ID"
+
+          # 2. Find the previous tag via git ancestry, not chronological order.
+          #    git describe walks the commit graph backwards from TAG^ and finds the
+          #    nearest ancestor tag — correctly handles cherry-pick/backport releases
+          #    (e.g. v1.5.0.13.post3 → v1.5.0.13.post2, not v1.5.0.19 which was
+          #    published around the same time but is on a different branch).
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null)
+          if [ -z "$PREV_TAG" ]; then
+            echo "No previous tag found — cannot determine commit range"
+            exit 0
+          fi
+          echo "Commit range: $PREV_TAG..$TAG"
+
+          # 3. Extract PR numbers from commits actually in this release's range.
+          #    git log --cherry-pick --right-only handles cherry-picks correctly:
+          #    only commits unique to TAG (not already in PREV_TAG) are included.
+          PR_NUMBERS=$(git log "$PREV_TAG".."$TAG" --format="%s" --no-merges \
+            | grep -oE '\(#[0-9]+\)' \
+            | tr -d '(#)')
+
+          if [ -z "$PR_NUMBERS" ]; then
+            echo "No PRs found in range $PREV_TAG..$TAG"
+            exit 0
+          fi
+          echo "PRs in this release: $(echo $PR_NUMBERS | tr '\n' ' ')"
+
+          # 4. Build a set of Linear issue identifiers whose PRs are in this release,
+          #    by reading the "Linear: ING-XXXX" comment that pr-to-linear.yml posts.
+          ISSUES_IN_RELEASE=""
+          for PR in $PR_NUMBERS; do
+            IDENTIFIER=$(gh pr view "$PR" \
+              --repo acryldata/datahub \
+              --json comments \
+              --jq '[.comments[].body | match("Linear: ([A-Z]+-[0-9]+)") | .captures[0].string] | first // ""' 2>/dev/null)
+            if [ -n "$IDENTIFIER" ]; then
+              ISSUES_IN_RELEASE="$ISSUES_IN_RELEASE $IDENTIFIER"
+            fi
+          done
+
+          if [ -z "$ISSUES_IN_RELEASE" ]; then
+            echo "No Linear issues resolved from PRs in this range"
+            exit 0
+          fi
+          echo "Linear issues confirmed in this release:$ISSUES_IN_RELEASE"
+
+          # 5. Get all issues currently in cli-next
+          CLI_NEXT_ISSUES=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ release(id: \\\"$CLI_NEXT_RELEASE_ID\\\") { issues { nodes { id identifier } } } }\"}" \
+            | jq -r '.data.release.issues.nodes[] | .id + " " + .identifier')
+
+          # 6. Migrate only issues that are both in cli-next AND confirmed in this release
+          echo "$CLI_NEXT_ISSUES" | while read UUID IDENTIFIER; do
+            if echo "$ISSUES_IN_RELEASE" | grep -qw "$IDENTIFIER"; then
+              echo "  Migrating $IDENTIFIER..."
+              curl -s -X POST https://api.linear.app/graphql \
+                -H "Authorization: $LINEAR_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{\"query\": \"mutation { issueToReleaseCreate(input: { releaseId: \\\"$RELEASE_ID\\\", issueId: \\\"$UUID\\\" }) { success } }\"}" \
+                | jq -r '"    add to versioned: " + (.data.issueToReleaseCreate.success | tostring)'
+              curl -s -X POST https://api.linear.app/graphql \
+                -H "Authorization: $LINEAR_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{\"query\": \"mutation { issueToReleaseDeleteByIssueAndRelease(issueId: \\\"$UUID\\\", releaseId: \\\"$CLI_NEXT_RELEASE_ID\\\") { success } }\"}" \
+                | jq -r '"    remove from cli-next: " + (.data.issueToReleaseDeleteByIssueAndRelease.success | tostring)'
+            else
+              echo "  Skipping $IDENTIFIER — not confirmed in $TAG commit range"
+            fi
+          done
+
+      # ── 3. MANUAL DISPATCH ────────────────────────────────────────────────
       - name: Manual release command
         if: github.event_name == 'workflow_dispatch'
         uses: linear/linear-release-action@v0
@@ -118,3 +274,33 @@ jobs:
           command: ${{ inputs.command }}
           stage: ${{ inputs.stage }}
           version: ${{ inputs.version }}
+
+  # ── JOB 3: RELEASE DELETED IN GITHUB → delete corresponding Linear release ─
+  delete-linear-release:
+    if: github.event_name == 'release' && github.event.action == 'deleted'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete Linear release for ${{ github.event.release.tag_name }}
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          # 1. Find the Linear release by version
+          RELEASE_ID=$(curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"{ releasePipelines { nodes { id releases(filter: { version: { eq: \\\"$TAG\\\" } }) { nodes { id version } } } } }\"}" \
+            | jq -r ".data.releasePipelines.nodes[] | select(.id == \"$LINEAR_PIPELINE_ID\") | .releases.nodes[0].id // empty")
+
+          if [ -z "$RELEASE_ID" ]; then
+            echo "No Linear release found for $TAG — nothing to delete"
+            exit 0
+          fi
+          echo "Deleting Linear release $TAG ($RELEASE_ID)"
+
+          # 2. Delete it
+          curl -s -X POST https://api.linear.app/graphql \
+            -H "Authorization: $LINEAR_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{\"query\": \"mutation { releaseDelete(id: \\\"$RELEASE_ID\\\") { success } }\"}" \
+            | jq -r '"Deleted: " + (.data.releaseDelete.success | tostring)'
