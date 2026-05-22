@@ -241,7 +241,12 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
+        # Old condition (ran on any backend/frontend/playwright change or publish, including all PRs):
+        # if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
+        #
+        # Temporary - New condition mirrors smoke-test rules (backend-change|playwright-change|publish for non-PRs),
+        # but restricts PRs to playwright-change only to avoid running the full E2E suite on every code PR.
+        if: ${{ (github.event_name == 'pull_request' && steps.ci-optimize.outputs.playwright-change == 'true') || (github.event_name != 'pull_request' && (steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true')) }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
