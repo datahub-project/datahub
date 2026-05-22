@@ -175,7 +175,7 @@ class DataplexGlossaryProcessor:
     1. ``process_glossaries`` — lists all glossaries in configured locations and emits
        GlossaryNode (glossary) / GlossaryNode (category) / GlossaryTerm entities.
     2. ``process_term_associations`` — for each emitted term, calls the Dataplex
-       ``lookupEntryLinks`` REST API across all entries_locations to find linked assets
+       ``lookupEntryLinks`` REST API at the term's location to find linked assets
        and emits a ``glossaryTerms`` aspect update on those DataHub Dataset entities.
     """
 
@@ -419,19 +419,13 @@ class DataplexGlossaryProcessor:
             e.dataplex_entry_name: e.datahub_dataset_urn for e in self._ctx.entry_data
         }
 
-        location_pairs: List[Tuple[str, str]] = [
-            (pid, loc)
-            for pid in project_ids
-            for loc in self._ctx.config.entries_locations
-        ]
-
         logger.info(
-            "Resolving term-asset associations for %d terms across %d project/location pairs",
+            "Resolving term-asset associations for %d terms",
             len(self._emitted_terms),
-            len(location_pairs),
         )
 
         # Phase 1: parallel scan — collect asset_urn -> [term_urns].
+        # Each term is queried at its own location to retrieve all linked assets.
         asset_to_terms: Dict[str, List[str]] = {}
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -444,7 +438,6 @@ class DataplexGlossaryProcessor:
                         ref.location,
                         ref.glossary_id,
                         ref.term_id,
-                        location_pairs,
                         entry_name_to_urn,
                     ): ref
                     for ref in batch
@@ -491,63 +484,78 @@ class DataplexGlossaryProcessor:
         gl_location: str,
         glossary_id: str,
         term_id: str,
-        location_pairs: List[Tuple[str, str]],
         entry_name_to_urn: Dict[str, str],
     ) -> Tuple[str, List[str]]:
-        """Return (term_urn_str, asset_urns) for this term across all locations.
+        """Return (term_urn_str, asset_urns) for this term.
 
-        De-duplicates asset URNs within the scan so the same asset is not
-        returned more than once even if multiple location scans return it.
+        Calls the lookupEntryLinks API at the term's location to retrieve all
+        linked assets, regardless of where those assets are located.
         """
         term_urn_str = str(
             GlossaryTermUrn(_term_urn_id(project_id, gl_location, glossary_id, term_id))
         )
         project_number = self._ctx.project_numbers[project_id]
+
+        # Construct the entry path for the glossary term.
+        # CRITICAL: The Dataplex API requires a specific format for glossary term entries:
+        #   projects/{PROJECT_NUMBER}/locations/{LOCATION}/entryGroups/@dataplex/entries/
+        #   projects/{PROJECT_NUMBER}/locations/{LOCATION}/glossaries/{GLOSSARY_ID}/terms/{TERM_ID}
+        #
+        # Both LOCATION placeholders must be the SAME - the term's location (gl_location).
+        # This is the official format per Google Cloud documentation:
+        # https://docs.cloud.google.com/dataplex/docs/manage-glossaries
+        #
+        # Additionally, the lookupEntryLinks API enforces that "the location ID in both
+        # the URL path and entry resource name must match the same region". This means
+        # we can ONLY call lookupEntryLinks at the term's own location (gl_location).
+        #
+        # Entry links for a glossary term are stored at the term's location, NOT
+        # distributed across different asset locations. When we query at the term's
+        # location, we retrieve ALL linked assets regardless of where those assets
+        # (e.g., BigQuery tables) are physically located. The link metadata contains
+        # references to assets in other locations via their full resource names.
         term_entry_path = (
-            f"projects/{project_id}/locations/global/entryGroups/@dataplex/entries/"
+            f"projects/{project_number}/locations/{gl_location}/entryGroups/@dataplex/entries/"
             f"projects/{project_number}/locations/{gl_location}"
             f"/glossaries/{glossary_id}/terms/{term_id}"
         )
 
-        seen_asset_urns: set = set()
         linked_asset_urns: List[str] = []
-        for lookup_project_id, location in location_pairs:
-            try:
-                links = self._lookup_entry_links(
-                    lookup_project_id, location, term_entry_path
-                )
-            except Exception as exc:
-                self._source_report.warning(
-                    title="lookupEntryLinks call failed",
-                    message="Skipping location for this term.",
-                    context=(
-                        f"project={lookup_project_id}, location={location}, "
-                        f"term={term_id}"
-                    ),
-                    exc=exc,
-                )
-                continue
 
-            for link in links:
-                # Skip synonym and any other term-to-term link types.
-                if not link.get("entryLinkType", "").endswith(
-                    _DEFINITION_LINK_TYPE_SUFFIX
-                ):
+        # Call lookupEntryLinks at the term's location to retrieve all linked assets.
+        # We only need to call this once at the term's location (gl_location), not
+        # iterate over all entries_locations, because Dataplex stores all entry links
+        # for a term at the term's own location.
+        try:
+            links = self._lookup_entry_links(project_id, gl_location, term_entry_path)
+        except Exception as exc:
+            self._source_report.warning(
+                title="lookupEntryLinks call failed",
+                message="Failed to resolve term-asset links for this term.",
+                context=(
+                    f"project={project_id}, location={gl_location}, "
+                    f"glossary={glossary_id}, term={term_id}"
+                ),
+                exc=exc,
+            )
+            return term_urn_str, linked_asset_urns
+
+        for link in links:
+            # Skip synonym and any other term-to-term link types.
+            if not link.get("entryLinkType", "").endswith(_DEFINITION_LINK_TYPE_SUFFIX):
+                continue
+            for ref in link.get("entryReferences", []):
+                if ref.get("type") != _SOURCE_ROLE:
                     continue
-                for ref in link.get("entryReferences", []):
-                    if ref.get("type") != _SOURCE_ROLE:
-                        continue
-                    entry_name = ref.get("name", "")
-                    asset_urn = entry_name_to_urn.get(entry_name)
-                    if asset_urn is None:
-                        logger.debug(
-                            "Term link target %r not found in ingested entries; skipping",
-                            entry_name,
-                        )
-                        continue
-                    if asset_urn not in seen_asset_urns:
-                        seen_asset_urns.add(asset_urn)
-                        linked_asset_urns.append(asset_urn)
+                entry_name = ref.get("name", "")
+                asset_urn = entry_name_to_urn.get(entry_name)
+                if asset_urn is None:
+                    logger.debug(
+                        "Term link target %r not found in ingested entries; skipping",
+                        entry_name,
+                    )
+                    continue
+                linked_asset_urns.append(asset_urn)
 
         return term_urn_str, linked_asset_urns
 

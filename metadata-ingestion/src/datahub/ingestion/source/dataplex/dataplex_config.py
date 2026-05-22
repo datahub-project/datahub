@@ -227,8 +227,9 @@ class DataplexConfig(
         default=False,
         description=(
             "Whether to ingest term-to-asset associations via the Dataplex lookupEntryLinks API. "
-            "For each ingested term, all entries_locations are queried per project to find linked "
-            "assets. Requires roles/resourcemanager.projectViewer on all configured projects to "
+            "For each ingested term, the API is called at the term's location to retrieve all linked "
+            "assets (regardless of where those assets are located). "
+            "Requires roles/resourcemanager.projectViewer on all configured projects to "
             "resolve GCP project numbers needed by the lookupEntryLinks API."
         ),
     )
