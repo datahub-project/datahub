@@ -15,6 +15,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver.AspectsKey;
 import com.linkedin.datahub.graphql.generated.AspectParams;
+import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.RawAspect;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -25,12 +27,17 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.r2.RemoteInvocationException;
+import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.dataloader.DataLoader;
+import org.dataloader.DataLoaderRegistry;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
@@ -807,5 +814,76 @@ public class WeaklyTypedAspectsResolverBatchTest {
 
     assertEquals(result.get(0).size(), 1);
     assertEquals(result.get(0).get(0).getAspectName(), ASPECT_A);
+  }
+
+  /**
+   * Covers {@link WeaklyTypedAspectsResolver#get(DataFetchingEnvironment)}: the resolver pulls the
+   * named loader from the registry and dispatches an {@link AspectsKey} built from the source URN,
+   * the source entity type, and the {@code input} argument.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testGetDispatchesToDataLoader() {
+    final DataFetchingEnvironment env = Mockito.mock(DataFetchingEnvironment.class);
+    final Entity source = Mockito.mock(Entity.class);
+    Mockito.when(source.getUrn()).thenReturn(DATASET_URN_1.toString());
+    Mockito.when(source.getType()).thenReturn(EntityType.DATASET);
+    Mockito.when(env.getSource()).thenReturn(source);
+    Mockito.when(env.getArgument("input")).thenReturn(null);
+
+    final DataLoader<AspectsKey, List<RawAspect>> loader =
+        (DataLoader<AspectsKey, List<RawAspect>>) Mockito.mock(DataLoader.class);
+    final DataLoaderRegistry registry = Mockito.mock(DataLoaderRegistry.class);
+    Mockito.doReturn(loader).when(registry).getDataLoader(WeaklyTypedAspectsResolver.LOADER_NAME);
+    Mockito.when(env.getDataLoaderRegistry()).thenReturn(registry);
+
+    final CompletableFuture<List<RawAspect>> expected =
+        CompletableFuture.completedFuture(Collections.emptyList());
+    Mockito.when(loader.load(any(AspectsKey.class))).thenReturn(expected);
+
+    final CompletableFuture<List<RawAspect>> result = new WeaklyTypedAspectsResolver().get(env);
+
+    assertEquals(result, expected);
+    final ArgumentCaptor<AspectsKey> captor = ArgumentCaptor.forClass(AspectsKey.class);
+    Mockito.verify(loader).load(captor.capture());
+    final AspectsKey actual = captor.getValue();
+    assertEquals(actual.getUrn(), DATASET_URN_1.toString());
+    assertEquals(actual.getEntityType(), DATASET_TYPE);
+    assertTrue(actual.getAspectNames().isEmpty());
+    assertEquals(actual.isAutoRenderOnly(), false);
+  }
+
+  /**
+   * Covers {@link WeaklyTypedAspectsResolver#createDataLoader(EntityClient, EntityRegistry,
+   * QueryContext)}: the returned loader, when dispatched, routes the registered key through {@code
+   * batchLoad} and emits a populated {@link RawAspect}.
+   */
+  @Test
+  public void testCreateDataLoaderRoutesThroughBatchLoad() throws Exception {
+    final EntityClient client = Mockito.mock(EntityClient.class);
+    final EntityRegistry registry = Mockito.mock(EntityRegistry.class);
+    final QueryContext ctx = mockQueryContext();
+
+    final AspectSpec specA = mockAspectSpec(ASPECT_A, false, null);
+    stubEntitySpec(registry, DATASET_TYPE, ImmutableList.of(specA));
+    Mockito.when(
+            client.batchGetV2(
+                nullable(OperationContext.class),
+                eq(DATASET_TYPE),
+                eq(Collections.singleton(DATASET_URN_1)),
+                eq(Collections.singleton(ASPECT_A))))
+        .thenReturn(
+            ImmutableMap.of(DATASET_URN_1, entityResponseWithAspects(DATASET_URN_1, ASPECT_A)));
+
+    final DataLoader<AspectsKey, List<RawAspect>> loader =
+        WeaklyTypedAspectsResolver.createDataLoader(client, registry, ctx);
+    final CompletableFuture<List<RawAspect>> future =
+        loader.load(datasetKey(DATASET_URN_1, ImmutableSet.of(ASPECT_A)));
+    loader.dispatch();
+
+    final List<RawAspect> result = future.get();
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getAspectName(), ASPECT_A);
+    assertTrue(result.get(0).getPayload().contains(DATASET_URN_1.toString()));
   }
 }
