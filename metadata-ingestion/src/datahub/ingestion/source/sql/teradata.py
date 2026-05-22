@@ -174,6 +174,7 @@ register_custom_type(custom_types.PERIOD_TIMESTAMP, TimeTypeClass)
 
 _RETRY_MAX_ATTEMPTS = 3
 _RETRY_INITIAL_BACKOFF_SECONDS = 1.0
+_RETRY_BACKOFF_CAP_SECONDS = 30.0  # full-jitter ceiling per attempt; protects against runaway sleeps if user sets large retry_initial_backoff_seconds
 
 # Numeric Teradata error codes that indicate a PERMANENT failure.  Matched
 # against str(exc) before any retry logic — codes are stable across driver
@@ -269,7 +270,7 @@ def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
     and then hammer the server simultaneously.  Full jitter spreads retries
     uniformly across the window so the server load stays roughly constant.
     """
-    cap = min(initial_backoff_seconds * (2**attempt), 30.0)
+    cap = min(initial_backoff_seconds * (2**attempt), _RETRY_BACKOFF_CAP_SECONDS)
     return random.uniform(0, cap)
 
 
@@ -344,11 +345,9 @@ def _engine_connect_with_retry(
             conn = engine.connect()
             break
         except PoolTimeoutError as exc:
-            thread = current_thread()
-            if report is not None:
-                report.increment_pool_exhaustion_events()
             if attempt == max_attempts - 1:
                 raise
+            thread = current_thread()  # evaluated only when the warning will be logged
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
                 f"Connection pool exhausted "
@@ -357,6 +356,7 @@ def _engine_connect_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
+                report.increment_pool_exhaustion_events()
                 report.increment_db_retries()
             time.sleep(backoff)
         except Exception as exc:
@@ -832,6 +832,12 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # fields that are mutated from ThreadPoolExecutor worker threads.
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
 
+    @contextmanager
+    def atomic(self) -> Generator[None, None, None]:
+        """Take the report lock for a multi-field atomic update."""
+        with self._lock:
+            yield
+
     def increment_db_retries(self) -> None:
         with self._lock:
             self.num_db_retries += 1
@@ -939,21 +945,19 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     max_pool_size: int = Field(
         default=13,
-        description="Ceiling on the number of concurrent Teradata connections used during "
-        "parallel view processing. The actual pool size is "
-        "min(max_workers, max_pool_size), so this value only takes effect when "
-        "max_workers exceeds it — at which point the effective worker count is "
-        "capped to max_pool_size. For example, max_workers=10 with max_pool_size=13 "
-        "creates a pool of 10, not 13. Teradata drivers can be sensitive to high "
-        "connection counts; keep this conservative. Must be between 1 and 50.",
+        ge=1,
+        le=50,
+        description=(
+            "Ceiling on the number of concurrent Teradata connections used during "
+            "parallel view processing. The actual pool size is "
+            "min(max_workers, max_pool_size), so this value only takes effect when "
+            "max_workers exceeds it. For example, max_workers=10 with max_pool_size=13 "
+            "creates a pool of 10, not 13. "
+            "The upper bound of 50 is a conservative ingestion-time safety ceiling, "
+            "not a Teradata system limit. Teradata's per-user MAXSESSIONS parameter "
+            "is typically 64–200+ depending on the platform and user profile. "
+        ),
     )
-
-    @field_validator("max_pool_size")
-    @classmethod
-    def validate_max_pool_size(cls, v: int) -> int:
-        if not 1 <= v <= 50:
-            raise ValueError(f"max_pool_size must be between 1 and 50, got {v}")
-        return v
 
     extract_ownership: bool = Field(
         default=False,
@@ -1043,49 +1047,53 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
 
     connection_pool_timeout_ms: int = Field(
         default=60000,
+        ge=1,
         description=(
-            "Timeout in milliseconds to wait for a connection from the connection pool "
-            "before raising an error. "
+            "How long, in milliseconds, a worker thread will wait for a free connection "
+            "from the pool before raising a PoolTimeoutError. "
+            "PoolTimeoutError is a retryable condition: the connector will sleep with "
+            "full-jitter exponential backoff and try again up to retry_max_attempts times. "
+            "Increase this when parallel view processing saturates the pool on large "
+            "schemas (watch num_pool_exhaustion_events in the ingestion report). "
+            "Decrease it to surface pool-exhaustion failures faster on small installations. "
             "Default is 60000 (60 seconds)."
         ),
     )
 
-    @field_validator("connection_pool_timeout_ms")
-    @classmethod
-    def validate_connection_pool_timeout_ms(cls, v: int) -> int:
-        if v < 1:
-            raise ValueError(f"connection_pool_timeout_ms must be >= 1, got {v}")
-        return v
-
     retry_max_attempts: int = Field(
         default=_RETRY_MAX_ATTEMPTS,
+        ge=1,
         description=(
-            "Maximum number of attempts for retryable database operations. Default is 3."
+            "Maximum total attempts (initial + retries) for retryable database operations "
+            "(connect, execute, fetchmany). "
+            "Retryable conditions: pool exhaustion, transaction-aborted messages, "
+            "dead-socket signals at connect time, and Teradata error codes "
+            "2631/3111/3120/3597/3598/3897. "
+            "Permanent errors (auth failures, permission denied, object does not exist) "
+            "are never retried regardless of this setting. "
+            "Worst-case added latency per operation is approximately "
+            "retry_max_attempts × connection_pool_timeout_ms plus backoff sleeps "
+            "(each capped at 30 seconds by retry_backoff_cap_seconds). "
+            "Increase when ingesting from a busy or flaky cluster; "
+            "decrease to surface persistent errors faster. "
+            "Default is 3."
         ),
     )
-
-    @field_validator("retry_max_attempts")
-    @classmethod
-    def validate_retry_max_attempts(cls, v: int) -> int:
-        if v < 1:
-            raise ValueError(f"retry_max_attempts must be >= 1, got {v}")
-        return v
 
     retry_initial_backoff_seconds: float = Field(
         default=_RETRY_INITIAL_BACKOFF_SECONDS,
+        gt=0,
         description=(
-            "Initial backoff in seconds before the first retry. "
-            "Subsequent retries use exponential backoff (initial * 2^attempt). "
+            "Seed value, in seconds, for the full-jitter exponential backoff between "
+            "retry attempts. Each retry sleeps for a duration drawn uniformly from "
+            "[0, min(initial * 2^attempt, 30.0)] seconds. "
+            "The 30-second cap prevents runaway sleep times even when retry_max_attempts "
+            "is set high (e.g. initial=1.0, attempt=10 would be 1024s without the cap). "
+            "Increase this to spread retries further apart on a heavily loaded cluster; "
+            "decrease it for faster recovery on transient blips. "
             "Default is 1.0."
         ),
     )
-
-    @field_validator("retry_initial_backoff_seconds")
-    @classmethod
-    def validate_retry_initial_backoff_seconds(cls, v: float) -> float:
-        if v <= 0:
-            raise ValueError(f"retry_initial_backoff_seconds must be > 0, got {v}")
-        return v
 
     view_processing_timeout_seconds: int = Field(
         default=1800,
@@ -1558,6 +1566,18 @@ ORDER by DataBaseName, TableName;
                     return inspect(conn).get_schema_names()
             except Exception as exc:
                 if not _should_retry_connect(exc) or attempt == max_attempts - 1:
+                    self.report.failure(
+                        title="Schema discovery failed"
+                        if attempt == 0
+                        else "Schema discovery failed after retries",
+                        message=(
+                            f"Could not list schemas after {attempt + 1} attempt(s). "
+                            "Check network connectivity, authentication, and "
+                            "database permissions."
+                        ),
+                        context=str(exc),
+                        exc=exc,
+                    )
                     raise
                 backoff = _jittered_backoff(attempt, initial_backoff)
                 logger.warning(
@@ -1567,6 +1587,13 @@ ORDER by DataBaseName, TableName;
                 )
                 self.report.increment_db_retries()
                 time.sleep(backoff)
+                self.report.failure(
+                    title="Could not list schemas after retries",
+                    message=f"Failed to list schemas after {max_attempts} attempts. "
+                    "Check network connectivity, authentication, and database permissions.",
+                    context=str(exc),
+                    exc=exc,
+                )
         raise AssertionError("unreachable")  # loop always raises or returns
 
     def _init_schema_resolver(self) -> SchemaResolver:
@@ -1658,10 +1685,21 @@ ORDER by DataBaseName, TableName;
                         ),
                     )
                     continue
-                with self._retry_connect(engine) as conn:
-                    db_inspector = inspect(conn)
-                    db_inspector._datahub_database = db  # type: ignore[attr-defined]
-                    yield db_inspector
+                try:
+                    with self._retry_connect(engine) as conn:
+                        db_inspector = inspect(conn)
+                        db_inspector._datahub_database = db  # type: ignore[attr-defined]
+                        yield db_inspector
+                except Exception as e:
+                    self.report.warning(
+                        title="Failed to inspect database",
+                        message=f"Could not acquire a connection to database {db!r} "
+                        f"after {self.config.retry_max_attempts} attempts. Skipping.",
+                        context=str(e),
+                        exc=e,
+                    )
+                    continue
+
         finally:
             engine.dispose()
 
@@ -1876,7 +1914,7 @@ ORDER by DataBaseName, TableName;
                         timings["connection_acquire"] = time.time() - conn_start
 
                         # Update connection pool metrics
-                        with self.report._lock:
+                        with self.report.atomic():
                             pool_wait_time = timings["connection_acquire"]
                             self.report.connection_pool_wait_time_seconds += (
                                 pool_wait_time
@@ -1907,13 +1945,13 @@ ORDER by DataBaseName, TableName;
                         )
 
                         # Thread-safe reporting
-                        with self.report._lock:
+                        with self.report.atomic():
                             self.report.report_entity_scanned(
                                 dataset_name, ent_type="view"
                             )
 
                         if not sql_config.view_pattern.allowed(dataset_name):
-                            with self.report._lock:
+                            with self.report.atomic():
                                 self.report.report_dropped(dataset_name)
                             return results
 
@@ -1934,13 +1972,13 @@ ORDER by DataBaseName, TableName;
                     # Track individual view timing
                     timings["total"] = time.time() - total_start
 
-                    with self.report._lock:
+                    with self.report.atomic():
                         self.report.slowest_view_name[f"{schema}.{view_name}"] = (
                             timings["total"]
                         )
 
                 except Exception as e:
-                    with self.report._lock:
+                    with self.report.atomic():
                         self.report.num_view_processing_failures += 1
                         full_traceback = traceback.format_exc()
                         logger.error(
@@ -2009,7 +2047,7 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            with self.report._lock:
+                            with self.report.atomic():
                                 self.report.warning(
                                     "Error in thread processing view",
                                     context=f"{schema}.{view_name}",
@@ -2035,7 +2073,7 @@ ORDER by DataBaseName, TableName;
                                 f"be blocked in I/O; it will be released when the "
                                 f"underlying call returns or the process exits."
                             )
-                            with self.report._lock:
+                            with self.report.atomic():
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(

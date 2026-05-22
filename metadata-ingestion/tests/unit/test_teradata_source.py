@@ -3361,7 +3361,7 @@ class TestConnectionPoolRetry:
             pass  # should never reach here
 
         # All 3 attempts counted as exhaustion events; only 2 retries (last attempt just raises).
-        assert report.num_pool_exhaustion_events == 3
+        assert report.num_pool_exhaustion_events == 2
         assert report.num_db_retries == 2
 
     def test_connection_closed_on_normal_exit(self):

@@ -471,9 +471,10 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify the single report lock exists on the report object
+            # Verify the public atomic() context manager is available and
+            # backed by a real lock (not a MagicMock).
+            assert hasattr(source.report, "atomic")
             assert hasattr(source.report, "_lock")
-            # Check that it's a lock object by checking its type name
             assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
