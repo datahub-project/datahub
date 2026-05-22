@@ -1240,6 +1240,11 @@ class TableauSiteSource:
 
             for project in TSC.Pager(self.server.projects):
                 if not project.id or not project.name:
+                    self.report.warning(
+                        title="Skipping Tableau project with missing identifier",
+                        message="Project returned from server has no id or name.",
+                        context=f"id={project.id} name={project.name}",
+                    )
                     continue
                 all_project_map[project.id] = TableauProject(
                     id=project.id,
@@ -1250,21 +1255,19 @@ class TableauSiteSource:
                     path=[],
                 )
             # Set parent project name
-            for _project_id, tableau_project in all_project_map.items():
-                if tableau_project.parent_id is None:
+            for _project_id, project in all_project_map.items():
+                if project.parent_id is None:
                     continue
 
-                if tableau_project.parent_id in all_project_map:
-                    tableau_project.parent_name = all_project_map[
-                        tableau_project.parent_id
-                    ].name
+                if project.parent_id in all_project_map:
+                    project.parent_name = all_project_map[project.parent_id].name
                 else:
                     self.report.warning(
                         title="Incomplete project hierarchy",
                         message="Project details missing. Child projects will be ingested without reference to their parent project. We generally need Site Administrator Explorer permissions to extract the complete project hierarchy.",
-                        context=f"Missing {tableau_project.parent_id}, referenced by {tableau_project.id} {tableau_project.name}",
+                        context=f"Missing {project.parent_id}, referenced by {project.id} {project.name}",
                     )
-                    tableau_project.parent_id = None
+                    project.parent_id = None
 
             # Post-condition
             assert all(
@@ -3561,10 +3564,10 @@ class TableauSiteSource:
             self.config.permission_ingestion
             and self.config.permission_ingestion.enable_workbooks
         ):
-            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
             wb_luid = workbook.get(c.LUID)
             if not wb_luid:
                 return
+            logger.debug(f"Ingest access roles of workbook-id='{wb_luid}'")
             workbook_instance = self.server.workbooks.get_by_id(str(wb_luid))
             self.server.workbooks.populate_permissions(workbook_instance)
             custom_props = self._create_workbook_properties(
