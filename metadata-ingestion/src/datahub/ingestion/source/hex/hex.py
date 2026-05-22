@@ -737,6 +737,49 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             all_cells = self.hex_api.fetch_cells(entity_id)
         return all_cells
 
+    def _apply_cell_based_lineage(
+        self,
+        entity: Union[Project, Component],
+        all_cells: List[dict],
+        lineage_builder: HexLineageBuilder,
+    ) -> List[SqlCell]:
+        """Compute Tier 2 (cell-based SQL parsing) lineage.
+
+        Mutates entity.upstream_datasets and entity.input_fields in place.
+        Returns the SQL cells that were found so callers can update
+        entity-specific counters.
+        """
+        sql_cells = _extract_sql_cells(all_cells)
+        if not sql_cells:
+            return []
+        lineage_builder.set_project_id(entity.id)
+        upstream_urns, input_fields = lineage_builder.build_upstream_urns(sql_cells)
+        entity.upstream_datasets = upstream_urns
+        entity.input_fields = input_fields
+        return sql_cells
+
+    def _emit_context_document(
+        self,
+        entity: Union[Project, Component],
+        all_cells: List[dict],
+        connections: Dict[str, HexConnection],
+        parent_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Build and emit the context document MCPs for a Project or Component."""
+        sql_cells, explore_cells, section_names, markdown = _parse_cells(all_cells)
+        doc_builder = HexDocumentBuilder(
+            workspace_name=self.source_config.workspace_name,
+            connections=connections,
+        )
+        yield from doc_builder.build_document(
+            project=entity,
+            sql_cells=sql_cells,
+            explore_cells=explore_cells,
+            section_names=section_names,
+            markdown_content=markdown,
+            dashboard_urn=parent_urn,
+        )
+
     def _build_project_lineage(
         self,
         project: Project,
@@ -750,18 +793,15 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         Returns the updated queried_tables_available state (None/True/False).
         """
-        lineage_builder.set_project_id(project.id)
-        native_sql_cells = [c for c in all_cells if c.get("cellType") == "SQL"]
-
         # Tier 1: queriedTables (ENTERPRISE)
         if queried_tables_available is not False:
             queried = self.hex_api.fetch_queried_tables(project.id)
             if queried is not None:
-                queried_tables_available = True
+                lineage_builder.set_project_id(project.id)
                 upstream_urns = lineage_builder.build_from_queried_tables(queried)
                 project.upstream_datasets = upstream_urns
                 if upstream_urns and self.ctx.graph:
-                    sql_cells = _extract_sql_cells(native_sql_cells)
+                    sql_cells = _extract_sql_cells(all_cells)
                     if sql_cells:
                         project.input_fields = (
                             lineage_builder.build_validated_column_lineage(
@@ -769,7 +809,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                             )
                         )
                 self.report.projects_with_lineage += 1
-                return queried_tables_available
+                return True
             elif queried_tables_available is None:
                 queried_tables_available = False
                 logger.info(
@@ -778,15 +818,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 )
 
         # Tier 2: SQL parsing
-        sql_cells = _extract_sql_cells(native_sql_cells)
-        if sql_cells:
-            upstream_urns, input_fields = lineage_builder.build_upstream_urns(sql_cells)
-            project.upstream_datasets = upstream_urns
-            project.input_fields = input_fields
-            if upstream_urns:
-                self.report.projects_with_lineage += 1
-        else:
+        sql_cells = self._apply_cell_based_lineage(project, all_cells, lineage_builder)
+        if not sql_cells:
             self.report.projects_without_sql_cells += 1
+        elif project.upstream_datasets:
+            self.report.projects_with_lineage += 1
 
         return queried_tables_available
 
@@ -801,31 +837,17 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             return
         self.component_registry[component.id] = component
 
-        # Component lineage from its own cells
         comp_cells = self._fetch_cells(component.id)
-        comp_sql_cells = _extract_sql_cells(comp_cells)
-        if comp_sql_cells:
-            lineage_builder.set_project_id(component.id)
-            comp_urns, comp_fields = lineage_builder.build_upstream_urns(comp_sql_cells)
-            component.upstream_datasets = comp_urns
-            component.input_fields = comp_fields
+        self._apply_cell_based_lineage(component, comp_cells, lineage_builder)
 
         yield from self.mapper.map_component(component=component)
 
         if self.source_config.include_context_documents:
-            sql_cells, explore_cells, section_names, markdown = _parse_cells(comp_cells)
-            chart_urn = self.mapper.get_chart_urn(component.id).urn()
-            doc_builder = HexDocumentBuilder(
-                workspace_name=self.source_config.workspace_name,
+            yield from self._emit_context_document(
+                entity=component,
+                all_cells=comp_cells,
                 connections=connections,
-            )
-            yield from doc_builder.build_document(
-                project=component,
-                sql_cells=sql_cells,
-                explore_cells=explore_cells,
-                section_names=section_names,
-                markdown_content=markdown,
-                dashboard_urn=chart_urn,
+                parent_urn=self.mapper.get_chart_urn(component.id).urn(),
             )
 
     def _stream_project(
@@ -902,18 +924,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         # Context document
         if self.source_config.include_context_documents:
-            sql_cells, explore_cells, section_names, markdown = _parse_cells(all_cells)
-            doc_builder = HexDocumentBuilder(
-                workspace_name=self.source_config.workspace_name,
+            yield from self._emit_context_document(
+                entity=project,
+                all_cells=all_cells,
                 connections=connections,
-            )
-            yield from doc_builder.build_document(
-                project=project,
-                sql_cells=sql_cells,
-                explore_cells=explore_cells,
-                section_names=section_names,
-                markdown_content=markdown,
-                dashboard_urn=self.mapper.get_dashboard_urn(project.id).urn(),
+                parent_urn=self.mapper.get_dashboard_urn(project.id).urn(),
             )
 
     def _emit_run_history_patch(self, project: Project) -> Iterable[MetadataWorkUnit]:
