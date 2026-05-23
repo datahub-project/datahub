@@ -247,6 +247,7 @@ class BigIDSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = BigIDSourceReport()
+        self.client: Optional[BigIDClient] = None
         self.client = BigIDSource._build_client(config)
         # Populated during _load_registries()
         self._platform_map: dict[str, str] = {}       # connection_name → platform
@@ -333,11 +334,14 @@ class BigIDSource(StatefulIngestionSourceBase):
             self.report.failure("unexpected error", context=str(exc))
             logger.exception("Unexpected error in BigID connector: %s", exc)
         finally:
-            self.client.close()
+            if self.client is not None:
+                self.client.close()
 
     def _load_and_emit(self) -> Iterator[MetadataWorkUnit]:
         # Step 0 — load supporting registries
         self._load_registries()
+        if self.report.failures:
+            return
 
         # Emit riskScore definition before any catalog passes so GMS commits it
         # before dataset structuredProperties usages arrive in later batches.

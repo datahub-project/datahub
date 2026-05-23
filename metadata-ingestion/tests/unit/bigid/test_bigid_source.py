@@ -60,7 +60,7 @@ def _make_source(**config_overrides) -> BigIDSource:
     ctx.pipeline_name = "test"
     ctx.run_id = "test-run"
 
-    with patch("datahub_bigid.bigid_source.BigIDClient") as MockClient:
+    with patch("datahub.ingestion.source.bigid.bigid_source.BigIDClient") as MockClient:
         instance = MockClient.return_value
         instance.test_connection.return_value = True
         source = BigIDSource(BigIDSourceConfig.model_validate(config_dict), ctx)
@@ -113,7 +113,7 @@ def test_load_registries_unknown_type_warns(caplog):
     source.client.get_all_classifications.return_value = []
     source.client.get_glossary_items.return_value = []
 
-    with caplog.at_level(logging.WARNING, logger="datahub_bigid.bigid_source"):
+    with caplog.at_level(logging.WARNING, logger="datahub.ingestion.source.bigid.bigid_source"):
         source._load_registries()
 
     assert "exotic_conn" in list(source.report.connections_without_platform)
