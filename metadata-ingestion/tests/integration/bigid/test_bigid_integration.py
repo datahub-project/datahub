@@ -329,13 +329,21 @@ def test_unlinked_classifier_term_content() -> None:
 
 
 def test_domain_mode_auto_namespaced_emits_domain_entities() -> None:
-    """auto_namespaced mode must produce domainProperties MCPs with bigid.-namespaced URNs."""
+    """auto_namespaced mode must produce domainProperties + status MCPs with bigid.-namespaced URNs."""
     mcps = _run_source({"domain_mode": "auto_namespaced"})
     domain_mcps = [m for m in mcps if m.get("aspectName") == "domainProperties"]
     assert domain_mcps, "Expected at least one domainProperties MCP in auto_namespaced mode"
     domain_urns = {m["entityUrn"] for m in domain_mcps}
     assert any("bigid." in u for u in domain_urns), (
         f"Expected at least one domain URN containing 'bigid.', got: {domain_urns}"
+    )
+    # Every domain entity must also emit a StatusClass MCP so stale removal works
+    status_urns = {
+        m["entityUrn"] for m in mcps
+        if m.get("aspectName") == "status" and "domain" in m.get("entityUrn", "")
+    }
+    assert domain_urns == status_urns, (
+        f"Every domain URN must have a status MCP. Missing: {domain_urns - status_urns}"
     )
 
 

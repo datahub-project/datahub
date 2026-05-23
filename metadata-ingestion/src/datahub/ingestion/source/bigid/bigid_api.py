@@ -243,13 +243,10 @@ class BigIDClient:
                 None,
             )
             if cols is None:
-                logger.warning(
-                    "get_columns: unrecognised response shape for %s/%s — keys: %s",
-                    source_name,
-                    object_name,
-                    list(result.keys()),
+                raise BigIDAPIError(
+                    f"get_columns: unrecognised response shape for {source_name}/{object_name}"
+                    f" — keys: {list(result.keys())}"
                 )
-                cols = []
         # Prefer FQN match (handles same-named tables in different schemas).
         # Fall back to objectName exact match (handles substring ambiguity).
         if fqn:

@@ -505,6 +505,10 @@ class BigIDSource(StatefulIngestionSourceBase):
                         entityUrn=domain_urn,
                         aspect=DomainPropertiesClass(name=domain_val, description=""),
                     ).as_workunit()
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=domain_urn,
+                        aspect=StatusClass(removed=False),
+                    ).as_workunit()
                 except Exception as exc:
                     self.report.warning(
                         "domain-entity-failed",
@@ -526,6 +530,10 @@ class BigIDSource(StatefulIngestionSourceBase):
                             description="",
                             parentDomain=parent_urn,
                         ),
+                    ).as_workunit()
+                    yield MetadataChangeProposalWrapper(
+                        entityUrn=sub_urn,
+                        aspect=StatusClass(removed=False),
                     ).as_workunit()
                 except Exception as exc:
                     self.report.warning(
