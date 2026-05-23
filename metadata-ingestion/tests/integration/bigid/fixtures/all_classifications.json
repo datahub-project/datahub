@@ -1,0 +1,6 @@
+[
+  {"original_name": "classifier.EMAIL", "glossary_id": "bt_email", "friendly_name": "Email Address"},
+  {"original_name": "classifier.FULL_NAME", "glossary_id": "bt_full_name", "friendly_name": "Full Name"},
+  {"original_name": "classifier.PHONE", "glossary_id": null, "friendly_name": null},
+  {"original_name": "classifier.SSN", "glossary_id": "bt_ssn", "friendly_name": "Social Security Number"}
+]

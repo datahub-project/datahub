@@ -616,6 +616,7 @@ plugins: Dict[str, Set[str]] = {
     }
     | sqlglot_lib
     | usage_common,
+    "bigid": {"requests>=2.28.0,<3.0"},
     "bigquery": sql_common
     | bigquery_common
     | sqlglot_lib
@@ -1115,6 +1116,7 @@ entry_points = {
         "azure-data-factory = datahub.ingestion.source.azure_data_factory.adf_source:AzureDataFactorySource",
         "fabric-onelake = datahub.ingestion.source.fabric.onelake.source:FabricOneLakeSource",
         "fabric-data-factory = datahub.ingestion.source.fabric.data_factory.source:FabricDataFactorySource",
+        "bigid = datahub.ingestion.source.bigid.bigid_source:BigIDSource",
         "bigquery = datahub.ingestion.source.bigquery_v2.bigquery:BigqueryV2Source",
         "bigquery-queries = datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQueryQueriesSource",
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",

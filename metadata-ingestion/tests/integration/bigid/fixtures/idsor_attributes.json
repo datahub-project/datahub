@@ -1,0 +1,6 @@
+{
+  "customer_email": ["Email", "bt_email"],
+  "email": ["Email", "bt_email"],
+  "full_name": ["Full Name", null],
+  "first_name": ["First Name", null]
+}

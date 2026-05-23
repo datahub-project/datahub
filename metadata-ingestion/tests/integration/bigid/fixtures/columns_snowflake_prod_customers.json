@@ -1,0 +1,90 @@
+[
+  {
+    "columnName": "id",
+    "fieldType": "INTEGER",
+    "nullable": false,
+    "isPrimary": true,
+    "order": 0,
+    "attributeDetails": [],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 10000,
+      "distinctPct": 100.0,
+      "emptyPct": 0.0,
+      "inferredDataType": "numeric",
+      "minNum": 1,
+      "maxNum": 10000,
+      "avgNum": 5000.5,
+      "numDev": 2886.75
+    }
+  },
+  {
+    "columnName": "email",
+    "fieldType": "VARCHAR",
+    "nullable": true,
+    "isPrimary": false,
+    "order": 1,
+    "attributeDetails": [
+      {"name": "classifier.EMAIL", "ranks": ["HIGH"], "type": "classifier"}
+    ],
+    "fieldClassifications": [
+      {"classificationName": "EMAIL", "rowsOrFieldsCounter": 9980, "distinctValueCount": 9750}
+    ],
+    "columnProfile": {
+      "fieldCount": 10000,
+      "distinctPct": 97.5,
+      "emptyPct": 0.2
+    }
+  },
+  {
+    "columnName": "full_name",
+    "fieldType": "VARCHAR",
+    "nullable": false,
+    "isPrimary": false,
+    "order": 2,
+    "attributeDetails": [
+      {"name": "classifier.FULL_NAME", "ranks": ["HIGH"], "type": "classifier"}
+    ],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 10000,
+      "distinctPct": 89.3,
+      "emptyPct": 0.0
+    }
+  },
+  {
+    "columnName": "phone",
+    "fieldType": "VARCHAR",
+    "nullable": true,
+    "isPrimary": false,
+    "order": 3,
+    "attributeDetails": [
+      {"name": "classifier.PHONE", "ranks": ["HIGH"], "type": "classifier"}
+    ],
+    "fieldClassifications": [
+      {"classificationName": "PHONE", "rowsOrFieldsCounter": 8500, "distinctValueCount": 7900}
+    ],
+    "columnProfile": {
+      "fieldCount": 10000,
+      "distinctPct": 79.0,
+      "emptyPct": 15.0
+    }
+  },
+  {
+    "columnName": "created_at",
+    "fieldType": "TIMESTAMP",
+    "nullable": false,
+    "isPrimary": false,
+    "order": 4,
+    "attributeDetails": [],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 10000,
+      "distinctPct": 99.9,
+      "emptyPct": 0.0,
+      "inferredDataType": "string",
+      "minLexStr": "2020-01-01T00:00:00Z",
+      "maxLexStr": "2024-01-19T23:59:59Z"
+    }
+  }
+]

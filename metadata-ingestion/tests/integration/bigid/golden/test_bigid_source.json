@@ -1,0 +1,497 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1705748400000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"rowCount\": 50000, \"columnCount\": 4, \"fieldProfiles\": [{\"fieldPath\": \"order_id\", \"uniqueCount\": 50000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"50000\", \"mean\": \"25000.5\"}, {\"fieldPath\": \"customer_email\", \"uniqueCount\": 8500, \"uniqueProportion\": 0.17, \"nullCount\": 1000, \"nullProportion\": 0.02}, {\"fieldPath\": \"region\", \"uniqueCount\": 2500, \"uniqueProportion\": 0.05, \"nullCount\": 500, \"nullProportion\": 0.01}, {\"fieldPath\": \"amount\", \"uniqueCount\": 22600, \"uniqueProportion\": 0.452, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"0.01\", \"max\": \"99999.99\", \"mean\": \"127.43\", \"stdev\": \"342.11\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"customer_email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"MEDIUM\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"distinct_count\": \"8500\"}}}, {\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"customer_email\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"49000\", \"classifier_friendly_name\": \"Email\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"region\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.idsor.country\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"country\", \"classifier_type\": \"idsor_attribute\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Postgres-Dev\", \"row_count\": \"40000\", \"classifier_friendly_name\": \"Country\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint-online,documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "value": "{\"tags\": [{\"tag\": \"urn:li:tag:bigid.DataClass:Internal\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sharepoint-online,documents,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+      "value": "{\"timestampMillis\": 1705752000000, \"partitionSpec\": {\"partition\": \"FULL_TABLE_SNAPSHOT\", \"type\": \"FULL_TABLE\"}, \"rowCount\": 10000, \"columnCount\": 5, \"fieldProfiles\": [{\"fieldPath\": \"id\", \"uniqueCount\": 10000, \"uniqueProportion\": 1.0, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"1\", \"max\": \"10000\", \"mean\": \"5000.5\", \"stdev\": \"2886.75\"}, {\"fieldPath\": \"email\", \"uniqueCount\": 9750, \"uniqueProportion\": 0.975, \"nullCount\": 20, \"nullProportion\": 0.002}, {\"fieldPath\": \"full_name\", \"uniqueCount\": 8930, \"uniqueProportion\": 0.893, \"nullCount\": 0, \"nullProportion\": 0.0}, {\"fieldPath\": \"phone\", \"uniqueCount\": 7900, \"uniqueProportion\": 0.79, \"nullCount\": 1500, \"nullProportion\": 0.15}, {\"fieldPath\": \"created_at\", \"uniqueCount\": 9990, \"uniqueProportion\": 0.9990000000000001, \"nullCount\": 0, \"nullProportion\": 0.0, \"min\": \"2020-01-01T00:00:00Z\", \"max\": \"2024-01-19T23:59:59Z\", \"sampleValues\": [\"2020-01-01T00:00:00Z\", \"2024-01-19T23:59:59Z\"]}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "editableSchemaMetadata",
+    "aspect": {
+      "value": "{\"created\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}, \"editableSchemaFieldInfo\": [{\"fieldPath\": \"email\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_email\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.EMAIL\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"9980\", \"distinct_count\": \"9750\", \"classifier_friendly_name\": \"Email Address\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"full_name\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.bt_full_name\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.FULL_NAME\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"classifier_friendly_name\": \"Full Name\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}, {\"fieldPath\": \"phone\", \"glossaryTerms\": {\"terms\": [{\"urn\": \"urn:li:glossaryTerm:bigid.classifier.phone\", \"attribution\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\", \"source\": \"urn:li:dataPlatform:bigid\", \"sourceDetail\": {\"classifier_name\": \"classifier.PHONE\", \"classifier_type\": \"value\", \"confidence_level\": \"HIGH\", \"bigid_connection\": \"Snowflake-Prod\", \"row_count\": \"8500\", \"distinct_count\": \"7900\"}}}], \"auditStamp\": {\"time\": 1706788800000, \"actor\": \"urn:li:corpuser:datahub\"}}}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+      "value": "{\"tags\": [{\"tag\": \"urn:li:tag:bigid.Classification:PII\"}]}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,public.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bigid",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {}, \"definition\": \"Business Glossary terms imported from BigID\", \"name\": \"BigID\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bigid",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bigid.idsor",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {}, \"definition\": \"Auto-generated GlossaryTerms from BigID Identity Source of Record (IDSoR) correlation findings. IDSoR attributes are produced by BigID's correlation engine when column values match rows in a configured Correlation Set.\", \"parentNode\": \"urn:li:glossaryNode:bigid\", \"name\": \"IDSoR\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:bigid.idsor",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_email",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"Business Term\", \"bigid_is_ootb\": \"false\", \"bigid_glossary_id\": \"bt_email\", \"bigid_id\": \"aaa111\", \"bigid_update_date\": \"2024-01-15T10:00:00Z\", \"bigid_owner\": \"data-governance\", \"bigid_domain\": \"Customer\", \"bigid_sub_domain\": \"Contact\"}, \"name\": \"Email Address\", \"definition\": \"An electronic mail address used for communications.\", \"parentNode\": \"urn:li:glossaryNode:bigid\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_email",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"idsor_attribute\", \"bigid_attribute_name\": \"customer_email\", \"bigid_glossary_id\": \"bt_email\"}, \"name\": \"Email\", \"definition\": \"Linked from BigID IDSoR attribute: customer_email\", \"parentNode\": \"urn:li:glossaryNode:bigid.idsor\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_email",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:data-governance\", \"type\": \"DATAOWNER\"}], \"ownerTypes\": {}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_email",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_email",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_full_name",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"Personal Data Item\", \"bigid_is_ootb\": \"true\", \"bigid_glossary_id\": \"bt_full_name\", \"bigid_id\": \"bbb222\", \"bigid_update_date\": \"2024-01-10T08:00:00Z\", \"bigid_owner\": \"privacy-team\", \"bigid_domain\": \"Customer\", \"bigid_sub_domain\": \"Identity\"}, \"name\": \"Full Name\", \"definition\": \"The complete legal name of an individual.\", \"parentNode\": \"urn:li:glossaryNode:bigid\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_full_name",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "value": "{\"owners\": [{\"owner\": \"urn:li:corpuser:privacy-team\", \"type\": \"DATAOWNER\"}], \"ownerTypes\": {}, \"lastModified\": {\"time\": 0, \"actor\": \"urn:li:corpuser:unknown\"}}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_full_name",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_ssn",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"Personal Data Item\", \"bigid_is_ootb\": \"true\", \"bigid_glossary_id\": \"bt_ssn\", \"bigid_id\": \"ccc333\", \"bigid_update_date\": \"2024-01-10T08:00:00Z\", \"bigid_domain\": \"Compliance\"}, \"name\": \"Social Security Number\", \"definition\": \"US government-issued identification number.\", \"parentNode\": \"urn:li:glossaryNode:bigid\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.bt_ssn",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.classifier.phone",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"classifier\", \"bigid_classifier_name\": \"classifier.PHONE\"}, \"name\": \"Phone\", \"definition\": \"Auto-generated from BigID classifier: classifier.PHONE\", \"parentNode\": \"urn:li:glossaryNode:bigid\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.classifier.phone",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.idsor.country",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "value": "{\"customProperties\": {\"bigid_type\": \"idsor_attribute\", \"bigid_attribute_name\": \"country\"}, \"name\": \"Country\", \"definition\": \"Auto-generated from BigID IDSoR attribute: country\", \"parentNode\": \"urn:li:glossaryNode:bigid.idsor\", \"termSource\": \"EXTERNAL\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:bigid.idsor.country",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:bigid.riskScore",
+    "changeType": "UPSERT",
+    "aspectName": "propertyDefinition",
+    "aspect": {
+      "value": "{\"qualifiedName\": \"bigid.riskScore\", \"displayName\": \"BigID Risk Score\", \"valueType\": \"urn:li:dataType:datahub.number\", \"cardinality\": \"SINGLE\", \"entityTypes\": [\"urn:li:entityType:datahub.dataset\"], \"description\": \"Numeric risk score from BigID (0\\u2013100).\", \"immutable\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "structuredProperty",
+    "entityUrn": "urn:li:structuredProperty:bigid.riskScore",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:bigid.Classification:PII",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:bigid.Classification:PII",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "value": "{\"name\": \"Classification : PII\", \"description\": \"Classification\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:bigid.DataClass:Internal",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+      "value": "{\"removed\": false}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:bigid.DataClass:Internal",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "value": "{\"name\": \"DataClass : Internal\", \"description\": \"DataClass\"}",
+      "contentType": "application/json"
+    },
+    "systemMetadata": {
+      "lastObserved": 1706788800000,
+      "runId": "integration-test-run",
+      "lastRunId": "no-run-id-provided"
+    }
+  }
+]

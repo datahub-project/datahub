@@ -1,0 +1,74 @@
+[
+  {
+    "columnName": "order_id",
+    "fieldType": "INTEGER",
+    "nullable": false,
+    "isPrimary": true,
+    "order": 0,
+    "attributeDetails": [],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 50000,
+      "distinctPct": 100.0,
+      "emptyPct": 0.0,
+      "inferredDataType": "numeric",
+      "minNum": 1,
+      "maxNum": 50000,
+      "avgNum": 25000.5
+    }
+  },
+  {
+    "columnName": "customer_email",
+    "fieldType": "VARCHAR",
+    "nullable": true,
+    "isPrimary": false,
+    "order": 1,
+    "attributeDetails": [
+      {"name": "classifier.EMAIL", "ranks": ["MEDIUM"], "type": "classifier"},
+      {"name": "customer_email", "count": 49000, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+    ],
+    "fieldClassifications": [
+      {"classificationName": "EMAIL", "rowsOrFieldsCounter": 49000, "distinctValueCount": 8500}
+    ],
+    "columnProfile": {
+      "fieldCount": 50000,
+      "distinctPct": 17.0,
+      "emptyPct": 2.0
+    }
+  },
+  {
+    "columnName": "region",
+    "fieldType": "VARCHAR",
+    "nullable": true,
+    "isPrimary": false,
+    "order": 3,
+    "attributeDetails": [
+      {"name": "country", "count": 40000, "ranks": ["HIGH"], "type": ["IDSoR Attribute"]}
+    ],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 50000,
+      "distinctPct": 5.0,
+      "emptyPct": 1.0
+    }
+  },
+  {
+    "columnName": "amount",
+    "fieldType": "DECIMAL",
+    "nullable": false,
+    "isPrimary": false,
+    "order": 2,
+    "attributeDetails": [],
+    "fieldClassifications": [],
+    "columnProfile": {
+      "fieldCount": 50000,
+      "distinctPct": 45.2,
+      "emptyPct": 0.0,
+      "inferredDataType": "numeric",
+      "minNum": 0.01,
+      "maxNum": 99999.99,
+      "avgNum": 127.43,
+      "numDev": 342.11
+    }
+  }
+]

@@ -1,0 +1,58 @@
+[
+  {
+    "fullyQualifiedName": "Snowflake-Prod.PUBLIC.CUSTOMERS",
+    "source": "Snowflake-Prod",
+    "objectName": "customers",
+    "scanner_type_group": "structured",
+    "scanDate": "2024-01-20T12:00:00Z",
+    "tags": [
+      {
+        "tagName": "Classification",
+        "tagValue": "PII",
+        "tagType": "OBJECT",
+        "properties": {"applicationType": "sensitivityClassification", "hidden": false}
+      }
+    ]
+  },
+  {
+    "fullyQualifiedName": "Postgres-Dev.public.orders",
+    "source": "Postgres-Dev",
+    "objectName": "orders",
+    "scanner_type_group": "structured",
+    "scanDate": "2024-01-20T11:00:00Z",
+    "tags": []
+  },
+  {
+    "fullyQualifiedName": "SharePoint Online.documents",
+    "source": "SharePoint Online",
+    "objectName": "documents",
+    "scanner_type_group": "unstructured",
+    "scanDate": "2024-01-20T10:00:00Z",
+    "total_pii_count": 42,
+    "sizeInBytes": 1024000,
+    "tags": [
+      {
+        "tagName": "DataClass",
+        "tagValue": "Internal",
+        "tagType": "OBJECT",
+        "properties": {"applicationType": "userDefined", "hidden": false}
+      }
+    ],
+    "attribute_details": [
+      {
+        "name": "classifier.EMAIL",
+        "friendlyName": "Email Address",
+        "count": 30,
+        "type": ["Classification"],
+        "ranks": ["HIGH"]
+      },
+      {
+        "name": "classifier.PHONE",
+        "friendlyName": null,
+        "count": 12,
+        "type": ["Classification"],
+        "ranks": ["MEDIUM"]
+      }
+    ]
+  }
+]
