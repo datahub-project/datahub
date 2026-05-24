@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import logging
 import time
 from datetime import datetime
@@ -105,7 +104,7 @@ class SeedPhase(Phase):
                     seeded_count += 1
                 log.info("TC-%03d: seeded %s", scenario.tc_number, urns[0])
 
-            self._seed_io_pool_via_mysql(ctx)
+            self._seed_io_pool_via_rest(ctx)
 
             # Wait for MCL → ES drain so Phase 6 sees a populated source index.
             # Reports per-URN status in the phase result so failures are
@@ -255,28 +254,25 @@ class SeedPhase(Phase):
                     exc,
                 )
 
-    def _seed_io_pool_via_mysql(self, ctx: TestContext) -> None:
-        """Seed the IO pool with direct-MySQL inserts.
+    def _seed_io_pool_via_rest(self, ctx: TestContext) -> None:
+        """Seed the IO pool via the GMS REST API.
 
-        Bypasses the GMS write-path entirely: rows are written to
-        ``metadata_aspect_v2`` with ``systemmetadata='{}'`` so they always
-        land at ``schemaVersion=null`` (v1) in the DB regardless of
-        ``ASPECT_MIGRATION_MUTATOR_ENABLED`` on the running GMS. This makes
-        the deterministic race-window assertion (TC-403) reproducible across
-        single-image and two-image-tag runs.
-
-        See design doc §4 / Plan F-5 for the rationale (closes Notion D5).
+        Goes through the production write path on the OLD image (Phase 2 in
+        the pipeline). On OLD master the aspect-migration mutator chain does
+        NOT exist (it's introduced by this branch), so REST seeding leaves
+        the entity at ``schemaVersion=null`` (v1) naturally — GMS's auto-
+        filled ``systemMetadata`` (``runId`` / ``lastObserved`` / etc.) does
+        not include a ``schemaVersion`` key.
         """
         for i in range(_IO_POOL_SIZE):
             pool_urn = f"urn:li:dashboard:(test,zdu-io-pool-{i})"
-            self._mysql.upsert_aspect_raw(
+            self._datahub.ingest_mcp(
                 urn=pool_urn,
-                aspect=_IO_POOL_ASPECT,
-                metadata=json.dumps(_IO_POOL_OLD_DATA),
-                systemmetadata="{}",
+                aspect_name=_IO_POOL_ASPECT,
+                data=_IO_POOL_OLD_DATA,
             )
             log.info(
-                "IO-pool[%d]: direct-MySQL upsert → %s schemaVersion=null",
+                "IO-pool[%d]: REST ingest → %s (schemaVersion not set by OLD GMS)",
                 i,
                 pool_urn,
             )

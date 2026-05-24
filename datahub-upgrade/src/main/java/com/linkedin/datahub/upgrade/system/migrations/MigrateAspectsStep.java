@@ -59,13 +59,26 @@ public class MigrateAspectsStep implements UpgradeStep {
 
   static final String STEP_ID_PREFIX = "migrate-aspects-";
 
-  // Only for testing
-  // Zero by default; set SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS to inject a
-  // deterministic race window between the pre-write URN log and ingestProposal — used by
-  // the ZDU integration test to guarantee concurrent client writes beat the sweep write.
+  // Test-only knob — see waitForTestRaceWindow() below. Default 0 in production.
   private static final int PRE_WRITE_DELAY_MS =
       Integer.parseInt(
           System.getenv().getOrDefault("SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS", "0"));
+
+  /**
+   * Test-only: injects a deterministic race window between the pre-write URN log and {@link
+   * EntityService#ingestProposal}. No-op in production (the env var defaults to {@code 0}). Driven
+   * by {@code SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS}; used by the ZDU integration test
+   * (TC-403) to guarantee concurrent client writes win the race against the sweep's stale-version
+   * write.
+   */
+  private void waitForTestRaceWindow() {
+    try {
+      Thread.sleep(PRE_WRITE_DELAY_MS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException(e);
+    }
+  }
 
   public static String stepId(@Nonnull String upgradeVersion) {
     return STEP_ID_PREFIX + upgradeVersion;
@@ -215,11 +228,7 @@ public class MigrateAspectsStep implements UpgradeStep {
                             .map(i -> i.getUrn().toString())
                             .collect(Collectors.joining(",")));
                     if (PRE_WRITE_DELAY_MS > 0) {
-                      try {
-                        Thread.sleep(PRE_WRITE_DELAY_MS);
-                      } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                      }
+                      waitForTestRaceWindow();
                     }
                     entityService.ingestProposal(
                         opContext,

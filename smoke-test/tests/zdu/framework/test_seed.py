@@ -1,4 +1,4 @@
-"""Unit tests for SeedPhase IO-pool direct-MySQL seed path (Plan F-5)."""
+"""Unit tests for SeedPhase IO-pool REST seed path."""
 
 from __future__ import annotations
 
@@ -23,33 +23,32 @@ def _build_phase() -> tuple[SeedPhase, MagicMock, MagicMock]:
     return phase, datahub, mysql
 
 
-class TestSeedIOPoolViaMysql:
-    def test_seeds_io_pool_directly_via_mysql_not_api(self) -> None:
+class TestSeedIOPoolViaRest:
+    def test_seeds_io_pool_via_rest_not_mysql(self) -> None:
         phase, datahub, mysql = _build_phase()
         ctx = TestContext()
-        phase._seed_io_pool_via_mysql(ctx)
-        # 5 IO-pool URNs (zdu-io-pool-0..4)
-        assert mysql.upsert_aspect_raw.call_count == 5
-        # GMS API must NOT be invoked for IO-pool seeding.
-        assert datahub.ingest_mcp.call_count == 0
-        # Every call uses systemmetadata='{}' (no schemaVersion key)
-        for call in mysql.upsert_aspect_raw.call_args_list:
-            kwargs = call.kwargs
-            assert kwargs.get("systemmetadata", "{}") == "{}"
-        # ctx.io_pool_entities populated with 5 SeededEntity rows
+        phase._seed_io_pool_via_rest(ctx)
+        # 5 IO-pool URNs (zdu-io-pool-0..4) — one REST call each.
+        assert datahub.ingest_mcp.call_count == 5
+        # Direct-MySQL must NOT be invoked for IO-pool seeding — REST goes
+        # through the production write path so the seeded rows match what
+        # GMS would actually produce.
+        assert mysql.upsert_aspect_raw.call_count == 0
+        # ctx.io_pool_entities populated with 5 SeededEntity rows.
         assert len(ctx.io_pool_entities) == 5
         urns = {e.urn for e in ctx.io_pool_entities}
         assert urns == {f"urn:li:dashboard:(test,zdu-io-pool-{i})" for i in range(5)}
 
     def test_io_pool_seed_aspect_is_embed(self) -> None:
-        phase, _datahub, mysql = _build_phase()
+        phase, datahub, _mysql = _build_phase()
         ctx = TestContext()
-        phase._seed_io_pool_via_mysql(ctx)
-        for call in mysql.upsert_aspect_raw.call_args_list:
+        phase._seed_io_pool_via_rest(ctx)
+        for call in datahub.ingest_mcp.call_args_list:
             kw = call.kwargs
-            args = call.args
-            # aspect may be passed positionally or as keyword
-            assert kw.get("aspect") == "embed" or "embed" in args
+            assert kw.get("aspect_name") == "embed"
+            assert kw.get("data") == {
+                "renderUrl": "http://zdu-io-pool.example.com/embed"
+            }
 
 
 class TestRegisterReferencedPlatforms:
