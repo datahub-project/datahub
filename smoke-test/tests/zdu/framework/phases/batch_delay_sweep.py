@@ -262,6 +262,9 @@ class BatchDelaySweepPhase(Phase):
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
             "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
+            # Loads ZduTestMutatorConfiguration so the test-only mutator beans
+            # wire into the chain (independent flag from production gate above).
+            "ZDU_TEST_FRAMEWORK_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE": str(self._batch_size),
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS": str(self._delay_ms),
         }

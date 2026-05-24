@@ -538,7 +538,7 @@ def _sweep_scenario(
 SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     # Suite N's sweep-invariant subset (was TC-401..408 in the original
     # design-doc numbering; renumbered into the Suite N range because both
-    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-329
+    # groups exercise the same non-blocking sweep phase). TC-324 / TC-326 / TC-328
     # collapse to the same outcome on the dev stack: "a second sweep run
     # finds nothing to migrate" — exactly what TC-316 (Re-run after
     # SUCCEEDED) already proves end-to-end. Resumability, idempotency on
@@ -622,9 +622,9 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
             "wired into the framework."
         ),
     ),
-    # Two scenarios were dropped from the original 8-item sweep-invariant
-    # range because their assertions had no mechanically distinct
-    # production code path to exercise:
+    # Three scenarios were dropped from the original 8-item sweep-invariant
+    # range because their assertions had no mechanically distinct production
+    # code path to exercise:
     #
     #   • old TC-329 "APP_SOURCE stamped on sweep writes" — shared
     #     MigrateAspectsStep.java:286 with TC-322's post-sweep integrity
@@ -634,22 +634,15 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
     #     TC-403, which already forces the race deterministically via
     #     PRE_WRITE_DELAY_MS + BATCH_URNS log sync and asserts client
     #     writes survive.
+    #   • old TC-331 "Chain disable after sweep completes" — the
+    #     chain-disable production flow doesn't exist; no live code path
+    #     to exercise. TC-316 (re-run-after-SUCCEEDED no-op) already covers
+    #     the closest observable property.
     #
-    # In both cases (unlike TC-326 vs TC-316, where the two probe
+    # In all three cases (unlike TC-326 vs TC-316, where the two probe
     # distinct SQL clauses) a regression would surface in the existing
     # active validator. Higher TCs shifted down to keep the range
     # contiguous.
-    _sweep_scenario(
-        tc=329,
-        name="Chain disable after sweep completes",
-        expected_to_fail=False,
-        skip_reason=(
-            "Duplicate of TC-316. Once all rows match the migrated "
-            "predicate, the chain is observably a no-op on re-run — the "
-            "same outcome chain-disable would produce. A log-line capture "
-            "would prove the mechanism but not the property."
-        ),
-    ),
 ]
 
 

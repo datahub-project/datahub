@@ -58,9 +58,10 @@ public class AspectMigrationMutatorChainInjectionTest extends AbstractTestNGSpri
 
   @Test
   public void testChain_withRegisteredMutator_populatesChainByAspect() {
-    // SpringStandardPluginConfiguration registers production mutators alongside
-    // the test mutator. Verify the test's ownership mutator is wired through the chain — not the
-    // overall map size, which depends on what other production beans are in scope.
+    // SpringStandardPluginConfiguration no longer registers any concrete AspectMigrationMutator
+    // beans — those live in ZduTestMutatorConfiguration (gated on the same flag set above) and in
+    // this test's TestMigrationConfig. Verify the test's ownership mutator is wired through the
+    // chain. Total chain size depends on which other configurations Spring picks up.
     AspectMigrationMutatorChain chain = chain();
     assertTrue(chain.getChainByAspect().containsKey("ownership"));
     assertEquals(chain.getChainByAspect().get("ownership").size(), 1);

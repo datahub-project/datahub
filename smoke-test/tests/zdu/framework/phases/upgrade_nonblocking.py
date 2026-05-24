@@ -327,6 +327,9 @@ class UpgradeNonBlockingPhase(Phase):
             {
                 **token_env,
                 "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
+                # Loads ZduTestMutatorConfiguration so the test-only mutator beans
+                # wire into the chain (independent flag from production gate above).
+                "ZDU_TEST_FRAMEWORK_ENABLED": "true",
                 "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
                 "SYSTEM_UPDATE_MIGRATE_ASPECTS_UPGRADE_VERSION": self._config.upgrade_version,
                 "SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS": str(
@@ -406,6 +409,9 @@ class UpgradeNonBlockingPhase(Phase):
                     {
                         **token_env,
                         "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
+                        # Loads ZduTestMutatorConfiguration so the test-only mutator beans
+                        # wire into the chain (independent flag from production gate above).
+                        "ZDU_TEST_FRAMEWORK_ENABLED": "true",
                         "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
                         "SYSTEM_UPDATE_MIGRATE_ASPECTS_UPGRADE_VERSION": self._config.upgrade_version,
                         "SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS": str(

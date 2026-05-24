@@ -1,14 +1,20 @@
-package com.linkedin.metadata.aspect.hooks;
+package com.linkedin.metadata.aspect.hooks.testfixtures;
 
 import com.linkedin.common.GlobalTags;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Migrates the {@code globalTags} aspect from schema version 1 to 2.
+ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
+ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
+ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
+ * property is {@code false} by default).
+ *
+ * <p>Migrates the {@code globalTags} aspect from schema version 1 to 2.
  *
  * <p>v2 adds an optional {@code displayName} field to {@link GlobalTags}. Since the field is
  * optional and absent-is-valid for existing records, this mutator advances the schema version with

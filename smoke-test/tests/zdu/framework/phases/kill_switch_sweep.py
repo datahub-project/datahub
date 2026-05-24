@@ -388,6 +388,11 @@ class KillSwitchSweepPhase(Phase):
             # so MigrateAspects doesn't short-circuit with "no mutators
             # registered". Verified runtime requirement from existing phases.
             "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
+            # ZDU test-framework switch — loads ZduTestMutatorConfiguration,
+            # which contributes the 4 fake aspect-migration mutator beans
+            # to the chain. Independent flag from ASPECT_MIGRATION_MUTATOR_ENABLED
+            # above (defence in depth: production never sets this).
+            "ZDU_TEST_FRAMEWORK_ENABLED": "true",
             # Small batch + per-batch delay so the MySQL cursor advances
             # frequently and we can observe partial migration.
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE": "50",

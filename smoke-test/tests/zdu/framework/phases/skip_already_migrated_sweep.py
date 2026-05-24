@@ -307,6 +307,9 @@ class SkipAlreadyMigratedSweepPhase(Phase):
             "ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED": "true",
             "SYSTEM_UPDATE_MIGRATE_ASPECTS_ENABLED": "true",
             "ASPECT_MIGRATION_MUTATOR_ENABLED": "true",
+            # Loads ZduTestMutatorConfiguration so the test-only mutator beans
+            # wire into the chain (independent flag from production gate above).
+            "ZDU_TEST_FRAMEWORK_ENABLED": "true",
         }
         return self._docker.run_upgrade_job(
             env_overrides=env_overrides,

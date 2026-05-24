@@ -1,14 +1,20 @@
-package com.linkedin.metadata.aspect.hooks;
+package com.linkedin.metadata.aspect.hooks.testfixtures;
 
 import com.linkedin.common.Embed;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
- * Migrates the {@code embed} aspect from schema version 2 to 3.
+ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
+ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
+ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
+ * property is {@code false} by default).
+ *
+ * <p>Migrates the {@code embed} aspect from schema version 2 to 3.
  *
  * <p>v2 and v3 share the same field set ({@code embedType}, {@code embedTitle} are optional in
  * both). This mutator advances the stored schema version with no data transformation.

@@ -9,11 +9,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
-import com.linkedin.metadata.aspect.hooks.EmbedV1ToV2Mutator;
-import com.linkedin.metadata.aspect.hooks.EmbedV2ToV3Mutator;
-import com.linkedin.metadata.aspect.hooks.EmbedV3ToV4Mutator;
 import com.linkedin.metadata.aspect.hooks.FieldPathMutator;
-import com.linkedin.metadata.aspect.hooks.GlobalTagsV1ToV2Mutator;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
 import com.linkedin.metadata.aspect.hooks.LifecycleStageTransitionHook;
 import com.linkedin.metadata.aspect.hooks.OwnershipOwnerTypes;
@@ -109,8 +105,6 @@ public class SpringStandardPluginConfiguration {
     List<AspectMigrationMutator> mutators =
         aspectMigrationMutatorEnabled ? new ArrayList<>(migrationMutators) : new ArrayList<>();
     AspectMigrationMutatorChain chain = new AspectMigrationMutatorChain(mutators);
-    // validateMutatorChains(chain.getChainByAspect()); // ZDU SIM: disabled to let GMS start with
-    // gap
     chain.setConfig(
         AspectPluginConfig.builder()
             .className(AspectMigrationMutatorChain.class.getName())
@@ -123,26 +117,6 @@ public class SpringStandardPluginConfiguration {
         aspectMigrationMutatorEnabled,
         mutators.size());
     return chain;
-  }
-
-  @Bean
-  public AspectMigrationMutator globalTagsV1ToV2Mutator() {
-    return new GlobalTagsV1ToV2Mutator();
-  }
-
-  @Bean
-  public AspectMigrationMutator embedV1ToV2Mutator() {
-    return new EmbedV1ToV2Mutator();
-  }
-
-  // @Bean  // ZDU SIM: old node — v2→v3 hop missing
-  public AspectMigrationMutator embedV2ToV3Mutator() {
-    return new EmbedV2ToV3Mutator();
-  }
-
-  @Bean
-  public AspectMigrationMutator embedV3ToV4Mutator() {
-    return new EmbedV3ToV4Mutator();
   }
 
   @Bean
