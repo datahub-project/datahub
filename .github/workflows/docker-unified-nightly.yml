@@ -354,7 +354,7 @@ jobs:
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v4.0.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' && env.DOCKER_REGISTRY == 'docker.io' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -617,7 +617,7 @@ jobs:
           echo "Using repository: ${{ env.DOCKER_REPOSITORY }}"
 
       - name: Login to registry
-        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v4.0.0
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ env.DOCKER_REGISTRY == 'docker.io' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
