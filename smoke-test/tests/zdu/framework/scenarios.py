@@ -549,8 +549,10 @@ SUITE_N_SWEEP_INVARIANT_SCENARIOS: list[ZDUTestScenario] = [
         tc=324,
         name="Sweep cursor resumability",
         description=(
-            "KillSwitchSweepPhase bulk-seeds 1000 aspects at OLD schemaVersion, "
-            "starts SystemUpdateNonBlocking, kills the upgrade-job container "
+            "KillSwitchSweepPhase REST-seeds 1000 aspects at OLD schemaVersion "
+            "via GMS (passes systemMetadata.schemaVersion=1 explicitly so the "
+            "write-path's annotation-derived stamp is bypassed), starts "
+            "SystemUpdateNonBlocking, kills the upgrade-job container "
             "mid-sweep at ~500 migrated, then restarts. Validator asserts: "
             "(a) the kill landed mid-execution (between 200 and 800 migrated), "
             "(b) MySQL state was IN_PROGRESS with a non-null cursor at kill, "

@@ -3,8 +3,13 @@
 TC-324 (cursor resumability) — exercises the sweep's mid-execution
 recovery path. The flow:
 
-1. Bulk-seed N test aspects at OLD ``schemaVersion`` directly into MySQL
-   (bypasses GMS write path so no mutator chain fires).
+1. Bulk-seed N test aspects at OLD ``schemaVersion`` via the production
+   REST write path. ``ingest_mcp`` passes ``systemMetadata.schemaVersion=1``
+   explicitly — GMS's write path only stamps the current schema version
+   (from ``@Aspect.schemaVersion`` on the PDL) ``if (!hasSchemaVersion())``
+   (see ``SystemMetadataUtils.setSchemaVersion`` and its caller in
+   ``ChangeItemImpl.build``), so an explicit value wins and the row lands
+   at v1 in MySQL — exactly what the migration sweep needs to find.
 2. Start a fresh ``system-update -u SystemUpdateNonBlocking`` in detached
    mode with a deterministic container name.
 3. Poll MySQL every ~200 ms for the count of seeded aspects that have
@@ -27,7 +32,6 @@ so our 1000 new test entities are the only rows the sweep would touch.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import threading
@@ -38,6 +42,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import KillSwitchCapture, TestContext
+from ..datahub_client import DataHubClient
 from ..docker_compose import DockerComposeClient
 from ..host_mounts import worktree_mount_env
 from ..mysql_client import MySQLClient
@@ -62,6 +67,8 @@ _RESUME_LOG_PATTERNS = (
     "lastCreatedOnMs",
 )
 
+_REST_SEED_LOG_EVERY = 100  # log every Nth row to keep stdout readable
+
 
 class KillSwitchSweepPhase(Phase):
     name = "kill_switch_sweep"
@@ -70,6 +77,7 @@ class KillSwitchSweepPhase(Phase):
         self,
         docker: DockerComposeClient,
         mysql: MySQLClient,
+        datahub: DataHubClient,
         gms_service: str,
         upgrade_service: str = "system-update-debug",
         seed_count: int = _DEFAULT_SEED_COUNT,
@@ -85,6 +93,7 @@ class KillSwitchSweepPhase(Phase):
     ) -> None:
         self._docker = docker
         self._mysql = mysql
+        self._datahub = datahub
         self._gms_service = gms_service
         self._upgrade_service = upgrade_service
         self._seed_count = seed_count
@@ -114,11 +123,11 @@ class KillSwitchSweepPhase(Phase):
         self._docker.remove_container(_RESTART_CONTAINER_NAME)
 
         try:
-            self._seed_test_aspects()
+            self._seed_test_aspects_via_rest()
         except Exception as exc:
-            log.exception("[kill-switch] bulk seed failed: %s", exc)
+            log.exception("[kill-switch] REST seed failed: %s", exc)
             return self._fail(
-                started_at, time.monotonic() - t0, f"bulk seed failed: {exc}"
+                started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
             )
 
         # Phase 1: kill mid-sweep.
@@ -180,27 +189,45 @@ class KillSwitchSweepPhase(Phase):
 
     # ── private helpers ────────────────────────────────────────────────────
 
-    def _seed_test_aspects(self) -> None:
+    def _seed_test_aspects_via_rest(self) -> None:
+        """Seed N test aspects at OLD ``schemaVersion`` via the REST API.
+
+        Passes ``systemMetadata.schemaVersion=1`` explicitly in each
+        proposal. The NEW image's write path (``ChangeItemImpl.build`` →
+        ``SystemMetadataUtils.setSchemaVersion``) only stamps the
+        annotation-derived schema version when the field is unset, so
+        the explicit ``1`` wins and the row lands at v1 in MySQL. No GMS
+        restart is required: the production mutator chain in GMS is gated
+        by ``featureFlags.aspectMigrationMutatorEnabled`` (default
+        ``false`` in the dev stack), so write-path mutations don't fire
+        even when ``ZDU_TEST_FRAMEWORK_ENABLED=true`` contributes test
+        mutator beans. The chain only fires inside the upgrade-job
+        container, which explicitly opts in via
+        ``ASPECT_MIGRATION_MUTATOR_ENABLED=true``.
+        """
         log.info(
-            "[kill-switch] bulk-seeding %d test aspects (%s) at schemaVersion=%d",
+            "[kill-switch] REST-seeding %d test aspects (%s) at schemaVersion=%d",
             self._seed_count,
             self._aspect,
             self._old_schema_version,
         )
-        # systemmetadata at OLD schemaVersion — note: we deliberately omit
-        # ``runId`` / ``lastObserved`` here because the sweep doesn't read
-        # them, and a minimal payload keeps the bulk-insert SQL compact.
-        sysmeta = json.dumps({"schemaVersion": self._old_schema_version})
-        # Minimal embed metadata: the v1 chain expects ``renderUrl``.
-        rows: list[tuple[str, str, str, str]] = []
+        seed_sysmeta = {"schemaVersion": self._old_schema_version}
+        t_seed = time.monotonic()
         for i in range(1, self._seed_count + 1):
             urn = f"{self._urn_prefix}{i:04d})"
-            metadata = json.dumps(
-                {"renderUrl": f"http://zdu-test.example.com/tc-324/{i:04d}"}
+            self._datahub.ingest_mcp(
+                urn=urn,
+                aspect_name=self._aspect,
+                data={"renderUrl": f"http://zdu-test.example.com/tc-324/{i:04d}"},
+                system_metadata=seed_sysmeta,
             )
-            rows.append((urn, self._aspect, metadata, sysmeta))
-        seeded = self._mysql.bulk_seed_aspects(rows)
-        log.info("[kill-switch] bulk-seed wrote %d rows", seeded)
+            if i % _REST_SEED_LOG_EVERY == 0 or i == self._seed_count:
+                log.info(
+                    "[kill-switch] REST seed progress: %d/%d (%.1fs elapsed)",
+                    i,
+                    self._seed_count,
+                    time.monotonic() - t_seed,
+                )
 
     def _run_kill_phase(self, ctx: TestContext, cap: KillSwitchCapture) -> None:
         log.info(

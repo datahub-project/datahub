@@ -363,7 +363,9 @@ class ZDUTestRunner:
                 KillSwitchSweepPhase(
                     docker=self._docker,
                     mysql=self._mysql,
+                    datahub=self._datahub,
                     gms_service=self._config.gms_service,
+                    new_image_tag=self._config.new_image_tag,
                 ),
             ),
             (
@@ -371,7 +373,9 @@ class ZDUTestRunner:
                 BatchDelaySweepPhase(
                     docker=self._docker,
                     mysql=self._mysql,
+                    datahub=self._datahub,
                     gms_service=self._config.gms_service,
+                    new_image_tag=self._config.new_image_tag,
                 ),
             ),
             (
@@ -379,7 +383,9 @@ class ZDUTestRunner:
                 SkipAlreadyMigratedSweepPhase(
                     docker=self._docker,
                     mysql=self._mysql,
+                    datahub=self._datahub,
                     gms_service=self._config.gms_service,
+                    new_image_tag=self._config.new_image_tag,
                 ),
             ),
             # Plan 19's Tc112FaultInjectionPhase is intentionally NOT wired

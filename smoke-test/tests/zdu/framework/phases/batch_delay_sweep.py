@@ -4,8 +4,11 @@ TC-325 (sweep respects ``batchDelayMs``) — verifies the sweep actually
 sleeps for the configured ``delayMs`` between batches.
 
 Flow:
-  1. Bulk-seed N aspects (default 200) at OLD ``schemaVersion`` directly
-     into MySQL with a deterministic URN prefix.
+  1. Seed N aspects (default 200) at OLD ``schemaVersion`` via the
+     production REST write path. ``ingest_mcp`` passes
+     ``systemMetadata.schemaVersion=1`` explicitly so GMS's write-path
+     annotation stamp is bypassed (see ``SystemMetadataUtils.setSchemaVersion``
+     — only stamps when the field is unset) and rows land at v1.
   2. Start ``system-update -u SystemUpdateNonBlocking`` with explicit
      ``SYSTEM_UPDATE_MIGRATE_ASPECTS_BATCH_SIZE`` and
      ``SYSTEM_UPDATE_MIGRATE_ASPECTS_DELAY_MS`` env overrides.
@@ -29,7 +32,6 @@ entities use the URN prefix ``urn:li:dashboard:(test,zdu-tc-325-NNNN)``.
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import threading
@@ -40,6 +42,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import BatchDelayCapture, TestContext
+from ..datahub_client import DataHubClient
 from ..docker_compose import DockerComposeClient
 from ..host_mounts import worktree_mount_env
 from ..mysql_client import MySQLClient
@@ -65,6 +68,7 @@ class BatchDelaySweepPhase(Phase):
         self,
         docker: DockerComposeClient,
         mysql: MySQLClient,
+        datahub: DataHubClient,
         gms_service: str,
         upgrade_service: str = "system-update-debug",
         seed_count: int = _DEFAULT_SEED_COUNT,
@@ -80,6 +84,7 @@ class BatchDelaySweepPhase(Phase):
     ) -> None:
         self._docker = docker
         self._mysql = mysql
+        self._datahub = datahub
         self._gms_service = gms_service
         self._upgrade_service = upgrade_service
         self._seed_count = seed_count
@@ -107,11 +112,11 @@ class BatchDelaySweepPhase(Phase):
         self._docker.remove_container(_CONTAINER_NAME)
 
         try:
-            self._seed_test_aspects()
+            self._seed_test_aspects_via_rest()
         except Exception as exc:
-            log.exception("[batch-delay] bulk seed failed: %s", exc)
+            log.exception("[batch-delay] REST seed failed: %s", exc)
             return self._fail(
-                started_at, time.monotonic() - t0, f"bulk seed failed: {exc}"
+                started_at, time.monotonic() - t0, f"REST seed failed: {exc}"
             )
 
         run_start = time.monotonic()
@@ -164,22 +169,31 @@ class BatchDelaySweepPhase(Phase):
             },
         )
 
-    def _seed_test_aspects(self) -> None:
+    def _seed_test_aspects_via_rest(self) -> None:
+        """Seed N test aspects at OLD ``schemaVersion`` via the REST API.
+
+        Passes ``systemMetadata.schemaVersion=1`` explicitly so GMS's
+        write-path annotation stamp is bypassed (see
+        ``SystemMetadataUtils.setSchemaVersion`` — only stamps when the
+        field is unset). The sweep then sees 200 v1 rows to migrate, one
+        batch at a time, allowing the cursor-advance gap timing to
+        validate ``delayMs``.
+        """
         log.info(
-            "[batch-delay] bulk-seeding %d aspects at schemaVersion=%d",
+            "[batch-delay] REST-seeding %d aspects at schemaVersion=%d",
             self._seed_count,
             self._old_schema_version,
         )
-        sysmeta = json.dumps({"schemaVersion": self._old_schema_version})
-        rows: list[tuple[str, str, str, str]] = []
+        seed_sysmeta = {"schemaVersion": self._old_schema_version}
         for i in range(1, self._seed_count + 1):
             urn = f"{self._urn_prefix}{i:04d})"
-            metadata = json.dumps(
-                {"renderUrl": f"http://zdu-test.example.com/tc-325/{i:04d}"}
+            self._datahub.ingest_mcp(
+                urn=urn,
+                aspect_name=self._aspect,
+                data={"renderUrl": f"http://zdu-test.example.com/tc-325/{i:04d}"},
+                system_metadata=seed_sysmeta,
             )
-            rows.append((urn, self._aspect, metadata, sysmeta))
-        seeded = self._mysql.bulk_seed_aspects(rows)
-        log.info("[batch-delay] bulk-seed wrote %d rows", seeded)
+        log.info("[batch-delay] REST seed wrote %d rows", self._seed_count)
 
     def _run_sweep_and_poll(self, cap: BatchDelayCapture) -> None:
         log.info(

@@ -14,10 +14,14 @@ row-level SQL filter on a fresh ``PENDING`` run: even when the sweep
 DOES run, already-at-target rows must be left untouched.
 
 Flow:
-  1. Bulk-seed N rows with mixed shape: half at OLD ``schemaVersion=1``,
-     half at target ``schemaVersion=4``. Use a dedicated URN prefix
-     ``urn:li:dashboard:(test,zdu-tc-326-NNNN)`` so the capture is
-     unaffected by aspects seeded by prior phases.
+  1. Seed N rows with mixed shape via the production REST write path:
+     half at OLD ``schemaVersion=1``, half at target ``schemaVersion=4``.
+     ``ingest_mcp`` passes ``systemMetadata.schemaVersion`` explicitly so
+     GMS's write-path annotation stamp is bypassed (see
+     ``SystemMetadataUtils.setSchemaVersion`` — only stamps when the
+     field is unset), letting us land rows at exactly the version we want.
+     Use a dedicated URN prefix ``urn:li:dashboard:(test,zdu-tc-326-NNNN)``
+     so the capture is unaffected by aspects seeded by prior phases.
   2. Snapshot the v4 rows' ``createdon`` + ``systemmetadata`` per URN
      via ``MySQLClient.get_aspect_raw`` — this is the bit-identical
      baseline we'll compare against post-sweep.
@@ -36,17 +40,14 @@ Flow:
        not touch it.
 
 JSON format note: production writes systemMetadata via Jackson with no
-space after ``:``. The SQL filter pattern is ``%"schemaVersion":4%``
-(also no space). To get the v4 seed rows correctly filtered out, this
-phase emits the v4 systemMetadata via ``json.dumps(..., separators=(",", ":"))``
-— without that, Python's default ``": "`` adds a space and the filter
-pattern fails to match (the v4 rows enter the stream and get rewritten,
-producing a false positive).
+space after ``:`` and the SQL filter pattern is ``%"schemaVersion":4%``.
+With REST seeding GMS itself serializes the stored systemmetadata via
+Jackson, so the no-space format is guaranteed by the server — no
+client-side ``separators=(",", ":")`` workaround needed.
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import subprocess
 import threading
@@ -57,6 +58,7 @@ from ._shared import read_token_passthrough
 from .base import Phase, PhaseResult
 from ..constants import REPO_ROOT
 from ..context import SkipAlreadyMigratedCapture, TestContext
+from ..datahub_client import DataHubClient
 from ..docker_compose import DockerComposeClient
 from ..host_mounts import worktree_mount_env
 from ..mysql_client import MySQLClient
@@ -81,6 +83,7 @@ class SkipAlreadyMigratedSweepPhase(Phase):
         self,
         docker: DockerComposeClient,
         mysql: MySQLClient,
+        datahub: DataHubClient,
         gms_service: str,
         upgrade_service: str = "system-update-debug",
         seed_v1_count: int = _DEFAULT_SEED_V1_COUNT,
@@ -95,6 +98,7 @@ class SkipAlreadyMigratedSweepPhase(Phase):
     ) -> None:
         self._docker = docker
         self._mysql = mysql
+        self._datahub = datahub
         self._gms_service = gms_service
         self._upgrade_service = upgrade_service
         self._seed_v1_count = seed_v1_count
@@ -119,12 +123,14 @@ class SkipAlreadyMigratedSweepPhase(Phase):
         self._docker.remove_container(_CONTAINER_NAME)
 
         try:
-            v1_urns, v4_urns = self._seed_mixed_aspects()
+            v1_urns, v4_urns = self._seed_mixed_aspects_via_rest()
             v4_snapshot = self._snapshot_v4_rows(v4_urns)
         except Exception as exc:
-            log.exception("[skip-migrated] seed/snapshot failed: %s", exc)
+            log.exception("[skip-migrated] REST seed/snapshot failed: %s", exc)
             return self._fail(
-                started_at, time.monotonic() - t0, f"seed/snapshot failed: {exc}"
+                started_at,
+                time.monotonic() - t0,
+                f"REST seed/snapshot failed: {exc}",
             )
 
         # Reset upgrade-state to absent (otherwise the upgrade framework's
@@ -181,40 +187,44 @@ class SkipAlreadyMigratedSweepPhase(Phase):
             },
         )
 
-    def _seed_mixed_aspects(self) -> tuple[list[str], list[str]]:
-        """Bulk-seed v1 + v4 rows. Returns (v1_urns, v4_urns)."""
-        # Compact JSON (no space after colon) so the production SQL filter
-        # pattern ``%"schemaVersion":<target>%`` matches v4 rows.
-        v1_sysmeta = json.dumps(
-            {"schemaVersion": self._old_schema_version}, separators=(",", ":")
-        )
-        v4_sysmeta = json.dumps(
-            {"schemaVersion": self._target_schema_version}, separators=(",", ":")
-        )
+    def _seed_mixed_aspects_via_rest(self) -> tuple[list[str], list[str]]:
+        """REST-seed v1 + v4 rows. Returns (v1_urns, v4_urns).
+
+        Sends ``systemMetadata.schemaVersion`` explicitly for each batch.
+        GMS's write-path stamp short-circuits because the field is
+        already set, so the row lands at exactly the version we asked
+        for. Jackson serialization of systemmetadata on the server
+        guarantees the no-space format (``"schemaVersion":4``) that the
+        production SQL filter pattern matches against.
+        """
+        v1_sysmeta = {"schemaVersion": self._old_schema_version}
+        v4_sysmeta = {"schemaVersion": self._target_schema_version}
         v1_urns: list[str] = []
         v4_urns: list[str] = []
-        rows: list[tuple[str, str, str, str]] = []
         idx = 1
         for _ in range(self._seed_v1_count):
             urn = f"{self._urn_prefix}{idx:04d})"
             v1_urns.append(urn)
-            md = json.dumps(
-                {"renderUrl": f"http://zdu-test.example.com/tc-326/v1/{idx:04d}"}
+            self._datahub.ingest_mcp(
+                urn=urn,
+                aspect_name=self._aspect,
+                data={"renderUrl": f"http://zdu-test.example.com/tc-326/v1/{idx:04d}"},
+                system_metadata=v1_sysmeta,
             )
-            rows.append((urn, self._aspect, md, v1_sysmeta))
             idx += 1
         for _ in range(self._seed_v4_count):
             urn = f"{self._urn_prefix}{idx:04d})"
             v4_urns.append(urn)
-            md = json.dumps(
-                {"renderUrl": f"http://zdu-test.example.com/tc-326/v4/{idx:04d}"}
+            self._datahub.ingest_mcp(
+                urn=urn,
+                aspect_name=self._aspect,
+                data={"renderUrl": f"http://zdu-test.example.com/tc-326/v4/{idx:04d}"},
+                system_metadata=v4_sysmeta,
             )
-            rows.append((urn, self._aspect, md, v4_sysmeta))
             idx += 1
-        seeded = self._mysql.bulk_seed_aspects(rows)
         log.info(
-            "[skip-migrated] bulk-seed wrote %d rows (%d v%d + %d v%d)",
-            seeded,
+            "[skip-migrated] REST seed wrote %d rows (%d v%d + %d v%d)",
+            self._seed_v1_count + self._seed_v4_count,
             self._seed_v1_count,
             self._old_schema_version,
             self._seed_v4_count,
