@@ -27,15 +27,15 @@ def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
 
 // Validate all URL overrides before storing — catches typos and blocks non-http(s) values.
 def validate  = gradle.ext.validateUrl
-def validates = gradle.ext.validateUrls
-validate(mavenCentralUrl,  'datahub.dependencies.maven.central')
-validate(confluentUrl,     'datahub.dependencies.maven.confluent')
-validate(linkedinUrl,      'datahub.dependencies.maven.linkedinOpenSource')
-validate(nodeDistUrl,      'datahub.dependencies.node.distBaseUrl')
-validate(apkRepoUrl,       'datahub.dependencies.apkrepo.url')
-validate(githubBaseUrl,    'datahub.dependencies.github.baseURL')
-validate(pipMirrorUrl,     'datahub.dependencies.python.pipMirrorUrl')
-validates(pipExtraIndexUrl, 'datahub.dependencies.python.pipExtraIndexUrl')
+def validateMultiple = gradle.ext.validateUrls
+validate(mavenCentralUrl)
+validate(confluentUrl)
+validate(linkedinUrl)
+validate(nodeDistUrl)
+validate(apkRepoUrl)
+validate(githubBaseUrl)
+validate(pipMirrorUrl)
+validateMultiple(pipExtraIndexUrl)
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
