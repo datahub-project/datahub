@@ -222,6 +222,7 @@ export const EditOwnersModal = ({
                 {
                     text: 'Add',
                     id: 'addOwnerButton',
+                    buttonDataTestId: 'modal-add-owner-button',
                     variant: 'filled',
                     disabled: selectedActorUrns.length === 0,
                     onClick: onOk,
