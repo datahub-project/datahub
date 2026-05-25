@@ -241,7 +241,7 @@ def test_powerbi_ingest_with_report_pattern(
     recipe = get_default_recipe(
         output_path=f"{tmp_path}/powerbi_report_server_mces.json"
     )
-    recipe["source"]["config"]["report_pattern"] = {"deny": [denied_report_id]}
+    recipe["source"]["config"]["report_pattern"] = {"deny": [denied_report_name]}
 
     pipeline = Pipeline.create(recipe)
     add_mock_method_in_pipeline(pipeline=pipeline)
@@ -254,7 +254,7 @@ def test_powerbi_ingest_with_report_pattern(
     )
 
     with open(f"{tmp_path}/powerbi_report_server_mces.json") as f:
-        output = [json.loads(line) for line in f if line.strip()]
+        output = json.load(f)
 
     urns = [
         entry.get("proposedSnapshot", {}).get("urn", "")

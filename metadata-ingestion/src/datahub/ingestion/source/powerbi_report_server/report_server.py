@@ -127,7 +127,7 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
     report_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI Reports in ingestion.",
+        description="Regex patterns to filter PowerBI Reports by name in ingestion.",
     )
 
 
@@ -533,7 +533,7 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
         reports = self.powerbi_client.get_all_reports()
 
         for report in reports:
-            if not self.source_config.report_pattern.allowed(report.id):
+            if not self.source_config.report_pattern.allowed(report.name):
                 self.report.report_dropped(f"{report.id} - {report.name}")
                 continue
             try:
