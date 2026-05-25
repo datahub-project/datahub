@@ -6,6 +6,9 @@ from unittest import mock
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.powerbi_report_server.report_server import (
+    PowerBiReportServerDashboardSource,
+)
 from datahub.metadata.schema_classes import AuditStampClass, OwnerClass, OwnershipClass
 from datahub.testing import mce_helpers
 
@@ -249,6 +252,7 @@ def test_powerbi_ingest_with_report_pattern(
     pipeline.raise_from_status()
 
     source = pipeline.source
+    assert isinstance(source, PowerBiReportServerDashboardSource)
     assert f"{denied_report_id} - {denied_report_name}" in list(
         source.report.filtered_reports
     )
