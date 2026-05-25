@@ -83,7 +83,7 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install uv
-        uses: astral-sh/setup-uv@6b9c6063abd6010bf90b0c295b5d8e4f7acacd3d # v7.6.0
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
         with:
           enable-cache: true
       - name: Install pyyaml
