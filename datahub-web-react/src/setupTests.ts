@@ -13,11 +13,17 @@ import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
 import enModuleAssetCollection from '@src/i18n/locales/en/module.assetCollection.json';
+import enModuleAssets from '@src/i18n/locales/en/module.assets.json';
+import enModuleChildHierarchy from '@src/i18n/locales/en/module.childHierarchy.json';
+import enModuleColumns from '@src/i18n/locales/en/module.columns.json';
+import enModuleDataProducts from '@src/i18n/locales/en/module.dataProducts.json';
 import enModuleDocumentation from '@src/i18n/locales/en/module.documentation.json';
 import enModuleDomains from '@src/i18n/locales/en/module.domains.json';
-import enModuleHierarchyView from '@src/i18n/locales/en/module.hierarchyView.json';
+import enModuleHierarchy from '@src/i18n/locales/en/module.hierarchy.json';
+import enModuleLineage from '@src/i18n/locales/en/module.lineage.json';
 import enModuleLink from '@src/i18n/locales/en/module.link.json';
 import enModulePlatforms from '@src/i18n/locales/en/module.platforms.json';
+import enModuleRelatedTerms from '@src/i18n/locales/en/module.relatedTerms.json';
 import enModuleYourAssets from '@src/i18n/locales/en/module.yourAssets.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
@@ -40,11 +46,17 @@ i18n.use(initReactI18next).init({
         'home.v2',
         'home.v3',
         'module.assetCollection',
+        'module.assets',
+        'module.childHierarchy',
+        'module.columns',
+        'module.dataProducts',
         'module.documentation',
         'module.domains',
-        'module.hierarchyView',
+        'module.hierarchy',
+        'module.lineage',
         'module.link',
         'module.platforms',
+        'module.relatedTerms',
         'modules',
         'module.yourAssets',
         'settings.features',
@@ -64,11 +76,17 @@ i18n.use(initReactI18next).init({
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
             'module.assetCollection': enModuleAssetCollection,
+            'module.assets': enModuleAssets,
+            'module.childHierarchy': enModuleChildHierarchy,
+            'module.columns': enModuleColumns,
+            'module.dataProducts': enModuleDataProducts,
             'module.documentation': enModuleDocumentation,
             'module.domains': enModuleDomains,
-            'module.hierarchyView': enModuleHierarchyView,
+            'module.hierarchy': enModuleHierarchy,
+            'module.lineage': enModuleLineage,
             'module.link': enModuleLink,
             'module.platforms': enModulePlatforms,
+            'module.relatedTerms': enModuleRelatedTerms,
             modules: enModules,
             'module.yourAssets': enModuleYourAssets,
             'settings.features': enSettingsFeatures,

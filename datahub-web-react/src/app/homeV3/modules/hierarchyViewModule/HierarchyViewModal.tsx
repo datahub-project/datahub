@@ -13,7 +13,7 @@ import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from '@app/home
 import { DataHubPageModuleType } from '@types';
 
 export default function HierarchyViewModal() {
-    const { t } = useTranslation('module.hierarchyView');
+    const { t } = useTranslation('module.hierarchy');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },

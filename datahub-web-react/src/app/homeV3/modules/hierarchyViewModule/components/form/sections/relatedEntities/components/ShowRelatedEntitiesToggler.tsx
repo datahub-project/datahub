@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function ShowRelatedEntitiesSwitch({ isChecked, onChange }: Props) {
-    const { t } = useTranslation('module.hierarchyView');
+    const { t } = useTranslation('module.hierarchy');
     return (
         <Wrapper>
             <LabelContainer>

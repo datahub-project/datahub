@@ -1,4 +1,6 @@
 {
+    "menu.title": "Platforms",
+    "menu.description": "Most used platforms in your organization",
     "emptyDescription": "You have not ingested any data.",
     "emptyLink": "Add data sources",
     "emptyTitle": "No Platforms Yet"

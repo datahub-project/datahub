@@ -1,4 +1,6 @@
 {
+    "menu.title": "Collection",
+    "menu.description": "A curated list of assets of your choosing",
     "addTitle": "Add Asset Collection",
     "dynamicFilterTab": "Dynamic Filter",
     "editTitle": "Edit Asset Collection",

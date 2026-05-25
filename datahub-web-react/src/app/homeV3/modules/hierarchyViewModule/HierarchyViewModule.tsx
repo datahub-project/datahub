@@ -19,7 +19,7 @@ import { PageRoutes } from '@conf/Global';
 import { AndFilterInput } from '@types';
 
 export default function HierarchyViewModule(props: ModuleProps) {
-    const { t } = useTranslation('module.hierarchyView');
+    const { t } = useTranslation('module.hierarchy');
     const history = useHistory();
     const { showViewAll = true } = props;
     const { isReloading } = useModuleContext();

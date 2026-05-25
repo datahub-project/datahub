@@ -20,7 +20,7 @@ const ScrollWrapper = styled.div`
 `;
 
 export default function SelectAssetsSection() {
-    const { t } = useTranslation('module.hierarchyView');
+    const { t } = useTranslation('module.hierarchy');
     const form = Form.useFormInstance();
 
     const {

@@ -1,4 +1,6 @@
 {
+    "menu.title": "Documentation",
+    "menu.description": "Pin docs for your DataHub users",
     "addTitle": "Add Documentation",
     "contentPlaceholder": "Write some text here...",
     "editTitle": "Edit Documentation",
