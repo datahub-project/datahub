@@ -75,8 +75,9 @@ def _register_gcs_oauth_before_send(
 
     def inject_bearer(request: Any, **kwargs: Any) -> None:
         need_refresh = not getattr(credentials, "token", None)
-        if not need_refresh and getattr(credentials, "expiry", None) is not None:
-            need_refresh = credentials.expiry.timestamp() < time.time()
+        expiry = getattr(credentials, "expiry", None)
+        if not need_refresh and expiry is not None:
+            need_refresh = expiry.timestamp() < time.time()
         if need_refresh:
             credentials.refresh(Request())
         request.headers["Authorization"] = f"Bearer {credentials.token}"
@@ -229,7 +230,7 @@ class GCSSource(StatefulIngestionSourceBase):
     def __init__(self, config: GCSSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
-        self.report = GCSSourceReport()
+        self.report: GCSSourceReport = GCSSourceReport()
         self.platform: str = PLATFORM_GCS
         self._gcp_credentials: Optional[Credentials] = None
         self._gcp_project_id: Optional[str] = None
