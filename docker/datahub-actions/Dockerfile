@@ -318,6 +318,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -393,6 +394,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actio
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 ENTRYPOINT [ ]
 CMD ["/bin/bash", "/start_datahub_actions.sh"]
@@ -454,6 +456,7 @@ RUN --mount=type=bind,source=./python-build/version_updater.py,target=/version_u
 RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,id=datahub-actions,sharing=private \
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
   uv pip install -e '/datahub-actions/[all]'
+RUN rm -rf $HOME/.config/uv
 
 # No uv/pip in the final locked image: build is done; package managers are unnecessary attack surface.
 # Script file avoids Docker RUN treating $v / $sp as empty Docker env vars (see docker/snippets/strip_pip_uv_from_venvs.sh).

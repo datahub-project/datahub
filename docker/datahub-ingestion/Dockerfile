@@ -175,6 +175,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,snowflake,bigquery,redshift,mysql,postgres,s3-slim,gcs-slim,abs-slim,clickhouse,glue,dbt,looker,lookml,tableau,powerbi,superset,datahub-business-glossary]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
 FROM add-code-full AS final-full
 
@@ -185,6 +186,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     UV_LINK_MODE=copy uv pip install \
         -e "/metadata-ingestion/[all]" \
     && datahub --version
+RUN rm -rf $HOME/.config/uv
 
 FROM add-code-locked AS final-locked
 
@@ -195,6 +197,7 @@ RUN --mount=type=cache,target=$HOME/.cache/uv,uid=1000,gid=1000,sharing=private 
     --mount=type=secret,id=netrc,target=/home/datahub/.netrc,required=false \
     UV_LINK_MODE=copy uv pip install -e "/metadata-ingestion/[base,datahub-rest,datahub-kafka,s3-slim,gcs-slim,abs-slim]" && \
     datahub --version
+RUN rm -rf $HOME/.config/uv
 
 # Block network access to PyPI in locked variant
 ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
