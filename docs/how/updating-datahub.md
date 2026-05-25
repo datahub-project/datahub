@@ -105,8 +105,6 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #16873 (Ingestion) Unity Catalog (Databricks) connector now emits ownership and datasetProperties as UPSERT (full replace) by default, instead of incremental PATCH. This means each ingestion run will re-state the complete ownership and properties for each dataset. If you rely on the previous additive/merge behavior (e.g., manually added owners surviving ingestion runs), set `incremental_ownership: true` and/or `incremental_properties: true` in your recipe config.
 
-- **(Ingestion / Glue) Dataset properties now use PATCH by default.** The Glue connector now emits dataset properties as incremental PATCH operations instead of full overwrites. This preserves custom properties added via the API or other sources (e.g., enrichment pipelines) across ingestion runs. To restore the previous overwrite behavior, set `enable_properties_merge: false` in your Glue recipe config.
-
 ### Known Issues
 
 ### Potential Downtime

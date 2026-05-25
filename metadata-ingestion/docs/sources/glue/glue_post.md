@@ -112,17 +112,15 @@ When this is configured, dataset URNs produced by the Glue connector will includ
 
 #### Incremental Dataset Properties (PATCH Mode)
 
-By default (`enable_properties_merge: true`), the Glue connector emits dataset properties as incremental PATCH operations rather than full overwrites. This means custom properties added to a dataset via the DataHub API, SDK, or other ingestion sources are preserved across Glue ingestion runs.
+When `incremental_properties: true` is set, the Glue connector emits dataset properties as incremental PATCH operations rather than full overwrites. This means custom properties added to a dataset via the DataHub API, SDK, or other ingestion sources are preserved across Glue ingestion runs.
 
 This is useful when you enrich datasets with additional metadata (e.g., ownership annotations, data quality scores, or business context) outside of the Glue catalog and want those properties to survive re-ingestion.
-
-To restore the previous overwrite behavior:
 
 ```yaml
 source:
   type: glue
   config:
-    enable_properties_merge: false
+    incremental_properties: true
 ```
 
 #### Column Parameters as Structured Properties

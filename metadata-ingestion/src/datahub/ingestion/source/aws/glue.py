@@ -1,4 +1,5 @@
 import datetime
+import functools
 import json
 import logging
 import re
@@ -57,9 +58,12 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+    auto_incremental_properties,
+)
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
-from datahub.ingestion.api.source_helpers import create_dataset_props_patch_builder
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
 from datahub.ingestion.source.aws.aws_common import AwsSourceConfig
@@ -199,7 +203,10 @@ class TargetPlatformConfig(ConfigModel):
 
 
 class GlueSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, AwsSourceConfig
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    AwsSourceConfig,
+    IncrementalPropertiesConfigMixin,
 ):
     platform: str = Field(
         default=DEFAULT_PLATFORM,
@@ -286,11 +293,6 @@ class GlueSourceConfig(
             "on each schemaField entity. A StructuredPropertyDefinition is upserted once per unique "
             "parameter key per recipe run; subsequent columns reuse the cached definition."
         ),
-    )
-
-    enable_properties_merge: bool = Field(
-        default=True,
-        description="Merge dataset properties with existing server data using PATCH instead of overwriting.",
     )
 
     target_platform_configs: Dict[str, TargetPlatformConfig] = Field(
@@ -1239,11 +1241,13 @@ class GlueSource(StatefulIngestionSourceBase):
         return all_databases, all_tables
 
     def get_lineage_if_enabled(
-        self,
-        mce: MetadataChangeEventClass,
-        dataset_properties: Optional[DatasetPropertiesClass],
+        self, mce: MetadataChangeEventClass
     ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_storage_lineage:
+            # extract dataset properties aspect
+            dataset_properties: Optional[DatasetPropertiesClass] = (
+                mce_builder.get_aspect_if_available(mce, DatasetPropertiesClass)
+            )
             # extract dataset schema aspect
             schema_metadata: Optional[SchemaMetadataClass] = (
                 mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
@@ -1630,6 +1634,10 @@ class GlueSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_properties,
+                self.source_config.incremental_properties,
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.source_config, self.ctx
             ).workunit_processor,
@@ -1742,20 +1750,11 @@ class GlueSource(StatefulIngestionSourceBase):
         dataset_properties = self._get_dataset_properties(table)
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
-            aspects=[Status(removed=False)],
+            aspects=[
+                Status(removed=False),
+                dataset_properties,
+            ],
         )
-
-        # Emit dataset properties as patch or full aspect
-        if self.source_config.enable_properties_merge:
-            patch_builder = create_dataset_props_patch_builder(
-                dataset_urn, dataset_properties
-            )
-            for patch_mcp in patch_builder.build():
-                yield MetadataWorkUnit(
-                    id=f"{dataset_urn}-{patch_mcp.aspectName}", mcp_raw=patch_mcp
-                )
-        else:
-            dataset_snapshot.aspects.append(dataset_properties)
 
         # Add operations if available
         if dataset_properties.created:
@@ -1822,7 +1821,7 @@ class GlueSource(StatefulIngestionSourceBase):
             yield from self._get_column_param_workunits(table, dataset_urn)
 
         # Add lineage if enabled
-        lineage_wu = self.get_lineage_if_enabled(metadata_record, dataset_properties)
+        lineage_wu = self.get_lineage_if_enabled(metadata_record)
         if lineage_wu:
             yield lineage_wu
 

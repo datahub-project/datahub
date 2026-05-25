@@ -96,7 +96,7 @@ def glue_source(
     include_column_lineage: bool = False,
     extract_transforms: bool = True,
     extract_lakeformation_tags: bool = False,
-    enable_properties_merge: bool = False,
+    incremental_properties: bool = False,
 ) -> GlueSource:
     pipeline_context = PipelineContext(run_id="glue-source-tes")
     if mock_datahub_graph_instance:
@@ -114,7 +114,7 @@ def glue_source(
             emit_storage_lineage=emit_storage_lineage,
             include_column_lineage=include_column_lineage,
             extract_lakeformation_tags=extract_lakeformation_tags,
-            enable_properties_merge=enable_properties_merge,
+            incremental_properties=incremental_properties,
         ),
     )
 
@@ -151,7 +151,7 @@ def glue_source_with_profiling(
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
             profiling=profiling_config,
-            enable_properties_merge=False,
+            incremental_properties=False,
         ),
     )
 
@@ -447,7 +447,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     source_config_dict: Dict[str, Any] = {
         "extract_transforms": False,
         "aws_region": "eu-east-1",
-        "enable_properties_merge": False,
+        "incremental_properties": False,
         **stateful_config,
     }
 
@@ -1563,14 +1563,14 @@ def test_glue_redact_job_script_secret_fields(secret_name):
     )
 
 
-# ── enable_properties_merge (PATCH mode) ──────────────────────────────────────
+# ── incremental_properties (PATCH mode) ──────────────────────────────────────
 
 
-def test_enable_properties_merge_emits_patch_mcps(
+def test_incremental_properties_emits_patch_mcps(
     pytestconfig: pytest.Config, tmp_path: Path, mock_time: None
 ) -> None:
     source = glue_source(
-        enable_properties_merge=True,
+        incremental_properties=True,
         extract_transforms=False,
         use_s3_bucket_tags=False,
         use_s3_object_tags=False,
@@ -1611,9 +1611,10 @@ def test_enable_properties_merge_emits_patch_mcps(
     ]
     assert len(patch_wus) > 0, "Expected patch MCPs for datasetProperties"
 
-    # Verify patch MCPs contain JSON Patch operations
+    # Verify patch MCPs are PATCH changeType with JSON Patch operations
     for wu in patch_wus:
         assert isinstance(wu.metadata, models.MetadataChangeProposalClass)
+        assert wu.metadata.changeType == "PATCH"
         assert wu.metadata.aspect is not None
         patch_ops = json.loads(wu.metadata.aspect.value)
         assert isinstance(patch_ops, list)
@@ -1632,10 +1633,8 @@ def test_enable_properties_merge_emits_patch_mcps(
         snapshot = wu.metadata.proposedSnapshot
         if snapshot and hasattr(snapshot, "aspects"):
             for aspect in snapshot.aspects:
-                assert (
-                    not isinstance(aspect, dict)
-                    or "com.linkedin.pegasus2avro.dataset.DatasetProperties"
-                    not in aspect
+                assert not isinstance(aspect, models.DatasetPropertiesClass), (
+                    "DatasetPropertiesClass should not be in MCE snapshot in PATCH mode"
                 )
 
 
