@@ -28,7 +28,11 @@ concurrency:
 
 jobs:
   zdu-e2e:
-    runs-on: ubuntu-latest-8-cores
+    # Use the same depot runner the rest of the repo's test workflows use
+    # (see docker-unified.yml's set-runner step). Depot has unlimited
+    # concurrency for org-internal runs; falls back to ubuntu-latest for
+    # fork PRs since they can't authenticate to depot.
+    runs-on: ${{ github.event.pull_request.head.repo.fork && 'ubuntu-latest' || 'depot-ubuntu-24.04-4' }}
     timeout-minutes: 60
     steps:
       - name: Checkout
