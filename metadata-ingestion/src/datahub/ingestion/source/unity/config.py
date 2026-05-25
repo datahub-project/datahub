@@ -373,7 +373,7 @@ class UnityCatalogSourceConfig(
         UnityCatalogAnalyzeProfilerConfig,
         UnityCatalogSQLAlchemyProfilerConfig,
     ] = Field(  # type: ignore
-        default=UnityCatalogGEProfilerConfig(),
+        default=UnityCatalogSQLAlchemyProfilerConfig(),
         description="Data profiling configuration",
         discriminator="method",
     )
@@ -459,6 +459,12 @@ class UnityCatalogSourceConfig(
 
     def is_ge_profiling(self) -> bool:
         return self.profiling.method == "ge"
+
+    def is_sqlalchemy_profiling(self) -> bool:
+        return self.profiling.method == "sqlalchemy"
+
+    def uses_table_level_profiler(self) -> bool:
+        return self.is_ge_profiling() or self.is_sqlalchemy_profiling()
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
@@ -548,4 +554,11 @@ class UnityCatalogSourceConfig(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
         v.deny.append(".*\\.information_schema")
+        return v
+
+    @field_validator("profiling", mode="before")
+    @classmethod
+    def _default_profiling_method(cls, v: object) -> object:
+        if isinstance(v, dict) and "method" not in v:
+            return {**v, "method": "sqlalchemy"}
         return v

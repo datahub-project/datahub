@@ -56,6 +56,8 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
+
 ## v1.6.0
 
 Requirements:
@@ -100,6 +102,20 @@ Requirements:
   Note: `acryl-datahub[snowflake]` (and other SQL connector extras) no longer install `acryl-great-expectations` by default. Recipes that previously relied on the GE default profiler will now use the SQLAlchemy profiler automatically (no action needed in most cases). Recipes that explicitly set `profiling.method: ge` without installing `[profiling-ge]` will fail with a `ConfigurationError` pointing at the fix.
 
   **Deprecation notice:** The Great Expectations profiler is now considered legacy and is planned for removal in a future release. New deployments should rely on the default SQLAlchemy profiler. Existing users that still depend on `method: ge` should plan to migrate.
+
+- #17563 **Unity Catalog profiling now defaults to `method: sqlalchemy`** instead of `method: ge`. This aligns Unity Catalog with all other SQL connectors after #17465 flipped the global default. If your Unity Catalog recipe enables profiling and relied on the Great Expectations profiler, add the following to your recipe and install the extra:
+
+  ```bash
+  pip install 'acryl-datahub[unity-catalog,profiling-ge]'
+  ```
+
+  ```yaml
+  source:
+    config:
+      profiling:
+        enabled: true
+        method: ge
+  ```
 
 - **Search filters (REST, GraphQL, SDK):** The Pegasus `Criterion` record and GraphQL `FacetFilterInput` no longer expose a singular `value` field. Send match values only via `values` (a string array; use a one-element array where you previously passed a single string). Clients that still serialize `value` must migrate; server-side auto-conversion and related logging have been removed.
 
@@ -179,6 +195,9 @@ Requirements:
 
 ### Other Notable Changes
 
+- **(Ingestion / Snowflake) Internal Marketplace support:** The Snowflake connector now ingests Snowflake Internal Marketplace (private data exchange) listings as DataHub Data Products. Enable with `marketplace.enabled: true`; choose direction via `marketplace.marketplace_mode: consumer | provider | both` (default `consumer`). Each listing becomes a Data Product entity with assets, ownership, structured properties, and optional usage statistics from `SNOWFLAKE.DATA_SHARING_USAGE.LISTING_TELEMETRY_DAILY`. Requires the `SHOW AVAILABLE LISTINGS` privilege (and `IMPORTED PRIVILEGES ON DATABASE snowflake` granted to the user for `provider`/`both`).
+- #17450 (Ingestion / Snowflake) Opt-in `structured_properties_write_mode: patch` on the Snowflake source preserves UI- and pipeline-added structured properties across ingestion runs. Default remains `upsert` (recipe-as-source-of-truth, current behaviour). When set to `patch`, properties removed from the recipe no longer propagate to DataHub — clean those up via the UI or API. The helper `add_structured_properties_to_entity_wu` gains an opt-in `write_mode` parameter; all existing callers (third-party connectors included) keep their current UPSERT behaviour. Requires the server-side TemplateUtil fix in #17449 to be deployed for `patch` mode to work end-to-end.
+- #17449 (GMS) Fix server-side handling of `PATCH` ops whose JSON Pointer path ends in `/` (e.g. `/tags/<urn>/`). Parsson previously threw `JsonException` on these paths when the targeted aspect did not yet exist, breaking unattributed `addTag`/`addTerm`/`addOwner`/`setNumberProperty` on fresh entities. No wire-format change and no client-side action required.
 - **(Security / CWE-200)** Error responses from GMS (GraphQL, OpenAPI) and the Play frontend proxy no longer leak internal Java class names, Jackson source locations, or stack traces. Previously, a malformed JSON request to `/api/v2/graphql` could return detailed internal information such as `com.fasterxml.jackson.core.JsonParseException` and `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` in the HTTP response body. All error responses now return sanitized messages (e.g. `"Invalid JSON format"`, `"Malformed request body"`, `"Bad Request"`). The frontend now uses a custom `HttpErrorHandler` that returns JSON instead of Play's default HTML error pages. **Configuration:** The frontend error handler is enabled automatically via `play.http.errorHandler` in `application.conf`. GMS error sanitization is applied in `GlobalControllerExceptionHandler` and the global `ObjectMapper` explicitly disables `StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` for defense in depth. No operator action is required; internal exception details remain in server-side logs for debugging.
 - #17086 (Ingestion / Sigma) Intra-workbook element-to-element lineage is now emitted via `ChartInfo.inputEdges`. On the next ingestion run, new chart→chart edges will appear in the lineage graph for any Sigma workbook where one element feeds another. This is additive — no existing dataset or warehouse lineage edges are removed.
 - #16358 (Ingestion / dbt) **dbt URN lowercasing is now configurable via `convert_urns_to_lowercase`.** Previously, dbt unconditionally lowercased all target-platform URNs with no way to disable it. This caused lineage breaks with case-sensitive platforms like BigQuery when table names contained uppercase characters (e.g. `AM100` lowercased to `am100`). The default is `true` (preserving existing behavior). Users on case-sensitive platforms like BigQuery should set `convert_urns_to_lowercase: false` in their dbt recipe to preserve original identifier casing.
