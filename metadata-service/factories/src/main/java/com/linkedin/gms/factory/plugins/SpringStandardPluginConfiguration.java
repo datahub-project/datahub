@@ -54,7 +54,6 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -709,33 +708,6 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
                             .build()))
                 .build());
-  }
-
-  /**
-   * Validates that every registered mutator chain is contiguous from {@link
-   * com.linkedin.metadata.Constants#DEFAULT_SCHEMA_VERSION} with no version gaps. Called at bean
-   * construction time so a misconfigured chain causes immediate startup failure rather than a
-   * silent runtime bug (Scenario 6: a missing hop leaves rows permanently stuck at the gap
-   * version).
-   */
-  private static void validateMutatorChains(
-      Map<String, List<AspectMigrationMutator>> chainByAspect) {
-    for (Map.Entry<String, List<AspectMigrationMutator>> entry : chainByAspect.entrySet()) {
-      String aspectName = entry.getKey();
-      List<AspectMigrationMutator> chain = entry.getValue();
-      // chain is already sorted ascending by sourceVersion (done in chain constructor)
-      long expected = DEFAULT_SCHEMA_VERSION;
-      for (AspectMigrationMutator m : chain) {
-        if (m.getSourceVersion() != expected) {
-          throw new IllegalStateException(
-              String.format(
-                  "AspectMigrationMutator chain gap for aspect '%s': expected sourceVersion %d but found %d. "
-                      + "Add a mutator for v%d→v%d.",
-                  aspectName, expected, m.getSourceVersion(), expected, expected + 1));
-        }
-        expected = m.getTargetVersion();
-      }
-    }
   }
 
   @Bean

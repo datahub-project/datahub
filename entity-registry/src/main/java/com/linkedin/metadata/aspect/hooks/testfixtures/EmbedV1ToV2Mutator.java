@@ -16,10 +16,14 @@ import javax.annotation.Nullable;
  *
  * <p>Migrates the {@code embed} aspect from schema version 1 to 2.
  *
- * <p>v1 stored a {@code renderUrl} field (iframe URL). v2 removes that field; the replacement
- * fields ({@code embedType}, {@code embedTitle}) are introduced in v3.
+ * <p>v1 stored a {@code renderUrl} field (iframe URL). This mutator migrates that data into the v2+
+ * structured form: {@code embedType="iframe"} + {@code embedTitle="[v1->v2] <renderUrl>"}. The
+ * bracketed marker is read by ZDU smoke-test validators to prove this mutator actually fired on
+ * sweep-migrated rows (not just that the schemaVersion was bumped).
  */
 public class EmbedV1ToV2Mutator extends AspectMigrationMutator {
+
+  static final String MARKER = "[v1->v2]";
 
   @Nonnull
   @Override
@@ -42,7 +46,12 @@ public class EmbedV1ToV2Mutator extends AspectMigrationMutator {
   protected RecordTemplate transform(
       @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
     DataMap newData = new DataMap(sourceAspect.data());
-    newData.remove("renderUrl");
+    Object renderUrlObj = newData.remove("renderUrl");
+    String renderUrl = renderUrlObj != null ? renderUrlObj.toString() : "";
+    // Stamp the v2 fields with a verifiable provenance marker — smoke tests
+    // grep embedTitle for "[v1->v2]" to assert this mutator fired.
+    newData.put("embedType", "iframe");
+    newData.put("embedTitle", MARKER + " " + renderUrl);
     return new Embed(newData);
   }
 }

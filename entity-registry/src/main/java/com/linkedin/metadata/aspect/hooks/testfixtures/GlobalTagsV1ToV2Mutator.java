@@ -1,6 +1,7 @@
 package com.linkedin.metadata.aspect.hooks.testfixtures;
 
 import com.linkedin.common.GlobalTags;
+import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -16,11 +17,14 @@ import javax.annotation.Nullable;
  *
  * <p>Migrates the {@code globalTags} aspect from schema version 1 to 2.
  *
- * <p>v2 adds an optional {@code displayName} field to {@link GlobalTags}. Since the field is
- * optional and absent-is-valid for existing records, this mutator advances the schema version with
- * no data transformation.
+ * <p>v2 adds an optional {@code displayName} field to {@link GlobalTags}. This mutator populates
+ * {@code displayName} with a provenance marker derived from the tag count (e.g. {@code "[v1->v2]
+ * tagCount=3"}) when the field is unset, so smoke-test validators can verify the migration actually
+ * fired. Existing {@code displayName} values are preserved.
  */
 public class GlobalTagsV1ToV2Mutator extends AspectMigrationMutator {
+
+  static final String MARKER_PREFIX = "[v1->v2] tagCount=";
 
   @Nonnull
   @Override
@@ -42,6 +46,12 @@ public class GlobalTagsV1ToV2Mutator extends AspectMigrationMutator {
   @Override
   protected RecordTemplate transform(
       @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
-    return new GlobalTags(new DataMap(sourceAspect.data()));
+    DataMap newData = new DataMap(sourceAspect.data());
+    if (newData.get("displayName") == null) {
+      Object tagsObj = newData.get("tags");
+      int tagCount = tagsObj instanceof DataList ? ((DataList) tagsObj).size() : 0;
+      newData.put("displayName", MARKER_PREFIX + tagCount);
+    }
+    return new GlobalTags(newData);
   }
 }

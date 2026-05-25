@@ -95,6 +95,68 @@ def _make_urn(scenario: ZDUTestScenario) -> str:
     return f"urn:li:dashboard:(test,zdu-tc-{tc})"
 
 
+# Chain-marker contract — see entity-registry/.../testfixtures/*Mutator.java.
+# Each migration mutator stamps an identifying marker into the aspect data so
+# tests can prove the mutator actually fired (not just that schemaVersion was
+# bumped). The v2->v3 mutator is intentionally absent from the active chain
+# (see ZduTestMutatorConfiguration), so for sweep-migrated embeds the chain
+# bridges over v2->v3 and the [v2->v3] marker is NOT expected on the result.
+_EMBED_V1_V2_MARKER = "[v1->v2]"
+_EMBED_V3_V4_MARKER = "[v3->v4]"
+_GLOBALTAGS_V1_V2_MARKER_PREFIX = "[v1->v2] tagCount="
+
+
+def _expected_chain_markers(scenario: ZDUTestScenario) -> list[str]:
+    """Return the migration-chain markers that should be stamped on the
+    aspect data after this scenario's migration completes.
+
+    Applies to embed / globalTags aspects whose migration actually advances
+    schemaVersion (target > starting). Read/write/sweep all go through the
+    same sweep — the action distinction is documentary, not behavioral.
+    """
+    starting = scenario.starting_schema_version or 1
+    target = scenario.expected_schema_version
+    if target is None or target <= starting:
+        return []
+    if scenario.aspect_name == "embed":
+        markers: list[str] = []
+        if starting <= 1 and target >= 2:
+            markers.append(_EMBED_V1_V2_MARKER)
+        # v2->v3 mutator is disabled in the chain — bridgeGap path, no marker.
+        if starting <= 3 and target >= 4:
+            markers.append(_EMBED_V3_V4_MARKER)
+        return markers
+    if scenario.aspect_name == "globalTags":
+        if starting <= 1 and target >= 2:
+            return [_GLOBALTAGS_V1_V2_MARKER_PREFIX]
+    return []
+
+
+def _verify_chain_markers(
+    urn: str,
+    aspect_name: str,
+    data: dict[str, Any],
+    expected_markers: list[str],
+) -> str | None:
+    """Return a failure description if any expected marker is missing from
+    the aspect data, else None.
+
+    Marker location is aspect-specific: embed markers live in ``embedTitle``,
+    globalTags markers live in ``displayName``.
+    """
+    if not expected_markers:
+        return None
+    field = "embedTitle" if aspect_name == "embed" else "displayName"
+    value = data.get(field, "") or ""
+    missing = [m for m in expected_markers if m not in value]
+    if missing:
+        return (
+            f"{urn}: {aspect_name}.{field} missing chain marker(s) {missing}, "
+            f"got value={value!r}"
+        )
+    return None
+
+
 def make_old_data(scenario: ZDUTestScenario) -> dict[str, Any]:
     if scenario.aspect_name == "globalTags":
         return {"tags": [{"tag": "urn:li:tag:zdu-test-tag"}]}
@@ -174,6 +236,7 @@ class ScenarioExecutor:
             )
 
         expected_version = scenario.expected_schema_version
+        expected_markers = _expected_chain_markers(scenario)
         failures: list[str] = []
 
         for urn in urns:
@@ -187,6 +250,11 @@ class ScenarioExecutor:
                         f"{urn}: expected schemaVersion={expected_version}, "
                         f"got {resp.schema_version}"
                     )
+                marker_err = _verify_chain_markers(
+                    urn, scenario.aspect_name, resp.data, expected_markers
+                )
+                if marker_err:
+                    failures.append(marker_err)
             except Exception as exc:
                 failures.append(f"{urn}: {exc}")
 
@@ -199,12 +267,14 @@ class ScenarioExecutor:
                 actual_result="; ".join(failures),
                 failure_reason=failures[0],
             )
+        marker_note = f" + markers {expected_markers}" if expected_markers else ""
         return ValidationResult(
             tc_number=scenario.tc_number,
             name=scenario.name,
             status="PASS",
             expected_to_fail=False,
             actual_result=(
-                f"All {len(urns)} URN(s) at expected schemaVersion={expected_version}"
+                f"All {len(urns)} URN(s) at expected schemaVersion="
+                f"{expected_version}{marker_note}"
             ),
         )

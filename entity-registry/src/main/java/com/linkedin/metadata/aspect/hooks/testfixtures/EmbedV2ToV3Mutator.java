@@ -17,12 +17,17 @@ import javax.annotation.Nullable;
  * <p>Migrates the {@code embed} aspect from schema version 2 to 3.
  *
  * <p>v2 and v3 share the same field set ({@code embedType}, {@code embedTitle} are optional in
- * both). This mutator advances the stored schema version with no data transformation.
+ * both). This mutator appends a provenance marker to {@code embedTitle} so its execution can be
+ * verified in tests.
  *
- * <p>NOTE: this bean is intentionally commented out in {@code SpringStandardPluginConfiguration} to
- * simulate a ZDU rolling-upgrade scenario where the v2→v3 hop is missing on old nodes.
+ * <p>NOTE: this bean is intentionally commented out in {@code ZduTestMutatorConfiguration} to
+ * simulate a ZDU rolling-upgrade scenario where the v2→v3 hop is missing on old nodes. As a
+ * consequence, smoke-test assertions on sweep-migrated rows expect the {@code [v2->v3]} marker to
+ * be ABSENT (the chain bridges over the missing hop), proving the bridgeGap path is exercised.
  */
 public class EmbedV2ToV3Mutator extends AspectMigrationMutator {
+
+  static final String MARKER = "[v2->v3]";
 
   @Nonnull
   @Override
@@ -44,6 +49,10 @@ public class EmbedV2ToV3Mutator extends AspectMigrationMutator {
   @Override
   protected RecordTemplate transform(
       @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
-    return new Embed(new DataMap(sourceAspect.data()));
+    DataMap newData = new DataMap(sourceAspect.data());
+    Object existingTitle = newData.get("embedTitle");
+    String newTitle = existingTitle == null ? MARKER : existingTitle.toString() + " " + MARKER;
+    newData.put("embedTitle", newTitle);
+    return new Embed(newData);
   }
 }

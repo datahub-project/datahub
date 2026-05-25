@@ -16,10 +16,12 @@ import javax.annotation.Nullable;
  *
  * <p>Migrates the {@code embed} aspect from schema version 3 to 4.
  *
- * <p>v3 and v4 are structurally identical; this mutator advances the stored schema version with no
- * data transformation, bringing the version in line with the current PDL declaration.
+ * <p>v3 and v4 are structurally identical; this mutator appends a provenance marker to {@code
+ * embedTitle} so its execution can be verified in tests.
  */
 public class EmbedV3ToV4Mutator extends AspectMigrationMutator {
+
+  static final String MARKER = "[v3->v4]";
 
   @Nonnull
   @Override
@@ -41,6 +43,10 @@ public class EmbedV3ToV4Mutator extends AspectMigrationMutator {
   @Override
   protected RecordTemplate transform(
       @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
-    return new Embed(new DataMap(sourceAspect.data()));
+    DataMap newData = new DataMap(sourceAspect.data());
+    Object existingTitle = newData.get("embedTitle");
+    String newTitle = existingTitle == null ? MARKER : existingTitle.toString() + " " + MARKER;
+    newData.put("embedTitle", newTitle);
+    return new Embed(newData);
   }
 }
