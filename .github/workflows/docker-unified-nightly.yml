@@ -350,11 +350,11 @@ jobs:
           echo "Skipping this run to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' && env.DOCKER_REGISTRY == 'docker.io' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -497,19 +497,19 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: docker-logs-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.profile }}-${{ matrix.test_strategy }}-${{ matrix.architecture }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: Test Results (smoke tests) ${{ matrix.profile }} ${{ matrix.test_strategy }} ${{ matrix.architecture }}
@@ -560,14 +560,14 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ matrix.profile == 'quickstart-consumers' && matrix.test_strategy == 'pytests' && matrix.architecture == 'x64' }}
         with:
           path: |
@@ -617,7 +617,7 @@ jobs:
           echo "Using repository: ${{ env.DOCKER_REPOSITORY }}"
 
       - name: Login to registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v4.0.0
         if: ${{ env.DOCKER_REGISTRY == 'docker.io' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
