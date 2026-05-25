@@ -102,6 +102,11 @@ class BuildImagesPhase(ConfiguredPhase):
 
         old_wt, new_wt = self._worktree_paths()
         old_sha = self._ensure_worktree(old_wt, self._old_ref)
+        # NEW worktree: scrub any prior patch-apply state before reset.
+        # The ZDU patch-apply step leaves the worktree dirty after every
+        # run; without this scrub _ensure_worktree's safety check would
+        # refuse to reset on the next invocation.
+        self._scrub_managed_worktree(new_wt)
         new_sha = self._ensure_worktree(new_wt, new_sha_full)
 
         # Apply the ZDU test-fixture patch to the NEW worktree only (OLD
@@ -182,6 +187,34 @@ class BuildImagesPhase(ConfiguredPhase):
         """Return (old_worktree, new_worktree) paths under build_images_root."""
         root = (self._repo_root / self._build_images_root).resolve()
         return root / "old", root / "new"
+
+    def _scrub_managed_worktree(self, new_wt: Path) -> None:
+        """Reset any prior ZDU-managed dirty state on the NEW worktree.
+
+        After each E2E run, ``_apply_test_fixture_patch`` leaves the
+        worktree with un-committed patch changes (PDLs bumped, mutators
+        present, etc.). On the next run, ``_ensure_worktree``'s safety
+        check would refuse to ``git reset --hard <ref>`` over those
+        dirty files (it can't tell framework-managed changes from
+        accidental dev edits). Pre-emptively resetting tracked files
+        back to HEAD here makes the next ``_ensure_worktree`` call see
+        a clean state. No-op on fresh worktrees.
+
+        Resets tracked files AND removes untracked source files the
+        patch may have created (the 4 mutators + ZduTestMutatorConfiguration).
+        Preserves gradle's ``build/`` output via ``-e build`` so the next
+        image rebuild can leverage incremental compile caches.
+        """
+        if not (new_wt.exists() and (new_wt / ".git").exists()):
+            return
+        self._run_git(["reset", "--hard", "HEAD"], cwd=new_wt, check=False)
+        # Remove untracked files added by the patch (mutator .java + new
+        # @Configuration); skip build/ output so gradle stays incremental.
+        self._run_git(
+            ["clean", "-fd", "-e", "build/", "-e", "*/build/"],
+            cwd=new_wt,
+            check=False,
+        )
 
     def _apply_test_fixture_patch(self, new_wt: Path) -> str | None:
         """Apply the ZDU test-fixture patch to the NEW worktree.

@@ -376,18 +376,6 @@ diff --git a/datahub-graphql-core/src/main/resources/entity.graphql b/datahub-gr
 index d14e991fcc..185a529ba3 100644
 --- a/datahub-graphql-core/src/main/resources/entity.graphql
 +++ b/datahub-graphql-core/src/main/resources/entity.graphql
-@@ -8158,11 +8158,6 @@ type Assertion implements EntityWithRelationships & Entity {
-   """
-   tags: GlobalTags
- 
--  """
--  Ownership metadata of the Assertion
--  """
--  ownership: Ownership
--
-   """
-   Experimental API.
-   For fetching extra aspects that do not have custom UI code yet
 @@ -13056,9 +13051,13 @@ Information required to render an embedded version of an asset
  """
  type Embed {
@@ -521,3 +509,141 @@ index 72125d0d21..b561c5224d 100644
      }
    }, {
      "type" : "typeref",
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
+index 91004299b9..1312dfc4b1 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
+@@ -9,7 +9,7 @@ import com.linkedin.common.AuditStamp
+  */
+ @Aspect = {
+   "name": "assertionInfo",
+-  "schemaVersion": 2
++  "schemaVersion": 3
+ }
+ record AssertionInfo includes CustomProperties, ExternalReference {
+     /**
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
+index 3db2c79704..06cd116c67 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
+@@ -9,7 +9,8 @@ import com.linkedin.common.ChangeAuditStamps
+  * Properties associated with a BusinessAttribute
+  */
+ @Aspect = {
+-   "name": "businessAttributeInfo"
++   "name": "businessAttributeInfo",
++   "schemaVersion": 2
+ }
+ record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties, ChangeAuditStamps {
+    /**
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
+index 05c50b13d7..bf8ccdf35a 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
+@@ -4,7 +4,8 @@ namespace com.linkedin.common
+  * Information about the fields a chart or dashboard references
+  */
+ @Aspect = {
+-  "name": "inputFields"
++  "name": "inputFields",
++  "schemaVersion": 2
+ }
+ record InputFields {
+   /**
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
+index 3ce4df0795..493eb2896f 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
+@@ -14,7 +14,8 @@ import com.linkedin.common.Edge
+  * Information about a dashboard
+  */
+ @Aspect = {
+-  "name": "dashboardInfo"
++  "name": "dashboardInfo",
++  "schemaVersion": 2
+ }
+ record DashboardInfo includes CustomProperties, ExternalReference {
+ 
+@@ -35,7 +36,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
+    * Detailed description about the dashboard
+    */
+   @Searchable = {
+-    "fieldType": "TEXT",
++    "fieldType": "TEXT_PARTIAL",
+     "hasValuesFieldName": "hasDescription",
+     "searchTier": 2,
+     "sanitizeRichText": true
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
+index 9d2aa6a5c2..2bca5e1263 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
+@@ -8,6 +8,7 @@ import com.linkedin.timeseries.TimeseriesAspectBase
+ @Aspect = {
+   "name": "datasetUsageStatistics",
+   "type": "timeseries",
++  "schemaVersion": 2
+ }
+ record DatasetUsageStatistics includes TimeseriesAspectBase {
+   /**
+@@ -16,7 +17,7 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
+   @TimeseriesField = {}
+   @Searchable = {
+     "fieldType": "COUNT",
+-    "hasValuesFieldName": "hasUniqueUserCount"
++    "hasValuesFieldName": "hasUniqueUserCountFlag"
+   }
+   uniqueUserCount: optional int
+ 
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
+index 1bf3722b21..7eeae46107 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
+@@ -7,7 +7,8 @@ import com.linkedin.common.ChangeAuditStamps
+  * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.
+  */
+ @Aspect = {
+-  "name": "editableSchemaMetadata"
++  "name": "editableSchemaMetadata",
++  "schemaVersion": 2
+ }
+ record EditableSchemaMetadata includes ChangeAuditStamps {
+   /**
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl b/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
+index bf63933ff1..22df2f4c82 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
+@@ -9,7 +9,8 @@ import com.linkedin.mxe.SystemMetadata
+  * SchemaMetadata to describe metadata related to store schema
+  */
+ @Aspect = {
+-  "name": "schemaMetadata"
++  "name": "schemaMetadata",
++  "schemaVersion": 2
+ }
+ record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
+ 
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
+index 3c50420290..4585ce86b5 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
+@@ -4,7 +4,8 @@ namespace com.linkedin.tag
+  * Properties associated with a Tag
+  */
+ @Aspect = {
+-  "name": "tagProperties"
++  "name": "tagProperties",
++  "schemaVersion": 2
+ }
+ record TagProperties {
+   /**
+@@ -23,7 +24,9 @@ record TagProperties {
+   /**
+    * Documentation of the tag
+    */
+-  @Searchable = {}
++  @Searchable = {
++    "fieldType": "TEXT"
++  }
+   description: optional string
+ 
+   /**

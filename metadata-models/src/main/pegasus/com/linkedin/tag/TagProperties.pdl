@@ -4,8 +4,7 @@ namespace com.linkedin.tag
  * Properties associated with a Tag
  */
 @Aspect = {
-  "name": "tagProperties",
-  "schemaVersion": 2
+  "name": "tagProperties"
 }
 record TagProperties {
   /**
@@ -24,9 +23,7 @@ record TagProperties {
   /**
    * Documentation of the tag
    */
-  @Searchable = {
-    "fieldType": "TEXT"
-  }
+  @Searchable = {}
   description: optional string
 
   /**

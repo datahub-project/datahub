@@ -14,8 +14,7 @@ import com.linkedin.common.Edge
  * Information about a dashboard
  */
 @Aspect = {
-  "name": "dashboardInfo",
-  "schemaVersion": 2
+  "name": "dashboardInfo"
 }
 record DashboardInfo includes CustomProperties, ExternalReference {
 
@@ -36,7 +35,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
    * Detailed description about the dashboard
    */
   @Searchable = {
-    "fieldType": "TEXT_PARTIAL",
+    "fieldType": "TEXT",
     "hasValuesFieldName": "hasDescription",
     "searchTier": 2,
     "sanitizeRichText": true

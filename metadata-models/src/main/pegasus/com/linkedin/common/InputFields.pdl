@@ -4,8 +4,7 @@ namespace com.linkedin.common
  * Information about the fields a chart or dashboard references
  */
 @Aspect = {
-  "name": "inputFields",
-  "schemaVersion": 2
+  "name": "inputFields"
 }
 record InputFields {
   /**

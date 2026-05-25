@@ -40,6 +40,14 @@ jobs:
         with:
           fetch-depth: 0 # ZDU framework needs git history for worktrees
 
+      - name: Fetch master ref
+        # The ZDU framework's build_images phase creates a git worktree
+        # pinned to `master` (the OLD-image base). actions/checkout only
+        # fetches the PR merge commit by default; the `master` local
+        # branch ref doesn't exist on the runner without this step.
+        run: |
+          git fetch origin master:master
+
       - name: Set up JDK 21
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
         with:
@@ -81,6 +89,14 @@ jobs:
       - name: Run ZDU E2E
         env:
           DATAHUB_LOCAL_COMMON_ENV: zdu-test.env
+          # On a clean CI runner the local Docker daemon has no `:debug`
+          # images for the non-ZDU services (frontend, actions, etc.) that
+          # the compose stack pulls in. Pin all unbuilt services to the
+          # publicly-pullable `head` tag from Docker Hub. The 4 ZDU services
+          # (GMS / upgrade / mae-consumer / mce-consumer) are still served
+          # by the locally-built zdu-{old,new}-* tags via the per-service
+          # DATAHUB_*_VERSION env vars the framework sets explicitly.
+          DATAHUB_VERSION: head
         run: |
           cd smoke-test
           AGENT_MODE=1 venv/bin/python -m tests.zdu

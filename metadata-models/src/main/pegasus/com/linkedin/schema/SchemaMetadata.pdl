@@ -9,8 +9,7 @@ import com.linkedin.mxe.SystemMetadata
  * SchemaMetadata to describe metadata related to store schema
  */
 @Aspect = {
-  "name": "schemaMetadata",
-  "schemaVersion": 2
+  "name": "schemaMetadata"
 }
 record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
 

@@ -8,7 +8,6 @@ import com.linkedin.timeseries.TimeseriesAspectBase
 @Aspect = {
   "name": "datasetUsageStatistics",
   "type": "timeseries",
-  "schemaVersion": 2
 }
 record DatasetUsageStatistics includes TimeseriesAspectBase {
   /**
@@ -17,7 +16,7 @@ record DatasetUsageStatistics includes TimeseriesAspectBase {
   @TimeseriesField = {}
   @Searchable = {
     "fieldType": "COUNT",
-    "hasValuesFieldName": "hasUniqueUserCountFlag"
+    "hasValuesFieldName": "hasUniqueUserCount"
   }
   uniqueUserCount: optional int
 

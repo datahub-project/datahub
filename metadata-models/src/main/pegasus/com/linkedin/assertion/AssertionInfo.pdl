@@ -9,7 +9,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "assertionInfo",
-  "schemaVersion": 3
+  "schemaVersion": 2
 }
 record AssertionInfo includes CustomProperties, ExternalReference {
     /**
