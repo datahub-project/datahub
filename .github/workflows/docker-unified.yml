@@ -1127,10 +1127,10 @@ jobs:
           retention-days: 5
 
   publish_images:
-    name: Update quickstart tag after tests pass
+    name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs: [setup, smoke_test, base_build]
-    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' }}
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
@@ -1169,11 +1169,17 @@ jobs:
           path: ${{ github.workspace }}/build
 
       - name: Set up Docker Buildx
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' && github.ref == 'refs/heads/master' }}
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      - name: Check out the repo
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          checkout-head-only: true
+
       - name: Tag images with quickstart (coordinated floating tag)
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' && github.ref == 'refs/heads/master' }}
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           source .github/scripts/docker_helpers.sh
