@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from typing import Any, Optional
 from unittest import mock
@@ -225,3 +226,39 @@ def test_powerbi_ingest_with_failure(
         output_path=tmp_path / "powerbi_report_server_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("requests_ntlm.HttpNtlmAuth")
+def test_powerbi_ingest_with_report_pattern(
+    mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
+):
+    denied_report_id = "ee56dc21-248a-4138-a446-ee5ab1fc938a"
+    denied_report_name = "Testa"
+
+    register_mock_api(request_mock=requests_mock)
+
+    recipe = get_default_recipe(
+        output_path=f"{tmp_path}/powerbi_report_server_mces.json"
+    )
+    recipe["source"]["config"]["report_pattern"] = {"deny": [denied_report_id]}
+
+    pipeline = Pipeline.create(recipe)
+    add_mock_method_in_pipeline(pipeline=pipeline)
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    source = pipeline.source
+    assert f"{denied_report_id} - {denied_report_name}" in list(
+        source.report.filtered_reports
+    )
+
+    with open(f"{tmp_path}/powerbi_report_server_mces.json") as f:
+        output = [json.loads(line) for line in f if line.strip()]
+
+    urns = [
+        entry.get("proposedSnapshot", {}).get("urn", "")
+        for entry in output
+        if "proposedSnapshot" in entry
+    ]
+    assert not any(denied_report_id in urn for urn in urns)

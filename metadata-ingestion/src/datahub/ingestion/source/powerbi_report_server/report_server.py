@@ -13,7 +13,11 @@ from requests.exceptions import ConnectionError
 from requests_ntlm import HttpNtlmAuth
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
+from datahub.configuration.common import (
+    AllowDenyPattern,
+    HiddenFromDocs,
+    TransparentSecretStr,
+)
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -120,9 +124,7 @@ class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
 
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
-    platform_name: str = pydantic.Field(
-        default=Constant.PLATFORM_NAME, hidden_from_docs=True
-    )
+    platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
     report_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI Reports in ingestion.",
@@ -532,7 +534,7 @@ class PowerBiReportServerDashboardSource(StatefulIngestionSourceBase):
 
         for report in reports:
             if not self.source_config.report_pattern.allowed(report.id):
-                self.report.report_dropped.append(f"{report.id} - {report.name}")
+                self.report.report_dropped(f"{report.id} - {report.name}")
                 continue
             try:
                 report.user_info = self.get_user_info(report)
