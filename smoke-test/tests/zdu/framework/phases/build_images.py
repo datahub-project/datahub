@@ -12,8 +12,14 @@ configured ref via ``git fetch && git reset --hard <ref>``. This keeps
 Gradle's incremental-build cache alive between invocations.
 
 Tags use short SHAs so repeated runs cache-hit: ``zdu-old-{sha8}`` and
-``zdu-new-{sha8}``. The phase mutates ``config.old_image_tag`` and
-``config.new_image_tag`` so downstream phases pick them up automatically.
+``zdu-new-{sha8}``. When the ZDU test-fixture patch
+(``smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch``) is
+present, it is applied to the NEW worktree before the NEW image build,
+and the NEW tag becomes ``zdu-new-{sha8}-p{patch_hash8}`` so a patch
+edit invalidates the docker cache even when the branch SHA is unchanged.
+OLD worktree is never patched (it represents pre-upgrade state).
+The phase mutates ``config.old_image_tag`` and ``config.new_image_tag``
+so downstream phases pick them up automatically.
 
 Skipped unless ``config.build_images`` is True (default). Opt out via
 ``ZDU_SKIP_BUILD_IMAGES=1``. Legacy ``ZDU_BUILD_IMAGES=1`` is accepted as a
@@ -22,6 +28,7 @@ no-op (it is now the default).
 
 from __future__ import annotations
 
+import hashlib
 import logging
 import subprocess
 import time
@@ -33,6 +40,13 @@ from ..config import ZDUTestConfig
 from ..context import ImageBuildResult, TestContext
 
 log = logging.getLogger(__name__)
+
+# Path (relative to repo root) of the ZDU test-fixture patch that adds
+# the fake aspect-migration mutators + PDL schemaVersion bumps to the
+# NEW image only. Lives in smoke-test/ so production code never sees it.
+_TEST_FIXTURE_PATCH = Path(
+    "smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch"
+)
 
 _DEFAULT_SERVICES = (
     ":metadata-service:war:docker",
@@ -90,8 +104,16 @@ class BuildImagesPhase(ConfiguredPhase):
         old_sha = self._ensure_worktree(old_wt, self._old_ref)
         new_sha = self._ensure_worktree(new_wt, new_sha_full)
 
+        # Apply the ZDU test-fixture patch to the NEW worktree only (OLD
+        # stays at master state — it represents pre-upgrade reality).
+        # Returns the patch hash so the image tag can encode it; a patch
+        # edit invalidates the docker cache even when branch SHA is unchanged.
+        patch_hash = self._apply_test_fixture_patch(new_wt)
+
         old_image_tag = f"zdu-old-{old_sha}"
-        new_image_tag = f"zdu-new-{new_sha}"
+        new_image_tag = (
+            f"zdu-new-{new_sha}-p{patch_hash}" if patch_hash else f"zdu-new-{new_sha}"
+        )
 
         first_missing = self._first_missing_image(old_image_tag, new_image_tag)
         cache_hit = first_missing is None
@@ -160,6 +182,37 @@ class BuildImagesPhase(ConfiguredPhase):
         """Return (old_worktree, new_worktree) paths under build_images_root."""
         root = (self._repo_root / self._build_images_root).resolve()
         return root / "old", root / "new"
+
+    def _apply_test_fixture_patch(self, new_wt: Path) -> str | None:
+        """Apply the ZDU test-fixture patch to the NEW worktree.
+
+        Returns an 8-char hash of the patch content for use in the image
+        tag (so docker cache invalidates when the patch is edited), or
+        ``None`` when the patch file is absent (backward-compat with
+        pre-extraction branches).
+
+        Idempotent across re-runs: ``_ensure_worktree`` has already run
+        ``git reset --hard <ref>`` immediately before this call, which
+        wiped any prior patch application — so we always re-apply cleanly.
+
+        ``git apply --check`` runs first so drift between the patch and
+        master fails loudly here (before any build cycle is wasted)
+        rather than half-applying and producing a corrupt worktree.
+        """
+        patch_path = self._repo_root / _TEST_FIXTURE_PATCH
+        if not patch_path.exists():
+            return None
+        patch_bytes = patch_path.read_bytes()
+        patch_hash = hashlib.sha256(patch_bytes).hexdigest()[:8]
+        # Use --check first to surface drift cleanly before mutating worktree.
+        self._run_git(["apply", "--check", str(patch_path)], cwd=new_wt)
+        self._run_git(["apply", str(patch_path)], cwd=new_wt)
+        log.info(
+            "[build-images] applied ZDU test-fixture patch (hash=%s) to NEW worktree %s",
+            patch_hash,
+            new_wt,
+        )
+        return patch_hash
 
     def _ensure_worktree(self, path: Path, ref: str) -> str:
         """Idempotent: if path exists and is a worktree, sync to ref.

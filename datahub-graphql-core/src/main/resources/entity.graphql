@@ -8159,6 +8159,11 @@ type Assertion implements EntityWithRelationships & Entity {
   tags: GlobalTags
 
   """
+  Ownership metadata of the Assertion
+  """
+  ownership: Ownership
+
+  """
   Experimental API.
   For fetching extra aspects that do not have custom UI code yet
   """
@@ -13051,13 +13056,9 @@ Information required to render an embedded version of an asset
 """
 type Embed {
   """
-  Deprecated: renderUrl has been removed from the embed aspect.
+  A URL which can be rendered inside of an iframe.
   """
-  renderUrl: String @deprecated(reason: "Field removed in schema v2")
-  """
-  The type of embed e.g. iframe, video.
-  """
-  embedType: String
+  renderUrl: String
 }
 
 """
@@ -13070,9 +13071,9 @@ input UpdateEmbedInput {
   urn: String!
 
   """
-  Deprecated: renderUrl has been removed from the embed aspect.
+  Set or clear a URL used to render an embedded asset.
   """
-  renderUrl: String @deprecated(reason: "Field removed in schema v2")
+  renderUrl: String
 }
 
 """

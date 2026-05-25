@@ -4,27 +4,11 @@ namespace com.linkedin.common
  * Information regarding rendering an embed for an asset.
  */
 @Aspect = {
-  "name": "embed",
-  "schemaVersion": 4
+  "name": "embed"
 }
 record Embed {
   /**
-   * Legacy v1 field — kept for backwards compatibility with ingestion
-   * sources that still emit an iframe-style embed URL (mcp_builder,
-   * mode, looker_common, looker_source). The v1→v4 migration chain
-   * (EmbedV1ToV2Mutator → EmbedV2ToV3Mutator → EmbedV3ToV4Mutator) moves
-   * data from this field into ``embedType`` + ``embedTitle`` so new code
-   * only needs to read the new fields.
+   * An embed URL to be rendered inside of an iframe.
    */
   renderUrl: optional string
-
-  /**
-   * The type of embed e.g. iframe, video.
-   */
-  embedType: optional string
-
-  /**
-   * The title of the embed.
-   */
-  embedTitle: optional string
 }

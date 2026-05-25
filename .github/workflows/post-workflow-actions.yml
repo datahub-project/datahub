@@ -37,6 +37,7 @@ on:
       - "Nightly Docker Test"
       - "Release Tests"
       - "Release Validation"
+      - "ZDU E2E (daily)"
     types:
       - completed
 

@@ -993,15 +993,9 @@
           "searchTier" : 2
         }
       }
-    }, {
-      "name" : "displayName",
-      "type" : "string",
-      "doc" : "displayName about the association",
-      "optional" : true
     } ],
     "Aspect" : {
-      "name" : "globalTags",
-      "schemaVersion" : 2
+      "name" : "globalTags"
     }
   }, {
     "type" : "typeref",

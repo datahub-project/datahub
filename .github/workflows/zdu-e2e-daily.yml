@@ -1,0 +1,98 @@
+name: ZDU E2E (daily)
+
+# Daily smoke test of the Zero-Downtime Upgrade migration framework.
+# Applies smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+# (which contains test-only PDL schemaVersion bumps + fake aspect-migration
+# mutators) onto a clean master checkout before running the full E2E
+# pipeline. Production code stays clean — the fixtures only exist inside
+# the workflow's runtime.
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch: # also manually triggerable from the Actions tab
+  pull_request:
+    paths:
+      # Re-run on any change that could break the patch round-trip or the
+      # ZDU framework. Lets reviewers catch drift before merge.
+      - "smoke-test/tests/zdu/**"
+      - "metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl"
+      - "metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl"
+      - "entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/**"
+      - "datahub-upgrade/src/main/java/com/linkedin/datahub/upgrade/system/migrations/**"
+      - ".github/workflows/zdu-e2e-daily.yml"
+
+concurrency:
+  group: zdu-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  zdu-e2e:
+    runs-on: ubuntu-latest-8-cores
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # ZDU framework needs git history for worktrees
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify ZDU test-fixture patch applies cleanly
+        # `--check` is read-only. Fails loudly if production PDLs or
+        # SpringStandardPluginConfiguration drifted away from the patch
+        # baseline — that's the cue to refresh the patch via the README's
+        # "Regenerating the patch" steps.
+        run: |
+          git apply --check \
+            smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+
+      - name: Apply ZDU test-fixture patch
+        # Materializes the 4 fake mutators + ZduTestMutatorConfiguration +
+        # PDL schemaVersion bumps in the working tree. The patch is NOT
+        # committed back — these files only exist for the lifetime of this
+        # workflow run.
+        run: |
+          git apply \
+            smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+
+      - name: Regenerate metadata-models codegen
+        # Must run AFTER the patch, otherwise the mutator Java files
+        # reference Embed/GlobalTags classes generated from the pre-bump
+        # PDL.
+        run: ./gradlew :metadata-models:build -x test
+
+      - name: Install smoke-test Python deps
+        run: ./gradlew :smoke-test:installDev
+
+      - name: Run ZDU E2E
+        env:
+          DATAHUB_LOCAL_COMMON_ENV: zdu-test.env
+        run: |
+          cd smoke-test
+          AGENT_MODE=1 venv/bin/python -m tests.zdu
+
+      - name: Upload failure bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zdu-failure-bundle-${{ github.run_id }}
+          path: smoke-test/build/zdu-failure-*/
+          if-no-files-found: ignore
+
+      - name: Upload structured test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zdu-test-report-${{ github.run_id }}
+          path: smoke-test/build/zdu-test-report.json
+          if-no-files-found: ignore

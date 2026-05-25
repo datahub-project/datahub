@@ -4,8 +4,7 @@ namespace com.linkedin.common
  * Tag aspect used for applying tags to an entity
  */
 @Aspect = {
-  "name": "globalTags",
-  "schemaVersion": 2
+  "name": "globalTags"
 }
 record GlobalTags {
 
@@ -31,13 +30,4 @@ record GlobalTags {
     }
   }
   tags: array[TagAssociation]
-
-   /**
-     * displayName about the association
-     */
-   @Searchable = {
-     "fieldType": "TEXT",
-     "addToFilters": true
-   }
-   displayName: optional string
 }

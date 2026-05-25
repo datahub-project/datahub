@@ -1,0 +1,523 @@
+diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java
+new file mode 100644
+index 0000000000..0818d6433c
+--- /dev/null
++++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java
+@@ -0,0 +1,57 @@
++package com.linkedin.metadata.aspect.hooks.testfixtures;
++
++import com.linkedin.common.Embed;
++import com.linkedin.data.DataMap;
++import com.linkedin.data.template.RecordTemplate;
++import com.linkedin.metadata.aspect.RetrieverContext;
++import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++
++/**
++ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
++ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
++ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
++ * property is {@code false} by default).
++ *
++ * <p>Migrates the {@code embed} aspect from schema version 1 to 2.
++ *
++ * <p>v1 stored a {@code renderUrl} field (iframe URL). This mutator migrates that data into the v2+
++ * structured form: {@code embedType="iframe"} + {@code embedTitle="[v1->v2] <renderUrl>"}. The
++ * bracketed marker is read by ZDU smoke-test validators to prove this mutator actually fired on
++ * sweep-migrated rows (not just that the schemaVersion was bumped).
++ */
++public class EmbedV1ToV2Mutator extends AspectMigrationMutator {
++
++  static final String MARKER = "[v1->v2]";
++
++  @Nonnull
++  @Override
++  public String getAspectName() {
++    return "embed";
++  }
++
++  @Override
++  public long getSourceVersion() {
++    return 1;
++  }
++
++  @Override
++  public long getTargetVersion() {
++    return 2;
++  }
++
++  @Nullable
++  @Override
++  protected RecordTemplate transform(
++      @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
++    DataMap newData = new DataMap(sourceAspect.data());
++    Object renderUrlObj = newData.remove("renderUrl");
++    String renderUrl = renderUrlObj != null ? renderUrlObj.toString() : "";
++    // Stamp the v2 fields with a verifiable provenance marker — smoke tests
++    // grep embedTitle for "[v1->v2]" to assert this mutator fired.
++    newData.put("embedType", "iframe");
++    newData.put("embedTitle", MARKER + " " + renderUrl);
++    return new Embed(newData);
++  }
++}
+diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java
+new file mode 100644
+index 0000000000..b6c852a4d7
+--- /dev/null
++++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java
+@@ -0,0 +1,58 @@
++package com.linkedin.metadata.aspect.hooks.testfixtures;
++
++import com.linkedin.common.Embed;
++import com.linkedin.data.DataMap;
++import com.linkedin.data.template.RecordTemplate;
++import com.linkedin.metadata.aspect.RetrieverContext;
++import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++
++/**
++ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
++ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
++ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
++ * property is {@code false} by default).
++ *
++ * <p>Migrates the {@code embed} aspect from schema version 2 to 3.
++ *
++ * <p>v2 and v3 share the same field set ({@code embedType}, {@code embedTitle} are optional in
++ * both). This mutator appends a provenance marker to {@code embedTitle} so its execution can be
++ * verified in tests.
++ *
++ * <p>NOTE: this bean is intentionally commented out in {@code ZduTestMutatorConfiguration} to
++ * simulate a ZDU rolling-upgrade scenario where the v2→v3 hop is missing on old nodes. As a
++ * consequence, smoke-test assertions on sweep-migrated rows expect the {@code [v2->v3]} marker to
++ * be ABSENT (the chain bridges over the missing hop), proving the bridgeGap path is exercised.
++ */
++public class EmbedV2ToV3Mutator extends AspectMigrationMutator {
++
++  static final String MARKER = "[v2->v3]";
++
++  @Nonnull
++  @Override
++  public String getAspectName() {
++    return "embed";
++  }
++
++  @Override
++  public long getSourceVersion() {
++    return 2;
++  }
++
++  @Override
++  public long getTargetVersion() {
++    return 3;
++  }
++
++  @Nullable
++  @Override
++  protected RecordTemplate transform(
++      @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
++    DataMap newData = new DataMap(sourceAspect.data());
++    Object existingTitle = newData.get("embedTitle");
++    String newTitle = existingTitle == null ? MARKER : existingTitle.toString() + " " + MARKER;
++    newData.put("embedTitle", newTitle);
++    return new Embed(newData);
++  }
++}
+diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java
+new file mode 100644
+index 0000000000..57806b1055
+--- /dev/null
++++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java
+@@ -0,0 +1,52 @@
++package com.linkedin.metadata.aspect.hooks.testfixtures;
++
++import com.linkedin.common.Embed;
++import com.linkedin.data.DataMap;
++import com.linkedin.data.template.RecordTemplate;
++import com.linkedin.metadata.aspect.RetrieverContext;
++import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++
++/**
++ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
++ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
++ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
++ * property is {@code false} by default).
++ *
++ * <p>Migrates the {@code embed} aspect from schema version 3 to 4.
++ *
++ * <p>v3 and v4 are structurally identical; this mutator appends a provenance marker to {@code
++ * embedTitle} so its execution can be verified in tests.
++ */
++public class EmbedV3ToV4Mutator extends AspectMigrationMutator {
++
++  static final String MARKER = "[v3->v4]";
++
++  @Nonnull
++  @Override
++  public String getAspectName() {
++    return "embed";
++  }
++
++  @Override
++  public long getSourceVersion() {
++    return 3;
++  }
++
++  @Override
++  public long getTargetVersion() {
++    return 4;
++  }
++
++  @Nullable
++  @Override
++  protected RecordTemplate transform(
++      @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
++    DataMap newData = new DataMap(sourceAspect.data());
++    Object existingTitle = newData.get("embedTitle");
++    String newTitle = existingTitle == null ? MARKER : existingTitle.toString() + " " + MARKER;
++    newData.put("embedTitle", newTitle);
++    return new Embed(newData);
++  }
++}
+diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java
+new file mode 100644
+index 0000000000..47587fab02
+--- /dev/null
++++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java
+@@ -0,0 +1,57 @@
++package com.linkedin.metadata.aspect.hooks.testfixtures;
++
++import com.linkedin.common.GlobalTags;
++import com.linkedin.data.DataList;
++import com.linkedin.data.DataMap;
++import com.linkedin.data.template.RecordTemplate;
++import com.linkedin.metadata.aspect.RetrieverContext;
++import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
++import javax.annotation.Nonnull;
++import javax.annotation.Nullable;
++
++/**
++ * Test-only fixture — not a production aspect migration. Exists solely to exercise the {@link
++ * AspectMigrationMutator} infrastructure end-to-end via the ZDU smoke-test framework. Production
++ * deployments keep the bean disabled (the {@code featureFlags.aspectMigrationMutatorEnabled}
++ * property is {@code false} by default).
++ *
++ * <p>Migrates the {@code globalTags} aspect from schema version 1 to 2.
++ *
++ * <p>v2 adds an optional {@code displayName} field to {@link GlobalTags}. This mutator populates
++ * {@code displayName} with a provenance marker derived from the tag count (e.g. {@code "[v1->v2]
++ * tagCount=3"}) when the field is unset, so smoke-test validators can verify the migration actually
++ * fired. Existing {@code displayName} values are preserved.
++ */
++public class GlobalTagsV1ToV2Mutator extends AspectMigrationMutator {
++
++  static final String MARKER_PREFIX = "[v1->v2] tagCount=";
++
++  @Nonnull
++  @Override
++  public String getAspectName() {
++    return "globalTags";
++  }
++
++  @Override
++  public long getSourceVersion() {
++    return 1;
++  }
++
++  @Override
++  public long getTargetVersion() {
++    return 2;
++  }
++
++  @Nullable
++  @Override
++  protected RecordTemplate transform(
++      @Nonnull RecordTemplate sourceAspect, @Nonnull RetrieverContext context) {
++    DataMap newData = new DataMap(sourceAspect.data());
++    if (newData.get("displayName") == null) {
++      Object tagsObj = newData.get("tags");
++      int tagCount = tagsObj instanceof DataList ? ((DataList) tagsObj).size() : 0;
++      newData.put("displayName", MARKER_PREFIX + tagCount);
++    }
++    return new GlobalTags(newData);
++  }
++}
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
+index 934ebcd50e..7103c5ec21 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
+@@ -4,11 +4,27 @@ namespace com.linkedin.common
+  * Information regarding rendering an embed for an asset.
+  */
+ @Aspect = {
+-  "name": "embed"
++  "name": "embed",
++  "schemaVersion": 4
+ }
+ record Embed {
+   /**
+-   * An embed URL to be rendered inside of an iframe.
++   * Legacy v1 field — kept for backwards compatibility with ingestion
++   * sources that still emit an iframe-style embed URL (mcp_builder,
++   * mode, looker_common, looker_source). The v1→v4 migration chain
++   * (EmbedV1ToV2Mutator → EmbedV2ToV3Mutator → EmbedV3ToV4Mutator) moves
++   * data from this field into ``embedType`` + ``embedTitle`` so new code
++   * only needs to read the new fields.
+    */
+   renderUrl: optional string
++
++  /**
++   * The type of embed e.g. iframe, video.
++   */
++  embedType: optional string
++
++  /**
++   * The title of the embed.
++   */
++  embedTitle: optional string
+ }
+\ No newline at end of file
+diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
+index a29cc75fc8..a1d1c717e3 100644
+--- a/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
++++ b/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
+@@ -4,7 +4,8 @@ namespace com.linkedin.common
+  * Tag aspect used for applying tags to an entity
+  */
+ @Aspect = {
+-  "name": "globalTags"
++  "name": "globalTags",
++  "schemaVersion": 2
+ }
+ record GlobalTags {
+ 
+@@ -30,4 +31,13 @@ record GlobalTags {
+     }
+   }
+   tags: array[TagAssociation]
++
++   /**
++     * displayName about the association
++     */
++   @Searchable = {
++     "fieldType": "TEXT",
++     "addToFilters": true
++   }
++   displayName: optional string
+ }
+diff --git a/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java b/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java
+new file mode 100644
+index 0000000000..4a63ecf4e6
+--- /dev/null
++++ b/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java
+@@ -0,0 +1,57 @@
++package com.linkedin.gms.factory.plugins;
++
++import com.linkedin.metadata.aspect.hooks.AspectMigrationMutator;
++import com.linkedin.metadata.aspect.hooks.testfixtures.EmbedV1ToV2Mutator;
++import com.linkedin.metadata.aspect.hooks.testfixtures.EmbedV2ToV3Mutator;
++import com.linkedin.metadata.aspect.hooks.testfixtures.EmbedV3ToV4Mutator;
++import com.linkedin.metadata.aspect.hooks.testfixtures.GlobalTagsV1ToV2Mutator;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.context.annotation.Bean;
++import org.springframework.context.annotation.Configuration;
++
++/**
++ * Test-only Spring configuration — wires the {@link AspectMigrationMutator} test fixtures into the
++ * Spring context so the ZDU smoke-test framework can exercise the {@link
++ * com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain} end-to-end.
++ *
++ * <p>Loaded only when the Spring property {@code zdu.test.framework.enabled=true}. The property is
++ * bound from the {@code ZDU_TEST_FRAMEWORK_ENABLED} environment variable via Spring's relaxed
++ * binding — no entry in {@code application.yaml} is required, so production config has no
++ * declaration of this flag at all. The ZDU smoke-test framework sets the env var on GMS and
++ * upgrade-job containers; production deployments leave it unset (default missing ⇒ condition {@code
++ * false} ⇒ class not instantiated).
++ *
++ * <p>Production safety: this flag is intentionally namespaced separately from the existing
++ * production-facing {@code featureFlags.aspectMigrationMutatorEnabled} flag. Even if an operator
++ * enables the production flag (e.g., to roll out a real future aspect migration), this test fixture
++ * config remains dormant unless they also explicitly opt in via {@code
++ * ZDU_TEST_FRAMEWORK_ENABLED=true}. Two independent flags ⇒ defence in depth.
++ *
++ * <p>Kept in a separate {@code @Configuration} class so that {@link
++ * SpringStandardPluginConfiguration} (the canonical production hook-wiring file) has zero
++ * references to test-fixture classes.
++ */
++@Configuration
++@ConditionalOnProperty(name = "zdu.test.framework.enabled", havingValue = "true")
++public class ZduTestMutatorConfiguration {
++
++  @Bean
++  public AspectMigrationMutator globalTagsV1ToV2Mutator() {
++    return new GlobalTagsV1ToV2Mutator();
++  }
++
++  @Bean
++  public AspectMigrationMutator embedV1ToV2Mutator() {
++    return new EmbedV1ToV2Mutator();
++  }
++
++  // @Bean  // ZDU SIM: old node — v2→v3 hop missing
++  public AspectMigrationMutator embedV2ToV3Mutator() {
++    return new EmbedV2ToV3Mutator();
++  }
++
++  @Bean
++  public AspectMigrationMutator embedV3ToV4Mutator() {
++    return new EmbedV3ToV4Mutator();
++  }
++}
+diff --git a/datahub-graphql-core/src/main/resources/entity.graphql b/datahub-graphql-core/src/main/resources/entity.graphql
+index d14e991fcc..185a529ba3 100644
+--- a/datahub-graphql-core/src/main/resources/entity.graphql
++++ b/datahub-graphql-core/src/main/resources/entity.graphql
+@@ -8158,11 +8158,6 @@ type Assertion implements EntityWithRelationships & Entity {
+   """
+   tags: GlobalTags
+ 
+-  """
+-  Ownership metadata of the Assertion
+-  """
+-  ownership: Ownership
+-
+   """
+   Experimental API.
+   For fetching extra aspects that do not have custom UI code yet
+@@ -13056,9 +13051,13 @@ Information required to render an embedded version of an asset
+ """
+ type Embed {
+   """
+-  A URL which can be rendered inside of an iframe.
++  Deprecated: renderUrl has been removed from the embed aspect.
++  """
++  renderUrl: String @deprecated(reason: "Field removed in schema v2")
++  """
++  The type of embed e.g. iframe, video.
+   """
+-  renderUrl: String
++  embedType: String
+ }
+ 
+ """
+@@ -13071,9 +13070,9 @@ input UpdateEmbedInput {
+   urn: String!
+ 
+   """
+-  Set or clear a URL used to render an embedded asset.
++  Deprecated: renderUrl has been removed from the embed aspect.
+   """
+-  renderUrl: String
++  renderUrl: String @deprecated(reason: "Field removed in schema v2")
+ }
+ 
+ """
+diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
+index 19dc015e98..353d6cfb31 100644
+--- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
++++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
+@@ -1010,9 +1010,15 @@
+           "searchTier" : 2
+         }
+       }
++    }, {
++      "name" : "displayName",
++      "type" : "string",
++      "doc" : "displayName about the association",
++      "optional" : true
+     } ],
+     "Aspect" : {
+-      "name" : "globalTags"
++      "name" : "globalTags",
++      "schemaVersion" : 2
+     }
+   }, {
+     "type" : "typeref",
+diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
+index de1c7a3a93..94fa0ca4d3 100644
+--- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
++++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
+@@ -993,9 +993,15 @@
+           "searchTier" : 2
+         }
+       }
++    }, {
++      "name" : "displayName",
++      "type" : "string",
++      "doc" : "displayName about the association",
++      "optional" : true
+     } ],
+     "Aspect" : {
+-      "name" : "globalTags"
++      "name" : "globalTags",
++      "schemaVersion" : 2
+     }
+   }, {
+     "type" : "typeref",
+diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
+index d045f26df8..503b454617 100644
+--- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
++++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
+@@ -728,9 +728,15 @@
+           "searchTier" : 2
+         }
+       }
++    }, {
++      "name" : "displayName",
++      "type" : "string",
++      "doc" : "displayName about the association",
++      "optional" : true
+     } ],
+     "Aspect" : {
+-      "name" : "globalTags"
++      "name" : "globalTags",
++      "schemaVersion" : 2
+     }
+   }, {
+     "type" : "typeref",
+diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
+index 8a9f4f7c45..c52ee478df 100644
+--- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
++++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
+@@ -728,9 +728,15 @@
+           "searchTier" : 2
+         }
+       }
++    }, {
++      "name" : "displayName",
++      "type" : "string",
++      "doc" : "displayName about the association",
++      "optional" : true
+     } ],
+     "Aspect" : {
+-      "name" : "globalTags"
++      "name" : "globalTags",
++      "schemaVersion" : 2
+     }
+   }, {
+     "type" : "typeref",
+diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
+index 72125d0d21..b561c5224d 100644
+--- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
++++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
+@@ -993,9 +993,15 @@
+           "searchTier" : 2
+         }
+       }
++    }, {
++      "name" : "displayName",
++      "type" : "string",
++      "doc" : "displayName about the association",
++      "optional" : true
+     } ],
+     "Aspect" : {
+-      "name" : "globalTags"
++      "name" : "globalTags",
++      "schemaVersion" : 2
+     }
+   }, {
+     "type" : "typeref",
