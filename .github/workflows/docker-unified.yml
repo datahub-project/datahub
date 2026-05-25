@@ -743,7 +743,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() && (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -842,9 +842,10 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
@@ -1064,9 +1065,10 @@ jobs:
 
       - name: Upload test results to Codecov
         if: "!cancelled()"
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
       - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4

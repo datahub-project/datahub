@@ -180,7 +180,7 @@ jobs:
         uses: ./.github/actions/ensure-codegen-updated
       - name: Upload backend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -192,7 +192,7 @@ jobs:
           verbose: true
       - name: Upload backend coverage to Codecov on release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.BACKEND_FILES }}
@@ -205,14 +205,16 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   frontend-build:
@@ -354,7 +356,7 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload frontend coverage to Codecov
         if: ${{ github.event_name != 'release' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -366,7 +368,7 @@ jobs:
           verbose: true
       - name: Upload frontend coverage to Codecov on Release
         if: ${{ github.event_name == 'release' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ${{ env.FRONTEND_FILES }}
@@ -379,14 +381,16 @@ jobs:
           override_branch: ${{ github.head_ref || github.ref_name }}
       - name: Upload test results to Codecov
         if: ${{ !cancelled() && github.event_name != 'release' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
       - name: Upload test results to Codecov on release
         if: ${{ !cancelled() && github.event_name == 'release' }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
   event-file:
