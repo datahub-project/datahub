@@ -5,6 +5,8 @@ pluginManagement {
   }
 }
 
+apply from: 'gradle/validation/url-validation.gradle'
+
 // Resolve Maven repository URLs: legacy single-word properties take precedence for backward
 // compatibility, then the new namespaced properties (whose defaults live in gradle.properties).
 // Stored in gradle.ext so they're available to buildSrc's buildscript phase, which runs before root
@@ -22,6 +24,18 @@ def githubBaseUrl    = hasProperty('githubMirrorUrl')    ? getProperty('githubMi
 def pipMirrorUrl     = hasProperty('pipMirrorUrl')       ? getProperty('pipMirrorUrl')       : getProperty('datahub.dependencies.python.pipMirrorUrl')
 def pipExtraIndexUrl = hasProperty('pipExtraIndexUrls')  ? getProperty('pipExtraIndexUrls')  : getProperty('datahub.dependencies.python.pipExtraIndexUrl')
 def uvProfile        = getProperty('datahub.dependencies.python.uvProfile')
+
+// Validate all URL overrides before storing — catches typos and blocks non-http(s) values.
+def validate  = gradle.ext.validateUrl
+def validates = gradle.ext.validateUrls
+validate(mavenCentralUrl,  'datahub.dependencies.maven.central')
+validate(confluentUrl,     'datahub.dependencies.maven.confluent')
+validate(linkedinUrl,      'datahub.dependencies.maven.linkedinOpenSource')
+validate(nodeDistUrl,      'datahub.dependencies.node.distBaseUrl')
+validate(apkRepoUrl,       'datahub.dependencies.apkrepo.url')
+validate(githubBaseUrl,    'datahub.dependencies.github.baseURL')
+validate(pipMirrorUrl,     'datahub.dependencies.python.pipMirrorUrl')
+validates(pipExtraIndexUrl, 'datahub.dependencies.python.pipExtraIndexUrl')
 
 gradle.ext['datahub.dependencies.maven.central']              = mavenCentralUrl
 gradle.ext['datahub.dependencies.maven.confluent']            = confluentUrl
