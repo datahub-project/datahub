@@ -59,7 +59,7 @@
     "serviceAccounts.createError": "Dienstkonto konnte nicht erstellt werden: {{error}}",
     "serviceAccounts.createModal.description.description": "Eine optionale Beschreibung für das Dienstkonto",
     "serviceAccounts.createModal.description.label": "Beschreibung",
-    "serviceAccounts.createModal.description.placeholder": "Wird für die automatisierte Datenaufnahme aus unserem Data Warehouse verwendet",
+    "serviceAccounts.createModal.description.placeholder": "Wird für die automatisierte Ingestion aus unserem Data Warehouse verwendet",
     "serviceAccounts.createModal.description.validationError": "Die Beschreibung darf maximal 500 Zeichen lang sein",
     "serviceAccounts.createModal.name.description": "Ein Name für das Dienstkonto",
     "serviceAccounts.createModal.name.label": "Name",
