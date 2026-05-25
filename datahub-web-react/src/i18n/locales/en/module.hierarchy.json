@@ -1,6 +1,6 @@
 {
-    "menu.title": "Hierarchy",
-    "menu.description": "Top down view of assets",
+    "moduleName": "Hierarchy",
+    "moduleDescription": "Top down view of assets",
     "addTitle": "Add Hierarchy View",
     "domainsTab": "Domains",
     "editTitle": "Edit Hierarchy View",

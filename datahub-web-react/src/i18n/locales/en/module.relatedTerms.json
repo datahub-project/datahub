@@ -1,4 +1,4 @@
 {
-    "menu.title": "Related Terms",
-    "menu.description": "View the related terms inside of this glossary term"
+    "moduleName": "Related Terms",
+    "moduleDescription": "View the related terms inside of this glossary term"
 }

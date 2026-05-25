@@ -1,4 +1,4 @@
 {
-    "menu.title": "Data Products",
-    "menu.description": "View the data products inside of this domain"
+    "moduleName": "Data Products",
+    "moduleDescription": "View the data products inside of this domain"
 }

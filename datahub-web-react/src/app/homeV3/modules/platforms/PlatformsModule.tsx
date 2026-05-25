@@ -51,7 +51,10 @@ const PlatformsModule = (props: ModuleProps) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         return (
             <Tooltip
-                title={`View ${formatNumberWithoutAbbreviation(platformEntity?.count)} ${platformEntity?.platform.name} assets`}
+                title={t('viewAssets', {
+                    formattedCount: formatNumberWithoutAbbreviation(platformEntity?.count),
+                    platformName: platformEntity?.platform.name,
+                })}
                 placement="bottom"
             >
                 {children}

@@ -1,6 +1,6 @@
 {
-    "menu.title": "Quick Link",
-    "menu.description": "Choose links that are important",
+    "moduleName": "Quick Link",
+    "moduleDescription": "Choose links that are important",
     "addTitle": "Add Quick Link",
     "descriptionLabel": "Description (Optional)",
     "descriptionPlaceholder": "Add description...",

@@ -2,6 +2,7 @@
     "emptyDescription": "This domain has no children domains. Add domains to see them in this module.",
     "emptyTitle": "No Domains",
     "menu.contentsTitle": "Contents",
-    "menu.description": "View the hierarchy of this asset's children",
-    "menu.domainsTitle": "Domains"
+    "moduleDescription": "View the hierarchy of this asset's children",
+    "menu.domainsTitle": "Domains",
+    "moduleName": "Children"
 }

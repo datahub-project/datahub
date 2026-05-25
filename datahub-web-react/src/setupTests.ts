@@ -38,6 +38,7 @@ import '@utils/dayjs';
 i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
+    initImmediate: false,
     ns: [
         'common.actions',
         'entity.identity',

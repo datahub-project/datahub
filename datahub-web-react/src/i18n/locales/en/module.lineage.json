@@ -1,4 +1,4 @@
 {
-    "menu.title": "Lineage",
-    "menu.description": "View the lineage of an asset"
+    "moduleName": "Lineage",
+    "moduleDescription": "View the lineage of an asset"
 }

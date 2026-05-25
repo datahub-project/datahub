@@ -1,6 +1,6 @@
 {
-    "menu.title": "Domains",
-    "menu.description": "Most used domains in your organization",
+    "moduleName": "Domains",
+    "moduleDescription": "Most used domains in your organization",
     "assetCount_one": "{{formattedCount}} asset",
     "assetCount_other": "{{formattedCount}} assets",
     "dataProductCount_one": "{{formattedCount}} data product",
