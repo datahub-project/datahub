@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       docker_tag:
-        description: "Image tag in the container registry to pull/scan. Default is `head` (DataHub’s published branch image tag; see `MAIN_BRANCH_TAG` in docker helpers). Examples: head, latest, or a release tag."
+        description: "Image tag in the container registry to pull/scan. Default is `quickstart` (coordinated compose tag after smoke tests on master). Examples: quickstart, sha-abc1234, or a release tag."
         required: true
         type: string
-        default: head
+        default: quickstart
       scan_profile:
         description: "Profile key (see `.github/security-scan-profiles.*.json`)."
         required: true
@@ -77,7 +77,7 @@ concurrency:
 
 # workflow_dispatch fills github.event.inputs; workflow_run does not — resolve defaults for automated runs.
 env:
-  RESOLVED_DOCKER_TAG: ${{ github.event_name == 'workflow_run' && 'head' || github.event.inputs.docker_tag }}
+  RESOLVED_DOCKER_TAG: ${{ github.event_name == 'workflow_run' && 'quickstart' || github.event.inputs.docker_tag }}
   RESOLVED_SCAN_PROFILE: ${{ github.event_name == 'workflow_run' && 'allImages' || github.event.inputs.scan_profile }}
   RESOLVED_VARIANT_SCOPE: ${{ github.event_name == 'workflow_run' && 'all' || github.event.inputs.variant_scope }}
   RESOLVED_SCAN_SEVERITY_LEVELS: ${{ github.event_name == 'workflow_run' && 'CRITICAL,HIGH' || github.event.inputs.scan_severity_levels }}
@@ -217,7 +217,7 @@ jobs:
             ' "${CFG}")"
           } >> "${GITHUB_OUTPUT}"
 
-      # Linear ref label: use the repo default branch when scanning image tags `head` or `latest`
+      # Linear ref label: use the repo default branch when scanning image tags `quickstart` or `latest`
       # (nightly / default tip); otherwise use the provided docker tag as a tag ref (e.g. release).
       # Container pulls always use RESOLVED_DOCKER_TAG.
       - name: Resolve git ref (Linear)
@@ -240,7 +240,7 @@ jobs:
             exit 1
           fi
           lt="$(printf '%s' "${scan_tag}" | tr '[:upper:]' '[:lower:]')"
-          if [[ "${lt}" == "head" || "${lt}" == "latest" ]]; then
+          if [[ "${lt}" == "quickstart" || "${lt}" == "head" || "${lt}" == "latest" ]]; then
             {
               echo "kind=branch"
               echo "name=${default_branch}"
@@ -255,7 +255,7 @@ jobs:
               echo "github_ref=refs/tags/${scan_tag}"
               echo "sha=${commit}"
             } >> "$GITHUB_OUTPUT"
-            echo "::notice::Linear ref label: image tag ${scan_tag} (not head/latest)"
+            echo "::notice::Linear ref label: image tag ${scan_tag} (not quickstart/head/latest)"
           fi
 
       - &ecr_login
@@ -391,7 +391,7 @@ jobs:
         run: |
           set -euo pipefail
           # One workflow matrix leg per *repository* (the ref without the last ":tag" segment). Tag variants
-          # (e.g. :head vs :head-slim) are scanned on the same runner, serially, per scanner. Different repos stay parallel.
+          # (e.g. :quickstart vs :quickstart-slim) are scanned on the same runner, serially, per scanner. Different repos stay parallel.
           m="$(
             jq -Rs 'split("\n")
               | map(select(length > 0))
