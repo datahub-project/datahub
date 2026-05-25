@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -12,7 +12,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
         id: BUSINESS_GLOSSARY_INTRO_ID,
         title: 'Business Glossary 📖',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to the <strong>Business Glossary</strong>!
                 </p>
@@ -20,7 +20,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
                     The Glossary is a collection of structured, standarized labels you can use to categorize data
                     assets. You can view and create both <strong>Terms</strong> and <strong>Term Groups</strong> here.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -28,14 +28,14 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_ID}`,
         title: 'Glossary Terms',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Click here to create a new <strong>Term</strong> .
                 </p>
                 <p>
                     <strong>Terms</strong> are words or phrases with a specific business definition assigned to them.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -43,7 +43,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
         selector: `#${BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}`,
         title: 'Glossary Term Groups',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Click here to create a new <strong>Term Group</strong>.
                 </p>
@@ -65,7 +65,7 @@ export const BusinessGlossaryOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

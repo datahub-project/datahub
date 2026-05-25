@@ -19,13 +19,30 @@ source:
 When enabled, each metric view emits:
 
 - A `Metric View` subtype so it is distinguishable from regular tables and views in the UI.
-- A `ViewProperties` aspect carrying the raw YAML body with `viewLanguage: YAML`. The `materialized` flag is set to `true` when the YAML contains `materialization: materialized`.
-- Upstream lineage parsed from the YAML `source` and `joins[].source` fields. Both 3-part (`catalog.schema.table`) and 2-part (`schema.table`, resolved against the metric view's own catalog) identifiers are supported, as are backtick-quoted parts (`` `db.with.dots`.schema.table ``).
+- A `ViewProperties` aspect carrying the raw YAML body with `viewLanguage: YAML`. The `materialized` flag is set when the YAML contains `materialization: materialized` (v0.1 string form) or any `materialization:` object (v1.1 form).
+- The dataset description, taken from the YAML top-level `comment` when present (falls back to the underlying Unity Catalog table comment otherwise).
+- Upstream lineage parsed from the YAML `source` and `joins[].source` fields. Both 3-part (`catalog.schema.table`) and 2-part (`schema.table`, resolved against the metric view's own catalog) identifiers are supported, as are backtick-quoted parts (`` `db.with.dots`.schema.table ``). Nested join hierarchies (snowflake-style joins) are walked recursively — every join target along the chain becomes an upstream, and every alias along the chain becomes resolvable in dimension and measure expressions.
 - Column-level lineage parsed from each `dimensions[].expr` / `measures[].expr` using the Databricks SQL dialect (requires `include_column_lineage: true`, which is the default). Unqualified columns map to the source table; `<join_name>.column` references map through the join's `source`.
-- A `Dimension` or `Measure` tag on each schema field whose name matches a YAML `dimensions[].name` or `measures[].name`.
-- A `metric_view.filter` custom property when the YAML carries a top-level `filter`.
-- Per-column descriptions taken from the YAML `dimensions[].description` / `measures[].description` when present (falls back to the underlying Unity Catalog column comment otherwise).
+- Intra-view field-to-field lineage for `MEASURE(name)` composable measure references. A measure expressed as `MEASURE(total_revenue) / MEASURE(order_count)` emits two upstream edges to the `total_revenue` and `order_count` measures within the same metric view dataset. Matching is case-insensitive; the emitted URN uses the canonical case from the spec.
+- A `Dimension` tag on schema fields matching a YAML `dimensions[].name`, and a `Measure` tag on those matching `measures[].name`. Measures with a non-empty `window:` block get an additional `Window Measure` tag alongside `Measure`.
+- Per-column descriptions taken from the YAML `dimensions[].comment` / `measures[].comment` when present, with `description` accepted as a v0.1 fallback (falls back to the underlying Unity Catalog column comment otherwise).
 - A filtered set of custom properties: the Spark engine config snapshot Unity Catalog injects as `view.sqlConfig.spark.*` keys (~150 entries per view) is dropped, since it is identical across views in a workspace and crowds the UI. All other source-table properties are preserved unchanged.
+
+#### Metric view custom properties
+
+The following spec-level properties are surfaced on the metric view dataset so the spec is inspectable without re-reading the YAML body:
+
+- `metric_view.spec_version` — the spec version (e.g. `1.1`).
+- `metric_view.filter` — the top-level `filter:` expression.
+- `metric_view.joins` — the entire `joins:` hierarchy as a JSON string, preserving `on:` predicates, `using:` shorthand, and any nested joins.
+- `metric_view.materialization.schedule` / `metric_view.materialization.mode` / `metric_view.materialization.materialized_views` — when `materialization:` is a v1.1 object, each subkey lands as a queryable property.
+
+Per-field agent metadata (Databricks Runtime 17.3+, YAML 1.1) is exposed as dataset-level custom properties keyed `metric_view.field.<name>.*`:
+
+- `display_name` — human-readable label for the field. Truncated to 255 characters; truncation events are counted in the ingestion report.
+- `synonyms` — comma-joined alternative names. Each entry is limited to 255 characters and the list is capped at 10 entries per field (per the Databricks v1.1 spec). Per-item truncations, invalid-type drops, and the 10-cap are each recorded in the ingestion report.
+- `format.type` and its subkeys (for dimensions and measures) — `number`, `currency`, `percentage`, `byte`, `date`, and `date_time` formats are supported. Each known subkey is exposed individually (including nested `decimal_places.type` and `decimal_places.places`); unknown subkeys are dropped and counted in the ingestion report.
+- `window.order` / `window.range` / `window.semiadditive` for single-entry window measures, or `window` as a JSON string for multi-entry windows. Window properties are emitted on measures only.
 
 If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier that DataHub can't resolve, the YAML lineage path is skipped and DataHub falls back to the Unity Catalog table-lineage REST API for upstream resolution.
 
@@ -67,3 +84,5 @@ Also check the [Unity Catalog limitations](https://docs.databricks.com/data-gove
 #### Lineage extraction is too slow
 
 Unity Catalog REST API requires one call per table (table lineage) and one call per column (column lineage). To improve performance, disable column lineage with `include_column_lineage: false`.
+
+Similarly, `include_table_constraints: true` adds one `tables.get()` call per non-Hive table to fetch primary key and foreign key constraints. For workspaces with thousands of tables this adds latency; leave the flag disabled (the default) if Primary Key / Foreign Key metadata is not needed.

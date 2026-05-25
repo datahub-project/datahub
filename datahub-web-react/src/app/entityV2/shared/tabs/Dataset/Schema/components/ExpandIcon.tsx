@@ -78,7 +78,7 @@ const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
 const DepthNumber = styled(Typography.Text)`
     margin-left: 4px;
     background: transparent;
-    color: ${(props) => props.theme.colors.bg};
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     font-size: 10px;
     font-weight: 400;
 `;

@@ -100,7 +100,7 @@ export class GlossaryPage extends BasePage {
     this.entityMenuDeleteButton = page.getByTestId('entity-menu-delete-button');
     this.entityMenuMoveButton = page.getByTestId('entity-menu-move-button');
 
-    // Scoped to the active tab panel to avoid matching the sidebar browser's search input.
+    // Scoped to the active tab panel to avoid matching the main nav search bar.
     this.searchInput = this.activeTabPanel.getByTestId('search-input');
 
     this.filtersToggleButton = page.getByTestId('toggle-filters-button').and(page.locator(':visible'));

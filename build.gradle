@@ -68,6 +68,8 @@ buildscript {
   // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
   ext.hadoopShadedGuavaVersion = '1.5.0'
   ext.kafkaVersion = '8.1.0'
+  // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
+  ext.lz4JavaVersion = '1.11.0'
   ext.hazelcastVersion = '5.7.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
@@ -188,6 +190,7 @@ project.ext.externalDependency = [
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
+    'graphqlJavaOtel': 'io.opentelemetry.instrumentation:opentelemetry-graphql-java-20.0:2.27.0-alpha',
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
@@ -250,6 +253,8 @@ project.ext.externalDependency = [
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
     'lombok': 'org.projectlombok:lombok:1.18.42',
+    // Fork with maintained JNI natives; root resolutionStrategy maps org.lz4:lz4-java here too
+    'lz4Java': 'at.yawk.lz4:lz4-java:' + lz4JavaVersion,
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
     'mockito': 'org.mockito:mockito-core:5.20.0',
@@ -273,6 +278,7 @@ project.ext.externalDependency = [
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
+    'opentelemetrySdkTesting': 'io.opentelemetry:opentelemetry-sdk-testing:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
     'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",
@@ -526,8 +532,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
-        details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
-        details.because("CVE-2025-12183, upgrade to 1.10.1")
+        details.useTarget(rootProject.ext.externalDependency.lz4Java)
+        details.because("CVE-2025-12183; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
       }
       if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
@@ -565,8 +571,11 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
         details.useVersion(rootProject.ext.reactorNettyVersion)
         details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
       }
-      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv).
-      if (details.requested.group == 'io.opentelemetry' && details.requested.name != 'opentelemetry-semconv') {
+      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv)
+      // and opentelemetry-api-incubator (separate -alpha release line; not published at the stable version).
+      if (details.requested.group == 'io.opentelemetry'
+          && details.requested.name != 'opentelemetry-semconv'
+          && details.requested.name != 'opentelemetry-api-incubator') {
         details.useVersion(rootProject.ext.openTelemetryVersion)
         details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
       }
@@ -576,7 +585,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       }
     }
     resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
-    resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
+    resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
