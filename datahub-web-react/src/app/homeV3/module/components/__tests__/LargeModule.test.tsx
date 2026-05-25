@@ -109,7 +109,7 @@ describe('LargeModule', () => {
 
         const viewAllButton = screen.getByTestId('view-all');
         expect(viewAllButton).toBeInTheDocument();
-        expect(viewAllButton).toHaveTextContent('View all');
+        expect(viewAllButton).toHaveTextContent('View All');
     });
 
     it('should render view all button with custom text when onClickViewAll and viewAllText are provided', () => {

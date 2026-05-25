@@ -10,6 +10,16 @@ import enCommonActions from '@src/i18n/locales/en/common.actions.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
+import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import enModuleAssetCollection from '@src/i18n/locales/en/module.assetCollection.json';
+import enModuleDocumentation from '@src/i18n/locales/en/module.documentation.json';
+import enModuleDomains from '@src/i18n/locales/en/module.domains.json';
+import enModuleHierarchyView from '@src/i18n/locales/en/module.hierarchyView.json';
+import enModuleLink from '@src/i18n/locales/en/module.link.json';
+import enModulePlatforms from '@src/i18n/locales/en/module.platforms.json';
+import enModuleYourAssets from '@src/i18n/locales/en/module.yourAssets.json';
+import enModules from '@src/i18n/locales/en/modules.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
@@ -27,6 +37,16 @@ i18n.use(initReactI18next).init({
         'entity.identity',
         'entity.ownership',
         'entity.views',
+        'home.v2',
+        'home.v3',
+        'module.assetCollection',
+        'module.documentation',
+        'module.domains',
+        'module.hierarchyView',
+        'module.link',
+        'module.platforms',
+        'modules',
+        'module.yourAssets',
         'settings.features',
         'settings.page',
         'settings.permissions',
@@ -41,6 +61,16 @@ i18n.use(initReactI18next).init({
             'entity.identity': enEntityIdentity,
             'entity.ownership': enEntityOwnership,
             'entity.views': enEntityViews,
+            'home.v2': enHomeV2,
+            'home.v3': enHomeV3,
+            'module.assetCollection': enModuleAssetCollection,
+            'module.documentation': enModuleDocumentation,
+            'module.domains': enModuleDomains,
+            'module.hierarchyView': enModuleHierarchyView,
+            'module.link': enModuleLink,
+            'module.platforms': enModulePlatforms,
+            modules: enModules,
+            'module.yourAssets': enModuleYourAssets,
             'settings.features': enSettingsFeatures,
             'settings.page': enSettingsPage,
             'settings.permissions': enSettingsPermissions,
