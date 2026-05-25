@@ -17,7 +17,7 @@ export const EmptyGlossaryNodesYouOwn = () => {
                 t={t}
                 i18nKey="yourGlossary.learnMoreAbout"
                 components={{
-                    link: (
+                    anchor: (
                         // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
                         <a
                             target="_blank"

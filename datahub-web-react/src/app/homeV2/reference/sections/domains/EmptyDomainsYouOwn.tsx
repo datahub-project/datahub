@@ -17,8 +17,10 @@ export const EmptyDomainsYouOwn = () => {
                 t={t}
                 i18nKey="yourDomains.learnMoreAbout"
                 components={{
-                    // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
-                    link: <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains" />,
+                    anchor: (
+                        // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                        <a target="_blank" rel="noreferrer noopener" href="https://docs.datahub.com/docs/domains" />
+                    ),
                 }}
             />
         </Text>
