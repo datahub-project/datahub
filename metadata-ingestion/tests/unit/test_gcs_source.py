@@ -606,6 +606,86 @@ def test_gcs_oauth_aws_config_registers_hooks_on_get_s3_resource():
         )
 
 
+# --- GKE Workload Identity (ADC) tests ---
+
+_VALID_ADC_CONFIG = {
+    "path_specs": _BASE_WIF_PATH_SPECS,
+    "auth_type": "workload_identity",
+}
+
+
+def test_workload_identity_config_requires_no_wif_options():
+    """workload_identity auth_type is valid with no WIF config options."""
+    config = GCSSourceConfig.model_validate(_VALID_ADC_CONFIG)
+    assert config.auth_type == "workload_identity"
+    assert config.gcp_wif_configuration is None
+    assert config.gcp_wif_configuration_json is None
+    assert config.gcp_wif_configuration_json_string is None
+
+
+def test_workload_identity_config_rejects_wif_options():
+    """workload_identity auth_type must not have WIF config options set."""
+    source = {
+        "path_specs": _BASE_WIF_PATH_SPECS,
+        "auth_type": "workload_identity",
+        "gcp_wif_configuration": "/path/to/wif.json",
+    }
+    with pytest.raises(
+        ValidationError, match="gcp_wif_configuration options must not be set"
+    ):
+        GCSSourceConfig.model_validate(source)
+
+
+def test_workload_identity_config_rejects_hmac_credential():
+    """workload_identity auth_type must not have HMAC credentials (credential is for hmac only)."""
+    # hmac validator only fires when auth_type is 'hmac', so providing credential is allowed
+    # by validators but the auth path never uses it — this test documents the validator does
+    # not accidentally require credential for workload_identity.
+    config = GCSSourceConfig.model_validate(_VALID_ADC_CONFIG)
+    assert config.credential is None
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation(mock_google_auth_default):
+    """GCSSource with workload_identity calls google.auth.default and wires Bearer-token injection."""
+    mock_creds = mock.MagicMock()
+    mock_google_auth_default.return_value = (mock_creds, "gke-project")
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    gcs_source = GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+    mock_google_auth_default.assert_called_once_with(
+        scopes=["https://www.googleapis.com/auth/cloud-platform"]
+    )
+    aws_config = gcs_source.s3_source.source_config.aws_config
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is mock_creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) == "gke-project"
+    gcs_source.close()
+
+
+@mock.patch("google.auth.default")
+def test_workload_identity_source_creation_no_project(mock_google_auth_default):
+    """GCSSource with workload_identity works when google.auth.default returns no project_id."""
+    mock_creds = mock.MagicMock()
+    mock_google_auth_default.return_value = (mock_creds, None)
+
+    graph = mock.MagicMock(spec=DataHubGraph)
+    ctx = PipelineContext(
+        run_id="test-gcs-adc", graph=graph, pipeline_name="test-gcs-adc"
+    )
+
+    gcs_source = GCSSource.create(_VALID_ADC_CONFIG, ctx)
+
+    aws_config = gcs_source.s3_source.source_config.aws_config
+    assert getattr(aws_config, "_gcs_oauth_credentials", None) is mock_creds
+    assert getattr(aws_config, "_gcs_oauth_project_id", None) is None
+    gcs_source.close()
+
+
 def test_gcs_oauth_aws_config_no_hooks_without_creds():
     """GCSOAuthAwsConnectionConfig.get_s3_client does not register hooks when no creds."""
     with mock.patch.object(

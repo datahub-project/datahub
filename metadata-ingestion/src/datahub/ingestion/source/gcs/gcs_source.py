@@ -125,6 +125,7 @@ class GCSOAuthAwsConnectionConfig(AwsConnectionConfig):
 class GCSAuthType(StrEnum):
     HMAC = "hmac"
     WORKLOAD_IDENTITY_FEDERATION = "workload_identity_federation"
+    WORKLOAD_IDENTITY = "workload_identity"
 
 
 class HMACKey(ConfigModel):
@@ -141,7 +142,11 @@ class GCSSourceConfig(
 ):
     auth_type: GCSAuthType = Field(
         default=GCSAuthType.HMAC,
-        description="Authentication type to use. Defaults to HMAC keys. Set to 'workload_identity_federation' to use Workload Identity Federation.",
+        description=(
+            "Authentication type to use. Defaults to 'hmac'. "
+            "Set to 'workload_identity_federation' to authenticate via a WIF configuration file (for external workloads). "
+            "Set to 'workload_identity' to use Application Default Credentials — the recommended option when running inside GKE with Workload Identity enabled."
+        ),
     )
 
     credential: Optional[HMACKey] = Field(
@@ -186,6 +191,17 @@ class GCSSourceConfig(
                     raise ValueError(
                         "One of gcp_wif_configuration (file path), gcp_wif_configuration_json (JSON content), "
                         "or gcp_wif_configuration_json_string (JSON string) is required when auth_type is 'workload_identity_federation'"
+                    )
+            elif auth_type == GCSAuthType.WORKLOAD_IDENTITY:
+                wif_options = [
+                    values.get("gcp_wif_configuration"),
+                    values.get("gcp_wif_configuration_json"),
+                    values.get("gcp_wif_configuration_json_string"),
+                ]
+                if any(opt is not None for opt in wif_options):
+                    raise ValueError(
+                        "gcp_wif_configuration options must not be set when auth_type is 'workload_identity'. "
+                        "Credentials are sourced automatically from Application Default Credentials (e.g. GKE Workload Identity)."
                     )
         return values
 
@@ -239,6 +255,13 @@ class GCSSource(StatefulIngestionSourceBase):
     def _setup_wif_credentials(self) -> None:
         self._wif_credentials, self._wif_project_id = load_wif_credentials(self.config)
 
+    def _setup_adc_credentials(self) -> None:
+        import google.auth
+
+        self._wif_credentials, self._wif_project_id = google.auth.default(
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+
     def create_equivalent_s3_config(self) -> DataLakeSourceConfig:
         s3_path_specs = self.create_equivalent_s3_path_specs()
 
@@ -263,10 +286,30 @@ class GCSSource(StatefulIngestionSourceBase):
                 platform=PLATFORM_GCS,
                 platform_instance=self.config.platform_instance,
             )
-        else:  # workload_identity_federation
-            # For workload identity federation, we don't use HMAC credentials.
-            # Use a GCS OAuth config that injects Bearer token into boto3 requests.
+        elif self.config.auth_type == GCSAuthType.WORKLOAD_IDENTITY_FEDERATION:
             self._setup_wif_credentials()
+
+            aws_config = GCSOAuthAwsConnectionConfig(
+                aws_endpoint_url=GCS_ENDPOINT_URL,
+                aws_region="auto",
+                aws_access_key_id="gcs-oauth",
+                aws_secret_access_key="not-used",
+            )
+            aws_config._gcs_oauth_credentials = self._wif_credentials
+            aws_config._gcs_oauth_project_id = self._wif_project_id
+
+            s3_config = DataLakeSourceConfig(
+                path_specs=s3_path_specs,
+                aws_config=aws_config,
+                env=self.config.env,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+                max_rows=self.config.max_rows,
+                number_of_files_to_sample=self.config.number_of_files_to_sample,
+                platform=PLATFORM_GCS,
+                platform_instance=self.config.platform_instance,
+            )
+        else:  # workload_identity — use Application Default Credentials (e.g. GKE Workload Identity)
+            self._setup_adc_credentials()
 
             aws_config = GCSOAuthAwsConnectionConfig(
                 aws_endpoint_url=GCS_ENDPOINT_URL,
