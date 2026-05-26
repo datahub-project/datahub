@@ -16,8 +16,6 @@
 import { test, expect } from '../../fixtures/base-test';
 import { GroupsPage } from '../../pages/settings/groups.page';
 
-test.use({ featureName: 'settings-v2' });
-
 function createTestId() {
   return Math.floor(Math.random() * 100000);
 }

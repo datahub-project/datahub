@@ -9,8 +9,6 @@ import { test } from '../../fixtures/base-test';
 import { HomePagePostsPage } from '../../pages/settings/home-page-posts.page';
 import { withRandomSuffix } from '../../utils/random';
 
-test.use({ featureName: 'settings-v2' });
-
 test.describe('create announcement and link post', () => {
   let postsPage: HomePagePostsPage;
 

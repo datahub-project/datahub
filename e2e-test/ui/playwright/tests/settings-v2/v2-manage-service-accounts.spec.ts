@@ -8,8 +8,6 @@
 import { test } from '../../fixtures/base-test';
 import { ServiceAccountsPage } from '../../pages/settings/service-accounts.page';
 
-test.use({ featureName: 'settings-v2' });
-
 function getUniqueTestId(): number {
   return Math.floor(Math.random() * 100000);
 }

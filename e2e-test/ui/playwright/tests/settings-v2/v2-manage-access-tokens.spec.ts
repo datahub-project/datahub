@@ -5,8 +5,6 @@
 import { test, expect } from '../../fixtures/base-test';
 import { AccessTokensPage } from '../../pages/settings/access-tokens.page';
 
-test.use({ featureName: 'settings-v2' });
-
 const testId = Math.floor(Math.random() * 100000);
 
 test.describe('manage access tokens', () => {
