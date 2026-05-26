@@ -25,7 +25,7 @@ on:
       channel:
         type: string
         required: false
-        default: "#datahub-build-notifications"
+        default: "#datahub-oss-build-notifications"
         description: Slack channel to post to
       thread_ts_file:
         type: string
@@ -109,7 +109,6 @@ jobs:
           key: slack-thread-${{ steps.fetch-details.outputs.head_sha }}
 
       - name: Post Slack notification
-        continue-on-error: true
         env:
           SLACK_BOT_TOKEN: ${{ secrets.CI_NOTIFIER_SLACK_BOT_TOKEN }}
           CHANNEL: ${{ inputs.channel }}
