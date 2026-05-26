@@ -55,7 +55,7 @@ source:
     # soft-deleted on the next run.
     # max_projects: 50
 
-    # Enable incremental ingestion + stale-entity removal.
+    # Enable stale-entity removal (projects deleted in Hex are soft-deleted in DataHub).
     stateful_ingestion:
       enabled: true
 

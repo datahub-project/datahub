@@ -29,13 +29,9 @@ connection_platform_map:
     default_database: my-gcp-project
 ```
 
-#### Incremental Ingestion
+#### Stale Entity Removal
 
-Enable by configuring `stateful_ingestion`. On subsequent runs:
-
-- **Unchanged projects** skip cell, lineage, and context-document fetches. Only the latest run record is refreshed (when `include_run_history` is enabled).
-- **Changed projects** are fully re-processed.
-- **Projects deleted in Hex** are soft-deleted in DataHub.
+Enable by configuring `stateful_ingestion`. Projects deleted in Hex are soft-deleted in DataHub on the next run.
 
 `max_projects` caps projects per run. With `stateful_ingestion` enabled, projects beyond the limit are treated as stale and soft-deleted — only set it if that is the intended behavior.
 

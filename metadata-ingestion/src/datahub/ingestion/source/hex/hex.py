@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Union
 
 from typing_extensions import assert_never
@@ -16,7 +15,6 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -29,7 +27,6 @@ from datahub.ingestion.source.hex.api import HexApi, HexApiConnection, HexApiRep
 from datahub.ingestion.source.hex.config import HexConnectionDetail, HexSourceConfig
 from datahub.ingestion.source.hex.constants import (
     CONNECTION_TYPE_TO_DATAHUB_PLATFORM,
-    HEX_INCREMENTAL_JOB_ID,
     HEX_PLATFORM_NAME,
 )
 from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
@@ -42,18 +39,15 @@ from datahub.ingestion.source.hex.model import (
     Component,
     ExploreCell,
     HexConnection,
-    HexIncrementalCheckpointState,
     Project,
     SqlCell,
 )
-from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
-    StatefulIngestionUsecaseHandlerBase,
 )
 from datahub.metadata.schema_classes import StatusClass
 
@@ -70,33 +64,6 @@ class HexReport(
     components_with_lineage: int = 0
     projects_without_sql_cells: int = 0
     components_without_sql_cells: int = 0
-    # Incremental ingestion counters — visible in ingestion run summary
-    projects_full_refresh: int = 0
-    projects_incremental_skip: int = 0
-
-
-class _HexIncrementalHandler(StatefulIngestionUsecaseHandlerBase):
-    """Minimal use-case handler that registers the incremental checkpoint job with the framework."""
-
-    def __init__(self, source: "HexSource") -> None:
-        self._source = source
-        source.state_provider.register_stateful_ingestion_usecase_handler(self)
-
-    @property
-    def job_id(self) -> JobId:
-        return HEX_INCREMENTAL_JOB_ID
-
-    def is_checkpointing_enabled(self) -> bool:
-        return self._source.state_provider.is_stateful_ingestion_configured()
-
-    def create_checkpoint(self) -> Optional[Checkpoint[HexIncrementalCheckpointState]]:
-        assert self._source.ctx.pipeline_name
-        return Checkpoint(
-            job_name=str(HEX_INCREMENTAL_JOB_ID),
-            pipeline_name=self._source.ctx.pipeline_name,
-            run_id=self._source.ctx.run_id,
-            state=HexIncrementalCheckpointState(),
-        )
 
 
 @platform_name("Hex")
@@ -155,11 +122,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.project_registry: Dict[str, Project] = {}
         self.component_registry: Dict[str, Component] = {}
-        # Timestamp of the last successful checkpoint (millis). Used to guard
-        # against re-emitting run history that was already captured.
-        self._last_ingested_at_ms: Optional[int] = None
-        # Register the incremental ingestion use-case handler.
-        _HexIncrementalHandler(self)
 
     @classmethod
     def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> "HexSource":
@@ -443,16 +405,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return report
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        # Keep a reference so the light path can register URNs via
-        # add_entity_to_state without re-emitting full aspects. Otherwise
-        # unchanged projects vanish from this run's tracked URNs
-        # and incorrectly removed by the stale-entity removal handler.
-        self._stale_handler = StaleEntityRemovalHandler.create(
-            self, self.source_config, self.ctx
-        )
         return [
             *super().get_workunit_processors(),
-            self._stale_handler.workunit_processor,
+            StaleEntityRemovalHandler.create(
+                self, self.source_config, self.ctx
+            ).workunit_processor,
         ]
 
     def get_report(self) -> HexReport:
@@ -466,19 +423,13 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         Components by the previous connector version (pre-v1.1).
 
         In v1.1+ Components are Chart entities; previously they were Dashboard
-        entities with subtype 'Component'. If any such Dashboard entities still
-        exist in DataHub this method:
-          1. Paginates through all of them and emits Status(removed=True) to
-             each — ensuring cleanup regardless of whether the stale-entity
-             removal handler was tracking them.
-          2. Resets self._last_ingested_at_ms to None so every project takes
-             the full path this run, re-emitting DashboardInfo.charts with the
-             new Chart URNs. The end-of-run checkpoint still writes
-             run_start_ms, so subsequent runs resume incremental mode normally.
+        entities with subtype 'Component'. This method paginates through any
+        such Dashboard entities still in DataHub and emits Status(removed=True)
+        to each — ensuring cleanup regardless of whether the stale-entity
+        removal handler was tracking them.
 
         Requires ctx.graph. If the graph is unavailable the migration is
-        skipped silently; operators should run once with ignore_old_state=true
-        to force a full re-process manually.
+        skipped silently.
         """
         if not self.ctx.graph:
             return
@@ -521,7 +472,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         except Exception as e:
             logger.warning(
                 "Failed to query for legacy Dashboard-typed components: %s. "
-                "Skipping migration — run with ignore_old_state=true if needed.",
+                "Skipping migration.",
                 e,
             )
             return
@@ -531,7 +482,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         logger.info(
             "Found %d legacy Dashboard-typed Component entities from a previous "
-            "connector version. Soft-deleting and forcing full re-process.",
+            "connector version. Soft-deleting.",
             len(legacy_urns),
         )
         for urn in legacy_urns:
@@ -543,11 +494,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 ),
             )
 
-        # Force every project through the full path this run so DashboardInfo.charts
-        # is re-emitted with the new Chart URNs. The light-path gate in _stream_project
-        # reads self._last_ingested_at_ms;
-        self._last_ingested_at_ms = None
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Prefer the explicit config value so users can avoid granting the
         # 'Users → Read access' scope just for external-URL building.
@@ -556,32 +502,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.mapper.workspace_id = self.workspace_id
 
-        # Read incremental checkpoint — None on first run or when ignore_old_state=true
-        run_start_ms = int(datetime.now(tz=timezone.utc).timestamp() * 1000)
-        last_checkpoint = self.state_provider.get_last_checkpoint(
-            HEX_INCREMENTAL_JOB_ID, HexIncrementalCheckpointState
-        )
-        self._last_ingested_at_ms = (
-            last_checkpoint.state.last_ingested_at_millis
-            if last_checkpoint and last_checkpoint.state.last_ingested_at_millis
-            else None
-        )
-        if self._last_ingested_at_ms:
-            logger.info(
-                "Incremental ingestion: last checkpoint at %s. "
-                "Projects unchanged since then will skip cells/lineage/context fetches.",
-                datetime.fromtimestamp(
-                    self._last_ingested_at_ms / 1000, tz=timezone.utc
-                ).isoformat(),
-            )
-        else:
-            logger.info("No incremental checkpoint found — performing full ingestion.")
-
         # One-time migration: soft-delete legacy Dashboard-typed Component entities
-        # from the previous connector version and force a full re-process. The
-        # migration resets self._last_ingested_at_ms when legacy entities are found
-        # so every project takes the full path this run.
-        # No-op after the first successful migration run (search returns 0).
+        # from the previous connector version. No-op after the first successful
+        # migration run (search returns 0).
         with self.report.new_stage("Migrate legacy Component entities"):
             yield from self._migrate_legacy_component_dashboards()
 
@@ -610,10 +533,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         yield from self.mapper.map_workspace()
 
         # Single streaming pass: process and emit each item as it arrives.
-        # The listing is paginated fully (no early termination) so every project
-        # is seen each run. Unchanged projects take the "light" path inside
-        # _stream_project — they skip cells/lineage/context fetches and only
-        # check run history.
         projects_processed = 0
         with self.report.new_stage("Stream projects and components"):
             for item in self.hex_api.fetch_projects(
@@ -644,15 +563,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                             break
                 else:
                     assert_never(item)
-
-        # Commit incremental checkpoint.
-        cur_checkpoint = self.state_provider.get_current_checkpoint(
-            HEX_INCREMENTAL_JOB_ID
-        )
-        if cur_checkpoint is not None:
-            cur_checkpoint.state = HexIncrementalCheckpointState(
-                last_ingested_at_millis=run_start_ms
-            )
 
     def _resolve_connections(
         self,
@@ -870,30 +780,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """Process and emit a single project immediately."""
         self.project_registry[project.id] = project
-        self.report.projects_full_refresh += 1
-
-        # Light path: project hasn't been edited since the last checkpoint, so
-        # cells/lineage/context haven't changed. Skip the expensive fetches and
-        # only refresh run history for published projects.
-        if (
-            self._last_ingested_at_ms
-            and project.last_edited_at
-            and int(project.last_edited_at.timestamp() * 1000)
-            <= self._last_ingested_at_ms
-        ):
-            # Register URNs we won't re-emit so stale-entity-removal keeps them.
-            dashboard_urn = self.mapper.get_dashboard_urn(project.id).urn()
-            self._stale_handler.add_entity_to_state("dashboard", dashboard_urn)
-            if self.source_config.include_context_documents:
-                self._stale_handler.add_entity_to_state(
-                    "document", f"urn:li:document:hex-{project.id}"
-                )
-            if self.source_config.include_run_history and project.last_published_at:
-                run = self.hex_api.fetch_latest_run(project.id)
-                if run:
-                    project.latest_run = run
-            yield from self._emit_run_history_patch(project)
-            return
 
         # Export: cells + component IDs
         all_cells, comp_ids = self.hex_api.fetch_project_export(project.id)
@@ -926,10 +812,10 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
 
         # Emit project MCPs
         yield from self.mapper.map_project(project=project)
-        new_run_ms = self._new_completed_run_ms(project)
-        if new_run_ms is not None:
+        if project.latest_run and project.latest_run.status == "COMPLETED":
             yield from self.mapper.map_project_last_refreshed(
-                project=project, last_refreshed_ms=new_run_ms
+                project=project,
+                last_refreshed_ms=make_ts_millis(project.latest_run.start_time),
             )
 
         # Context document
@@ -940,28 +826,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 connections=connections,
                 parent_urn=self.mapper.get_dashboard_urn(project.id).urn(),
             )
-
-    def _emit_run_history_patch(self, project: Project) -> Iterable[MetadataWorkUnit]:
-        """Emit a lastRefreshed PATCH if a new COMPLETED run exists."""
-        self.report.projects_incremental_skip += 1
-        new_run_ms = self._new_completed_run_ms(project)
-        if new_run_ms is not None:
-            yield from self.mapper.map_project_last_refreshed(
-                project=project, last_refreshed_ms=new_run_ms
-            )
-
-    def _new_completed_run_ms(self, project: Project) -> Optional[int]:
-        """Return the run start timestamp (ms) if the project has a COMPLETED run
-        that happened AFTER the last checkpoint, otherwise None.
-
-        Runs older than the checkpoint were already emitted in the previous
-        ingestion — re-emitting would be stale. On the first run (no checkpoint)
-        last_ingested_at_ms is None so all COMPLETED runs are considered new.
-        """
-        if not project.latest_run or project.latest_run.status != "COMPLETED":
-            return None
-        run_ms = make_ts_millis(project.latest_run.start_time)
-        return run_ms if run_ms > (self._last_ingested_at_ms or 0) else None
 
 
 def _parse_sql_cell(cell: dict) -> Optional[SqlCell]:

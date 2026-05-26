@@ -1,6 +1,6 @@
 ### Overview
 
-The `hex` module ingests Hex Projects, Components, workspaces, and upstream lineage directly from the Hex REST API. It runs incrementally after the first full ingestion run if stateful ingestion is enabled.
+The `hex` module ingests Hex Projects, Components, workspaces, and upstream lineage directly from the Hex REST API.
 
 ### Prerequisites
 
