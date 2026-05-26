@@ -465,8 +465,11 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("selectOptionInTagTermModal", (text) => {
-  cy.enterTextInTestId("tag-term-modal-input", text);
-  cy.clickOptionWithTestId("tag-term-option");
+  // AddTagsTermsModal uses alchemy SimpleSelect: the trigger opens a portal-
+  // rendered dropdown containing the search input and the options.
+  cy.getWithTestId("tag-term-modal-input").click();
+  cy.get('[data-testid="dropdown-search-input"]').type(text);
+  cy.get(`[data-testid="tag-term-option-${text}"]`).first().click({ force: true });
   const btn_id = "add-tag-term-from-modal-btn";
   cy.clickOptionWithTestId(btn_id);
   cy.get(selectorWithtestId(btn_id)).should("not.exist");
@@ -485,7 +488,7 @@ Cypress.Commands.add(
   (urn, dataset_name, domain_urn) => {
     cy.goToDataset(urn, dataset_name);
     cy.get(
-      `.sidebar-domain-section [href="/domain/${domain_urn}"] .anticon-close`,
+      `.sidebar-domain-section [href="/domain/${domain_urn}"] [data-testid="remove-icon"]`,
     ).click();
     cy.clickOptionWithText("Yes");
   },
@@ -495,7 +498,9 @@ Cypress.Commands.add(
   "removeApplicationFromDataset",
   (urn, dataset_name, application_urn) => {
     cy.goToDataset(urn, dataset_name);
-    cy.get(`.sidebar-application-section .anticon-close`).click();
+    cy.get(
+      `.sidebar-application-section [data-testid="remove-icon"]`,
+    ).click();
     cy.clickOptionWithText("Yes");
   },
 );
