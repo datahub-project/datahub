@@ -12,7 +12,7 @@ const FieldWrapper = styled.div<{ $isClickable: boolean; $color?: string }>`
     border-radius: 50px;
     padding: 5px 8px;
     &:hover {
-        background: ${(props) => props.theme.colors.bgSurface};
+        background: ${(props) => props.theme.colors.bgHover};
     }
 
     ${(props) => props.$isClickable && `cursor: pointer;`}

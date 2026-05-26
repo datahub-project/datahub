@@ -12,6 +12,7 @@ import {
 } from '@app/ingest/source/utils';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { scrollToTop } from '@app/shared/searchUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 
 import { useGetExecutionRunsQuery } from '@graphql/runs.generated';
 import { DataProcessInstanceRunResultType, DataProcessRunStatus } from '@types';
@@ -116,7 +117,7 @@ export const RunsTab = () => {
             render: (externalUrl) =>
                 externalUrl && (
                     <Tooltip title="View task run details">
-                        <ExternalUrlLink href={externalUrl}>
+                        <ExternalUrlLink href={safeUrl(externalUrl)}>
                             <DeliveredProcedureOutlined />
                         </ExternalUrlLink>
                     </Tooltip>

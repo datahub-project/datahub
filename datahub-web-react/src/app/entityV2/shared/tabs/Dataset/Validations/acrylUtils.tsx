@@ -1,5 +1,4 @@
 import { ApiOutlined } from '@ant-design/icons';
-import cronstrue from 'cronstrue';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -9,6 +8,7 @@ import { sortAssertions } from '@app/entityV2/shared/tabs/Dataset/Validations/as
 import { lowerFirstLetter } from '@app/shared/textUtil';
 import { ASSERTION_TYPE_TO_ICON_MAP } from '@src/app/entityV2/shared/tabs/Dataset/Validations/shared/constant';
 import { GetDatasetAssertionsWithRunEventsQuery } from '@src/graphql/dataset.generated';
+import { cronToString } from '@utils/cronstrue';
 
 import { Assertion, AssertionResultType, AssertionType, EntityType } from '@types';
 
@@ -199,7 +199,7 @@ export const getCronAsText = (interval: string, options: { verbose: boolean } = 
     if (interval) {
         try {
             return {
-                text: `${lowerFirstLetter(cronstrue.toString(interval, { verbose }))}.`,
+                text: `${lowerFirstLetter(cronToString(interval, { verbose }))}.`,
                 error: false,
             };
         } catch (e) {

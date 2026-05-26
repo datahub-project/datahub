@@ -10,7 +10,7 @@ apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
     compose_base = "profiles/docker-compose.yml"
-    project_name = "datahub"
+    project_name = System.getenv("COMPOSE_PROJECT_NAME") ?: "datahub"
 
     backend_profile_modules = [
             ':datahub-upgrade',

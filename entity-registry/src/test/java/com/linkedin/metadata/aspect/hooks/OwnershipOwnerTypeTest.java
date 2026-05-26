@@ -113,6 +113,30 @@ public class OwnershipOwnerTypeTest {
     assertEquals(resulted.getSecond(), false);
   }
 
+  /**
+   * Regression: ingestion sources commonly emit Ownership with owners populated and ownerTypes
+   * omitted. When the owner list is unchanged from the stored aspect, the hook must still
+   * re-materialize ownerTypes on the proposal so the empty map cannot wipe the persisted one.
+   */
+  @Test
+  public void testRepeatIngestPreservesOwnerTypesWhenProposalOmitsThem() throws URISyntaxException {
+    Ownership stored = getOwnership(true, true, false);
+    Ownership proposal = getOwnership(true, false, false);
+    TestMCP mcp = withPrevious(getTestMcpBuilder().recordTemplate(proposal), stored).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(
+        result.get(0).getSecond(),
+        "Hook must mutate the proposal so the omitted ownerTypes does not overwrite storage.");
+    assertEquals(
+        proposal.getOwnerTypes(),
+        stored.getOwnerTypes(),
+        "Re-materialized ownerTypes should match the previously stored map.");
+  }
+
   @Test
   public void testChangeAddBusinessOwnerType() throws URISyntaxException {
     Ownership ownership = getOwnership(true, false, false);
