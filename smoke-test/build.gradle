@@ -52,6 +52,18 @@ task cypressLintFix(type: YarnTask, dependsOn: yarnInstall) {
   args = ['--cwd', "${project.rootDir}/smoke-test/tests/cypress", 'run', 'format', '--write']
 }
 
+task playwrightYarnInstall(type: YarnTask) {
+  args = ['install', '--network-timeout', '300000', '--cwd', "${project.rootDir}/e2e-test/ui/playwright"]
+}
+
+task playwrightLintFix(type: YarnTask, dependsOn: playwrightYarnInstall) {
+  args = ['--cwd', "${project.rootDir}/e2e-test/ui/playwright", 'run', 'lint:fix']
+}
+
+task playwrightPrettierWrite(type: YarnTask, dependsOn: playwrightYarnInstall) {
+  args = ['--cwd', "${project.rootDir}/e2e-test/ui/playwright", 'run', 'format']
+}
+
 task installDev(type: Exec) {
     inputs.file file('pyproject.toml')
     inputs.file file('requirements.txt')
