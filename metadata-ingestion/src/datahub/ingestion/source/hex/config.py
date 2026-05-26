@@ -1,6 +1,6 @@
 from typing import Dict, Optional
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -181,6 +181,15 @@ class HexSourceConfig(
         "WARNING: with stateful ingestion enabled, projects beyond this limit are soft-deleted "
         "on the next run.",
     )
+
+    @field_validator("base_url")
+    @classmethod
+    def _validate_base_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError(
+                f"base_url must start with 'http://' or 'https://', got: {value!r}"
+            )
+        return value.rstrip("/")
 
     # Removed fields — emit a clear warning rather than silently ignoring.
     # These were used by the old DataHub-query-fetcher lineage path which searched

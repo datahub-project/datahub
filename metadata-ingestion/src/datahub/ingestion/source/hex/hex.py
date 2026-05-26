@@ -2,6 +2,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import sqlglot
+import yaml
 from typing_extensions import assert_never
 
 from datahub.emitter.mce_builder import make_ts_millis
@@ -139,9 +141,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         """
         result: Dict[str, set] = {}
         try:
-            import sqlglot as _sqlglot
-            import yaml as _yaml
-
             sample_ids = [
                 p.get("id")
                 for p in api.session.get(
@@ -163,7 +162,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 )
                 if not exp_r.ok:
                     continue
-                content = _yaml.safe_load(exp_r.json().get("content", "")) or {}
+                content = yaml.safe_load(exp_r.json().get("content", "")) or {}
                 for cell in content.get("cells", []):
                     if cell.get("cellType") != "SQL":
                         continue
@@ -174,9 +173,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                         continue
                     result.setdefault(conn_id, set())
                     if sql_src and len(result[conn_id]) < 3:
-                        for stmt in _sqlglot.parse(sql_src):
+                        for stmt in sqlglot.parse(sql_src):
                             if stmt:
-                                for tbl in stmt.find_all(_sqlglot.exp.Table):
+                                for tbl in stmt.find_all(sqlglot.exp.Table):
                                     name = str(tbl).split(" ")[0].strip("\"'`")
                                     if "." in name and len(name) < 120:
                                         result[conn_id].add(name)
@@ -214,7 +213,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 token=config.token.get_secret_value(),
                 base_url=config.base_url,
             )
-            base = config.base_url.rstrip("/")
+            base = config.base_url
             headers = {"Authorization": f"Bearer {config.token.get_secret_value()}"}
 
             # Basic connectivity — probe /v1/users/me, then fall back to /v1/projects.
@@ -628,7 +627,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         return connections
 
     def _is_filtered(self, item: Union[Project, Component]) -> bool:
-        """Return True if the item should be skipped due to category/title filters."""
+        """Return True if the item should be skipped due to category_pattern.
+
+        Uncategorized items always pass (category_pattern is only consulted
+        when the item has at least one category).
+        """
         if item.categories and (
             any(
                 self.source_config.category_pattern.denied(c.name)

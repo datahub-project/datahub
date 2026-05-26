@@ -1,3 +1,4 @@
+import time
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
@@ -10,6 +11,7 @@ from datahub.ingestion.source.hex.api import (
     HexApiProjectsListResponse,
     HexApiReport,
     _extract_connection_defaults,
+    _RateLimiter,
 )
 from datahub.ingestion.source.hex.model import (
     Component,
@@ -351,11 +353,7 @@ class TestHexAPI:
 
 class TestRateLimiter:
     def test_allows_calls_within_limit(self):
-        from datahub.ingestion.source.hex.api import _RateLimiter
-
         limiter = _RateLimiter(max_calls=5, period=60.0)
-        import time
-
         start = time.monotonic()
         for _ in range(5):
             limiter.acquire()
@@ -363,10 +361,6 @@ class TestRateLimiter:
         assert time.monotonic() - start < 1.0
 
     def test_sleeps_when_limit_exceeded(self):
-        import time
-
-        from datahub.ingestion.source.hex.api import _RateLimiter
-
         # 3 calls in 0.2s window — 4th should sleep
         limiter = _RateLimiter(max_calls=3, period=0.2)
         for _ in range(3):

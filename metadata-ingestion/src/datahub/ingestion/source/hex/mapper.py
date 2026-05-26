@@ -451,7 +451,10 @@ class Mapper:
             try:
                 col_name = SchemaFieldUrn.from_string(urn).field_path
             except Exception:
-                col_name = ""
+                logger.warning(
+                    "Skipping malformed schema field URN: %s", urn, exc_info=True
+                )
+                continue
             if not col_name:
                 continue
             fields.append(

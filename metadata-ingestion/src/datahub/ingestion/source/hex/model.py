@@ -90,7 +90,9 @@ class Analytics:
 
 
 @dataclass
-class Project:
+class _HexItemBase:
+    """Shared fields between Project and Component."""
+
     id: str
     title: str
     description: Optional[str]
@@ -103,13 +105,16 @@ class Project:
     creator: Optional[Owner] = None
     owner: Optional[Owner] = None
     analytics: Optional[Analytics] = None
-    # Dataset URN strings resolved by the lineage builder.
-    # These are stored in DashboardInfo.datasetEdges — the correct
-    # dataset-level lineage mechanism for Dashboard entities.
+    # Dataset URN strings resolved by the lineage builder. For Project, these
+    # are stored in DashboardInfo.datasetEdges; for Component, in ChartInfo.inputs.
     upstream_datasets: List[str] = field(default_factory=list)
     # SchemaField URN strings for column-level lineage (InputFieldsClass).
     # Populated only when a graph-backed SchemaResolver is available.
     input_fields: List[str] = field(default_factory=list)
+
+
+@dataclass
+class Project(_HexItemBase):
     # Component IDs imported by this project (populated via export API).
     # Stored in DashboardInfo.charts as Chart URNs.
     used_component_ids: List[str] = field(default_factory=list)
@@ -117,22 +122,5 @@ class Project:
 
 
 @dataclass
-class Component:
-    id: str
-    title: str
-    description: Optional[str]
-    last_edited_at: Optional[datetime] = None
-    last_published_at: Optional[datetime] = None
-    created_at: Optional[datetime] = None
-    status: Optional[Status] = None
-    categories: Optional[List[Category]] = None
-    collections: Optional[List[Collection]] = None
-    creator: Optional[Owner] = None
-    owner: Optional[Owner] = None
-    analytics: Optional[Analytics] = None
-    # Dataset URN strings resolved from the component's own SQL cells.
-    # Stored in ChartInfo.inputs.
-    upstream_datasets: List[str] = field(default_factory=list)
-    # SchemaField URN strings for column-level lineage (InputFieldsClass).
-    # Populated only when a graph-backed SchemaResolver is available.
-    input_fields: List[str] = field(default_factory=list)
+class Component(_HexItemBase):
+    pass

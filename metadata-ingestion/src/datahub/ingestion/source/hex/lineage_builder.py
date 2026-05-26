@@ -281,6 +281,11 @@ class HexLineageBuilder:
                 try:
                     parent_urn = SchemaFieldUrn.from_string(furn).parent
                 except Exception:
+                    logger.warning(
+                        "Skipping malformed schema field URN during queriedTables cross-validation: %s",
+                        furn,
+                        exc_info=True,
+                    )
                     continue
                 if parent_urn in queried_set:
                     matched.append(furn)

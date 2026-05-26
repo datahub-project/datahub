@@ -1,7 +1,10 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from datahub.ingestion.source.hex.document_builder import HexDocumentBuilder
+from datahub.ingestion.source.hex.document_builder import (
+    HexDocumentBuilder,
+    _indent_sql,
+)
 from datahub.ingestion.source.hex.model import (
     Category,
     Collection,
@@ -344,23 +347,17 @@ def test_build_document_custom_properties_include_counts():
 
 
 def test_indent_sql_strips_common_indent():
-    from datahub.ingestion.source.hex.document_builder import _indent_sql
-
     sql = "    SELECT id\n    FROM t"
     result = _indent_sql(sql)
     assert result == "SELECT id\nFROM t"
 
 
 def test_indent_sql_no_indent_unchanged():
-    from datahub.ingestion.source.hex.document_builder import _indent_sql
-
     sql = "SELECT id\nFROM t"
     assert _indent_sql(sql) == sql
 
 
 def test_indent_sql_mixed_indent_uses_minimum():
-    from datahub.ingestion.source.hex.document_builder import _indent_sql
-
     sql = "  SELECT id\n    FROM t"
     result = _indent_sql(sql)
     assert result == "SELECT id\n  FROM t"

@@ -19,6 +19,7 @@ from typing import (
 )
 
 import requests
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 from requests.adapters import HTTPAdapter
 from typing_extensions import assert_never
@@ -146,7 +147,7 @@ class HexApiProjectAnalytics(BaseModel):
 
     @field_validator("last_viewed_at", "published_results_updated_at", mode="before")
     @classmethod
-    def parse_datetime(cls, value):
+    def parse_datetime(cls, value: Union[str, datetime, None]) -> Optional[datetime]:
         if isinstance(value, str):
             return _parse_iso(value)
         return value
@@ -219,9 +220,9 @@ class HexApiSchedule(BaseModel):
 class HexApiSharing(BaseModel):
     """Sharing configuration model."""
 
-    users: Optional[List[HexApiUserAccess]] = []
-    collections: Optional[List[HexApiCollectionAccess]] = []
-    groups: Optional[List[dict]] = []
+    users: List[HexApiUserAccess] = Field(default_factory=list)
+    collections: List[HexApiCollectionAccess] = Field(default_factory=list)
+    groups: List[dict] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
 
@@ -243,7 +244,7 @@ class HexApiProjectApiResource(BaseModel):
     creator: Optional[HexApiUser] = None
     owner: Optional[HexApiUser] = None
     status: Optional[HexApiProjectStatus] = None
-    categories: Optional[List[HexApiCategory]] = []
+    categories: List[HexApiCategory] = Field(default_factory=list)
     reviews: Optional[HexApiReviews] = None
     analytics: Optional[HexApiProjectAnalytics] = None
     last_edited_at: Optional[datetime] = Field(default=None, alias="lastEditedAt")
@@ -251,7 +252,7 @@ class HexApiProjectApiResource(BaseModel):
     created_at: Optional[datetime] = Field(default=None, alias="createdAt")
     archived_at: Optional[datetime] = Field(default=None, alias="archivedAt")
     trashed_at: Optional[datetime] = Field(default=None, alias="trashedAt")
-    schedules: Optional[List[HexApiSchedule]] = []
+    schedules: List[HexApiSchedule] = Field(default_factory=list)
     sharing: Optional[HexApiSharing] = None
 
     model_config = ConfigDict(extra="ignore")  # Allow extra fields in the JSON
@@ -265,7 +266,7 @@ class HexApiProjectApiResource(BaseModel):
         mode="before",
     )
     @classmethod
-    def parse_datetime(cls, value):
+    def parse_datetime(cls, value: Union[str, datetime, None]) -> Optional[datetime]:
         if isinstance(value, str):
             return _parse_iso(value)
         return value
@@ -374,10 +375,10 @@ class HexApi:
 
         self.session.request = _rate_limited_request  # type: ignore[assignment]
 
-    def _list_projects_url(self):
+    def _list_projects_url(self) -> str:
         return f"{self.base_url}/projects"
 
-    def _auth_header(self):
+    def _auth_header(self) -> Dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"}
 
     def _create_retry_session(self) -> requests.Session:
@@ -797,8 +798,6 @@ class HexApi:
                                  recursively extracted from COLLAPSIBLE containers.
           component_ids        — component project IDs imported by this project.
         """
-        import yaml
-
         try:
             resp = self.session.post(
                 url=f"{self.base_url}/projects/export",
