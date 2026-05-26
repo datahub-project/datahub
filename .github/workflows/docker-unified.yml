@@ -1211,4 +1211,4 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
-          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
+          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}", "repoShaTag": "${{ needs.setup.outputs.tag }}" }}'
