@@ -25,7 +25,7 @@ const BorderedSection = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 16px;
-    border: solid ${(props) => props.theme.colors.bgSurface} 0.5px;
+    border: solid ${(props) => props.theme.colors.border} 0.5px;
 `;
 
 const StyledButton = styled(Button)<{ $isSelected: boolean }>`

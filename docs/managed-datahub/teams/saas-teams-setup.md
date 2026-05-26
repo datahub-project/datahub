@@ -36,13 +36,13 @@ Graph.
 ## Installing the DataHub Microsoft Teams App
 
 To enable the DataHub Teams app, you will need to install the DataHub Teams bot into your Teams workspace.
-DataHub Teams app is currently in **Private Beta** - you will need to manually upload the Teams app package (a ZIP file) to your Teams workspace.
+You will need to manually upload the Teams app package (a ZIP file) to your Teams workspace. The ZIP file can be downloaded directly from your DataHub instance.
 
 The following steps should be performed by a Teams or Azure Administrator:
 
 ### Creating the DataHub App in Teams
 
-1. Contact your DataHub Customer Success Rep for access to the Teams Private Beta.
+1. In DataHub, navigate to **Settings** > **Integrations** > **Teams**. Under **Teams App Package**, click **Download Teams App (.zip)** to download the Teams app package to your computer.
 
 2. Open [Teams Admin UI](https://admin.teams.microsoft.com/) in your web browser, and in the sidebar click **Teams Apps** > **Manage Apps**
    <p align="center"><img width="80%" alt="Connected to Microsoft Teams." src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/teams/setup/step-1.png" /></p>
