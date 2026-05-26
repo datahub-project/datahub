@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { fireEvent, render, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import TagTermGroup from '@app/shared/tags/TagTermGroup';
@@ -116,10 +116,12 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Tags')).toBeInTheDocument();
-        expect(queryByText('Search for tag...')).not.toBeInTheDocument();
+        // AddTagsTermsModal portals its body via alchemy Modal so the placeholder
+        // is appended to document.body — use `screen` instead of the bound query.
+        expect(screen.queryByText('Search for tag...')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Tags');
         fireEvent.click(AddTagButton);
-        expect(queryByText('Search for tag...')).toBeInTheDocument();
+        expect(screen.queryByText('Search for tag...')).toBeInTheDocument();
     });
 
     it('renders create term', () => {
@@ -138,10 +140,10 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Terms')).toBeInTheDocument();
-        expect(queryByText('Search for glossary term...')).not.toBeInTheDocument();
+        expect(screen.queryByText('Search for glossary term...')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Terms');
         fireEvent.click(AddTagButton);
-        expect(queryByText('Search for glossary term...')).toBeInTheDocument();
+        expect(screen.queryByText('Search for glossary term...')).toBeInTheDocument();
     });
 
     it('renders terms', () => {
