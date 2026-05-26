@@ -112,13 +112,14 @@ jobs:
           echo "yarn_cache_key=docker-unified-nightly-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-nightly-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
-      - name: Download build Metadata for latest head build
+      - name: Download build Metadata for latest master build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
 
@@ -126,7 +127,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -360,13 +361,14 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
-      - name: Download build Metadata for latest head build
+      - name: Download build Metadata for latest master build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
 
@@ -374,7 +376,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -398,8 +400,8 @@ jobs:
                 echo "Failed to pull $image"
                 failed_pulls=$((failed_pulls + 1))
               else
-                # Re-tag the head image with the nightly tag for smoke tests
-                newImage=${image/\:head/\:${{ needs.setup.outputs.tag }}}
+                # Re-tag the quickstart image with the nightly tag for smoke tests
+                newImage=${image/\:quickstart/\:${{ needs.setup.outputs.tag }}}
                 echo "Tagging $image as $newImage"
                 docker tag "$image" "$newImage"
               fi
@@ -419,7 +421,7 @@ jobs:
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
-          DATAHUB_ACTIONS_IMAGE: ${{ env.DOCKER_REPOSITORY }}/datahub-actions:head
+          DATAHUB_ACTIONS_IMAGE: ${{ env.DOCKER_REPOSITORY }}/datahub-actions:quickstart
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ matrix.profile }}
@@ -623,13 +625,14 @@ jobs:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
-      - name: Download build Metadata for latest head build
+      - name: Download build Metadata for latest master build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           run_id=$(gh run list  --workflow="docker-unified.yml" --branch master --event push --status success --limit 1 --json=databaseId  | jq '.[].databaseId')
           mkdir -p "${{ github.workspace }}/build"
-          gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '.artifacts[] | select(.name == "build-metadata-head") | .id' |  xargs -I {} gh api repos/datahub-project/datahub/actions/artifacts/{}/zip >"${{ github.workspace }}/build/build-metadata.zip"
+          artifact_id=$(gh api "repos/datahub-project/datahub/actions/runs/$run_id/artifacts" --jq '[.artifacts[] | select(.name | startswith("build-metadata-sha-"))] | last | .id')
+          gh api "repos/datahub-project/datahub/actions/artifacts/${artifact_id}/zip" >"${{ github.workspace }}/build/build-metadata.zip"
           unzip "${{ github.workspace }}/build/build-metadata.zip" -d "${{ github.workspace }}/build/"
           ls -l "${{ github.workspace }}/build/"
 
@@ -637,7 +640,7 @@ jobs:
         id: collect-images
         run: |
           # contains full repo/image:tag for all published images (includes all variants)
-          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep 'head' | tr '\n' ' ')"
+          images="$(depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print |  jq -cr '.target[].tags[]' | grep ':quickstart' | tr '\n' ' ')"
 
           echo "datahub_images=$images" >> "$GITHUB_OUTPUT"
 
@@ -672,7 +675,7 @@ jobs:
           eval "set -- ${{ steps.collect-images.outputs.datahub_images }}"
           for image do
             if [ -n "$image" ]; then
-              imageWithNightlyTag=${image/\:head/\:${{ needs.setup.outputs.tag }}}
+              imageWithNightlyTag=${image/\:quickstart/\:${{ needs.setup.outputs.tag }}}
               echo "Tagging $image as $imageWithNightlyTag"
               if ! docker tag "$image" "$imageWithNightlyTag"; then
                 echo "Failed to tag $imageWithNightlyTag"
@@ -683,7 +686,7 @@ jobs:
                 failed_pushes=$((failed_pushes + 1))
               fi
               
-              imageWithDateTag=${image/\:head/\:${{ needs.setup.outputs.date_tag }}}
+              imageWithDateTag=${image/\:quickstart/\:${{ needs.setup.outputs.date_tag }}}
               echo "Tagging $image as imageWithDateTag"
               if ! docker tag "$image" "$imageWithDateTag"; then
                 echo "Failed to tag imageWithDateTag"
