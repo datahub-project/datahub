@@ -3651,7 +3651,7 @@ class TableauSiteSource:
     ) -> MetadataChangeProposalWrapper:
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
-            aspect=EmbedClass(),
+            aspect=EmbedClass(renderUrl=embed_url),
         )
 
     def new_work_unit(self, mcp: MetadataChangeProposalWrapper) -> MetadataWorkUnit:

@@ -1,7 +1,7 @@
 name: ZDU E2E (daily)
 
 # Daily smoke test of the Zero-Downtime Upgrade migration framework.
-# Applies smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+# Applies smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
 # (which contains test-only PDL schemaVersion bumps + fake aspect-migration
 # mutators) onto a clean master checkout before running the full E2E
 # pipeline. Production code stays clean — the fixtures only exist inside
@@ -66,7 +66,7 @@ jobs:
         # "Regenerating the patch" steps.
         run: |
           git apply --check \
-            smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
 
       - name: Apply ZDU test-fixture patch
         # Materializes the 4 fake mutators + ZduTestMutatorConfiguration +
@@ -75,7 +75,7 @@ jobs:
         # workflow run.
         run: |
           git apply \
-            smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch
+            smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch
 
       - name: Regenerate metadata-models codegen
         # Must run AFTER the patch, otherwise the mutator Java files

@@ -13,7 +13,7 @@ Gradle's incremental-build cache alive between invocations.
 
 Tags use short SHAs so repeated runs cache-hit: ``zdu-old-{sha8}`` and
 ``zdu-new-{sha8}``. When the ZDU test-fixture patch
-(``smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch``) is
+(``smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch``) is
 present, it is applied to the NEW worktree before the NEW image build,
 and the NEW tag becomes ``zdu-new-{sha8}-p{patch_hash8}`` so a patch
 edit invalidates the docker cache even when the branch SHA is unchanged.
@@ -45,7 +45,7 @@ log = logging.getLogger(__name__)
 # the fake aspect-migration mutators + PDL schemaVersion bumps to the
 # NEW image only. Lives in smoke-test/ so production code never sees it.
 _TEST_FIXTURE_PATCH = Path(
-    "smoke-test/tests/zdu/fixtures/pdl-patches/test-fixtures.patch"
+    "smoke-test/tests/zdu/fixtures/pdl_patches/test-fixtures.patch"
 )
 
 _DEFAULT_SERVICES = (

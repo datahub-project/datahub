@@ -126,6 +126,11 @@ class TestExecutorValidateTakesCtxAndFiltersByTc:
         aspect_resp = MagicMock()
         tc1 = next(s for s in SUITE_N_SCENARIOS if s.tc_number == 301)
         aspect_resp.schema_version = tc1.expected_schema_version
+        # Chain-marker assertion expects displayName to start with the
+        # GlobalTagsV1ToV2 marker; provide a real dict so the validator's
+        # `.get("displayName")` returns the marker string rather than a
+        # MagicMock child.
+        aspect_resp.data = {"displayName": "[v1->v2] tagCount=1"}
         datahub.get_aspect.return_value = aspect_resp
 
         ctx = TestContext()
