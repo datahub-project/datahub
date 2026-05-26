@@ -116,12 +116,14 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Tags')).toBeInTheDocument();
-        // AddTagsTermsModal portals its body via alchemy Modal so the placeholder
-        // is appended to document.body — use `screen` instead of the bound query.
-        expect(screen.queryByText('Search for tag...')).not.toBeInTheDocument();
+        // The modal portals out of the render container; query via `screen` and
+        // assert against the SimpleSelect's container testid rather than its
+        // placeholder text — the placeholder is gated by IntersectionObserver
+        // (`useIsVisible`), which never fires in jsdom.
+        expect(screen.queryByTestId('tag-term-modal-input')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Tags');
         fireEvent.click(AddTagButton);
-        expect(screen.queryByText('Search for tag...')).toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).toBeInTheDocument();
     });
 
     it('renders create term', () => {
@@ -140,10 +142,10 @@ describe('TagTermGroup', () => {
             </MockedProvider>,
         );
         expect(queryByText('Add Terms')).toBeInTheDocument();
-        expect(screen.queryByText('Search for glossary term...')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).not.toBeInTheDocument();
         const AddTagButton = getByText('Add Terms');
         fireEvent.click(AddTagButton);
-        expect(screen.queryByText('Search for glossary term...')).toBeInTheDocument();
+        expect(screen.queryByTestId('tag-term-modal-input')).toBeInTheDocument();
     });
 
     it('renders terms', () => {
