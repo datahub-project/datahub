@@ -13,7 +13,7 @@ const Wrapper = styled.div<{
 
     background-color: ${(props) => props.theme.colors.bg};
     border-radius: 12px;
-    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.textBrand : theme.colors.border)};
+    border: 1px solid ${({ selected, theme }) => (selected ? theme.colors.borderSelected : theme.colors.border)};
     box-shadow: ${({ isSearchedEntity, theme }) =>
         isSearchedEntity ? `0 0 4px 4px ${theme.colors.border}` : theme.colors.shadowXs};
 

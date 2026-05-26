@@ -33,7 +33,7 @@ const TermContainer = styled.div<{ $showOneAndCount?: boolean }>`
 `;
 
 const PropagateThunderbolt = styled(ThunderboltOutlined)`
-    color: ${(props) => props.theme.colors.textSuccess};
+    color: ${(props) => props.theme.colors.iconSuccess};
     margin-right: -4px;
     font-weight: bold;
 `;

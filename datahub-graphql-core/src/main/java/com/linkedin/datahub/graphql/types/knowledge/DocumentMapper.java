@@ -55,22 +55,30 @@ public class DocumentMapper {
 
     // Map Document Info aspect
     final EnvelopedAspect envelopedInfo = aspects.get(Constants.DOCUMENT_INFO_ASPECT_NAME);
+    final com.linkedin.knowledge.DocumentInfo docInfo =
+        envelopedInfo != null
+            ? new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data())
+            : null;
 
-    // Compute lastIngested: prefer a proper run-based time, but fall back to lastObserved from
-    // documentInfo's systemMetadata because datahub writes with DEFAULT_RUN_ID.
+    // Compute lastIngested for external documents only. Prefer a proper run-based time, but fall
+    // back to lastObserved from documentInfo's systemMetadata because datahub writes with
+    // DEFAULT_RUN_ID (which produces no run record).
     Long lastIngested = SystemMetadataUtils.getLastIngestedTime(aspects);
-    if (lastIngested == null
-        && envelopedInfo != null
-        && envelopedInfo.hasSystemMetadata()
-        && envelopedInfo.getSystemMetadata().hasLastObserved()) {
-      lastIngested = envelopedInfo.getSystemMetadata().getLastObserved();
+    if (lastIngested == null && docInfo != null) {
+      final boolean isExternal =
+          docInfo.hasSource()
+              && docInfo.getSource().hasSourceType()
+              && "EXTERNAL".equals(docInfo.getSource().getSourceType().name());
+      if (isExternal
+          && envelopedInfo.hasSystemMetadata()
+          && envelopedInfo.getSystemMetadata().hasLastObserved()) {
+        lastIngested = envelopedInfo.getSystemMetadata().getLastObserved();
+      }
     }
     result.setLastIngested(lastIngested);
 
-    if (envelopedInfo != null) {
-      result.setInfo(
-          mapDocumentInfo(
-              new com.linkedin.knowledge.DocumentInfo(envelopedInfo.getValue().data()), entityUrn));
+    if (docInfo != null) {
+      result.setInfo(mapDocumentInfo(docInfo, entityUrn));
     }
 
     // Map Document Settings aspect

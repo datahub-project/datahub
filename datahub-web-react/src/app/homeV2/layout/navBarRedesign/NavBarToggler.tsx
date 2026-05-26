@@ -25,7 +25,7 @@ const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     & svg {
         height: 20px;
         width: 20px;
-        color: ${(props) => props.theme.colors.textTertiary};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 

@@ -1,5 +1,6 @@
 import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -55,6 +56,8 @@ interface Props {
 }
 
 export const ManageIdentities = ({ version }: Props) => {
+    const { t } = useTranslation('entity.identity');
+
     /**
      * Determines which view should be visible: users, groups, or service accounts list.
      */
@@ -64,7 +67,7 @@ export const ManageIdentities = ({ version }: Props) => {
     const getTabs = () => {
         const baseTabs = [
             {
-                name: TabType.Users,
+                name: t('tabs.users'),
                 path: TabType.Users.toLocaleLowerCase(),
                 content: <UserList />,
                 display: {
@@ -72,7 +75,7 @@ export const ManageIdentities = ({ version }: Props) => {
                 },
             },
             {
-                name: TabType.Groups,
+                name: t('tabs.groups'),
                 path: TabType.Groups.toLocaleLowerCase(),
                 content: <GroupList />,
                 display: {
@@ -81,10 +84,9 @@ export const ManageIdentities = ({ version }: Props) => {
             },
         ];
 
-        // Add Service Accounts tab if user has permission
         if (canManageServiceAccounts) {
             baseTabs.push({
-                name: TabType.ServiceAccounts,
+                name: t('tabs.serviceAccounts'),
                 path: 'service-accounts',
                 content: <ServiceAccountList />,
                 display: {
@@ -102,10 +104,8 @@ export const ManageIdentities = ({ version }: Props) => {
     return (
         <PageContainer>
             <PageHeaderContainer data-testid={`manage-users-groups-${version}`}>
-                <PageTitle level={3}>Manage Users & Groups</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    View your DataHub users & groups. Take administrative actions.
-                </Typography.Paragraph>
+                <PageTitle level={3}>{t('pageTitle')}</PageTitle>
+                <Typography.Paragraph type="secondary">{t('pageSubTitle')}</Typography.Paragraph>
             </PageHeaderContainer>
             <Content>
                 <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
