@@ -65,11 +65,13 @@ _OWNER_ROLE_MAP: Dict[str, str] = {
     "dataSteward": OwnershipTypeClass.DATA_STEWARD,
 }
 
-# Sentinel returned by _operator_and_params_from_threshold to signal that the
-# rule cannot be modeled with a native operator + numeric threshold and should
-# be routed to a CustomAssertionInfo. Distinct from "no threshold provided"
-# (which is also a redirect, but for a different reason).
-_ROUTE_TO_CUSTOM = "__route_to_custom__"
+# Rule-kind vocabularies recognized by `_route_and_build`. Named here so the
+# membership checks read intentionally and the accepted spellings (camelCase
+# and snake_case, both of which appear in real ODCS documents) live in one
+# place.
+_FIELD_RULE_KINDS = frozenset(("unique", "notNull", "not_null"))
+_NOT_NULL_RULE_KINDS = frozenset(("notNull", "not_null"))
+_VOLUME_RULE_KINDS = frozenset(("rowCount", "row_count"))
 
 
 @dataclass
@@ -374,11 +376,9 @@ def _operator_and_params_from_threshold(
 ) -> Tuple[Optional[str], Optional[AssertionStdParametersClass]]:
     """Translate an ODCS `mustBe*` threshold into a DataHub operator + parameters.
 
-    Returns `(operator, parameters)`:
-      - `(_ROUTE_TO_CUSTOM, None)` when the threshold cannot be expressed as a
-        native operator + numeric parameters (e.g. `mustNotBeBetween`).
-      - `(None, None)` when no threshold is provided at all.
-      - `(operator, parameters)` for natively-modeled thresholds.
+    Returns `(operator, parameters)` for a natively-modeled threshold, or
+    `(None, None)` when no native operator applies — either because no threshold
+    is provided or because it is an unmappable one such as `mustNotBeBetween`.
     """
     if rule.mustBeBetween and len(rule.mustBeBetween) == 2:
         return AssertionStdOperatorClass.BETWEEN, AssertionStdParametersClass(
@@ -386,8 +386,9 @@ def _operator_and_params_from_threshold(
             maxValue=_num(rule.mustBeBetween[1]),
         )
     if rule.mustNotBeBetween and len(rule.mustNotBeBetween) == 2:
-        # No NOT_BETWEEN operator; route to CustomAssertionInfo (D6).
-        return _ROUTE_TO_CUSTOM, None
+        # No NOT_BETWEEN operator; the caller routes this to a
+        # CustomAssertionInfo with an explicit `logic` string (D6).
+        return None, None
     if rule.mustBeGreaterThan is not None:
         return AssertionStdOperatorClass.GREATER_THAN, AssertionStdParametersClass(
             value=_num(rule.mustBeGreaterThan)
@@ -716,10 +717,10 @@ def _route_and_build(
     rule_label = rule.name or f"<unnamed:{scope}:{index}>"
 
     # Library rules tied to a specific field — FieldValuesAssertion.
-    if column and rule_kind in ("unique", "notNull", "not_null"):
+    if column and rule_kind in _FIELD_RULE_KINDS:
         operator = (
             AssertionStdOperatorClass.NOT_NULL
-            if rule_kind in ("notNull", "not_null")
+            if rule_kind in _NOT_NULL_RULE_KINDS
             else AssertionStdOperatorClass.EQUAL_TO
         )
         return _build_field_values_assertion(
@@ -746,9 +747,9 @@ def _route_and_build(
         logic_override = f"value not between {low} and {high}"
 
     # Library volume rule.
-    if rule_kind in ("rowCount", "row_count"):
+    if rule_kind in _VOLUME_RULE_KINDS:
         op_opt, params_opt = _operator_and_params_from_threshold(rule)
-        if op_opt is None or op_opt == _ROUTE_TO_CUSTOM or params_opt is None:
+        if op_opt is None or params_opt is None:
             # No real threshold (or `mustNotBeBetween` etc.) — route to custom.
             built = _build_custom_assertion(
                 rule=rule,
@@ -792,7 +793,7 @@ def _route_and_build(
             trace.routed_to_custom.append(rule_label)
             return built
         op_opt, params_opt = _operator_and_params_from_threshold(rule)
-        if op_opt is None or op_opt == _ROUTE_TO_CUSTOM or params_opt is None:
+        if op_opt is None or params_opt is None:
             built = _build_custom_assertion(
                 rule=rule,
                 dataset_urn=dataset_urn,

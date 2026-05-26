@@ -8,13 +8,18 @@ from datahub.ingestion.source.odcs.odcs_mapper import (
     _description_to_str,
     _make_owners,
     _num,
+    _operator_and_params_from_threshold,
     _walk_properties,
     odcs_to_assertion_mcps,
     odcs_to_contract_urn,
     odcs_to_dataset_mcps,
     odcs_to_dataset_urns,
 )
-from datahub.ingestion.source.odcs.odcs_models import ODCSContract, ODCSProperty
+from datahub.ingestion.source.odcs.odcs_models import (
+    ODCSContract,
+    ODCSProperty,
+    ODCSQualityRule,
+)
 from datahub.metadata.schema_classes import (
     AssertionInfoClass,
     AssertionStdOperatorClass,
@@ -887,3 +892,47 @@ def test_num_decimal_renders_with_decimal() -> None:
 def test_num_zero_and_negative() -> None:
     assert _num(0).value == "0"
     assert _num(-3).value == "-3"
+
+
+# ---------------------------------------------------------------------------
+# _operator_and_params_from_threshold invariant
+# ---------------------------------------------------------------------------
+
+
+def test_operator_and_params_never_returns_operator_without_params() -> None:
+    """`_route_and_build` routes to a native assertion only when BOTH the
+    operator and params are non-None (guard: `op is None or params is None`).
+    That guard is only safe if the threshold mapper never pairs a real operator
+    with `None` params — the contract this refactor relies on after removing the
+    `_ROUTE_TO_CUSTOM` sentinel. Lock it across the threshold rule shapes:
+    natively-modeled ones return both halves; unmappable / absent ones return
+    `(None, None)`.
+    """
+    natively_modeled = [
+        {"rule": "rowCount", "mustBeBetween": [1, 10]},
+        {"rule": "rowCount", "mustBeGreaterThan": 0},
+        {"rule": "rowCount", "mustBe": 5},
+        {"rule": "rowCount", "mustNotBe": 5},
+    ]
+    no_native_operator = [
+        # No NOT_BETWEEN operator — routed to custom with explicit logic.
+        {"rule": "rowCount", "mustNotBeBetween": [1, 10]},
+        # No threshold at all.
+        {"rule": "rowCount"},
+    ]
+
+    for payload in natively_modeled + no_native_operator:
+        rule = ODCSQualityRule.model_validate(payload)
+        operator, params = _operator_and_params_from_threshold(rule)
+        # The invariant the guard depends on: an operator never travels alone.
+        assert not (operator is not None and params is None)
+
+    for payload in natively_modeled:
+        rule = ODCSQualityRule.model_validate(payload)
+        operator, params = _operator_and_params_from_threshold(rule)
+        assert operator is not None
+        assert params is not None
+
+    for payload in no_native_operator:
+        rule = ODCSQualityRule.model_validate(payload)
+        assert _operator_and_params_from_threshold(rule) == (None, None)
