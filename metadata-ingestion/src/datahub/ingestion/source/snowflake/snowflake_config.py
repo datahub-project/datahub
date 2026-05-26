@@ -632,6 +632,8 @@ class SnowflakeV2Config(
             "underlying data lake source (S3, GCS, or Azure) was ingested with "
             "a platform_instance set."
         ),
+    )
+
     marketplace: SnowflakeMarketplaceConfig = Field(
         default_factory=SnowflakeMarketplaceConfig,
         description="Configuration for Snowflake Internal Marketplace (private data exchange) ingestion.",
