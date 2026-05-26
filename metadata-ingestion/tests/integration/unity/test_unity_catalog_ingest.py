@@ -748,18 +748,46 @@ def register_metric_view_mock_data(workspace_client):
     ]
 
     metric_view_yaml = (
-        "version: 0.1\n"
+        "version: 1.1\n"
         "source: metric_catalog.analytics.orders\n"
         "filter: \"o_orderstatus = 'F'\"\n"
-        "materialization: materialized\n"
+        "joins:\n"
+        "  - name: customer\n"
+        "    source: metric_catalog.analytics.customer\n"
+        "    on: o_custkey = c_custkey\n"
+        "materialization:\n"
+        "  schedule: every 6 hours\n"
+        "  mode: relaxed\n"
         "dimensions:\n"
         "  - name: order_date\n"
         "    expr: o_orderdate\n"
-        "    description: Calendar date the order was placed.\n"
+        "    comment: Calendar date the order was placed.\n"
+        "    display_name: Order Date\n"
+        "    synonyms: [date, day]\n"
         "measures:\n"
         "  - name: total_revenue\n"
         "    expr: SUM(o_totalprice)\n"
-        "    description: Sum of order totals in USD.\n"
+        "    comment: Sum of order totals in USD.\n"
+        "    synonyms: [revenue, sales]\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: order_count\n"
+        "    expr: COUNT(1)\n"
+        "    comment: Number of orders placed.\n"
+        "  - name: aov\n"
+        "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+        "    comment: Average order value.\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: rolling_7d\n"
+        "    expr: COUNT(DISTINCT o_orderkey)\n"
+        "    comment: Rolling 7-day distinct order count.\n"
+        "    window:\n"
+        "      - order: order_date\n"
+        "        range: trailing 7 day\n"
+        "        semiadditive: last\n"
     )
 
     orders_dict = {
@@ -834,6 +862,42 @@ def register_metric_view_mock_data(workspace_client):
                 "type_precision": 0,
                 "type_scale": 0,
                 "position": 1,
+                "nullable": True,
+            },
+            {
+                "name": "order_count",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"order_count","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 2,
+                "nullable": True,
+            },
+            {
+                "name": "aov",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"aov","type":"double","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 3,
+                "nullable": True,
+            },
+            {
+                "name": "rolling_7d",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"rolling_7d","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 4,
                 "nullable": True,
             },
         ],
