@@ -25,14 +25,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Service for importing documents from external sources (GitHub repositories, file uploads).
- * Creates or updates Document entities using deterministic IDs for idempotent re-imports.
+ * Service for importing documents from file uploads initiated in the UI. Creates or updates
+ * Document entities using deterministic IDs for idempotent re-imports.
  *
  * <p>Supports hierarchical imports: GitHub folder structure is preserved as parent-child document
  * relationships, and callers can specify a root parent document for the imported tree.
@@ -48,59 +47,9 @@ public class DocumentImportService {
   private static final int MAX_TEXT_CHARS = 1_000_000;
 
   private final SystemEntityClient entityClient;
-  private final GitHubDocumentSource gitHubSource;
 
   public DocumentImportService(@Nonnull SystemEntityClient entityClient) {
     this.entityClient = entityClient;
-    this.gitHubSource = new GitHubDocumentSource();
-  }
-
-  // -- GitHub operations --
-
-  @Nonnull
-  public List<GitHubFileInfo> previewGitHubImport(
-      @Nonnull String repoUrl,
-      @Nonnull String branch,
-      @Nonnull String pathPrefix,
-      @Nonnull List<String> extensions,
-      @Nonnull String githubToken) {
-
-    String ownerRepo = GitHubDocumentSource.parseRepoIdentifier(repoUrl);
-    String normalizedPath = normalizePath(pathPrefix);
-    List<String> normalizedExts = normalizeExtensions(extensions);
-
-    return gitHubSource.listFiles(ownerRepo, branch, normalizedPath, normalizedExts, githubToken);
-  }
-
-  /**
-   * Import documents from a GitHub repository, preserving folder structure as parent-child
-   * relationships. Folder documents are created for intermediate directories.
-   *
-   * @param parentDocumentUrn optional root parent — top-level imported items become children of
-   *     this document. Null means import at root level.
-   */
-  @Nonnull
-  public ImportResult importFromGitHub(
-      @Nonnull OperationContext opContext,
-      @Nonnull String repoUrl,
-      @Nonnull String branch,
-      @Nonnull String pathPrefix,
-      @Nonnull List<String> extensions,
-      @Nonnull String githubToken,
-      @Nonnull ImportUseCase useCase,
-      boolean showInGlobalContext,
-      @Nullable Urn parentDocumentUrn,
-      @Nonnull Urn actorUrn) {
-
-    String ownerRepo = GitHubDocumentSource.parseRepoIdentifier(repoUrl);
-    String normalizedPath = normalizePath(pathPrefix);
-    List<String> normalizedExts = normalizeExtensions(extensions);
-
-    List<DocumentCandidate> candidates =
-        gitHubSource.fetchDocuments(ownerRepo, branch, normalizedPath, normalizedExts, githubToken);
-
-    return importDocuments(
-        opContext, candidates, useCase, showInGlobalContext, parentDocumentUrn, actorUrn);
   }
 
   // -- Core import logic --
@@ -290,23 +239,5 @@ public class DocumentImportService {
     int dot = basename.lastIndexOf('.');
     if (dot > 0) basename = basename.substring(0, dot);
     return "upload." + basename;
-  }
-
-  @Nonnull
-  private static String normalizePath(@Nullable String path) {
-    if (path == null || path.isBlank() || "/".equals(path.trim())) {
-      return "";
-    }
-    return path.trim().replaceAll("^/+|/+$", "");
-  }
-
-  @Nonnull
-  private static List<String> normalizeExtensions(@Nullable List<String> extensions) {
-    if (extensions == null || extensions.isEmpty()) {
-      return List.of(".md", ".txt");
-    }
-    return extensions.stream()
-        .map(ext -> ext.startsWith(".") ? ext : "." + ext)
-        .collect(Collectors.toList());
   }
 }

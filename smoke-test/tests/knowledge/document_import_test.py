@@ -3,7 +3,7 @@ Smoke tests for Document Import APIs.
 
 Validates end-to-end functionality of:
 - importDocumentsFromFiles GraphQL mutation (file upload → document creation)
-- importDocumentsFromGitHub GraphQL mutation (schema validation only — no real GitHub call)
+- GitHub document imports are handled via the github-documents ingestion source (not covered here)
 
 Tests are idempotent and clean up after themselves.
 """

@@ -101,7 +101,7 @@ public class ImportDocumentsFromFilesResolver
                     parentUrn,
                     Urn.createFromString(context.getActorUrn()));
 
-            return ImportDocumentsFromGitHubResolver.toGraphQL(result);
+            return ImportDocumentsResultMapper.toGraphQL(result);
           } catch (AuthorizationException e) {
             throw e;
           } catch (Exception e) {

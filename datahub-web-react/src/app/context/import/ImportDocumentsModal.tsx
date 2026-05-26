@@ -11,12 +11,12 @@ import { ModalButton } from '@components/components/Modal/Modal';
 import analytics, { EventType } from '@app/analytics';
 import ImportParentSelector from '@app/context/import/ImportParentSelector';
 import { useImportFromFiles } from '@app/context/import/hooks/useImportFromFiles';
-import type { GitHubImportConfig } from '@app/context/import/hooks/useImportFromGitHub';
-import { useImportFromGitHub } from '@app/context/import/hooks/useImportFromGitHub';
+import { useLaunchGitHubDocumentsIngestion } from '@app/context/import/hooks/useLaunchGitHubDocumentsIngestion';
 import { ImportSourceType, ImportStep, ImportUseCase } from '@app/context/import/import.types';
 import FileUploadSource from '@app/context/import/sources/FileUploadSource';
-import GitHubImportSource from '@app/context/import/sources/GitHubImportSource';
+import { useUserContext } from '@app/context/useUserContext';
 import { DocumentTreeContext } from '@app/document/DocumentTreeContext';
+import { useAppConfig } from '@app/useAppConfig';
 import { Text } from '@src/alchemy-components';
 
 const Content = styled.div`
@@ -26,9 +26,9 @@ const Content = styled.div`
     min-height: 200px;
 `;
 
-const SourceGrid = styled.div`
+const SourceGrid = styled.div<{ $columns: number }>`
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(${({ $columns }) => $columns}, 1fr);
     gap: 12px;
 `;
 
@@ -46,6 +46,11 @@ const SourceCard = styled.button<{ $isSelected: boolean }>`
 
     &:hover {
         border-color: ${({ theme }) => theme.colors.borderBrand};
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
     }
 `;
 
@@ -76,15 +81,6 @@ const ErrorIcon = styled(ExclamationCircleOutlined)`
     color: ${({ theme }) => theme.colors.iconError};
 `;
 
-const DEFAULT_GITHUB_CONFIG: GitHubImportConfig = {
-    repoUrl: '',
-    branch: 'main',
-    path: '',
-    fileExtensions: ['.md', '.txt'],
-    githubToken: '',
-    showInGlobalContext: true,
-};
-
 type ImportDocumentsModalProps = {
     visible: boolean;
     onClose: () => void;
@@ -101,43 +97,34 @@ export default function ImportDocumentsModal({
     defaultParentUrn,
 }: ImportDocumentsModalProps) {
     const documentTreeContext = useContext(DocumentTreeContext);
+    const { platformPrivileges } = useUserContext();
+    const config = useAppConfig();
+    const launchGitHubDocumentsIngestion = useLaunchGitHubDocumentsIngestion();
+
+    const showIngestV2 = config.featureFlags.showIngestionPageRedesign;
+    const canImportFromGitHub = Boolean(platformPrivileges?.manageIngestion && showIngestV2);
 
     const [step, setStep] = useState<ImportStep>('source');
     const [sourceType, setSourceType] = useState<ImportSourceType | null>(null);
     const [parentDocumentUrn, setParentDocumentUrn] = useState<string | null | undefined>(defaultParentUrn);
 
-    // Sync parent selector with current document when modal opens
     useEffect(() => {
         if (visible) {
             setParentDocumentUrn(defaultParentUrn);
         }
     }, [visible, defaultParentUrn]);
 
-    // File upload state
     const [uploadFiles, setUploadFiles] = useState<File[]>([]);
     const { importFiles, error: fileError, result: fileResult } = useImportFromFiles();
 
-    // GitHub state
-    const [githubConfig, setGithubConfig] = useState<GitHubImportConfig>(DEFAULT_GITHUB_CONFIG);
-    const { importFromGitHub, error: githubError, result: githubResult } = useImportFromGitHub();
-
-    const result = sourceType === ImportSourceType.FILE_UPLOAD ? fileResult : githubResult;
-    const importError = sourceType === ImportSourceType.FILE_UPLOAD ? fileError : githubError?.message || null;
+    const importError = fileError;
+    const result = fileResult;
 
     const handleImport = useCallback(async () => {
         setStep('importing');
         try {
             const parentUrn = parentDocumentUrn ?? null;
-            let importResult;
-            if (sourceType === ImportSourceType.FILE_UPLOAD) {
-                importResult = await importFiles(uploadFiles, true, useCase, parentUrn);
-            } else if (sourceType === ImportSourceType.GITHUB) {
-                importResult = await importFromGitHub(
-                    { ...githubConfig, showInGlobalContext: true },
-                    useCase,
-                    parentUrn,
-                );
-            }
+            const importResult = await importFiles(uploadFiles, true, useCase, parentUrn);
             if (importResult && sourceType) {
                 analytics.event({
                     type: EventType.ImportDocumentsEvent,
@@ -152,29 +139,50 @@ export default function ImportDocumentsModal({
         } catch {
             setStep('result');
         }
-    }, [sourceType, importFiles, uploadFiles, useCase, importFromGitHub, githubConfig, onSuccess, parentDocumentUrn]);
+    }, [sourceType, importFiles, uploadFiles, useCase, onSuccess, parentDocumentUrn]);
+
+    const handleGitHubImport = useCallback(() => {
+        analytics.event({
+            type: EventType.ImportDocumentsEvent,
+            source: ImportSourceType.GITHUB,
+            createdCount: 0,
+            updatedCount: 0,
+            failedCount: 0,
+        });
+        launchGitHubDocumentsIngestion({ parentDocumentUrn: parentDocumentUrn ?? null });
+        onClose();
+    }, [launchGitHubDocumentsIngestion, onClose, parentDocumentUrn]);
 
     const handleClose = useCallback(() => {
         setStep('source');
         setSourceType(null);
         setUploadFiles([]);
-        setGithubConfig(DEFAULT_GITHUB_CONFIG);
         setParentDocumentUrn(defaultParentUrn);
         onClose();
     }, [onClose, defaultParentUrn]);
 
     const canImport = useMemo(() => {
-        if (sourceType === ImportSourceType.FILE_UPLOAD) return uploadFiles.length > 0;
-        if (sourceType === ImportSourceType.GITHUB)
-            return githubConfig.repoUrl.trim() !== '' && githubConfig.githubToken.trim() !== '';
+        if (sourceType === ImportSourceType.FILE_UPLOAD) {
+            return uploadFiles.length > 0;
+        }
         return false;
-    }, [sourceType, uploadFiles, githubConfig]);
+    }, [sourceType, uploadFiles]);
 
     const buttons: ModalButton[] = useMemo(() => {
         if (step === 'source') {
             return [{ text: 'Cancel', variant: 'outline', onClick: handleClose }];
         }
         if (step === 'configure') {
+            if (sourceType === ImportSourceType.GITHUB) {
+                return [
+                    { text: 'Back', variant: 'outline', onClick: () => setStep('source') },
+                    {
+                        text: 'Continue to setup',
+                        variant: 'filled',
+                        onClick: handleGitHubImport,
+                    },
+                ];
+            }
             return [
                 { text: 'Back', variant: 'outline', onClick: () => setStep('source') },
                 {
@@ -188,15 +196,15 @@ export default function ImportDocumentsModal({
         if (step === 'importing') {
             return [];
         }
-        // result
         return [{ text: 'Done', variant: 'filled', onClick: handleClose }];
-    }, [step, handleClose, canImport, handleImport]);
+    }, [step, handleClose, canImport, handleImport, sourceType, handleGitHubImport]);
 
     if (!visible) return null;
 
     const totalImported = result?.createdCount ?? 0;
     const totalUpdated = result?.updatedCount ?? 0;
     const totalFailed = result?.failedCount ?? 0;
+    const sourceColumnCount = canImportFromGitHub ? 2 : 1;
 
     return (
         <Modal
@@ -209,7 +217,7 @@ export default function ImportDocumentsModal({
             <DocumentTreeContext.Provider value={documentTreeContext!}>
                 <Content>
                     {step === 'source' && (
-                        <SourceGrid>
+                        <SourceGrid $columns={sourceColumnCount}>
                             <SourceCard
                                 type="button"
                                 $isSelected={false}
@@ -226,22 +234,24 @@ export default function ImportDocumentsModal({
                                     Upload .md, .txt, .docx files
                                 </Text>
                             </SourceCard>
-                            <SourceCard
-                                type="button"
-                                $isSelected={false}
-                                onClick={() => {
-                                    setSourceType(ImportSourceType.GITHUB);
-                                    setStep('configure');
-                                }}
-                            >
-                                <SourceIcon>
-                                    <GithubLogo size={32} />
-                                </SourceIcon>
-                                <Text weight="semiBold">GitHub Repository</Text>
-                                <Text color="gray" colorLevel={1700} size="sm">
-                                    Import from a GitHub repo
-                                </Text>
-                            </SourceCard>
+                            {canImportFromGitHub && (
+                                <SourceCard
+                                    type="button"
+                                    $isSelected={false}
+                                    onClick={() => {
+                                        setSourceType(ImportSourceType.GITHUB);
+                                        setStep('configure');
+                                    }}
+                                >
+                                    <SourceIcon>
+                                        <GithubLogo size={32} />
+                                    </SourceIcon>
+                                    <Text weight="semiBold">GitHub Repository</Text>
+                                    <Text color="gray" colorLevel={1700} size="sm">
+                                        Schedule imports via an ingestion source
+                                    </Text>
+                                </SourceCard>
+                            )}
                         </SourceGrid>
                     )}
 
@@ -251,7 +261,11 @@ export default function ImportDocumentsModal({
                                 <FileUploadSource files={uploadFiles} onFilesChange={setUploadFiles} />
                             )}
                             {sourceType === ImportSourceType.GITHUB && (
-                                <GitHubImportSource config={githubConfig} onChange={setGithubConfig} />
+                                <Text color="gray" colorLevel={1700}>
+                                    Configure a scheduled GitHub Documents ingestion source. You can choose the
+                                    repository, branch, and credentials on the next screen. Imported files are created
+                                    as native documents by default.
+                                </Text>
                             )}
                             <ImportParentSelector
                                 selectedParentUrn={parentDocumentUrn ?? null}

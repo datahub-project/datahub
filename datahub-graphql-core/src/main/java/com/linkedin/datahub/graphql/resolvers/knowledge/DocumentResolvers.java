@@ -78,11 +78,6 @@ public class DocumentResolvers {
                   "searchDocuments",
                   new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
                       documentService, entityClient, groupService));
-          if (documentImportService != null) {
-            typeWiring.dataFetcher(
-                "previewDocumentsFromGitHub",
-                new PreviewDocumentsFromGitHubResolver(documentImportService));
-          }
           return typeWiring;
         });
 
@@ -124,13 +119,9 @@ public class DocumentResolvers {
                   new com.linkedin.datahub.graphql.resolvers.knowledge
                       .UpdateDocumentSettingsResolver(documentService));
           if (documentImportService != null) {
-            typeWiring
-                .dataFetcher(
-                    "importDocumentsFromGitHub",
-                    new ImportDocumentsFromGitHubResolver(documentImportService))
-                .dataFetcher(
-                    "importDocumentsFromFiles",
-                    new ImportDocumentsFromFilesResolver(documentImportService));
+            typeWiring.dataFetcher(
+                "importDocumentsFromFiles",
+                new ImportDocumentsFromFilesResolver(documentImportService));
           }
           return typeWiring;
         });

@@ -8,6 +8,24 @@ import '@app/context/import/__tests__/testSetup';
 import { DocumentTreeContext, DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
+const mockLaunchGitHub = vi.fn();
+
+vi.mock('@app/context/import/hooks/useLaunchGitHubDocumentsIngestion', () => ({
+    useLaunchGitHubDocumentsIngestion: () => mockLaunchGitHub,
+}));
+
+vi.mock('@app/context/useUserContext', () => ({
+    useUserContext: () => ({
+        platformPrivileges: { manageIngestion: true },
+    }),
+}));
+
+vi.mock('@app/useAppConfig', () => ({
+    useAppConfig: () => ({
+        featureFlags: { showIngestionPageRedesign: true },
+    }),
+}));
+
 const mockDocumentTreeContextValue = {
     nodes: new Map<string, DocumentTreeNode>(),
     rootUrns: [],
@@ -72,19 +90,24 @@ describe('ImportDocumentsModal', () => {
         });
     });
 
-    it('navigates to GitHub configuration when GitHub Repository is clicked', async () => {
+    it('launches ingestion setup when GitHub Repository is selected', async () => {
+        const onClose = vi.fn();
         render(
             <Wrapper>
-                <ImportDocumentsModal visible onClose={vi.fn()} />
+                <ImportDocumentsModal visible onClose={onClose} />
             </Wrapper>,
         );
 
         fireEvent.click(screen.getByText('GitHub Repository'));
 
         await waitFor(() => {
-            expect(screen.getByText('Repository')).toBeInTheDocument();
-            expect(screen.getByText('Personal Access Token')).toBeInTheDocument();
+            expect(screen.getByText('Continue to setup')).toBeInTheDocument();
         });
+
+        fireEvent.click(screen.getByText('Continue to setup'));
+
+        expect(mockLaunchGitHub).toHaveBeenCalled();
+        expect(onClose).toHaveBeenCalled();
     });
 
     it('shows parent selector in configure step', async () => {
@@ -109,42 +132,6 @@ describe('ImportDocumentsModal', () => {
         );
 
         expect(screen.getByText('Cancel')).toBeInTheDocument();
-    });
-
-    it('shows Back and Import buttons on configure step', async () => {
-        render(
-            <Wrapper>
-                <ImportDocumentsModal visible onClose={vi.fn()} />
-            </Wrapper>,
-        );
-
-        fireEvent.click(screen.getByText('Upload Files'));
-
-        await waitFor(() => {
-            expect(screen.getByText('Back')).toBeInTheDocument();
-            expect(screen.getByText('Import')).toBeInTheDocument();
-        });
-    });
-
-    it('Back button returns to source selection', async () => {
-        render(
-            <Wrapper>
-                <ImportDocumentsModal visible onClose={vi.fn()} />
-            </Wrapper>,
-        );
-
-        fireEvent.click(screen.getByText('Upload Files'));
-
-        await waitFor(() => {
-            expect(screen.getByText('Back')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Back'));
-
-        await waitFor(() => {
-            expect(screen.getByText('Upload Files')).toBeInTheDocument();
-            expect(screen.getByText('GitHub Repository')).toBeInTheDocument();
-        });
     });
 
     it('calls onClose when Cancel is clicked', () => {
