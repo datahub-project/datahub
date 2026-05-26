@@ -378,16 +378,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self.views_failed_parsing: Set[str] = set()
 
         self.discovered_datasets: Set[str] = set()
-        self.aggregator = SqlParsingAggregator(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-            graph=self.ctx.graph,
-            generate_lineage=self.include_lineage,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            eager_graph_load=False,
-        )
+        self.aggregator = self._create_aggregator()
         self.report.sql_aggregator = self.aggregator.report
 
     def _add_default_options(self, sql_config: SQLCommonConfig) -> None:
@@ -643,6 +634,25 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 yield from self.loop_profiler(
                     profile_requests, profiler, platform=self.platform
                 )
+
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        """Construct the SqlParsingAggregator used for lineage extraction.
+
+        Subclasses may override to enable query-history processing or usage
+        stats. All upstreamLineage MCPs MUST flow through this single
+        aggregator; spinning up a second aggregator alongside it causes
+        duplicate emits that SET-overwrite v0 with a partial payload.
+        """
+        return SqlParsingAggregator(
+            platform=self.platform,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+            graph=self.ctx.graph,
+            generate_lineage=self.include_lineage,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            eager_graph_load=False,
+        )
 
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Generate work units from SQL parsing aggregator. Can be overridden by subclasses."""

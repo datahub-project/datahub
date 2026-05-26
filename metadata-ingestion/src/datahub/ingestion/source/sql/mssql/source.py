@@ -72,7 +72,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedList
-from datahub.utilities.perf_timer import PerfTimer
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -425,7 +424,6 @@ class SQLServerSource(SQLAlchemySource):
                 message="Lineage may not resolve accurately because 'convert_column_urns_to_lowercase' is False. To ensure correct lineage, set 'convert_column_urns_to_lowercase' to True.",
             )
 
-        self.sql_aggregator: Optional[SqlParsingAggregator] = None
         self.lineage_extractor: Optional[MSSQLLineageExtractor] = None
         if self.config.include_query_lineage:
             if self.config.include_usage_statistics and self.ctx.graph is None:
@@ -434,8 +432,20 @@ class SQLServerSource(SQLAlchemySource):
                     "You have enabled 'include_usage_statistics: true' but no graph connection is available. "
                     "Please provide a graph connection in your pipeline configuration or disable usage statistics."
                 )
+            logger.info("Query-based lineage enabled for mssql source")
 
-            self.sql_aggregator = SqlParsingAggregator(
+        if self.config.include_descriptions:
+            for inspector in self.get_inspectors():
+                db_name: str = self.get_db_name(inspector)
+                with inspector.engine.connect() as conn:
+                    if self._is_odbc:
+                        self._add_output_converters(conn)
+                    self._populate_table_descriptions(conn, db_name)
+                    self._populate_column_descriptions(conn, db_name)
+
+    def _create_aggregator(self) -> SqlParsingAggregator:
+        if self.config.include_query_lineage:
+            return SqlParsingAggregator(
                 platform=self.platform,
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
@@ -446,17 +456,9 @@ class SQLServerSource(SQLAlchemySource):
                 usage_config=self.config
                 if self.config.include_usage_statistics
                 else None,
+                eager_graph_load=False,
             )
-            logger.info("SQL parsing aggregator initialized for query-based lineage")
-
-        if self.config.include_descriptions:
-            for inspector in self.get_inspectors():
-                db_name: str = self.get_db_name(inspector)
-                with inspector.engine.connect() as conn:
-                    if self._is_odbc:
-                        self._add_output_converters(conn)
-                    self._populate_table_descriptions(conn, db_name)
-                    self._populate_column_descriptions(conn, db_name)
+        return super()._create_aggregator()
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
@@ -1374,37 +1376,25 @@ class SQLServerSource(SQLAlchemySource):
         )
 
     def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Extract and emit query-based lineage from Query Store or DMVs.
+        """Populate the shared aggregator with query-history lineage.
 
-        This supplements view and stored procedure lineage with lineage extracted
-        from executed queries (INSERT INTO SELECT, CTAS, etc.).
+        Returns an empty iterable - MCPs are emitted by the parent's single
+        _generate_aggregator_workunits pass after this populate step runs.
+        Splitting view-DDL lineage and query-history lineage across two
+        aggregators caused double-emit of upstreamLineage where the second
+        SET-overwrote v0 with a partial payload (introduced by #16084).
         """
         logger.info(
             "Starting query-based lineage extraction from SQL Server query history"
         )
 
         for inspector in self.get_inspectors():
-            if self.sql_aggregator is None:
-                logger.warning(
-                    "SQL aggregator not initialized, skipping query-based lineage extraction. "
-                    "Check initialization errors above."
-                )
-                self.report.report_warning(
-                    message=(
-                        "Query-based lineage was enabled but SQL aggregator failed to initialize. "
-                        "No query-based lineage will be extracted. Check earlier error messages."
-                    ),
-                    context="query_lineage_skipped",
-                )
-                return
-
             with inspector.engine.connect() as connection:
                 self.lineage_extractor = MSSQLLineageExtractor(
                     config=self.config,
                     connection=connection,
                     report=self.report,
-                    sql_aggregator=self.sql_aggregator,
+                    sql_aggregator=self.aggregator,
                     default_schema="dbo",
                 )
 
@@ -1426,33 +1416,15 @@ class SQLServerSource(SQLAlchemySource):
                         context="query_lineage_extraction_failed",
                     )
 
-        with PerfTimer() as timer:
-            mcp_count = 0
-            if self.sql_aggregator:
-                try:
-                    mcp: MetadataChangeProposalWrapper
-                    for mcp in self.sql_aggregator.gen_metadata():
-                        yield mcp.as_workunit()
-                        mcp_count += 1
-                except Exception as e:
-                    logger.error(
-                        "Failed to generate metadata from SQL aggregator: %s",
-                        e,
-                    )
-                    self.report.report_failure(
-                        message=(
-                            f"Lineage metadata generation failed: {e}. "
-                            "This may indicate issues with the DataHub graph connection or schema resolution. "
-                            "Check your graph configuration and ensure all required schemas are accessible."
-                        ),
-                        context="lineage_metadata_generation_failed",
-                    )
+        return ()
 
-        logger.info(
-            "Generated %d lineage workunits from queries in %.2f seconds",
-            mcp_count,
-            timer.elapsed_seconds(),
-        )
+    def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
+        if self.config.include_query_lineage:
+            # Populate shared aggregator with query history before generating MCPs
+            # so view lineage (from view definitions) and query lineage merge into
+            # a single upstreamLineage MCP per downstream URN.
+            list(self._get_query_based_lineage_workunits())
+        yield from super()._generate_aggregator_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
@@ -1490,9 +1462,6 @@ class SQLServerSource(SQLAlchemySource):
                         )
                     ):
                         yield workunit
-
-        if self.config.include_query_lineage and self.sql_aggregator:
-            yield from self._get_query_based_lineage_workunits()
 
     def _report_procedure_failure(self, procedure_name: str) -> None:
         """Report a stored procedure lineage extraction failure to the aggregator."""
@@ -1628,6 +1597,5 @@ class SQLServerSource(SQLAlchemySource):
             ) from e
 
     def close(self) -> None:
-        if self.sql_aggregator:
-            self.sql_aggregator.close()
+        self.aggregator.close()
         super().close()

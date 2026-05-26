@@ -110,6 +110,29 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
+def test_mssql_single_aggregator_with_query_lineage(create_engine_mock):
+    """Regression: views must not get two UpstreamLineage MCPs.
+
+    Before this was fixed, SQLServerSource kept a second SqlParsingAggregator
+    (self.sql_aggregator) alongside the inherited self.aggregator. Both called
+    gen_metadata() and both emitted upstreamLineage MCPs for the same view URN
+    when the view's DDL was also in Query Store, causing the second emit to
+    SET-overwrite v0 with a partial payload (only fineGrainedLineages).
+    See PR #16084 (introducer) and the follow-up fix.
+    """
+    config = SQLServerConfig.model_validate(
+        {**_base_config(), "include_query_lineage": True}
+    )
+    source = SQLServerSource(config, PipelineContext(run_id="test"))
+
+    extra_aggregator = getattr(source, "sql_aggregator", None)
+    assert extra_aggregator is None or extra_aggregator is source.aggregator, (
+        "SQLServerSource must use a single SqlParsingAggregator. A separate "
+        "self.sql_aggregator causes duplicate upstreamLineage MCPs that overwrite v0."
+    )
+
+
+@patch("datahub.ingestion.source.sql.mssql.source.create_engine")
 def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
     """Test that query extraction failures are reported but don't stop ingestion."""
     config = SQLServerConfig.model_validate(
