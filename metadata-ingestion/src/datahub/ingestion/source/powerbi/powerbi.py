@@ -633,6 +633,66 @@ class Mapper:
 
         return dataset_mcps
 
+    def paginated_report_datasource_urns(
+        self,
+        report: powerbi_data_classes.Report,
+    ) -> List[str]:
+        """Resolve a paginated report's embedded datasources to upstream URNs.
+
+        Produces coarse-grained (server[.database]) URNs; table-level lineage
+        would require parsing the .rdl XML.
+        """
+        urns: List[str] = []
+        if not report.datasources:
+            return urns
+
+        pbi_to_dh = {
+            item.value.powerbi_data_platform_name: item.value
+            for item in SupportedDataPlatform
+        }
+
+        for ds in report.datasources:
+            if not ds.datasource_type or not ds.server:
+                continue
+
+            pair = pbi_to_dh.get(ds.datasource_type)
+            if pair is None:
+                self.__reporter.info(
+                    title="Unmapped Paginated Report Datasource",
+                    message=(
+                        f"PowerBI datasource type {ds.datasource_type!r} has no "
+                        "SupportedDataPlatform mapping; lineage skipped."
+                    ),
+                    context=f"report={report.name}, server={ds.server}",
+                )
+                continue
+
+            platform_detail = (
+                self.__dataplatform_instance_resolver.get_platform_instance(
+                    PowerBIPlatformDetail(
+                        data_platform_pair=pair,
+                        data_platform_server=ds.server,
+                    )
+                )
+            )
+
+            name_parts = [p for p in [ds.server, ds.database] if p]
+            if not name_parts:
+                continue
+
+            urns.append(
+                self.lineage_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=pair.datahub_data_platform_name,
+                        name=".".join(name_parts),
+                        platform_instance=platform_detail.platform_instance,
+                        env=platform_detail.env or self.__config.env,
+                    )
+                )
+            )
+
+        return urns
+
     def extract_profile(
         self,
         dataset_mcps: List[MetadataChangeProposalWrapper],
@@ -1492,11 +1552,14 @@ class Mapper:
         )
 
         # collect all upstream datasets; using a set to retain unique urns
-        dataset_urns = {
+        dataset_urns: Set[str] = {
             dataset.entityUrn
             for dataset in ds_mcps
             if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
         }
+        # Paginated (RDL) reports without a shared dataset get their lineage
+        # solely from this fallback path.
+        dataset_urns.update(self.paginated_report_datasource_urns(report))
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]

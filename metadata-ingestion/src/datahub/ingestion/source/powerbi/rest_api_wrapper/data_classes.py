@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Literal, Optional, Union
 
@@ -307,6 +307,28 @@ class ReportType(Enum):
 
 
 @dataclass
+class ReportDatasource:
+    """A datasource bound to a paginated (RDL) report.
+
+    Populated from ``GET /groups/{groupId}/reports/{reportId}/datasources``;
+    not surfaced by the workspace scan API.
+    """
+
+    datasource_type: Optional[str]
+    server: Optional[str]
+    database: Optional[str]
+
+    @staticmethod
+    def from_raw(raw: Dict[str, Any]) -> "ReportDatasource":
+        details = raw.get("connectionDetails") or {}
+        return ReportDatasource(
+            datasource_type=raw.get("datasourceType"),
+            server=details.get("server"),
+            database=details.get("database"),
+        )
+
+
+@dataclass
 class Report:
     id: str
     name: str
@@ -321,6 +343,8 @@ class Report:
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
+    # Only populated for paginated reports without a shared dataset_id.
+    datasources: List["ReportDatasource"] = field(default_factory=list)
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)

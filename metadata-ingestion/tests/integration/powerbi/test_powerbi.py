@@ -200,6 +200,89 @@ def test_powerbi_ingest(
 @time_machine.travel(FROZEN_TIME, tick=False)
 @mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 @pytest.mark.integration
+def test_powerbi_paginated_report_rdl_lineage(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    """Paginated reports without a shared dataset_id must emit upstream
+    lineage via the per-report /datasources endpoint."""
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/paginated_report_rdl_datasources.json"
+        ),
+    )
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-paginated-rdl-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **default_source_config(),
+                    "extract_reports": True,
+                    "extract_lineage": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"{tmp_path}/powerbi_paginated_rdl_mces.json",
+                },
+            },
+        }
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    output = json.loads(
+        (Path(tmp_path) / "powerbi_paginated_rdl_mces.json").read_text()
+    )
+    paginated_dashboard_urn = (
+        "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
+    )
+
+    edge_destinations: List[str] = []
+    for entry in output:
+        if entry.get("entityUrn") != paginated_dashboard_urn:
+            continue
+        if entry.get("aspectName") != "dashboardInfo":
+            continue
+        payload = entry.get("aspect", {}).get("json")
+        if isinstance(payload, dict):
+            for edge in payload.get("datasetEdges") or []:
+                edge_destinations.append(edge["destinationUrn"])
+        elif isinstance(payload, list):
+            for op in payload:
+                if (
+                    op.get("op") == "add"
+                    and "datasetEdges" in op.get("path", "")
+                    and isinstance(op.get("value"), dict)
+                    and "destinationUrn" in op["value"]
+                ):
+                    edge_destinations.append(op["value"]["destinationUrn"])
+
+    # When no server_to_platform_instance mapping exists, the default
+    # PlatformDetail returns env=PROD (matching existing behavior in
+    # extract_directlake_lineage), regardless of the source-level env.
+    expected = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,"
+        "sales-sqlserver.internal.MarketingDB,PROD)"
+    )
+    assert expected in edge_destinations, (
+        f"Paginated report should have an upstream edge to {expected}; "
+        f"got {edge_destinations}"
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
 def test_powerbi_workspace_type_filter(
     mock_msal: MagicMock,
     pytestconfig: pytest.Config,

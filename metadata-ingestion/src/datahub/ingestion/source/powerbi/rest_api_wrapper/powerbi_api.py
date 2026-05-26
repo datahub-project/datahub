@@ -22,6 +22,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Measure,
     PowerBIDataset,
     Report,
+    ReportType,
     Table,
     User,
     Workspace,
@@ -291,6 +292,37 @@ class PowerBiAPI:
                         title="Missing Lineage For Report",
                         message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
                         context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                    )
+            elif report.type is ReportType.PaginatedReport:
+                # RDL reports with embedded datasources don't carry a datasetId
+                # in the scan response; fall back to /reports/{id}/datasources.
+                try:
+                    report.datasources = self._get_resolver().get_report_datasources(
+                        workspace=workspace, report_id=report.id
+                    )
+                except Exception:
+                    self.log_http_error(
+                        message=(
+                            f"Unable to fetch datasources for paginated report "
+                            f"{report.name}({report.id}) in workspace {workspace.name}"
+                        )
+                    )
+                    report.datasources = []
+
+                if not report.datasources:
+                    self.reporter.info(
+                        title="Missing Lineage For Paginated Report",
+                        message=(
+                            "Paginated report has no shared dataset and the "
+                            "/datasources endpoint returned no rows; upstream "
+                            "lineage will be empty. In admin_apis_only mode "
+                            "this endpoint is unavailable - grant Report.Read.All "
+                            "to the service principal to enable this fallback."
+                        ),
+                        context=(
+                            f"workspace={workspace.name}, "
+                            f"report_name={report.name}, report_id={report.id}"
+                        ),
                     )
 
         def fill_tags() -> None:
