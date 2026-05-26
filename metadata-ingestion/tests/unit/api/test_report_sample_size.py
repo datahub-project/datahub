@@ -31,3 +31,59 @@ class TestReportSampleSizeFromEnvVars:
         assert (
             report._structured_logs._entries[StructuredLogLevel.WARN].max_elements == 75
         )
+
+    def test_per_entry_context_respects_sample_size(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Regression test for ticket #6656.
+
+        When many items are grouped under one error key (same title+message),
+        every context line must be retained up to the configured sample size,
+        not silently truncated to the LossyList default of 10.
+        """
+        monkeypatch.setenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "50")
+
+        report = SourceReport()
+        for i in range(24):
+            report.failure(
+                message="Error processing table",
+                context=f"table_{i}",
+                log=False,
+            )
+
+        failures = report.failures
+        assert len(failures) == 1
+        (entry,) = list(failures)
+        assert entry.context.max_elements == 50
+        assert not entry.context.sampled
+        assert len(list(entry.context)) == 24
+
+    def test_set_sample_sizes_resizes_existing_context(self) -> None:
+        """set_sample_sizes must grow context lists on already-recorded entries.
+
+        Sources can call report_warning/report_failure during __init__, before
+        the pipeline applies the configured sample size. Those entries' nested
+        context lists must be resized too, otherwise they remain capped at the
+        default of 10.
+        """
+        report = SourceReport()
+        for i in range(5):
+            report.failure(
+                message="Error processing table",
+                context=f"table_{i}",
+                log=False,
+            )
+
+        report.set_sample_sizes(failure_size=200, warning_size=200, info_size=200)
+
+        for i in range(5, 30):
+            report.failure(
+                message="Error processing table",
+                context=f"table_{i}",
+                log=False,
+            )
+
+        (entry,) = list(report.failures)
+        assert entry.context.max_elements == 200
+        assert not entry.context.sampled
+        assert len(list(entry.context)) == 30

@@ -115,6 +115,24 @@ class LossyList(List[T], Generic[T]):
         self.total_elements = total
         self.sampled = self.total_elements > self.max_elements
 
+    def resize(self, max_elements: int) -> None:
+        """Change max_elements, pruning excess entries if shrinking.
+
+        Growing is lossless. Shrinking drops random entries (consistent with
+        the reservoir-sampling behavior used elsewhere in this class) and
+        marks the list as sampled.
+        """
+        if max_elements == self.max_elements:
+            return
+        self.max_elements = max_elements
+        if super().__len__() > max_elements:
+            indices_to_drop = random.sample(
+                range(super().__len__()), super().__len__() - max_elements
+            )
+            for i in sorted(indices_to_drop, reverse=True):
+                super().__delitem__(i)
+            self.sampled = True
+
 
 class LossySet(Set[T], Generic[T]):
     """A set that only preserves a sample of elements in a set. Currently this is a very simple greedy sampling set"""
