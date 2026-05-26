@@ -14,8 +14,8 @@
 
 import logging
 import os
-from dataclasses import dataclass
-from typing import Any, Callable, Dict, Iterable, Optional
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Iterable, List, Optional
 
 # Confluent important
 import confluent_kafka
@@ -40,6 +40,7 @@ from datahub_actions.event.event_registry import (
     MetadataChangeLogEvent,
     RelationshipChangeEvent,
 )
+from datahub_actions.filter.filter import Filter
 
 # May or may not need these.
 from datahub_actions.observability.kafka_lag_monitor import KafkaLagMonitor
@@ -68,6 +69,12 @@ MESSAGE_COUNTER_METRIC = Counter(
     name="kafka_messages",
     documentation="Number of kafka messages",
     labelnames=["pipeline_name", "error"],
+)
+
+MCL_EARLY_FILTER_METRIC = Counter(
+    name="kafka_mcl_early_filter",
+    documentation="MCL events handled by KafkaSource pre-deserialization filter",
+    labelnames=["pipeline_name", "result"],  # result: rejected | passed
 )
 
 
@@ -102,6 +109,14 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
+    enable_pre_deserialization_filter: bool = Field(
+        default=False,
+        description=(
+            "When True, apply EventTypeFilter criteria against the raw Avro-deserialized "
+            "dict before the expensive avrogen MetadataChangeLogClass.from_obj() call. "
+            "Requires at least one EventTypeFilter in the pipeline's 'filters' section."
+        ),
+    )
 
 
 def kafka_messages_observer(pipeline_name: str) -> Callable:
@@ -127,6 +142,11 @@ class KafkaEventSource(EventSource):
     running = False
     source_config: KafkaEventSourceConfig
     _lag_monitor: Optional[KafkaLagMonitor] = None
+
+    # Pre-deserialization filter state (populated by set_filters when enabled)
+    _skip_mcl_entirely: bool = field(default=False, init=False)
+    _early_mcl_criteria: Dict[str, Any] = field(default_factory=dict, init=False)
+    _pipeline_name: str = field(default="", init=False)
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
         self.source_config = config
@@ -161,6 +181,9 @@ class KafkaEventSource(EventSource):
             }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
+        self._skip_mcl_entirely = False
+        self._early_mcl_criteria: Dict[str, Any] = {}
+        self._pipeline_name = ctx.pipeline_name
 
         # Initialize lag monitoring (if enabled)
         if self._is_lag_monitoring_enabled():
@@ -201,6 +224,51 @@ class KafkaEventSource(EventSource):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventSource":
         config = KafkaEventSourceConfig.model_validate(config_dict)
         return cls(config, ctx)
+
+    def set_filters(self, filters: List[Filter]) -> None:
+        if not self.source_config.enable_pre_deserialization_filter or not filters:
+            return
+
+        # Import here to avoid a circular import at module load time.
+        from datahub_actions.plugin.filter.event_type_filter import EventTypeFilter
+
+        mcl_predicates: List[Dict[str, Any]] = []
+        mcl_seen = False
+
+        for f in filters:
+            if not isinstance(f, EventTypeFilter):
+                continue
+            spec = f.config.filter.get(METADATA_CHANGE_LOG_EVENT_V1_TYPE)
+            if spec is not None:
+                mcl_seen = True
+                if spec.event is not None:
+                    mcl_predicates.extend(spec.event)
+
+        if not mcl_seen:
+            self._skip_mcl_entirely = True
+            logger.info(
+                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization filter will skip all MCL messages"
+            )
+            return
+
+        # Collect scalar/list top-level fields that can be evaluated on the raw dict.
+        # Dict-valued fields require avrogen deserialization and are excluded.
+        early_criteria: Dict[str, Any] = {}
+        for predicate in mcl_predicates:
+            for key, val in predicate.items():
+                if not isinstance(val, dict):
+                    if key not in early_criteria:
+                        early_criteria[key] = val
+                    elif early_criteria[key] != val:
+                        # Conflicting values for the same key across predicates — can't
+                        # collapse to a single early check; skip this key entirely.
+                        early_criteria.pop(key)
+
+        self._early_mcl_criteria = early_criteria
+        if early_criteria:
+            logger.info(
+                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL criteria: {early_criteria}"
+            )
 
     def events(self) -> Iterable[EventEnvelope]:
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
@@ -248,8 +316,27 @@ class KafkaEventSource(EventSource):
 
         logger.info("Kafka consumer exiting main loop")
 
-    @staticmethod
-    def handle_mcl(msg: Any) -> Iterable[EventEnvelope]:
+    def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
+        if self._skip_mcl_entirely:
+            MCL_EARLY_FILTER_METRIC.labels(
+                pipeline_name=self._pipeline_name, result="rejected"
+            ).inc()
+            return
+
+        if self._early_mcl_criteria:
+            raw: Dict[str, Any] = msg.value()
+            for key, val in self._early_mcl_criteria.items():
+                raw_val = raw.get(key)
+                match = raw_val in val if isinstance(val, list) else raw_val == val
+                if not match:
+                    MCL_EARLY_FILTER_METRIC.labels(
+                        pipeline_name=self._pipeline_name, result="rejected"
+                    ).inc()
+                    return
+            MCL_EARLY_FILTER_METRIC.labels(
+                pipeline_name=self._pipeline_name, result="passed"
+            ).inc()
+
         metadata_change_log_event = build_metadata_change_log_event(msg)
         kafka_meta = build_kafka_meta(msg)
         yield EventEnvelope(

@@ -22,6 +22,12 @@ source:
     topic_routes:
       mcl: ${METADATA_CHANGE_LOG_VERSIONED_TOPIC_NAME:-MetadataChangeLog_Versioned_v1}
       pe: ${PLATFORM_EVENT_TOPIC_NAME:-PlatformEvent_v1}
+    enable_pre_deserialization_filter: true
+filters:
+  - type: event_type
+    config:
+      filter:
+        EntityChangeEvent_v1: {}
 action:
   type: teams
   config:

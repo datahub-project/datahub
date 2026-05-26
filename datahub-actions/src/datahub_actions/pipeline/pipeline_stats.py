@@ -20,7 +20,9 @@ from typing import Dict
 import click
 
 from datahub_actions.action.action_stats import ActionStats
-from datahub_actions.pipeline.pipeline_util import get_transformer_name
+from datahub_actions.filter.filter import Filter
+from datahub_actions.filter.filter_stats import FilterStats
+from datahub_actions.pipeline.pipeline_util import get_filter_name, get_transformer_name
 from datahub_actions.transform.transformer import Transformer
 from datahub_actions.transform.transformer_stats import TransformerStats
 
@@ -39,6 +41,9 @@ class PipelineStats:
     # Top-level number of succeeded processing executions.
     success_count: int = 0
 
+    # Filter Stats
+    filter_stats: Dict[str, FilterStats] = {}
+
     # Transformer Stats
     transformer_stats: Dict[str, TransformerStats] = {}
 
@@ -56,6 +61,30 @@ class PipelineStats:
 
     def increment_success_count(self) -> None:
         self.success_count = self.success_count + 1
+
+    def increment_filter_exception_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_exception_count()
+
+    def increment_filter_processed_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_processed_count()
+
+    def increment_filter_filtered_count(self, f: Filter) -> None:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        self.filter_stats[name].increment_filtered_count()
+
+    def get_filter_stats(self, f: Filter) -> FilterStats:
+        name = get_filter_name(f)
+        if name not in self.filter_stats:
+            self.filter_stats[name] = FilterStats()
+        return self.filter_stats[name]
 
     def increment_transformer_exception_count(self, transformer: Transformer) -> None:
         transformer_name = get_transformer_name(transformer)
@@ -119,6 +148,12 @@ class PipelineStats:
         click.echo()
         click.echo(self.as_string())
         click.echo()
+        if len(self.filter_stats.keys()) > 0:
+            click.secho("Filter statistics", bold=True)
+            for key in self.filter_stats:
+                click.echo()
+                click.echo(f"{key}: {self.filter_stats[key].as_string()}")
+            click.echo()
         if len(self.transformer_stats.keys()) > 0:
             click.secho("Transformer statistics", bold=True)
             for key in self.transformer_stats:
