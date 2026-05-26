@@ -1381,9 +1381,9 @@ jobs:
           fi
 
           if [[ "${{ github.repository }}" == "datahub-project/datahub" ]]; then
-            BUCKET="datahub-oss-ci-build-artifacts"
+            BUCKET="datahub-oss-ci-build-artifacts-dev"
           else
-            BUCKET="datahub-fork-ci-build-artifacts"
+            BUCKET="datahub-fork-ci-build-artifacts-dev"
           fi
 
           WORKFLOW_NAME=$(echo "${{ github.workflow }}" \
