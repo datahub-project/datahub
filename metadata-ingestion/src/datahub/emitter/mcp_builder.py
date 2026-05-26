@@ -21,9 +21,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.container import ContainerProperties
+from datahub.metadata.com.linkedin.pegasus2avro.dataproduct import DataProductProperties
 from datahub.metadata.schema_classes import (
     KEY_ASPECTS,
+    ChangeTypeClass,
     ContainerClass,
+    DataProductAssociationClass,
     DomainsClass,
     EmbedClass,
     GlobalTagsClass,
@@ -187,6 +190,31 @@ class NotebookKey(DatahubKey):
         return make_dataset_urn_with_platform_instance(
             platform=self.platform, platform_instance=self.instance, name=self.guid()
         )
+
+
+class DataProductKey(DatahubKey):
+    platform: str
+    name: str
+    env: Optional[str] = None
+    instance: Optional[str] = None
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+    def as_urn(self) -> str:
+        return f"urn:li:dataProduct:{self.guid()}"
+
+
+class DomainKey(DatahubKey):
+    name: str
+    platform: Optional[str] = None
+    instance: Optional[str] = None
+
+    def property_dict(self) -> Dict[str, str]:
+        return self.model_dump(by_alias=True, exclude_none=True)
+
+    def as_urn(self) -> str:
+        return f"urn:li:domain:{self.guid()}"
 
 
 KeyType = TypeVar("KeyType", bound=ContainerKey)
@@ -407,6 +435,99 @@ def add_entity_to_container(
         entityUrn=entity_urn,
         aspect=ContainerClass(container=f"{container_urn}"),
     ).as_workunit()
+
+
+def gen_data_product(
+    data_product_key: DataProductKey,
+    name: str,
+    description: Optional[str] = None,
+    external_url: Optional[str] = None,
+    custom_properties: Optional[Dict[str, str]] = None,
+    domain_urn: Optional[str] = None,
+    owner_urns: Optional[List[str]] = None,
+    ownership_type: str = OwnershipTypeClass.DATAOWNER,
+    tags: Optional[List[str]] = None,
+    structured_properties: Optional[Dict[StructuredPropertyUrn, str]] = None,
+    assets: Optional[List[str]] = None,
+) -> Iterable[MetadataWorkUnit]:
+    """
+    Generate metadata workunits for a Data Product entity.
+
+    Args:
+        data_product_key: Key containing platform, name, env, and instance for generating a deterministic URN
+        name: Display name of the Data Product
+        description: Documentation describing the Data Product
+        external_url: URL to external documentation or resources
+        custom_properties: Custom key-value metadata properties
+        domain_urn: URN of the domain this Data Product belongs to
+        owner_urns: List of owner URNs (users or groups)
+        ownership_type: Ownership type for all owners. Can be a string constant (e.g., "TECHNICAL_OWNER")
+                    or a custom ownership type URN (e.g., "urn:li:ownershipType:producer").
+        tags: List of tag names to associate with the Data Product
+        structured_properties: Structured property URN to value mappings
+        assets: List of asset URNs (datasets, dashboards, charts, etc.) that are part of this Data Product.
+                Assets are converted to DataProductAssociation relationships.
+
+    Yields:
+        MetadataWorkUnit: Workunits for DataProductProperties, Status, Domain, Ownership, Tags, and StructuredProperties aspects
+    """
+    data_product_urn = data_product_key.as_urn()
+
+    # Convert asset URNs to DataProductAssociationClass if provided
+    asset_associations = None
+    if assets:
+        asset_associations = [
+            DataProductAssociationClass(destinationUrn=urn) for urn in assets
+        ]
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=DataProductProperties(
+            name=name,
+            description=description,
+            customProperties={
+                **data_product_key.property_dict(),
+                **(custom_properties or {}),
+            },
+            externalUrl=external_url,
+            assets=asset_associations,
+        ),
+    ).as_workunit()
+
+    yield MetadataChangeProposalWrapper(
+        entityUrn=data_product_urn,
+        aspect=StatusClass(removed=False),
+    ).as_workunit()
+
+    if domain_urn:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_product_urn,
+            aspect=DomainsClass(domains=[domain_urn]),
+            changeType=ChangeTypeClass.CREATE,
+            headers={"If-None-Match": "*"},
+        ).as_workunit()
+
+    if owner_urns:
+        yield MetadataChangeProposalWrapper(
+            entityUrn=data_product_urn,
+            aspect=OwnershipClass(
+                owners=[
+                    OwnerClass(owner=owner, type=ownership_type) for owner in owner_urns
+                ]
+            ),
+        ).as_workunit()
+
+    if tags:
+        yield from add_tags_to_entity_wu(
+            entity_type="dataProduct",
+            entity_urn=data_product_urn,
+            tags=sorted(tags),
+        )
+
+    if structured_properties:
+        yield from add_structured_properties_to_entity_wu(
+            entity_urn=data_product_urn, structured_properties=structured_properties
+        )
 
 
 def mcps_from_mce(

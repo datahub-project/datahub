@@ -222,7 +222,9 @@ datahub docker quickstart --version v1.2.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
-You can also specify `head` as the version to get the latest development version on the master branch.
+You can also specify `head` or `quickstart` as the version to get the latest coordinated development images from `master` (compose from `master`, images tagged `quickstart`). For a specific commit build, use `sha-<short_sha>` (registry-only, not a git tag).
+
+If you pass an unrecognized `--version` that is not a release tag (for example a typo), the CLI prompts before falling back to the default quickstart configuration. Omitting `--version` uses the default without prompting. Release-like tags (`v1.2.0`) and `sha-*` tags are used as-is without prompting. For scripts, pass `--accept-version-default` to accept the suggested configuration without an interactive prompt.
 
 ### Customize installation
 

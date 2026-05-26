@@ -41,7 +41,7 @@ scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
 
 DataHub Docker Images:
 
-Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. For local Compose / quickstart, use the coordinated `quickstart` tag or a version-specific tag like `v0.8.40`. For production and Kubernetes, pin a release tag (`v*`) or an immutable commit tag (`sha-<short_sha>`). Do not use `quickstart` in production clusters.
 
 - [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/)
 - [acryldata/datahub-gms](https://hub.docker.com/repository/docker/acryldata/datahub-gms/)
