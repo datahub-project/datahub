@@ -107,7 +107,7 @@ function LargeModule({
 
     return (
         <ModuleContainer $height="316px" ref={setNodeRef} data-testid={dataTestId}>
-            <ModuleHeader>
+            <ModuleHeader data-testid={`${dataTestId}-header`}>
                 <DragHandle
                     {...(isTemplateEditable ? listeners : {})}
                     {...(isTemplateEditable ? attributes : {})}
@@ -118,7 +118,7 @@ function LargeModule({
                     {isTemplateEditable && (
                         <DragIcon {...listeners} size="lg" icon={DotsSixVertical} isDragging={isDragging} />
                     )}
-                    <ModuleName text={name} />
+                    <ModuleName text={name} dataTestId={`${dataTestId}-title`} />
                     {/* TODO: implement description for modules CH-548 */}
                     {/* <ModuleDescription text={description} /> */}
                 </DragHandle>
