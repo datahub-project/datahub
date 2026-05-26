@@ -262,7 +262,14 @@ class TestConstructSchemaAerospike:
             ".",
             socket_timeout_ms=5000,
         )
-        assert query.policy_seen == {"socket_timeout": 5000}
+        # Both socket_timeout and total_timeout are derived from the single
+        # user-facing schema_query_timeout_ms knob; max_retries=0 prevents
+        # restream-on-failure which would skew schema inference.
+        assert query.policy_seen == {
+            "max_retries": 0,
+            "socket_timeout": 5000,
+            "total_timeout": 5000,
+        }
 
     def test_omits_socket_timeout_when_unset(self):
         query = _StrictQuery([_record("pk-1", {"x": 1})])
@@ -272,7 +279,9 @@ class TestConstructSchemaAerospike:
             ".",
             socket_timeout_ms=None,
         )
-        assert query.policy_seen == {}
+        # When the timeout knob is unset, only max_retries=0 remains; the
+        # aerospike client's own defaults apply for socket_timeout/total_timeout.
+        assert query.policy_seen == {"max_retries": 0}
 
     def test_aerospike_query_rejects_socket_timeout_attribute(self):
         # Regression: aerospike.Query is a C extension that rejects unknown
@@ -313,16 +322,17 @@ class TestConstructSchemaAerospike:
         assert ("PK",) in schema
         assert ("age",) in schema
 
-    def test_query_exception_returns_empty_schema(self):
-        # Network timeouts, auth failures, etc. during results() must not
-        # crash ingestion — the per-set warning upstream handles it.
+    def test_query_exception_propagates(self):
+        # Network timeouts, auth failures, etc. during results() must surface
+        # to the caller so ingestion fails loudly instead of silently emitting
+        # empty schemas.
         query = MagicMock()
         query.results.side_effect = RuntimeError("connection lost")
         client = MagicMock()
         client.query.return_value = query
 
-        schema = construct_schema_aerospike(client, AerospikeSet(ns="t", set="s"), ".")
-        assert schema == {}
+        with pytest.raises(RuntimeError, match="connection lost"):
+            construct_schema_aerospike(client, AerospikeSet(ns="t", set="s"), ".")
 
 
 # --------------------------------------------------------------------------- #
@@ -380,7 +390,7 @@ class TestLimitSchemaSize:
         schema = self._schema(("a", 5), ("a.b", 3), ("a.b.c", 1))
         props: Dict[str, str] = {}
 
-        result = source._limit_schema_size(schema, props)
+        result = source._limit_schema_size(schema, props, "test.demo")
 
         assert set(result.keys()) == {("a",)}
         assert props["schema.truncated"] == "True"
@@ -397,7 +407,7 @@ class TestLimitSchemaSize:
         schema = self._schema(("a", 5), ("a.b", 3), ("a.b.c", 1))
         props: Dict[str, str] = {}
 
-        result = source._limit_schema_size(schema, props)
+        result = source._limit_schema_size(schema, props, "test.demo")
         assert len(result) == 3
         assert "schema.truncated" not in props
 
@@ -412,7 +422,7 @@ class TestLimitSchemaSize:
         schema = self._schema(("a", 1), ("b", 5), ("c", 3))
         props: Dict[str, str] = {}
 
-        result = source._limit_schema_size(schema, props)
+        result = source._limit_schema_size(schema, props, "test.demo")
 
         # Top-2 by descending count: b (5), c (3)
         assert set(result.keys()) == {("b",), ("c",)}
@@ -430,7 +440,7 @@ class TestLimitSchemaSize:
         schema = self._schema(("a", 1), ("b", 2))
         props: Dict[str, str] = {}
 
-        result = source._limit_schema_size(schema, props)
+        result = source._limit_schema_size(schema, props, "test.demo")
         assert len(result) == 2
         assert "schema.downsampled" not in props
 

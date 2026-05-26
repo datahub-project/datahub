@@ -293,16 +293,17 @@ def construct_schema_aerospike(
     # socket_timeout is configured via the policy dict passed to results(),
     # not as an attribute on the Query object (which is a C-extension type
     # that rejects unknown attribute assignment).
-    policy: Dict[str, Any] = {}
+    policy: Dict[str, Any] = {"max_retries": 0}
     if socket_timeout_ms is not None:
         policy["socket_timeout"] = socket_timeout_ms
+        policy["total_timeout"] = socket_timeout_ms
 
     try:
         res = query.results(policy)
         records = [{**record[2], "PK": record[0][2]} for record in res]
-    except Exception as e:
-        logger.error(f"Error querying Aerospike set: {e}")
-        records = []
+    except Exception:
+        logger.exception(f"Error querying Aerospike set {as_set.ns}.{as_set.set}")
+        raise
     return construct_schema(records, delimiter)
 
 
@@ -564,7 +565,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
             )
         )
 
-        set_schema = self._limit_schema_size(set_full_schema, custom_properties)
+        set_schema = self._limit_schema_size(
+            set_full_schema, custom_properties, dataset_name
+        )
 
         set_fields: Union[List[SchemaDescription], ValuesView[SchemaDescription]] = (
             set_schema.values()
@@ -598,6 +601,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
         self,
         schema: Dict[Tuple[str, ...], SchemaDescription],
         custom_properties: Dict[str, str],
+        dataset_name: str,
     ) -> Dict[Tuple[str, ...], SchemaDescription]:
         """
         Limits the size of the schema to the max_schema_size and infer_schema_depth.
@@ -612,13 +616,13 @@ class AerospikeSource(StatefulIngestionSourceBase):
             }
             if len(truncated_schema) < len(schema):
                 logger.debug(
-                    f"Truncated schema from {len(schema)} to {len(truncated_schema)}"
+                    f"Truncated schema for {dataset_name} from {len(schema)} to {len(truncated_schema)}"
                 )
                 schema_depth = max([len(k) for k in schema])
                 self.report.report_warning(
                     title="Schema depth limit reached",
                     message="Truncating the collection schema because it has too many nested levels.",
-                    context=f"Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
+                    context=f"{dataset_name}: Schema Depth: {len(schema)}, Configured threshold: {self.config.infer_schema_depth}",
                 )
                 custom_properties["schema.truncated"] = "True"
                 custom_properties["schema.totalDepth"] = f"{schema_depth}"
@@ -630,7 +634,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
             self.report.report_warning(
                 title="Too many schema fields",
                 message="Downsampling the collection schema because it has too many schema fields.",
-                context=f"Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
+                context=f"{dataset_name}: Schema Size: {schema_size}, Configured threshold: {max_schema_size}",
             )
             custom_properties["schema.downsampled"] = "True"
             custom_properties["schema.totalFields"] = f"{schema_size}"
@@ -655,6 +659,9 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 .split(",")
             )
         except Exception as e:
+            logger.exception(
+                "XDR cluster-wide query failed for namespace %s", namespace
+            )
             self.report.warning(
                 message="Failed to retrieve XDR config from Aerospike",
                 context=namespace,
@@ -674,6 +681,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
                     .split("\n")[0]
                 )
             except Exception as e:
+                logger.exception("XDR per-DC query failed for %s/%s", namespace, dc)
                 self.report.warning(
                     message="Failed to retrieve XDR config for DC",
                     context=f"{namespace}/{dc}",
