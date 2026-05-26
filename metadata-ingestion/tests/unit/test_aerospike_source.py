@@ -19,7 +19,8 @@ test (the test cluster is single-node, no auth, no TLS, no XDR DCs) — those
 paths are only verifiable here.
 """
 
-from typing import Any, Dict, List, Tuple
+from collections import Counter
+from typing import Any, Counter as CounterType, Dict, List, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import aerospike
@@ -33,6 +34,7 @@ from datahub.ingestion.source.aerospike import (
     AuthMode,
     construct_schema_aerospike,
 )
+from datahub.ingestion.source.schema_inference.object import SchemaDescription
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     BooleanTypeClass,
     NullTypeClass,
@@ -54,14 +56,22 @@ class _StrictQuery:
     `query.socket_timeout = X` bug cannot recur silently behind a MagicMock.
     """
 
+    # mypy does not infer attribute types from the __slots__ tuple alone;
+    # annotation-only declarations make the slotted attributes known to it.
+    max_records: int
+    records_per_second: int
+    ttl: int
+    _records: List[Tuple]
+    policy_seen: Any
+
     __slots__ = ("max_records", "records_per_second", "ttl", "_records", "policy_seen")
 
     def __init__(self, records: List[Tuple]) -> None:
         self._records = records
-        self.policy_seen = None  # type: ignore[assignment]
+        self.policy_seen = None
 
     def results(self, policy: Any = None) -> List[Tuple]:
-        self.policy_seen = policy  # type: ignore[assignment]
+        self.policy_seen = policy
         return self._records
 
 
@@ -89,9 +99,11 @@ def _make_source(config: Dict[str, Any]) -> AerospikeSource:
     return AerospikeSource(PipelineContext(run_id="test"), parsed)
 
 
-def _schema_entry(name: str, count: int, py_type: type = str) -> Dict[str, Any]:
+def _schema_entry(name: str, count: int, py_type: type = str) -> SchemaDescription:
+    types: CounterType[Union[type, str]] = Counter()
+    types[py_type] = count
     return {
-        "types": {py_type},
+        "types": types,
         "count": count,
         "nullable": False,
         "delimited_name": name,
@@ -379,7 +391,7 @@ class TestLimitSchemaSize:
     @staticmethod
     def _schema(
         *paths_with_counts: Tuple[str, int],
-    ) -> Dict[Tuple[str, ...], Dict[str, Any]]:
+    ) -> Dict[Tuple[str, ...], SchemaDescription]:
         return {
             tuple(name.split(".")): _schema_entry(name, count)
             for name, count in paths_with_counts

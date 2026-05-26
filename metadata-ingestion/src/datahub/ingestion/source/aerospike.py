@@ -290,9 +290,6 @@ def construct_schema_aerospike(
         query.max_records = sample_size
     query.records_per_second = records_per_second
 
-    # socket_timeout is configured via the policy dict passed to results(),
-    # not as an attribute on the Query object (which is a C-extension type
-    # that rejects unknown attribute assignment).
     policy: Dict[str, Any] = {"max_retries": 0}
     if socket_timeout_ms is not None:
         policy["socket_timeout"] = socket_timeout_ms
