@@ -1,6 +1,6 @@
 import { test } from '../../fixtures/base-test';
 import { StructuredPropertiesPage } from '../../pages/structured-properties.page';
-import { TOAST_MESSAGES } from './structured-properties.constants';
+import { TOAST_MESSAGES } from './constants';
 import { withRandomSuffix } from '../../utils/random';
 
 /**
@@ -36,6 +36,9 @@ test.describe('Structured Properties CRUD', () => {
     const structuredProperty = { name: propertyName, entity: 'Dataset' };
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty(structuredProperty);
 
+    // Wait for the properties table to refresh after creation
+    await structuredPropertiesPage.waitForPageLoad();
+
     await structuredPropertiesPage.updateStructuredProperty(propertyName, {
       name: updatedPropertyName,
       description: propertyDescription,
@@ -56,7 +59,7 @@ test.describe('Structured Properties CRUD', () => {
 
     const propertyUrn = await structuredPropertiesPage.createStructuredProperty(structuredProperty);
 
-    await structuredPropertiesPage.deleteStructuredProperty(structuredProperty);
+    await structuredPropertiesPage.deleteStructuredProperty({ name: propertyName });
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_DELETED);
 

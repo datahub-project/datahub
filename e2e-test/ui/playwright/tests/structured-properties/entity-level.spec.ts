@@ -1,7 +1,7 @@
 import { test } from '../../fixtures/base-test';
 import { StructuredPropertiesPage } from '../../pages/structured-properties.page';
 import { DatasetPage } from '../../pages/dataset.page';
-import { TEST_DATA, TOAST_MESSAGES } from './structured-properties.constants';
+import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './constants';
 import { withRandomSuffix } from '../../utils/random';
 
 /**
@@ -10,7 +10,6 @@ import { withRandomSuffix } from '../../utils/random';
  */
 
 test.describe('Entity-level Structured Properties', () => {
-  test.describe.configure({ mode: 'serial' });
   let structuredPropertiesPage: StructuredPropertiesPage;
   let datasetPage: DatasetPage;
 
@@ -30,7 +29,7 @@ test.describe('Entity-level Structured Properties', () => {
       entity: 'Dataset',
     });
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
+    await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_ADD);
     await datasetPage.viewProperties();
     await structuredPropertiesPage.clickAddPropertyButton();
 
@@ -51,7 +50,7 @@ test.describe('Entity-level Structured Properties', () => {
       entity: 'Dataset',
     });
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
+    await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_REMOVE);
     await datasetPage.viewProperties();
     await structuredPropertiesPage.clickAddPropertyButton();
 
@@ -61,15 +60,14 @@ test.describe('Entity-level Structured Properties', () => {
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
 
-    const row = structuredPropertiesPage.findPropertyRow(TEST_DATA.PROPERTY_VALUE);
-    const moreIcon = structuredPropertiesPage.getPropertyMoreIcon(row);
-    await moreIcon.click();
+    await structuredPropertiesPage.waitForPropertyRow(propertyName);
+    await structuredPropertiesPage.clickPropertyMoreIcon(propertyName);
 
     await structuredPropertiesPage.clickPropertyAction('Remove');
     await structuredPropertiesPage.confirmAction();
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_REMOVED);
-    await structuredPropertiesPage.expectPageNotContains(TEST_DATA.PROPERTY_VALUE);
+    await structuredPropertiesPage.waitForPropertyRowToDisappear(propertyName);
 
     cleanup.track(propertyUrn);
   });
@@ -81,7 +79,7 @@ test.describe('Entity-level Structured Properties', () => {
       entity: 'Dataset',
     });
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
+    await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_EDIT);
     await datasetPage.viewProperties();
     await structuredPropertiesPage.clickAddPropertyButton();
 
@@ -91,12 +89,11 @@ test.describe('Entity-level Structured Properties', () => {
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
 
-    const row = structuredPropertiesPage.findPropertyRow(TEST_DATA.PROPERTY_VALUE);
-    const moreIcon = structuredPropertiesPage.getPropertyMoreIcon(row);
-    await moreIcon.click();
+    await structuredPropertiesPage.waitForPropertyRow(propertyName);
+    await structuredPropertiesPage.clickPropertyMoreIcon(propertyName);
 
     await structuredPropertiesPage.clickPropertyAction('Edit');
-    await structuredPropertiesPage.valueInput.clear();
+    await structuredPropertiesPage.clearPropertyValue();
     await structuredPropertiesPage.fillPropertyValue(TEST_DATA.PROPERTY_VALUE_UPDATED);
     await structuredPropertiesPage.submitPropertyValue();
 
@@ -118,12 +115,20 @@ test.describe('Entity-level Structured Properties', () => {
 
     await structuredPropertiesPage.waitForPageLoad();
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
+    await datasetPage.navigateToDataset(TEST_DATA.ENTITY_LEVEL_DATASET_HIDDEN);
     await datasetPage.viewProperties();
     await structuredPropertiesPage.clickAddPropertyButton();
 
-    await structuredPropertiesPage.waitForDropdownVisible();
+    // Wait for the property dropdown to be visible
+    await structuredPropertiesPage.addPropertyDropdown.waitFor({
+      state: 'visible',
+      timeout: TIMEOUTS.DROPDOWN_VISIBLE,
+    });
 
+    // Search for the hidden property to verify it doesn't appear
+    await structuredPropertiesPage.searchPropertyInDropdown(propertyName);
+
+    // Verify the property doesn't appear in the filtered results
     await structuredPropertiesPage.expectPageNotContains(propertyName);
 
     cleanup.track(propertyUrn);

@@ -3,6 +3,10 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { GraphQLHelper } from '../helpers/graphql-helper';
 
+const DROPDOWN_TIMEOUT = 10000;
+const PROPERTY_OPTION_TIMEOUT = 45000;
+const FIELD_PROPERTY_TIMEOUT = 30000;
+
 /**
  * Page object for the Manage Structured Properties page (/structured-properties).
  *
@@ -13,14 +17,13 @@ export class StructuredPropertiesPage extends BasePage {
   // ── Top-level page elements ──────────────────────────────────────────────
 
   readonly createButton: Locator;
-  readonly propertiesTable: Locator;
+  readonly managementPageTable: Locator;
+  readonly entityPageTable: Locator;
   readonly pageTitle: Locator;
 
   // ── Form elements in drawer ──────────────────────────────────────────────
 
-  readonly nameInputWrapper: Locator;
   readonly nameInputField: Locator;
-  readonly descriptionInputWrapper: Locator;
   readonly descriptionInputField: Locator;
   readonly typeSelector: Locator;
   readonly appliesToSelector: Locator;
@@ -30,12 +33,12 @@ export class StructuredPropertiesPage extends BasePage {
   readonly showInColumnsTableSwitch: Locator;
   readonly showInAssetSummarySwitch: Locator;
   readonly hideWhenEmptyCheckbox: Locator;
+  readonly fieldPropertiesTabHeader: Locator;
 
   // ── Entity-level property elements ────────────────────────────────────────
 
   readonly valueInput: Locator;
   readonly addUpdateOnEntityButton: Locator;
-  readonly propertyMoreIcon: Locator;
   readonly addPropertyButton: Locator;
   readonly addPropertyDropdown: Locator;
 
@@ -44,6 +47,14 @@ export class StructuredPropertiesPage extends BasePage {
   readonly confirmButton: Locator;
   readonly dropdownMenu: Locator;
   readonly drawer: Locator;
+  readonly pageBody: Locator;
+
+  // ── Selectors for table and dropdowns ────────────────────────────────
+
+  private readonly dropdownMenuSelector = '.ant-dropdown-menu';
+  private readonly tableRowSelector = 'tr';
+  private readonly menuItemSelector = 'li[role="menuitem"]';
+  private readonly bodySelector = 'body';
 
   private readonly graphqlHelper: GraphQLHelper;
 
@@ -53,34 +64,34 @@ export class StructuredPropertiesPage extends BasePage {
 
     // Top-level elements
     this.createButton = page.getByTestId('structured-props-create-button');
-    this.propertiesTable = page.getByTestId('structured-props-table');
-    this.pageTitle = page.locator('h1, [role="heading"]');
+    this.managementPageTable = page.getByTestId('structured-props-table');
+    this.entityPageTable = page.getByTestId('entity-properties-table');
+    this.pageTitle = page.getByRole('heading', { level: 1 });
 
     // Form elements in drawer
-    this.nameInputWrapper = page.getByTestId('structured-props-input-name');
-    this.nameInputField = this.nameInputWrapper.locator('input');
-    this.descriptionInputWrapper = page.getByTestId('structured-props-input-description');
-    this.descriptionInputField = this.descriptionInputWrapper.locator('input');
+    this.nameInputField = page.getByTestId('structured-props-input-name').locator('input');
+    this.descriptionInputField = page.getByTestId('structured-props-input-description');
     this.typeSelector = page.getByTestId('structured-props-select-input-type');
     this.appliesToSelector = page.getByTestId('structured-props-select-input-applies-to');
-    this.appliesToOptionsList = page.locator('[data-testid="applies-to-options-list"]');
+    this.appliesToOptionsList = page.getByTestId('applies-to-options-list');
     this.createUpdateButton = page.getByTestId('structured-props-create-update-button');
     this.hideSwitch = page.getByTestId('structured-props-hide-switch');
     this.showInColumnsTableSwitch = page.getByTestId('structured-props-show-in-columns-table-switch');
     this.showInAssetSummarySwitch = page.getByTestId('structured-props-show-in-asset-summary-switch');
     this.hideWhenEmptyCheckbox = page.getByTestId('structured-props-hide-in-asset-summary-when-empty-checkbox');
+    this.fieldPropertiesTabHeader = page.getByTestId('Properties-field-drawer-tab-header');
 
     // Entity-level property elements
     this.valueInput = page.getByTestId('structured-property-string-value-input');
     this.addUpdateOnEntityButton = page.getByTestId('add-update-structured-prop-on-entity-button');
-    this.propertyMoreIcon = page.getByTestId('structured-prop-entity-more-icon');
     this.addPropertyButton = page.getByTestId('add-structured-prop-button');
     this.addPropertyDropdown = page.getByTestId('add-structured-property-dropdown');
 
     // Modal elements
     this.confirmButton = page.getByTestId('modal-confirm-button');
-    this.dropdownMenu = page.locator('.ant-dropdown-menu');
-    this.drawer = page.locator('.ant-drawer-content');
+    this.dropdownMenu = page.locator(this.dropdownMenuSelector);
+    this.drawer = page.getByRole('dialog');
+    this.pageBody = page.locator(this.bodySelector);
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
@@ -110,42 +121,83 @@ export class StructuredPropertiesPage extends BasePage {
     return entityMap[entityName] || entityName.toLowerCase();
   }
 
+  // ── Dynamic locator helpers ──────────────────────────────────────────────
+
+  private getAppliesToOption(entityUrn: string): Locator {
+    return this.appliesToOptionsList.locator(`[data-testid*="${entityUrn}"]`);
+  }
+
+  private getPropertiesTable(): Locator {
+    // Returns entity properties table on entity page, management table on management page
+    return this.entityPageTable.or(this.managementPageTable);
+  }
+
+  private findPropertyRow(propertyName: string): Locator {
+    // Find property row in the appropriate table (works on both entity and management pages)
+    return this.getPropertiesTable().locator(this.tableRowSelector).filter({ hasText: propertyName });
+  }
+
+  private getPropertyMoreIconFromRow(row: Locator): Locator {
+    return row.getByTestId('structured-props-more-options-icon');
+  }
+
+  private getEntityPropertyMoreIcon(row: Locator): Locator {
+    return row.getByTestId('structured-prop-entity-more-icon');
+  }
+
+  private getDropdownSearchInput(): Locator {
+    return this.addPropertyDropdown.locator('input[type="text"]');
+  }
+
+  private getPropertyOptionInDropdown(propertyName: string): Locator {
+    return this.addPropertyDropdown.locator(this.menuItemSelector).filter({ hasText: propertyName });
+  }
+
+  private getActionMenuItem(action: string): Locator {
+    return this.page.getByText(action, { exact: true });
+  }
+
+  private getFieldPropertyRow(propertyName: string): Locator {
+    return this.drawer.locator(this.tableRowSelector).filter({ hasText: propertyName });
+  }
+
+  private getFirstTableCell(row: Locator): Locator {
+    return row.locator('td').first();
+  }
+
   // ── Create structured property ───────────────────────────────────────────
 
   async createStructuredProperty(prop: { name: string; entity: string }): Promise<string> {
     this.logger?.step('createStructuredProperty', { prop });
 
-    // Wait for GraphQL response before submitting
+    // Intercept the GraphQL response to extract the URN of the newly created property
     const responsePromise = this.graphqlHelper.waitForGraphQLResponse('createStructuredProperty');
 
     // Click create button
     await this.createButton.click();
-
-    // Fill name using declared selector
     await this.nameInputField.click();
     await this.nameInputField.fill(prop.name);
 
-    // Select type "Text"
+    // Select Text as the property type
     await this.typeSelector.click();
     await this.page.getByText('Text', { exact: true }).click();
 
-    // Select entity type using declared selector
+    // Select the entity type this property applies to
     await this.appliesToSelector.click();
     await this.appliesToOptionsList.waitFor({ state: 'visible' });
     const entityUrn = this.getEntityTypeUrn(prop.entity);
-    await this.appliesToOptionsList.locator(`[data-testid*="${entityUrn}"]`).first().click();
+    await this.getAppliesToOption(entityUrn).click();
 
-    // Submit
+    // Submit the form
     await this.createUpdateButton.click();
 
-    // Wait for GraphQL response and extract URN
+    // Extract the URN from the GraphQL response
     const response = await responsePromise;
     const propertyEntity = (response.data as Record<string, Record<string, string>>).createStructuredProperty;
     if (!propertyEntity || !propertyEntity.urn) {
       throw new Error(`Failed to extract structured property URN from GraphQL response: ${JSON.stringify(response)}`);
     }
 
-    // Wait for creation to complete
     await this.page.waitForLoadState('networkidle');
 
     return propertyEntity.urn;
@@ -156,21 +208,17 @@ export class StructuredPropertiesPage extends BasePage {
   async deleteStructuredProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('deleteStructuredProperty', { prop });
 
-    // Find property row in table
-    const propRow = this.propertiesTable.locator('tr').filter({ hasText: prop.name });
-
-    // Click more options icon
-    const moreIcon = propRow.locator('[data-testid="structured-props-more-options-icon"]');
+    // Find the property row and open its action menu (works on both entity and management pages)
+    const propRow = this.findPropertyRow(prop.name);
+    const moreIcon = this.getPropertyMoreIconFromRow(propRow);
     await moreIcon.click();
 
-    // Click Delete from dropdown
+    // Click Delete from the dropdown menu
     await this.dropdownMenu.waitFor({ state: 'visible' });
     await this.page.getByText('Delete', { exact: true }).click();
 
-    // Confirm deletion
+    // Confirm the deletion
     await this.confirmButton.click();
-
-    // Wait for deletion to complete
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -182,12 +230,16 @@ export class StructuredPropertiesPage extends BasePage {
   ): Promise<void> {
     this.logger?.step('updateStructuredProperty', { oldName, updates });
 
-    // Find and click property in table
-    const propRow = this.propertiesTable.locator('tr').filter({ hasText: oldName });
-    const propCell = propRow.locator('td').first();
-    await propCell.click();
+    // Find and open the property for editing (works on both entity and management pages)
+    const propRow = this.findPropertyRow(oldName);
+    // Wait for the property row to appear and be visible in the table
+    await propRow.waitFor({ state: 'visible' });
+    // Click on the property name cell to open the drawer
+    const propNameCell = this.getFirstTableCell(propRow);
+    await propNameCell.click();
 
-    // Wait for form to load using declared selector
+    // Wait for the drawer to appear
+    await this.drawer.waitFor({ state: 'visible' });
     await this.nameInputField.waitFor({ state: 'visible' });
 
     // Update name if provided
@@ -203,18 +255,16 @@ export class StructuredPropertiesPage extends BasePage {
       await this.descriptionInputField.fill(updates.description);
     }
 
-    // Update entity if provided
+    // Update entity type if provided
     if (updates.entity) {
       await this.appliesToSelector.click();
       await this.appliesToOptionsList.waitFor({ state: 'visible' });
       const entityUrn = this.getEntityTypeUrn(updates.entity);
-      await this.appliesToOptionsList.locator(`[data-testid*="${entityUrn}"]`).first().click();
+      await this.getAppliesToOption(entityUrn).click();
     }
 
-    // Submit
+    // Submit the update
     await this.createUpdateButton.click();
-
-    // Wait for update to complete
     await this.page.waitForLoadState('networkidle');
   }
 
@@ -223,11 +273,13 @@ export class StructuredPropertiesPage extends BasePage {
   async hideProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('hideProperty', { prop });
 
-    // Find and click property in table
-    const propRow = this.propertiesTable.locator('tr').filter({ hasText: prop.name });
-    const propCell = propRow.locator('td').first();
+    // Find property row (works on both entity page and management page)
+    const propRow = this.findPropertyRow(prop.name);
+    const propCell = this.getFirstTableCell(propRow);
     await propCell.click();
 
+    // Wait for the drawer to appear
+    await this.drawer.waitFor({ state: 'visible' });
     // Wait for the form to be fully loaded
     await this.createUpdateButton.waitFor({ state: 'visible' });
 
@@ -246,9 +298,9 @@ export class StructuredPropertiesPage extends BasePage {
   async enableShowInColumnsTable(prop: { name: string }): Promise<void> {
     this.logger?.step('enableShowInColumnsTable', { prop });
 
-    // Find and click property in table
-    const propRow = this.propertiesTable.locator('tr').filter({ hasText: prop.name });
-    const propCell = propRow.locator('td').first();
+    // Find and click property in table (works on both entity and management pages)
+    const propRow = this.findPropertyRow(prop.name);
+    const propCell = this.getFirstTableCell(propRow);
     await propCell.click();
 
     // Wait for the form to be fully loaded
@@ -274,10 +326,15 @@ export class StructuredPropertiesPage extends BasePage {
   async selectPropertyFromDropdown(propertyName: string): Promise<void> {
     this.logger?.step('selectPropertyFromDropdown', { propertyName });
 
-    await this.addPropertyDropdown.waitFor({ state: 'visible', timeout: 10000 });
+    await this.addPropertyDropdown.waitFor({ state: 'visible', timeout: DROPDOWN_TIMEOUT });
 
-    const propertyOption = this.addPropertyDropdown.locator('li[role="menuitem"]').filter({ hasText: propertyName });
-    await propertyOption.waitFor({ state: 'visible', timeout: 45000 });
+    // Type property name in dropdown search to filter results
+    const searchInput = this.getDropdownSearchInput();
+    await searchInput.fill(propertyName);
+
+    // Find and click the property option from the filtered dropdown menu
+    const propertyOption = this.getPropertyOptionInDropdown(propertyName);
+    await propertyOption.waitFor({ state: 'visible', timeout: PROPERTY_OPTION_TIMEOUT });
     await propertyOption.click();
   }
 
@@ -289,24 +346,50 @@ export class StructuredPropertiesPage extends BasePage {
   async submitPropertyValue(): Promise<void> {
     this.logger?.step('submitPropertyValue');
     await this.addUpdateOnEntityButton.click();
+    // Wait for the value input to disappear, indicating the form has closed
+    await this.valueInput.waitFor({ state: 'hidden' });
   }
 
-  findPropertyRow(value: string): Locator {
-    const table = this.page.locator('table');
-    const cellWithValue = table.locator('td', { hasText: value }).first();
-    return cellWithValue.locator('xpath=ancestor::tr[1]');
+  async waitForPropertyRow(propertyName: string): Promise<void> {
+    this.logger?.step('waitForPropertyRow', { propertyName });
+    const row = this.findPropertyRow(propertyName);
+    await row.waitFor({ state: 'visible' });
+  }
+
+  async waitForPropertyRowToDisappear(propertyName: string): Promise<void> {
+    this.logger?.step('waitForPropertyRowToDisappear', { propertyName });
+    const row = this.findPropertyRow(propertyName);
+    await row.waitFor({ state: 'hidden' });
   }
 
   getPropertyMoreIcon(row: Locator): Locator {
-    return row.locator('[data-testid="structured-prop-entity-more-icon"]').first();
+    return this.getEntityPropertyMoreIcon(row);
+  }
+
+  async clickPropertyMoreIcon(propertyName: string): Promise<void> {
+    this.logger?.step('clickPropertyMoreIcon', { propertyName });
+    const row = this.findPropertyRow(propertyName);
+    await row.waitFor({ state: 'visible' });
+    const moreIcon = this.getPropertyMoreIcon(row);
+    await moreIcon.click();
+  }
+
+  async clearPropertyValue(): Promise<void> {
+    this.logger?.step('clearPropertyValue');
+    await this.valueInput.clear();
+  }
+
+  async searchPropertyInDropdown(propertyName: string): Promise<void> {
+    this.logger?.step('searchPropertyInDropdown', { propertyName });
+    const searchInput = this.getDropdownSearchInput();
+    await searchInput.fill(propertyName);
   }
 
   async clickPropertyAction(action: 'Edit' | 'Remove'): Promise<void> {
     this.logger?.step('clickPropertyAction', { action });
-    const menus = this.page.locator('body .ant-dropdown-menu');
-    const menuCount = await menus.count();
-    const visibleMenu = menus.nth(menuCount - 1);
-    await visibleMenu.locator(`text=${action}`).click();
+    // Click the action from the dropdown menu (e.g., Edit, Remove)
+    const actionItem = this.getActionMenuItem(action);
+    await actionItem.click();
   }
 
   async confirmAction(): Promise<void> {
@@ -318,12 +401,14 @@ export class StructuredPropertiesPage extends BasePage {
 
   async expectPageContains(text: string): Promise<void> {
     this.logger?.step('expectPageContains', { text });
-    await expect(this.page.locator('body')).toContainText(text);
+    // Verify text is present on the page
+    await expect(this.pageBody).toContainText(text);
   }
 
   async expectPageNotContains(text: string): Promise<void> {
     this.logger?.step('expectPageNotContains', { text });
-    await expect(this.page.locator('body')).not.toContainText(text);
+    // Verify text is NOT present on the page
+    await expect(this.pageBody).not.toContainText(text);
   }
 
   async waitForPageLoad(): Promise<void> {
@@ -333,20 +418,24 @@ export class StructuredPropertiesPage extends BasePage {
 
   async waitForDropdownVisible(): Promise<void> {
     this.logger?.step('waitForDropdownVisible');
-    const dropdown = this.page.locator('body .ant-dropdown-menu');
-    await dropdown.waitFor({ state: 'visible' });
+    // Wait for the dropdown menu to become visible
+    await this.dropdownMenu.waitFor({ state: 'visible' });
   }
 
   // ── Field-level property operations ─────────────────────────────────────
 
-  getFieldPropertyButton(propertyName: string): Locator {
+  private getFieldPropertyButton(propertyName: string): Locator {
     return this.page.getByTestId(`${propertyName}-add-or-edit-button`);
   }
 
-  async waitForFieldPropertyButton(propertyName: string, timeout: number = 30000): Promise<void> {
+  async waitForFieldPropertyButton(propertyName: string, timeout: number = FIELD_PROPERTY_TIMEOUT): Promise<void> {
     this.logger?.step('waitForFieldPropertyButton', { propertyName });
-    const button = this.getFieldPropertyButton(propertyName);
-    await button.waitFor({ state: 'visible', timeout });
+    await this.getFieldPropertyButton(propertyName).waitFor({ state: 'visible', timeout });
+  }
+
+  async clickFieldPropertyButton(propertyName: string): Promise<void> {
+    this.logger?.step('clickFieldPropertyButton', { propertyName });
+    await this.getFieldPropertyButton(propertyName).click();
   }
 
   async fillFieldPropertyValue(value: string): Promise<void> {
@@ -366,17 +455,22 @@ export class StructuredPropertiesPage extends BasePage {
 
   async clickFieldPropertiesTab(): Promise<void> {
     this.logger?.step('clickFieldPropertiesTab');
-    await this.page.getByTestId('Properties-field-drawer-tab-header').click();
+    await this.fieldPropertiesTabHeader.click();
   }
 
   async clickFieldPropertyAction(propertyName: string, action: 'Edit' | 'Remove'): Promise<void> {
     this.logger?.step('clickFieldPropertyAction', { propertyName, action });
-    const row = this.drawer.locator('tr').filter({ hasText: propertyName });
-    const moreIcon = row.locator('[data-testid="structured-prop-entity-more-icon"]');
+    // Find the property row and open its action menu
+    const row = this.getFieldPropertyRow(propertyName);
+    await row.waitFor({ state: 'visible' });
+    const moreIcon = this.getEntityPropertyMoreIcon(row);
+    await moreIcon.waitFor({ state: 'visible' });
     await moreIcon.click();
 
+    // Click the action from the dropdown menu
     await this.dropdownMenu.waitFor({ state: 'visible' });
-    await this.dropdownMenu.locator(`text=${action}`).click();
+    const actionItem = this.getActionMenuItem(action);
+    await actionItem.click();
   }
 
   async expectDrawerContains(text: string): Promise<void> {

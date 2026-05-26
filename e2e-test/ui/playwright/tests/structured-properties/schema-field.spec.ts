@@ -2,7 +2,7 @@ import { test } from '../../fixtures/base-test';
 import { StructuredPropertiesPage } from '../../pages/structured-properties.page';
 import { DatasetPage } from '../../pages/dataset.page';
 import { withRandomSuffix } from '../../utils/random';
-import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './structured-properties.constants';
+import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './constants';
 
 /**
  * Schema Field Structured Properties tests
@@ -10,7 +10,6 @@ import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './structured-properties.con
  */
 
 test.describe('Schema Field Structured Properties', () => {
-  test.describe.configure({ mode: 'serial' });
   let structuredPropertiesPage: StructuredPropertiesPage;
   let datasetPage: DatasetPage;
 
@@ -31,15 +30,16 @@ test.describe('Schema Field Structured Properties', () => {
 
     await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
 
-    await structuredPropertiesPage.waitForPageLoad();
+    // Wait for property setting to propagate to backend before navigating to dataset
+    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
-    await datasetPage.clickSchemaFieldByName(TEST_DATA.FIELD_NAME);
+    await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_ADD_DATASET);
+    await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_ADD);
 
     await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
 
     await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
-    await structuredPropertiesPage.getFieldPropertyButton(propertyName).click();
+    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
     await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
     await structuredPropertiesPage.submitFieldProperty();
@@ -58,15 +58,16 @@ test.describe('Schema Field Structured Properties', () => {
 
     await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
 
-    await structuredPropertiesPage.waitForPageLoad();
+    // Wait for property setting to propagate to backend before navigating to dataset
+    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
-    await datasetPage.clickSchemaFieldByName(TEST_DATA.FIELD_NAME);
+    await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_UPDATE_DATASET);
+    await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_UPDATE);
 
     await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
 
     await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
-    await structuredPropertiesPage.getFieldPropertyButton(propertyName).click();
+    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
     await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
     await structuredPropertiesPage.submitFieldProperty();
@@ -74,7 +75,7 @@ test.describe('Schema Field Structured Properties', () => {
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
 
     await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.DRAWER_VISIBLE);
-    await structuredPropertiesPage.getFieldPropertyButton(propertyName).click();
+    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
     await structuredPropertiesPage.clearFieldPropertyValue();
     await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE_UPDATED);
@@ -94,20 +95,26 @@ test.describe('Schema Field Structured Properties', () => {
 
     await structuredPropertiesPage.enableShowInColumnsTable(fieldProperty);
 
-    await structuredPropertiesPage.waitForPageLoad();
+    // Wait for property setting to propagate to backend before navigating to dataset
+    await new Promise((resolve) => setTimeout(resolve, TIMEOUTS.SETTING_PROPAGATION));
 
-    await datasetPage.navigateToDataset(TEST_DATA.DATASET_URN);
-    await datasetPage.clickSchemaFieldByName(TEST_DATA.FIELD_NAME);
+    await datasetPage.navigateToDataset(TEST_DATA.SCHEMA_FIELD_REMOVE_DATASET);
+    await datasetPage.clickSchemaFieldByName(TEST_DATA.SCHEMA_FIELD_REMOVE);
 
     await datasetPage.waitForFieldDrawer(TIMEOUTS.DRAWER_VISIBLE);
 
+    await structuredPropertiesPage.waitForPageLoad();
+
     await structuredPropertiesPage.waitForFieldPropertyButton(propertyName, TIMEOUTS.FIELD_BUTTON_VISIBLE);
-    await structuredPropertiesPage.getFieldPropertyButton(propertyName).click();
+    await structuredPropertiesPage.clickFieldPropertyButton(propertyName);
 
     await structuredPropertiesPage.fillFieldPropertyValue(TEST_DATA.PROPERTY_VALUE);
     await structuredPropertiesPage.submitFieldProperty();
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_ADDED);
+
+    // Wait for the drawer to refresh with the new property before accessing the properties tab
+    await structuredPropertiesPage.waitForPageLoad();
 
     await structuredPropertiesPage.clickFieldPropertiesTab();
 
@@ -116,7 +123,8 @@ test.describe('Schema Field Structured Properties', () => {
     await structuredPropertiesPage.confirmModalAction();
 
     await structuredPropertiesPage.expectPageContains(TOAST_MESSAGES.PROPERTY_REMOVED);
-    await structuredPropertiesPage.expectDrawerNotContains(TEST_DATA.PROPERTY_VALUE);
+    // Check that the specific property is gone by verifying its name is not in the drawer
+    await structuredPropertiesPage.expectDrawerNotContains(propertyName);
 
     cleanup.track(propertyUrn);
   });
