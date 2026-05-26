@@ -53,10 +53,10 @@ Each Project and Component emits an all-time `viewsCount` and a rolling 7-day wi
 
 ### Limitations
 
-1. **`queriedTables` is ENTERPRISE-only and opt-in.** Defaults to SQL parsing; enable `use_queried_tables_lineage` on ENTERPRISE workspaces to use Hex's API as the primary source.
+1. **`queriedTables` require Hex ENTERPRISE subscricption and opt-in.** Defaults to SQL parsing; enable `use_queried_tables_lineage` on ENTERPRISE workspaces to use Hex's API as the primary source.
 2. **Non-SQL query paths produce no lineage.** SQL parsing cannot recover table references from `hextoolkit` Python cells, dynamic SQL built from variables, or parameterized table names — the resulting projects will be missing those upstreams.
 3. **Context documents are not a complete mirror of the Hex notebook.** Only a subset of cell types is captured, so the rendered document will not match the source notebook exactly.
-4. **Upstream warehouse URNs may mismatch when Hex's connection metadata is incomplete.** Set `connection_platform_map` with the correct `platform_instance` / `default_database` / `default_schema` to align URNs with the warehouse ingestion.
+4. **Upstream lineage may be missing or mismatched when Hex's `/v1/data-connections` metadata is incomplete or uses an unrecognized `connectionDetails` shape.** Without `default_database` / `default_schema`, neither SQL parsing nor `queriedTables` can assemble fully-qualified URNs; without the right `platform_instance`, URNs won't align with the warehouse ingestion. Set the affected `dataConnectionId` under `connection_platform_map` with the correct `platform_instance` / `default_database` / `default_schema`, or report the new connection shape to the DataHub team so the parser can be updated.
 
 ### Troubleshooting
 
