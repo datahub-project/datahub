@@ -182,6 +182,7 @@ def test_hex_ingestion_enterprise(
                     "base_url": "http://localhost:8001/api/v1",
                     "platform_instance": "hex_test",
                     "include_lineage": True,
+                    "use_queried_tables_lineage": True,
                     "include_context_documents": False,
                     "stateful_ingestion": {
                         "enabled": False,
