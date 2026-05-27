@@ -5,7 +5,109 @@ from datahub.ingestion.source.powerbi.m_query.native_sql_parser import (
     _has_real_semicolons,
     _insert_statement_separators,
     parse_custom_sql,
+    remove_drop_statement,
+    remove_special_characters,
 )
+
+# ---------------------------------------------------------------------------
+# Shared SQL fixture used by both the _insert_statement_separators structural
+# test and the end-to-end parse_custom_sql regression test.
+#
+# Key structural properties exercised:
+#   - Nested WITH (a WITH clause inside the body of an outer CTE)
+#   - Blank lines before every SELECT, including those inside CTE bodies
+#   - Semicolon inside a SQL comment (must not trigger multi-statement parsing)
+#   - Multiple blank lines before the final depth-0 SELECT
+#
+# These properties combine to produce the bug where the outer CTE alias was
+# mistakenly emitted as a real upstream table: blank-line SELECT detection
+# split the query, leaving the final SELECT without its CTE definitions.
+# ---------------------------------------------------------------------------
+
+_NESTED_CTE_SQL = """\
+-- Find merged records; see ticket #42
+
+With outer_cte as (
+with inner_cte_a as
+(
+
+SELECT
+      a.id as record_id
+      , count(a.grp) as grp_count
+
+FROM
+
+    db_a.schema_a.table_a a
+
+group by
+    a.id
+
+),
+inner_cte_b as
+(
+
+SELECT
+      b.id as record_id
+      , count(b.grp) as grp_count_b
+
+FROM
+
+    db_b.schema_b.table_b b
+
+group by
+    b.id
+
+)
+SELECT
+    a.record_id
+    , a.grp_count
+    , b.grp_count_b
+FROM
+    inner_cte_a a
+      left join inner_cte_b b
+        on a.record_id = b.record_id
+GROUP BY
+    a.record_id
+    , a.grp_count
+    , b.grp_count_b
+HAVING a.grp_count = b.grp_count_b
+)
+,
+cte_c as
+(
+  SELECT distinct
+     c.id as record_id
+    , c.val
+FROM
+    db_a.schema_a.table_a c
+)
+,
+cte_d as
+(
+    SELECT
+     d.record_id
+FROM
+    cte_c d
+group by
+      d.record_id
+having count(d.record_id) = 1
+)
+
+
+
+SELECT
+    e.id
+    , f.val
+
+FROM
+
+    outer_cte oc
+      left join cte_d d
+        on oc.record_id = d.record_id
+      left join db_c.schema_c.table_c e
+        on d.record_id = e.id
+
+where e.is_active = 'TRUE'"""
 
 # ---------------------------------------------------------------------------
 # _has_real_semicolons
@@ -72,98 +174,18 @@ def test_insert_separators_adds_between_standalone_selects():
 
 
 def test_insert_separators_nested_cte_with_comment_semicolon():
+    """No separator should be inserted anywhere — the whole query is one statement.
+
+    Uses _NESTED_CTE_SQL which contains all three properties that previously
+    triggered incorrect splitting: nested CTEs, blank lines before SELECTs, and
+    a comment semicolon.
     """
-    Nested CTE (WITH inside a CTE body), blank lines before every SELECT,
-    and a semicolon inside a comment.
-
-    No separator should be inserted anywhere — the whole query is one statement.
-    """
-    sql = """\
--- Find merged records; see ticket #42
-
-With outer_cte as (
-with inner_cte_a as
-(
-
-SELECT
-      a.id as record_id
-      , count(a.grp) as grp_count
-
-FROM
-    db_a.schema_a.table_a a
-
-group by
-    a.id
-
-),
-inner_cte_b as
-(
-
-SELECT
-      b.id as record_id
-      , count(b.grp) as grp_count_b
-
-FROM
-    db_b.schema_b.table_b b
-
-group by
-    b.id
-
-)
-SELECT
-    a.record_id
-    , a.grp_count
-    , b.grp_count_b
-FROM
-    inner_cte_a a
-      left join inner_cte_b b
-        on a.record_id = b.record_id
-GROUP BY
-    a.record_id
-    , a.grp_count
-    , b.grp_count_b
-HAVING a.grp_count = b.grp_count_b
-)
-,
-cte_c as
-(
-  SELECT distinct
-     c.id as record_id
-    , c.val
-FROM
-    db_a.schema_a.table_a c
-)
-,
-cte_d as
-(
-    SELECT
-     d.record_id
-FROM
-    cte_c d
-group by
-      d.record_id
-having count(d.record_id) = 1
-)
-
-
-
-SELECT
-    e.id
-    , f.val
-
-FROM
-    outer_cte oc
-      left join cte_d d
-        on oc.record_id = d.record_id
-      left join db_c.schema_c.table_c e
-        on d.record_id = e.id
-
-where e.is_active = 'TRUE'"""
-
-    result = _insert_statement_separators(sql)
+    result = _insert_statement_separators(_NESTED_CTE_SQL)
     # The function must not have inserted any new statement separators.
     # (The original SQL has a ";" inside the comment, which must be preserved unchanged.)
-    assert result == sql, f"Query should be returned unchanged, but got:\n{result}"
+    assert result == _NESTED_CTE_SQL, (
+        f"Query should be returned unchanged, but got:\n{result}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -177,98 +199,15 @@ def pipeline_ctx() -> PipelineContext:
 
 
 def test_parse_nested_cte_no_cte_alias_in_upstreams(pipeline_ctx: PipelineContext):
+    """Regression test: CTE aliases must NOT appear in upstream URNs.
+
+    Runs _NESTED_CTE_SQL through the full production pre-processing sequence
+    (remove_special_characters → remove_drop_statement → parse_custom_sql) to
+    guard against the bug where the outer CTE alias leaked into upstream URNs.
     """
-    Regression test: CTE aliases must NOT appear in upstream URNs, and the
-    real source tables must appear.
-
-    Tests a query with a nested WITH (WITH inside a CTE body), blank lines
-    before SELECT statements, and a semicolon inside a SQL comment — the
-    combination that previously caused the outer CTE alias to leak into upstreams.
-    """
-    sql = """\
--- Find merged records; see ticket #42
-
-With outer_cte as (
-with inner_cte_a as
-(
-
-SELECT
-      a.id as record_id
-      , count(a.grp) as grp_count
-
-FROM
-
-    db_a.schema_a.table_a a
-
-group by
-    a.id
-
-),
-inner_cte_b as
-(
-
-SELECT
-      b.id as record_id
-      , count(b.grp) as grp_count_b
-
-FROM
-
-    db_b.schema_b.table_b b
-
-group by
-    b.id
-
-)
-SELECT
-    a.record_id
-    , a.grp_count
-    , b.grp_count_b
-FROM
-    inner_cte_a a
-      left join inner_cte_b b
-        on a.record_id = b.record_id
-GROUP BY
-    a.record_id
-    , a.grp_count
-    , b.grp_count_b
-HAVING a.grp_count = b.grp_count_b
-)
-,
-cte_c as
-(
-  SELECT distinct
-     c.id as record_id
-    , c.val
-FROM
-    db_a.schema_a.table_a c
-)
-,
-cte_d as
-(
-    SELECT
-     d.record_id
-FROM
-    cte_c d
-group by
-      d.record_id
-having count(d.record_id) = 1
-)
-
-
-
-SELECT
-    e.id
-    , f.val
-
-FROM
-
-    outer_cte oc
-      left join cte_d d
-        on oc.record_id = d.record_id
-      left join db_c.schema_c.table_c e
-        on d.record_id = e.id
-
-where e.is_active = 'TRUE'"""
+    # Mirror the production call sequence in OdbcLineage.query_lineage
+    sql = remove_special_characters(_NESTED_CTE_SQL)
+    sql = remove_drop_statement(sql)
 
     result = parse_custom_sql(
         ctx=pipeline_ctx,

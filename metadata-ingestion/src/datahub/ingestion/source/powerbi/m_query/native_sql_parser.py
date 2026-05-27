@@ -182,11 +182,17 @@ def _insert_statement_separators(query: str) -> str:
         if blank_count >= 1 and paren_depth == 0:
             if re.match(r"SELECT\b", stripped, re.IGNORECASE):
                 if in_cte_query:
-                    # This SELECT closes the open WITH clause — it is part of
-                    # the same statement, so do NOT insert a separator.
+                    # This SELECT is the final query of the WITH clause.
+                    # Inserting a separator here would detach it from the CTE
+                    # definitions, causing sqlglot to treat CTE aliases as real
+                    # tables and generate spurious upstream URNs.
                     in_cte_query = False
                 else:
-                    result.append(";")
+                    # Append to the last non-blank line for conventional SQL style.
+                    for i in range(len(result) - 1, -1, -1):
+                        if result[i].strip():
+                            result[i] += ";"
+                            break
         elif paren_depth == 0 and in_cte_query:
             # CTE closing SELECT with no preceding blank line — the blank_count
             # gate above never fires, so reset the flag here.  Without this,
