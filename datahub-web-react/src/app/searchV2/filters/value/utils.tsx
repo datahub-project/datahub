@@ -170,9 +170,20 @@ export const useFilterOptionsBySearchQuery = (
         return options;
     }
     return options.filter((option) => {
-        const optionName = option.entity
-            ? entityRegistry.getDisplayName(option.entity.type, option.entity)
-            : option.displayName || option.value;
+        let optionName: string;
+        if (option.entity) {
+            optionName = entityRegistry.getDisplayName(option.entity.type, option.entity);
+        } else if (option.displayName) {
+            optionName = option.displayName;
+        } else {
+            // For entity type values (e.g., "DATASET", "DATASETS"), get the collection name
+            // which returns the proper plural form for filtering
+            try {
+                optionName = entityRegistry.getCollectionName(option.value.toUpperCase() as EntityType);
+            } catch {
+                optionName = option.value;
+            }
+        }
         return filterOptionsWithSearch(searchQuery, optionName, []);
     });
 };
