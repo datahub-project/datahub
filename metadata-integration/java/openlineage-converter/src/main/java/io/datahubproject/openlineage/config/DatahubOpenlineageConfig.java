@@ -40,8 +40,8 @@ public class DatahubOpenlineageConfig {
   private final boolean includeSchemaMetadata;
   @Builder.Default private final boolean captureColumnLevelLineage = true;
   // INDIRECT upstreams are columns that influenced row selection (JOIN keys, WHERE filters,
-  // GROUP BY). When true, they are emitted as a separate fineGrainedLineage entry from
-  // DIRECT (value-producing) upstreams.
+  // GROUP BY) rather than producing the output value. When false, input fields whose only
+  // role is INDIRECT are dropped from column-level lineage.
   @Builder.Default private final boolean includeIndirectColumnLineage = true;
 
   // Advanced configuration

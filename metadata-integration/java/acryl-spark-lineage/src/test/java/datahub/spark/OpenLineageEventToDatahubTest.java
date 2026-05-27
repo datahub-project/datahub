@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.dataprocess.RunResultType;
+import com.linkedin.dataset.FineGrainedLineage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import datahub.spark.conf.SparkAppContext;
@@ -907,31 +908,23 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
 
-      // Fixture column "age" carries both DIRECT:IDENTITY and INDIRECT:FILTER, which must
-      // land in separate entries rather than a flattened union.
-      List<String> transformOps =
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
-              .map(fgl -> fgl.getTransformOperation())
-              .collect(java.util.stream.Collectors.toList());
-      assertTrue(
-          transformOps.contains("DIRECT:IDENTITY"),
-          "Expected a DIRECT-only FineGrainedLineage entry, got: " + transformOps);
-      assertTrue(
-          transformOps.contains("INDIRECT:FILTER"),
-          "Expected an INDIRECT-only FineGrainedLineage entry, got: " + transformOps);
-      // "INDIRECT" contains the substring "DIRECT", so strip INDIRECT tokens first.
-      assertTrue(
-          transformOps.stream()
-              .noneMatch(
-                  op ->
-                      op.contains("INDIRECT:") && op.replace("INDIRECT:", "").contains("DIRECT:")),
-          "DIRECT and INDIRECT must not be combined in a single transformOperation: "
-              + transformOps);
+      // With include_indirect=true, DIRECT and INDIRECT transformations are merged into the
+      // single FineGrainedLineage entry per downstream column (back-compat with the
+      // pre-fix emission shape).
+      assertEquals(
+          "DIRECT:IDENTITY,INDIRECT:FILTER",
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation());
     }
   }
 
   @Test
   public void testIncludeIndirectColumnLineageDisabled() throws URISyntaxException, IOException {
+    // When include_indirect=false, input fields with only INDIRECT transformations are
+    // dropped from column-level lineage. The fixture has the "name" output column with one
+    // INDIRECT-only contributor (people.parquet.age, filter) and one DIRECT contributor
+    // (people.parquet.name). The INDIRECT-only contributor must disappear.
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
     builder.fabricType(FabricType.DEV);
@@ -952,62 +945,17 @@ public class OpenLineageEventToDatahubTest {
 
     assertNotNull(datahubJob);
     for (DatahubDataset dataset : datahubJob.getOutSet()) {
-      List<String> transformOps =
+      FineGrainedLineage nameEntry =
           Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
-              .map(fgl -> fgl.getTransformOperation())
-              .collect(java.util.stream.Collectors.toList());
-      assertTrue(
-          transformOps.stream().noneMatch(op -> op.contains("INDIRECT:")),
-          "INDIRECT entries should be suppressed when include_indirect=false, got: "
-              + transformOps);
-      assertTrue(
-          transformOps.stream().anyMatch(OpenLineageEventToDatahubTest::containsDirectToken),
-          "At least one DIRECT entry should remain, got: " + transformOps);
-    }
-  }
-
-  @Test
-  public void testIndirectOnlyColumnDroppedWhenIndirectDisabled()
-      throws URISyntaxException, IOException {
-    // INDIRECT-only columns (e.g. COUNT(*) driven by GROUP BY) emit no column-level lineage
-    // when include_indirect=false — matching the Python SQL parser. Table-level lineage
-    // still includes the source dataset so the dataset relationship isn't lost.
-    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
-        DatahubOpenlineageConfig.builder();
-    builder.fabricType(FabricType.DEV);
-    builder.lowerCaseDatasetUrns(true);
-    builder.materializeDataset(true);
-    builder.includeSchemaMetadata(true);
-    builder.isSpark(true);
-    builder.captureColumnLevelLineage(true);
-    builder.includeIndirectColumnLineage(false);
-
-    String olEvent =
-        IOUtils.toString(
-            this.getClass()
-                .getResourceAsStream("/ol_events/sample_spark_with_indirect_only_column.json"),
-            StandardCharsets.UTF_8);
-
-    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
-    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
-
-    assertNotNull(datahubJob);
-    assertEquals(1, datahubJob.getOutSet().size());
-    for (DatahubDataset dataset : datahubJob.getOutSet()) {
-      assertEquals(
-          0,
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).size(),
-          "INDIRECT-only column must produce no column-level lineage with the flag off");
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",name)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
       assertEquals(
           1,
-          dataset.getLineage().getUpstreams().size(),
-          "Dataset-level upstream must still be emitted so table lineage isn't lost");
+          nameEntry.getUpstreams().size(),
+          "INDIRECT-only contributor (age) must be dropped from the name column's upstreams");
+      assertEquals("DIRECT:IDENTITY", nameEntry.getTransformOperation());
     }
-  }
-
-  /** Strip INDIRECT tokens first since "INDIRECT" contains the substring "DIRECT". */
-  private static boolean containsDirectToken(String transformOperation) {
-    return transformOperation.replace("INDIRECT:", "").contains("DIRECT:");
   }
 
   @Test
@@ -1043,34 +991,24 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
 
-      List<String> transformOps =
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
-              .map(fgl -> fgl.getTransformOperation())
-              .collect(java.util.stream.Collectors.toList());
-
-      // SQL is the derivation of DIRECT upstreams; it must appear on the DIRECT entry
-      // and never on the INDIRECT entry.
-      String directOp =
-          transformOps.stream()
-              .filter(OpenLineageEventToDatahubTest::containsDirectToken)
-              .findFirst()
-              .orElseThrow(
-                  () ->
-                      new AssertionError(
-                          "Expected a DIRECT FineGrainedLineage entry, got: " + transformOps));
+      String transformOperation =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
+              .get(0)
+              .getTransformOperation();
+      assertNotNull(transformOperation);
+      // Format: "-- <transformations>\n<SQL>"
       assertTrue(
-          directOp.contains("SELECT age, name FROM people WHERE age > 18"),
-          "DIRECT transform operation should contain SQL query, got: " + directOp);
+          transformOperation.contains("SELECT age, name FROM people WHERE age > 18"),
+          "Transform operation should contain SQL query, got: " + transformOperation);
       assertTrue(
-          directOp.contains("-- DIRECT:") && directOp.contains("\n"),
-          "DIRECT transform operation should prefix transformations with '-- ' before SQL, got: "
-              + directOp);
-
+          transformOperation.contains("DIRECT:IDENTITY")
+              && transformOperation.contains("INDIRECT:FILTER"),
+          "Transform operation should contain both DIRECT and INDIRECT transformations, got: "
+              + transformOperation);
       assertTrue(
-          transformOps.stream()
-              .filter(op -> op.contains("INDIRECT:"))
-              .noneMatch(op -> op.contains("SELECT")),
-          "INDIRECT transform operation should not contain SQL query, got: " + transformOps);
+          transformOperation.startsWith("-- ") && transformOperation.contains("\n"),
+          "Transform operation should prefix transformations with '-- ' before SQL, got: "
+              + transformOperation);
     }
   }
 

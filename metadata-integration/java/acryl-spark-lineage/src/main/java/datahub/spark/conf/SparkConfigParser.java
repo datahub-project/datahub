@@ -424,6 +424,6 @@ public class SparkConfigParser {
       return datahubConfig.getBoolean(COLUMN_LINEAGE_INCLUDE_INDIRECT);
     }
 
-    return false;
+    return true;
   }
 }

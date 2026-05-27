@@ -410,13 +410,6 @@ public class OpenLineageToDataHub {
     return null;
   }
 
-  // OpenLineage classifies column-lineage as DIRECT (the input value flows to the output) or
-  // INDIRECT (the input only influenced row selection: JOIN keys, WHERE filters, GROUP BY).
-  // DataHub's FineGrainedLineage has no native distinction, so we emit them as separate
-  // entries instead of flattening every output column into the union of all upstreams.
-  private static final String OL_TRANSFORMATION_TYPE_DIRECT = "DIRECT";
-  private static final String OL_TRANSFORMATION_TYPE_INDIRECT = "INDIRECT";
-
   private static UpstreamLineage getFineGrainedLineage(
       OpenLineage.Dataset dataset, DatahubOpenlineageConfig mappingConfig, OpenLineage.Job job) {
     FineGrainedLineageArray fgla = new FineGrainedLineageArray();
@@ -440,89 +433,113 @@ public class OpenLineageToDataHub {
       return null;
     }
 
-    Optional<DatasetUrn> datasetUrn = convertOpenlineageDatasetToDatasetUrn(dataset, mappingConfig);
-    String sqlQuery = extractSqlQuery(job);
+    boolean includeIndirect = mappingConfig.isIncludeIndirectColumnLineage();
 
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
+      FineGrainedLineage fgl = new FineGrainedLineage();
+
+      UrnArray upstreamFields = new UrnArray();
       UrnArray downstreamsFields = new UrnArray();
+      Optional<DatasetUrn> datasetUrn =
+          convertOpenlineageDatasetToDatasetUrn(dataset, mappingConfig);
       datasetUrn.ifPresent(
           urn ->
               downstreamsFields.add(
                   UrnUtils.getUrn("urn:li:schemaField:" + "(" + urn + "," + field.getKey() + ")")));
 
-      UrnArray directUpstreams = new UrnArray();
-      UrnArray indirectUpstreams = new UrnArray();
-      LinkedHashSet<String> directTransformations = new LinkedHashSet<>();
-      LinkedHashSet<String> indirectTransformations = new LinkedHashSet<>();
+      LinkedHashSet<String> transformationTexts = new LinkedHashSet<>();
       OpenLineage.StaticDatasetBuilder staticDatasetBuilder =
           new OpenLineage.StaticDatasetBuilder();
+      field
+          .getValue()
+          .getInputFields()
+          .forEach(
+              inputField -> {
+                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
+                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
+                if (!includeIndirect && isIndirectOnly(inputField)) {
+                  return;
+                }
+                OpenLineage.Dataset staticDataset =
+                    staticDatasetBuilder
+                        .name(inputField.getName())
+                        .namespace(inputField.getNamespace())
+                        .build();
 
-      for (OpenLineage.InputField inputField : field.getValue().getInputFields()) {
-        OpenLineage.Dataset staticDataset =
-            staticDatasetBuilder
-                .name(inputField.getName())
-                .namespace(inputField.getNamespace())
-                .build();
-        Optional<DatasetUrn> urn =
-            convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
-        if (!urn.isPresent()) {
-          continue;
-        }
-        Urn datasetFieldUrn =
-            UrnUtils.getUrn(
-                "urn:li:schemaField:" + "(" + urn.get() + "," + inputField.getField() + ")");
+                if (inputField.getTransformations() != null) {
+                  for (OpenLineage.InputFieldTransformations transformation :
+                      inputField.getTransformations()) {
+                    transformationTexts.add(
+                        String.format(
+                            "%s:%s", transformation.getType(), transformation.getSubtype()));
+                  }
+                }
+                Optional<DatasetUrn> urn =
+                    convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
+                if (urn.isPresent()) {
+                  Urn datasetFieldUrn =
+                      UrnUtils.getUrn(
+                          "urn:li:schemaField:"
+                              + "("
+                              + urn.get()
+                              + ","
+                              + inputField.getField()
+                              + ")");
+                  upstreamFields.add(datasetFieldUrn);
+                  if (upstreams.stream()
+                      .noneMatch(
+                          upstream ->
+                              upstream.getDataset().toString().equals(urn.get().toString()))) {
+                    upstreams.add(
+                        new Upstream()
+                            .setDataset(urn.get())
+                            .setType(DatasetLineageType.TRANSFORMED));
+                  }
+                }
+              });
 
-        // The same input column can appear in both buckets: e.g. a column that is projected
-        // (DIRECT) and also used in a WHERE clause (INDIRECT) on the same output row.
-        boolean hasDirect = false;
-        boolean hasIndirect = false;
-        if (inputField.getTransformations() != null && !inputField.getTransformations().isEmpty()) {
-          for (OpenLineage.InputFieldTransformations transformation :
-              inputField.getTransformations()) {
-            String type = transformation.getType();
-            String text = String.format("%s:%s", type, transformation.getSubtype());
-            if (OL_TRANSFORMATION_TYPE_INDIRECT.equalsIgnoreCase(type)) {
-              indirectTransformations.add(text);
-              hasIndirect = true;
-            } else {
-              directTransformations.add(text);
-              hasDirect = true;
-            }
+      if (upstreamFields.isEmpty()) {
+        continue;
+      }
+
+      String combinedTransformations = "";
+
+      // Capture transformation information from OpenLineage
+      if (!transformationTexts.isEmpty()) {
+        List<String> sortedList =
+            transformationTexts.stream()
+                .sorted(String.CASE_INSENSITIVE_ORDER)
+                .collect(Collectors.toList());
+        combinedTransformations = String.join(",", sortedList);
+      }
+
+      // Extract SQL query from SQLJobFacet if available
+      if (job != null
+          && job.getFacets() != null
+          && job.getFacets().getSql() != null
+          && job.getFacets().getSql().getQuery() != null) {
+        String sqlQuery = job.getFacets().getSql().getQuery();
+        if (!sqlQuery.trim().isEmpty()) {
+          if (!combinedTransformations.isEmpty()) {
+            combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
+          } else {
+            combinedTransformations = sqlQuery;
           }
-        } else {
-          // Transformations is optional in the OL spec. Default unclassified upstreams to
-          // DIRECT — the bucket that is always emitted, so no edge can silently disappear.
-          hasDirect = true;
-        }
-
-        if (hasDirect && !directUpstreams.contains(datasetFieldUrn)) {
-          directUpstreams.add(datasetFieldUrn);
-        }
-        if (hasIndirect && !indirectUpstreams.contains(datasetFieldUrn)) {
-          indirectUpstreams.add(datasetFieldUrn);
-        }
-
-        if (upstreams.stream()
-            .noneMatch(upstream -> upstream.getDataset().toString().equals(urn.get().toString()))) {
-          upstreams.add(
-              new Upstream().setDataset(urn.get()).setType(DatasetLineageType.TRANSFORMED));
         }
       }
 
-      // The SQL describes the derivation of DIRECT upstreams, not the filter/join graph,
-      // so it goes on the DIRECT entry only.
-      if (!directUpstreams.isEmpty()) {
-        fgla.add(
-            buildFineGrainedLineage(
-                directUpstreams, downstreamsFields, directTransformations, sqlQuery));
-      }
-      if (mappingConfig.isIncludeIndirectColumnLineage() && !indirectUpstreams.isEmpty()) {
-        fgla.add(
-            buildFineGrainedLineage(
-                indirectUpstreams, downstreamsFields, indirectTransformations, null));
-      }
+      upstreamFields.sort(Comparator.comparing(Urn::toString));
+      fgl.setUpstreams(upstreamFields);
+      fgl.setConfidenceScore(0.5f);
+      fgl.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+
+      downstreamsFields.sort(Comparator.comparing(Urn::toString));
+      fgl.setDownstreams(downstreamsFields);
+      fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
+      fgl.setTransformOperation(combinedTransformations);
+      fgla.add(fgl);
     }
 
     UpstreamLineage upstreamLineage = new UpstreamLineage();
@@ -531,43 +548,17 @@ public class OpenLineageToDataHub {
     return upstreamLineage;
   }
 
-  private static FineGrainedLineage buildFineGrainedLineage(
-      UrnArray upstreamFields,
-      UrnArray downstreamsFields,
-      LinkedHashSet<String> transformationTexts,
-      String sqlQuery) {
-    String transformOperation = "";
-    if (!transformationTexts.isEmpty()) {
-      transformOperation =
-          transformationTexts.stream()
-              .sorted(String.CASE_INSENSITIVE_ORDER)
-              .collect(Collectors.joining(","));
+  private static boolean isIndirectOnly(OpenLineage.InputField inputField) {
+    List<OpenLineage.InputFieldTransformations> transformations = inputField.getTransformations();
+    if (transformations == null || transformations.isEmpty()) {
+      return false;
     }
-    if (sqlQuery != null && !sqlQuery.trim().isEmpty()) {
-      transformOperation =
-          transformOperation.isEmpty() ? sqlQuery : "-- " + transformOperation + "\n" + sqlQuery;
+    for (OpenLineage.InputFieldTransformations t : transformations) {
+      if (!"INDIRECT".equalsIgnoreCase(t.getType())) {
+        return false;
+      }
     }
-
-    UrnArray sortedUpstreams = new UrnArray(upstreamFields);
-    sortedUpstreams.sort(Comparator.comparing(Urn::toString));
-    UrnArray sortedDownstreams = new UrnArray(downstreamsFields);
-    sortedDownstreams.sort(Comparator.comparing(Urn::toString));
-
-    FineGrainedLineage fgl = new FineGrainedLineage();
-    fgl.setUpstreams(sortedUpstreams);
-    fgl.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
-    fgl.setDownstreams(sortedDownstreams);
-    fgl.setDownstreamType(FineGrainedLineageDownstreamType.FIELD_SET);
-    fgl.setConfidenceScore(0.5f);
-    fgl.setTransformOperation(transformOperation);
-    return fgl;
-  }
-
-  private static String extractSqlQuery(OpenLineage.Job job) {
-    if (job == null || job.getFacets() == null || job.getFacets().getSql() == null) {
-      return null;
-    }
-    return job.getFacets().getSql().getQuery();
+    return true;
   }
 
   private static GlobalTags generateTags(OpenLineage.RunEvent event) {
