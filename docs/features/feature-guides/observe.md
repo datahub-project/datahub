@@ -26,6 +26,12 @@ The capability area is organized around three jobs:
 
 Catch issues as close to the source as possible.
 
+### Supported platforms
+
+Active query runs on the major cloud warehouses; ingestion-driven assertions work on any platform that reports the relevant aspect.
+
+👉 **[See supported platforms](/docs/managed-datahub/observe/assertions.md#capabilities-at-a-glance)**
+
 - **[Data Observability Agent](/docs/managed-datahub/observe/data-health-dashboard.md#data-observability-agent-private-beta)** — an AI assistant that scans your data landscape and provisions the right assertions for the right tables in minutes, not weeks. Tell it which slice of your data matters most (or let it figure that out from usage and ownership signals), and it creates Freshness, Volume, Field, and other checks automatically — closing coverage gaps without manual setup per table. _DataHub Cloud only. Private Beta._
 - **[Assertions](/docs/managed-datahub/observe/assertions.md)** — the core data-quality test primitive in DataHub. Assertions can be **active** (DataHub Cloud issues queries against your warehouse on a schedule) or **ingestion-driven** (DataHub Cloud evaluates the assertion against profiles and operations already reported during ingestion, on any platform). Active, ingestion-driven, and anomaly-detection assertions are all DataHub Cloud features. DataHub Core can ingest and display assertion results that you self-report — from dbt, Great Expectations, Snowflake DMFs, or any custom source pushed via the SDK.
   - [Freshness](/docs/managed-datahub/observe/freshness-assertions.md) — has the table updated recently?
@@ -36,12 +42,6 @@ Catch issues as close to the source as possible.
   - [Anomaly Detection](/docs/managed-datahub/observe/anomaly-detection.md) — DataHub Cloud auto-learns normal behavior for freshness, volume, and column metrics. _DataHub Cloud only._
 - **[Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md)** — a single pane for the health of your data landscape, including [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) that automatically apply anomaly-detection monitors and schema assertions across matching datasets as your landscape evolves. _DataHub Cloud only._
 - **[SQL Profiling](/metadata-ingestion/docs/dev_guides/sql_profiles.md)** — dataset and column profiles produced by ingestion. Profiles power ingestion-driven Volume and Column assertions and feed the asset profile pages users already browse.
-
-### Supported platforms
-
-Active query runs on the major cloud warehouses; ingestion-driven assertions work on any platform that reports the relevant aspect.
-
-👉 **[See supported platforms](/docs/managed-datahub/observe/assertions.md#capabilities-at-a-glance)**
 
 ## Resolution
 
