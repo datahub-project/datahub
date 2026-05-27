@@ -651,43 +651,22 @@ def optimized_get_pk_constraint(
     return {"constrained_columns": index_columns, "name": index_name}
 
 
-def _apply_nullable_override(row: Any, col_info: Dict[str, Any]) -> None:
-    """Override col_info['nullable'] with a defensive parse of the raw Nullable field.
+def _strip_padded_nullable(row: Any, col_info: Dict[str, Any]) -> None:
+    """Re-derive col_info['nullable'] by stripping CHAR(1) padding from row.Nullable.
 
-    teradatasqlalchemy's _get_column_info computes nullable via the strict check
-    ``row['Nullable'] == 'Y'``. Teradata's `Nullable` column in dbc.ColumnsV (and
-    HELP COLUMN output) is CHAR(1), which Teradata returns space-padded over the
-    wire as ``'Y '`` / ``'N '``. The strict check then evaluates False for every
-    column, so genuinely nullable fields incorrectly hydrate as nullable=False.
-
-    Re-derive nullable from the raw field, normalizing whitespace/case/bytes.
-    When the raw value is None or unparseable, leave the existing value alone —
-    the most common cause is a view column without QVCI enabled, where the
-    metadata genuinely isn't available and guessing would just be wrong in the
-    opposite direction.
-    """
-    raw: Any = None
-    if hasattr(row, "Nullable"):
-        raw = row.Nullable
-    elif isinstance(row, dict) and "Nullable" in row:
-        raw = row["Nullable"]
-    else:
-        mapping = getattr(row, "_mapping", None)
-        if mapping is not None and "Nullable" in mapping:
-            raw = mapping["Nullable"]
-
-    if isinstance(raw, bytes):
-        try:
-            raw = raw.decode("utf-8")
-        except UnicodeDecodeError:
-            return
-
+    teradatasqlalchemy does a strict `row['Nullable'] == 'Y'` check, but
+    Teradata returns CHAR(1) values space-padded ('Y '/'N '), so the check
+    evaluates False for every nullable column. No-op when the row's Nullable
+    isn't a string (e.g. None for view columns without QVCI enabled)."""
+    raw = (
+        row.Nullable
+        if hasattr(row, "Nullable")
+        else row.get("Nullable")
+        if isinstance(row, dict)
+        else None
+    )
     if isinstance(raw, str):
-        normalized = raw.strip().upper()
-        if normalized == "Y":
-            col_info["nullable"] = True
-        elif normalized == "N":
-            col_info["nullable"] = False
+        col_info["nullable"] = raw.strip() == "Y"
 
 
 def optimized_get_columns(
@@ -788,7 +767,7 @@ def optimized_get_columns(
     for row in res:
         try:
             col_info = self._get_column_info(row)
-            _apply_nullable_override(row, col_info)
+            _strip_padded_nullable(row, col_info)
 
             # Add CommentString as comment field for column description
             if hasattr(row, "CommentString") and row.CommentString:

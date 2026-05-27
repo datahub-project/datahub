@@ -25,7 +25,6 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataReport,
     TeradataSource,
     TeradataTable,
-    _apply_nullable_override,
     _engine_connect_with_retry,
     _execute_with_retry,
     _fetchmany_with_retry,
@@ -4111,76 +4110,82 @@ class TestExecuteWithCursorFallback:
         assert result is expected
 
 
-class TestApplyNullableOverride:
-    """Tests for the defensive Nullable parser used to work around CHAR(1)
-    space-padding in Teradata's dbc.ColumnsV and HELP COLUMN output.
+class TestNullableCharPadding:
+    """Teradata returns dbc.ColumnsV.Nullable space-padded as 'Y '/'N ' (CHAR(1)).
+    The library's strict `row['Nullable'] == 'Y'` then evaluates False for every
+    column, so genuinely nullable columns hydrate as nullable=False until we
+    re-check after stripping. Exercise this through optimized_get_columns so we
+    catch a regression at the actual code path."""
 
-    See _apply_nullable_override docstring for the underlying issue."""
+    def _make_dialect_with_row(self, raw_nullable):
+        """Build a mock dialect that returns a single row with the given
+        raw Nullable value, mimicking the buggy library output."""
 
-    @pytest.mark.parametrize(
-        "raw, expected",
-        [
-            # Bare values
-            ("Y", True),
-            ("N", False),
-            # CHAR(1) space-padded — the bug we're actually fixing
-            ("Y ", True),
-            ("N ", False),
-            ("  Y  ", True),
-            ("  N  ", False),
-            # Case insensitivity (defensive, low real-world risk)
-            ("y", True),
-            ("n", False),
-            ("y ", True),
-            # Bytes (defensive)
-            (b"Y", True),
-            (b"N", False),
-            (b"Y ", True),
-        ],
-    )
-    def test_parses_padded_and_variant_inputs(self, raw, expected):
-        row = {"Nullable": raw}
-        col_info: Dict[str, Any] = {"nullable": not expected}  # opposite of expected
-        _apply_nullable_override(row, col_info)
-        assert col_info["nullable"] is expected
+        # Library produces False for any non-bare-'Y' value, including padded.
+        library_nullable = raw_nullable == "Y"
 
-    @pytest.mark.parametrize("raw", [None, "", "   ", "?", "unknown", 1, 0, object()])
-    def test_leaves_value_alone_when_unparseable(self, raw):
-        """When the raw Nullable can't be confidently parsed, we must NOT
-        overwrite — most often this means a view column without QVCI, and
-        defaulting either direction would be wrong."""
-        for original in (True, False):
-            col_info: Dict[str, Any] = {"nullable": original}
-            _apply_nullable_override({"Nullable": raw}, col_info)
-            assert col_info["nullable"] is original
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect._get_column_info.return_value = {
+            "name": "col1",
+            "nullable": library_nullable,
+        }
 
-    def test_handles_row_object_with_attribute(self):
-        """Library passes SQLAlchemy Row-like objects; attribute access path."""
+        # Row with attribute access (matches SQLAlchemy Row from dbc.ColumnsV).
+        row = MagicMock(spec=["Nullable", "CommentString"])
+        row.Nullable = raw_nullable
+        row.CommentString = None
+        mock_dialect.get_schema_columns.return_value = {"my_table": [row]}
+        return mock_dialect
 
-        class FakeRow:
-            Nullable = "Y "
+    def _call(self, mock_dialect):
+        tables_cache: Dict[str, List[TeradataTable]] = {
+            "mydb": [
+                TeradataTable(
+                    database="mydb",
+                    name="my_table",
+                    description=None,
+                    object_type="Table",
+                    create_timestamp=datetime.now(),
+                    last_alter_name=None,
+                    last_alter_timestamp=None,
+                    request_text=None,
+                )
+            ]
+        }
+        return optimized_get_columns(
+            mock_dialect,
+            MagicMock(),
+            "my_table",
+            "mydb",
+            tables_cache=tables_cache,
+        )
 
-        col_info: Dict[str, Any] = {"nullable": False}
-        _apply_nullable_override(FakeRow(), col_info)
-        assert col_info["nullable"] is True
+    def test_padded_y_hydrates_as_nullable_true(self):
+        """The real-world bug: 'Y ' (padded) must produce nullable=True."""
+        cols = self._call(self._make_dialect_with_row("Y "))
+        assert cols[0]["nullable"] is True
 
-    def test_handles_row_object_with_mapping(self):
-        """Some Row objects expose `_mapping` instead of attributes."""
+    def test_padded_n_hydrates_as_nullable_false(self):
+        cols = self._call(self._make_dialect_with_row("N "))
+        assert cols[0]["nullable"] is False
 
-        class FakeRow:
-            _mapping = {"Nullable": "N "}
+    def test_clean_y_still_works(self):
+        """Bare 'Y' (no padding) is unchanged behavior."""
+        cols = self._call(self._make_dialect_with_row("Y"))
+        assert cols[0]["nullable"] is True
 
-        col_info: Dict[str, Any] = {"nullable": True}
-        _apply_nullable_override(FakeRow(), col_info)
-        assert col_info["nullable"] is False
-
-    def test_missing_nullable_key_is_noop(self):
-        col_info: Dict[str, Any] = {"nullable": True}
-        _apply_nullable_override({"OtherKey": "Y"}, col_info)
-        assert col_info["nullable"] is True
-
-    def test_invalid_utf8_bytes_does_not_raise(self):
-        col_info: Dict[str, Any] = {"nullable": False}
-        # Should not raise; should leave value untouched.
-        _apply_nullable_override({"Nullable": b"\xff\xfe"}, col_info)
-        assert col_info["nullable"] is False
+    def test_dict_row_with_padded_nullable(self):
+        """HELP path produces dict rows via _update_column_help_info; both
+        SQLAlchemy Row attribute access and dict access must work."""
+        mock_dialect = MagicMock()
+        mock_dialect.default_schema_name = "mydb"
+        mock_dialect._get_column_info.return_value = {
+            "name": "col1",
+            "nullable": False,
+        }
+        mock_dialect.get_schema_columns.return_value = {
+            "my_table": [{"Nullable": "Y ", "ColumnName": "col1"}]
+        }
+        cols = self._call(mock_dialect)
+        assert cols[0]["nullable"] is True
