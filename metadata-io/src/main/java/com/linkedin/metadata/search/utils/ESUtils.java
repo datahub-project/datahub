@@ -138,11 +138,13 @@ public class ESUtils {
   // End of field types
 
   /**
-   * Maximum character length for keyword fields before OpenSearch silently skips indexing the
-   * value. Lucene keyword terms have a hard 32,766-byte limit; using 32766/4 = 8191 ensures safety
-   * even for all-multibyte UTF-8 content. Tokenized text sub-fields are unaffected.
+   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
+   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
+   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
+   * sub-fields are unaffected.
    */
-  public static final int KEYWORD_MAXLENGTH = 8191;
+  public static final int KEYWORD_MAXLENGTH = 32766;
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(
