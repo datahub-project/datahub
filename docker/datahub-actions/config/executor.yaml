@@ -30,13 +30,9 @@ filters:
           event:
             - entityType: "dataHubExecutionRequest"
               changeType: "UPSERT"
-              aspectName: "dataHubExecutionRequestInput"
-              aspect:
-                value:
-                  executorId: "${EXECUTOR_ID:-default}"
-            - entityType: "dataHubExecutionRequest"
-              changeType: "UPSERT"
-              aspectName: "dataHubExecutionRequestSignal"
+              aspectName:
+                - "dataHubExecutionRequestInput"
+                - "dataHubExecutionRequestSignal"
               aspect:
                 value:
                   executorId: "${EXECUTOR_ID:-default}"
