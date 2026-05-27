@@ -126,16 +126,20 @@ filters:
         EntityChangeEvent_v1: {}
 ```
 
-#### Performance: pre-deserialization filtering
+#### Performance: MCL pre-deserialization filtering
 
-When the Kafka event source is configured with `enable_pre_deserialization_filter: true`, it uses the pipeline's `event_type` filter criteria to drop eligible MCL events _before_ the expensive `MetadataChangeLogClass.from_obj()` avrogen deserialization call. This can reduce CPU usage significantly for pipelines that consume only a small fraction of the MCL stream (e.g. Slack/Teams notifications that only care about entity-change events).
+When the Kafka event source is configured with `enable_mcl_pre_deserialization_filter: true`, it uses the pipeline's `event_type` filter criteria to drop eligible **MetadataChangeLog (MCL)** messages _before_ the expensive `MetadataChangeLogClass.from_obj()` avrogen deserialization call. This can reduce CPU usage significantly for pipelines that consume only a small fraction of the MCL stream.
+
+**Why MCL only?**
+
+MCL messages have `entityType`, `aspectName`, `entityUrn`, and `changeType` as top-level Avro fields that are accessible on the raw Kafka message without any deserialization. EntityChangeEvent (ECE) messages arrive inside a `PlatformEvent` envelope with a JSON-encoded payload — fields like `category` and `operation` can only be read after deserializing that envelope, meaning the deserialization cost has already been paid before any field access is possible. Therefore, ECE delivery is **never affected** by this flag.
 
 ```yaml
 source:
   type: kafka
   config:
     # ... connection config ...
-    enable_pre_deserialization_filter: true
+    enable_mcl_pre_deserialization_filter: true
 ```
 
 #### Legacy `filter:` section (deprecated)

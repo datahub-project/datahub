@@ -186,9 +186,7 @@ entry_points = {
     ],
     "datahub_actions.transformer.plugins": [],
     "datahub_actions.source.plugins": [],
-    "datahub_actions.filter.plugins": [
-        "event_type = datahub_actions.plugin.filter.event_type_filter:EventTypeFilter",
-    ],
+    "datahub_actions.filter.plugins": [],
 }
 
 

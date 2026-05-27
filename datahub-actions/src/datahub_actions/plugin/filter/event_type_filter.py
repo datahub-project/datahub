@@ -88,11 +88,26 @@ class EventTypeFilter(Filter):
     def matches(self, event: EventEnvelope) -> bool:
         spec = self.config.filter.get(event.event_type)
         if spec is None:
+            logger.debug(
+                "EventTypeFilter: dropping event (type %s not in filter config)",
+                event.event_type,
+            )
             return False
         if spec.event is None:
+            logger.debug(
+                "EventTypeFilter: passing event (type %s matches, no body predicate)",
+                event.event_type,
+            )
             return True
         body: Dict[str, Any] = json.loads(event.event.as_json())
-        return any(
+        result = any(
             all(match_util.matches(v, body.get(k)) for k, v in predicate.items())
             for predicate in spec.event
         )
+        logger.debug(
+            "EventTypeFilter: %s event (type %s, body predicate result: %s)",
+            "passing" if result else "dropping",
+            event.event_type,
+            result,
+        )
+        return result

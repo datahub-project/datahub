@@ -166,11 +166,15 @@ filters:
               entityType: schemaField
 ```
 
-#### Performance tip: pre-deserialization filtering with Kafka
+#### Performance tip: MCL pre-deserialization filtering with Kafka
 
-When using the Kafka event source you can add `enable_pre_deserialization_filter: true` to drop
-MCL messages _before_ the expensive avrogen deserialization step. This is especially effective for
-pipelines that only care about entity-change events (e.g. Slack or Teams notifications):
+When using the Kafka event source you can add `enable_mcl_pre_deserialization_filter: true` to
+drop **MetadataChangeLog (MCL)** messages _before_ the expensive avrogen deserialization step.
+This flag only affects MCL events — EntityChangeEvent (ECE) delivery is never impacted because
+ECE fields are only accessible after deserializing the PlatformEvent envelope.
+
+This is especially effective for pipelines that only care about entity-change events (e.g. Slack
+or Teams notifications), where all MCL messages can be dropped without ever deserializing them:
 
 ```yml
 source:
@@ -179,7 +183,7 @@ source:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
-    enable_pre_deserialization_filter: true
+    enable_mcl_pre_deserialization_filter: true
 filters:
   - type: event_type
     config:

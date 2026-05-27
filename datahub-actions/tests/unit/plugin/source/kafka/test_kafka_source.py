@@ -60,9 +60,11 @@ _MCL_MSG = {
 }
 
 
-def _make_source(enable_pre_deserialization_filter: bool = False) -> KafkaEventSource:
+def _make_source(
+    enable_mcl_pre_deserialization_filter: bool = False,
+) -> KafkaEventSource:
     config = KafkaEventSourceConfig(
-        enable_pre_deserialization_filter=enable_pre_deserialization_filter
+        enable_mcl_pre_deserialization_filter=enable_mcl_pre_deserialization_filter
     )
     ctx = PipelineContext(pipeline_name="test-kafka", graph=None)
     with (
@@ -123,27 +125,57 @@ def _mcl_filter_with_entity_type(entity_type: str) -> EventTypeFilter:
 
 
 def test_set_filters_noop_when_disabled():
-    source = _make_source(enable_pre_deserialization_filter=False)
+    source = _make_source(enable_mcl_pre_deserialization_filter=False)
     source.set_filters([_ece_only_filter()])
     assert not source._skip_mcl_entirely
     assert source._early_mcl_criteria == {}
 
 
+def test_set_filters_noop_when_no_event_type_filter():
+    """If enable_mcl_pre_deserialization_filter is True but there are no EventTypeFilters,
+    MCL must not be skipped — no-op, pass everything through."""
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
+    source.set_filters([])  # no filters at all
+    assert not source._skip_mcl_entirely
+    assert source._early_mcl_criteria == {}
+
+
 def test_set_filters_skip_mcl_entirely_when_no_mcl_type():
-    source = _make_source(enable_pre_deserialization_filter=True)
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source.set_filters([_ece_only_filter()])
     assert source._skip_mcl_entirely
 
 
 def test_set_filters_extracts_scalar_early_criteria():
-    source = _make_source(enable_pre_deserialization_filter=True)
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source.set_filters([_mcl_filter_with_entity_type("dataset")])
     assert not source._skip_mcl_entirely
     assert source._early_mcl_criteria.get("entityType") == "dataset"
 
 
+def test_set_filters_ignores_non_mcl_early_filter_fields():
+    """Fields outside the allowed set (entityType, aspectName, entityUrn, changeType)
+    must not appear in _early_mcl_criteria."""
+    ctx = PipelineContext(pipeline_name="test", graph=None)
+    f = EventTypeFilter.create(
+        {
+            "filter": {
+                METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
+                    "event": [{"aspect": {"value": {"executorId": "default"}}}]
+                }
+            }
+        },
+        ctx,
+    )
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
+    source.set_filters([f])
+    assert not source._skip_mcl_entirely
+    # dict-valued field excluded from early criteria
+    assert "aspect" not in source._early_mcl_criteria
+
+
 def test_handle_mcl_skipped_when_skip_mcl_entirely():
-    source = _make_source(enable_pre_deserialization_filter=True)
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source._skip_mcl_entirely = True
     msg = TestMessage(_MCL_MSG)
     result = list(source.handle_mcl(msg))
@@ -151,7 +183,7 @@ def test_handle_mcl_skipped_when_skip_mcl_entirely():
 
 
 def test_handle_mcl_skipped_when_early_criteria_not_matched():
-    source = _make_source(enable_pre_deserialization_filter=True)
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source._early_mcl_criteria = {"entityType": "schemaField"}
     msg = TestMessage(_MCL_MSG)  # entityType == "dataset"
     result = list(source.handle_mcl(msg))
@@ -159,9 +191,40 @@ def test_handle_mcl_skipped_when_early_criteria_not_matched():
 
 
 def test_handle_mcl_passes_when_early_criteria_matched():
-    source = _make_source(enable_pre_deserialization_filter=True)
+    source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source._early_mcl_criteria = {"entityType": "dataset"}
     msg = TestMessage(_MCL_MSG)
     result = list(source.handle_mcl(msg))
     assert len(result) == 1
     assert result[0].event_type == METADATA_CHANGE_LOG_EVENT_V1_TYPE
+
+
+def test_handle_pe_not_affected_by_mcl_pre_deserialization_filter():
+    """EntityChangeEvent (PE) delivery must never be affected by the MCL
+    pre-deserialization filter, regardless of the filter state."""
+    pe_msg = TestMessage(
+        {
+            "name": "entityChangeEvent",
+            "payload": {
+                "contentType": "application/json",
+                "value": b'{"entityUrn": "urn:li:dataset:abc","entityType": "dataset",'
+                b'"category": "TAG","operation": "ADD","modifier": "urn:li:tag:PII",'
+                b'"auditStamp": {"actor": "urn:li:corpuser:jdoe","time": 1649953100653},'
+                b'"version":0}',
+            },
+        }
+    )
+    for skip_mcl, early_criteria in [
+        (True, {}),
+        (False, {"entityType": "schemaField"}),
+    ]:
+        source = _make_source(enable_mcl_pre_deserialization_filter=True)
+        source._skip_mcl_entirely = skip_mcl
+        source._early_mcl_criteria = early_criteria
+
+        result = list(source.handle_pe(pe_msg))
+        assert len(result) == 1, (
+            f"PE event must pass through regardless of skip_mcl={skip_mcl}, "
+            f"early_criteria={early_criteria}"
+        )
+        assert result[0].event_type == "EntityChangeEvent_v1"

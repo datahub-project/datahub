@@ -59,6 +59,13 @@ DEFAULT_TOPIC_ROUTES = {
     "pe": "PlatformEvent_v1",
 }
 
+# Top-level scalar fields in the MetadataChangeLog Avro schema that are
+# accessible on the raw Kafka message dict before avrogen deserialization.
+# Only these fields are candidates for pre-deserialization filtering.
+_MCL_EARLY_FILTER_FIELDS = frozenset(
+    {"entityType", "aspectName", "entityUrn", "changeType"}
+)
+
 OFFSET_METRIC = Gauge(
     name="kafka_offset",
     documentation="Kafka offsets per topic, partition",
@@ -109,12 +116,23 @@ class KafkaEventSourceConfig(ConfigModel):
     async_commit_interval: int = 10000
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
-    enable_pre_deserialization_filter: bool = Field(
+    enable_mcl_pre_deserialization_filter: bool = Field(
         default=False,
         description=(
-            "When True, apply EventTypeFilter criteria against the raw Avro-deserialized "
-            "dict before the expensive avrogen MetadataChangeLogClass.from_obj() call. "
-            "Requires at least one EventTypeFilter in the pipeline's 'filters' section."
+            "When True, use the pipeline's EventTypeFilter criteria to drop "
+            "MetadataChangeLog (MCL) messages before the expensive avrogen "
+            "MetadataChangeLogClass.from_obj() deserialization call. "
+            "Scope is intentionally limited to MCL events: MCL has entityType, "
+            "aspectName, entityUrn, and changeType as top-level Avro fields that "
+            "are accessible on the raw Kafka message without any deserialization. "
+            "EntityChangeEvent (ECE) events arrive inside a PlatformEvent envelope "
+            "with a JSON-encoded payload — their fields (category, operation, etc.) "
+            "can only be read after deserializing the envelope, so pre-deserialization "
+            "filtering of ECE events is not supported and ECE delivery is never affected "
+            "by this flag. Requires at least one EventTypeFilter in the pipeline's "
+            "'filters' section that does NOT include MetadataChangeLogEvent_v1 (or "
+            "includes it with predicate fields restricted to entityType, aspectName, "
+            "entityUrn, or changeType)."
         ),
     )
 
@@ -226,7 +244,12 @@ class KafkaEventSource(EventSource):
         return cls(config, ctx)
 
     def set_filters(self, filters: List[Filter]) -> None:
-        if not self.source_config.enable_pre_deserialization_filter or not filters:
+        if not self.source_config.enable_mcl_pre_deserialization_filter:
+            logger.debug(
+                f"KafkaEventSource [{self._pipeline_name}]: MCL pre-deserialization filter disabled. "
+                "Set enable_mcl_pre_deserialization_filter: true on the Kafka source to reduce "
+                "deserialization overhead when the pipeline filters on MCL fields."
+            )
             return
 
         # Import here to avoid a circular import at module load time.
@@ -234,40 +257,66 @@ class KafkaEventSource(EventSource):
 
         mcl_predicates: List[Dict[str, Any]] = []
         mcl_seen = False
+        has_event_type_filter = False
 
         for f in filters:
             if not isinstance(f, EventTypeFilter):
                 continue
+            has_event_type_filter = True
             spec = f.config.filter.get(METADATA_CHANGE_LOG_EVENT_V1_TYPE)
             if spec is not None:
                 mcl_seen = True
                 if spec.event is not None:
                     mcl_predicates.extend(spec.event)
 
-        if not mcl_seen:
-            self._skip_mcl_entirely = True
-            logger.info(
-                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization filter will skip all MCL messages"
+        if not has_event_type_filter:
+            # No EventTypeFilter configured — nothing to optimize; pass MCL through normally.
+            logger.debug(
+                f"KafkaEventSource [{self._pipeline_name}]: enable_mcl_pre_deserialization_filter is set "
+                "but no EventTypeFilter was found in the pipeline's filters. MCL events will be passed through."
             )
             return
 
-        # Collect scalar/list top-level fields that can be evaluated on the raw dict.
-        # Dict-valued fields require avrogen deserialization and are excluded.
+        if not mcl_seen:
+            # An EventTypeFilter exists but does not include MCL at all.
+            # The pipeline filter will drop all MCL events regardless, so we can
+            # skip avrogen deserialization entirely for every MCL message.
+            self._skip_mcl_entirely = True
+            logger.info(
+                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization filter active — "
+                "all MCL messages will be dropped before avrogen deserialization "
+                "(MetadataChangeLogEvent_v1 is not present in the EventTypeFilter)"
+            )
+            return
+
+        # Collect early criteria from the MCL predicates.
+        # Only the known top-level Avro scalar fields are eligible; dict-valued fields
+        # require avrogen deserialization and are excluded.
         early_criteria: Dict[str, Any] = {}
         for predicate in mcl_predicates:
             for key, val in predicate.items():
+                if key not in _MCL_EARLY_FILTER_FIELDS:
+                    continue
                 if not isinstance(val, dict):
                     if key not in early_criteria:
                         early_criteria[key] = val
                     elif early_criteria[key] != val:
-                        # Conflicting values for the same key across predicates — can't
-                        # collapse to a single early check; skip this key entirely.
+                        # Conflicting values for the same key across OR predicates —
+                        # can't collapse to a single early check; discard this key.
                         early_criteria.pop(key)
 
         self._early_mcl_criteria = early_criteria
         if early_criteria:
             logger.info(
-                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL criteria: {early_criteria}"
+                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL criteria "
+                f"(checked before avrogen deserialization): {early_criteria}"
+            )
+        else:
+            logger.debug(
+                f"KafkaEventSource [{self._pipeline_name}]: enable_mcl_pre_deserialization_filter is set "
+                "but no eligible pre-deserialization fields were found in the MCL predicates. "
+                f"Early filtering is only applied on: {sorted(_MCL_EARLY_FILTER_FIELDS)}. "
+                "MCL messages will proceed to full avrogen deserialization."
             )
 
     def events(self) -> Iterable[EventEnvelope]:
