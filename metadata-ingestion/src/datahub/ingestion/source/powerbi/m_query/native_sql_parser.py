@@ -132,6 +132,92 @@ def remove_drop_statement(query: str) -> str:
     return remove_tsql_control_statements(query)
 
 
+def _has_real_semicolons(query: str) -> bool:
+    """Return True if the query contains semicolons outside of SQL comments.
+
+    Prevents comment content (e.g. '-- already done; continue') from
+    incorrectly triggering the multi-statement parsing path.
+    """
+    no_line_comments = re.sub(r"--[^\n]*", "", query)
+    no_comments = re.sub(r"/\*.*?\*/", "", no_line_comments, flags=re.DOTALL)
+    return ";" in no_comments
+
+
+def _insert_statement_separators(query: str) -> str:
+    """Insert semicolons before top-level SELECT statements preceded by blank lines.
+
+    After remove_tsql_control_statements strips DDL between SELECT statements,
+    they may be separated only by blank lines without any semicolons.  This
+    function inserts the missing separators so the multi-statement parser can
+    handle each statement independently.
+
+    Unlike a simple regex, this function tracks parenthesis depth so it never
+    inserts a separator inside a CTE body or subquery.  It also tracks whether
+    a WITH clause is open at depth 0; the SELECT that closes a CTE belongs to
+    the same statement and must not be separated from its WITH clause.
+    """
+    lines = query.split("\n")
+    result: List[str] = []
+    paren_depth = 0
+    blank_count = 0
+    in_cte_query = False  # True while a WITH clause is open at depth 0
+
+    for line in lines:
+        stripped = line.strip()
+
+        if not stripped:
+            blank_count += 1
+            result.append(line)
+            continue
+
+        # Detect the opening of a CTE query (WITH keyword at depth 0).
+        # Must be checked before the SELECT-separator logic so a WITH on the
+        # same "paragraph" as preceding blank lines is recognised as a CTE
+        # start rather than a potential new-statement boundary.
+        if paren_depth == 0 and not in_cte_query:
+            if re.match(r"WITH\b", stripped, re.IGNORECASE):
+                in_cte_query = True
+
+        # Consider inserting a statement separator before this line.
+        if blank_count >= 1 and paren_depth == 0:
+            if re.match(r"SELECT\b", stripped, re.IGNORECASE):
+                if in_cte_query:
+                    # This SELECT closes the open WITH clause — it is part of
+                    # the same statement, so do NOT insert a separator.
+                    in_cte_query = False
+                else:
+                    result.append(";")
+
+        blank_count = 0
+        result.append(line)
+
+        # Update paren depth, respecting line comments and single-quoted
+        # strings so that parentheses inside them are not counted.
+        in_line_comment = False
+        in_string = False
+        quote_char = ""
+        idx = 0
+        while idx < len(line):
+            c = line[idx]
+            if in_line_comment:
+                break
+            if in_string:
+                if c == quote_char:
+                    in_string = False
+            elif c == "-" and idx + 1 < len(line) and line[idx + 1] == "-":
+                in_line_comment = True
+            elif c in ("'", '"'):
+                in_string = True
+                quote_char = c
+            elif c == "(":
+                paren_depth += 1
+            elif c == ")":
+                paren_depth = max(0, paren_depth - 1)
+            idx += 1
+
+    return "\n".join(result)
+
+
 def parse_custom_sql(
     ctx: PipelineContext,
     query: str,
@@ -144,14 +230,13 @@ def parse_custom_sql(
     logger.debug("Using sqlglot_lineage to parse custom sql")
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")
 
-    # Blank-line-separated SELECTs appear after DROP TABLE stripping removes the DDL
-    # between statements, leaving no semicolons. Insert them so the multi-statement
-    # check below treats them correctly.
-    normalized = re.sub(r"\n{2,}(\s*SELECT\b)", r";\n\n\1", query, flags=re.IGNORECASE)
-
-    if ";" in normalized:
+    if _has_real_semicolons(query):
+        # The query already has real statement separators — use multi-statement
+        # parsing directly with the original query.  We avoid the blank-line
+        # normalisation here because it can incorrectly insert semicolons inside
+        # CTE bodies that happen to have blank lines before their SELECT clause.
         result = create_lineage_from_sql_statements(
-            queries=normalized,
+            queries=query,
             default_schema=schema,
             default_db=database,
             platform=platform,
@@ -160,14 +245,30 @@ def parse_custom_sql(
             graph=ctx.graph,
         )
     else:
-        result = create_lineage_sql_parsed_result(
-            query=query,
-            default_schema=schema,
-            default_db=database,
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=ctx.graph,
-        )
+        # No real semicolons.  Blank-line-separated SELECTs can appear after
+        # remove_tsql_control_statements strips the DDL between them.  Insert
+        # separators only at depth-0 positions that are not the closing SELECT
+        # of a CTE query, then decide which parser to use.
+        normalized = _insert_statement_separators(query)
+        if ";" in normalized:
+            result = create_lineage_from_sql_statements(
+                queries=normalized,
+                default_schema=schema,
+                default_db=database,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=ctx.graph,
+            )
+        else:
+            result = create_lineage_sql_parsed_result(
+                query=query,
+                default_schema=schema,
+                default_db=database,
+                platform=platform,
+                platform_instance=platform_instance,
+                env=env,
+                graph=ctx.graph,
+            )
 
     return result
