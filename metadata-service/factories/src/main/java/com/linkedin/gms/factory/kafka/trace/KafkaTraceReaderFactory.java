@@ -8,15 +8,10 @@ import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import com.linkedin.mxe.Topics;
 import jakarta.annotation.Nonnull;
-import jakarta.annotation.PreDestroy;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.consumer.Consumer;
@@ -68,12 +63,6 @@ public class KafkaTraceReaderFactory {
       "${METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME:" + Topics.METADATA_CHANGE_LOG_TIMESERIES + "}")
   private String mclTimeseriesTopicName;
 
-  @Value("${trace.executor.thread-pool-size:10}")
-  private int threadPoolSize;
-
-  @Value("${trace.executor.shutdown-timeout-seconds:60}")
-  private int shutdownTimeoutSeconds;
-
   @Value("${trace.timeout-seconds:30}")
   private long traceTimeoutSeconds;
 
@@ -82,18 +71,6 @@ public class KafkaTraceReaderFactory {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       final KafkaProperties kafkaProperties) {
     return buildKafkaAdminClient(provider.getKafka(), kafkaProperties, "trace-reader");
-  }
-
-  private ExecutorService traceExecutorService;
-
-  @Bean("traceExecutorService")
-  public ExecutorService traceExecutorService(MetricUtils metricUtils) {
-    traceExecutorService = Executors.newFixedThreadPool(threadPoolSize);
-    if (metricUtils != null) {
-      MicrometerMetricsRegistry.registerExecutorMetrics(
-          "api-trace", this.traceExecutorService, metricUtils.getRegistry());
-    }
-    return traceExecutorService;
   }
 
   @Bean("mcpTraceReader")
@@ -186,23 +163,5 @@ public class KafkaTraceReaderFactory {
         null, // groupId suffix (using default)
         null, // assignor
         consumerProps);
-  }
-
-  @PreDestroy
-  public void shutdown() {
-    if (traceExecutorService != null) {
-      traceExecutorService.shutdown();
-      try {
-        if (!traceExecutorService.awaitTermination(shutdownTimeoutSeconds, TimeUnit.SECONDS)) {
-          traceExecutorService.shutdownNow();
-          if (!traceExecutorService.awaitTermination(shutdownTimeoutSeconds, TimeUnit.SECONDS)) {
-            System.err.println("ExecutorService did not terminate");
-          }
-        }
-      } catch (InterruptedException e) {
-        traceExecutorService.shutdownNow();
-        Thread.currentThread().interrupt();
-      }
-    }
   }
 }

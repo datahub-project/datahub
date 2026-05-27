@@ -1,9 +1,13 @@
-package com.linkedin.datahub.upgrade.sqlsetup;
+package com.linkedin.datahub.upgrade.sqlsetup.postgres;
 
+import com.linkedin.datahub.upgrade.sqlsetup.DatabaseOperations;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -105,31 +109,41 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
   }
 
   @Override
-  public java.util.List<String> grantCdcPrivilegesSql(String cdcUser, String databaseName) {
+  public List<String> grantCdcPrivilegesSql(
+      String cdcUser, String databaseName, String postgresMetadataSchema) {
     // PostgreSQL comprehensive CDC privileges (matching original init-cdc.sql)
     // Return as separate statements since JDBC doesn't support multiple statements in one execution
     String escapedUser = escapePostgresIdentifier(cdcUser);
     String escapedDatabase = escapePostgresIdentifier(databaseName);
+    String metaSchema =
+        postgresMetadataSchema == null || postgresMetadataSchema.isBlank()
+            ? "public"
+            : postgresMetadataSchema.trim();
+    String escapedMetaSchema = escapePostgresIdentifier(metaSchema);
+    String qualifiedAspectTable =
+        escapedMetaSchema + "." + escapePostgresIdentifier("metadata_aspect_v2");
 
-    return java.util.Arrays.asList(
+    return Arrays.asList(
         String.format("ALTER USER %s WITH REPLICATION;", escapedUser),
         String.format("GRANT CONNECT ON DATABASE %s TO %s", escapedDatabase, escapedUser),
-        String.format("GRANT USAGE ON SCHEMA public TO %s", escapedUser),
+        String.format("GRANT USAGE ON SCHEMA %s TO %s", escapedMetaSchema, escapedUser),
         String.format("GRANT CREATE ON DATABASE %s TO %s", escapedDatabase, escapedUser),
-        String.format("GRANT SELECT ON ALL TABLES IN SCHEMA public TO %s", escapedUser),
         String.format(
-            "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO %s", escapedUser),
+            "GRANT SELECT ON ALL TABLES IN SCHEMA %s TO %s", escapedMetaSchema, escapedUser),
+        String.format(
+            "ALTER DEFAULT PRIVILEGES IN SCHEMA %s GRANT SELECT ON TABLES TO %s",
+            escapedMetaSchema, escapedUser),
         String.format("ALTER USER %s WITH SUPERUSER", escapedUser),
-        String.format("ALTER TABLE public.metadata_aspect_v2 OWNER TO %s", escapedUser),
-        "ALTER TABLE public.metadata_aspect_v2 REPLICA IDENTITY FULL",
-        "CREATE PUBLICATION dbz_publication FOR TABLE public.metadata_aspect_v2");
+        String.format("ALTER TABLE %s OWNER TO %s", qualifiedAspectTable, escapedUser),
+        String.format("ALTER TABLE %s REPLICA IDENTITY FULL", qualifiedAspectTable),
+        String.format("CREATE PUBLICATION dbz_publication FOR TABLE %s", qualifiedAspectTable));
   }
 
   @Override
-  public java.util.List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
+  public List<String> createTableSqlStatements(boolean createSchemaVersionIndex) {
     // Secondary indexes are created in ensureAspectIndexes() via CREATE INDEX CONCURRENTLY so
     // existing populated tables are not blocked by long exclusive locks during index builds.
-    return java.util.List.of(
+    return List.of(
         """
         CREATE TABLE IF NOT EXISTS metadata_aspect_v2 (
           urn                           varchar(500) not null,
@@ -150,7 +164,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     // DROP INDEX CONCURRENTLY cannot run inside a transaction block.
     boolean prevAutoCommit = connection.getAutoCommit();
     connection.setAutoCommit(true);
-    try (java.sql.Statement stmt = connection.createStatement()) {
+    try (Statement stmt = connection.createStatement()) {
       stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS urnindex");
       stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS aspectindex");
       stmt.execute("DROP INDEX CONCURRENTLY IF EXISTS versionindex");
@@ -164,7 +178,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     // CREATE INDEX CONCURRENTLY cannot run inside a transaction block.
     boolean prevAutoCommit = connection.getAutoCommit();
     connection.setAutoCommit(true);
-    try (java.sql.Statement stmt = connection.createStatement()) {
+    try (Statement stmt = connection.createStatement()) {
       stmt.execute(
           "CREATE INDEX CONCURRENTLY IF NOT EXISTS timeIndex ON metadata_aspect_v2 (createdon);");
       stmt.execute(
@@ -201,7 +215,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
         log.info("Dropping invalid schemaVersionIndex to allow re-creation");
         boolean prevAutoCommit = connection.getAutoCommit();
         connection.setAutoCommit(true);
-        try (java.sql.Statement dropStmt = connection.createStatement()) {
+        try (Statement dropStmt = connection.createStatement()) {
           dropStmt.execute("DROP INDEX CONCURRENTLY schemaversionindex");
         } finally {
           connection.setAutoCommit(prevAutoCommit);
@@ -211,7 +225,7 @@ public class PostgresDatabaseOperations implements DatabaseOperations {
     // CREATE INDEX CONCURRENTLY cannot run inside a transaction block; autoCommit must be true.
     boolean prevAutoCommit = connection.getAutoCommit();
     connection.setAutoCommit(true);
-    try (java.sql.Statement stmt = connection.createStatement()) {
+    try (Statement stmt = connection.createStatement()) {
       stmt.execute(
           "CREATE INDEX CONCURRENTLY IF NOT EXISTS schemaVersionIndex ON metadata_aspect_v2 ((systemmetadata::jsonb ->> 'schemaVersion'));");
     } finally {

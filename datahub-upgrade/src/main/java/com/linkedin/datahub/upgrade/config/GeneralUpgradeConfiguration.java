@@ -10,6 +10,7 @@ import com.linkedin.gms.factory.kafka.KafkaEventConsumerFactory;
 import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.gms.factory.kafka.trace.KafkaTraceReaderFactory;
 import com.linkedin.gms.factory.messaging.KafkaConsumerLagPort;
+import com.linkedin.gms.factory.messaging.PgQueueConsumerLagPort;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.gms.factory.trace.TraceServiceFactory;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -48,7 +49,8 @@ import org.springframework.context.annotation.FilterType;
             KafkaConsumerPoolFactory.class,
             KafkaExternalEventsPollHandlerConfiguration.class,
             ExternalEventsServiceFactory.class,
-            KafkaConsumerLagPort.class
+            KafkaConsumerLagPort.class,
+            PgQueueConsumerLagPort.class
           })
     })
 public class GeneralUpgradeConfiguration {}

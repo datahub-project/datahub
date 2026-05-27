@@ -291,6 +291,18 @@ task testOpenSearch(type: Test) {
   description = 'Runs only the testng-opensearch.xml test suite'
 }
 
+tasks.register('jacocoSqlSetupCoverageReport', JacocoReport) {
+  dependsOn testPostgresql
+  reports {
+    xml.required = true
+    xml.outputLocation = rootProject.layout.buildDirectory.file(
+        "coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-sqlsetup.xml")
+    html.required = true
+  }
+  executionData.setFrom(fileTree(layout.buildDirectory.dir('jacoco')).include('testPostgresql.exec'))
+  sourceSets sourceSets.main
+}
+
 task testPostgresql(type: Test) {
   doFirst {
     maxParallelForks = 1
@@ -308,6 +320,7 @@ task testPostgresql(type: Test) {
 
   group = 'verification'
   description = 'Runs PostgreSQL Testcontainers suite (testng-postgresql.xml)'
+  finalizedBy jacocoSqlSetupCoverageReport
 }
 
 task testOther(type: Test) {

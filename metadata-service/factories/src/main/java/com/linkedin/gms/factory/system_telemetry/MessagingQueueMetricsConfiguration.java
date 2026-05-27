@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.KAFKA_MESSAGE_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.MESSAGING_QUEUE_TIME;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetricsOptions;
@@ -16,10 +16,10 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class KafkaMetricsConfiguration {
+public class MessagingQueueMetricsConfiguration {
 
   @Bean
-  public MeterRegistryCustomizer<MeterRegistry> kafkaMetricsCustomizer(
+  public MeterRegistryCustomizer<MeterRegistry> messagingQueueMetricsCustomizer(
       final ConfigurationProvider configurationProvider) {
 
     return registry -> {
@@ -30,7 +30,7 @@ public class KafkaMetricsConfiguration {
                 @Override
                 public DistributionStatisticConfig configure(
                     @Nonnull Meter.Id id, @Nonnull DistributionStatisticConfig config) {
-                  if (id.getName().equals(KAFKA_MESSAGE_QUEUE_TIME)) {
+                  if (id.getName().equals(MESSAGING_QUEUE_TIME)) {
 
                     MetricsOptions metricOptions =
                         configurationProvider.getKafka().getConsumer().getMetrics();
@@ -43,7 +43,6 @@ public class KafkaMetricsConfiguration {
                     }
 
                     return DistributionStatisticConfig.builder()
-                        // Use Timer instead of Summary for time measurements
                         .percentilesHistogram(true)
                         .percentiles(MetricUtils.parsePercentiles(percentilesConfig))
                         .serviceLevelObjectives(slosInNanos)
