@@ -1773,7 +1773,7 @@ ORDER by DataBaseName, TableName;
                     continue  # do not fall through to yield with an invalid connection
                 try:
                     db_inspector = inspect(conn)
-                    db_inspector._datahub_database = db
+                    db_inspector._datahub_database = db  # type: ignore[attr-defined]
                     yield db_inspector
                 finally:
                     conn_cm.__exit__(None, None, None)

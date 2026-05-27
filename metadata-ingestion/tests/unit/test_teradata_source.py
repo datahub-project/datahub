@@ -3990,7 +3990,7 @@ class TestExecuteWithCursorFallback:
         conn.execution_options.return_value = MagicMock()
         return conn
 
-    def _retry_execute_raising(self, exc: Exception, fallback_result: MagicMock):
+    def _retry_execute_raising(self, exc: Exception, fallback_result: MagicMock) -> Any:
         """side_effect for _retry_execute: raises on the streaming call
         (streaming_conn arg), returns fallback_result on the plain call."""
         calls: list = []
