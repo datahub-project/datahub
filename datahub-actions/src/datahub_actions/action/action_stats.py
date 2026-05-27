@@ -18,11 +18,12 @@ import json
 # Class that stores running statistics for a single Action.
 # TODO: Invocation time tracking.
 class ActionStats:
-    # The number of exception raised by the Action.
-    exception_count: int = 0
+    exception_count: int
+    success_count: int
 
-    # The number of events that were actually submitted to the Action
-    success_count: int = 0
+    def __init__(self) -> None:
+        self.exception_count = 0
+        self.success_count = 0
 
     def increment_exception_count(self) -> None:
         self.exception_count = self.exception_count + 1

@@ -17,14 +17,14 @@ import json
 
 # Class that stores running statistics for a single Actions Transformer.
 class TransformerStats:
-    # The number of exceptions raised by the Transformer.
-    exception_count: int = 0
+    exception_count: int
+    processed_count: int
+    filtered_count: int
 
-    # The total number of events that were received by the transformer.
-    processed_count: int = 0
-
-    # The number of events filtered by the Transformer. The total transformed count is equal to processed count - filtered count.
-    filtered_count: int = 0
+    def __init__(self) -> None:
+        self.exception_count = 0
+        self.processed_count = 0
+        self.filtered_count = 0
 
     def increment_exception_count(self) -> None:
         self.exception_count = self.exception_count + 1

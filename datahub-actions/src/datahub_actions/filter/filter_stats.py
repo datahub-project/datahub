@@ -16,9 +16,14 @@ import json
 
 
 class FilterStats:
-    exception_count: int = 0
-    processed_count: int = 0
-    filtered_count: int = 0
+    exception_count: int
+    processed_count: int
+    filtered_count: int
+
+    def __init__(self) -> None:
+        self.exception_count = 0
+        self.processed_count = 0
+        self.filtered_count = 0
 
     def increment_exception_count(self) -> None:
         self.exception_count = self.exception_count + 1
