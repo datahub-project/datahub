@@ -14,9 +14,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from datahub.ingestion.extractor import protobuf_util, schema_util
+from datahub.ingestion.extractor import schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.kinesis.kinesis_aws_utils import aws_error_code
 from datahub.ingestion.source.kinesis.kinesis_config import (
     KinesisGlueSchemaRegistryConfig,
@@ -150,6 +149,14 @@ class KinesisGlueSchemaRegistry:
                     )
                 )
             if data_format == "PROTOBUF":
+                # Lazy import: protobuf_util pulls in grpc/networkx/protobuf,
+                # which are not part of the kinesis extras (aws_common).
+                # Importing here keeps the base kinesis install small.
+                from datahub.ingestion.extractor import protobuf_util
+                from datahub.ingestion.extractor.protobuf_util import (
+                    ProtobufSchema,
+                )
+
                 return protobuf_util.protobuf_schema_to_mce_fields(
                     ProtobufSchema(f"{stream_name}.proto", schema_def),
                     imported_schemas=[],
