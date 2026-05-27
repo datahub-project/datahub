@@ -85,7 +85,7 @@ public class SparkConfigParser {
       "metadata.dataset.enableEnhancedMergeIntoExtraction";
 
   public static final String CAPTURE_COLUMN_LEVEL_LINEAGE = "captureColumnLevelLineage";
-  public static final String COLUMN_LINEAGE_INCLUDE_INDIRECT = "column_lineage.include_indirect";
+  public static final String COLUMN_LINEAGE_INCLUDE_INDIRECT = "columnLineage.includeIndirect";
 
   public static final String TAGS_KEY = "tags";
 
