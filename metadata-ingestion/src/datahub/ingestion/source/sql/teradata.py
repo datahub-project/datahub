@@ -184,9 +184,14 @@ _RETRY_BACKOFF_CAP_SECONDS = 30.0  # full-jitter ceiling per attempt; protects a
 #   3003 — "Logon failed." / "Invalid password." (auth failure)
 #   3523 — "[user] does not have [access type] access to [db].[table]."
 #   3524 — "[user] does not have [access type] access to database [db]."
+#   3802 — "Database '<name>' does not exist." (object not found — no amount of
+#           backoff will create the database; treat as permanent so probe queries
+#           such as _check_historical_table_exists propagate cleanly to callers)
 #
 # Source: Teradata Database Messages, doc B035-1096.
-_PERMANENT_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:8017|3003|3523|3524)\]")
+_PERMANENT_ERROR_CODE_RE: re.Pattern = re.compile(
+    r"\[Error (?:8017|3003|3523|3524|3802)\]"
+)
 
 # Substrings in Teradata / network error messages that indicate a PERMANENT
 # failure — auth, authorisation, or configuration errors that no amount of
