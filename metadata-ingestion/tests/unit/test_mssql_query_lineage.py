@@ -110,25 +110,35 @@ def test_mssql_sql_aggregator_initialization_failure(create_engine_mock):
 
 
 @patch("datahub.ingestion.source.sql.mssql.source.create_engine")
-def test_mssql_single_aggregator_with_query_lineage(create_engine_mock):
-    """Regression: views must not get two UpstreamLineage MCPs.
+def test_mssql_no_duplicate_upstream_lineage_mcps(create_engine_mock):
+    """Regression: each downstream URN must appear exactly once in the workunit stream.
 
-    Before this was fixed, SQLServerSource kept a second SqlParsingAggregator
-    (self.sql_aggregator) alongside the inherited self.aggregator. Both called
-    gen_metadata() and both emitted upstreamLineage MCPs for the same view URN
-    when the view's DDL was also in Query Store, causing the second emit to
-    SET-overwrite v0 with a partial payload (only fineGrainedLineages).
-    See PR #16084 (introducer) and the follow-up fix.
+    Before the fix (PR #16084), SQLServerSource kept a second SqlParsingAggregator
+    that also called gen_metadata(), so views in Query Store received two
+    upstreamLineage MCPs — the second SET-overwrote v0 with a partial payload
+    containing only fineGrainedLineages and no table-level upstreams.
     """
     config = SQLServerConfig.model_validate(
         {**_base_config(), "include_query_lineage": True}
     )
     source = SQLServerSource(config, PipelineContext(run_id="test"))
 
-    extra_aggregator = getattr(source, "sql_aggregator", None)
-    assert extra_aggregator is None or extra_aggregator is source.aggregator, (
-        "SQLServerSource must use a single SqlParsingAggregator. A separate "
-        "self.sql_aggregator causes duplicate upstreamLineage MCPs that overwrite v0."
+    view_urn = "urn:li:dataset:(urn:li:dataPlatform:mssql,TestDB.dbo.my_view,PROD)"
+    fake_mcp = Mock()
+    fake_wu = Mock()
+    fake_wu.id = view_urn
+    fake_mcp.as_workunit.return_value = fake_wu
+
+    source.aggregator.gen_metadata = Mock(return_value=iter([fake_mcp]))
+    source._populate_aggregator_with_query_history = Mock()
+
+    workunits = list(source._generate_aggregator_workunits())
+    count = sum(1 for wu in workunits if wu.id == view_urn)
+
+    assert count == 1, (
+        f"Expected exactly one workunit for {view_urn!r}, got {count}. "
+        "Multiple gen_metadata() calls produce duplicate upstreamLineage MCPs "
+        "that SET-overwrite v0 with a partial payload."
     )
 
 
@@ -155,7 +165,7 @@ def test_mssql_query_extraction_failure_reports_error(create_engine_mock):
         )
 
         with patch.object(source, "get_inspectors", return_value=[inspector_mock]):
-            list(source._get_query_based_lineage_workunits())
+            source._populate_aggregator_with_query_history()
 
     assert len(source.report.failures) > 0
     failure_messages = [f.message for f in source.report.failures]

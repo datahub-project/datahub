@@ -450,6 +450,8 @@ class SQLServerSource(SQLAlchemySource):
                 platform_instance=self.config.platform_instance,
                 env=self.config.env,
                 graph=self.ctx.graph,
+                # Always True here: query lineage requires lineage generation regardless
+                # of the stored-procedure include_lineage flag on the parent class.
                 generate_lineage=True,
                 generate_queries=True,
                 generate_usage_statistics=self.config.include_usage_statistics,
@@ -1375,14 +1377,14 @@ class SQLServerSource(SQLAlchemySource):
             mcps, procedure_name
         )
 
-    def _get_query_based_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+    def _populate_aggregator_with_query_history(self) -> None:
         """Populate the shared aggregator with query-history lineage.
 
-        Returns an empty iterable - MCPs are emitted by the parent's single
-        _generate_aggregator_workunits pass after this populate step runs.
-        Splitting view-DDL lineage and query-history lineage across two
-        aggregators caused double-emit of upstreamLineage where the second
-        SET-overwrote v0 with a partial payload (introduced by #16084).
+        Feeds query-history entries into self.aggregator so they merge with
+        view-DDL lineage. MCPs are emitted later by the parent's single
+        _generate_aggregator_workunits pass. Keeping all lineage in one
+        aggregator prevents double-emit of upstreamLineage (the bug introduced
+        by #16084, where a second aggregator SET-overwrote v0 with a partial payload).
         """
         logger.info(
             "Starting query-based lineage extraction from SQL Server query history"
@@ -1416,14 +1418,12 @@ class SQLServerSource(SQLAlchemySource):
                         context="query_lineage_extraction_failed",
                     )
 
-        return ()
-
     def _generate_aggregator_workunits(self) -> Iterable[MetadataWorkUnit]:
         if self.config.include_query_lineage:
             # Populate shared aggregator with query history before generating MCPs
             # so view lineage (from view definitions) and query lineage merge into
             # a single upstreamLineage MCP per downstream URN.
-            list(self._get_query_based_lineage_workunits())
+            self._populate_aggregator_with_query_history()
         yield from super()._generate_aggregator_workunits()
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
