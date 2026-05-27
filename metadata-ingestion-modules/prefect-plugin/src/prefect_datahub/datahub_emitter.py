@@ -1,6 +1,8 @@
 """Datahub Emitter classes used to emit prefect metadata to Datahub REST."""
 
+import asyncio
 import traceback
+from datetime import date, datetime
 from typing import Any, ClassVar, Dict, List, Optional, cast
 from uuid import UUID
 
@@ -78,6 +80,14 @@ UPSTREAM_DEPENDENCIES = "upstream_dependencies"
 COMPLETE = "Completed"
 FAILED = "Failed"
 CANCELLED = "Cancelled"
+
+
+def _stringify_property(value: Any) -> str:
+    # Pendulum's __str__ uses a space separator instead of ISO 8601 'T';
+    # force isoformat() so customProperties values stay stable.
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    return str(value)
 
 
 class DatahubEmitter(Block):
@@ -305,9 +315,9 @@ class DatahubEmitter(Block):
         dataflow.tags = set(flow.tags)
 
         flow_property_bag: Dict[str, str] = {}
-        flow_property_bag[ID] = str(flow.id)
-        flow_property_bag[CREATED] = str(flow.created)
-        flow_property_bag[UPDATED] = str(flow.updated)
+        flow_property_bag[ID] = _stringify_property(flow.id)
+        flow_property_bag[CREATED] = _stringify_property(flow.created)
+        flow_property_bag[UPDATED] = _stringify_property(flow.updated)
 
         allowed_flow_keys = [
             VERSION,
@@ -341,9 +351,7 @@ class DatahubEmitter(Block):
     ) -> List[TaskRun]:
         # Prefect server hard-caps read_task_runs at 200 results/request.
         client = orchestration.get_client()
-        flow_run_filter = FlowRunFilter(
-            id=FlowRunFilterId(any_=[flow_run_id])  # type: ignore[arg-type]
-        )
+        flow_run_filter = FlowRunFilter(id=FlowRunFilterId(any_=[UUID(flow_run_id)]))
         return await client.read_task_runs(
             flow_run_filter=flow_run_filter,
             sort=TaskRunSort.ID_DESC,
@@ -354,7 +362,6 @@ class DatahubEmitter(Block):
     async def _fetch_all_task_runs_stable(self, flow_run_id: str) -> List[TaskRun]:
         # Prefect writes task_run state asynchronously; poll until count stabilises
         # so in-flight writes are committed before we emit DataJobs.
-        import asyncio
 
         async def _all_pages() -> List[TaskRun]:
             runs: List[TaskRun] = []
@@ -365,21 +372,36 @@ class DatahubEmitter(Block):
                 if len(batch) < 200:
                     break
                 offset += 200
-            return runs
+            # ID_DESC + offset paging can repeat a row when task_runs are being
+            # persisted between page fetches (UUIDs aren't monotonic, so a new
+            # row can land anywhere in the sort order). Dedup by id.
+            return list({str(r.id): r for r in runs}.values())
 
         prev_count = -1
         stable_rounds = 0
         result: List[TaskRun] = []
+        stabilised = False
         for _ in range(50):
             await asyncio.sleep(0.1)
             result = await _all_pages()
             if len(result) == prev_count:
                 stable_rounds += 1
                 if stable_rounds >= 3:
+                    stabilised = True
                     break
             else:
                 stable_rounds = 0
                 prev_count = len(result)
+        if not stabilised:
+            # If Prefect's state persistence is slow, task_runs may continue to grow
+            # past the polling window; DataJobs for late-arriving tasks would be
+            # dropped from DataHub lineage on this emission.
+            get_run_logger().warning(
+                "Task run count for flow run %s did not stabilise after 50 polls; "
+                "emitted %d task runs — some lineage may be incomplete.",
+                flow_run_id,
+                len(result),
+            )
         return result
 
     def _emit_tasks(
@@ -411,12 +433,11 @@ class DatahubEmitter(Block):
                 self._fetch_all_task_runs_stable(str(flow_run_ctx.flow_run.id))
             )
 
-            # task_run_id → task_key map for upstream dependency resolution.
             task_run_key_map: Dict[str, str] = {
                 str(tr.id): tr.task_key for tr in task_runs
             }
 
-            # graph_json can lag task_runs (async persistence) — use only for upstream lookup.
+            # graph_json can lag task_runs (async persistence); use only for upstream lookup.
             graph_node_map: Dict[str, Dict] = {node[ID]: node for node in graph_json}
 
             for task_run in task_runs:
@@ -532,7 +553,7 @@ class DatahubEmitter(Block):
 
         for key in allowed_flow_run_keys:
             if hasattr(flow_run, key) and getattr(flow_run, key) is not None:
-                dpi_property_bag[key] = str(getattr(flow_run, key))
+                dpi_property_bag[key] = _stringify_property(getattr(flow_run, key))
 
         dpi.properties.update(dpi_property_bag)
 
@@ -597,7 +618,7 @@ class DatahubEmitter(Block):
 
         for key in allowed_task_run_keys:
             if hasattr(task_run, key) and getattr(task_run, key) is not None:
-                dpi_property_bag[key] = str(getattr(task_run, key))
+                dpi_property_bag[key] = _stringify_property(getattr(task_run, key))
 
         dpi.properties.update(dpi_property_bag)
 
