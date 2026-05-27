@@ -34,6 +34,9 @@ concurrency:
 
 env:
   PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
+  # Matches docker-unified.yml so PR-branch builds produce `acryldata/...:<tag>`
+  # images locally, which compose then resolves via DATAHUB_REPO=acryldata.
+  DOCKER_REGISTRY: "acryldata"
 
 permissions:
   contents: read
@@ -110,9 +113,10 @@ jobs:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup]
-    # Perf runs include the 1000-node screenshot stress and CLL matrix when
-    # opted into; default 20m isn't enough headroom for those.
-    timeout-minutes: ${{ github.event.inputs.lineage_perf == 'true' && 60 || 20 }}
+    # Perf runs build PR-branch images from source (~25–30m on a cold runner)
+    # and include the 1000-node screenshot stress + CLL matrix; default 20m
+    # isn't enough headroom for those.
+    timeout-minutes: ${{ github.event.inputs.lineage_perf == 'true' && 90 || 20 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
@@ -146,11 +150,54 @@ jobs:
         with:
           node-version: "22"
 
+      # ---------------------------------------------------------------------
+      # Lineage perf path: build images from the PR branch so the benchmark
+      # actually exercises PR code (CSP fix, virtualization, feature flags,
+      # etc.) rather than the published `acryldata/...:quickstart` images.
+      # ---------------------------------------------------------------------
+      - name: Compute PR build tag
+        id: build-meta
+        if: ${{ github.event.inputs.lineage_perf == 'true' }}
+        run: |
+          # docker_helpers.sh derives a tag from GITHUB_REF (set automatically
+          # for workflow_dispatch on the PR branch). Output it so downstream
+          # steps can reuse the value for both build and compose.
+          source .github/scripts/docker_helpers.sh
+          {
+            echo "tag=$(get_tag)"
+            echo "python_release_version=$(get_python_docker_release_v)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Build PR-branch images for perf run
+        if: ${{ github.event.inputs.lineage_perf == 'true' }}
+        # ~25–30m fresh on a 4-core runner; gradle/docker buildx caches keep
+        # repeat runs faster. Bounded so a hung build can't eat the whole job.
+        timeout-minutes: 45
+        env:
+          # buildImagesQuickstart switches between depot and github buildx
+          # cache via $DOCKER_CACHE; we don't have depot access on community
+          # PRs, so force the github buildx cache path.
+          DOCKER_CACHE: GITHUB
+          PERF_BUILD_TAG: ${{ steps.build-meta.outputs.tag }}
+          PERF_PYTHON_VERSION: ${{ steps.build-meta.outputs.python_release_version }}
+        run: |
+          ./gradlew :docker:buildImagesQuickstart \
+            -Ptag="$PERF_BUILD_TAG" \
+            -PpythonDockerVersion="$PERF_PYTHON_VERSION" \
+            -PdockerRegistry="$DOCKER_REGISTRY"
+          echo "::group::Built images"
+          docker images | grep "^${DOCKER_REGISTRY}/" || true
+          echo "::endgroup::"
+
       - name: Run quickstart
         env:
           DATAHUB_TELEMETRY_ENABLED: false
           DATAHUB_REPO: acryldata
-          DATAHUB_VERSION: quickstart
+          # When lineage_perf=true the previous step built local images tagged
+          # `acryldata/<image>:<PR-tag>`; compose looks them up via the same
+          # tag so the benchmark runs against PR code. Otherwise fall back to
+          # the published `quickstart` floating tag.
+          DATAHUB_VERSION: ${{ steps.build-meta.outputs.tag || 'quickstart' }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
         run: ./smoke-test/run-quickstart.sh
