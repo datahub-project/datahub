@@ -954,7 +954,10 @@ public class OpenLineageEventToDatahubTest {
           1,
           nameEntry.getUpstreams().size(),
           "INDIRECT-only contributor (age) must be dropped from the name column's upstreams");
-      assertEquals("DIRECT:IDENTITY", nameEntry.getTransformOperation());
+      // Transformation tags are preserved even when the contributing URN is dropped, so the
+      // user can still tell the SQL involved a filter even though we don't list the filter
+      // column as an upstream.
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", nameEntry.getTransformOperation());
     }
   }
 

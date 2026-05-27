@@ -457,17 +457,9 @@ public class OpenLineageToDataHub {
           .getInputFields()
           .forEach(
               inputField -> {
-                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
-                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
-                if (!includeIndirect && isIndirectOnly(inputField)) {
-                  return;
-                }
-                OpenLineage.Dataset staticDataset =
-                    staticDatasetBuilder
-                        .name(inputField.getName())
-                        .namespace(inputField.getNamespace())
-                        .build();
-
+                // Capture transformation tags up front so the user can still see that the
+                // SQL involves JOIN/FILTER/GROUP_BY operations even when we drop the URN
+                // that contributed only an INDIRECT role.
                 if (inputField.getTransformations() != null) {
                   for (OpenLineage.InputFieldTransformations transformation :
                       inputField.getTransformations()) {
@@ -476,6 +468,18 @@ public class OpenLineageToDataHub {
                             "%s:%s", transformation.getType(), transformation.getSubtype()));
                   }
                 }
+
+                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
+                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
+                if (!includeIndirect && isIndirectOnly(inputField)) {
+                  return;
+                }
+
+                OpenLineage.Dataset staticDataset =
+                    staticDatasetBuilder
+                        .name(inputField.getName())
+                        .namespace(inputField.getNamespace())
+                        .build();
                 Optional<DatasetUrn> urn =
                     convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
                 if (urn.isPresent()) {
