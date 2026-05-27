@@ -129,6 +129,11 @@ def test_has_real_semicolons_true_for_real_semicolon():
     assert _has_real_semicolons(sql) is True
 
 
+def test_has_real_semicolons_false_for_string_literal():
+    sql = "SELECT 'status; pending' AS status FROM t"
+    assert _has_real_semicolons(sql) is False
+
+
 def test_has_real_semicolons_true_when_mixed():
     # Real semicolon present even though a comment also has one
     sql = "-- comment; info\nSELECT 1;\nSELECT 2"
@@ -167,6 +172,30 @@ def test_insert_separators_cte_no_blank_before_final_select():
 def test_insert_separators_adds_between_standalone_selects():
     """Two blank-line-separated standalone SELECTs should get a separator."""
     sql = "SELECT 1 AS x FROM t1\n\n\nSELECT 2 AS y FROM t2"
+    result = _insert_statement_separators(sql)
+    assert ";" in result
+    stmts = [s.strip() for s in result.split(";") if s.strip()]
+    assert len(stmts) == 2
+
+
+def test_insert_separators_block_comment_unbalanced_paren_same_line():
+    """Block comment with unbalanced '(' on the same line must not corrupt depth."""
+    sql = "/* setup (config */ SELECT 1 AS x FROM t1\n\n\nSELECT 2 AS y FROM t2"
+    result = _insert_statement_separators(sql)
+    assert ";" in result
+    stmts = [s.strip() for s in result.split(";") if s.strip()]
+    assert len(stmts) == 2
+
+
+def test_insert_separators_block_comment_unbalanced_paren_multi_line():
+    """Block comment spanning multiple lines with unbalanced parens must not
+    corrupt depth tracking — the in_block_comment flag persists across lines."""
+    sql = (
+        "/* multi-line\n"
+        "   comment (with paren\n"
+        "   still in comment */\n"
+        "SELECT 1 AS x FROM t1\n\n\nSELECT 2 AS y FROM t2"
+    )
     result = _insert_statement_separators(sql)
     assert ";" in result
     stmts = [s.strip() for s in result.split(";") if s.strip()]

@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import sqlparse
 
@@ -133,14 +133,58 @@ def remove_drop_statement(query: str) -> str:
 
 
 def _has_real_semicolons(query: str) -> bool:
-    """Return True if the query contains semicolons outside of SQL comments.
+    """Return True if the query contains semicolons outside comments and string literals.
 
-    Prevents comment content (e.g. '-- already done; continue') from
-    incorrectly triggering the multi-statement parsing path.
+    Prevents comment content (e.g. '-- already done; continue') and string
+    literals (e.g. SELECT 'status; pending') from incorrectly triggering the
+    multi-statement parsing path.
     """
     no_line_comments = re.sub(r"--[^\n]*", "", query)
     no_comments = re.sub(r"/\*.*?\*/", "", no_line_comments, flags=re.DOTALL)
-    return ";" in no_comments
+    # Strip single-quoted string literals; '' is the SQL escape for a literal quote.
+    no_strings = re.sub(r"'(?:[^']|'')*'", "", no_comments, flags=re.DOTALL)
+    return ";" in no_strings
+
+
+def _scan_line_depth(
+    line: str, paren_depth: int, in_block_comment: bool
+) -> Tuple[int, bool]:
+    """Return updated (paren_depth, in_block_comment) after scanning one SQL line.
+
+    Skips characters inside line comments (--), block comments (/* ... */), and
+    quoted strings so their parentheses are not counted.
+    """
+    in_line_comment = False
+    in_string = False
+    quote_char = ""
+    idx = 0
+    while idx < len(line):
+        c = line[idx]
+        if in_block_comment:
+            if c == "*" and idx + 1 < len(line) and line[idx + 1] == "/":
+                in_block_comment = False
+                idx += 2
+                continue
+        elif in_line_comment:
+            break
+        elif in_string:
+            if c == quote_char:
+                in_string = False
+        elif c == "/" and idx + 1 < len(line) and line[idx + 1] == "*":
+            in_block_comment = True
+            idx += 2
+            continue
+        elif c == "-" and idx + 1 < len(line) and line[idx + 1] == "-":
+            in_line_comment = True
+        elif c in ("'", '"'):
+            in_string = True
+            quote_char = c
+        elif c == "(":
+            paren_depth += 1
+        elif c == ")":
+            paren_depth = max(0, paren_depth - 1)
+        idx += 1
+    return paren_depth, in_block_comment
 
 
 def _insert_statement_separators(query: str) -> str:
@@ -161,6 +205,7 @@ def _insert_statement_separators(query: str) -> str:
     paren_depth = 0
     blank_count = 0
     in_cte_query = False  # True while a WITH clause is open at depth 0
+    in_block_comment = False  # /* ... */ can span lines; persisted across iterations
 
     for line in lines:
         stripped = line.strip()
@@ -204,29 +249,9 @@ def _insert_statement_separators(query: str) -> str:
         blank_count = 0
         result.append(line)
 
-        # Update paren depth, respecting line comments and single-quoted
-        # strings so that parentheses inside them are not counted.
-        in_line_comment = False
-        in_string = False
-        quote_char = ""
-        idx = 0
-        while idx < len(line):
-            c = line[idx]
-            if in_line_comment:
-                break
-            if in_string:
-                if c == quote_char:
-                    in_string = False
-            elif c == "-" and idx + 1 < len(line) and line[idx + 1] == "-":
-                in_line_comment = True
-            elif c in ("'", '"'):
-                in_string = True
-                quote_char = c
-            elif c == "(":
-                paren_depth += 1
-            elif c == ")":
-                paren_depth = max(0, paren_depth - 1)
-            idx += 1
+        paren_depth, in_block_comment = _scan_line_depth(
+            line, paren_depth, in_block_comment
+        )
 
     return "\n".join(result)
 
