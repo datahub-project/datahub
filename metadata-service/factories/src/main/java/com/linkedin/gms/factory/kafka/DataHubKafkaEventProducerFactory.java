@@ -2,10 +2,9 @@ package com.linkedin.gms.factory.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
-import com.linkedin.metadata.dao.producer.GenericProducerImpl;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
-import com.linkedin.metadata.event.GenericProducer;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.TopicConvention;
 import org.apache.avro.generic.IndexedRecord;
@@ -13,9 +12,11 @@ import org.apache.kafka.clients.producer.Producer;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Conditional(KafkaMessagingEnabledCondition.class)
 public class DataHubKafkaEventProducerFactory {
 
   @Autowired
@@ -36,18 +37,5 @@ public class DataHubKafkaEventProducerFactory {
     }
 
     return kafkaEventProducer;
-  }
-
-  @Bean(name = "dataHubUsageEventProducer")
-  protected GenericProducer<String> createUsageInstance(
-      @Qualifier("dataHubUsageProducer") Producer<String, String> usageProducer,
-      MetricUtils metricUtils,
-      ConfigurationProvider configurationProvider) {
-    GenericProducer<String> genericProducer =
-        new GenericProducerImpl<>(usageProducer, kafkaHealthChecker, metricUtils);
-    if (configurationProvider.getDatahub().isReadOnly()) {
-      genericProducer.setWritable(false);
-    }
-    return genericProducer;
   }
 }
