@@ -1,5 +1,6 @@
 import { Select, Tag, Typography } from 'antd';
 import React, { useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export default function GlossarySelector({ resources, setResources }: Props) {
+    const { t } = useTranslation('settings.permissions');
     const entityRegistry = useEntityRegistry();
     const [glossaryInputValue, setGlossaryInputValue] = useState('');
     const [isFocusedOnGlossaryInput, setIsFocusedOnGlossaryInput] = useState(false);
@@ -144,8 +146,7 @@ export default function GlossarySelector({ resources, setResources }: Props) {
     return (
         <>
             <Typography.Paragraph>
-                The policy will apply to resources with the chosen glossary terms or any term under the chosen glossary
-                term groups. If <b>none</b> are selected, the policy will not account for glossary terms.
+                <Trans t={t} i18nKey="glossarySelectorDescription" components={{ bold: <b /> }} />
             </Typography.Paragraph>
             <ClickOutside onClickOutside={handleClickOutsideGlossary}>
                 <Select
@@ -153,7 +154,7 @@ export default function GlossarySelector({ resources, setResources }: Props) {
                     value={glossarySelectValue}
                     mode="multiple"
                     filterOption={false}
-                    placeholder="Select glossary terms or term groups to apply to specific resources."
+                    placeholder={t('glossarySelectorPlaceholder')}
                     onSelect={(value) => onSelectGlossaryEntity(value)}
                     onDeselect={onDeselectGlossaryEntity}
                     onSearch={handleGlossarySearch}

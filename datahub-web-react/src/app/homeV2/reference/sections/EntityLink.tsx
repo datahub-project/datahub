@@ -28,7 +28,7 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
         props.entity.type === EntityType.GlossaryTerm ? `1px solid ${props.theme.colors.border}` : 'none'};
 
     :hover {
-        ${(props) => props.showHover && `background-color: ${props.theme.colors.bgSurface};`}
+        ${(props) => props.showHover && `background-color: ${props.theme.colors.bgHover};`}
     }
 
     > a {

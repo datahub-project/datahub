@@ -102,7 +102,7 @@ setup('seed all test data', async () => {
       // Cleanup config file
       try {
         fs.unlinkSync(configPath);
-      } catch (e) {
+      } catch {
         // Ignore cleanup errors
       }
 

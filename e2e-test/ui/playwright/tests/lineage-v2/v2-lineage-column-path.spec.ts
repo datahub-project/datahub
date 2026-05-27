@@ -18,7 +18,10 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hdfs,SamplePlaywrightHd
 const UPSTREAM_URN = 'urn:li:dataset:(urn:li:dataPlatform:kafka,SamplePlaywrightKafkaDataset,PROD)';
 
 test.describe('column-Level lineage and impact analysis path test', () => {
-  test.beforeEach(async ({ apiMock }) => {
+  test.beforeEach(async ({ page, apiMock }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('navBarState', '{"state":"COLLAPSED"}');
+    });
     await apiMock.setFeatureFlags({ lineageGraphV3: false });
   });
 
