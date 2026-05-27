@@ -899,7 +899,11 @@ mypy==1.17.1
     #   sqlalchemy
 mypy-boto3-dynamodb==1.40.56
     # via boto3-stubs
+mypy-boto3-firehose==1.40.63
+    # via boto3-stubs
 mypy-boto3-glue==1.40.75
+    # via boto3-stubs
+mypy-boto3-kinesis==1.40.64
     # via boto3-stubs
 mypy-boto3-lakeformation==1.40.55
     # via boto3-stubs
@@ -1850,7 +1854,9 @@ typing-extensions==4.15.0
     #   multidict
     #   mypy
     #   mypy-boto3-dynamodb
+    #   mypy-boto3-firehose
     #   mypy-boto3-glue
+    #   mypy-boto3-kinesis
     #   mypy-boto3-lakeformation
     #   mypy-boto3-s3
     #   mypy-boto3-sagemaker

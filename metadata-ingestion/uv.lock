@@ -520,7 +520,7 @@ dev = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -713,7 +713,7 @@ docs = [
     { name = "azure-storage-blob" },
     { name = "azure-storage-file-datalake" },
     { name = "boto3" },
-    { name = "boto3-stubs", extra = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"] },
+    { name = "boto3-stubs", extra = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"] },
     { name = "botocore" },
     { name = "build" },
     { name = "cached-property" },
@@ -1218,6 +1218,15 @@ kafka-connect = [
     { name = "sqlalchemy" },
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
+]
+kinesis = [
+    { name = "boto3" },
+    { name = "botocore" },
+    { name = "grpcio" },
+    { name = "grpcio-tools" },
+    { name = "networkx", version = "3.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
+    { name = "networkx", version = "3.6.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "urllib3" },
 ]
 ldap = [
     { name = "python-ldap" },
@@ -1901,6 +1910,7 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'glue'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'iceberg-catalog'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'integration-tests'", specifier = ">=1.35.0,<2.0.0" },
+    { name = "boto3", marker = "extra == 'kinesis'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'mariadb'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'mysql'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'notion'", specifier = ">=1.35.0,<2.0.0" },
@@ -1910,8 +1920,8 @@ requires-dist = [
     { name = "boto3", marker = "extra == 'sagemaker'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'sql-queries'", specifier = ">=1.35.0,<2.0.0" },
     { name = "boto3", marker = "extra == 'unstructured'", specifier = ">=1.35.0,<2.0.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
-    { name = "boto3-stubs", extras = ["dynamodb", "glue", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'dev'", specifier = "==1.40.0" },
+    { name = "boto3-stubs", extras = ["dynamodb", "firehose", "glue", "kinesis", "lakeformation", "s3", "sagemaker", "sts"], marker = "extra == 'docs'", specifier = "==1.40.0" },
     { name = "botocore", marker = "extra == 'all'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'aws-secret-manager'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'cockroachdb'", specifier = "!=1.23.0,<2.0.0" },
@@ -1930,6 +1940,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'glue'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'iceberg-catalog'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'integration-tests'", specifier = "!=1.23.0,<2.0.0" },
+    { name = "botocore", marker = "extra == 'kinesis'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'mariadb'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'mysql'", specifier = "!=1.23.0,<2.0.0" },
     { name = "botocore", marker = "extra == 'notion'", specifier = "!=1.23.0,<2.0.0" },
@@ -2253,10 +2264,12 @@ requires-dist = [
     { name = "grpcio", marker = "extra == 'dev'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'docs'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'kafka'", specifier = ">=1.44.0,<2.0.0" },
+    { name = "grpcio", marker = "extra == 'kinesis'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'all'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'dev'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'docs'", specifier = ">=1.44.0,<2.0.0" },
     { name = "grpcio-tools", marker = "extra == 'kafka'", specifier = ">=1.44.0,<2.0.0" },
+    { name = "grpcio-tools", marker = "extra == 'kinesis'", specifier = ">=1.44.0,<2.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'all'", specifier = ">=2.11.20,<3.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'hana'", specifier = ">=2.11.20,<3.0.0" },
     { name = "hdbcli", marker = "platform_machine != 'aarch64' and platform_machine != 'arm64' and extra == 'integration-tests'", specifier = ">=2.11.20,<3.0.0" },
@@ -2378,6 +2391,7 @@ requires-dist = [
     { name = "networkx", marker = "extra == 'dev'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'docs'", specifier = ">=2.6.2,<4.0.0" },
     { name = "networkx", marker = "extra == 'kafka'", specifier = ">=2.6.2,<4.0.0" },
+    { name = "networkx", marker = "extra == 'kinesis'", specifier = ">=2.6.2,<4.0.0" },
     { name = "numpy", marker = "extra == 'all'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'athena'", specifier = "<2" },
     { name = "numpy", marker = "extra == 'bigquery'", specifier = "<2" },
@@ -3215,6 +3229,7 @@ requires-dist = [
     { name = "urllib3", marker = "extra == 'glue'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'iceberg-catalog'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'integration-tests'", specifier = ">=1.26,<3.0" },
+    { name = "urllib3", marker = "extra == 'kinesis'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'mariadb'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'mysql'", specifier = ">=1.26,<3.0" },
     { name = "urllib3", marker = "extra == 'notion'", specifier = ">=1.26,<3.0" },
@@ -3263,7 +3278,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "kinesis", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -4184,8 +4199,14 @@ wheels = [
 dynamodb = [
     { name = "mypy-boto3-dynamodb" },
 ]
+firehose = [
+    { name = "mypy-boto3-firehose" },
+]
 glue = [
     { name = "mypy-boto3-glue" },
+]
+kinesis = [
+    { name = "mypy-boto3-kinesis" },
 ]
 lakeformation = [
     { name = "mypy-boto3-lakeformation" },
@@ -8474,6 +8495,18 @@ wheels = [
 ]
 
 [[package]]
+name = "mypy-boto3-firehose"
+version = "1.40.63"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5f/df/80abca115444a4387b2a7e725df513ba5e3a092fa7fdb940f80f7ad4c681/mypy_boto3_firehose-1.40.63.tar.gz", hash = "sha256:21d12e96e5be9a98c40deba1a6db241060d1a2a423ca51c2bfd0768fcb18b6b6", size = 27717, upload-time = "2025-10-30T19:44:52.073Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/57/fc/6028812dd3f5d47c8291550d4545a66a4dfb446eb90d2a2c8d6668df521b/mypy_boto3_firehose-1.40.63-py3-none-any.whl", hash = "sha256:150dd075a0662c9c6964b8d61d7ba352e5d9a0a8b46fa638731103eb86d9eaeb", size = 31835, upload-time = "2025-10-30T19:44:50.287Z" },
+]
+
+[[package]]
 name = "mypy-boto3-glue"
 version = "1.40.75"
 source = { registry = "https://pypi.org/simple" }
@@ -8483,6 +8516,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/c1/f7/31990901ea529484d3b6733b2b6ea2ba6406fc61f91dddf9a879f7b3b34c/mypy_boto3_glue-1.40.75.tar.gz", hash = "sha256:9400cb6524a2ce00d229fd8287588e638df3283c3d19161fe729a812b29c8adc", size = 127538, upload-time = "2025-11-17T22:12:34.87Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/aa/74/4900df37cf4df01d646ab7fdf54b64b5fced70e7d2564c4cd07354eaecb6/mypy_boto3_glue-1.40.75-py3-none-any.whl", hash = "sha256:50d12feab27289f7dd77902810bcd9b360c1d4fb4e260b2650268fe6e100608f", size = 136034, upload-time = "2025-11-17T22:12:32.347Z" },
+]
+
+[[package]]
+name = "mypy-boto3-kinesis"
+version = "1.40.64"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/cc/f178e14e7fadc9bb24c604a725d5ffc387bcba517fe6007bfa6e0474a203/mypy_boto3_kinesis-1.40.64.tar.gz", hash = "sha256:e60fca2c1ebd143f7f9688dd6794b7bd63ee1c181d3a3cab5f1c8387445977c9", size = 22971, upload-time = "2025-10-31T19:42:44.938Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/af/ec/011a8e47b10fc539e5111be3bb97bd22a025b9d689c8453c0f8044c13441/mypy_boto3_kinesis-1.40.64-py3-none-any.whl", hash = "sha256:ac2d125f05f858a55085848f6160b22844785fa4b97741a32a0a4fc0c344390a", size = 32970, upload-time = "2025-10-31T19:42:42.102Z" },
 ]
 
 [[package]]
