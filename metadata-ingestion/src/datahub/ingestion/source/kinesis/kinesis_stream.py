@@ -204,6 +204,10 @@ class KinesisStreamExtractor:
             subtype=DatasetSubTypes.KINESIS_STREAM.value,
             parent_container=self.region_key,
             description=f"Kinesis Data Stream {stream_name}",
+            external_url=(
+                f"https://console.aws.amazon.com/kinesis/home?region={region}"
+                f"#/streams/details/{stream_name}"
+            ),
             custom_properties=self._custom_properties(desc),
             tags=list(global_tags.tags) if global_tags else None,
             owners=owner_aspects or None,

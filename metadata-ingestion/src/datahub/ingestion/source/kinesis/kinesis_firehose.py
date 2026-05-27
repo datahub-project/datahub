@@ -164,13 +164,13 @@ class KinesisFirehoseExtractor:
     def get_dataflow_workunit(self) -> Iterable[MetadataWorkUnit]:
         flow_urn = self.dataflow_urn()
         firehose_platform_urn = make_data_platform_urn(FIREHOSE_PLATFORM_NAME)
+        region = self.config.aws_config.aws_region
         yield MetadataChangeProposalWrapper(
             entityUrn=flow_urn,
             aspect=DataFlowInfoClass(
                 name="AWS Kinesis Firehose",
-                description=(
-                    f"Kinesis Data Firehose in region {self.config.aws_config.aws_region}"
-                ),
+                description=f"Kinesis Data Firehose in region {region}",
+                externalUrl=f"https://console.aws.amazon.com/firehose/home?region={region}",
             ),
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
@@ -396,6 +396,7 @@ class KinesisFirehoseExtractor:
             # Task 2 fix-up: report_delivery_stream_scanned() takes no args.
             self.report.report_delivery_stream_scanned()
             job_urn = self.datajob_urn(name)
+            region = self.config.aws_config.aws_region
             yield MetadataChangeProposalWrapper(
                 entityUrn=job_urn,
                 aspect=DataJobInfoClass(
@@ -403,6 +404,10 @@ class KinesisFirehoseExtractor:
                     type="STREAM_DELIVERY",
                     description=f"Firehose delivery stream {name}",
                     customProperties=self._custom_properties(desc),
+                    externalUrl=(
+                        f"https://console.aws.amazon.com/firehose/home?region={region}"
+                        f"#/details/{name}"
+                    ),
                 ),
             ).as_workunit()
             yield MetadataChangeProposalWrapper(
