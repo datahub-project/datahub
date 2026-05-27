@@ -82,9 +82,16 @@ export const DomainCard = ({ domain, assetCount }: Props) => {
                 <Text>
                     <Name>{name}</Name>
                     <Counts>
-                        <Count>{t('domains.assetCount', { count: formatNumber(assetCount) })}</Count>
+                        <Count>
+                            {t('domains.assetCount', { count: assetCount, formattedCount: formatNumber(assetCount) })}
+                        </Count>
                         <Divider type="vertical" />
-                        <Count>{t('domains.dataProductCount', { count: formatNumber(dataProductCount) })}</Count>
+                        <Count>
+                            {t('domains.dataProductCount', {
+                                count: dataProductCount,
+                                formattedCount: formatNumber(dataProductCount),
+                            })}
+                        </Count>
                     </Counts>
                 </Text>
             </Card>

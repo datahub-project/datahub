@@ -77,7 +77,11 @@ export const PlatformCard = ({ platform, count }: Props) => {
 
     return (
         <Tooltip
-            title={t('platforms.viewAssetsTooltip', { count: formatNumberWithoutAbbreviation(count), name })}
+            title={t('platforms.viewAssetsTooltip', {
+                count,
+                formattedCount: formatNumberWithoutAbbreviation(count),
+                name,
+            })}
             showArrow={false}
             placement="bottom"
         >
