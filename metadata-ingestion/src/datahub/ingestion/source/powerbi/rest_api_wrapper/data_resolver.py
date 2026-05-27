@@ -490,15 +490,14 @@ class RegularAPIResolver(DataResolverBase):
             endpoint,
             headers=self.get_authorization_header(),
         )
-        if is_http_failure(
-            response,
-            f"Unable to fetch datasources for paginated report {report_id}",
-        ):
-            return []
+        # Let HTTP errors propagate so the caller can emit a structured
+        # reporter.warning instead of the INFO-level log from is_http_failure.
+        response.raise_for_status()
 
         return [
-            ReportDatasource.from_raw(raw)
+            ds
             for raw in response.json().get(Constant.VALUE, [])
+            if (ds := ReportDatasource.from_raw(raw)) is not None
         ]
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:

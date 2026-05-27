@@ -44,6 +44,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
+    POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
@@ -643,19 +644,8 @@ class Mapper:
         would require parsing the .rdl XML.
         """
         urns: List[str] = []
-        if not report.datasources:
-            return urns
-
-        pbi_to_dh = {
-            item.value.powerbi_data_platform_name: item.value
-            for item in SupportedDataPlatform
-        }
-
         for ds in report.datasources:
-            if not ds.datasource_type or not ds.server:
-                continue
-
-            pair = pbi_to_dh.get(ds.datasource_type)
+            pair = POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(ds.datasource_type)
             if pair is None:
                 self.__reporter.info(
                     title="Unmapped Paginated Report Datasource",
@@ -677,9 +667,6 @@ class Mapper:
             )
 
             name_parts = [p for p in [ds.server, ds.database] if p]
-            if not name_parts:
-                continue
-
             urns.append(
                 self.lineage_urn_to_lowercase(
                     builder.make_dataset_urn_with_platform_instance(

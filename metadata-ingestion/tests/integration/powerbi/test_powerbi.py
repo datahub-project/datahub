@@ -209,12 +209,13 @@ def test_powerbi_paginated_report_rdl_lineage(
 ) -> None:
     """Paginated reports without a shared dataset_id must emit upstream
     lineage via the per-report /datasources endpoint."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
         override_data=read_mock_data(
-            pytestconfig.rootpath
-            / "tests/integration/powerbi/mock_data/paginated_report_rdl_datasources.json"
+            test_resources_dir / "mock_data/paginated_report_rdl_datasources.json"
         ),
     )
 
@@ -240,43 +241,10 @@ def test_powerbi_paginated_report_rdl_lineage(
     pipeline.run()
     pipeline.raise_from_status()
 
-    output = json.loads(
-        (Path(tmp_path) / "powerbi_paginated_rdl_mces.json").read_text()
-    )
-    paginated_dashboard_urn = (
-        "urn:li:dashboard:(powerbi,reports.584cf13a-1485-41c2-a514-b1bb66fff163)"
-    )
-
-    edge_destinations: List[str] = []
-    for entry in output:
-        if entry.get("entityUrn") != paginated_dashboard_urn:
-            continue
-        if entry.get("aspectName") != "dashboardInfo":
-            continue
-        payload = entry.get("aspect", {}).get("json")
-        if isinstance(payload, dict):
-            for edge in payload.get("datasetEdges") or []:
-                edge_destinations.append(edge["destinationUrn"])
-        elif isinstance(payload, list):
-            for op in payload:
-                if (
-                    op.get("op") == "add"
-                    and "datasetEdges" in op.get("path", "")
-                    and isinstance(op.get("value"), dict)
-                    and "destinationUrn" in op["value"]
-                ):
-                    edge_destinations.append(op["value"]["destinationUrn"])
-
-    # When no server_to_platform_instance mapping exists, the default
-    # PlatformDetail returns env=PROD (matching existing behavior in
-    # extract_directlake_lineage), regardless of the source-level env.
-    expected = (
-        "urn:li:dataset:(urn:li:dataPlatform:mssql,"
-        "sales-sqlserver.internal.MarketingDB,PROD)"
-    )
-    assert expected in edge_destinations, (
-        f"Paginated report should have an upstream edge to {expected}; "
-        f"got {edge_destinations}"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_paginated_rdl_mces.json",
+        golden_path=f"{test_resources_dir}/golden_test_paginated_rdl_lineage.json",
     )
 
 

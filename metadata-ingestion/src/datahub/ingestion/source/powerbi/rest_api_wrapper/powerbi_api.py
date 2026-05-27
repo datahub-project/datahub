@@ -296,6 +296,10 @@ class PowerBiAPI:
             elif report.type is ReportType.PaginatedReport:
                 # RDL reports with embedded datasources don't carry a datasetId
                 # in the scan response; fall back to /reports/{id}/datasources.
+                context = (
+                    f"workspace={workspace.name}, "
+                    f"report_name={report.name}, report_id={report.id}"
+                )
                 try:
                     report.datasources = self._get_resolver().get_report_datasources(
                         workspace=workspace, report_id=report.id
@@ -307,23 +311,32 @@ class PowerBiAPI:
                             f"{report.name}({report.id}) in workspace {workspace.name}"
                         )
                     )
-                    report.datasources = []
-
-                if not report.datasources:
-                    self.reporter.info(
-                        title="Missing Lineage For Paginated Report",
+                    self.reporter.warning(
+                        title="Paginated Report Datasources Fetch Failed",
                         message=(
-                            "Paginated report has no shared dataset and the "
-                            "/datasources endpoint returned no rows; upstream "
-                            "lineage will be empty. In admin_apis_only mode "
-                            "this endpoint is unavailable - grant Report.Read.All "
-                            "to the service principal to enable this fallback."
+                            "Unable to fetch /datasources for a paginated "
+                            "report; upstream lineage will be empty. See "
+                            "connector logs for the HTTP error."
                         ),
-                        context=(
-                            f"workspace={workspace.name}, "
-                            f"report_name={report.name}, report_id={report.id}"
-                        ),
+                        context=context,
                     )
+                else:
+                    if not report.datasources:
+                        # API call succeeded with no rows: either the report
+                        # genuinely has no datasources, or we are in
+                        # admin_apis_only mode where this endpoint is a no-op.
+                        self.reporter.info(
+                            title="Missing Lineage For Paginated Report",
+                            message=(
+                                "Paginated report has no shared dataset and "
+                                "the /datasources endpoint returned no rows; "
+                                "upstream lineage will be empty. In "
+                                "admin_apis_only mode this endpoint is "
+                                "unavailable - grant Report.Read.All to the "
+                                "service principal to enable this fallback."
+                            ),
+                            context=context,
+                        )
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:

@@ -314,17 +314,25 @@ class ReportDatasource:
     not surfaced by the workspace scan API.
     """
 
-    datasource_type: Optional[str]
-    server: Optional[str]
+    datasource_type: str
+    server: str
     database: Optional[str]
 
     @staticmethod
-    def from_raw(raw: Dict[str, Any]) -> "ReportDatasource":
-        details = raw.get("connectionDetails") or {}
+    def from_raw(raw: Dict[str, Any]) -> Optional["ReportDatasource"]:
+        """Build from a /datasources API row, or return None if unmappable."""
+        datasource_type = raw.get("datasourceType")
+        server = (raw.get("connectionDetails") or {}).get("server")
+        if not datasource_type or not server:
+            logger.debug(
+                "Skipping report datasource without datasourceType/server: %r",
+                raw,
+            )
+            return None
         return ReportDatasource(
-            datasource_type=raw.get("datasourceType"),
-            server=details.get("server"),
-            database=details.get("database"),
+            datasource_type=datasource_type,
+            server=server,
+            database=(raw.get("connectionDetails") or {}).get("database"),
         )
 
 
