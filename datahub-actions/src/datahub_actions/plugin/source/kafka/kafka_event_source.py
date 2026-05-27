@@ -301,8 +301,12 @@ class KafkaEventSource(EventSource):
                     if key not in early_criteria:
                         early_criteria[key] = val
                     elif early_criteria[key] != val:
-                        # Conflicting values for the same key across OR predicates —
-                        # can't collapse to a single early check; discard this key.
+                        logger.warning(
+                            f"KafkaEventSource [{self._pipeline_name}]: conflicting values "
+                            f"for '{key}' across MCL predicate list items — cannot apply "
+                            "pre-deserialization check for this field; it will be evaluated "
+                            "after avrogen deserialization."
+                        )
                         early_criteria.pop(key)
 
         self._early_mcl_criteria = early_criteria
@@ -368,7 +372,7 @@ class KafkaEventSource(EventSource):
     def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
         if self._skip_mcl_entirely:
             MCL_EARLY_FILTER_METRIC.labels(
-                pipeline_name=self._pipeline_name, result="rejected"
+                pipeline_name=self._pipeline_name, result="entirely_rejected"
             ).inc()
             return
 
