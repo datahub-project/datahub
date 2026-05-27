@@ -3486,6 +3486,68 @@ class TestExecuteWithRetry:
 
         mock_conn.execute.assert_called_once_with("SELECT :key", params)
 
+    # ------------------------------------------------------------------
+    # warn_on_permanent_failure flag
+    # ------------------------------------------------------------------
+
+    def test_permanent_error_emits_warning_by_default(self):
+        """Default behaviour (warn_on_permanent_failure=True): a permanent first-attempt
+        failure writes a report.warning so callers without try/except still surface
+        a breadcrumb in the ingestion report."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError(
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+        )
+        report = TeradataReport()
+
+        with pytest.raises(OperationalError):
+            _execute_with_retry(mock_conn, "SELECT 1", max_attempts=1, report=report)
+
+        assert len(report.warnings) == 1
+        assert "Database execute failed" in report.warnings[0].title
+
+    def test_permanent_error_no_warning_when_suppressed(self):
+        """warn_on_permanent_failure=False: probe callers that handle the exception
+        themselves (e.g. _check_historical_table_exists) receive no report entry."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = OperationalError(
+            "[Error 3802] Database 'PDCRINFO' does not exist.", None, None
+        )
+        report = TeradataReport()
+
+        with pytest.raises(OperationalError):
+            _execute_with_retry(
+                mock_conn,
+                "SELECT 1",
+                max_attempts=1,
+                report=report,
+                warn_on_permanent_failure=False,
+            )
+
+        assert len(report.warnings) == 0
+
+    def test_retry_exhaustion_always_emits_warning_even_when_flag_false(self):
+        """warn_on_permanent_failure=False does not suppress the retry-exhaustion
+        warning: if we actually slept and retried, a report entry is always warranted."""
+        mock_conn = MagicMock()
+        mock_conn.execute.side_effect = DatabaseError(
+            "[Error 2631] transaction aborted", None, None
+        )
+        report = TeradataReport()
+
+        with patch("time.sleep"), pytest.raises(DatabaseError):
+            _execute_with_retry(
+                mock_conn,
+                "SELECT 1",
+                max_attempts=2,
+                report=report,
+                warn_on_permanent_failure=False,
+            )
+
+        assert mock_conn.execute.call_count == 2
+        assert len(report.warnings) == 1
+        assert "after retries" in report.warnings[0].title
+
 
 class TestFetchmanyWithRetry:
     """_fetchmany_with_retry mirrors _execute_with_retry semantics on cursor.fetchmany()."""

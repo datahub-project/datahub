@@ -435,38 +435,44 @@ def _execute_with_retry(
     max_attempts: int = _RETRY_MAX_ATTEMPTS,
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
     report: Optional["TeradataReport"] = None,
+    warn_on_permanent_failure: bool = True,
 ) -> Any:
-    """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors."""
+    """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors.
+
+    Args:
+        warn_on_permanent_failure: When True (default), a ``report.warning`` is
+            emitted for permanent first-attempt failures so that callers without
+            a try/except still surface a context-rich breadcrumb in the ingestion
+            report.  Pass False for intentional probe queries
+            that handle the exception themselves (e.g. ``_check_historical_table_exists``).
+    """
 
     def _on_terminal(exc: Exception, attempt: int) -> None:
-        # Emit a warning breadcrumb before re-raising so the ingestion report
-        # always contains a trace even when the caller has no try/except.
-        # report.warning (not failure) because the exception still propagates —
-        # the caller, with higher-level table/schema context, decides severity.
-        if report is not None:
-            if _should_retry(exc) and attempt > 0:
-                report.warning(
-                    title="Database execute failed after retries",
-                    message=(
-                        f"A retryable error persisted after {attempt + 1} attempt(s). "
-                        "The operation has been abandoned. "
-                        "Check Teradata connectivity and cluster stability."
-                    ),
-                    context=str(exc),
-                    exc=exc,
-                )
-            else:
-                # Permanent error or max_attempts == 1: include the statement
-                # text, which callers lack.
-                report.warning(
-                    title="Database execute failed",
-                    message=(
-                        f"Statement failed on attempt {attempt + 1}: {exc}. "
-                        f"Statement: {stmt}"
-                    ),
-                    context=str(exc),
-                    exc=exc,
-                )
+        if report is None:
+            return
+        if _should_retry(exc) and attempt > 0:
+            report.warning(
+                title="Database execute failed after retries",
+                message=(
+                    f"A retryable error persisted after {attempt + 1} attempt(s). "
+                    "The operation has been abandoned. "
+                    "Check Teradata connectivity and cluster stability."
+                ),
+                context=str(exc),
+                exc=exc,
+            )
+        elif warn_on_permanent_failure:
+            # Permanent error: callers without a try/except would otherwise
+            # surface only a bare SQLAlchemy traceback with no report entry.
+            report.warning(
+                title="Database execute failed",
+                message=(
+                    f"Statement failed on attempt {attempt + 1}: {exc}. "
+                    f"Statement: {stmt}"
+                ),
+                context=str(exc),
+                exc=exc,
+            )
 
     return _retry_loop(
         op=lambda: conn.execute(stmt, params)
@@ -1611,6 +1617,7 @@ ORDER by DataBaseName, TableName;
         conn: Connection,
         stmt: Any,
         params: Optional[Dict[str, Any]] = None,
+        warn_on_permanent_failure: bool = True,
     ) -> Any:
         """Execute a statement with config-driven retry / backoff."""
         return _execute_with_retry(
@@ -1620,6 +1627,7 @@ ORDER by DataBaseName, TableName;
             max_attempts=self.config.retry_max_attempts,
             initial_backoff_seconds=self.config.retry_initial_backoff_seconds,
             report=self.report,
+            warn_on_permanent_failure=warn_on_permanent_failure,
         )
 
     def _retry_fetchmany(self, result: Any, batch_size: int) -> List[Any]:
@@ -2667,7 +2675,11 @@ ORDER by DataBaseName, TableName;
                 WHERE 1=0
             """
             with self._retry_connect(engine) as conn:
-                self._retry_execute(conn, text(check_query))
+                # Probe query — the except block below owns all severity
+                # decisions, so suppress the default permanent-failure warning.
+                self._retry_execute(
+                    conn, text(check_query), warn_on_permanent_failure=False
+                )
                 logger.info(
                     "Historical lineage table PDCRINFO.DBQLSqlTbl_Hst is available"
                 )
