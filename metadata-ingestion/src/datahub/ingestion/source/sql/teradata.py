@@ -197,13 +197,10 @@ _PERMANENT_ERROR_SUBSTRINGS: Tuple[str, ...] = (
     "logon failed",
     "invalid logon",
     "invalid user",
-    "password",
     "permission denied",
     "access denied",
-    "does not exist",
     "no access",
     "tdgss configuration",  # permanent TDGSS mis-configuration (vs. transient handshake)
-    "invalid configuration",
 )
 
 # Substrings found in Teradata / network error messages that are safe to retry
@@ -400,20 +397,37 @@ def _execute_with_retry(
             )
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
-                # Only emitted when the error was retryable (i.e. we actually slept and retried) and
-                # at least one retry was made; permanent errors are left for callers
-                # which have the higher-level context (schema, table name, etc.).
-                if report is not None and _should_retry(exc) and attempt > 0:
-                    report.failure(
-                        title="Database execute failed after retries",
-                        message=(
-                            f"A retryable error persisted after {attempt + 1} attempts. "
-                            "The operation has been abandoned. "
-                            "Check Teradata connectivity and cluster stability."
-                        ),
-                        context=str(exc),
-                        exc=exc,
-                    )
+                # Emit a warning breadcrumb before re-raising so that the
+                # ingestion report always contains a trace of the failure even
+                # when the caller has no try/except.  We use report.warning
+                # (not report.failure) because the exception still propagates —
+                # the caller, which has the higher-level table/schema context,
+                # is the right place to decide the final severity.
+                if report is not None:
+                    if _should_retry(exc) and attempt > 0:
+                        report.warning(
+                            title="Database execute failed after retries",
+                            message=(
+                                f"A retryable error persisted after {attempt + 1} attempt(s). "
+                                "The operation has been abandoned. "
+                                "Check Teradata connectivity and cluster stability."
+                            ),
+                            context=str(exc),
+                            exc=exc,
+                        )
+                    else:
+                        # Permanent error or max_attempts == 1: emit a low-level
+                        # breadcrumb that includes the statement text, which
+                        # callers lack.
+                        report.warning(
+                            title="Database execute failed",
+                            message=(
+                                f"Statement failed on attempt {attempt + 1}: {exc}. "
+                                f"Statement: {stmt}"
+                            ),
+                            context=str(exc),
+                            exc=exc,
+                        )
                 raise
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
@@ -451,17 +465,29 @@ def _fetchmany_with_retry(
             return result.fetchmany(batch_size)  # type: ignore[no-any-return]
         except Exception as exc:
             if not _should_retry(exc) or attempt == max_attempts - 1:
-                if report is not None and _should_retry(exc) and attempt > 0:
-                    report.failure(
-                        title="Database fetchmany failed after retries",
-                        message=(
-                            f"A retryable error persisted after {attempt + 1} attempts. "
-                            "The fetch has been abandoned. "
-                            "Check Teradata connectivity and cluster stability."
-                        ),
-                        context=str(exc),
-                        exc=exc,
-                    )
+                # Same breadcrumb policy as _execute_with_retry: always warn
+                # so the report contains a trace even when callers don't catch.
+                if report is not None:
+                    if _should_retry(exc) and attempt > 0:
+                        report.warning(
+                            title="Database fetchmany failed after retries",
+                            message=(
+                                f"A retryable error persisted after {attempt + 1} attempt(s). "
+                                "The fetch has been abandoned. "
+                                "Check Teradata connectivity and cluster stability."
+                            ),
+                            context=str(exc),
+                            exc=exc,
+                        )
+                    else:
+                        report.warning(
+                            title="Database fetchmany failed",
+                            message=(
+                                f"fetchmany failed on attempt {attempt + 1}: {exc}."
+                            ),
+                            context=str(exc),
+                            exc=exc,
+                        )
                 raise
             backoff = _jittered_backoff(attempt, initial_backoff_seconds)
             logger.warning(
@@ -1074,6 +1100,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     connection_pool_timeout_ms: int = Field(
         default=60000,
         ge=1,
+        le=600_000,
         description=(
             "How long, in milliseconds, a worker thread will wait for a free connection "
             "from the pool before raising a PoolTimeoutError. "
@@ -1089,6 +1116,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
     retry_max_attempts: int = Field(
         default=_RETRY_MAX_ATTEMPTS,
         ge=1,
+        le=10,
         description=(
             "Maximum total attempts (initial + retries) for retryable database operations "
             "(connect, execute, fetchmany). "
@@ -1613,13 +1641,6 @@ ORDER by DataBaseName, TableName;
                 )
                 self.report.increment_db_retries()
                 time.sleep(backoff)
-                self.report.failure(
-                    title="Could not list schemas after retries",
-                    message=f"Failed to list schemas after {max_attempts} attempts. "
-                    "Check network connectivity, authentication, and database permissions.",
-                    context=str(exc),
-                    exc=exc,
-                )
         raise AssertionError("unreachable")  # loop always raises or returns
 
     def _init_schema_resolver(self) -> SchemaResolver:
@@ -1712,10 +1733,8 @@ ORDER by DataBaseName, TableName;
                     )
                     continue
                 try:
-                    with self._retry_connect(engine) as conn:
-                        db_inspector = inspect(conn)
-                        db_inspector._datahub_database = db  # type: ignore[attr-defined]
-                        yield db_inspector
+                    conn_cm = self._retry_connect(engine)
+                    conn = conn_cm.__enter__()
                 except Exception as e:
                     self.report.warning(
                         title="Failed to inspect database",
@@ -1724,7 +1743,13 @@ ORDER by DataBaseName, TableName;
                         context=str(e),
                         exc=e,
                     )
-                    continue
+                    continue  # do not fall through to yield with an invalid connection
+                try:
+                    db_inspector = inspect(conn)
+                    db_inspector._datahub_database = db
+                    yield db_inspector
+                finally:
+                    conn_cm.__exit__(None, None, None)
 
         finally:
             engine.dispose()

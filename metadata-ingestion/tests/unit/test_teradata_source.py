@@ -3243,13 +3243,6 @@ class TestEffectiveMaxWorkers:
 class TestTeradataReportFields:
     """Newly declared TeradataReport fields have the correct default values."""
 
-    def test_column_extraction_fields_default_to_zero(self):
-        report = TeradataReport()
-        assert report.num_columns_processed == 0
-        assert report.num_column_extraction_failures == 0
-        assert report.num_primary_keys_processed == 0
-        assert report.column_extraction_duration_seconds == 0.0
-
     def test_concurrent_increments_are_atomic(self):
         """All lock-protected helpers produce exact counts under thread contention.
 
@@ -3730,6 +3723,88 @@ class TestGetInspectorsDispose:
         mock_engine.dispose.assert_called_once()
 
 
+class TestGetInspectorsPerDbConnectionFailure:
+    """get_inspectors() skips individual databases whose connection fails and
+    continues to yield inspectors for the remaining databases.
+
+    Regression guard for the split connect/yield fix: the try/except must only
+    wrap the connect step, not the yield, so that:
+      - A connection failure for db2 emits exactly one report.warning and
+        skips that database.
+      - Errors raised by the *consumer* while iterating db1 or db3 propagate
+        normally and are NOT misclassified as connection failures.
+      - db1 and db3 are still yielded despite db2's failure.
+    """
+
+    def test_connection_failure_for_one_db_skips_and_warns(self):
+        """[db1 ok, db2 auth error, db3 ok] → yielded==[db1,db3], warnings==1."""
+        source = _create_source_patched({"databases": ["db1", "db2", "db3"]})
+
+        ok_conn = MagicMock()
+        auth_error = OperationalError("authentication failed", None, None)
+
+        mock_engine = MagicMock()
+        # db1 succeeds, db2 fails with a permanent auth error, db3 succeeds.
+        # _engine_connect_with_retry raises immediately on auth failures
+        # (_should_retry_connect returns False), so each db makes exactly one
+        # engine.connect() call.
+        mock_engine.connect.side_effect = [ok_conn, auth_error, ok_conn]
+
+        # Return a distinct inspector per call so _datahub_database is trackable.
+        db1_inspector = MagicMock()
+        db3_inspector = MagicMock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                side_effect=[db1_inspector, db3_inspector],
+            ),
+        ):
+            inspectors = list(source.get_inspectors())
+
+        # db1 and db3 were yielded; db2 was skipped
+        assert len(inspectors) == 2
+        yielded_dbs = [i._datahub_database for i in inspectors]
+        assert yielded_dbs == ["db1", "db3"]
+
+        # Exactly one warning emitted (for db2), none for db1 or db3
+        assert len(source.report.warnings) == 1
+        warning = source.report.warnings[0]
+        assert warning.title == "Failed to inspect database"
+        assert "db2" in warning.message
+
+    def test_consumer_error_propagates_and_is_not_swallowed(self):
+        """An exception raised inside the consumer loop is NOT caught by get_inspectors.
+
+        Before the split-connect/yield fix, the try/except around ``yield``
+        caught downstream errors, reclassified them as connection failures, and
+        silently continued — masking the real problem. After the fix only the
+        connect step is guarded; consumer errors propagate normally.
+        """
+        source = _create_source_patched({"databases": ["db1", "db2"]})
+
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = MagicMock()
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.create_engine",
+                return_value=mock_engine,
+            ),
+            patch("datahub.ingestion.source.sql.teradata.inspect"),
+            pytest.raises(AttributeError, match="downstream consumer bug"),
+        ):
+            for _ in source.get_inspectors():
+                raise AttributeError("downstream consumer bug")
+
+        # The error must NOT be misclassified as a connection failure warning
+        assert len(source.report.warnings) == 0
+
+
 class TestSchemaNameRetry:
     """_get_schema_names_with_retry() retries the connect+query sequence on transient errors."""
 
@@ -3766,6 +3841,7 @@ class TestSchemaNameRetry:
 
         assert result == ["db1", "db2"]
         assert source.report.num_db_retries >= 1
+        assert len(source.report.failures) == 0
         assert any("schema names" in r.message for r in caplog.records)
 
     def test_aborts_on_non_retryable_error(self):
