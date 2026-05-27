@@ -33,9 +33,6 @@ import lombok.extern.slf4j.Slf4j;
  * Service for importing documents from file uploads initiated in the UI. Creates or updates
  * Document entities using deterministic IDs for idempotent re-imports.
  *
- * <p>Supports hierarchical imports: GitHub folder structure is preserved as parent-child document
- * relationships, and callers can specify a root parent document for the imported tree.
- *
  * <p>Authorization is NOT performed here — callers must check MANAGE_DOCUMENTS privilege.
  */
 @Slf4j
@@ -54,40 +51,28 @@ public class DocumentImportService {
 
   // -- Core import logic --
 
-  /**
-   * Import a batch of DocumentCandidates, creating or updating Document entities. Handles
-   * parent-child wiring:
-   *
-   * <ul>
-   *   <li>Candidates with {@code parentSourceId} are linked to the document created for that source
-   *       ID
-   *   <li>Candidates without {@code parentSourceId} (top-level) are linked to {@code rootParentUrn}
-   *   <li>If {@code rootParentUrn} is null, top-level candidates have no parent
-   * </ul>
-   *
-   * <p>Candidates MUST be ordered so that parent folders appear before their children (GitHub
-   * source already returns them in this order).
-   */
+  /** Import file-upload candidates, optionally nesting each under {@code parentDocumentUrn}. */
   @Nonnull
   public ImportResult importDocuments(
       @Nonnull OperationContext opContext,
       @Nonnull List<DocumentCandidate> candidates,
       @Nonnull ImportUseCase useCase,
       boolean showInGlobalContext,
-      @Nullable Urn rootParentUrn,
+      @Nullable Urn parentDocumentUrn,
       @Nonnull Urn actorUrn) {
 
     ImportResult result = new ImportResult();
-    // Track sourceId → created URN so children can find their parent
-    Map<String, Urn> sourceIdToUrn = new HashMap<>();
 
     for (DocumentCandidate candidate : candidates) {
       try {
-        Urn parentUrn = resolveParentUrn(candidate, sourceIdToUrn, rootParentUrn);
-        Urn createdUrn =
-            importOneDocument(
-                opContext, candidate, useCase, showInGlobalContext, parentUrn, actorUrn, result);
-        sourceIdToUrn.put(candidate.getSourceId(), createdUrn);
+        importOneDocument(
+            opContext,
+            candidate,
+            useCase,
+            showInGlobalContext,
+            parentDocumentUrn,
+            actorUrn,
+            result);
       } catch (Exception e) {
         log.warn("Failed to import document '{}': {}", candidate.getSourceId(), e.getMessage());
         result.recordFailure(candidate.getSourceId(), e.getMessage());
@@ -100,26 +85,6 @@ public class DocumentImportService {
         result.getUpdatedCount(),
         result.getFailedCount());
     return result;
-  }
-
-  /**
-   * Determine the parent URN for a candidate: if it has a parentSourceId, look up the URN from the
-   * already-created docs; otherwise fall back to the root parent.
-   */
-  @Nullable
-  private Urn resolveParentUrn(
-      DocumentCandidate candidate, Map<String, Urn> sourceIdToUrn, @Nullable Urn rootParentUrn) {
-    if (candidate.getParentSourceId() != null) {
-      Urn resolved = sourceIdToUrn.get(candidate.getParentSourceId());
-      if (resolved != null) {
-        return resolved;
-      }
-      log.warn(
-          "Parent source ID '{}' not found for candidate '{}', falling back to root parent",
-          candidate.getParentSourceId(),
-          candidate.getSourceId());
-    }
-    return rootParentUrn;
   }
 
   private Urn importOneDocument(
