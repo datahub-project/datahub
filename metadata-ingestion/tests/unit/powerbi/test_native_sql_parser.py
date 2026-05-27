@@ -52,6 +52,16 @@ def test_insert_separators_does_not_split_cte_final_select():
     assert ";" not in result
 
 
+def test_insert_separators_cte_no_blank_before_final_select():
+    """CTE closing SELECT with no blank line — flag must reset so the next
+    blank-line-separated SELECT still gets a separator."""
+    sql = "WITH cte AS (SELECT 1 AS x FROM t1)\nSELECT * FROM cte\n\n\nSELECT id FROM other"
+    result = _insert_statement_separators(sql)
+    assert ";" in result
+    stmts = [s.strip() for s in result.split(";") if s.strip()]
+    assert len(stmts) == 2
+
+
 def test_insert_separators_adds_between_standalone_selects():
     """Two blank-line-separated standalone SELECTs should get a separator."""
     sql = "SELECT 1 AS x FROM t1\n\n\nSELECT 2 AS y FROM t2"

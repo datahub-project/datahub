@@ -187,6 +187,13 @@ def _insert_statement_separators(query: str) -> str:
                     in_cte_query = False
                 else:
                     result.append(";")
+        elif paren_depth == 0 and in_cte_query:
+            # CTE closing SELECT with no preceding blank line — the blank_count
+            # gate above never fires, so reset the flag here.  Without this,
+            # the flag stays True and the next blank-line-separated SELECT is
+            # incorrectly swallowed as the CTE closing SELECT.
+            if re.match(r"SELECT\b", stripped, re.IGNORECASE):
+                in_cte_query = False
 
         blank_count = 0
         result.append(line)
