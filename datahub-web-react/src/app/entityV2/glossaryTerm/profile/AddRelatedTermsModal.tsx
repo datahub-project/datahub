@@ -10,7 +10,7 @@ import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils'
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
 import { getParentEntities } from '@app/searchV2/filters/utils';
 import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/AddTagsTermsModal';
+import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -96,7 +96,11 @@ function AddRelatedTermsModal(props: Props) {
                 <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
                     <SearchResultContainer>
                         <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
-                        <GlossaryTermPill name={displayName} color={generateTermColor(result.entity.urn)} borderless />
+                        <GlossaryTermPill
+                            name={displayName}
+                            color={generateTermColor(result.entity.urn)}
+                            variant="borderless"
+                        />
                     </SearchResultContainer>
                 </Select.Option>
             );
@@ -130,7 +134,7 @@ function AddRelatedTermsModal(props: Props) {
                     <GlossaryTermPill
                         name={selectedSearchOption?.props.name}
                         color={generateTermColor(urn)}
-                        borderless
+                        variant="borderless"
                     />
                 ),
             },
@@ -154,7 +158,7 @@ function AddRelatedTermsModal(props: Props) {
             ...selectedTerms,
             {
                 urn,
-                component: <GlossaryTermPill name={displayName} color={generateTermColor(urn)} borderless />,
+                component: <GlossaryTermPill name={displayName} color={generateTermColor(urn)} variant="borderless" />,
             },
         ]);
     }

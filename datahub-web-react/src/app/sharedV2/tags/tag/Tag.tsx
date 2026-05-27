@@ -142,8 +142,8 @@ export default function Tag({
                         color={tag?.tag?.properties?.colorHex}
                         colorHash={tag?.tag?.urn}
                         clickable
-                        highlight={highlightTag}
-                        fontSize={fontSize}
+                        variant={highlightTag ? 'highlighted' : 'default'}
+                        size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                         dataTestId={`tag-${displayName}-pill`}
                         onRemove={
                             canRemove && !readOnly

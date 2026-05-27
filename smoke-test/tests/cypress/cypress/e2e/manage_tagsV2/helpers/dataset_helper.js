@@ -9,8 +9,8 @@ export default class DatasetHelper {
       cy.clickOptionWithTestId("add-tags-button");
     });
 
-    // AddTagsTermsModal uses alchemy SimpleSelect: click the trigger to open
-    // the portal-rendered dropdown, then type into its search input.
+    // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+    // portal-rendered dropdown, then type into its search input.
     cy.getWithTestId("tag-term-modal-input").click();
     cy.get('[data-testid="dropdown-search-input"]').type(name);
     cy.get(`[data-testid="tag-term-option-${name}"]`)

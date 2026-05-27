@@ -31,6 +31,7 @@ const RemoveIcon = styled(PillRemoveIcon)`
 
 const StyledTag = styled.div<{ fontSize?: number }>`
     ${(props) => props.fontSize && `font-size: ${props.fontSize}px;`}
+    font-weight: 500;
     display: flex;
     align-items: center;
     justify-content: start;

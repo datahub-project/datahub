@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -73,11 +73,8 @@ const TagText = styled.span`
     line-height: 8px;
 `;
 
-const StyledPlusOutlined = styled(PlusOutlined)`
-    && {
-        font-size: 10px;
-        margin-right: 8px;
-    }
+const StyledPlusIcon = styled(Plus).attrs({ size: 10, weight: 'bold' })`
+    margin-right: 8px;
 `;
 
 const EmptyText = styled(Typography.Text)`
@@ -325,7 +322,7 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <StyledPlusOutlined />
+                    <StyledPlusIcon />
                     <AddText data-testid="schema-field-add-tags-button">Add tags</AddText>
                 </NoElementButton>
             )}
@@ -337,7 +334,7 @@ export default function TagTermGroup({
                     }}
                     {...buttonProps}
                 >
-                    <StyledPlusOutlined />
+                    <StyledPlusIcon />
                     <AddText data-testid="schema-field-add-terms-button">Add terms</AddText>
                 </NoElementButton>
             )}

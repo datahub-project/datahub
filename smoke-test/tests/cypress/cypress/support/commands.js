@@ -465,8 +465,9 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("selectOptionInTagTermModal", (text) => {
-  // AddTagsTermsModal uses alchemy SimpleSelect: the trigger opens a portal-
-  // rendered dropdown containing the search input and the options.
+  // AddTagsModal / AddTermsModal both use alchemy SimpleSelect: the trigger
+  // opens a portal-rendered dropdown containing the search input and the
+  // options.
   cy.getWithTestId("tag-term-modal-input").click();
   cy.get('[data-testid="dropdown-search-input"]').type(text);
   cy.get(`[data-testid="tag-term-option-${text}"]`)

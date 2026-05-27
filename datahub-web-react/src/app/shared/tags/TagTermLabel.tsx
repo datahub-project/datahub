@@ -25,7 +25,7 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
                 name={entityRegistry.getDisplayName(entity.type, entity)}
                 colorHash={(entity as Tag).urn}
                 color={(entity as Tag).properties?.colorHex}
-                borderless
+                variant="borderless"
             />
         );
     }
@@ -36,13 +36,13 @@ export const TagTermLabel = ({ entity, termName }: Props) => {
             <GlossaryTermPill
                 name={entityRegistry.getDisplayName(entity.type, entity)}
                 color={getGlossaryTermColor(term, generateColor)}
-                borderless
+                variant="borderless"
             />
         );
     }
 
     if (termName) {
-        return <GlossaryTermPill name={termName} color={generateColor(termName)} borderless />;
+        return <GlossaryTermPill name={termName} color={generateColor(termName)} variant="borderless" />;
     }
     return null;
 };

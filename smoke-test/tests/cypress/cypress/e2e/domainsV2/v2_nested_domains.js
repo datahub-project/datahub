@@ -82,8 +82,8 @@ const verifyEditAndPerformAddAndRemoveActionForDomain = (
 ) => {
   cy.clickOptionWithText(entity);
   cy.clickOptionWithText(action);
-  // AddTagsTermsModal uses alchemy SimpleSelect: click the trigger to open
-  // the portal-rendered dropdown, then type into its search input.
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
   cy.get('[data-testid="tag-term-modal-input"]').click();
   cy.get('[data-testid="dropdown-search-input"]').type(text);
   cy.get(`[data-testid="tag-term-option-${text}"]`)

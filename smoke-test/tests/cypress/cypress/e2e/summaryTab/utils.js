@@ -69,8 +69,8 @@ export function setGlossaryTermToOpenedEntity(termName) {
     cy.clickOptionWithTestId("add-terms-button");
   });
 
-  // AddTagsTermsModal uses alchemy SimpleSelect: click the trigger to open
-  // the portal-rendered dropdown, then type into its search input.
+  // AddTermsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
   cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
   cy.get('[data-testid="dropdown-search-input"]').type(termName);
   cy.get(`[data-testid="tag-term-option-${termName}"]`)
@@ -87,6 +87,8 @@ export function setTagToOpenedEntity(tagName) {
     cy.clickOptionWithTestId("add-tags-button");
   });
 
+  // AddTagsModal uses alchemy SimpleSelect: click the trigger to open the
+  // portal-rendered dropdown, then type into its search input.
   cy.getWithTestId("tag-term-modal-input").filter(":visible").click();
   cy.get('[data-testid="dropdown-search-input"]').type(tagName);
   cy.get(`[data-testid="tag-term-option-${tagName}"]`)

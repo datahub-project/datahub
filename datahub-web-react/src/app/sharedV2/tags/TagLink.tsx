@@ -44,7 +44,7 @@ export default function TagLink({ tag, fontSize, enableTooltip = true, enableDra
                         name={displayName}
                         color={tag.properties?.colorHex}
                         colorHash={tag.urn}
-                        fontSize={fontSize}
+                        size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                         clickable
                     />
                 </Container>

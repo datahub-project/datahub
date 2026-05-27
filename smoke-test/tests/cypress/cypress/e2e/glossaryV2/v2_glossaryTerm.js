@@ -8,9 +8,9 @@ const applyAdvancedSearchFilter = (filterType, value) => {
   cy.clickOptionWithId("#search-results-advanced-search");
   cy.clickOptionWithText("Add Filter");
   cy.clickOptionWithText(filterType);
-  // Tag/GlossaryTerm filter types reuse the AddTagsTermsModal (alchemy
-  // SimpleSelect): click the trigger to open the portal-rendered dropdown,
-  // then type into its search input and pick the suffixed option.
+  // Tag/GlossaryTerm filter types reuse AddTagsModal / AddTermsModal (both
+  // alchemy SimpleSelect): click the trigger to open the portal-rendered
+  // dropdown, then type into its search input and pick the suffixed option.
   cy.get('[data-testid="tag-term-modal-input"]').click();
   cy.get('[data-testid="dropdown-search-input"]').type(value);
   cy.get(`[data-testid="tag-term-option-${value}"]`)

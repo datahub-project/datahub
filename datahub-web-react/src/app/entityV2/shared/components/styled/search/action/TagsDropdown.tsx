@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
-import EditTagTermsModal, { OperationType } from '@app/shared/tags/AddTagsTermsModal';
-
-import { EntityType } from '@types';
+import AddTagsModal from '@app/shared/tags/AddTagsModal';
+import { OperationType } from '@app/shared/tags/useBatchTagTermMutation';
 
 type Props = {
     urns: Array<string>;
@@ -39,16 +38,13 @@ export default function TagsDropdown({ urns, disabled = false, refetch }: Props)
                 disabled={disabled}
             />
             {isEditModalVisible && (
-                <EditTagTermsModal
-                    type={EntityType.Tag}
+                <AddTagsModal
                     open
                     onCloseModal={() => {
                         setIsEditModalVisible(false);
                         refetch?.();
                     }}
-                    resources={urns.map((urn) => ({
-                        resourceUrn: urn,
-                    }))}
+                    resources={urns.map((urn) => ({ resourceUrn: urn }))}
                     operationType={operationType}
                 />
             )}

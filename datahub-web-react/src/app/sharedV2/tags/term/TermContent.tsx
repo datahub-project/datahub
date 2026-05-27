@@ -1,5 +1,5 @@
-import { ThunderboltOutlined } from '@ant-design/icons';
 import { toast } from '@components';
+import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import styled, { useTheme } from 'styled-components';
@@ -32,10 +32,9 @@ const TermContainer = styled.div<{ $showOneAndCount?: boolean }>`
         `}
 `;
 
-const PropagateThunderbolt = styled(ThunderboltOutlined)`
+const PropagateThunderbolt = styled(Lightning).attrs({ weight: 'fill', size: 14 })`
     color: ${(props) => props.theme.colors.iconSuccess};
     margin-right: -4px;
-    font-weight: bold;
 `;
 
 const StyledHighlight = styled(Highlight)`
@@ -131,8 +130,8 @@ export default function TermContent({
                 name={displayName}
                 color={termColor}
                 clickable
-                highlight={highlightTerm}
-                fontSize={fontSize}
+                variant={highlightTerm ? 'highlighted' : 'default'}
+                size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
                 rightAdornment={term.actor?.urn === PROPAGATOR_URN ? <PropagateThunderbolt /> : undefined}
                 onRemove={
                     canRemove && !readOnly

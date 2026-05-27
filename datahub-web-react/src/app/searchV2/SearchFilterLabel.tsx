@@ -66,7 +66,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag);
         return (
             <Tooltip title={displayName}>
-                <TagPill name={displayName} color={tag?.properties?.colorHex} colorHash={tag?.urn} fontSize={10} />
+                <TagPill name={displayName} color={tag?.properties?.colorHex} colorHash={tag?.urn} size="sm" />
                 {countText}
             </Tooltip>
         );
@@ -110,7 +110,7 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
         const termColor = getGlossaryTermColor(term, generateGlossaryColor);
         return (
             <Tooltip title={displayName}>
-                <GlossaryTermPill name={displayName} color={termColor} fontSize={10} />
+                <GlossaryTermPill name={displayName} color={termColor} size="sm" />
                 {countText}
             </Tooltip>
         );
