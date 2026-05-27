@@ -18,6 +18,7 @@ from datahub.configuration.common import (
     HiddenFromDocs,
     TransparentSecretStr,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
@@ -124,11 +125,15 @@ class PowerBiReportServerAPIConfig(StatefulIngestionConfigBase, EnvConfigMixin):
 
 
 class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
+    # Intentionally uses "powerbi" (same as the regular PowerBI connector) so that
+    # report server assets appear under the same platform in DataHub.
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
     report_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI Reports by name in ingestion.",
     )
+
+    _chart_pattern_removed = pydantic_removed_field("chart_pattern")
 
 
 def log_http_error(e: BaseException, message: str) -> Any:

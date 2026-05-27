@@ -245,7 +245,7 @@ def test_powerbi_ingest_with_report_pattern(
     register_mock_api(request_mock=requests_mock)
 
     recipe = get_default_recipe(
-        output_path=f"{tmp_path}/powerbi_report_server_mces.json"
+        output_path=str(tmp_path / "powerbi_report_server_mces.json")
     )
     recipe["source"]["config"]["report_pattern"] = {"deny": [denied_report_name]}
 
@@ -260,7 +260,7 @@ def test_powerbi_ingest_with_report_pattern(
         source.report.filtered_reports
     )
 
-    with open(f"{tmp_path}/powerbi_report_server_mces.json") as f:
+    with open(tmp_path / "powerbi_report_server_mces.json") as f:
         output = json.load(f)
 
     urns = [
@@ -268,4 +268,8 @@ def test_powerbi_ingest_with_report_pattern(
         for entry in output
         if "proposedSnapshot" in entry
     ]
+    # Denied report is absent
     assert not any(denied_report_id in urn for urn in urns)
+    # Other reports are still present
+    assert any("ee56dc21-248a-4138-a446-ee5ab1fc938c" in urn for urn in urns)
+    assert any("ee56dc21-248a-4138-a446-ee5ab1fc938d" in urn for urn in urns)
