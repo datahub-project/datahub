@@ -1,10 +1,4 @@
-// Settings-specific test constants
-
-export const WAIT_TIMEOUT = 10000;
-export const SHORT_TIMEOUT = 5000;
-export const MODAL_TIMEOUT = 15000;
-export const UI_SYNC_DELAY = 200;
-export const TABLE_LOAD_DELAY = 500;
+// Settings page-specific constants
 
 export const TOAST_MESSAGES = {
   SERVICE_ACCOUNT_CREATED: 'Service account created successfully!',

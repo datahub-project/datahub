@@ -13,7 +13,7 @@
  * Tests run in parallel - each test creates its own independent test data.
  */
 
-import { test, expect } from '../../fixtures/base-test';
+import { test } from '../../fixtures/base-test';
 import { GroupsPage } from '../../pages/settings/groups.page';
 
 function createTestId() {
@@ -25,10 +25,9 @@ test.describe('create and manage group', () => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 
-    const groupsPage = new GroupsPage(page);
+    const groupsPage = new GroupsPage(page, { cleanup });
     await groupsPage.navigate();
-    const groupUrn = await groupsPage.createGroup(groupName, 'Test group description');
-    cleanup.track(groupUrn);
+    await groupsPage.createGroup(groupName, 'Test group description');
     await groupsPage.deleteGroup(groupName);
   });
 
@@ -37,10 +36,9 @@ test.describe('create and manage group', () => {
     const groupName = `Test Group ${testId}`;
     const newName = `Updated Group ${testId}`;
 
-    const groupsPage = new GroupsPage(page);
+    const groupsPage = new GroupsPage(page, { cleanup });
     await groupsPage.navigate();
-    const groupUrn = await groupsPage.createGroup(groupName, 'Initial description');
-    cleanup.track(groupUrn);
+    await groupsPage.createGroup(groupName, 'Initial description');
 
     // Navigate to group profile and update info
     await groupsPage.navigateToGroupProfile(groupName);
@@ -58,17 +56,15 @@ test.describe('create and manage group', () => {
     const description = 'Initial description';
     const additionalText = ' - Updated';
 
-    const groupsPage = new GroupsPage(page);
+    const groupsPage = new GroupsPage(page, { cleanup });
     await groupsPage.navigate();
-    const groupUrn = await groupsPage.createGroup(groupName, description);
-    cleanup.track(groupUrn);
+    await groupsPage.createGroup(groupName, description);
 
     // Navigate to group and edit description
     await groupsPage.navigateToGroupProfile(groupName);
     await groupsPage.editDescription(description, additionalText);
 
     // Manual cleanup
-    await groupsPage.navigate();
     await groupsPage.deleteGroup(groupName);
   });
 
@@ -76,18 +72,16 @@ test.describe('create and manage group', () => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 
-    const groupsPage = new GroupsPage(page);
+    const groupsPage = new GroupsPage(page, { cleanup });
     await groupsPage.navigate();
-    const groupUrn = await groupsPage.createGroup(groupName, 'Test group for owner');
-    cleanup.track(groupUrn);
+    await groupsPage.createGroup(groupName, 'Test group for owner');
 
     // Navigate to group and add owner
     await groupsPage.navigateToGroupProfile(groupName);
     await groupsPage.addOwner('datahub');
-    await expect(page.getByText('Owners Added')).toBeVisible();
+    await groupsPage.verifyOwnersAdded();
 
     // Manual cleanup
-    await groupsPage.navigate();
     await groupsPage.deleteGroup(groupName);
   });
 
@@ -95,10 +89,9 @@ test.describe('create and manage group', () => {
     const testId = createTestId();
     const groupName = `Test Group ${testId}`;
 
-    const groupsPage = new GroupsPage(page);
+    const groupsPage = new GroupsPage(page, { cleanup });
     await groupsPage.navigate();
-    const groupUrn = await groupsPage.createGroup(groupName, 'Test group for members');
-    cleanup.track(groupUrn);
+    await groupsPage.createGroup(groupName, 'Test group for members');
 
     // Navigate to group and add member
     await groupsPage.navigateToGroupProfile(groupName);
@@ -107,7 +100,6 @@ test.describe('create and manage group', () => {
     await groupsPage.verifyMemberVisible('datahub');
 
     // Manual cleanup
-    await groupsPage.navigate();
     await groupsPage.deleteGroup(groupName);
   });
 });

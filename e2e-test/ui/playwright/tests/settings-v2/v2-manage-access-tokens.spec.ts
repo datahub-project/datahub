@@ -10,9 +10,9 @@ const testId = Math.floor(Math.random() * 100000);
 test.describe('manage access tokens', () => {
   let tokensPage: AccessTokensPage;
 
-  test.beforeEach(async ({ page, apiMock }) => {
+  test.beforeEach(async ({ page, apiMock, cleanup }) => {
     await apiMock.setFeatureFlags({ tokenAuthEnabled: true, generatePersonalAccessTokens: true });
-    tokensPage = new AccessTokensPage(page);
+    tokensPage = new AccessTokensPage(page, { cleanup });
     await tokensPage.navigate();
   });
 

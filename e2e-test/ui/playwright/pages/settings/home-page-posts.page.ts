@@ -1,7 +1,6 @@
 import { Locator, Page, expect } from '@playwright/test';
-import { BaseSettingsPage } from './base.settings.page';
-import { TOAST_MESSAGES } from '../../tests/settings-v2/constants';
-import type { DataHubLogger } from '../../utils/logger';
+import { BaseSettingsPage, type PageOptions } from './base.settings.page';
+import { TOAST_MESSAGES } from './constants';
 
 export class HomePagePostsPage extends BaseSettingsPage {
   private readonly managePostsContainer: Locator;
@@ -20,8 +19,8 @@ export class HomePagePostsPage extends BaseSettingsPage {
   private readonly menuDeleteItem: Locator;
   private readonly homePageAnnouncementsTab: Locator;
 
-  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-    super(page, logger, logDir);
+  constructor(page: Page, options?: PageOptions) {
+    super(page, options);
     this.managePostsContainer = page.getByTestId('managePostsV2');
     this.createPostButton = page.getByTestId('posts-create-post-v2');
     this.postTypeAnnouncementTab = page.getByTestId('post-type-announcement');
@@ -43,11 +42,21 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.page.goto('/settings/posts');
     await expect(this.managePostsContainer).toBeVisible();
     await expect(this.createPostButton).toBeVisible();
-    await expect(this.tableBody).toBeAttached();
+  }
+
+  // ── Dynamic selectors for posts ──────────────────────────────────────────
+  // These helpers create locators based on runtime data (post titles, etc.)
+  private getPostRow(title: string): Locator {
+    return this.tableRows.filter({ hasText: new RegExp(title, 'i') });
+  }
+
+  private getPostMenuButton(title: string): Locator {
+    return this.getPostRow(title).getByTestId('dropdown-menu-item');
   }
 
   async openCreateForm(): Promise<void> {
-    await this.createPostButton.click({ force: true });
+    await this.createPostButton.waitFor({ state: 'visible' });
+    await this.createPostButton.click();
     await expect(this.submitCreateButton).toBeVisible();
   }
 
@@ -72,27 +81,28 @@ export class HomePagePostsPage extends BaseSettingsPage {
   }
 
   async submitCreate(): Promise<void> {
-    await this.submitCreateButton.click({ force: true });
+    await this.submitCreateButton.waitFor({ state: 'visible' });
+    await this.submitCreateButton.click();
+    await this.page.waitForLoadState('networkidle');
     await this.waitForToast(TOAST_MESSAGES.CREATED_POST);
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   async submitUpdate(): Promise<void> {
-    await this.submitUpdateButton.click({ force: true });
+    await this.submitUpdateButton.waitFor({ state: 'visible' });
+    await this.submitUpdateButton.click();
+    await this.page.waitForLoadState('networkidle');
     await this.waitForToast(TOAST_MESSAGES.UPDATED_POST);
   }
 
   async editPost(title: string): Promise<void> {
-    const postRow = this.tableRows.filter({ hasText: title });
-    const menuButton = postRow.getByTestId('dropdown-menu-item');
+    const menuButton = this.getPostMenuButton(title);
     await menuButton.click();
     await this.menuEditItem.click();
     await expect(this.submitUpdateButton).toBeVisible();
   }
 
   async deletePost(title: string): Promise<void> {
-    const postRow = this.tableRows.filter({ hasText: title });
-    const menuButton = postRow.getByTestId('dropdown-menu-item');
+    const menuButton = this.getPostMenuButton(title);
     await menuButton.click();
     await this.menuDeleteItem.click();
     await this.confirmButton.click();
@@ -103,7 +113,6 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.skipOnboarding();
     await this.skipIntroducePage();
     await this.page.keyboard.press('Escape');
-    await this.page.waitForLoadState('networkidle').catch(() => {});
     await this.homePageAnnouncementsTab.click();
   }
 
@@ -111,9 +120,9 @@ export class HomePagePostsPage extends BaseSettingsPage {
     const isOnHomePage = await this.page.evaluate(() => window.location.pathname === '/');
 
     if (isOnHomePage) {
-      await expect(this.page.getByText(title)).toBeVisible();
+      await expect(this.page.getByText(new RegExp(title, 'i'))).toBeVisible();
     } else {
-      await expect(this.tableRows.filter({ hasText: title })).toBeVisible();
+      await expect(this.getPostRow(title)).toBeVisible();
     }
   }
 
@@ -122,9 +131,8 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.skipOnboarding();
     await this.skipIntroducePage();
     await this.page.keyboard.press('Escape');
-    await this.page.waitForLoadState('networkidle').catch(() => {});
     await this.homePageAnnouncementsTab.click();
-    await this.page.reload();
+    await this.page.waitForLoadState('networkidle');
     await expect(this.page.getByText(title)).toBeHidden();
   }
 }

@@ -15,23 +15,28 @@ function getUniqueTestId(): number {
 test.describe('manage service accounts', () => {
   let serviceAccountsPage: ServiceAccountsPage;
 
-  test.beforeEach(async ({ page, apiMock }) => {
+  test.beforeEach(async ({ page, apiMock, cleanup }) => {
     await apiMock.setFeatureFlags({
       tokenAuthEnabled: true,
       showNavBarRedesign: true,
       manageServiceAccounts: true,
     });
-    serviceAccountsPage = new ServiceAccountsPage(page);
+    serviceAccountsPage = new ServiceAccountsPage(page, { cleanup });
     await serviceAccountsPage.navigate();
   });
 
-  test('create, generate token, and delete service account', async ({ cleanup }) => {
+  test('create, generate token, and delete service account', async () => {
     const id = getUniqueTestId();
     const name = `Test Service Account New UI ${id}`;
 
-    const serviceAccountUrn = await serviceAccountsPage.createServiceAccount(name, `New UI test service account ${id}`);
-    cleanup.track(serviceAccountUrn);
+    await serviceAccountsPage.createServiceAccount(name, `New UI test service account ${id}`);
     await serviceAccountsPage.generateToken(name, `Test Token New UI ${id}`, `New UI test token ${id}`);
+
+    // Navigate back to service accounts page after token generation
+    await serviceAccountsPage.navigate();
+
+    // Manual cleanup
+    await serviceAccountsPage.deleteServiceAccount(name);
   });
 
   test('cancel creating service account should not create one', async () => {
@@ -39,12 +44,11 @@ test.describe('manage service accounts', () => {
     await serviceAccountsPage.cancelCreateServiceAccount(`Cancel Test ${id}`);
   });
 
-  test('cancel deleting service account should keep it in the list', async ({ cleanup }) => {
+  test('cancel deleting service account should keep it in the list', async () => {
     const id = getUniqueTestId();
     const name = `Keep Test ${id}`;
 
-    const serviceAccountUrn = await serviceAccountsPage.createServiceAccount(name, `Keep test ${id}`);
-    cleanup.track(serviceAccountUrn);
+    await serviceAccountsPage.createServiceAccount(name, `Keep test ${id}`);
     await serviceAccountsPage.cancelDeleteServiceAccount(name);
 
     // Manual cleanup

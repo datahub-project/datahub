@@ -12,14 +12,14 @@ import { withRandomSuffix } from '../../utils/random';
 test.describe('create announcement and link post', () => {
   let postsPage: HomePagePostsPage;
 
-  test.beforeEach(async ({ apiMock, page }) => {
+  test.beforeEach(async ({ apiMock, page, cleanup }) => {
     await apiMock.setFeatureFlags({ showHomePageRedesign: false });
-    postsPage = new HomePagePostsPage(page);
+    postsPage = new HomePagePostsPage(page, { cleanup });
     await postsPage.navigate();
     await postsPage.skipIntroducePage();
   });
 
-  test('Verify create, edit and delete announcement post', async ({ page }) => {
+  test('create, edit and delete announcement post', async () => {
     const announcementTitle = withRandomSuffix('Test Announcement');
     const announcementUpdated = `${announcementTitle} Updated`;
 
@@ -27,15 +27,13 @@ test.describe('create announcement and link post', () => {
     await postsPage.fillTitle(announcementTitle);
     await postsPage.submitCreate();
 
-    // After creation, reload the page to ensure the data is fresh
-    await page.reload();
+    // Navigate back to the posts page to ensure table is updated
     await postsPage.navigate();
     await postsPage.navigateToAnnouncements();
     await postsPage.verifyPostVisible(announcementTitle);
 
     await postsPage.navigate();
     await postsPage.editPost(announcementTitle);
-    await postsPage.selectPostType('Announcement');
     await postsPage.fillTitle(announcementUpdated);
     await postsPage.submitUpdate();
 
@@ -48,7 +46,7 @@ test.describe('create announcement and link post', () => {
     await postsPage.verifyPostRemovedFromHome(announcementUpdated);
   });
 
-  test('Verify create, edit and delete link post', async ({ page }) => {
+  test('create, edit and delete link post', async () => {
     const linkTitle = withRandomSuffix('Test Link');
     const linkUpdated = `${linkTitle} Updated`;
 
@@ -59,8 +57,7 @@ test.describe('create announcement and link post', () => {
     await postsPage.fillMediaLocation('https://www.example.com/images/example-image.jpg');
     await postsPage.submitCreate();
 
-    // After creation, reload the page to ensure the table is updated
-    await page.reload();
+    // Navigate back to the posts page to ensure table is updated
     await postsPage.navigate();
     await postsPage.verifyPostVisible(linkTitle);
 

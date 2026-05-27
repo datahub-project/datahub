@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
-import { BaseSettingsPage } from './base.settings.page';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT, TOAST_MESSAGES } from '../../tests/settings-v2/constants';
-import type { DataHubLogger } from '../../utils/logger';
+import { BaseSettingsPage, type PageOptions } from './base.settings.page';
+import { TOAST_MESSAGES } from './constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
 
 export class PoliciesPage extends BaseSettingsPage {
   readonly searchInput: Locator;
@@ -23,9 +23,13 @@ export class PoliciesPage extends BaseSettingsPage {
   private readonly metadataTypeButton: Locator;
   private readonly platformTypeButton: Locator;
   private readonly tableRows: Locator;
+  private readonly allPrivilegesOption: Locator;
+  private readonly allUsersOption: Locator;
+  private readonly allGroupsOption: Locator;
+  private readonly allUsersRows: Locator;
 
-  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-    super(page, logger, logDir);
+  constructor(page: Page, options?: PageOptions) {
+    super(page, options);
     this.searchInput = page.getByTestId('search-bar-input');
     this.tableBody = page.getByTestId('policies-table-body');
     this.tableRows = this.tableBody.locator('tr');
@@ -44,6 +48,10 @@ export class PoliciesPage extends BaseSettingsPage {
     this.policyTypeSelector = page.getByTestId('policy-type');
     this.metadataTypeButton = this.policyTypeSelector.locator('[title="Metadata"]');
     this.platformTypeButton = page.getByTestId('platform');
+    this.allPrivilegesOption = page.getByTestId('option-all-privileges');
+    this.allUsersOption = page.getByTestId('option-all-users');
+    this.allGroupsOption = page.getByTestId('option-all-groups');
+    this.allUsersRows = this.tableBody.locator('tr:has-text("All Users")');
     // Policy deletion uses Ant Design's Modal.confirm, which renders a plain "Yes" button
     this.confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
   }
@@ -60,15 +68,23 @@ export class PoliciesPage extends BaseSettingsPage {
     await expect(this.searchInput).toBeVisible();
   }
 
+  // ── Dynamic selectors for policies ───────────────────────────────────────
+  // These helpers create locators based on runtime data (policy names, etc.)
+  private getPolicyRow(policyName: string): Locator {
+    return this.tableRows.filter({ has: this.page.getByText(policyName, { exact: true }) });
+  }
+
+  private getPolicyRowMenuButton(policyName: string): Locator {
+    return this.getPolicyRow(policyName).getByTestId('policy-row-menu-button');
+  }
+
   async searchForPolicy(policyName: string): Promise<void> {
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   async openRowMenu(policyName: string): Promise<void> {
-    const row = this.tableRows.filter({ has: this.page.getByText(policyName, { exact: true }) });
-    const menuButton = row.getByTestId('policy-row-menu-button');
+    const menuButton = this.getPolicyRowMenuButton(policyName);
     await menuButton.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
     await menuButton.click({ force: true });
     await expect(this.menuItems.first()).toBeVisible();
@@ -78,13 +94,11 @@ export class PoliciesPage extends BaseSettingsPage {
     const item = this.menuItems.getByText(actionText);
     await expect(item).toBeVisible();
     await item.click();
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   async openNewPolicyWizard(): Promise<void> {
     await this.addPolicyButton.click();
     await expect(this.policyNameInput).toBeVisible();
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   async fillPolicyName(name: string): Promise<void> {
@@ -105,7 +119,6 @@ export class PoliciesPage extends BaseSettingsPage {
     }
     await this.platformTypeButton.waitFor({ state: 'visible' });
     await this.platformTypeButton.click();
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
   async fillAndSaveWizard(description: string, policyName: string): Promise<void> {
@@ -118,30 +131,26 @@ export class PoliciesPage extends BaseSettingsPage {
     await expect(this.privilegesInput).toBeVisible();
     await this.privilegesInput.click();
     await this.page.keyboard.type('All');
-    const allPrivilegesOption = this.page.getByTestId('option-all-privileges');
-    await allPrivilegesOption.waitFor({ state: 'visible', timeout: 5000 });
-    await allPrivilegesOption.click();
+    await this.allPrivilegesOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
+    await this.allPrivilegesOption.click();
     await this.nextButton.waitFor({ state: 'visible' });
     await this.nextButton.click();
 
     await expect(this.usersInput).toBeVisible();
     await this.usersInput.click();
     await this.page.keyboard.type('All');
-    const allUsersOption = this.page.getByTestId('option-all-users');
-    await allUsersOption.waitFor({ state: 'visible', timeout: 5000 });
-    await allUsersOption.click();
+    await this.allUsersOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
+    await this.allUsersOption.click();
     await this.groupsInput.click();
     await this.page.keyboard.type('All');
-    const allGroupsOption = this.page.getByTestId('option-all-groups');
-    await allGroupsOption.waitFor({ state: 'visible', timeout: 5000 });
-    await allGroupsOption.click();
+    await this.allGroupsOption.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
+    await this.allGroupsOption.click();
     await this.saveButton.waitFor({ state: 'visible' });
     await this.saveButton.click();
 
     await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
     await this.searchForPolicy(policyName);
-    const policyRow = this.tableRows.filter({ has: this.page.getByText(policyName, { exact: true }) });
-    await expect(policyRow).toBeVisible();
+    await expect(this.getPolicyRow(policyName)).toBeVisible();
   }
 
   async editPolicy(name: string, newName: string, description: string): Promise<void> {
@@ -167,8 +176,7 @@ export class PoliciesPage extends BaseSettingsPage {
 
     await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_SAVED_POLICY);
     await this.searchForPolicy(newName);
-    const editedPolicyRow = this.tableRows.filter({ has: this.page.getByText(newName, { exact: true }) });
-    await editedPolicyRow.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    await this.getPolicyRow(newName).waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
   }
 
   async deletePolicy(name: string, deleteDialogTitle: string): Promise<void> {
@@ -194,22 +202,20 @@ export class PoliciesPage extends BaseSettingsPage {
     await expect(this.page.getByText(deleteDialogTitle)).toBeVisible();
     await this.confirmButton.click();
     await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_REMOVED_POLICY);
-    const deletedPolicyRow = this.tableRows.filter({ has: this.page.getByText(name, { exact: true }) });
-    await expect(deletedPolicyRow).toBeHidden();
+    await expect(this.getPolicyRow(name)).toBeHidden();
   }
 
   async deactivateExistingAllUserPolicies(): Promise<void> {
     await expect(this.tableRows).toBeVisible();
-    const allUsersRows = this.tableBody.locator('tr:has-text("All Users")');
-    const count = await allUsersRows.count();
+    const count = await this.allUsersRows.count();
     for (let i = 0; i < count; i++) {
-      const row = allUsersRows.nth(i);
+      const row = this.allUsersRows.nth(i);
       const menuButton = row.getByTestId('policy-row-menu-button');
       await menuButton.click({ force: true });
       const deactivateItem = this.menuItems.getByText('Deactivate');
       if ((await deactivateItem.count()) > 0) {
         await deactivateItem.click();
-        await expect(this.page.getByText('Successfully deactivated policy.')).toBeVisible();
+        await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
       }
     }
   }

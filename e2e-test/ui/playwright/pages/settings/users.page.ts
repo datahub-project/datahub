@@ -1,14 +1,13 @@
 import { Locator, Page, expect } from '@playwright/test';
-import { BaseSettingsPage } from './base.settings.page';
-import type { DataHubLogger } from '../../utils/logger';
+import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 
 export class UsersPage extends BaseSettingsPage {
   private readonly manageContainer: Locator;
   private readonly inviteUsersButton: Locator;
   private readonly inviteLinkText: Locator;
 
-  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-    super(page, logger, logDir);
+  constructor(page: Page, options?: PageOptions) {
+    super(page, options);
     this.manageContainer = page.locator('[data-testid="manage-users-groups-v2"]');
     this.inviteUsersButton = page.locator('[data-testid="invite-users-button"]');
     this.inviteLinkText = page.getByText(/signup\?invite_token=\w{32}/);

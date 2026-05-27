@@ -1,7 +1,14 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BasePage } from '../base.page';
-import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
+import { WAIT_TIMEOUT, SHORT_TIMEOUT, ANIMATION_TIMEOUT } from '../../utils/constants';
 import type { DataHubLogger } from '../../utils/logger';
+import type { ScopedCleanup } from '../../utils/cleanup';
+
+export interface PageOptions {
+  logger?: DataHubLogger;
+  logDir?: string;
+  cleanup?: ScopedCleanup;
+}
 
 export class BaseSettingsPage extends BasePage {
   protected readonly dropdownSearchInput: Locator;
@@ -12,9 +19,16 @@ export class BaseSettingsPage extends BasePage {
   private readonly confirmPasswordInput: Locator;
   private readonly signUpButton: Locator;
   private readonly modalDialog: Locator;
+  private readonly dropdownOptionSelector: string = '[data-testid^="option-"]';
+  private readonly dropdownCheckboxSelector: string = 'input[type="checkbox"]';
+  private readonly dropdownCheckedSelector: string = '[data-checked]';
+  private readonly dropdownFallbackSearchSelector: string =
+    'input[placeholder*="search"], input[placeholder*="Search"]';
+  protected readonly cleanup?: ScopedCleanup;
 
-  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-    super(page, logger, logDir);
+  constructor(page: Page, options?: PageOptions) {
+    super(page, options?.logger, options?.logDir);
+    this.cleanup = options?.cleanup;
     this.dropdownSearchInput = page.getByTestId('dropdown-search-input');
     this.navSignOut = page.getByTestId('nav-sidebar-sign-out');
     this.emailInput = page.getByTestId('email');
@@ -25,23 +39,51 @@ export class BaseSettingsPage extends BasePage {
     this.modalDialog = page.getByRole('dialog');
   }
 
+  // ── Dropdown helper selectors ────────────────────────────────────────────
+  private getDropdownOption(dropdown: Locator, value: string): Locator {
+    return dropdown.locator(this.dropdownOptionSelector).filter({ hasText: value });
+  }
+
+  private getDropdownCheckbox(optionRow: Locator): Locator {
+    return optionRow.locator(this.dropdownCheckboxSelector);
+  }
+
+  private getDropdownCheckedElement(optionRow: Locator): Locator {
+    return optionRow.locator(this.dropdownCheckedSelector);
+  }
+
+  private getDropdownSearchInput(): Locator {
+    return this.dropdownSearchInput.or(this.page.locator(this.dropdownFallbackSearchSelector));
+  }
+
   async selectFromDropdown(base: Locator, dropdown: Locator, value: string): Promise<void> {
     await base.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT });
     await base.click({ force: true });
-    await this.dropdownSearchInput.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
-    await this.dropdownSearchInput.fill(value);
-    const optionRow = dropdown.locator('[data-testid^="option-"]').filter({ hasText: value });
-    await optionRow.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
-    const checkboxInput = optionRow.locator('input[type="checkbox"]');
+    await this.page.waitForLoadState('networkidle');
+
+    // Use fallback selector if main dropdown-search-input is not found
+    const searchInput = this.getDropdownSearchInput();
+    const isSearchVisible = await searchInput.isVisible().catch(() => false);
+
+    // Fill search input if visible
+    if (isSearchVisible) {
+      await searchInput.clear();
+      await searchInput.fill(value);
+      // Wait for filter results to appear
+      await this.page.waitForTimeout(ANIMATION_TIMEOUT);
+    }
+
+    const optionRow = this.getDropdownOption(dropdown, value);
+    await optionRow.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
+    const checkboxInput = this.getDropdownCheckbox(optionRow);
     if ((await checkboxInput.count()) > 0) {
-      const checkboxBase = optionRow.locator('[data-checked]');
-      await checkboxBase.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT }).catch(() => {});
+      const checkboxBase = this.getDropdownCheckedElement(optionRow);
       await optionRow.scrollIntoViewIfNeeded();
-      const box = await checkboxBase.boundingBox().catch(() => null);
+      const box = await checkboxBase.boundingBox();
       if (box) {
         await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       } else {
-        await checkboxBase.click({ force: true }).catch(() => optionRow.click({ force: true }));
+        await checkboxBase.click({ force: true });
       }
     } else {
       await optionRow.scrollIntoViewIfNeeded();
@@ -50,18 +92,15 @@ export class BaseSettingsPage extends BasePage {
   }
 
   async waitForToast(text: string): Promise<void> {
-    await expect(this.page.getByText(text)).toBeVisible();
-    await expect(this.page.getByText(text)).toBeHidden();
+    const toastMessage = this.page.getByText(text);
+    await expect(toastMessage).toBeVisible();
+    await expect(toastMessage).toBeHidden();
   }
 
   async logout(): Promise<void> {
     if ((await this.modalDialog.count()) > 0) {
       await this.page.keyboard.press('Escape');
-      try {
-        await expect(this.modalDialog).toBeHidden();
-      } catch {
-        // Dialog may still be visible, continue
-      }
+      await this.page.waitForTimeout(ANIMATION_TIMEOUT);
     }
     await this.navSignOut.click();
     await this.page.waitForURL('**/login', { timeout: WAIT_TIMEOUT });

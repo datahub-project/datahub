@@ -40,7 +40,7 @@ test.describe.skip('Manage Ingestion and Secret Privileges', () => {
     logger,
     logDir,
   }) => {
-    const policiesPage = new PoliciesPage(page, logger, logDir);
+    const policiesPage = new PoliciesPage(page, { logger, logDir });
     logger.step('navigate to policies');
     await policiesPage.navigate();
 

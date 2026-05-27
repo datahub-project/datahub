@@ -9,8 +9,8 @@ import { withRandomSuffix } from '../../utils/random';
 test.describe('create and manage platform and metadata policies', () => {
   let policiesPage: PoliciesPage;
 
-  test.beforeEach(async ({ page }) => {
-    policiesPage = new PoliciesPage(page);
+  test.beforeEach(async ({ page, cleanup }) => {
+    policiesPage = new PoliciesPage(page, { cleanup });
     await policiesPage.navigate();
   });
 

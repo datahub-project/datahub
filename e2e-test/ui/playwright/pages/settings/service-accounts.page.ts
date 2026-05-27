@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
-import { BaseSettingsPage } from './base.settings.page';
-import { WAIT_TIMEOUT, TOAST_MESSAGES } from '../../tests/settings-v2/constants';
-import type { DataHubLogger } from '../../utils/logger';
+import { BaseSettingsPage, type PageOptions } from './base.settings.page';
+import { TOAST_MESSAGES } from './constants';
+import { WAIT_TIMEOUT } from '../../utils/constants';
 
 export class ServiceAccountsPage extends BaseSettingsPage {
   private readonly createButton: Locator;
@@ -26,8 +26,8 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   private readonly accessTokenModal: Locator;
   private readonly accountMenuButtonSelector: string;
 
-  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
-    super(page, logger, logDir);
+  constructor(page: Page, options?: PageOptions) {
+    super(page, options);
     this.createButton = page.getByTestId('create-service-account-button');
     this.displayNameInput = page.getByTestId('service-account-display-name-input');
     this.descriptionInput = page.getByTestId('service-account-description-input');
@@ -53,18 +53,22 @@ export class ServiceAccountsPage extends BaseSettingsPage {
 
   async navigate(): Promise<void> {
     await this.page.goto('/settings/identities/service-accounts');
+    await this.page.waitForLoadState('networkidle');
     await expect(this.createButton).toBeVisible();
-    await this.page.waitForLoadState('networkidle').catch(() => {});
   }
 
-  private async getAccountMenuButton(accountName: string) {
-    const accountRow = this.tableRows.filter({ hasText: accountName });
-    await accountRow.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
-    return accountRow.locator(this.accountMenuButtonSelector);
+  // ── Dynamic selectors for service accounts ───────────────────────────────
+  // These helpers create locators based on runtime data (account names, etc.)
+  private getAccountRow(accountName: string): Locator {
+    return this.tableRows.filter({ hasText: accountName });
+  }
+
+  private getAccountMenuButton(accountName: string): Locator {
+    return this.getAccountRow(accountName).locator(this.accountMenuButtonSelector);
   }
 
   private async openAccountMenu(accountName: string): Promise<void> {
-    const menuButton = await this.getAccountMenuButton(accountName);
+    const menuButton = this.getAccountMenuButton(accountName);
     await menuButton.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
     await menuButton.click();
   }
@@ -76,18 +80,20 @@ export class ServiceAccountsPage extends BaseSettingsPage {
     await this.descriptionInput.fill(description);
     await this.submitButton.click();
     await expect(this.creationSuccessMessage).toBeVisible();
-    const accountRow = this.tableRows.filter({ hasText: name });
-    await expect(accountRow).toBeVisible();
+    await this.page.waitForLoadState('networkidle');
 
     const serviceAccountId = await this.getServiceAccountIdFromRow(name);
-    return `urn:li:serviceAccount:${serviceAccountId}`;
+    const serviceAccountUrn = `urn:li:serviceAccount:${serviceAccountId}`;
+    this.cleanup?.track(serviceAccountUrn);
+    return serviceAccountUrn;
   }
 
   private async getServiceAccountIdFromRow(accountName: string): Promise<string> {
     // Extract the service account ID from the menu button's data-testid attribute.
     // The ID is encoded in the test ID: service-account-menu-{accountId}
     // Fallback to a generated ID if the extraction fails.
-    const menuButton = await this.getAccountMenuButton(accountName);
+    const menuButton = this.getAccountMenuButton(accountName);
+    await menuButton.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
     const testId = await menuButton.getAttribute('data-testid');
     if (testId && testId.includes('service-account-menu-')) {
       const id = testId.replace('service-account-menu-', '');
@@ -97,20 +103,25 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   }
 
   async cancelCreateServiceAccount(name: string): Promise<void> {
+    await this.page.waitForLoadState('networkidle');
+    const initialRowCount = await this.tableRows.count();
     await this.createButton.waitFor({ state: 'visible' });
     await this.createButton.click();
     await expect(this.submitButton).toBeVisible();
     await this.displayNameInput.fill(name);
     await this.cancelCreateButton.click();
     await expect(this.submitButton).toBeHidden();
+    const finalRowCount = await this.tableRows.count();
+    expect(finalRowCount).toBe(initialRowCount);
   }
 
   async generateToken(accountName: string, tokenName: string, tokenDescription: string): Promise<void> {
-    const accountRow = this.tableRows.filter({ hasText: accountName });
+    const accountRow = this.getAccountRow(accountName);
     await expect(accountRow).toBeVisible();
     await this.openAccountMenu(accountName);
     await this.createTokenMenuItem.scrollIntoViewIfNeeded();
-    await this.createTokenMenuItem.click({ force: true });
+    await this.createTokenMenuItem.waitFor({ state: 'visible' });
+    await this.createTokenMenuItem.click();
     await expect(this.tokenNameInput).toBeVisible();
     await this.tokenNameInput.fill(tokenName);
     await this.tokenDescInput.fill(tokenDescription);
@@ -122,8 +133,8 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   }
 
   async deleteServiceAccount(accountName: string): Promise<void> {
-    await expect(this.tableBody).toBeVisible({ timeout: WAIT_TIMEOUT });
-    const accountRow = this.tableRows.filter({ hasText: accountName });
+    await this.page.waitForLoadState('networkidle');
+    const accountRow = this.getAccountRow(accountName);
     await expect(accountRow).toBeVisible({ timeout: WAIT_TIMEOUT });
     await this.openAccountMenu(accountName);
     await this.deleteMenuItem.waitFor({ state: 'visible' });
@@ -135,7 +146,7 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   }
 
   async cancelDeleteServiceAccount(accountName: string): Promise<void> {
-    const accountRow = this.tableRows.filter({ hasText: accountName });
+    const accountRow = this.getAccountRow(accountName);
     await expect(accountRow).toBeVisible();
     await this.openAccountMenu(accountName);
     await this.deleteMenuItem.waitFor({ state: 'visible' });
