@@ -219,6 +219,26 @@
     displayName: Kafka Connect
     type: OTHERS
     logoUrl: "assets/platforms/kafkalogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis
+    displayName: Amazon Kinesis Data Streams
+    type: MESSAGE_BROKER
+    logoUrl: "assets/platforms/kinesislogo.png"
+- entityUrn: urn:li:dataPlatform:kinesis-firehose
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: kinesis-firehose
+    displayName: Amazon Data Firehose
+    type: OTHERS
+    logoUrl: "assets/platforms/kinesisfirehoselogo.png"
 - entityUrn: urn:li:dataPlatform:kusto
   entityType: dataPlatform
   aspectName: dataPlatformInfo

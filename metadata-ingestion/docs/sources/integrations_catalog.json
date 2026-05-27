@@ -771,11 +771,17 @@
     "img_path": "img/logos/platforms/quicksight.svg"
   },
   "kinesis": {
-    "api_connector": true,
     "platform_type": "Messaging",
-    "title": "Amazon Kinesis",
+    "title": "Amazon Kinesis Data Streams",
     "description": "AWS real-time data streaming service for collecting, processing, and analyzing data streams at any scale.",
     "img_path": "img/logos/platforms/kinesis.svg"
+  },
+  "kinesis-firehose": {
+    "supported_via": "kinesis",
+    "platform_type": "Messaging",
+    "title": "Amazon Data Firehose",
+    "description": "AWS managed service for delivering streaming data to S3, Redshift, OpenSearch, Snowflake, Apache Iceberg, and MongoDB (formerly Amazon Kinesis Data Firehose). Ingested via the unified `kinesis` connector.",
+    "img_path": "img/logos/platforms/kinesis-firehose.svg"
   },
   "redpanda": {
     "supported_via": "kafka",
