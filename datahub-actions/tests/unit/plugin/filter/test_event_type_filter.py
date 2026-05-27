@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import json
+from typing import Any
 
 from datahub.metadata.schema_classes import DictWrapper
 from datahub_actions.event.event import Event
@@ -54,7 +55,7 @@ def _make_filter(config_dict: dict) -> EventTypeFilter:
     return EventTypeFilter.create(config_dict, _ctx)
 
 
-def _env(event_type: str, **fields) -> EventEnvelope:
+def _env(event_type: str, **fields: Any) -> EventEnvelope:
     return EventEnvelope(event_type=event_type, event=SimpleEvent(**fields), meta={})
 
 

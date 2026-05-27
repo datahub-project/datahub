@@ -81,7 +81,7 @@ class EventTypeFilter(Filter):
         self.config = config
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Filter":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> "EventTypeFilter":
         config = EventTypeFilterConfig.model_validate(config_dict)
         return cls(config)
 
