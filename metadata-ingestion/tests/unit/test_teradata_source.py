@@ -4026,7 +4026,9 @@ class TestHistoricalTableCheckLogging:
             "transient" in r.message.lower() and r.levelno == logging.WARNING
             for r in caplog.records
         )
-        assert len(source.report.warnings) == 1
+        # warn_on_permanent_failure=False is set in _check_historical_table_exists,
+        # so no report.warning should leak through for an expected "table not found".
+        assert len(source.report.warnings) == 0
 
 
 class TestExecuteWithCursorFallback:

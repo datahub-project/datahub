@@ -1165,7 +1165,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "are never retried regardless of this setting. "
             "Worst-case added latency per operation is approximately "
             "retry_max_attempts × connection_pool_timeout_ms plus backoff sleeps "
-            f"(each capped at {_RETRY_BACKOFF_CAP_SECONDS} seconds). "
+            f"(each capped at {_RETRY_BACKOFF_CAP_SECONDS}s). "
             "Increase when ingesting from a busy or flaky cluster; "
             "decrease to surface persistent errors faster. "
             "Default is 3."
