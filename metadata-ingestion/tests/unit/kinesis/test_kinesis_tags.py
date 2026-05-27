@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
@@ -23,7 +24,10 @@ def _make_stream_extractor(owner_tag_key: str = "owner") -> KinesisStreamExtract
 class TestStreamTagsAndOwnership:
     def test_global_tags_from_aws_tags(self):
         ex = _make_stream_extractor()
-        ex._kinesis.list_tags_for_stream.return_value = {
+        # boto3 stubs type _kinesis methods as plain Callables; cast back to
+        # MagicMock to expose the return_value helper to mypy.
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.list_tags_for_stream.return_value = {
             "Tags": [
                 {"Key": "owner", "Value": "data-team"},
                 {"Key": "env", "Value": "prod"},
@@ -35,7 +39,8 @@ class TestStreamTagsAndOwnership:
 
     def test_ownership_extracted_from_owner_tag(self):
         ex = _make_stream_extractor(owner_tag_key="owner")
-        ex._kinesis.list_tags_for_stream.return_value = {
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.list_tags_for_stream.return_value = {
             "Tags": [{"Key": "owner", "Value": "data-team"}]
         }
         owners = extract_owner_urns_from_tags(

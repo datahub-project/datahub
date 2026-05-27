@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import MagicMock
 
 import pytest
@@ -44,8 +45,11 @@ class TestKinesisGlueSchemaRegistryConfig:
         )
         # No matter what stream we ask for, disabled GSR returns None.
         assert reg.get_schema_metadata("any_stream") is None
-        # And critically, no Glue API call was made.
-        reg._glue.get_schema_version.assert_not_called()
+        # And critically, no Glue API call was made. boto3's typed stubs treat
+        # the client's methods as plain Callables; cast back to MagicMock so
+        # mypy lets us call the assert_not_called helper.
+        glue_mock = cast(MagicMock, reg._glue)
+        glue_mock.get_schema_version.assert_not_called()
 
     def test_naming_convention_off_skips_resolution_when_no_explicit_map(self):
         """When use_naming_convention=False AND the stream isn't in

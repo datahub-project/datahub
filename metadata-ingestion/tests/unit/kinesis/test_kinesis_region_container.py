@@ -6,8 +6,10 @@ container. So an account+region with zero KDS streams would otherwise emit an em
 Region container as pure catalog noise.
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.kinesis.kinesis import KinesisSource
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
@@ -17,7 +19,7 @@ def _ctx() -> PipelineContext:
     return PipelineContext(run_id="test")
 
 
-def _config(**overrides) -> KinesisSourceConfig:
+def _config(**overrides: Any) -> KinesisSourceConfig:
     base = {
         "aws_config": {"aws_region": "us-east-1"},
         "platform_instance": "test-instance",  # skip sts call
@@ -37,11 +39,19 @@ class TestRegionContainerLifecycle:
         mock_session.return_value = MagicMock()
         config = _config(include_streams=True, include_firehose=False)
         source = KinesisSource(config, _ctx())
-        # No streams in the mocked API → stream_extractor yields nothing
-        source.stream_extractor.list_stream_names = MagicMock(return_value=iter([]))
-        wus = list(source.get_workunits_internal())
+        # No streams in the mocked API → stream_extractor yields nothing.
+        # patch.object scopes the override to this block; setattr would work
+        # too but the patch idiom keeps the mock identity clear at the call site.
+        with patch.object(
+            source.stream_extractor, "list_stream_names", return_value=iter([])
+        ):
+            wus = list(source.get_workunits_internal())
         container_aspects = [
-            wu for wu in wus if wu.metadata.entityUrn.startswith("urn:li:container:")
+            wu
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn is not None
+            and wu.metadata.entityUrn.startswith("urn:li:container:")
         ]
         assert container_aspects == [], (
             "Region container should not be emitted when there are no KDS streams"
@@ -57,14 +67,25 @@ class TestRegionContainerLifecycle:
         mock_session.return_value = MagicMock()
         config = _config(include_streams=True, include_firehose=True)
         source = KinesisSource(config, _ctx())
-        source.stream_extractor.list_stream_names = MagicMock(return_value=iter([]))
-        # Mock firehose to yield nothing too (list_delivery_streams empty)
-        source.firehose_extractor.list_delivery_streams = MagicMock(
-            return_value=iter([])
-        )
-        wus = list(source.get_workunits_internal())
+        # Both extractors yield nothing; patch.object scopes the overrides to
+        # this block without tripping mypy's [method-assign] check.
+        with (
+            patch.object(
+                source.stream_extractor, "list_stream_names", return_value=iter([])
+            ),
+            patch.object(
+                source.firehose_extractor,
+                "list_delivery_streams",
+                return_value=iter([]),
+            ),
+        ):
+            wus = list(source.get_workunits_internal())
         container_aspects = [
-            wu for wu in wus if wu.metadata.entityUrn.startswith("urn:li:container:")
+            wu
+            for wu in wus
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and wu.metadata.entityUrn is not None
+            and wu.metadata.entityUrn.startswith("urn:li:container:")
         ]
         assert container_aspects == [], (
             "Region container should not appear when only Firehose entities exist"

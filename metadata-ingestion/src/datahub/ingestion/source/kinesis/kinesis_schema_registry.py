@@ -12,7 +12,6 @@ import json
 import logging
 from typing import TYPE_CHECKING, List, Optional
 
-import avro.schema  # type: ignore[import-untyped]
 from botocore.exceptions import BotoCoreError, ClientError
 
 from datahub.ingestion.extractor import protobuf_util, schema_util
@@ -138,9 +137,10 @@ class KinesisGlueSchemaRegistry:
     ) -> Optional[List[SchemaFieldClass]]:
         try:
             if data_format == "AVRO":
-                avro_schema = avro.schema.parse(schema_def, validate_names=False)
+                # swallow_exceptions=False so parse errors reach our handler
+                # below and get recorded as parse-failed in the report.
                 return schema_util.avro_schema_to_mce_fields(
-                    avro_schema, is_key_schema=False
+                    schema_def, is_key_schema=False, swallow_exceptions=False
                 )
             if data_format == "JSON":
                 return list(

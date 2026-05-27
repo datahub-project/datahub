@@ -31,6 +31,7 @@ class TestTestConnection:
             )
         )
         report = KinesisSource.test_connection(CONFIG)
+        assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is False
         assert "AccessDenied" in (report.basic_connectivity.failure_reason or "")
 
@@ -57,9 +58,11 @@ class TestTestConnection:
             ),
         }.get(service, MagicMock())
         report = KinesisSource.test_connection(CONFIG)
+        assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is True
         # The lineage capability check should have failed independently
 
+        assert report.capability_report is not None
         lineage = report.capability_report.get(SourceCapability.LINEAGE_COARSE)
         assert lineage is not None and lineage.capable is False
 
@@ -92,10 +95,12 @@ class TestTestConnection:
         report = KinesisSource.test_connection(CONFIG)
         # Critical: basic connectivity must NOT be overwritten by the
         # BotoCoreError from the Firehose probe.
+        assert report.basic_connectivity is not None
         assert report.basic_connectivity.capable is True
         # The Firehose-specific failure must land in LINEAGE_COARSE with the
         # BotoCoreError class name (aws_error_code returns class names for
         # BotoCoreError subclasses).
+        assert report.capability_report is not None
         lineage = report.capability_report.get(SourceCapability.LINEAGE_COARSE)
         assert lineage is not None
         assert lineage.capable is False
@@ -130,6 +135,7 @@ class TestSchemaMetadataCapability:
         }.get(service, MagicMock())
         report = KinesisSource.test_connection(self.GSR_CONFIG)
 
+        assert report.capability_report is not None
         schema_md = report.capability_report.get(SourceCapability.SCHEMA_METADATA)
         assert schema_md is not None
         assert schema_md.capable is True
@@ -164,6 +170,7 @@ class TestSchemaMetadataCapability:
         }.get(service, MagicMock())
         report = KinesisSource.test_connection(self.GSR_CONFIG)
 
+        assert report.capability_report is not None
         schema_md = report.capability_report.get(SourceCapability.SCHEMA_METADATA)
         assert schema_md is not None
         assert schema_md.capable is False
@@ -184,4 +191,5 @@ class TestSchemaMetadataCapability:
         # CONFIG (top of module) has GSR disabled by default
         report = KinesisSource.test_connection(CONFIG)
 
+        assert report.capability_report is not None
         assert SourceCapability.SCHEMA_METADATA not in report.capability_report

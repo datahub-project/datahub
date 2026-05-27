@@ -210,6 +210,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
 
     def _emit_region_container(self) -> Iterable[MetadataWorkUnit]:
         region = self.config.aws_config.aws_region
+        assert region is not None  # validated in __init__
         region_key = self._region_key()
         yield from gen_containers(
             container_key=region_key,

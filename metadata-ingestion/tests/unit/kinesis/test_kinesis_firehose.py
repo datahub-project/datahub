@@ -1,3 +1,4 @@
+from typing import TYPE_CHECKING, Any, Dict, cast
 from unittest.mock import MagicMock
 
 from botocore.exceptions import (
@@ -5,9 +6,14 @@ from botocore.exceptions import (
     EndpointConnectionError,
 )
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
 from datahub.ingestion.source.kinesis.kinesis_firehose import KinesisFirehoseExtractor
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
+from datahub.metadata.schema_classes import DataPlatformInstanceClass
+
+if TYPE_CHECKING:
+    from mypy_boto3_firehose.type_defs import DeliveryStreamDescriptionTypeDef
 
 
 def _make_extractor() -> KinesisFirehoseExtractor:
@@ -58,14 +64,18 @@ class TestKinesisFirehoseExtractor:
             config=config, report=KinesisSourceReport(), session=MagicMock()
         )
         wus = list(ex.get_dataflow_workunit())
+        # The kinesis source only emits MCPWs; narrow with isinstance so
+        # `.aspect` is reachable, then narrow the aspect itself by class.
         instance_aspects = [
             wu.metadata.aspect
             for wu in wus
-            if wu.metadata.aspect is not None
-            and type(wu.metadata.aspect).__name__ == "DataPlatformInstanceClass"
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, DataPlatformInstanceClass)
         ]
         assert instance_aspects, "DataFlow must emit a DataPlatformInstance aspect"
-        instance_urn = instance_aspects[0].instance
+        first_aspect = instance_aspects[0]
+        assert isinstance(first_aspect, DataPlatformInstanceClass)
+        instance_urn = first_aspect.instance
         assert instance_urn is not None and instance_urn.startswith(
             "urn:li:dataPlatformInstance:"
         ), f"instance must be a dataPlatformInstance URN, got: {instance_urn!r}"
@@ -81,8 +91,11 @@ class TestKinesisFirehoseExtractor:
         session = MagicMock()
         ex = KinesisFirehoseExtractor(config=config, report=report, session=session)
         # boto3 firehose has no paginator for list_delivery_streams; the extractor
-        # uses manual `HasMoreDeliveryStreams` pagination instead.
-        ex._firehose.list_delivery_streams.return_value = {
+        # uses manual `HasMoreDeliveryStreams` pagination instead. Cast the
+        # client back to MagicMock — boto3 stubs type the methods as plain
+        # Callables, which hides MagicMock's return_value / side_effect helpers.
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.return_value = {
             "DeliveryStreamNames": ["events-to-s3", "clicks-to-s3", "_audit_pipe"],
             "HasMoreDeliveryStreams": False,
         }
@@ -93,7 +106,8 @@ class TestKinesisFirehoseExtractor:
 
     def test_list_delivery_streams_access_denied_yields_empty_with_warning(self):
         ex = _make_extractor()
-        ex._firehose.list_delivery_streams.side_effect = ClientError(
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "no"}},
             "ListDeliveryStreams",
         )
@@ -105,7 +119,8 @@ class TestKinesisFirehoseExtractor:
 
     def test_describe_delivery_stream_403_continues_with_warning(self):
         ex = _make_extractor()
-        ex._firehose.describe_delivery_stream.side_effect = ClientError(
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.describe_delivery_stream.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "no"}},
             "DescribeDeliveryStream",
         )
@@ -124,7 +139,8 @@ class TestKinesisFirehoseExtractor:
         pipeline aborts cleanly.
         """
         ex = _make_extractor()
-        ex._firehose.list_delivery_streams.side_effect = [
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.side_effect = [
             {"DeliveryStreamNames": ["ds-1", "ds-2"], "HasMoreDeliveryStreams": True},
             ClientError(
                 {"Error": {"Code": "ThrottlingException", "Message": "slow down"}},
@@ -146,7 +162,8 @@ class TestKinesisFirehoseExtractor:
         omitted firehose:ListDeliveryStreams from the IAM policy.
         """
         ex = _make_extractor()
-        ex._firehose.list_delivery_streams.side_effect = ClientError(
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "no"}},
             "ListDeliveryStreams",
         )
@@ -162,14 +179,15 @@ class TestKinesisFirehoseExtractor:
         manual cursor pagination via ExclusiveStartDeliveryStreamName + HasMoreDeliveryStreams.
         """
         ex = _make_extractor()
-        ex._firehose.list_delivery_streams.side_effect = [
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_delivery_streams.side_effect = [
             {"DeliveryStreamNames": ["ds-1", "ds-2"], "HasMoreDeliveryStreams": True},
             {"DeliveryStreamNames": ["ds-3"], "HasMoreDeliveryStreams": False},
         ]
         result = list(ex.list_delivery_streams())
         assert result == ["ds-1", "ds-2", "ds-3"]
         # The second call should have ExclusiveStartDeliveryStreamName="ds-2"
-        calls = ex._firehose.list_delivery_streams.call_args_list
+        calls = firehose_mock.list_delivery_streams.call_args_list
         assert len(calls) == 2
         second_kwargs = calls[1].kwargs
         assert second_kwargs.get("ExclusiveStartDeliveryStreamName") == "ds-2"
@@ -184,7 +202,8 @@ class TestFirehoseFetchTags:
 
     def test_returns_tags_when_api_succeeds(self):
         ex = _make_extractor()
-        ex._firehose.list_tags_for_delivery_stream.return_value = {
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_tags_for_delivery_stream.return_value = {
             "Tags": [
                 {"Key": "owner", "Value": "data-team"},
                 {"Key": "env", "Value": "prod"},
@@ -212,7 +231,8 @@ class TestFirehoseFetchTags:
         )
         tags = ex.fetch_tags("events-to-s3")
         assert tags == []
-        ex._firehose.list_tags_for_delivery_stream.assert_not_called()
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_tags_for_delivery_stream.assert_not_called()
 
     def test_client_error_yields_empty_with_warning(self):
         """AccessDeniedException on ListTagsForDeliveryStream is non-fatal:
@@ -221,7 +241,8 @@ class TestFirehoseFetchTags:
         users can map the report back to a missing IAM permission.
         """
         ex = _make_extractor()
-        ex._firehose.list_tags_for_delivery_stream.side_effect = ClientError(
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_tags_for_delivery_stream.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "no"}},
             "ListTagsForDeliveryStream",
         )
@@ -238,7 +259,8 @@ class TestFirehoseFetchTags:
         fetch would crash the whole Firehose extraction.
         """
         ex = _make_extractor()
-        ex._firehose.list_tags_for_delivery_stream.side_effect = (
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_tags_for_delivery_stream.side_effect = (
             EndpointConnectionError(
                 endpoint_url="https://firehose.us-east-1.amazonaws.com"
             )
@@ -256,7 +278,8 @@ class TestFirehoseFetchTags:
         downstream never get a None they don't expect.
         """
         ex = _make_extractor()
-        ex._firehose.list_tags_for_delivery_stream.return_value = {
+        firehose_mock = cast(MagicMock, ex._firehose)
+        firehose_mock.list_tags_for_delivery_stream.return_value = {
             "Tags": [
                 {"Key": "owner"},
                 {"Value": "prod"},
@@ -295,7 +318,9 @@ class TestFirehoseLineage:
                 }
             ],
         }
-        edges = ex.build_input_output(delivery_desc)
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
         assert edges is not None
         # Stream URN's name is region-prefixed (`<region>.<stream>`) so cross-region
         # collisions are impossible; must match what KinesisStreamExtractor emits.
@@ -352,7 +377,9 @@ class TestFirehoseLineage:
                 }
             ],
         }
-        edges = ex.build_input_output(delivery_desc)
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
         # Output is empty because URN couldn't be built.
         assert edges.outputDatasets == []
         # The destination_parse_failures counter records the matched-but-empty
@@ -387,7 +414,9 @@ class TestFirehoseLineage:
                 }
             ],
         }
-        edges = ex.build_input_output(delivery_desc)
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
         # Inputs may be empty (DirectPut has no upstream stream); outputs empty
         # since destination is unsupported.
         assert edges.outputDatasets == []
@@ -425,7 +454,9 @@ class TestFirehoseLineage:
                 }
             ],
         }
-        edges = ex.build_input_output(delivery_desc)
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", delivery_desc)
+        )
         # `make_dataset_urn_with_platform_instance` folds platform_instance into
         # the name as a `<platform_instance>.<name>` prefix (not into a 4-tuple).
         # Test intent: platform_instance must appear in the URN.
@@ -470,7 +501,9 @@ class TestDestinationUrnCaseFolding:
         ex = KinesisFirehoseExtractor(
             config=config, report=KinesisSourceReport(), session=MagicMock()
         )
-        edges = ex.build_input_output(self._snowflake_desc())
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", self._snowflake_desc())
+        )
         assert (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod_db.analytics.events,PROD)"
             in edges.outputDatasets
@@ -492,7 +525,9 @@ class TestDestinationUrnCaseFolding:
         ex = KinesisFirehoseExtractor(
             config=config, report=KinesisSourceReport(), session=MagicMock()
         )
-        edges = ex.build_input_output(self._snowflake_desc())
+        edges = ex.build_input_output(
+            cast("DeliveryStreamDescriptionTypeDef", self._snowflake_desc())
+        )
         assert (
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,PROD_DB.ANALYTICS.EVENTS,PROD)"
             in edges.outputDatasets
@@ -508,7 +543,7 @@ class TestFirehoseSchemaConfigLineage:
     def _delivery_desc_with_extended_s3(self, schema_cfg=None):
         """Helper: minimal Extended S3 delivery stream description with optional
         SchemaConfiguration. None = no format conversion at all."""
-        extended_s3 = {
+        extended_s3: Dict[str, Any] = {
             "BucketARN": "arn:aws:s3:::analytics-lake",
             "Prefix": "events/",
         }
