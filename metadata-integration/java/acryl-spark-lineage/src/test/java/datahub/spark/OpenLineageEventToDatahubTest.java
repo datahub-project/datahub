@@ -921,10 +921,11 @@ public class OpenLineageEventToDatahubTest {
 
   @Test
   public void testIncludeIndirectColumnLineageDisabled() throws URISyntaxException, IOException {
-    // When include_indirect=false, input fields with only INDIRECT transformations are
-    // dropped from column-level lineage. The fixture has the "name" output column with one
-    // INDIRECT-only contributor (people.parquet.age, filter) and one DIRECT contributor
-    // (people.parquet.name). The INDIRECT-only contributor must disappear.
+    // When include_indirect=false:
+    //   - "name" output has one INDIRECT-only contributor (people.parquet.age, filter) and one
+    //     DIRECT contributor (people.parquet.name). The INDIRECT-only contributor must drop.
+    //   - "age" output has a single MIXED contributor (people.parquet.age with both
+    //     DIRECT:IDENTITY and INDIRECT:FILTER). Mixed contributors must NOT be dropped.
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
     builder.fabricType(FabricType.DEV);
@@ -945,8 +946,11 @@ public class OpenLineageEventToDatahubTest {
 
     assertNotNull(datahubJob);
     for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      List<FineGrainedLineage> fglines =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages());
+
       FineGrainedLineage nameEntry =
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
+          fglines.stream()
               .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",name)"))
               .findFirst()
               .orElseThrow(AssertionError::new);
@@ -958,6 +962,19 @@ public class OpenLineageEventToDatahubTest {
       // user can still tell the SQL involved a filter even though we don't list the filter
       // column as an upstream.
       assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", nameEntry.getTransformOperation());
+
+      // Mixed DIRECT+INDIRECT contributor must be kept — guards against isIndirectOnly
+      // incorrectly returning true when the field also has a DIRECT role.
+      FineGrainedLineage ageEntry =
+          fglines.stream()
+              .filter(fgl -> fgl.getDownstreams().get(0).toString().endsWith(",age)"))
+              .findFirst()
+              .orElseThrow(AssertionError::new);
+      assertEquals(
+          1,
+          ageEntry.getUpstreams().size(),
+          "Mixed DIRECT+INDIRECT contributor (age) must NOT be dropped from the age column's upstreams");
+      assertEquals("DIRECT:IDENTITY,INDIRECT:FILTER", ageEntry.getTransformOperation());
     }
   }
 
