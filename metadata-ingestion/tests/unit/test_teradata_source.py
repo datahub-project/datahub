@@ -4110,35 +4110,28 @@ class TestExecuteWithCursorFallback:
         assert result is expected
 
 
-class TestNullableCharPadding:
-    """Teradata returns dbc.ColumnsV.Nullable space-padded as 'Y '/'N ' (CHAR(1)).
-    The library's strict `row['Nullable'] == 'Y'` then evaluates False for every
-    column, so genuinely nullable columns hydrate as nullable=False until we
-    re-check after stripping. Exercise this through optimized_get_columns so we
+class TestCharPaddingFixes:
+    """Teradata returns CHAR(N) values space-padded over the wire. The library's
+    strict comparisons (`row['Nullable'] == 'Y'`, `row['IdColType'] in ('GA',
+    'GD')`) then evaluate False for every column, so genuinely nullable columns
+    hydrate as nullable=False and identity columns hydrate as
+    autoincrement=False. Exercise the fix through optimized_get_columns so we
     catch a regression at the actual code path."""
 
-    def _make_dialect_with_row(self, raw_nullable):
-        """Build a mock dialect that returns a single row with the given
-        raw Nullable value, mimicking the buggy library output."""
+    def _call_with_row(self, row, library_col_info=None):
+        """Drive optimized_get_columns with a single mocked row.
 
-        # Library produces False for any non-bare-'Y' value, including padded.
-        library_nullable = raw_nullable == "Y"
-
+        library_col_info simulates what teradatasqlalchemy's _get_column_info
+        would return; the test then asserts our padding fixes override it."""
         mock_dialect = MagicMock()
         mock_dialect.default_schema_name = "mydb"
-        mock_dialect._get_column_info.return_value = {
+        mock_dialect._get_column_info.return_value = library_col_info or {
             "name": "col1",
-            "nullable": library_nullable,
+            "nullable": False,
+            "autoincrement": False,
         }
-
-        # Row with attribute access (matches SQLAlchemy Row from dbc.ColumnsV).
-        row = MagicMock(spec=["Nullable", "CommentString"])
-        row.Nullable = raw_nullable
-        row.CommentString = None
         mock_dialect.get_schema_columns.return_value = {"my_table": [row]}
-        return mock_dialect
 
-    def _call(self, mock_dialect):
         tables_cache: Dict[str, List[TeradataTable]] = {
             "mydb": [
                 TeradataTable(
@@ -4161,31 +4154,54 @@ class TestNullableCharPadding:
             tables_cache=tables_cache,
         )
 
-    def test_padded_y_hydrates_as_nullable_true(self):
-        """The real-world bug: 'Y ' (padded) must produce nullable=True."""
-        cols = self._call(self._make_dialect_with_row("Y "))
+    @staticmethod
+    def _row(**fields):
+        """SQLAlchemy Row-like object with attribute access for given fields."""
+        row = MagicMock(spec=list(fields.keys()) + ["CommentString"])
+        for k, v in fields.items():
+            setattr(row, k, v)
+        row.CommentString = None
+        return row
+
+    # Nullable: customer-reported bug
+    def test_padded_nullable_y_hydrates_as_true(self):
+        cols = self._call_with_row(self._row(Nullable="Y "))
         assert cols[0]["nullable"] is True
 
-    def test_padded_n_hydrates_as_nullable_false(self):
-        cols = self._call(self._make_dialect_with_row("N "))
+    def test_padded_nullable_n_hydrates_as_false(self):
+        cols = self._call_with_row(self._row(Nullable="N "))
         assert cols[0]["nullable"] is False
 
-    def test_clean_y_still_works(self):
-        """Bare 'Y' (no padding) is unchanged behavior."""
-        cols = self._call(self._make_dialect_with_row("Y"))
+    def test_clean_nullable_y_unchanged(self):
+        cols = self._call_with_row(self._row(Nullable="Y"))
         assert cols[0]["nullable"] is True
 
-    def test_dict_row_with_padded_nullable(self):
-        """HELP path produces dict rows via _update_column_help_info; both
-        SQLAlchemy Row attribute access and dict access must work."""
-        mock_dialect = MagicMock()
-        mock_dialect.default_schema_name = "mydb"
-        mock_dialect._get_column_info.return_value = {
-            "name": "col1",
-            "nullable": False,
-        }
-        mock_dialect.get_schema_columns.return_value = {
-            "my_table": [{"Nullable": "Y ", "ColumnName": "col1"}]
-        }
-        cols = self._call(mock_dialect)
+    def test_dict_row_padded_nullable(self):
+        """HELP-derived dict rows must work alongside SQLAlchemy Row objects."""
+        cols = self._call_with_row({"Nullable": "Y ", "ColumnName": "col1"})
         assert cols[0]["nullable"] is True
+
+    # IdColType: latent sibling bug, same root cause
+    def test_padded_idcoltype_hydrates_as_autoincrement_true(self):
+        """The library does `row['IdColType'] in ('GA','GD')`; Teradata returns
+        'GA  ' padded, so the check fails for every identity column."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GA  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_padded_idcoltype_gd_hydrates_as_autoincrement_true(self):
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType="GD  "),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is True
+
+    def test_no_idcoltype_leaves_autoincrement_alone(self):
+        """Non-identity columns have IdColType=None; we must not overwrite."""
+        cols = self._call_with_row(
+            self._row(Nullable="Y", IdColType=None),
+            library_col_info={"name": "col1", "nullable": True, "autoincrement": False},
+        )
+        assert cols[0]["autoincrement"] is False

@@ -651,6 +651,15 @@ def optimized_get_pk_constraint(
     return {"constrained_columns": index_columns, "name": index_name}
 
 
+def _read_padded_char_field(row: Any, field: str) -> Optional[str]:
+    """Read a CHAR(N) field that Teradata returns space-padded, return it stripped.
+
+    Returns None when the field is missing or not a string — callers should
+    leave any existing value alone in that case."""
+    raw = getattr(row, field, None) if not isinstance(row, dict) else row.get(field)
+    return raw.strip() if isinstance(raw, str) else None
+
+
 def _strip_padded_nullable(row: Any, col_info: Dict[str, Any]) -> None:
     """Re-derive col_info['nullable'] by stripping CHAR(1) padding from row.Nullable.
 
@@ -658,15 +667,21 @@ def _strip_padded_nullable(row: Any, col_info: Dict[str, Any]) -> None:
     Teradata returns CHAR(1) values space-padded ('Y '/'N '), so the check
     evaluates False for every nullable column. No-op when the row's Nullable
     isn't a string (e.g. None for view columns without QVCI enabled)."""
-    raw = (
-        row.Nullable
-        if hasattr(row, "Nullable")
-        else row.get("Nullable")
-        if isinstance(row, dict)
-        else None
-    )
-    if isinstance(raw, str):
-        col_info["nullable"] = raw.strip() == "Y"
+    val = _read_padded_char_field(row, "Nullable")
+    if val is not None:
+        col_info["nullable"] = val == "Y"
+
+
+def _strip_padded_autoincrement(row: Any, col_info: Dict[str, Any]) -> None:
+    """Re-derive col_info['autoincrement'] by stripping padding from row.IdColType.
+
+    Same root cause as _strip_padded_nullable: teradatasqlalchemy checks
+    `row['IdColType'] in ('GA', 'GD')` strictly, but Teradata returns IdColType
+    space-padded ('GA  '), so the check evaluates False for every identity
+    column. No-op when the raw value isn't a string."""
+    val = _read_padded_char_field(row, "IdColType")
+    if val is not None:
+        col_info["autoincrement"] = val in ("GA", "GD")
 
 
 def optimized_get_columns(
@@ -768,6 +783,7 @@ def optimized_get_columns(
         try:
             col_info = self._get_column_info(row)
             _strip_padded_nullable(row, col_info)
+            _strip_padded_autoincrement(row, col_info)
 
             # Add CommentString as comment field for column description
             if hasattr(row, "CommentString") and row.CommentString:
