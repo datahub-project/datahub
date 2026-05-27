@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from typing import Any, Literal
 
 import boto3
 from botocore.exceptions import ClientError
@@ -20,8 +21,12 @@ from botocore.exceptions import ClientError
 ENDPOINT_URL = os.environ.get("AWS_ENDPOINT_URL", "http://localhost:4566")
 REGION = "us-east-1"
 
+# Restricted to the services this script actually uses; boto3's typed overloads
+# resolve via the Literal so we don't fall through to the generic Any fallback.
+ServiceName = Literal["kinesis", "s3", "firehose", "iam"]
 
-def _client(service: str):
+
+def _client(service: ServiceName) -> Any:
     return boto3.client(
         service,
         endpoint_url=ENDPOINT_URL,
@@ -31,7 +36,7 @@ def _client(service: str):
     )
 
 
-def _create_stream(kinesis, name: str, shard_count: int = 1) -> None:
+def _create_stream(kinesis: Any, name: str, shard_count: int = 1) -> None:
     try:
         kinesis.create_stream(StreamName=name, ShardCount=shard_count)
     except ClientError as e:
@@ -44,7 +49,7 @@ def _create_stream(kinesis, name: str, shard_count: int = 1) -> None:
         time.sleep(0.5)
 
 
-def _create_bucket(s3, name: str) -> None:
+def _create_bucket(s3: Any, name: str) -> None:
     try:
         s3.create_bucket(Bucket=name)
     except ClientError as e:

@@ -6,28 +6,28 @@ Stateful Ingestion (deletion detection) requires a `platform_instance` to be set
 
 Use the **Important Capabilities** table above the page as the source of truth for which capabilities are supported and which require additional configuration.
 
-| Capability | Notes |
-| --- | --- |
-| `DESCRIPTIONS` | Enabled by default. Stream and delivery-stream metadata is surfaced via `datasetProperties` / `dataJobInfo`. |
-| `CONTAINERS` | One regional Container per recipe — parent of all streams and Firehose delivery streams. |
-| `LINEAGE_COARSE` | Firehose delivery streams emit `dataJobInputOutput` edges from the source Kinesis stream to the destination platform (custom-upstream, coarse-grained lineage). |
-| `TAGS` | AWS resource tags on streams and delivery streams are emitted as `globalTags`. Gated by `extract_tags`. |
-| `OWNERSHIP` | The value of a configurable AWS resource-tag key (default `owner_tag_key: owner`) becomes a DataHub owner. Gated by `extract_owners`. |
-| `SCHEMA_METADATA` | Opt-in. With `glue_schema_registry.enabled: true`, Avro / JSON / Protobuf schemas are fetched from AWS Glue Schema Registry. Requires the `GlueSchemaRegistryRead` IAM statement in the prerequisites. |
-| `DELETION_DETECTION` | Via stateful ingestion. Entities removed from AWS since the last successful run are soft-deleted in DataHub. Requires `platform_instance`. |
+| Capability           | Notes                                                                                                                                                                                                  |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DESCRIPTIONS`       | Enabled by default. Stream and delivery-stream metadata is surfaced via `datasetProperties` / `dataJobInfo`.                                                                                           |
+| `CONTAINERS`         | One regional Container per recipe — parent of all streams and Firehose delivery streams.                                                                                                               |
+| `LINEAGE_COARSE`     | Firehose delivery streams emit `dataJobInputOutput` edges from the source Kinesis stream to the destination platform (custom-upstream, coarse-grained lineage).                                        |
+| `TAGS`               | AWS resource tags on streams and delivery streams are emitted as `globalTags`. Gated by `extract_tags`.                                                                                                |
+| `OWNERSHIP`          | The value of a configurable AWS resource-tag key (default `owner_tag_key: owner`) becomes a DataHub owner. Gated by `extract_owners`.                                                                  |
+| `SCHEMA_METADATA`    | Opt-in. With `glue_schema_registry.enabled: true`, Avro / JSON / Protobuf schemas are fetched from AWS Glue Schema Registry. Requires the `GlueSchemaRegistryRead` IAM statement in the prerequisites. |
+| `DELETION_DETECTION` | Via stateful ingestion. Entities removed from AWS since the last successful run are soft-deleted in DataHub. Requires `platform_instance`.                                                             |
 
 #### Firehose lineage — supported destinations
 
 The following destination types produce a `dataJobInputOutput.outputDatasets` edge:
 
-| AWS destination | DataHub platform | URN format |
-| --- | --- | --- |
-| Amazon S3 / Extended S3 | `s3` | `urn:li:dataset:(urn:li:dataPlatform:s3,<bucket>[/<prefix>],...)` |
-| Amazon Redshift | `redshift` | `urn:li:dataset:(urn:li:dataPlatform:redshift,<db>.<schema>.<table>,...)` |
-| Amazon OpenSearch / Elasticsearch | `elasticsearch` | `urn:li:dataset:(urn:li:dataPlatform:elasticsearch,<index>,...)` |
-| Snowflake | `snowflake` | `urn:li:dataset:(urn:li:dataPlatform:snowflake,<db>.<schema>.<table>,...)` |
-| Apache Iceberg | `iceberg` | `urn:li:dataset:(urn:li:dataPlatform:iceberg,<namespace>.<table>,...)` |
-| MongoDB | `mongodb` | `urn:li:dataset:(urn:li:dataPlatform:mongodb,<database>.<collection>,...)` |
+| AWS destination                   | DataHub platform | URN format                                                                 |
+| --------------------------------- | ---------------- | -------------------------------------------------------------------------- |
+| Amazon S3 / Extended S3           | `s3`             | `urn:li:dataset:(urn:li:dataPlatform:s3,<bucket>[/<prefix>],...)`          |
+| Amazon Redshift                   | `redshift`       | `urn:li:dataset:(urn:li:dataPlatform:redshift,<db>.<schema>.<table>,...)`  |
+| Amazon OpenSearch / Elasticsearch | `elasticsearch`  | `urn:li:dataset:(urn:li:dataPlatform:elasticsearch,<index>,...)`           |
+| Snowflake                         | `snowflake`      | `urn:li:dataset:(urn:li:dataPlatform:snowflake,<db>.<schema>.<table>,...)` |
+| Apache Iceberg                    | `iceberg`        | `urn:li:dataset:(urn:li:dataPlatform:iceberg,<namespace>.<table>,...)`     |
+| MongoDB                           | `mongodb`        | `urn:li:dataset:(urn:li:dataPlatform:mongodb,<database>.<collection>,...)` |
 
 URN names are lowercased by default (matching the Snowflake source's `convert_urns_to_lowercase=True` default). Override per destination via `destination_platform_map.<platform>.convert_urns_to_lowercase: false` — see [Cross-platform lineage](#cross-platform-lineage-with-destination_platform_map) below.
 

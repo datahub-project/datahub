@@ -8,6 +8,7 @@ The connector resolves an effective platform_instance at init time:
     why their URNs lack the account_id segment
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 from botocore.exceptions import ClientError
@@ -21,7 +22,7 @@ def _ctx() -> PipelineContext:
     return PipelineContext(run_id="test")
 
 
-def _config(**overrides) -> KinesisSourceConfig:
+def _config(**overrides: Any) -> KinesisSourceConfig:
     base = {"aws_config": {"aws_region": "us-east-1"}}
     base.update(overrides)
     return KinesisSourceConfig.model_validate(base)

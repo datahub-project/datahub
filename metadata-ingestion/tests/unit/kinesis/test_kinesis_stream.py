@@ -1,8 +1,10 @@
+from typing import TYPE_CHECKING, Any, Optional, cast
 from unittest.mock import MagicMock
 
 from botocore.exceptions import ClientError, EndpointConnectionError
 
 from datahub.emitter.mce_builder import make_data_platform_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.kinesis.kinesis_config import KinesisSourceConfig
 from datahub.ingestion.source.kinesis.kinesis_report import KinesisSourceReport
 from datahub.ingestion.source.kinesis.kinesis_stream import KinesisStreamExtractor
@@ -14,9 +16,12 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
 )
 
+if TYPE_CHECKING:
+    from mypy_boto3_kinesis.type_defs import StreamDescriptionTypeDef
+
 
 def _make_extractor(
-    stream_pattern=None, schema_registry=None
+    stream_pattern: Optional[dict] = None, schema_registry: Optional[Any] = None
 ) -> KinesisStreamExtractor:
     config = KinesisSourceConfig.model_validate(
         {
@@ -40,7 +45,10 @@ class TestKinesisStreamExtractor:
         # The deny pattern in recipe.yml is "^_.*"; the extractor must honor whatever
         # stream_pattern is given in config and report filtered streams.
         ex = _make_extractor(stream_pattern={"deny": ["^_.*"]})
-        ex._kinesis.get_paginator.return_value.paginate.return_value = [
+        # boto3 stubs type _kinesis methods as plain Callables; cast back to
+        # MagicMock to expose return_value / side_effect helpers to mypy.
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.get_paginator.return_value.paginate.return_value = [
             {"StreamNames": ["events", "clicks", "_internal_audit"]}
         ]
 
@@ -53,7 +61,8 @@ class TestKinesisStreamExtractor:
 
     def test_describe_stream_403_continues_with_warning(self):
         ex = _make_extractor()
-        ex._kinesis.describe_stream.side_effect = ClientError(
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.describe_stream.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "nope"}},
             "DescribeStream",
         )
@@ -83,7 +92,8 @@ class TestListStreamNamesErrorHandling:
         # AWS error on the first call. Easiest mock: have .paginate() itself
         # raise via side_effect — the for-loop never enters the body, so
         # pages_fetched stays 0 and the warning path fires.
-        ex._kinesis.get_paginator.return_value.paginate.side_effect = ClientError(
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.get_paginator.return_value.paginate.side_effect = ClientError(
             {"Error": {"Code": "AccessDeniedException", "Message": "denied"}},
             "ListStreams",
         )
@@ -122,7 +132,8 @@ class TestListStreamNamesErrorHandling:
                 "ListStreams",
             )
 
-        ex._kinesis.get_paginator.return_value.paginate.return_value = _paginate()
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.get_paginator.return_value.paginate.return_value = _paginate()
 
         result = list(ex.list_stream_names())
         # Page 1 streams were yielded successfully; iterator stops after the
@@ -144,7 +155,8 @@ class TestListStreamNamesErrorHandling:
         """
 
         ex = _make_extractor()
-        ex._kinesis.get_paginator.return_value.paginate.side_effect = (
+        kinesis_mock = cast(MagicMock, ex._kinesis)
+        kinesis_mock.get_paginator.return_value.paginate.side_effect = (
             EndpointConnectionError(
                 endpoint_url="https://kinesis.us-east-1.amazonaws.com"
             )
@@ -197,19 +209,24 @@ class TestEmitDatasetSchemaAttachment:
         ex = _make_extractor(schema_registry=schema_registry)
 
         # Minimal StreamDescription — only the fields _custom_properties reads
-        desc = {
-            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
-            "StreamStatus": "ACTIVE",
-            "Shards": [{"ShardId": "shard-0"}],
-            "RetentionPeriodHours": 24,
-            "EncryptionType": "NONE",
-        }
-        wus = list(ex._emit_dataset("events", desc))  # type: ignore[arg-type]
+        desc = cast(
+            "StreamDescriptionTypeDef",
+            {
+                "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
+                "StreamStatus": "ACTIVE",
+                "Shards": [{"ShardId": "shard-0"}],
+                "RetentionPeriodHours": 24,
+                "EncryptionType": "NONE",
+            },
+        )
+        wus = list(ex._emit_dataset("events", desc))
+        # The kinesis source only emits MCPWs; narrow with isinstance so
+        # `.aspect` is reachable, then narrow the aspect itself by class.
         schema_aspects = [
             wu.metadata.aspect
             for wu in wus
-            if wu.metadata.aspect is not None
-            and type(wu.metadata.aspect).__name__ == "SchemaMetadataClass"
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SchemaMetadataClass)
         ]
         assert schema_aspects, (
             "Dataset must emit a SchemaMetadata aspect when the schema registry "
@@ -217,7 +234,9 @@ class TestEmitDatasetSchemaAttachment:
             "discarded silently."
         )
         # The schema we built has one field "id"
-        field_paths = {f.fieldPath for f in schema_aspects[0].fields}
+        first_schema = schema_aspects[0]
+        assert isinstance(first_schema, SchemaMetadataClass)
+        field_paths = {f.fieldPath for f in first_schema.fields}
         assert "id" in field_paths
         schema_registry.get_schema_metadata.assert_called_once_with("events")
 
@@ -231,17 +250,20 @@ class TestEmitDatasetSchemaAttachment:
         schema_registry.get_schema_metadata.return_value = None
         ex = _make_extractor(schema_registry=schema_registry)
 
-        desc = {
-            "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
-            "StreamStatus": "ACTIVE",
-            "Shards": [],
-        }
-        wus = list(ex._emit_dataset("events", desc))  # type: ignore[arg-type]
+        desc = cast(
+            "StreamDescriptionTypeDef",
+            {
+                "StreamARN": "arn:aws:kinesis:us-east-1:000000000000:stream/events",
+                "StreamStatus": "ACTIVE",
+                "Shards": [],
+            },
+        )
+        wus = list(ex._emit_dataset("events", desc))
         schema_aspects = [
             wu.metadata.aspect
             for wu in wus
-            if wu.metadata.aspect is not None
-            and type(wu.metadata.aspect).__name__ == "SchemaMetadataClass"
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SchemaMetadataClass)
         ]
         assert schema_aspects == [], (
             "Dataset must NOT emit an empty SchemaMetadata aspect when "
@@ -255,12 +277,15 @@ class TestEmitDatasetSchemaAttachment:
         integration tests run without GSR (LocalStack's free tier lacks it).
         """
         ex = _make_extractor(schema_registry=None)
-        desc = {"StreamARN": "arn:...", "StreamStatus": "ACTIVE", "Shards": []}
-        wus = list(ex._emit_dataset("events", desc))  # type: ignore[arg-type]
+        desc = cast(
+            "StreamDescriptionTypeDef",
+            {"StreamARN": "arn:...", "StreamStatus": "ACTIVE", "Shards": []},
+        )
+        wus = list(ex._emit_dataset("events", desc))
         schema_aspects = [
             wu.metadata.aspect
             for wu in wus
-            if wu.metadata.aspect is not None
-            and type(wu.metadata.aspect).__name__ == "SchemaMetadataClass"
+            if isinstance(wu.metadata, MetadataChangeProposalWrapper)
+            and isinstance(wu.metadata.aspect, SchemaMetadataClass)
         ]
         assert schema_aspects == []
