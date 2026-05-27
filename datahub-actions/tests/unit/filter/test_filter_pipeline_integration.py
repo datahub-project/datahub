@@ -114,12 +114,14 @@ def test_filter_passes_all_when_no_spec():
                 },
             }
         ],
+        "transform": [{"type": "test_transformer"}],
         "action": {"type": "test_action"},
         "options": _base_opts(),
     }
     pipeline = Pipeline.create(config)
     pipeline.run()
     assert pipeline.action.total_event_count == 3  # type: ignore
+    assert pipeline.stats().failed_event_count == 0
 
 
 # ── deprecated filter section ─────────────────────────────────────────────────

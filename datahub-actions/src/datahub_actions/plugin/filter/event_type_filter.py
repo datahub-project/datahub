@@ -86,14 +86,14 @@ class EventTypeFilter(Filter):
         return cls(config)
 
     def matches(self, event: EventEnvelope) -> bool:
-        spec = self.config.filter.get(event.event_type)
-        if spec is None:
+        if event.event_type not in self.config.filter:
             logger.debug(
                 "EventTypeFilter: dropping event (type %s not in filter config)",
                 event.event_type,
             )
             return False
-        if spec.event is None:
+        spec = self.config.filter[event.event_type]
+        if spec is None or spec.event is None:
             logger.debug(
                 "EventTypeFilter: passing event (type %s matches, no body predicate)",
                 event.event_type,

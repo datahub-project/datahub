@@ -106,6 +106,7 @@ class Pipeline:
         self.filters = filters
         self.transforms = transforms
         self.action = action
+        self._stats = PipelineStats()
 
         if retry_count is not None:
             self._retry_count = retry_count
