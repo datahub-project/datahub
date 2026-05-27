@@ -129,9 +129,10 @@ def test_mssql_no_duplicate_upstream_lineage_mcps(create_engine_mock):
     fake_wu.id = view_urn
     fake_mcp.as_workunit.return_value = fake_wu
 
-    with patch.object(
-        source.aggregator, "gen_metadata", return_value=iter([fake_mcp])
-    ), patch.object(source, "_populate_aggregator_with_query_history"):
+    with (
+        patch.object(source.aggregator, "gen_metadata", return_value=iter([fake_mcp])),
+        patch.object(source, "_populate_aggregator_with_query_history"),
+    ):
         workunits = list(source._generate_aggregator_workunits())
 
     count = sum(1 for wu in workunits if wu.id == view_urn)
