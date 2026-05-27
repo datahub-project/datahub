@@ -884,6 +884,7 @@ public class OpenLineageEventToDatahubTest {
     builder.includeSchemaMetadata(true);
     builder.isSpark(true);
     builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
 
     String olEvent =
         IOUtils.toString(
@@ -905,12 +906,108 @@ public class OpenLineageEventToDatahubTest {
       assertEquals(
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
-      assertEquals(
-          "DIRECT:IDENTITY,INDIRECT:FILTER",
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
-              .get(0)
-              .getTransformOperation());
+
+      // Fixture column "age" carries both DIRECT:IDENTITY and INDIRECT:FILTER, which must
+      // land in separate entries rather than a flattened union.
+      List<String> transformOps =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
+              .map(fgl -> fgl.getTransformOperation())
+              .collect(java.util.stream.Collectors.toList());
+      assertTrue(
+          transformOps.contains("DIRECT:IDENTITY"),
+          "Expected a DIRECT-only FineGrainedLineage entry, got: " + transformOps);
+      assertTrue(
+          transformOps.contains("INDIRECT:FILTER"),
+          "Expected an INDIRECT-only FineGrainedLineage entry, got: " + transformOps);
+      // "INDIRECT" contains the substring "DIRECT", so strip INDIRECT tokens first.
+      assertTrue(
+          transformOps.stream()
+              .noneMatch(
+                  op ->
+                      op.contains("INDIRECT:") && op.replace("INDIRECT:", "").contains("DIRECT:")),
+          "DIRECT and INDIRECT must not be combined in a single transformOperation: "
+              + transformOps);
     }
+  }
+
+  @Test
+  public void testIncludeIndirectColumnLineageDisabled() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/sample_spark_with_transformation.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      List<String> transformOps =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
+              .map(fgl -> fgl.getTransformOperation())
+              .collect(java.util.stream.Collectors.toList());
+      assertTrue(
+          transformOps.stream().noneMatch(op -> op.contains("INDIRECT:")),
+          "INDIRECT entries should be suppressed when include_indirect=false, got: "
+              + transformOps);
+      assertTrue(
+          transformOps.stream().anyMatch(OpenLineageEventToDatahubTest::containsDirectToken),
+          "At least one DIRECT entry should remain, got: " + transformOps);
+    }
+  }
+
+  @Test
+  public void testIndirectOnlyColumnDroppedWhenIndirectDisabled()
+      throws URISyntaxException, IOException {
+    // INDIRECT-only columns (e.g. COUNT(*) driven by GROUP BY) emit no column-level lineage
+    // when include_indirect=false — matching the Python SQL parser. Table-level lineage
+    // still includes the source dataset so the dataset relationship isn't lost.
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+    builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(false);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass()
+                .getResourceAsStream("/ol_events/sample_spark_with_indirect_only_column.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+    assertEquals(1, datahubJob.getOutSet().size());
+    for (DatahubDataset dataset : datahubJob.getOutSet()) {
+      assertEquals(
+          0,
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).size(),
+          "INDIRECT-only column must produce no column-level lineage with the flag off");
+      assertEquals(
+          1,
+          dataset.getLineage().getUpstreams().size(),
+          "Dataset-level upstream must still be emitted so table lineage isn't lost");
+    }
+  }
+
+  /** Strip INDIRECT tokens first since "INDIRECT" contains the substring "DIRECT". */
+  private static boolean containsDirectToken(String transformOperation) {
+    return transformOperation.replace("INDIRECT:", "").contains("DIRECT:");
   }
 
   @Test
@@ -923,6 +1020,7 @@ public class OpenLineageEventToDatahubTest {
     builder.includeSchemaMetadata(true);
     builder.isSpark(true);
     builder.captureColumnLevelLineage(true);
+    builder.includeIndirectColumnLineage(true);
 
     String olEvent =
         IOUtils.toString(
@@ -945,26 +1043,34 @@ public class OpenLineageEventToDatahubTest {
           "urn:li:dataset:(urn:li:dataPlatform:file,/spark-test/result_test,DEV)",
           dataset.getUrn().toString());
 
-      // Verify that SQL query is included in transformOperation along with transformations
-      String transformOperation =
-          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())
-              .get(0)
-              .getTransformOperation();
-      assertNotNull(transformOperation);
-      // The format should be: "-- DIRECT:IDENTITY,INDIRECT:FILTER\nSELECT age, name FROM people
-      // WHERE age > 18"
+      List<String> transformOps =
+          Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages()).stream()
+              .map(fgl -> fgl.getTransformOperation())
+              .collect(java.util.stream.Collectors.toList());
+
+      // SQL is the derivation of DIRECT upstreams; it must appear on the DIRECT entry
+      // and never on the INDIRECT entry.
+      String directOp =
+          transformOps.stream()
+              .filter(OpenLineageEventToDatahubTest::containsDirectToken)
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new AssertionError(
+                          "Expected a DIRECT FineGrainedLineage entry, got: " + transformOps));
       assertTrue(
-          transformOperation.contains("SELECT age, name FROM people WHERE age > 18"),
-          "Transform operation should contain SQL query");
+          directOp.contains("SELECT age, name FROM people WHERE age > 18"),
+          "DIRECT transform operation should contain SQL query, got: " + directOp);
       assertTrue(
-          transformOperation.contains("DIRECT:IDENTITY")
-              && transformOperation.contains("INDIRECT:FILTER"),
-          "Transform operation should contain transformation types");
-      // Verify the format: transformations should be prefixed with "-- " and followed by newline
-      // before SQL
+          directOp.contains("-- DIRECT:") && directOp.contains("\n"),
+          "DIRECT transform operation should prefix transformations with '-- ' before SQL, got: "
+              + directOp);
+
       assertTrue(
-          transformOperation.contains("-- ") && transformOperation.contains("\n"),
-          "Transform operation should have transformations prefixed with '-- ' and followed by newline before SQL");
+          transformOps.stream()
+              .filter(op -> op.contains("INDIRECT:"))
+              .noneMatch(op -> op.contains("SELECT")),
+          "INDIRECT transform operation should not contain SQL query, got: " + transformOps);
     }
   }
 
