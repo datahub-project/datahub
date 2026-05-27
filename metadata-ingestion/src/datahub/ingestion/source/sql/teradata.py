@@ -323,6 +323,56 @@ def _should_retry_connect(exc: BaseException) -> bool:
     return False
 
 
+def _retry_loop(
+    op: Any,
+    classify: Any,
+    max_attempts: int,
+    initial_backoff_seconds: float,
+    op_name: str = "DB operation",
+    report: Optional["TeradataReport"] = None,
+    on_retry: Optional[Any] = None,
+    on_terminal: Optional[Any] = None,
+) -> Any:
+    """Generic exponential-backoff retry scaffold shared by all retry helpers.
+
+    Runs ``op()`` up to *max_attempts* times, retrying only while
+    ``classify(exc)`` returns True.  On each retry the loop sleeps for
+    ``_jittered_backoff(attempt, initial_backoff_seconds)`` seconds and
+    increments ``report.num_db_retries`` (when *report* is given).
+
+    Callbacks:
+        on_retry(exc, attempt, backoff): called after classify returns True,
+            before sleeping.  Receives the 0-based attempt index and the
+            computed backoff duration so callers can emit context-rich log
+            messages.  When omitted, a generic ``logger.warning`` is emitted.
+        on_terminal(exc, attempt): called just before the final raise — either
+            because the error is non-retryable or all attempts are exhausted.
+            Used to emit a breadcrumb into the ingestion report.
+    """
+    if max_attempts < 1:
+        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
+    for attempt in range(max_attempts):
+        try:
+            return op()
+        except Exception as exc:
+            if not classify(exc) or attempt == max_attempts - 1:
+                if on_terminal is not None:
+                    on_terminal(exc, attempt)
+                raise
+            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
+            if on_retry is not None:
+                on_retry(exc, attempt, backoff)
+            else:
+                logger.warning(
+                    f"{op_name} (attempt {attempt + 1}/{max_attempts}): {exc}. "
+                    f"Retrying in {backoff:.2f}s..."
+                )
+            if report is not None:
+                report.increment_db_retries()
+            time.sleep(backoff)
+    raise AssertionError("unreachable")  # classify returned True but loop ended
+
+
 @contextmanager
 def _engine_connect_with_retry(
     engine: Engine,
@@ -333,19 +383,17 @@ def _engine_connect_with_retry(
     """Context-manager that acquires a SQLAlchemy connection with exponential-backoff
     retries on retryable errors.  Only the *connect* step is retried; errors
     that occur inside the ``with`` block are propagated normally.
+
+    PoolTimeoutError and generic retryable errors are handled in a single
+    except branch: PoolTimeoutError is already a subclass of Exception and
+    _should_retry_connect returns True for it, so no separate branch is needed.
+    The isinstance check below only gates the pool-exhaustion counter and the
+    more specific log message.
     """
-    if max_attempts < 1:
-        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
-    conn: Optional[Connection] = None
-    for attempt in range(max_attempts):
-        try:
-            conn = engine.connect()
-            break
-        except PoolTimeoutError as exc:
-            if attempt == max_attempts - 1:
-                raise
-            thread = current_thread()  # evaluated only when the warning will be logged
-            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
+
+    def _on_retry(exc: Exception, attempt: int, backoff: float) -> None:
+        if isinstance(exc, PoolTimeoutError):
+            thread = current_thread()
             logger.warning(
                 f"Connection pool exhausted "
                 f"[thread={thread.name!r} tid={thread.ident}] "
@@ -353,26 +401,22 @@ def _engine_connect_with_retry(
                 f"Retrying in {backoff:.2f}s..."
             )
             if report is not None:
-                report.increment_pool_exhaustion_events()
-                report.increment_db_retries()
-            time.sleep(backoff)
-        except Exception as exc:
-            if not _should_retry_connect(exc) or attempt == max_attempts - 1:
-                raise
-            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
+                report.increment_pool_timeout_retries()
+        else:
             logger.warning(
                 f"Retryable DB error acquiring connection "
                 f"(attempt {attempt + 1}/{max_attempts}): {exc}. "
                 f"Retrying in {backoff:.2f}s..."
             )
-            if report is not None:
-                report.increment_db_retries()
-            time.sleep(backoff)
 
-    if conn is None:
-        raise RuntimeError(
-            "unreachable: retry loop exited without a connection or exception"
-        )
+    conn: Connection = _retry_loop(
+        op=engine.connect,
+        classify=_should_retry_connect,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        report=report,
+        on_retry=_on_retry,
+    )
     try:
         yield conn
     finally:
@@ -388,57 +432,48 @@ def _execute_with_retry(
     report: Optional["TeradataReport"] = None,
 ) -> Any:
     """Execute *stmt* on *conn* with exponential-backoff retries on retryable errors."""
-    if max_attempts < 1:
-        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
-    for attempt in range(max_attempts):
-        try:
-            return (
-                conn.execute(stmt, params) if params is not None else conn.execute(stmt)
-            )
-        except Exception as exc:
-            if not _should_retry(exc) or attempt == max_attempts - 1:
-                # Emit a warning breadcrumb before re-raising so that the
-                # ingestion report always contains a trace of the failure even
-                # when the caller has no try/except.  We use report.warning
-                # (not report.failure) because the exception still propagates —
-                # the caller, which has the higher-level table/schema context,
-                # is the right place to decide the final severity.
-                if report is not None:
-                    if _should_retry(exc) and attempt > 0:
-                        report.warning(
-                            title="Database execute failed after retries",
-                            message=(
-                                f"A retryable error persisted after {attempt + 1} attempt(s). "
-                                "The operation has been abandoned. "
-                                "Check Teradata connectivity and cluster stability."
-                            ),
-                            context=str(exc),
-                            exc=exc,
-                        )
-                    else:
-                        # Permanent error or max_attempts == 1: emit a low-level
-                        # breadcrumb that includes the statement text, which
-                        # callers lack.
-                        report.warning(
-                            title="Database execute failed",
-                            message=(
-                                f"Statement failed on attempt {attempt + 1}: {exc}. "
-                                f"Statement: {stmt}"
-                            ),
-                            context=str(exc),
-                            exc=exc,
-                        )
-                raise
-            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
-            logger.warning(
-                f"Retryable DB error on execute (attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.2f}s..."
-            )
-            if report is not None:
-                report.increment_db_retries()
-            time.sleep(backoff)
 
-    raise AssertionError("unreachable")  # loop always raises or returns
+    def _on_terminal(exc: Exception, attempt: int) -> None:
+        # Emit a warning breadcrumb before re-raising so the ingestion report
+        # always contains a trace even when the caller has no try/except.
+        # report.warning (not failure) because the exception still propagates —
+        # the caller, with higher-level table/schema context, decides severity.
+        if report is not None:
+            if _should_retry(exc) and attempt > 0:
+                report.warning(
+                    title="Database execute failed after retries",
+                    message=(
+                        f"A retryable error persisted after {attempt + 1} attempt(s). "
+                        "The operation has been abandoned. "
+                        "Check Teradata connectivity and cluster stability."
+                    ),
+                    context=str(exc),
+                    exc=exc,
+                )
+            else:
+                # Permanent error or max_attempts == 1: include the statement
+                # text, which callers lack.
+                report.warning(
+                    title="Database execute failed",
+                    message=(
+                        f"Statement failed on attempt {attempt + 1}: {exc}. "
+                        f"Statement: {stmt}"
+                    ),
+                    context=str(exc),
+                    exc=exc,
+                )
+
+    return _retry_loop(
+        op=lambda: conn.execute(stmt, params)
+        if params is not None
+        else conn.execute(stmt),
+        classify=_should_retry,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        op_name="Retryable DB error on execute",
+        report=report,
+        on_terminal=_on_terminal,
+    )
 
 
 def _fetchmany_with_retry(
@@ -448,56 +483,48 @@ def _fetchmany_with_retry(
     initial_backoff_seconds: float = _RETRY_INITIAL_BACKOFF_SECONDS,
     report: Optional["TeradataReport"] = None,
 ) -> List[Any]:
-    """Fetch the next batch from *result* with exponential-backoff retries on retryable errors.
+    """Fetch the next batch from *result* with exponential-backoff retries.
 
-    Retry semantics: only meaningful when the *result* cursor remains valid after the error
-    (e.g. a brief network hiccup that leaves the cursor intact).  For server-side streaming
-    cursors (``stream_results=True``) a transient error that invalidates the cursor cannot
-    be recovered by retrying ``fetchmany()`` — the server-side cursor position is lost and
-    subsequent calls will either fail again or silently skip rows.  In that case the retry
-    loop exhausts its attempts and re-raises; the caller is responsible for higher-level
-    recovery (e.g. restarting the query).
+    Retry semantics: only meaningful when the *result* cursor remains valid
+    after the error (e.g. a brief network hiccup that leaves the cursor
+    intact).  For server-side streaming cursors (``stream_results=True``) a
+    transient error that invalidates the cursor cannot be recovered by retrying
+    ``fetchmany()`` — the server-side cursor position is lost and subsequent
+    calls will either fail again or silently skip rows.  In that case the retry
+    loop exhausts its attempts and re-raises; the caller is responsible for
+    higher-level recovery (e.g. restarting the query).
     """
-    if max_attempts < 1:
-        raise ValueError(f"max_attempts must be >= 1, got {max_attempts}")
-    for attempt in range(max_attempts):
-        try:
-            return result.fetchmany(batch_size)  # type: ignore[no-any-return]
-        except Exception as exc:
-            if not _should_retry(exc) or attempt == max_attempts - 1:
-                # Same breadcrumb policy as _execute_with_retry: always warn
-                # so the report contains a trace even when callers don't catch.
-                if report is not None:
-                    if _should_retry(exc) and attempt > 0:
-                        report.warning(
-                            title="Database fetchmany failed after retries",
-                            message=(
-                                f"A retryable error persisted after {attempt + 1} attempt(s). "
-                                "The fetch has been abandoned. "
-                                "Check Teradata connectivity and cluster stability."
-                            ),
-                            context=str(exc),
-                            exc=exc,
-                        )
-                    else:
-                        report.warning(
-                            title="Database fetchmany failed",
-                            message=(
-                                f"fetchmany failed on attempt {attempt + 1}: {exc}."
-                            ),
-                            context=str(exc),
-                            exc=exc,
-                        )
-                raise
-            backoff = _jittered_backoff(attempt, initial_backoff_seconds)
-            logger.warning(
-                f"Retryable DB error on fetchmany (attempt {attempt + 1}/{max_attempts}): {exc}. "
-                f"Retrying in {backoff:.2f}s..."
-            )
-            if report is not None:
-                report.increment_db_retries()
-            time.sleep(backoff)
-    raise AssertionError("unreachable")  # loop always raises or returns
+
+    def _on_terminal(exc: Exception, attempt: int) -> None:
+        if report is not None:
+            if _should_retry(exc) and attempt > 0:
+                report.warning(
+                    title="Database fetchmany failed after retries",
+                    message=(
+                        f"A retryable error persisted after {attempt + 1} attempt(s). "
+                        "The fetch has been abandoned. "
+                        "Check Teradata connectivity and cluster stability."
+                    ),
+                    context=str(exc),
+                    exc=exc,
+                )
+            else:
+                report.warning(
+                    title="Database fetchmany failed",
+                    message=f"fetchmany failed on attempt {attempt + 1}: {exc}.",
+                    context=str(exc),
+                    exc=exc,
+                )
+
+    return _retry_loop(  # type: ignore[return-value]
+        op=lambda: result.fetchmany(batch_size),
+        classify=_should_retry,
+        max_attempts=max_attempts,
+        initial_backoff_seconds=initial_backoff_seconds,
+        op_name="Retryable DB error on fetchmany",
+        report=report,
+        on_terminal=_on_terminal,
+    )
 
 
 @dataclass
@@ -861,7 +888,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Connection pool performance metrics (actively used)
     connection_pool_wait_time_seconds: float = 0.0
     connection_pool_max_wait_time_seconds: float = 0.0
-    num_pool_exhaustion_events: int = 0
+    num_pool_timeout_retries: int = 0
 
     # Database-level metrics similar to BigQuery's approach (actively used)
     num_database_tables_to_scan: TopKDict[str, int] = field(default_factory=TopKDict)
@@ -894,9 +921,9 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
         with self._lock:
             self.num_db_retries += 1
 
-    def increment_pool_exhaustion_events(self) -> None:
+    def increment_pool_timeout_retries(self) -> None:
         with self._lock:
-            self.num_pool_exhaustion_events += 1
+            self.num_pool_timeout_retries += 1
 
     def increment_columns_processed(self) -> None:
         with self._lock:
@@ -1107,7 +1134,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "PoolTimeoutError is a retryable condition: the connector will sleep with "
             "full-jitter exponential backoff and try again up to retry_max_attempts times. "
             "Increase this when parallel view processing saturates the pool on large "
-            "schemas (watch num_pool_exhaustion_events in the ingestion report). "
+            "schemas (watch num_pool_timeout_retries in the ingestion report). "
             "Decrease it to surface pool-exhaustion failures faster on small installations. "
             "Default is 60000 (60 seconds)."
         ),
@@ -2797,15 +2824,19 @@ ORDER by DataBaseName, TableName;
                 )
             except (OperationalError, DatabaseError) as e:
                 msg = str(e).lower()
-                # Only fall back for errors that plausibly indicate cursor-mode is
-                # unsupported (e.g. "not supported", "cursor", "stream").  All other
-                # OperationalError / DatabaseError instances (auth failures, "database
-                # does not exist", SQL syntax errors, OOM) must propagate so the caller
-                # can handle or surface them correctly.
-                if not any(
-                    s in msg
-                    for s in ("not supported", "cursor", "stream", "unsupported")
-                ):
+                # Only fall back when the error clearly indicates that the
+                # server-side cursor / streaming mode itself is not supported.
+                # Require BOTH a "not supported / unsupported" token AND a
+                # "cursor / stream" token to co-occur so that SQL text which
+                # incidentally contains "cursor" or "stream" (e.g. a CTE named
+                # stream_events, or a DBC query mentioning cursors in
+                # RequestText) is not mis-classified as a cursor-mode failure.
+                # All other OperationalError / DatabaseError instances (auth
+                # failures, "database does not exist", SQL syntax errors, OOM)
+                # must propagate so the caller can handle or surface them.
+                _not_supported = "not supported" in msg or "unsupported" in msg
+                _cursor_or_stream = "cursor" in msg or "stream" in msg
+                if not (_not_supported and _cursor_or_stream):
                     raise
                 self.report.warning(
                     title="Server-side cursor not supported — falling back to client-side execution",

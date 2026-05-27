@@ -3261,7 +3261,7 @@ class TestTeradataReportFields:
         def worker(_: int) -> None:
             for _ in range(m_per_thread):
                 report.increment_db_retries()
-                report.increment_pool_exhaustion_events()
+                report.increment_pool_timeout_retries()
                 report.increment_columns_processed()
                 report.increment_column_extraction_failures()
                 report.increment_primary_keys_processed()
@@ -3272,7 +3272,7 @@ class TestTeradataReportFields:
 
         expected_count = n_threads * m_per_thread
         assert report.num_db_retries == expected_count
-        assert report.num_pool_exhaustion_events == expected_count
+        assert report.num_pool_timeout_retries == expected_count
         assert report.num_columns_processed == expected_count
         assert report.num_column_extraction_failures == expected_count
         assert report.num_primary_keys_processed == expected_count
@@ -3313,8 +3313,8 @@ class TestConnectionPoolRetry:
         ):
             assert conn is mock_conn
 
-        # Two failures → two pool-exhaustion events and two retry increments.
-        assert report.num_pool_exhaustion_events == 2
+        # Two failures → two pool-timeout retries (attempts 0 and 1 sleep+increment).
+        assert report.num_pool_timeout_retries == 2
         assert report.num_db_retries == 2
 
         # Both WARNING lines must carry thread name and tid.
@@ -3343,8 +3343,8 @@ class TestConnectionPoolRetry:
         ):
             pass  # should never reach here
 
-        # All 3 attempts counted as exhaustion events; only 2 retries (last attempt just raises).
-        assert report.num_pool_exhaustion_events == 2
+        # 2 retries (attempts 0 and 1 sleep+increment); attempt 2 raises without counting.
+        assert report.num_pool_timeout_retries == 2
         assert report.num_db_retries == 2
 
     def test_connection_closed_on_normal_exit(self):
@@ -3964,3 +3964,136 @@ class TestHistoricalTableCheckLogging:
             "transient" in r.message.lower() and r.levelno == logging.WARNING
             for r in caplog.records
         )
+
+
+class TestExecuteWithCursorFallback:
+    """_execute_with_cursor_fallback() falls back to client-side buffering only
+    when the error unambiguously signals that server-side cursors are
+    unsupported.  All other errors must propagate.
+
+    Regression guard for N16: the substring filter must require BOTH a
+    "not supported / unsupported" token AND a "cursor / stream" token to
+    co-occur, so SQL text that incidentally contains "cursor" or "stream"
+    (e.g. a CTE named stream_events) is not mis-classified as a cursor-mode
+    failure.
+    """
+
+    def _make_source(self, use_server_side_cursors: bool = True) -> TeradataSource:
+        return _create_source_patched(
+            {"use_server_side_cursors": use_server_side_cursors}
+        )
+
+    def _mock_conn(self) -> MagicMock:
+        """Return a connection mock whose execution_options() returns a
+        distinct streaming_conn object (used to verify which path is taken)."""
+        conn = MagicMock()
+        conn.execution_options.return_value = MagicMock()
+        return conn
+
+    def _retry_execute_raising(self, exc: Exception, fallback_result: MagicMock):
+        """side_effect for _retry_execute: raises on the streaming call
+        (streaming_conn arg), returns fallback_result on the plain call."""
+        calls: list = []
+
+        def _side_effect(conn, stmt, **kwargs):
+            calls.append(conn)
+            if len(calls) == 1:
+                raise exc
+            return fallback_result
+
+        return _side_effect
+
+    # ------------------------------------------------------------------
+    # Fallback cases — should silently switch to client-side buffering
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            "stream_results not supported by driver",
+            "server-side cursor not supported",
+            "unsupported: streaming cursor",
+            "cursor mode is not supported",
+            "streaming is unsupported",
+        ],
+    )
+    def test_falls_back_on_cursor_not_supported_messages(self, msg: str) -> None:
+        """OperationalError messages that mention both unsupported and cursor/stream
+        trigger fallback and emit a warning — not a raise."""
+        source = self._make_source()
+        conn = self._mock_conn()
+        fallback_result = MagicMock()
+        exc = OperationalError(msg, None, None)
+
+        with patch.object(
+            source,
+            "_retry_execute",
+            side_effect=self._retry_execute_raising(exc, fallback_result),
+        ) as mock_retry:
+            result = source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        assert result is fallback_result
+        assert len(source.report.warnings) == 1
+        # Second _retry_execute call must use the plain (non-streaming) connection
+        assert mock_retry.call_count == 2
+        second_call_conn = mock_retry.call_args_list[1][0][0]
+        assert second_call_conn is conn
+
+    # ------------------------------------------------------------------
+    # Propagation cases — the B3 safety guard must NOT fall back
+    # ------------------------------------------------------------------
+
+    @pytest.mark.parametrize(
+        "msg",
+        [
+            # SQL text incidentally containing "stream" without "not supported"
+            # — the old single-token check would mis-classify this as cursor failure
+            "SELECT * FROM stream_events WHERE id = 1",
+            # SQL text incidentally containing "cursor" without "not supported"
+            "CursorPos exceeded maximum allowed value",
+            # Auth / permission errors — must always propagate
+            "authentication failed",
+            "permission denied",
+            "access denied to database mydb",
+            # Generic transient errors unrelated to cursor mode
+            "connection reset by peer",
+            "eof occurred in violation of protocol",
+        ],
+    )
+    def test_propagates_non_cursor_errors(self, msg: str) -> None:
+        """OperationalError messages that do NOT clearly indicate cursor-mode
+        unsupported must propagate — never fall back to client-side buffering.
+
+        This is the critical B3 safety guard: a permission-denied or auth error
+        on the streaming execute must bubble up, not get swallowed as a
+        "cursor not supported" warning.
+        """
+        source = self._make_source()
+        conn = self._mock_conn()
+        exc = OperationalError(msg, None, None)
+
+        with (
+            patch.object(
+                source,
+                "_retry_execute",
+                side_effect=exc,  # always raises — fallback path must never be reached
+            ),
+            pytest.raises(OperationalError),
+        ):
+            source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        # No fallback warning must have been emitted
+        assert len(source.report.warnings) == 0
+
+    def test_disabled_cursor_skips_streaming_entirely(self) -> None:
+        """When use_server_side_cursors=False, the streaming path is never
+        attempted — execution_options is never called."""
+        source = self._make_source(use_server_side_cursors=False)
+        conn = self._mock_conn()
+        expected = MagicMock()
+
+        with patch.object(source, "_retry_execute", return_value=expected):
+            result = source._execute_with_cursor_fallback(conn, "SELECT 1")
+
+        conn.execution_options.assert_not_called()
+        assert result is expected
