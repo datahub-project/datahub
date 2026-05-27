@@ -146,6 +146,14 @@ class PipelineStats:
                 "failed_event_count": self.failed_event_count,
                 "failed_ack_count": self.failed_ack_count,
                 "success_count": self.success_count,
+                "filter_stats": {
+                    k: json.loads(v.as_string()) for k, v in self.filter_stats.items()
+                },
+                "transformer_stats": {
+                    k: json.loads(v.as_string())
+                    for k, v in self.transformer_stats.items()
+                },
+                "action_stats": json.loads(self.action_stats.as_string()),
             },
             indent=4,
             sort_keys=True,

@@ -37,4 +37,11 @@ class ActionStats:
         return self.success_count
 
     def as_string(self) -> str:
-        return json.dumps(self.__dict__, indent=4, sort_keys=True)
+        return json.dumps(
+            {
+                "exception_count": self.exception_count,
+                "success_count": self.success_count,
+            },
+            indent=4,
+            sort_keys=True,
+        )

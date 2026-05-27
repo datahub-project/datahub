@@ -39,4 +39,12 @@ class FilterStats:
         return self.filtered_count
 
     def as_string(self) -> str:
-        return json.dumps(self.__dict__, indent=4, sort_keys=True)
+        return json.dumps(
+            {
+                "exception_count": self.exception_count,
+                "processed_count": self.processed_count,
+                "filtered_count": self.filtered_count,
+            },
+            indent=4,
+            sort_keys=True,
+        )
