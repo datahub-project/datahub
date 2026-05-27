@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
@@ -27,6 +28,7 @@ type Props = {
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
 export const AssertionResultsTimeline = ({ assertion }: Props) => {
+    const { t } = useTranslation('entity.validations');
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */
@@ -85,7 +87,7 @@ export const AssertionResultsTimeline = ({ assertion }: Props) => {
         assertion.info?.type === AssertionType.Freshness ? FRESHNESS_VIZ_CONTAINER_HEIGHT : VIZ_CONTAINER_HEIGHT;
     return (
         <Container>
-            {error && <Message type="error" content="Failed to load results! An unexpected error occurred." />}
+            {error && <Message type="error" content={t('timeline.failedToLoad')} />}
             {loading || isInitializing ? (
                 <AssertionTimelineSkeleton
                     parentDimensions={{

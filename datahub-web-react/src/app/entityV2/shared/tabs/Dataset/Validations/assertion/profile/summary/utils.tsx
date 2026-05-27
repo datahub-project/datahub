@@ -2,6 +2,7 @@ import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import { DatasetAssertionDescription } from '@app/entityV2/shared/tabs/Dataset/Validations/DatasetAssertionDescription';
@@ -61,6 +62,8 @@ import { useGetUserQuery } from '@graphql/user.generated';
  * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
+/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getOperatorPlainText = (
     op: AssertionStdOperator,
     parameters: AssertionStdParameters | undefined,
@@ -121,6 +124,7 @@ const getOperatorPlainText = (
         }
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
@@ -130,6 +134,8 @@ const getOperatorPlainText = (
  *
  * Schema assertions require an aggregation.
  */
+/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getSchemaAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -148,6 +154,7 @@ const getSchemaAggregationPlainText = (
             return 'Dataset columns are';
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getRowsAggregationText} utility function to get plain text from html description.
@@ -156,6 +163,8 @@ const getSchemaAggregationPlainText = (
  *
  * Row assertions require an aggregation.
  */
+/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
@@ -167,6 +176,7 @@ const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | unde
             return 'Dataset rows are';
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  *
@@ -176,6 +186,8 @@ const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | unde
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
+/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getColumnAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
@@ -224,12 +236,15 @@ const getColumnAggregationPlainText = (
             return `Column ${columnText} values are`;
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
+/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
+   full assertion description; cannot translate independently as word order differs by language */
 const getAggregationPlainText = (
     scope: DatasetAssertionScope,
     aggregation: AssertionStdAggregation | undefined | null,
@@ -247,25 +262,30 @@ const getAggregationPlainText = (
             return 'Dataset is';
     }
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link DatasetAssertionDescription} utility function to get plain text from html description.
  * @link DatasetAssertionDescription
  * A human-readable Plain Text description of a Dataset Assertion.
  */
-
+/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating aggregation and operator
+   fragments; the sentence structure cannot be expressed as a single translation key */
 const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
     const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
     return `${aggregationPlainText} ${operatorPlainText}`;
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
+/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating
+   type/operator/parameter/unit fragments in English word order; cannot be expressed as a single translation key */
 const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
@@ -278,12 +298,15 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
 
     return `Table ${volumeTypeDescription} ${operatorDescription} ${parameterDescription} ${valueChangeTypeDescription}`;
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
+/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating field
+   transform/operator/parameter fragments in English word order; cannot be expressed as a single translation key */
 const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
@@ -294,24 +317,30 @@ const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo
         (transform && 'column') || 'Values'
     } ${operator} ${parameters}`;
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
+/* eslint-disable i18next/no-literal-string -- Assembles a full description with a hardcoded English fragment ('exactly
+   match'/'include'); cannot be expressed as a single translation key */
 const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
     return `Actual table columns ${matchText} ${expectedColumnCount} expected columns`;
 };
+/* eslint-enable i18next/no-literal-string */
 
 /** below functions are related to Freshness */
 
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
  */
+/* eslint-disable i18next/no-literal-string -- Sentence prefix ('Table was updated'/'Data Task is run successfully')
+   concatenated with scheduleText; split sentence cannot be independently translated */
 const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
@@ -338,6 +367,7 @@ const getFreshnessAssertionPlainTextDescription = (
         freshnessType === FreshnessAssertionType.DatasetChange ? 'Table was updated ' : 'Data Task is run successfully '
     }${scheduleText}`;
 };
+/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns a text element describing the given assertion
@@ -353,7 +383,8 @@ export const useBuildAssertionPrimaryLabel = (
     monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
 ): JSX.Element => {
-    let primaryLabel = <Typography.Text>No description found</Typography.Text>;
+    const { t } = useTranslation('entity.validations');
+    let primaryLabel = <Typography.Text>{t('datasetDescription.fallback.noDescription')}</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
     } else {
@@ -410,6 +441,7 @@ export const useBuildAssertionPrimaryLabel = (
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
     const theme = useTheme();
+    const { t } = useTranslation('entity.validations');
     const entityRegistry = useEntityRegistry();
 
     // 1. Fetching the most recent actor data.
@@ -433,37 +465,26 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
 
     // 2.1 Creator info if available
     if (createdActor?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, createdActor.corpUser)) {
-        secondaryLabelMessage = `Created by ${entityRegistry.getDisplayName(
-            EntityType.CorpUser,
-            createdActor.corpUser,
-        )}`;
+        const creator = entityRegistry.getDisplayName(EntityType.CorpUser, createdActor.corpUser);
+        secondaryLabelMessage = t('datasetDescription.label.createdByTemplate', { creator });
 
-        tooltipCreatedByMessage = `Created by: ${entityRegistry.getDisplayName(
-            EntityType.CorpUser,
-            createdActor.corpUser,
-        )}${createdActor.corpUser?.info?.email ? ` (${createdActor.corpUser.info.email})` : ''} on ${
-            assertionInfo?.source?.created?.time
-                ? new Date(assertionInfo.source.created.time).toLocaleString()
-                : 'an unknown time' // should never get here
-        }.`;
+        const extra = createdActor.corpUser?.info?.email ? ` (${createdActor.corpUser.info.email})` : '';
+        const date = assertionInfo?.source?.created?.time
+            ? new Date(assertionInfo.source.created.time).toLocaleString()
+            : t('datasetDescription.tooltip.anUnknownTime');
+        tooltipCreatedByMessage = t('datasetDescription.tooltip.createdBy', { creator, extra, date });
     }
     // 2.2 Last updated info if available
     if (lastUpdatedActor?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser)) {
+        const updater = entityRegistry.getDisplayName(EntityType.CorpUser, lastUpdatedActor.corpUser);
         // Special handling if creator is last updater
         if (updatedActorUrn === creatorActorUrn) {
-            const prefix =
+            secondaryLabelMessage =
                 assertionInfo?.source?.created?.time === assertionInfo?.lastUpdated?.time
-                    ? `Created by`
-                    : `Last updated by`;
-            secondaryLabelMessage = `${prefix} ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}`;
+                    ? t('datasetDescription.label.createdByTemplate', { creator: updater })
+                    : t('datasetDescription.label.lastUpdatedByTemplate', { updater });
         } else {
-            secondaryLabelMessage = `Last updated by ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}`;
+            secondaryLabelMessage = t('datasetDescription.label.lastUpdatedByTemplate', { updater });
         }
 
         // Show tooltip label for last updated if either the updater != creator OR if updatedTime != createdTime
@@ -471,14 +492,11 @@ const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Eleme
             updatedActorUrn !== creatorActorUrn ||
             assertionInfo?.lastUpdated?.time !== assertionInfo?.source?.created?.time
         ) {
-            tooltipLastUpdatedByMessage = `Last updated by ${entityRegistry.getDisplayName(
-                EntityType.CorpUser,
-                lastUpdatedActor.corpUser,
-            )}${lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : ''} on ${
-                assertionInfo?.lastUpdated?.time
-                    ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
-                    : 'an unknown time' // should never get here
-            }.`;
+            const extra = lastUpdatedActor.corpUser?.info?.email ? ` (${lastUpdatedActor.corpUser.info.email})` : '';
+            const date = assertionInfo?.lastUpdated?.time
+                ? new Date(assertionInfo.lastUpdated.time).toLocaleString()
+                : t('datasetDescription.tooltip.anUnknownTime');
+            tooltipLastUpdatedByMessage = t('datasetDescription.tooltip.lastUpdatedBy', { updater, extra, date });
         }
     }
 
