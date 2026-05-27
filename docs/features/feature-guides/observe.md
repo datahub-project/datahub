@@ -37,6 +37,12 @@ Catch issues as close to the source as possible.
 - **[Data Health Dashboard](/docs/managed-datahub/observe/data-health-dashboard.md)** — a single pane for the health of your data landscape, including [Monitoring Rules](/docs/managed-datahub/observe/data-health-dashboard.md#monitoring-rules) that automatically apply anomaly-detection monitors and schema assertions across matching datasets as your landscape evolves. _DataHub Cloud only._
 - **[SQL Profiling](/metadata-ingestion/docs/dev_guides/sql_profiles.md)** — dataset and column profiles produced by ingestion. Profiles power ingestion-driven Volume and Column assertions and feed the asset profile pages users already browse.
 
+### Supported platforms
+
+Active query runs on the major cloud warehouses; ingestion-driven assertions work on any platform that reports the relevant aspect.
+
+👉 **[See supported platforms](/docs/managed-datahub/observe/assertions.md#capabilities-at-a-glance)**
+
 ## Resolution
 
 Once an issue is detected, route and fix it.
