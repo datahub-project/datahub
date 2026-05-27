@@ -19,7 +19,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,18 +79,15 @@ public class EntityAssertionsResolver
                     new HashSet<>(assertionUrns),
                     null);
 
-            // Step 3: Map GMS assertion model to GraphQL model.
+            // Step 3: Map GMS assertion model to GraphQL model, preserving graph-store order.
             // The status aspect is already in each EntityResponse from step 2 (batchGetV2 was
             // called with null aspect names = fetch all). AssertionMapper surfaces it onto
             // assertion.status.removed, so the soft-delete filter can run in-memory rather than
             // issuing one entityClient.exists() call per assertion (avoids an N+1 against
             // metadata_aspect_v2).
-            final List<EntityResponse> gmsResults = new ArrayList<>();
-            for (Urn urn : assertionUrns) {
-              gmsResults.add(entities.getOrDefault(urn, null));
-            }
             final List<Assertion> assertions =
-                gmsResults.stream()
+                assertionUrns.stream()
+                    .map(entities::get) // null for hard-deleted urns
                     .filter(Objects::nonNull)
                     .map(r -> AssertionMapper.map(context, r))
                     .filter(assertion -> includeSoftDeleted || !isSoftDeleted(assertion))
