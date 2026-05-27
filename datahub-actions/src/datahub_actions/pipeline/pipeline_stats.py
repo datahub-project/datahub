@@ -33,22 +33,30 @@ class PipelineStats:
     started_at: int
 
     # Number of events that failed processing even after retry.
-    failed_event_count: int = 0
+    failed_event_count: int
 
     # Number of events that failed when "ack" was invoked.
-    failed_ack_count: int = 0
+    failed_ack_count: int
 
     # Top-level number of succeeded processing executions.
-    success_count: int = 0
+    success_count: int
 
     # Filter Stats
-    filter_stats: Dict[str, FilterStats] = {}
+    filter_stats: Dict[str, FilterStats]
 
     # Transformer Stats
-    transformer_stats: Dict[str, TransformerStats] = {}
+    transformer_stats: Dict[str, TransformerStats]
 
     # Action Stats
-    action_stats: ActionStats = ActionStats()
+    action_stats: ActionStats
+
+    def __init__(self) -> None:
+        self.failed_event_count = 0
+        self.failed_ack_count = 0
+        self.success_count = 0
+        self.filter_stats = {}
+        self.transformer_stats = {}
+        self.action_stats = ActionStats()
 
     def mark_start(self) -> None:
         self.started_at = int(time() * 1000)
