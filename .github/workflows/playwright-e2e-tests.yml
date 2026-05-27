@@ -187,15 +187,21 @@ jobs:
           LINEAGE_PERF_SCREENSHOT: ${{ github.event.inputs.lineage_perf_screenshot == 'true' && '1' || '' }}
           LINEAGE_A11Y: ${{ github.event.inputs.lineage_a11y == 'true' && '1' || '' }}
           LINEAGE_A11Y_LARGE: ${{ github.event.inputs.lineage_a11y == 'true' && '1' || '' }}
+          # Bind matrix + input values to env vars so they're never interpolated
+          # directly into the shell — defense-in-depth against template injection
+          # even though these values are produced by our own setup job.
+          LINEAGE_PERF_INPUT: ${{ github.event.inputs.lineage_perf }}
+          MATRIX_SHARD: ${{ matrix.shard }}
+          MATRIX_SHARD_COUNT: ${{ matrix.shard_count }}
         run: |
-          if [[ "${{ github.event.inputs.lineage_perf }}" == "true" ]]; then
+          if [[ "$LINEAGE_PERF_INPUT" == "true" ]]; then
             # Single-shard perf benchmark: scope to tests/lineage-perf and let the
             # synthetic/CLL/mixed/screenshot/a11y matrices gate themselves on the
             # opt-in env vars above.
             npx playwright test tests/lineage-perf
           else
             npx playwright test \
-              --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
+              --shard="$MATRIX_SHARD/$MATRIX_SHARD_COUNT"
           fi
 
       - name: Upload Playwright blob report
