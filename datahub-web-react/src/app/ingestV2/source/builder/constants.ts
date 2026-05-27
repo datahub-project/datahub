@@ -133,6 +133,7 @@ const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
+export const GITHUB_DOCUMENTS = 'github-documents';
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;

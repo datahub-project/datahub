@@ -5,12 +5,12 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
-import type { GitHubDocumentsIngestionLocationState } from '@app/context/import/githubDocumentsIngestion.types';
 import { useIngestionContext } from '@app/ingestV2/IngestionContext';
 import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
+import type { IngestionSourceCreatePageLocationState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
@@ -51,7 +51,7 @@ const STEPS: IngestionSourceFormStep[] = [
 
 export function IngestionSourceCreatePage() {
     const history = useHistory();
-    const location = useLocation<GitHubDocumentsIngestionLocationState>();
+    const location = useLocation<IngestionSourceCreatePageLocationState>();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();

@@ -20,16 +20,17 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
     collect_intermediate_directories,
     make_dir_source_id,
     make_file_source_id,
+    make_repo_source_id,
     normalize_document_id,
     resolve_parent_dir_source_id,
 )
 from datahub.ingestion.source.github_documents.github_documents_config import (
-    DocumentImportMode,
     GitHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.github_documents.github_documents_report import (
@@ -65,6 +66,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         self.report = GitHubDocumentsSourceReport()
         self.client = GitHubApiClient(config.github_token.get_secret_value())
         self._source_id_to_urn: Dict[str, str] = {}
+        self._repo_root_source_id: Optional[str] = (
+            None
+            if config.parent_document_urn
+            else make_repo_source_id(config.repository)
+        )
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "GitHubDocumentsSource":
@@ -85,6 +91,12 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             return
 
         commit_sha = self.client.get_latest_commit_sha(owner_repo, branch)
+
+        if self._repo_root_source_id:
+            yield from self._emit_repo_root_document(
+                owner_repo=owner_repo, branch=branch
+            )
+
         dir_paths = sorted(
             collect_intermediate_directories(files, path_prefix),
             key=lambda path: path.count("/"),
@@ -107,6 +119,37 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 commit_sha=commit_sha,
             )
 
+    def _emit_repo_root_document(
+        self, owner_repo: str, branch: str
+    ) -> Iterable[MetadataWorkUnit]:
+        source_id = self._repo_root_source_id
+        if not source_id:
+            return
+
+        title = owner_repo.split("/")[-1] if "/" in owner_repo else owner_repo
+        doc_id = normalize_document_id(source_id)
+        custom_properties = {
+            "import_source": "github",
+            "github_repo": owner_repo,
+            "github_branch": branch,
+            "is_repo_root_document": "true",
+            "import_source_id": source_id,
+        }
+
+        doc = self._build_document(
+            doc_id=doc_id,
+            title=title,
+            text="",
+            owner_repo=owner_repo,
+            branch=branch,
+            github_path="",
+            parent_document=None,
+            custom_properties=custom_properties,
+        )
+        self._source_id_to_urn[source_id] = doc.urn
+        self.report.folders_processed += 1
+        yield from doc.as_workunits()
+
     def _emit_folder_document(
         self,
         owner_repo: str,
@@ -116,7 +159,10 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
     ) -> Iterable[MetadataWorkUnit]:
         source_id = make_dir_source_id(owner_repo, dir_path)
         parent_source_id = resolve_parent_dir_source_id(
-            owner_repo, dir_path, path_prefix
+            owner_repo,
+            dir_path,
+            path_prefix,
+            repo_root_source_id=self._repo_root_source_id,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 
@@ -160,7 +206,10 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
         source_id = make_file_source_id(owner_repo, file_path)
         parent_source_id = resolve_parent_dir_source_id(
-            owner_repo, file_path, path_prefix
+            owner_repo,
+            file_path,
+            path_prefix,
+            repo_root_source_id=self._repo_root_source_id,
         )
         parent_urn = self._resolve_parent_urn(parent_source_id)
 

@@ -1,4 +1,4 @@
-import type { MultiStepSourceBuilderState } from '@app/ingestV2/source/multiStepBuilder/types';
+import { buildIngestionSourceState } from '@app/context/import/buildIngestionSourceState';
 
 const GITHUB_DOCUMENTS_SOURCE_TYPE = 'github-documents';
 
@@ -6,9 +6,7 @@ type BuildGitHubDocumentsIngestionStateParams = {
     parentDocumentUrn?: string | null;
 };
 
-export function buildGitHubDocumentsIngestionState({
-    parentDocumentUrn,
-}: BuildGitHubDocumentsIngestionStateParams): MultiStepSourceBuilderState {
+export function buildGitHubDocumentsIngestionState({ parentDocumentUrn }: BuildGitHubDocumentsIngestionStateParams) {
     const parentUrnYaml = parentDocumentUrn ? `"${parentDocumentUrn}"` : 'null';
 
     const recipe = `source:
@@ -31,13 +29,11 @@ sink:
     server: "\${DATAHUB_GMS_URL}"
 `;
 
-    return {
-        type: GITHUB_DOCUMENTS_SOURCE_TYPE,
-        name: 'GitHub Documents',
-        config: {
-            recipe,
-        },
-    };
+    return buildIngestionSourceState({
+        sourceType: GITHUB_DOCUMENTS_SOURCE_TYPE,
+        displayName: 'GitHub Documents',
+        recipe,
+    });
 }
 
 export const GITHUB_DOCUMENTS_INGESTION_SOURCE_TYPE = GITHUB_DOCUMENTS_SOURCE_TYPE;

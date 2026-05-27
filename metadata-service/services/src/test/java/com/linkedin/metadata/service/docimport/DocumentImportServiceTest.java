@@ -29,13 +29,21 @@ public class DocumentImportServiceTest {
   @Test
   public void testMakeDocumentId_basicSanitization() {
     String id = DocumentImportService.makeDocumentId("upload.readme");
-    assertEquals(id, "upload.readme");
+    assertTrue(id.startsWith("upload.readme-"));
+    assertEquals(id.length(), "upload.readme-".length() + 8);
   }
 
   @Test
   public void testMakeDocumentId_specialCharsReplaced() {
     String id = DocumentImportService.makeDocumentId("upload.My File (copy)");
-    assertEquals(id, "upload.my-file-copy");
+    assertTrue(id.startsWith("upload.my-file-copy-"));
+  }
+
+  @Test
+  public void testMakeDocumentId_distinctAfterSanitization() {
+    String id1 = DocumentImportService.makeDocumentId("upload.docs/a b");
+    String id2 = DocumentImportService.makeDocumentId("upload.docs/a-b");
+    assertNotEquals(id1, id2);
   }
 
   @Test
@@ -300,7 +308,7 @@ public class DocumentImportServiceTest {
   @Test
   public void testMakeDocumentId_lowercased() {
     String id = DocumentImportService.makeDocumentId("upload.MyDocument");
-    assertEquals(id, "upload.mydocument");
+    assertTrue(id.startsWith("upload.mydocument-"));
   }
 
   @Test

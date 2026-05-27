@@ -8,10 +8,10 @@ import '@app/context/import/__tests__/testSetup';
 import { DocumentTreeContext, DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
-const mockLaunchGitHub = vi.fn();
+const mockLaunchDocumentIngestion = vi.fn();
 
-vi.mock('@app/context/import/hooks/useLaunchGitHubDocumentsIngestion', () => ({
-    useLaunchGitHubDocumentsIngestion: () => mockLaunchGitHub,
+vi.mock('@app/context/import/hooks/useLaunchDocumentIngestionSource', () => ({
+    useLaunchDocumentIngestionSource: () => mockLaunchDocumentIngestion,
 }));
 
 vi.mock('@app/context/useUserContext', () => ({
@@ -106,7 +106,7 @@ describe('ImportDocumentsModal', () => {
 
         fireEvent.click(screen.getByText('Continue to setup'));
 
-        expect(mockLaunchGitHub).toHaveBeenCalled();
+        expect(mockLaunchDocumentIngestion).toHaveBeenCalled();
         expect(onClose).toHaveBeenCalled();
     });
 

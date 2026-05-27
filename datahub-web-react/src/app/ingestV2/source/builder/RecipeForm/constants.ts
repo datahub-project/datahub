@@ -89,6 +89,7 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
+import { DOCUMENT_IMPORT_MODE } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
     DORIS,
     DORIS_DATABASE,
@@ -113,6 +114,15 @@ import {
     DREMIO_TLS,
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
+import {
+    GITHUB_DOCUMENTS_BRANCH,
+    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+    GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN,
+    GITHUB_DOCUMENTS_PATH_PREFIX,
+    GITHUB_DOCUMENTS_REPOSITORY,
+    GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT,
+    GITHUB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -342,6 +352,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    GITHUB_DOCUMENTS,
     MATILLION_DPC,
     MYSQL,
     NOTION,
@@ -715,7 +726,22 @@ export const RECIPE_FIELDS: RecipeFields = {
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
         filterFields: [],
-        advancedFields: [],
+        advancedFields: [DOCUMENT_IMPORT_MODE],
+    },
+    [GITHUB_DOCUMENTS]: {
+        fields: [
+            GITHUB_DOCUMENTS_TOKEN,
+            GITHUB_DOCUMENTS_REPOSITORY,
+            GITHUB_DOCUMENTS_BRANCH,
+            GITHUB_DOCUMENTS_PATH_PREFIX,
+            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+        ],
+        filterFields: [],
+        advancedFields: [
+            GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN,
+            DOCUMENT_IMPORT_MODE,
+            GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT,
+        ],
     },
     [CONFLUENCE]: {
         fields: [
@@ -726,7 +752,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             CONFLUENCE_PERSONAL_ACCESS_TOKEN,
         ],
         filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
-        advancedFields: [],
+        advancedFields: [DOCUMENT_IMPORT_MODE],
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
         defaultOpenSections: [RecipeSections.Filter],

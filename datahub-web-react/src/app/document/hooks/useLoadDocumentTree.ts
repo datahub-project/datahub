@@ -82,6 +82,7 @@ export function useLoadDocumentTree() {
                     variables: {
                         input: {
                             query: '*',
+                            // rootOnly avoids returning every document when loading the tree root.
                             parentDocuments: parentUrn ? [parentUrn] : undefined,
                             rootOnly: parentUrn === null ? true : undefined,
                             start: 0,

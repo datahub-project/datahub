@@ -62,12 +62,25 @@ def make_dir_source_id(owner_repo: str, dir_path: str) -> str:
     return f"github.{repo_part}.{path_part}._dir"
 
 
+def make_repo_source_id(owner_repo: str) -> str:
+    repo_part = owner_repo.replace("/", ".")
+    return f"github.{repo_part}._repo"
+
+
 def normalize_document_id(source_id: str) -> str:
     """Normalize a source id into a stable document entity id (matches GMS import service)."""
+    import hashlib
+
+    hash_suffix = hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:8]
     safe = re.sub(r"[^a-zA-Z0-9_.\-]", "-", source_id)
     safe = re.sub(r"-{2,}", "-", safe)
     safe = safe.strip("-").lower()
-    return safe[:200]
+    max_base_length = 200 - len(hash_suffix) - 1
+    if max_base_length < 1:
+        return hash_suffix
+    if len(safe) > max_base_length:
+        safe = safe[:max_base_length]
+    return f"{safe}-{hash_suffix}"
 
 
 class GitHubApiClient:
@@ -97,6 +110,13 @@ class GitHubApiClient:
         if tree is None or "tree" not in tree:
             raise RuntimeError(
                 f"Could not access branch '{branch}' in repository {owner_repo}"
+            )
+        if tree.get("truncated"):
+            logger.warning(
+                "GitHub returned a truncated tree for %s@%s; only a subset of files will be imported. "
+                "Use path_prefix to narrow scope or split across multiple ingestion sources.",
+                owner_repo,
+                branch,
             )
 
         ext_set = {ext.lower() for ext in extensions}
@@ -184,8 +204,12 @@ class GitHubApiClient:
 
 
 def _matches_filters(file_path: str, path_prefix: str, extensions: Set[str]) -> bool:
-    if path_prefix and not file_path.startswith(path_prefix):
-        return False
+    normalized_prefix = path_prefix.strip("/")
+    if normalized_prefix:
+        if file_path != normalized_prefix and not file_path.startswith(
+            f"{normalized_prefix}/"
+        ):
+            return False
     dot = file_path.rfind(".")
     if dot < 0:
         return False
@@ -211,12 +235,16 @@ def collect_intermediate_directories(
 
 
 def resolve_parent_dir_source_id(
-    owner_repo: str, full_path: str, path_prefix: str
+    owner_repo: str,
+    full_path: str,
+    path_prefix: str,
+    *,
+    repo_root_source_id: Optional[str] = None,
 ) -> Optional[str]:
     relative_path = _relativize(full_path, path_prefix.strip("/"))
     parent_dir = _parent_directory(relative_path)
     if parent_dir is None:
-        return None
+        return repo_root_source_id
     return make_dir_source_id(
         owner_repo, _resolve_path(path_prefix.strip("/"), parent_dir)
     )

@@ -9,6 +9,7 @@ import { matchPath, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
+import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
@@ -264,30 +265,11 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
-    const handleImportSuccess = useCallback(
-        (parentUrn: string | null) => {
-            const delays = [1500, 3000, 6000];
-
-            if (parentUrn) {
-                // Expand the ancestor chain immediately so the path is visible
-                let current: string | null = parentUrn;
-                while (current) {
-                    expandNode(current);
-                    current = getNode(current)?.parentUrn || null;
-                }
-                // Only reload the target parent's children — don't touch root
-                delays.forEach((delay) => {
-                    setTimeout(() => loadChildren(parentUrn), delay);
-                });
-            } else {
-                // Importing at root — reload root nodes only
-                delays.forEach((delay) => {
-                    setTimeout(() => loadChildren(null), delay);
-                });
-            }
-        },
-        [loadChildren, expandNode, getNode],
-    );
+    const handleImportSuccess = useDocumentImportSuccess({
+        expandNode,
+        getNode,
+        loadChildren,
+    });
 
     return (
         <SidebarContainer

@@ -1,10 +1,9 @@
-import mammoth from 'mammoth';
 import { useCallback, useState } from 'react';
 
+import { extractTextFromFile, mapImportUseCase } from '@app/context/import/fileImportUtils';
 import { ImportUseCase } from '@app/context/import/import.types';
 
 import { useImportDocumentsFromFilesMutation } from '@graphql/document.generated';
-import { DocumentImportUseCase } from '@types';
 
 type DocumentFileInput = {
     fileName: string;
@@ -18,43 +17,6 @@ type FileImportResult = {
     errors: string[];
     documentUrns: string[];
 };
-
-const TEXT_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.rst', '.csv', '.json', '.yaml', '.yml']);
-const HTML_EXTENSIONS = new Set(['.html', '.htm']);
-
-function getExtension(name: string): string {
-    const dot = name.lastIndexOf('.');
-    return dot >= 0 ? name.substring(dot).toLowerCase() : '';
-}
-
-function stripHtmlTags(html: string): string {
-    return html
-        .replace(/<[^>]*>/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-}
-
-async function extractText(file: File): Promise<string | null> {
-    const ext = getExtension(file.name);
-
-    if (TEXT_EXTENSIONS.has(ext)) {
-        return file.text();
-    }
-    if (HTML_EXTENSIONS.has(ext)) {
-        const html = await file.text();
-        return stripHtmlTags(html);
-    }
-    if (ext === '.docx') {
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        return result.value || null;
-    }
-    return null;
-}
-
-function mapUseCase(useCase: ImportUseCase): DocumentImportUseCase {
-    return useCase === ImportUseCase.SKILL ? DocumentImportUseCase.Skill : DocumentImportUseCase.ContextDocument;
-}
 
 export function useImportFromFiles() {
     const [error, setError] = useState<string | null>(null);
@@ -74,7 +36,7 @@ export function useImportFromFiles() {
             try {
                 const parsed = await Promise.all(
                     files.map(async (file) => {
-                        const text = await extractText(file);
+                        const text = await extractTextFromFile(file);
                         return text && text.trim().length > 0 ? { fileName: file.name, content: text } : null;
                     }),
                 );
@@ -90,7 +52,7 @@ export function useImportFromFiles() {
                         input: {
                             documents,
                             showInGlobalContext,
-                            useCase: mapUseCase(useCase),
+                            useCase: mapImportUseCase(useCase),
                             parentDocumentUrn: parentDocumentUrn ?? undefined,
                         },
                     },

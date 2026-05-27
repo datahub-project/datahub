@@ -3,8 +3,8 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.github_documents.github_documents_config import (
-    DocumentImportMode,
     GitHubDocumentsSourceConfig,
 )
 

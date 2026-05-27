@@ -19,9 +19,13 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -42,6 +46,7 @@ public class DocumentImportService {
   private static final Pattern MULTI_DASH = Pattern.compile("-{2,}");
   private static final int MAX_ID_LENGTH = 200;
   private static final int MAX_TEXT_CHARS = 1_000_000;
+  private static final int ID_HASH_SUFFIX_LENGTH = 8;
 
   private final SystemEntityClient entityClient;
 
@@ -187,13 +192,29 @@ public class DocumentImportService {
 
   @Nonnull
   public static String makeDocumentId(@Nonnull String sourceId) {
+    String hashSuffix = hashSourceIdSuffix(sourceId);
     String safe = UNSAFE_CHARS.matcher(sourceId).replaceAll("-");
     safe = MULTI_DASH.matcher(safe).replaceAll("-");
     safe = safe.replaceAll("^-+|-+$", "").toLowerCase();
-    if (safe.length() > MAX_ID_LENGTH) {
-      safe = safe.substring(0, MAX_ID_LENGTH);
+    int maxBaseLength = MAX_ID_LENGTH - hashSuffix.length() - 1;
+    if (maxBaseLength < 1) {
+      return hashSuffix;
     }
-    return safe;
+    if (safe.length() > maxBaseLength) {
+      safe = safe.substring(0, maxBaseLength);
+    }
+    return safe + "-" + hashSuffix;
+  }
+
+  @Nonnull
+  private static String hashSourceIdSuffix(@Nonnull String sourceId) {
+    try {
+      MessageDigest digest = MessageDigest.getInstance("SHA-256");
+      byte[] hash = digest.digest(sourceId.getBytes(StandardCharsets.UTF_8));
+      return HexFormat.of().formatHex(hash, 0, ID_HASH_SUFFIX_LENGTH / 2);
+    } catch (NoSuchAlgorithmException e) {
+      throw new IllegalStateException("SHA-256 not available", e);
+    }
   }
 
   @Nonnull
