@@ -140,7 +140,16 @@ class PipelineStats:
         return self.action_stats
 
     def as_string(self) -> str:
-        return json.dumps(self.__dict__, indent=4, sort_keys=True)
+        return json.dumps(
+            {
+                "started_at": getattr(self, "started_at", None),
+                "failed_event_count": self.failed_event_count,
+                "failed_ack_count": self.failed_ack_count,
+                "success_count": self.success_count,
+            },
+            indent=4,
+            sort_keys=True,
+        )
 
     def pretty_print_summary(self, name: str) -> None:
         curr_time = int(time() * 1000)
