@@ -18,10 +18,10 @@ from datahub.configuration.common import (
     HiddenFromDocs,
     TransparentSecretStr,
 )
-from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.source_common import (
     EnvConfigMixin,
 )
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -133,7 +133,7 @@ class PowerBiReportServerDashboardSourceConfig(PowerBiReportServerAPIConfig):
         description="Regex patterns to filter PowerBI Reports by name in ingestion.",
     )
 
-    _chart_pattern_removed = pydantic_removed_field("chart_pattern")
+    _chart_pattern_removed = pydantic_removed_field("chart_pattern", "May", 2026)
 
 
 def log_http_error(e: BaseException, message: str) -> Any:
