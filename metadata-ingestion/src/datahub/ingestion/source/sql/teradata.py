@@ -1167,7 +1167,7 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         description=(
             "Seed value, in seconds, for the full-jitter exponential backoff between "
             "retry attempts. Each retry sleeps for a duration drawn uniformly from "
-            "[0, min(initial * 2^attempt, 30.0)] seconds. "
+            f"[0, min(initial * 2^attempt, {_RETRY_BACKOFF_CAP_SECONDS})] seconds. "
             "The 30-second cap prevents runaway sleep times even when retry_max_attempts "
             "is set high (e.g. initial=1.0, attempt=10 would be 1024s without the cap). "
             "Increase this to spread retries further apart on a heavily loaded cluster; "
