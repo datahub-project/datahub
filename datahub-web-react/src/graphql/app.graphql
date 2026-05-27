@@ -114,6 +114,8 @@ query appConfig {
             showDefaultExternalLinks
             showProductUpdates
             lineageGraphV3
+            lineageGraphPerfVirtEnabled
+            lineageGraphPerfOverscanEnabled
             logicalModelsEnabled
             showHomepageUserRole
             assetSummaryPageV1

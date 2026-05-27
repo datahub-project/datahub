@@ -13,9 +13,13 @@
     "lint": "tsc --noEmit && eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.ts\"",
-    "format:check": "prettier --check \"**/*.ts\""
+    "format:check": "prettier --check \"**/*.ts\"",
+    "perf": "LINEAGE_PERF=1 playwright test --config=playwright.no-webserver.config.ts tests/lineage-perf",
+    "perf:aggregate": "node scripts/lineage-perf-aggregate.mjs",
+    "perf:aggregate:json": "node scripts/lineage-perf-aggregate.mjs --json"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@playwright/test": "^1.40.0",
     "@types/node": "^20.19.37",
     "eslint": "^10",

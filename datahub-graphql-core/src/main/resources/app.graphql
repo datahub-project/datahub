@@ -820,6 +820,25 @@ type FeatureFlagsConfig {
   lineageGraphV3: Boolean!
 
   """
+  Enables viewport-based DOM virtualization in the V2 lineage graph.
+  When true (the default), the frontend auto-enables virtualization above
+  ~50 rendered nodes. The `?lineagePerf=` URL param and
+  `datahub.lineagePerfFlags` localStorage entry can still override this
+  per session for diagnostics.
+  """
+  lineageGraphPerfVirtEnabled: Boolean!
+
+  """
+  Enables the overscan-buffered virtualization path in the V2 lineage graph.
+  When true, the frontend auto-enables the wider viewport above ~200 nodes
+  (only when `lineageGraphPerfVirtEnabled` is also true). Defaults to false
+  because the wider bounds calculation trades a small pan-cost regression
+  for fewer pop-in artefacts; turn it on for deployments where pop-in is
+  the louder complaint.
+  """
+  lineageGraphPerfOverscanEnabled: Boolean!
+
+  """
   Enables logical models feature
   """
   logicalModelsEnabled: Boolean!

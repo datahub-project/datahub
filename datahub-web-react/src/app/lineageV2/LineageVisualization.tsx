@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import 'reactflow/dist/style.css';
@@ -20,6 +20,14 @@ import LineageControls from '@app/lineageV2/controls/LineageControls';
 import SearchControl from '@app/lineageV2/controls/SearchControl';
 import ZoomControls from '@app/lineageV2/controls/ZoomControls';
 import { getLineageUrl } from '@app/lineageV2/lineageUtils';
+import {
+    OVERSCAN_AUTO_THRESHOLD,
+    getLineagePerfFlags,
+    resolveTriMode,
+    resolveVirtEnabled,
+} from '@app/lineageV2/perfFlags';
+import { useOverscanVirt } from '@app/lineageV2/useOverscanVirt';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 const StyledReactFlow = styled(ReactFlow)<{ $edgesOnTop: boolean }>`
@@ -58,18 +66,53 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
     const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
+    const [forceMountAll, setForceMountAll] = useState(false);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const location = useLocation();
+    const { config } = useAppConfig();
+    // Resolved once per mount: rendering modes are a stable property of the
+    // initial graph, so expand/contract churn doesn't flip them mid-session
+    // (which would break screenshot capture and column-edge geometry).
+    // Defaults come from the server feature flags; URL/localStorage still
+    // override per-session for diagnostics.
+    const perfFlags = useMemo(
+        () =>
+            getLineagePerfFlags({
+                virtEnabled: config?.featureFlags?.lineageGraphPerfVirtEnabled,
+                overscanEnabled: config?.featureFlags?.lineageGraphPerfOverscanEnabled,
+            }),
+        [config?.featureFlags?.lineageGraphPerfVirtEnabled, config?.featureFlags?.lineageGraphPerfOverscanEnabled],
+    );
+    const baseVirt = useMemo(
+        () => resolveVirtEnabled(perfFlags.virtMode, initialNodes.length),
+        [perfFlags.virtMode, initialNodes.length],
+    );
+    const overscanRaw = useMemo(
+        () => resolveTriMode(perfFlags.overscanMode, initialNodes.length, OVERSCAN_AUTO_THRESHOLD),
+        [perfFlags.overscanMode, initialNodes.length],
+    );
+    // `forceMountAll` is the screenshot escape hatch — suspends virt for the
+    // capture window so html-to-image walks a fully-mounted DOM.
+    const virtEnabled = baseVirt && !forceMountAll;
+    const overscanEnabled = virtEnabled && overscanRaw;
 
     useFitView(searchedEntity);
     useHandleKeyboardDeselect(setSelectedColumn);
 
     return (
         <LineageVisualizationContext.Provider
-            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
+            value={{
+                searchQuery,
+                setSearchQuery,
+                searchedEntity,
+                setSearchedEntity,
+                isFocused,
+                forceMountAll,
+                setForceMountAll,
+            }}
         >
             <StyledReactFlow
                 defaultNodes={initialNodes}
@@ -97,12 +140,16 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 maxZoom={5}
                 fitView
                 fitViewOptions={{ maxZoom: 1, duration: 0 }}
+                // Overscan drives virt via `<OverscanVirt>` below, so disable
+                // the built-in filter to avoid double-filtering thrash.
+                onlyRenderVisibleElements={virtEnabled && !overscanEnabled}
                 $edgesOnTop={!!highlightedEdges.size}
                 tabIndex={0} // Allow focus for keyboard shortcuts
                 onFocus={() => setIsFocused(true)}
                 onBlur={() => setIsFocused(false)}
             >
                 <Background variant={BackgroundVariant.Lines} />
+                {overscanEnabled && <OverscanVirt />}
                 <ZoomControls />
                 <SearchControl />
                 <LineageControls />
@@ -118,6 +165,14 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
             </StyledReactFlow>
         </LineageVisualizationContext.Provider>
     );
+}
+
+// Isolated so its `useStore` subscriptions on viewport state don't re-render
+// the parent (which would cascade into every memoised node). Parent guards
+// the mount on `overscanEnabled` so overscan-off configurations pay nothing.
+function OverscanVirt() {
+    useOverscanVirt(true);
+    return null;
 }
 
 function useFitView(searchedEntity: string | null) {
