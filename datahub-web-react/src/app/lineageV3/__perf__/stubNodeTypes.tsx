@@ -18,12 +18,16 @@ import { PERF_STUB_NODE_TYPE } from '@app/lineageV3/__perf__/syntheticGraph';
  *    it's a reasonable proxy for "how does a chunkier node react under load".
  */
 
+// Stubs run in jsdom without a ThemeProvider, so colours are intentionally
+// neutral CSS keywords rather than theme tokens. The perf harness asserts on
+// mounted DOM-node counts; styling is purely structural.
+
 const Wrapper = styled.div<{ $heavy?: boolean }>`
     width: 100%;
     height: 100%;
     box-sizing: border-box;
-    background: ${({ theme }) => theme?.colors?.bg ?? '#fff'};
-    border: 1px solid #d9d9d9;
+    background: transparent;
+    border: 1px solid currentColor;
     border-radius: 8px;
     padding: 8px 12px;
     display: flex;
@@ -31,19 +35,19 @@ const Wrapper = styled.div<{ $heavy?: boolean }>`
     gap: 4px;
     font-family: 'Roboto', sans-serif;
     font-size: 12px;
-    box-shadow: ${({ $heavy }) => ($heavy ? '0 1px 3px rgba(0,0,0,0.08)' : 'none')};
+    box-shadow: ${({ $heavy }) => ($heavy ? '0 1px 3px currentColor' : 'none')};
 `;
 
 const Title = styled.div`
     font-weight: 600;
-    color: #262626;
+    color: inherit;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 `;
 
 const Subtitle = styled.div`
-    color: #8c8c8c;
+    color: inherit;
     font-size: 11px;
 `;
 
@@ -54,10 +58,11 @@ const TagRow = styled.div`
 `;
 
 const Tag = styled.span<{ $idx: number }>`
-    padding: 2px 6px;
+    padding: ${({ $idx }) => `${2 + ($idx % 2)}px 6px`};
     border-radius: 4px;
-    background: ${({ $idx }) => ['#e6f4ff', '#f6ffed', '#fffbe6', '#fff1f0'][$idx % 4]};
-    color: #595959;
+    background: transparent;
+    border: 1px solid currentColor;
+    color: inherit;
     font-size: 10px;
 `;
 

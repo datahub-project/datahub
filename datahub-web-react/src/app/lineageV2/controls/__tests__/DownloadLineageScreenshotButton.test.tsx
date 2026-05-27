@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import LineageVisualizationContext from '@app/lineageV2/LineageVisualizationContext';
 import { LineageNodesContext } from '@app/lineageV2/common';
 import DownloadLineageScreenshotButton from '@app/lineageV2/controls/DownloadLineageScreenshotButton';
+import lightTheme from '@conf/theme/colorThemes/light';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -62,7 +63,7 @@ describe('DownloadLineageScreenshotButton — virtualisation interop', () => {
         },
     } as unknown as React.ContextType<typeof LineageNodesContext>;
 
-    const theme = { colors: { bgSurface: '#fff' } } as React.ComponentProps<typeof ThemeProvider>['theme'];
+    const theme = { colors: lightTheme } as React.ComponentProps<typeof ThemeProvider>['theme'];
 
     function renderButton() {
         return render(
