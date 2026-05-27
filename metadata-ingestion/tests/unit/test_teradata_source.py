@@ -4026,6 +4026,7 @@ class TestHistoricalTableCheckLogging:
             "transient" in r.message.lower() and r.levelno == logging.WARNING
             for r in caplog.records
         )
+        assert len(source.report.warnings) == 1
 
 
 class TestExecuteWithCursorFallback:
