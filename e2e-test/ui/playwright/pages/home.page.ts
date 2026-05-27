@@ -3,10 +3,6 @@ import type { Locator, Page } from '@playwright/test';
 import type { DataHubLogger } from '../utils/logger';
 
 export class HomePage extends BasePage {
-  private static readonly WAIT_FOR_VISIBLE_TIMEOUT = 5000;
-  private static readonly WAIT_FOR_ENTITY_TIMEOUT = 3000;
-  private static readonly WAIT_FOR_PAGE_LOAD_TIMEOUT = 10000;
-
   private readonly pageTitle: Locator;
   private readonly searchBar: Locator;
   private readonly templateWrapper: Locator;
@@ -50,14 +46,11 @@ export class HomePage extends BasePage {
 
   async waitForPageLoad(): Promise<void> {
     await super.waitForPageLoad();
-    await this.templateWrapper.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_PAGE_LOAD_TIMEOUT });
+    await this.templateWrapper.waitFor({ state: 'visible' });
   }
 
-  private async isElementVisible(
-    element: Locator,
-    timeout: number = HomePage.WAIT_FOR_VISIBLE_TIMEOUT,
-  ): Promise<boolean> {
-    await element.waitFor({ state: 'visible', timeout });
+  private async isElementVisible(element: Locator): Promise<boolean> {
+    await element.waitFor({ state: 'visible' });
     return true;
   }
 
@@ -66,7 +59,7 @@ export class HomePage extends BasePage {
   }
 
   async isTemplateLoadedProperly(): Promise<boolean> {
-    await this.templateWrapper.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
+    await this.templateWrapper.waitFor({ state: 'visible' });
     const hasModules = (await this.getModuleCount()) > 0;
     return hasModules;
   }
@@ -92,35 +85,35 @@ export class HomePage extends BasePage {
   }
 
   async getYourAssetsModuleHeader(): Promise<string | null> {
-    await this.yourAssetsModuleTitle.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
+    await this.yourAssetsModuleTitle.waitFor({ state: 'visible' });
     return await this.yourAssetsModuleTitle.textContent();
   }
 
   async getDomainsModuleHeader(): Promise<string | null> {
-    await this.domainsModuleTitle.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
+    await this.domainsModuleTitle.waitFor({ state: 'visible' });
     return await this.domainsModuleTitle.textContent();
   }
 
   async getPlatformsModuleHeader(): Promise<string | null> {
-    await this.platformsModuleTitle.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
+    await this.platformsModuleTitle.waitFor({ state: 'visible' });
     return await this.platformsModuleTitle.textContent();
   }
 
   async getYourAssetsEntityCount(): Promise<number> {
-    await this.yourAssetsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
-    await this.userOwnedEntities.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_ENTITY_TIMEOUT });
+    await this.yourAssetsModule.waitFor({ state: 'visible' });
+    await this.userOwnedEntities.waitFor({ state: 'visible' });
     return await this.yourAssetsEntityItems.count();
   }
 
   async getDomainsEntityCount(): Promise<number> {
-    await this.domainsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
-    await this.domainEntities.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_ENTITY_TIMEOUT });
+    await this.domainsModule.waitFor({ state: 'visible' });
+    await this.domainEntities.waitFor({ state: 'visible' });
     return await this.domainsEntityItems.count();
   }
 
   async getPlatformsEntityCount(): Promise<number> {
-    await this.platformsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
-    await this.platformEntities.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_ENTITY_TIMEOUT });
+    await this.platformsModule.waitFor({ state: 'visible' });
+    await this.platformEntities.waitFor({ state: 'visible' });
     return await this.platformsEntityItems.count();
   }
 
@@ -136,9 +129,9 @@ export class HomePage extends BasePage {
   }
 
   async areModulesInExpectedOrder(): Promise<boolean> {
-    await this.yourAssetsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
-    await this.domainsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
-    await this.platformsModule.waitFor({ state: 'visible', timeout: HomePage.WAIT_FOR_VISIBLE_TIMEOUT });
+    await this.yourAssetsModule.waitFor({ state: 'visible' });
+    await this.domainsModule.waitFor({ state: 'visible' });
+    await this.platformsModule.waitFor({ state: 'visible' });
 
     const yourAssetsBox = await this.yourAssetsModule.boundingBox();
     const domainsBox = await this.domainsModule.boundingBox();
