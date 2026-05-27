@@ -94,14 +94,17 @@ describe('useTermTreeOptions', () => {
     });
 
     it('uses node.displayProperties.colorHex when present, otherwise palette-derived color', () => {
-        const rootWithColor = makeNode('urn:li:glossaryNode:root', 'Root', '#abcdef');
+        // The hook treats colorHex as an opaque pass-through string, so we use a non-hex sentinel
+        // here to satisfy the `no-hardcoded-colors` lint rule (which forbids hex literals).
+        const FIXTURE_COLOR = 'fixture-color-1';
+        const rootWithColor = makeNode('urn:li:glossaryNode:root', 'Root', FIXTURE_COLOR);
         const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [rootWithColor]);
         const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
 
         const [rootRow, termRow] = result.current.allOptions;
-        expect(rootRow.color).toBe('#abcdef');
+        expect(rootRow.color).toBe(FIXTURE_COLOR);
         // Term rows inherit the root node's color (so all terms in a lineage share one color).
-        expect(termRow.color).toBe('#abcdef');
+        expect(termRow.color).toBe(FIXTURE_COLOR);
     });
 
     it('drops a term listed in excludeUrns and skips its lineage when all terms are excluded', () => {
