@@ -13,6 +13,21 @@ on:
         required: false
         default: "5"
         type: string
+      lineage_perf:
+        description: "Run the lineage rendering perf benchmark (tests/lineage-perf) instead of the full suite. Forces a single shard and sets LINEAGE_PERF=1."
+        required: false
+        default: false
+        type: boolean
+      lineage_perf_screenshot:
+        description: "Also run the screenshot stress matrix (LINEAGE_PERF_SCREENSHOT=1). Only honoured when lineage_perf is true."
+        required: false
+        default: false
+        type: boolean
+      lineage_a11y:
+        description: "Also run the axe-core a11y audit (LINEAGE_A11Y=1, LINEAGE_A11Y_LARGE=1). Only honoured when lineage_perf is true."
+        required: false
+        default: false
+        type: boolean
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
@@ -50,8 +65,13 @@ jobs:
         id: set-shard-count
         env:
           SHARD_COUNT_INPUT: ${{ github.event.inputs.shard_count }}
+          LINEAGE_PERF_INPUT: ${{ github.event.inputs.lineage_perf }}
         run: |
-          if [[ -n "$SHARD_COUNT_INPUT" ]]; then
+          # Perf benchmarks need stable single-process timing; sharding would
+          # split scenarios across runners and invalidate cross-variant comparisons.
+          if [[ "$LINEAGE_PERF_INPUT" == "true" ]]; then
+            echo "shard_count=1" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$SHARD_COUNT_INPUT" ]]; then
             echo "shard_count=$SHARD_COUNT_INPUT" >> "$GITHUB_OUTPUT"
           else
             echo "shard_count=4" >> "$GITHUB_OUTPUT"
@@ -90,7 +110,9 @@ jobs:
     name: Playwright E2E (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
     runs-on: ${{ needs.setup.outputs.test_runner_type }}
     needs: [setup]
-    timeout-minutes: 20
+    # Perf runs include the 1000-node screenshot stress and CLL matrix when
+    # opted into; default 20m isn't enough headroom for those.
+    timeout-minutes: ${{ github.event.inputs.lineage_perf == 'true' && 60 || 20 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
@@ -161,9 +183,20 @@ jobs:
           # Safe in sharded CI: each shard runs on its own isolated VM with its
           # own DataHub instance — no shared state between shards.
           PLAYWRIGHT_REUSE_SERVER: "1"
+          LINEAGE_PERF: ${{ github.event.inputs.lineage_perf == 'true' && '1' || '' }}
+          LINEAGE_PERF_SCREENSHOT: ${{ github.event.inputs.lineage_perf_screenshot == 'true' && '1' || '' }}
+          LINEAGE_A11Y: ${{ github.event.inputs.lineage_a11y == 'true' && '1' || '' }}
+          LINEAGE_A11Y_LARGE: ${{ github.event.inputs.lineage_a11y == 'true' && '1' || '' }}
         run: |
-          npx playwright test \
-            --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
+          if [[ "${{ github.event.inputs.lineage_perf }}" == "true" ]]; then
+            # Single-shard perf benchmark: scope to tests/lineage-perf and let the
+            # synthetic/CLL/mixed/screenshot/a11y matrices gate themselves on the
+            # opt-in env vars above.
+            npx playwright test tests/lineage-perf
+          else
+            npx playwright test \
+              --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
+          fi
 
       - name: Upload Playwright blob report
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -180,6 +213,18 @@ jobs:
           name: playwright-junit-${{ matrix.shard }}
           path: e2e-test/ui/playwright/test-results/junit.xml
           retention-days: 5
+
+      - name: Upload lineage perf metrics
+        if: ${{ always() && github.event.inputs.lineage_perf == 'true' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lineage-perf-results
+          path: |
+            e2e-test/ui/playwright/test-results/lineage-perf.json
+            e2e-test/ui/playwright/test-results/lineage-screenshot-stress.tsv
+            e2e-test/ui/playwright/test-results/lineage-a11y-*.json
+          retention-days: 30
+          if-no-files-found: ignore
 
       - name: Store logs on failure
         if: failure()
