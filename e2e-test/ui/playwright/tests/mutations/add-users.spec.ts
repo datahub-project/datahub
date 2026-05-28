@@ -39,57 +39,60 @@ test.describe.skip('add_user', () => {
     await page.goto('/settings/identities/users');
 
     // Log out admin and visit the invite link as new user
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
     await expect(page.getByText('Username')).toBeVisible();
 
     await page.goto(inviteLink);
-    await page.locator('[data-testid="email"]').fill(email);
-    await page.locator('[data-testid="name"]').fill(name);
-    await page.locator('[data-testid="password"]').fill('Example password');
-    await page.locator('[data-testid="confirmPassword"]').fill('Example password');
-    await page.locator('[data-testid="sign-up"]').click();
+    await page.getByTestId('email').fill(email);
+    await page.getByTestId('name').fill(name);
+    await page.getByTestId('password').fill('Example password');
+    await page.getByTestId('confirmPassword').fill('Example password');
+    await page.getByTestId('sign-up').click();
 
     await expect(page.getByText('Welcome back')).toBeVisible({ timeout: 30000 });
     await expect(page.getByText(name)).toBeVisible({ timeout: 15000 });
     registeredEmail = email;
 
     // Log out and try with a bad token
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
     await page.goto('/signup?invite_token=bad_token');
-    await page.locator('[data-testid="email"]').fill(email);
-    await page.locator('[data-testid="name"]').fill(name);
-    await page.locator('[data-testid="password"]').fill('Example password');
-    await page.locator('[data-testid="confirmPassword"]').fill('Example password');
-    await page.locator('[data-testid="sign-up"]').click();
+    await page.getByTestId('email').fill(email);
+    await page.getByTestId('name').fill(name);
+    await page.getByTestId('password').fill('Example password');
+    await page.getByTestId('confirmPassword').fill('Example password');
+    await page.getByTestId('sign-up').click();
     await expect(page.getByText('Failed to log in! An unexpected error occurred.')).toBeVisible({ timeout: 15000 });
   });
 
   test("Verify you can't generate a reset password link for a non-native user", async ({ page }) => {
     await page.goto('/settings/identities/users');
     await expect(page.getByText('Invite Users')).toBeVisible({ timeout: 15000 });
-    await page.locator('[data-testid="userItem-non-native"]').first().click();
-    await expect(page.locator('[data-testid="reset-menu-item"]')).toHaveAttribute('aria-disabled', 'true');
+    await page.getByTestId('userItem-non-native').first().click();
+    await expect(page.getByTestId('reset-menu-item')).toHaveAttribute('aria-disabled', 'true');
   });
 
   test('Generate a reset password link for a native user', async ({ page }) => {
     await page.goto('/settings/identities/users');
     await expect(page.getByText('Invite Users')).toBeVisible({ timeout: 15000 });
 
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath ancestor traversal; no semantic Playwright API for parent element access
     await page
-      .locator(`[data-testid="email-native"]`)
+      .getByTestId('email-native')
       .filter({ hasText: registeredEmail })
       .locator('xpath=ancestor::*[contains(@class,"ant-list-item")]')
-      .locator('[data-testid="userItem-native"]')
+      .getByTestId('userItem-native')
       .click();
 
-    await page.locator('[data-testid="resetButton"]').first().click();
-    await page.locator('[data-testid="refreshButton"]').click();
+    await page.getByTestId('resetButton').first().click();
+    await page.getByTestId('refreshButton').click();
     await expect(page.getByText('Generated new link to reset credentials')).toBeVisible({ timeout: 15000 });
 
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design typography copy button class; no data-testid available
     await page.locator('.ant-typography-copy').click();
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal close button class; no data-testid on this element
     await page.locator('.ant-modal-close').click();
 
     const resetLinkLocator = page.getByText(/reset\?reset_token=\w{32}/);
@@ -97,25 +100,25 @@ test.describe.skip('add_user', () => {
     const resetLink = (await resetLinkLocator.textContent()) ?? '';
 
     // Log out and use the reset link
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
     await page.goto(resetLink);
-    await page.locator('[data-testid="email"]').fill(registeredEmail);
-    await page.locator('[data-testid="password"]').fill('Example Reset Password');
-    await page.locator('[data-testid="confirmPassword"]').fill('Example Reset Password');
-    await page.locator('[data-testid="reset-password"]').click();
+    await page.getByTestId('email').fill(registeredEmail);
+    await page.getByTestId('password').fill('Example Reset Password');
+    await page.getByTestId('confirmPassword').fill('Example Reset Password');
+    await page.getByTestId('reset-password').click();
     await expect(page.getByText('Welcome back')).toBeVisible({ timeout: 30000 });
 
     // Log out and verify bad token fails
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
     await page.goto('/reset?reset_token=bad_token');
-    await page.locator('[data-testid="email"]').fill(registeredEmail);
-    await page.locator('[data-testid="password"]').fill('Example Reset Password');
-    await page.locator('[data-testid="confirmPassword"]').fill('Example Reset Password');
-    await page.locator('[data-testid="reset-password"]').click();
+    await page.getByTestId('email').fill(registeredEmail);
+    await page.getByTestId('password').fill('Example Reset Password');
+    await page.getByTestId('confirmPassword').fill('Example Reset Password');
+    await page.getByTestId('reset-password').click();
     await expect(page.getByText('Failed to log in!')).toBeVisible({ timeout: 15000 });
   });
 });
