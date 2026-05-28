@@ -3170,6 +3170,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # SQL parsing failed entirely, which is already reported above.
                         pass
 
+                valid_cll_entries = [
+                    entry
+                    for entry in node.upstream_cll
+                    if entry.upstream_col and entry.downstream_col
+                ]
                 cll = [
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -3193,7 +3198,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         ),
                     )
                     for downstream, upstreams in groupby_unsorted(
-                        node.upstream_cll, lambda x: x.downstream_col
+                        valid_cll_entries, lambda x: x.downstream_col
                     )
                 ]
 
