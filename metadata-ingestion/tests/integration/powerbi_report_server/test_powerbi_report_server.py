@@ -264,9 +264,9 @@ def test_powerbi_ingest_with_report_pattern(
         output = json.load(f)
 
     urns = [
-        entry.get("proposedSnapshot", {}).get("urn", "")
+        entry.get("entityUrn", "")
         for entry in output
-        if "proposedSnapshot" in entry
+        if entry.get("entityUrn")
     ]
     # Denied report is absent
     assert not any(denied_report_id in urn for urn in urns)
