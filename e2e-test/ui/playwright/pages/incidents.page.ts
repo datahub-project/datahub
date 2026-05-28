@@ -335,12 +335,14 @@ export class IncidentsPage extends BasePage {
   async selectFirstAssignee(): Promise<void> {
     await this.assigneesSelectTrigger.scrollIntoViewIfNeeded();
     await this.assigneesSelectTrigger.click();
-    const firstLabel = this.assigneesOptionsList.getByRole('checkbox').first();
-    // Ant Design Select renders options asynchronously after the trigger click;
-    // the option list is not in the DOM until the open animation completes.
-    await firstLabel.waitFor({ state: 'visible', timeout: 10000 });
-    await firstLabel.scrollIntoViewIfNeeded();
-    await firstLabel.click({ force: true });
+    // The OptionList renders OptionLabel divs with data-testid="option-{value}".
+    // The inner StyledCheckbox <input> may be hidden (visually hidden but in DOM).
+    // Click the parent OptionLabel div which is always visible and handles the click.
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix match ([data-testid^="option-"]); getByTestId requires exact match
+    const firstOption = this.assigneesOptionsList.locator('[data-testid^="option-"]').first();
+    await firstOption.waitFor({ state: 'visible', timeout: 15000 });
+    await firstOption.scrollIntoViewIfNeeded();
+    await firstOption.click({ force: true });
   }
 
   /** Click outside of the form dropdowns to dismiss them before submitting. */
