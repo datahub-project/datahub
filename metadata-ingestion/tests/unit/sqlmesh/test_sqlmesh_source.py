@@ -682,6 +682,173 @@ class TestSmartAnomalyDetection:
             assert "sqlmesh.anomaly_detection" not in info.customProperties
 
 
+class TestIncidentOnFailure:
+    """When emit_incidents_on_failure is True (default), every 'fail' entry
+    in the audit_results_path JSON also produces an Incident pointing at
+    the failing dataset, sourced from the corresponding assertion URN.
+    """
+
+    def _write_results(self, tmp_path, results: list) -> str:
+        import json as _json
+        from pathlib import Path
+
+        f = Path(tmp_path) / "audit_results.json"
+        f.write_text(
+            _json.dumps(
+                {
+                    "metadata": {"generated_at": "2026-05-28T00:00:00"},
+                    "results": results,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return str(f)
+
+    def _run_project_then_audit(
+        self,
+        source,
+        model_dict,
+        results,
+        tmp_path,
+    ) -> list:
+        # _emit_audit_run_events requires _resolved_effective populated, which
+        # _ingest_project does as a side effect. Consume the workunits but
+        # discard them — we only care about the audit-run-event call after.
+        list(_run_project(source, model_dict, {}))
+        path = self._write_results(tmp_path, results)
+        return list(source._emit_audit_run_events(path))
+
+    def test_incident_emitted_for_failing_audit(self, tmp_path):
+        from datahub.metadata.schema_classes import IncidentInfoClass
+
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+
+        workunits = self._run_project_then_audit(
+            source,
+            {"star.dim_developer": model},
+            [
+                {
+                    "model": "star.dim_developer",
+                    "audit": "not_null",
+                    "columns": ["id"],
+                    "status": "fail",
+                    "failing_rows": 7,
+                },
+            ],
+            tmp_path,
+        )
+
+        incidents = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), IncidentInfoClass)
+        ]
+        assert len(incidents) == 1
+        info = incidents[0]
+        assert info.type == "CUSTOM"
+        assert info.customType == "SQLMESH_AUDIT/not_null"
+        assert SQLMESH_PLATFORM in info.entities[0]
+        # Source links back to the assertion that fired
+        assert info.source is not None
+        assert info.source.type == "ASSERTION_FAILURE"
+        assert info.source.sourceUrn.startswith("urn:li:assertion:")
+        # "7 failing rows" appears in title/description so the UI surfaces the count
+        assert "7" in info.title
+
+    def test_no_incident_for_passing_audit(self, tmp_path):
+        from datahub.metadata.schema_classes import IncidentInfoClass
+
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+
+        workunits = self._run_project_then_audit(
+            source,
+            {"star.dim_developer": model},
+            [
+                {
+                    "model": "star.dim_developer",
+                    "audit": "not_null",
+                    "columns": ["id"],
+                    "status": "pass",
+                    "failing_rows": 0,
+                },
+            ],
+            tmp_path,
+        )
+
+        incidents = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), IncidentInfoClass)
+        ]
+        assert incidents == []
+
+    def test_disable_via_config(self, tmp_path):
+        from datahub.metadata.schema_classes import IncidentInfoClass
+
+        source = _make_source({"emit_incidents_on_failure": False})
+        model = _make_mock_model("star.dim_developer")
+
+        workunits = self._run_project_then_audit(
+            source,
+            {"star.dim_developer": model},
+            [
+                {
+                    "model": "star.dim_developer",
+                    "audit": "not_null",
+                    "columns": ["id"],
+                    "status": "fail",
+                    "failing_rows": 3,
+                },
+            ],
+            tmp_path,
+        )
+
+        # Assertion run event is still emitted; just no incident
+        incidents = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), IncidentInfoClass)
+        ]
+        assert incidents == []
+
+    def test_incident_urn_is_idempotent(self, tmp_path):
+        """Two ingest passes against the same audit-results JSON produce
+        the same Incident URN — re-ingest updates the incident in place
+        rather than creating duplicates."""
+        source = _make_source()
+        model = _make_mock_model("star.dim_developer")
+        results = [
+            {
+                "model": "star.dim_developer",
+                "audit": "not_null",
+                "columns": ["id"],
+                "status": "fail",
+                "failing_rows": 7,
+            }
+        ]
+
+        wu1 = self._run_project_then_audit(
+            source, {"star.dim_developer": model}, results, tmp_path
+        )
+        wu2 = self._run_project_then_audit(
+            source, {"star.dim_developer": model}, results, tmp_path
+        )
+
+        urn1 = next(
+            wu.metadata.entityUrn
+            for wu in wu1
+            if str(wu.metadata.entityUrn).startswith("urn:li:incident:")
+        )
+        urn2 = next(
+            wu.metadata.entityUrn
+            for wu in wu2
+            if str(wu.metadata.entityUrn).startswith("urn:li:incident:")
+        )
+        assert urn1 == urn2
+
+
 class TestLineageEmission:
     def test_lineage_points_to_sqlmesh_urns(self):
         """Lineage edges for managed deps target sqlmesh URNs, not warehouse URNs."""

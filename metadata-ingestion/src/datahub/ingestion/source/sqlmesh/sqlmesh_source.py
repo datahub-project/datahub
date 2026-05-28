@@ -106,6 +106,7 @@ from datahub.metadata.schema_classes import (
     AssertionStdParametersClass,
     AssertionStdParameterTypeClass,
     AssertionTypeClass,
+    AuditStampClass,
     CalendarIntervalClass,
     DataPlatformInfoClass,
     DatasetAssertionInfoClass,
@@ -118,6 +119,12 @@ from datahub.metadata.schema_classes import (
     FreshnessAssertionScheduleClass,
     FreshnessAssertionScheduleTypeClass,
     FreshnessAssertionTypeClass,
+    IncidentInfoClass,
+    IncidentSourceClass,
+    IncidentSourceTypeClass,
+    IncidentStateClass,
+    IncidentStatusClass,
+    IncidentTypeClass,
     NullTypeClass,
     PlatformTypeClass,
     RowCountTotalClass,
@@ -1915,6 +1922,15 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                         assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
                     )
                     emitted += 1
+                    if status == "fail":
+                        yield from self._emit_incident_for_failure(
+                            assertion_urn=assertion_urn,
+                            dataset_urn=dataset_urn,
+                            run_id=run_id,
+                            ts_ms=ts_ms,
+                            audit_name=audit_name,
+                            failing_rows=failing_rows,
+                        )
             else:
                 # dataset-level: single run event, suffix = comma-joined columns
                 suffix = ",".join(columns)
@@ -1923,8 +1939,78 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                     assertion_urn, dataset_urn, run_id, ts_ms, status, failing_rows
                 )
                 emitted += 1
+                if status == "fail":
+                    yield from self._emit_incident_for_failure(
+                        assertion_urn=assertion_urn,
+                        dataset_urn=dataset_urn,
+                        run_id=run_id,
+                        ts_ms=ts_ms,
+                        audit_name=audit_name,
+                        failing_rows=failing_rows,
+                    )
 
         logger.info("Emitted %d assertion run events from %s", emitted, path)
+
+    def _emit_incident_for_failure(
+        self,
+        *,
+        assertion_urn: str,
+        dataset_urn: str,
+        run_id: str,
+        ts_ms: int,
+        audit_name: str,
+        failing_rows: int,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit a DataHub Incident pointing at the failing dataset + assertion.
+
+        URN is derived deterministically from (assertion_urn, run_id), so
+        re-ingesting the same audit results JSON produces the same incident
+        URN and updates the existing entity instead of creating a duplicate.
+
+        Incident type is CUSTOM with customType="SQLMESH_AUDIT" because the
+        SQLMesh audit set (not_null, unique_values, forall, ...) doesn't
+        cleanly map to FRESHNESS / VOLUME / FIELD / DATA_SCHEMA / SQL. The
+        full audit name lives in customType so the UI can render it.
+        """
+        if not self.config.emit_incidents_on_failure:
+            return
+
+        incident_id = hashlib.md5(f"{assertion_urn}:{run_id}".encode()).hexdigest()
+        incident_urn = f"urn:li:incident:{incident_id}"
+
+        title = f"SQLMesh audit '{audit_name}' failed ({failing_rows} failing rows)"
+        description = (
+            f"The `{audit_name}` audit on this dataset failed with "
+            f"{failing_rows} failing rows in run {run_id}. See the "
+            f"associated assertion for details."
+        )
+        created = AuditStampClass(
+            time=ts_ms,
+            actor=mce_builder.make_user_urn("__sqlmesh_ingest__"),
+        )
+        incident_info = IncidentInfoClass(
+            type=IncidentTypeClass.CUSTOM,
+            customType=f"SQLMESH_AUDIT/{audit_name}",
+            title=title,
+            description=description,
+            entities=[dataset_urn],
+            status=IncidentStatusClass(
+                state=IncidentStateClass.ACTIVE,
+                lastUpdated=created,
+            ),
+            source=IncidentSourceClass(
+                type=IncidentSourceTypeClass.ASSERTION_FAILURE,
+                sourceUrn=assertion_urn,
+            ),
+            startedAt=ts_ms,
+            created=created,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=incident_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=incident_urn, aspect=incident_info
+        ).as_workunit()
 
     def _make_run_event(
         self,

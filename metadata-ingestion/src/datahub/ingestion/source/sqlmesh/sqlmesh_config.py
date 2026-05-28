@@ -467,6 +467,20 @@ class SqlmeshSourceConfig(
             "undesirable."
         ),
     )
+    emit_incidents_on_failure: bool = Field(
+        default=True,
+        description=(
+            "Emit a DataHub Incident entity (``urn:li:incident:…``) every time "
+            '``_emit_audit_run_events`` reads a ``"fail"`` result from the '
+            "``audit_results_path`` JSON file. The incident links back to the "
+            "assertion via ``IncidentSource(type=ASSERTION_FAILURE, "
+            "sourceUrn=<assertion>)`` so the Incidents tab on the dataset shows "
+            "the failure history. Standard DataHub entity — works regardless of "
+            "edition. Cloud additionally adds Slack threading and triage ML on "
+            "top. Re-emitting the same incident is idempotent because the URN "
+            "is derived from a hash of (assertion_urn, run_id)."
+        ),
+    )
 
     @field_validator("write_semantics", mode="after")
     @classmethod
