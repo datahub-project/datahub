@@ -2227,6 +2227,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # TODO: Add some telemetry around this - how frequently does it filter stuff out?
                         if target_platform_urn_to_dbt_name.get(upstream_column.table)
                         in node.upstream_nodes
+                        and upstream_column.column
+                        and column_lineage_info.downstream.column
                     ]
 
             # If we didn't fetch the schema from the graph, use the inferred schema.
@@ -3135,6 +3137,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
 
                     cll = []
                     for column_lineage in sql_parsing_result.column_lineage or []:
+                        if not column_lineage.downstream.column:
+                            continue
                         cll.append(
                             FineGrainedLineage(
                                 upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -3144,6 +3148,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                                         upstream.table, upstream.column
                                     )
                                     for upstream in column_lineage.upstreams
+                                    if upstream.column
                                 ],
                                 downstreams=[
                                     mce_builder.make_schema_field_urn(
@@ -3165,6 +3170,11 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         # SQL parsing failed entirely, which is already reported above.
                         pass
 
+                valid_cll_entries = [
+                    entry
+                    for entry in node.upstream_cll
+                    if entry.upstream_col and entry.downstream_col
+                ]
                 cll = [
                     FineGrainedLineage(
                         upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
@@ -3188,7 +3198,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         ),
                     )
                     for downstream, upstreams in groupby_unsorted(
-                        node.upstream_cll, lambda x: x.downstream_col
+                        valid_cll_entries, lambda x: x.downstream_col
                     )
                 ]
 
