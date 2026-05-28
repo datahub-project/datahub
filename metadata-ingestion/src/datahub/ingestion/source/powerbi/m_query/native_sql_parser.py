@@ -288,7 +288,7 @@ def parse_custom_sql(
         # separators only at depth-0 positions that are not the closing SELECT
         # of a CTE query, then decide which parser to use.
         normalized = _insert_statement_separators(query)
-        if ";" in normalized:
+        if _has_real_semicolons(normalized):
             result = create_lineage_from_sql_statements(
                 queries=normalized,
                 default_schema=schema,
