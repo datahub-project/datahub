@@ -17,7 +17,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -40,9 +40,9 @@ import org.json.JSONObject;
  * <ol>
  *   <li>{@code input.version} — explicit per-request override (existing behavior)
  *   <li>{@code matrix[serverVersion][source.type]} — connector-specific version pin from {@link
- *       IngestionVersionMatrixService} when enabled
+ *       IngestionCliVersionMatrixService} when enabled
  *   <li>{@code matrix[serverVersion][source.type]._default}
- *   <li>{@link IngestionConfiguration#getDefaultCliVersion()} — workspace-wide fallback
+ *   <li>{@link IngestionConfiguration#getDefaultCliVersion()} — application-wide fallback
  * </ol>
  *
  * <p>Prior to this change the test-connection path silently omitted {@code version} when the input
@@ -64,7 +64,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
-  private final IngestionVersionMatrixService _versionMatrixService;
+  private final IngestionCliVersionMatrixService _versionMatrixService;
 
   /** Two-arg constructor — no per-connector version matrix is consulted. */
   public CreateTestConnectionRequestResolver(
@@ -80,7 +80,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   public CreateTestConnectionRequestResolver(
       final EntityClient entityClient,
       final IngestionConfiguration ingestionConfiguration,
-      final IngestionVersionMatrixService versionMatrixService) {
+      final IngestionCliVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
     _versionMatrixService = versionMatrixService;
@@ -123,7 +123,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                     input.getRecipe(), executionRequestUrn.toString()));
             // input.getVersion() may be null, empty, or whitespace-only (UI forms can submit any
             // of these); the helper normalizes all three to "unset" and falls through to the
-            // matrix / workspace default. See #17471 for the whitespace-only edge case.
+            // matrix / application default. See #17471 for the whitespace-only edge case.
             final CliVersionResolutionHelper.Result resolution =
                 CliVersionResolutionHelper.resolve(
                     input.getVersion(),
@@ -137,7 +137,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
               arguments.put(VERSION_ARG_NAME, resolution.getVersion());
             }
             execInput.setArgs(new StringMap(arguments));
-            execInput.setCliVersionProvenance(resolution.getStamp());
+            execInput.setCliVersionAudit(resolution.getStamp());
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithKey(

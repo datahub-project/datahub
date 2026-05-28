@@ -5,10 +5,10 @@ import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.HttpUrlMatrixSource;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
-import com.linkedin.metadata.ingestion.MatrixSource;
-import com.linkedin.metadata.ingestion.NoOpMatrixSource;
+import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.version.GitVersion;
 import java.lang.reflect.Field;
 import java.util.Map;
@@ -16,28 +16,30 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Direct unit tests for {@link IngestionVersionMatrixServiceFactory}. Exercises the branch that
- * picks {@link NoOpMatrixSource} vs {@link HttpUrlMatrixSource} based on whether {@code
- * versionMatrixUrl} is configured — the rest of the codebase only ever exercises the no-op path
- * (test contexts don't set the env var).
+ * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. Exercises the branch that
+ * picks {@link NoOpIngestionCliVersionMatrixSource} vs {@link
+ * HttpUrlIngestionCliVersionMatrixSource} based on whether {@code versionMatrixUrl} is configured —
+ * the rest of the codebase only ever exercises the no-op path (test contexts don't set the env
+ * var).
  */
-public class IngestionVersionMatrixServiceFactoryTest {
+public class IngestionCliVersionMatrixServiceFactoryTest {
 
-  private IngestionVersionMatrixServiceFactory factory;
+  private IngestionCliVersionMatrixServiceFactory factory;
   private ConfigurationProvider configProvider;
   private IngestionConfiguration ingestionConfig;
   private GitVersion gitVersion;
 
   @BeforeMethod
   public void setUp() {
-    factory = new IngestionVersionMatrixServiceFactory();
+    factory = new IngestionCliVersionMatrixServiceFactory();
     configProvider = mock(ConfigurationProvider.class);
     ingestionConfig = new IngestionConfiguration();
     gitVersion = mock(GitVersion.class);
 
     when(configProvider.getIngestion()).thenReturn(ingestionConfig);
     // GitVersion.toConfig() is called for the server-version key. Returning an empty config is
-    // fine for the matrixSource() bean; only getInstance() reads the server version.
+    // fine for the ingestionCliVersionMatrixSource() bean; only getInstance() reads the server
+    // version.
     when(gitVersion.toConfig()).thenReturn(Map.of("version", "test-server-1.0"));
 
     setField(factory, "configProvider", configProvider);
@@ -48,22 +50,22 @@ public class IngestionVersionMatrixServiceFactoryTest {
   public void testMatrixSource_whenUrlIsNull_wiresNoOp() {
     ingestionConfig.setVersionMatrixUrl(null);
 
-    MatrixSource source = factory.matrixSource();
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
 
     assertTrue(
-        source instanceof NoOpMatrixSource,
-        "Unset versionMatrixUrl should wire NoOpMatrixSource (OSS-safe default)");
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "Unset versionMatrixUrl should wire NoOpIngestionCliVersionMatrixSource (OSS-safe default)");
   }
 
   @Test
   public void testMatrixSource_whenUrlIsEmpty_wiresNoOp() {
     ingestionConfig.setVersionMatrixUrl("");
 
-    MatrixSource source = factory.matrixSource();
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
 
     assertTrue(
-        source instanceof NoOpMatrixSource,
-        "Empty-string versionMatrixUrl should be treated like unset → NoOpMatrixSource");
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "Empty-string versionMatrixUrl should be treated like unset → NoOpIngestionCliVersionMatrixSource");
   }
 
   @Test
@@ -73,11 +75,11 @@ public class IngestionVersionMatrixServiceFactoryTest {
     ingestionConfig.setVersionMatrixRefreshSeconds(3600);
     ingestionConfig.setVersionMatrixAuthToken(null);
 
-    MatrixSource source = factory.matrixSource();
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
 
     assertTrue(
-        source instanceof HttpUrlMatrixSource,
-        "Configured versionMatrixUrl should wire HttpUrlMatrixSource");
+        source instanceof HttpUrlIngestionCliVersionMatrixSource,
+        "Configured versionMatrixUrl should wire HttpUrlIngestionCliVersionMatrixSource");
   }
 
   @Test
@@ -86,7 +88,8 @@ public class IngestionVersionMatrixServiceFactoryTest {
     ingestionConfig.setDeploymentId("test-deployment");
     when(gitVersion.toConfig()).thenReturn(Map.of("version", "1.5.0"));
 
-    IngestionVersionMatrixService service = factory.getInstance(new NoOpMatrixSource());
+    IngestionCliVersionMatrixService service =
+        factory.getInstance(new NoOpIngestionCliVersionMatrixSource());
 
     assertNotNull(service);
     assertEquals(

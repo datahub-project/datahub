@@ -24,7 +24,7 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -50,7 +50,7 @@ public class CreateIngestionExecutionRequestResolver
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
-  private final IngestionVersionMatrixService _versionMatrixService;
+  private final IngestionCliVersionMatrixService _versionMatrixService;
 
   /** Two-arg constructor — no per-connector version matrix is consulted. */
   public CreateIngestionExecutionRequestResolver(
@@ -66,7 +66,7 @@ public class CreateIngestionExecutionRequestResolver
   public CreateIngestionExecutionRequestResolver(
       final EntityClient entityClient,
       final IngestionConfiguration ingestionConfiguration,
-      final IngestionVersionMatrixService versionMatrixService) {
+      final IngestionCliVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
     _versionMatrixService = versionMatrixService;
@@ -141,7 +141,7 @@ public class CreateIngestionExecutionRequestResolver
               arguments.put(RECIPE_ARG_NAME, recipe);
               // Per-source version may be null, empty, or whitespace-only (bootstrap YAML
               // templating can render any of these); the helper normalizes all three to "unset"
-              // and falls through to the matrix / workspace default. See #17471 for the
+              // and falls through to the matrix / application default. See #17471 for the
               // whitespace-only edge case.
               final String explicitVersion =
                   ingestionSourceInfo.getConfig().hasVersion()
@@ -157,7 +157,7 @@ public class CreateIngestionExecutionRequestResolver
                           ? _versionMatrixService.getServerVersion()
                           : null);
               arguments.put(VERSION_ARG_NAME, resolution.getVersion());
-              execInput.setCliVersionProvenance(resolution.getStamp());
+              execInput.setCliVersionAudit(resolution.getStamp());
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

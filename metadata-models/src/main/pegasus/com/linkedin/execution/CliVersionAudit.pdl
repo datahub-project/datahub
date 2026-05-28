@@ -1,7 +1,7 @@
 namespace com.linkedin.execution
 
 /**
- * Structured provenance record for the CLI version chosen for an ingestion execution.
+ * Audit record for the CLI version chosen for an ingestion execution.
  *
  * Stamped on each ingestion or test-connection ExecutionRequestInput. Captures only metadata
  * about the resolution (which tier fired + which GMS performed it) — the resolved CLI version
@@ -17,24 +17,24 @@ namespace com.linkedin.execution
  * short-circuits the install step. Treat this aspect as GMS-side intent, not proof-of-install.
  *
  * The resolution chain is, in priority order:
- *   1. Per-source `config.version` explicit override (PER_SOURCE)
+ *   1. Per-source `config.version` explicit override (SOURCE_CONFIG_OVERRIDE)
  *   2. Cohort whose `deployments` list contains this deployment's id (MATRIX_COHORT)
  *   3. Connector's `_default` from the matrix (MATRIX_CONNECTOR_DEFAULT)
- *   4. `defaultCliVersion` from application.yaml (WORKSPACE_DEFAULT)
+ *   4. `defaultCliVersion` from application.yaml (APPLICATION_DEFAULT)
  */
-record CliVersionProvenance {
+record CliVersionAudit {
   /**
    * Which level of the resolution priority hit.
    */
   source: enum CliVersionSource {
-    /** Step 1 — explicit cli_version on the source's config. */
-    PER_SOURCE
+    /** Step 1 — explicit cli_version on the ingestion source's recipe config. */
+    SOURCE_CONFIG_OVERRIDE
     /** Step 2 — matched a cohort whose deployments list contains this deployment's id. */
     MATRIX_COHORT
     /** Step 3 — fell through to the connector's _default in the matrix. */
     MATRIX_CONNECTOR_DEFAULT
     /** Step 4 — fell through to defaultCliVersion from application.yaml. */
-    WORKSPACE_DEFAULT
+    APPLICATION_DEFAULT
   }
 
   /**

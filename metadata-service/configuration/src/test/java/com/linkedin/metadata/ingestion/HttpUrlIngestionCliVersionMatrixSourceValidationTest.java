@@ -13,7 +13,7 @@ import org.testng.annotations.Test;
 
 /**
  * Direct unit tests for the JSON-schema validation rules in {@link
- * HttpUrlMatrixSource#parseMatrix}.
+ * HttpUrlIngestionCliVersionMatrixSource#parseMatrix}.
  *
  * <p>Two layers of validation are tested:
  *
@@ -22,10 +22,10 @@ import org.testng.annotations.Test;
  *       violations — caller refuses to swap the cache.
  *   <li><b>Entry-level (fail open + log)</b>: bad sub-entries are skipped; good entries around them
  *       are kept. We don't assert on the log lines themselves (brittle) — only on the resulting
- *       {@link Matrix} shape.
+ *       {@link IngestionCliVersionMatrix} shape.
  * </ul>
  */
-public class HttpUrlMatrixSourceValidationTest {
+public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -37,15 +37,20 @@ public class HttpUrlMatrixSourceValidationTest {
   public void rootNotObjectThrowsAndCallerRetainsCache() throws Exception {
     // A JSON array at the root is the realistic operator-error case (e.g. they
     // exported a list of versions instead of the keyed object). We refuse to swap.
-    // The thrown IllegalArgumentException is the signal HttpUrlMatrixSource.refresh()
+    // The thrown IllegalArgumentException is the signal
+    // HttpUrlIngestionCliVersionMatrixSource.refresh()
     // uses to retain the last-known-good cache.
     JsonNode root = MAPPER.readTree("[ {\"snowflake\": {} } ]");
-    assertThrows(IllegalArgumentException.class, () -> HttpUrlMatrixSource.parseMatrix(root));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root));
   }
 
   @Test
   public void rootNullThrows() {
-    assertThrows(IllegalArgumentException.class, () -> HttpUrlMatrixSource.parseMatrix(null));
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> HttpUrlIngestionCliVersionMatrixSource.parseMatrix(null));
   }
 
   // ---------------------------------------------------------------------------
@@ -56,14 +61,14 @@ public class HttpUrlMatrixSourceValidationTest {
   public void invalidDefaultVersionIgnoredButCohortsKept() throws Exception {
     // The "_default" is unusable (has a space), but cohorts are well-formed and
     // should still drive cohort matches. The connector falls through to
-    // WORKSPACE_DEFAULT when no cohort matches.
+    // APPLICATION_DEFAULT when no cohort matches.
     JsonNode root =
         MAPPER.readTree(
             "{\"1.5.0\": {\"snowflake\": {"
                 + "\"_default\": \"not a version\","
                 + "\"cohorts\": [{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}]"
                 + "}}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
     assertNotNull(snowflake);
     assertNull(
@@ -81,7 +86,7 @@ public class HttpUrlMatrixSourceValidationTest {
                 + "{\"deployments\": [\"acme\"]},"
                 + "{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
     assertEquals(snowflake.getCohorts().size(), 1, "first cohort (no version) should be dropped");
     assertEquals(snowflake.getCohorts().get(0).getVersion(), "1.5.0.6");
@@ -95,7 +100,7 @@ public class HttpUrlMatrixSourceValidationTest {
             "{\"1.5.0\": {\"snowflake\": {\"cohorts\": ["
                 + "{\"version\": \"<script>alert(1)</script>\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
     assertTrue(
         snowflake.getCohorts().isEmpty(), "cohort with invalid version pattern should be dropped");
@@ -120,7 +125,7 @@ public class HttpUrlMatrixSourceValidationTest {
     }
     JsonNode root =
         MAPPER.readTree("{\"1.5.0\": {\"snowflake\": {\"cohorts\": [" + cohorts + "]}}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     assertEquals(
         m.getEntriesForServer("1.5.0").get("snowflake").getCohorts().size(),
         realVersions.length,
@@ -136,7 +141,7 @@ public class HttpUrlMatrixSourceValidationTest {
                 + "\"snowflake\": [\"oops\", \"this is wrong\"],"
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     assertFalse(
         m.getEntriesForServer("1.5.0").containsKey("snowflake"),
         "malformed connector entry should be dropped");
@@ -160,7 +165,7 @@ public class HttpUrlMatrixSourceValidationTest {
                 + "},"
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
-    Matrix m = HttpUrlMatrixSource.parseMatrix(root);
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
     assertEquals(snowflake.getDefaultVersion(), "1.5.0.5");
     assertEquals(snowflake.getCohorts().size(), 1);
