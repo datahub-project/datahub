@@ -22,6 +22,9 @@ import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.domain.DomainUpstream;
+import com.linkedin.domain.DomainUpstreamArray;
+import com.linkedin.domain.DomainUpstreams;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
@@ -778,5 +781,112 @@ public class LineageService {
     properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
     newEdge.setProperties(properties);
     edgeArray.add(newEdge);
+  }
+
+  /**
+   * Validates that a given list of urns are all domains and all exist. Throws error if either
+   * condition is false for any urn.
+   */
+  public void validateDomainUrns(@Nonnull OperationContext opContext, @Nonnull final List<Urn> urns)
+      throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add lineage edge with non-domain node when we expect a domain. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
+    }
+  }
+
+  /**
+   * Updates declared Domain lineage by taking a list of upstream Domains to add and remove and
+   * rewriting the {@code domainUpstreams} aspect on the downstream Domain.
+   * The @Relationship.isLineage=true annotation on {@link DomainUpstream#getDomain()} means
+   * searchAcrossLineage will surface these edges natively in both directions; no aggregation
+   * resolver is required.
+   */
+  public void updateDomainLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    if (!downstreamUrn.getEntityType().equals(Constants.DOMAIN_ENTITY_NAME)) {
+      throw new IllegalArgumentException(
+          String.format("Tried to update Domain lineage on non-domain urn: %s", downstreamUrn));
+    }
+    if (upstreamUrnsToAdd.stream().anyMatch(downstreamUrn::equals)) {
+      throw new IllegalArgumentException(
+          String.format("Refused to declare a Domain as its own upstream. Urn: %s", downstreamUrn));
+    }
+    validateDomainUrns(opContext, upstreamUrnsToAdd);
+    try {
+      MetadataChangeProposal changeProposal =
+          buildDomainLineageProposal(
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update Domain lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Reads the existing {@code domainUpstreams} aspect (if any), removes the entries matched by
+   * {@code upstreamUrnsToRemove}, appends new {@link DomainUpstream} entries for each urn in {@code
+   * upstreamUrnsToAdd} that is not already present, and stamps each new edge with the actor / now
+   * timestamp. Existing entries are preserved as-is so any contract metadata captured by ingestion
+   * is not clobbered by a UI authoring round-trip.
+   */
+  @Nonnull
+  public MetadataChangeProposal buildDomainLineageProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(
+            opContext,
+            Constants.DOMAIN_ENTITY_NAME,
+            downstreamUrn,
+            ImmutableSet.of(Constants.DOMAIN_UPSTREAMS_ASPECT_NAME));
+
+    DomainUpstreams lineage = new DomainUpstreams();
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.DOMAIN_UPSTREAMS_ASPECT_NAME)) {
+      DataMap dataMap =
+          entityResponse.getAspects().get(Constants.DOMAIN_UPSTREAMS_ASPECT_NAME).getValue().data();
+      lineage = new DomainUpstreams(dataMap);
+    }
+
+    if (!lineage.hasUpstreams()) {
+      lineage.setUpstreams(new DomainUpstreamArray());
+    }
+    final DomainUpstreamArray upstreams = lineage.getUpstreams();
+
+    upstreams.removeIf(upstream -> upstreamUrnsToRemove.contains(upstream.getDomain()));
+
+    for (final Urn upstreamUrn : upstreamUrnsToAdd) {
+      if (upstreams.stream().anyMatch(u -> u.getDomain().equals(upstreamUrn))) {
+        continue;
+      }
+      final DomainUpstream newUpstream = new DomainUpstream();
+      newUpstream.setDomain(upstreamUrn);
+      newUpstream.setAuditStamp(getAuditStamp(actor));
+      newUpstream.setCreated(getAuditStamp(actor));
+      final StringMap properties = new StringMap();
+      properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+      newUpstream.setProperties(properties);
+      upstreams.add(newUpstream);
+    }
+
+    lineage.setUpstreams(upstreams);
+    return buildMetadataChangeProposal(
+        downstreamUrn, Constants.DOMAIN_UPSTREAMS_ASPECT_NAME, lineage);
   }
 }

@@ -116,6 +116,14 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       upstreamUrnsToRemove,
                       actor);
                   break;
+                case Constants.DOMAIN_ENTITY_NAME:
+                  _lineageService.updateDomainLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      actor);
+                  break;
                 default:
               }
             } catch (Exception e) {

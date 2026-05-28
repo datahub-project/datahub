@@ -42,6 +42,9 @@ public class UpdateLineageResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:bigquery,test4,DEV)";
   private static final String CHART_URN = "urn:li:chart:(looker,baz)";
   private static final String DASHBOARD_URN = "urn:li:dashboard:(airflow,id)";
+  private static final String DOMAIN_URN_1 = "urn:li:domain:foo";
+  private static final String DOMAIN_URN_2 = "urn:li:domain:bar";
+  private static final String DOMAIN_URN_3 = "urn:li:domain:baz";
   private static final String DATAJOB_URN_1 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
   private static final String DATAJOB_URN_2 =
@@ -135,6 +138,25 @@ public class UpdateLineageResolverTest {
         .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  // Adds an upstream Domain and removes another upstream Domain for a downstream Domain. Verifies
+  // the resolver dispatches to the new LineageService.updateDomainLineage method.
+  @Test
+  public void testUpdateDomainLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(DOMAIN_URN_1, DOMAIN_URN_2));
+    List<LineageEdge> edgesToRemove =
+        Collections.singletonList(createLineageEdge(DOMAIN_URN_1, DOMAIN_URN_3));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService, Mockito.times(1))
+        .updateDomainLineage(any(), any(), any(), any(), any());
   }
 
   @Test
