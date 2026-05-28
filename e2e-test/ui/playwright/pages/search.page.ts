@@ -21,20 +21,20 @@ export class SearchPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.searchInput = page.getByTestId("search-input");
-    this.searchBar = page.getByTestId("search-bar");
-    this.searchResults = page.getByTestId("search-results");
-    this.filtersV1 = page.getByTestId("search-filters-v1");
-    this.filtersV2 = page.getByTestId("search-filters-v2");
+    this.searchInput = page.getByTestId('search-input');
+    this.searchBar = page.getByTestId('search-bar');
+    this.searchResults = page.getByTestId('search-results');
+    this.filtersV1 = page.getByTestId('search-filters-v1');
+    this.filtersV2 = page.getByTestId('search-filters-v2');
     this.advancedButton = page.getByText('Advanced Filters');
     this.addFilterButton = page.getByText('Add Filter');
-    this.clearAllFiltersButton = page.getByTestId("clear-all-filters");
-    this.moreFiltersDropdown = page.getByTestId("more-filters-dropdown");
-    this.updateFiltersButton = page.getByTestId("update-filters");
-    this.searchBarInput = page.getByTestId("search-bar");
-    this.clearButton = page.getByTestId("button-clear");
-    this.autocompleteDropdown = page.getByTestId("search-bar-dropdown");
-    this.filterDropdownMenu = page.getByTestId("filter-dropdown");
+    this.clearAllFiltersButton = page.getByTestId('clear-all-filters');
+    this.moreFiltersDropdown = page.getByTestId('more-filters-dropdown');
+    this.updateFiltersButton = page.getByTestId('update-filters');
+    this.searchBarInput = page.getByTestId('search-bar');
+    this.clearButton = page.getByTestId('button-clear');
+    this.autocompleteDropdown = page.getByTestId('search-bar-dropdown');
+    this.filterDropdownMenu = page.getByTestId('filter-dropdown');
   }
 
   async navigateToHome(): Promise<void> {
@@ -259,8 +259,8 @@ export class SearchPage extends BasePage {
   }
 
   async fillTextFilter(text: string): Promise<void> {
-    await this.page.getByTestId("edit-text-input").fill(text);
-    await this.page.getByTestId("edit-text-done-btn").click({ force: true });
+    await this.page.getByTestId('edit-text-input').fill(text);
+    await this.page.getByTestId('edit-text-done-btn').click({ force: true });
   }
 
   async clickAllFilters(): Promise<void> {
@@ -316,7 +316,9 @@ export class SearchPage extends BasePage {
     if (mapping) {
       if (mapping.value) {
         // Specific field + value selector (e.g., Type filters)
-        await expect(this.page.getByTestId(`active-filter-value-${mapping.field}-${mapping.value}`)).toBeVisible({ timeout: 10000 });
+        await expect(this.page.getByTestId(`active-filter-value-${mapping.field}-${mapping.value}`)).toBeVisible({
+          timeout: 10000,
+        });
       } else {
         // Field container only (e.g., Platform filters) - check by field and text
         const container = this.page.getByTestId(`active-filter-${mapping.field}`);
@@ -413,7 +415,7 @@ export class SearchPage extends BasePage {
 
   async searchInModal(searchTerm: string): Promise<void> {
     // Find the search input inside the filter dropdown modal
-    const searchInputs = await this.page.getByTestId("search-input").all();
+    const searchInputs = await this.page.getByTestId('search-input').all();
     if (searchInputs.length > 1) {
       // Use the second search input (first is the main search bar)
       await searchInputs[1].fill(searchTerm);

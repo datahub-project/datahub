@@ -66,27 +66,27 @@ export class IncidentsPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.createIncidentBtn = page.getByTestId("create-incident-btn-main");
-    this.createIncidentBtnWithSiblings = page.getByTestId("create-incident-btn-main-with-siblings");
-    this.incidentNameInput = page.getByTestId("incident-name-input");
+    this.createIncidentBtn = page.getByTestId('create-incident-btn-main');
+    this.createIncidentBtnWithSiblings = page.getByTestId('create-incident-btn-main-with-siblings');
+    this.incidentNameInput = page.getByTestId('incident-name-input');
     // remirror-editor is the rich text editor used for incident description
     // eslint-disable-next-line playwright/no-raw-locators -- Remirror editor CSS class; no data-testid or ARIA role on the editor element
     this.descriptionEditor = page.locator('.remirror-editor');
-    this.categorySelectTrigger = page.getByTestId("category-select-input-type");
-    this.categoryOptionsList = page.getByTestId("category-options-list");
-    this.prioritySelectTrigger = page.getByTestId("priority-select-input-type");
-    this.priorityOptionsList = page.getByTestId("priority-options-list");
-    this.stageSelectTrigger = page.getByTestId("stage-select-input-type");
-    this.stageOptionsList = page.getByTestId("stage-options-list");
-    this.statusSelectTrigger = page.getByTestId("status-select-input-type");
-    this.statusOptionsList = page.getByTestId("status-options-list");
-    this.assigneesSelectTrigger = page.getByTestId("incident-assignees-select-input-type");
-    this.assigneesOptionsList = page.getByTestId("incident-assignees-options-list");
-    this.formContainer = page.getByTestId("incident-editor-form-container");
-    this.saveButton = page.getByTestId("incident-create-button");
-    this.editIncidentIcon = page.getByTestId("edit-incident-icon");
-    this.filterBase = page.getByTestId("filter-base");
-    this.drawerHeaderTitle = page.getByTestId("drawer-header-title");
+    this.categorySelectTrigger = page.getByTestId('category-select-input-type');
+    this.categoryOptionsList = page.getByTestId('category-options-list');
+    this.prioritySelectTrigger = page.getByTestId('priority-select-input-type');
+    this.priorityOptionsList = page.getByTestId('priority-options-list');
+    this.stageSelectTrigger = page.getByTestId('stage-select-input-type');
+    this.stageOptionsList = page.getByTestId('stage-options-list');
+    this.statusSelectTrigger = page.getByTestId('status-select-input-type');
+    this.statusOptionsList = page.getByTestId('status-options-list');
+    this.assigneesSelectTrigger = page.getByTestId('incident-assignees-select-input-type');
+    this.assigneesOptionsList = page.getByTestId('incident-assignees-options-list');
+    this.formContainer = page.getByTestId('incident-editor-form-container');
+    this.saveButton = page.getByTestId('incident-create-button');
+    this.editIncidentIcon = page.getByTestId('edit-incident-icon');
+    this.filterBase = page.getByTestId('filter-base');
+    this.drawerHeaderTitle = page.getByTestId('drawer-header-title');
   }
 
   async navigateToKafkaDatasetIncidents(): Promise<void> {
@@ -378,7 +378,7 @@ export class IncidentsPage extends BasePage {
     // The NestedSelect renders parent categories collapsed by default.
     // The status options live under the "state" parent — expand it first so that
     // the child option elements are rendered in the DOM before we try to click.
-    const stateParent = this.page.getByTestId("parent-option-state");
+    const stateParent = this.page.getByTestId('parent-option-state');
     await stateParent.waitFor({ state: 'visible', timeout: 10000 });
     const childOption = this.childOption(status);
     const childVisible = await childOption.isVisible().catch(() => false);

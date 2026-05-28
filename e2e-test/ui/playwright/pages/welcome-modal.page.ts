@@ -26,7 +26,7 @@ export class WelcomeModalPage extends BasePage {
     // cause false failures in expectModalVisible / expectModalNotVisible.
     this.modal = page.getByRole('dialog').filter({ hasText: 'Welcome to DataHub' });
     this.modalTitle = page.getByRole('heading', { name: 'Welcome to DataHub' });
-    this.closeButton = page.getByTestId("modal-close-icon");
+    this.closeButton = page.getByTestId('modal-close-icon');
 
     // Carousel navigation selectors
     // eslint-disable-next-line playwright/no-raw-locators -- react-slick carousel dots have no ARIA role or data-testid

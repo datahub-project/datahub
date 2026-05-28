@@ -29,20 +29,20 @@ export class DomainsPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.newDomainButton = page.getByTestId("domains-new-domain-button");
+    this.newDomainButton = page.getByTestId('domains-new-domain-button');
     this.domainNameInput = page.getByTestId('create-domain-name').getByRole('textbox');
     this.domainIdInput = page.getByTestId('create-domain-id').getByRole('textbox');
-    this.createDomainConfirmButton = page.getByTestId("create-domain-button");
-    this.domainSearchInput = page.getByPlaceholder("Search domains...");
-    this.batchAddButton = page.getByTestId("domain-batch-add");
+    this.createDomainConfirmButton = page.getByTestId('create-domain-button');
+    this.domainSearchInput = page.getByPlaceholder('Search domains...');
+    this.batchAddButton = page.getByTestId('domain-batch-add');
     // AntD modal content scopes the search so it doesn't match the page-level search bar
     this.modalSearchInput = page.getByRole('dialog').getByTestId('search-input');
     this.continueButton = page.getByTestId('search-select-modal-continue-button');
     // eslint-disable-next-line playwright/no-raw-locators -- sidebar-domain-section has no data-testid; compound CSS selector required
     this.sidebarRemoveIcon = page.locator('.sidebar-domain-section [data-testid="remove-icon"]');
-    this.modalConfirmButton = page.getByTestId("modal-confirm-button");
-    this.entityMenuDeleteButton = page.getByTestId("entity-menu-delete-button");
-    this.entityTitle = page.getByTestId("entity-title");
+    this.modalConfirmButton = page.getByTestId('modal-confirm-button');
+    this.entityMenuDeleteButton = page.getByTestId('entity-menu-delete-button');
+    this.entityTitle = page.getByTestId('entity-title');
   }
 
   async navigate(): Promise<void> {

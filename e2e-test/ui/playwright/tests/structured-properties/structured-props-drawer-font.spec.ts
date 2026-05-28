@@ -40,9 +40,9 @@ test.describe('Structured-Properties Create drawer — font family', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     if (page.url().includes('/login')) {
-      await page.getByTestId("username").fill(USERNAME);
-      await page.getByTestId("password").fill(PASSWORD);
-      await page.getByTestId("sign-in").click();
+      await page.getByTestId('username').fill(USERNAME);
+      await page.getByTestId('password').fill(PASSWORD);
+      await page.getByTestId('sign-in').click();
       await page.waitForURL((url) => !url.pathname.includes('login'), {
         waitUntil: 'domcontentloaded',
         timeout: 30_000,

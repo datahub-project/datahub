@@ -8,11 +8,11 @@ export class SidebarComponent {
   readonly dashboardsLink: Locator;
 
   constructor(private page: Page) {
-    this.sidebar = page.getByTestId("sidebar");
-    this.homeLink = page.getByTestId("sidebar-home");
-    this.searchLink = page.getByTestId("sidebar-search");
-    this.datasetsLink = page.getByTestId("sidebar-datasets");
-    this.dashboardsLink = page.getByTestId("sidebar-dashboards");
+    this.sidebar = page.getByTestId('sidebar');
+    this.homeLink = page.getByTestId('sidebar-home');
+    this.searchLink = page.getByTestId('sidebar-search');
+    this.datasetsLink = page.getByTestId('sidebar-datasets');
+    this.dashboardsLink = page.getByTestId('sidebar-dashboards');
   }
 
   async navigateToHome(): Promise<void> {

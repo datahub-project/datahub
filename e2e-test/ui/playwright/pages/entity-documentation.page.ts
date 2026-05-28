@@ -33,22 +33,22 @@ export class EntityDocumentationPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.editDocumentationButton = page.getByTestId("edit-documentation-button");
-    this.saveDescriptionButton = page.getByTestId("description-editor-save-button");
-    this.addRelatedButton = page.getByTestId("add-related-button");
-    this.relatedList = page.getByTestId("related-list");
-    this.platformLinksContainer = page.getByTestId("platform-links-container");
-    this.urlInput = page.getByTestId("url-input");
-    this.labelInput = page.getByTestId("label-input");
+    this.editDocumentationButton = page.getByTestId('edit-documentation-button');
+    this.saveDescriptionButton = page.getByTestId('description-editor-save-button');
+    this.addRelatedButton = page.getByTestId('add-related-button');
+    this.relatedList = page.getByTestId('related-list');
+    this.platformLinksContainer = page.getByTestId('platform-links-container');
+    this.urlInput = page.getByTestId('url-input');
+    this.labelInput = page.getByTestId('label-input');
     // eslint-disable-next-line playwright/no-raw-locators -- Remirror/ProseMirror CSS class + contenteditable attribute; no semantic equivalent
     this.proseMirrorEditor = page.locator('.remirror-editor.ProseMirror[contenteditable="true"]');
-    this.editFieldDescriptionButton = page.getByTestId("edit-field-description");
+    this.editFieldDescriptionButton = page.getByTestId('edit-field-description');
     // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror CSS class inside testid container; no data-testid on the editor element
     this.fieldDescriptionEditor = page.getByTestId('description-editor').locator('.ProseMirror');
-    this.fieldDescriptionUpdateButton = page.getByTestId("description-modal-update-button");
-    this.showInPreviewCheckbox = page.getByTestId("show-in-asset-preview-checkbox");
-    this.linkFormSubmitButton = page.getByTestId("link-form-modal-submit-button");
-    this.sidebarDocumentationSection = page.getByTestId("sidebar-section-content-Documentation");
+    this.fieldDescriptionUpdateButton = page.getByTestId('description-modal-update-button');
+    this.showInPreviewCheckbox = page.getByTestId('show-in-asset-preview-checkbox');
+    this.linkFormSubmitButton = page.getByTestId('link-form-modal-submit-button');
+    this.sidebarDocumentationSection = page.getByTestId('sidebar-section-content-Documentation');
   }
 
   async navigateToDatasetDocumentationTab(datasetUrn: string, datasetName: string): Promise<void> {

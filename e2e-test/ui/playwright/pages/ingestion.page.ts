@@ -59,9 +59,9 @@ export class IngestionPage extends BasePage {
     this.sourcesTab = page.locator('[data-node-key="Sources"]');
     // eslint-disable-next-line playwright/no-raw-locators -- AntD data-node-key attribute; getByRole('tab') matches by visible label, not key
     this.secretsTab = page.locator('[data-node-key="Secrets"]');
-    this.createSourceButton = page.getByTestId("create-ingestion-source-button");
-    this.createSecretButton = page.getByTestId("create-secret-button");
-    this.searchInput = page.getByTestId("search-bar-input");
+    this.createSourceButton = page.getByTestId('create-ingestion-source-button');
+    this.createSecretButton = page.getByTestId('create-secret-button');
+    this.searchInput = page.getByTestId('search-bar-input');
 
     // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.accountIdInput = page.locator('#account_id');
@@ -76,21 +76,21 @@ export class IngestionPage extends BasePage {
     // eslint-disable-next-line playwright/no-raw-locators -- Snowflake recipe form generates HTML ids; no data-testid on these fields
     this.roleInput = page.locator('#role');
 
-    this.dataSourceSearchInput = page.getByPlaceholder("Search data sources...");
-    this.recipeYamlButton = page.getByTestId("recipe-builder-yaml-button");
-    this.recipeNextButton = page.getByTestId("recipe-builder-next-button");
-    this.scheduleNextButton = page.getByTestId("ingestion-schedule-next-button");
+    this.dataSourceSearchInput = page.getByPlaceholder('Search data sources...');
+    this.recipeYamlButton = page.getByTestId('recipe-builder-yaml-button');
+    this.recipeNextButton = page.getByTestId('recipe-builder-next-button');
+    this.scheduleNextButton = page.getByTestId('ingestion-schedule-next-button');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design collapse item class; no data-testid or ARIA role on this panel
     this.scheduleCollapseItem = page.locator('.ant-collapse-item'); // no data-testid on this AntD panel
-    this.sourceNameInput = page.getByTestId("source-name-input");
-    this.saveButton = page.getByTestId("ingestion-source-save-button");
+    this.sourceNameInput = page.getByTestId('source-name-input');
+    this.saveButton = page.getByTestId('ingestion-source-save-button');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal root class; no data-testid on the modal root element
     this.wizardModal = page.locator('.ant-modal'); // no data-testid on the AntD modal root
 
     this.secretNameInput = page.getByTestId('secret-modal-name-input').getByRole('textbox');
     this.secretValueInput = page.getByTestId('secret-modal-value-input').getByRole('textbox');
     this.secretDescriptionInput = page.getByTestId('secret-modal-description-input').getByRole('textbox');
-    this.secretCreateButton = page.getByTestId("secret-modal-create-button");
+    this.secretCreateButton = page.getByTestId('secret-modal-create-button');
     // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid on AntD virtual list
     this.secretDropdownList = page.locator('.rc-virtual-list-holder-inner'); // AntD virtual-list, no testid
     // eslint-disable-next-line playwright/no-raw-locators -- FontAwesome data-icon attribute; no data-testid or semantic role on SVG icon
@@ -279,7 +279,7 @@ export class IngestionPage extends BasePage {
   async expectSourceStatusPending(sourceName?: string): Promise<void> {
     const statusLocator = sourceName
       ? this.page.getByRole('row').filter({ hasText: sourceName }).getByTestId('ingestion-source-table-status')
-      : this.page.getByTestId("ingestion-source-table-status").first();
+      : this.page.getByTestId('ingestion-source-table-status').first();
     await expect(statusLocator).toContainText('Pending', { timeout: 30000 });
   }
 

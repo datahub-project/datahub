@@ -8,7 +8,7 @@ export class PoliciesPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.searchInput = page.getByTestId("search-bar-input");
+    this.searchInput = page.getByTestId('search-bar-input');
     this.tableBody = page.getByRole('rowgroup');
   }
 

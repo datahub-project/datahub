@@ -46,7 +46,7 @@ test.describe('SearchV2 Features', () => {
 
   test('should navigate through filter dropdowns', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
-    const typeFilterDropdown = page.getByTestId("filter-dropdown-Type");
+    const typeFilterDropdown = page.getByTestId('filter-dropdown-Type');
     await typeFilterDropdown.click();
     await expect(searchPage.filterDropdownMenu).toBeVisible();
     await expect(searchPage.updateFiltersButton).toBeVisible();
@@ -66,9 +66,9 @@ test.describe('SearchV2 Features', () => {
   test('should display active filters with correct test IDs', async ({ page }) => {
     await searchPage.searchAndWait('*', 2000);
     await searchPage.selectFilterOption('Type', 'Datasets');
-    const activeFilter = page.getByTestId("active-filter-_entityType␞typeNames");
+    const activeFilter = page.getByTestId('active-filter-_entityType␞typeNames');
     await expect(activeFilter).toBeVisible();
-    const activeFilterValue = page.getByTestId("active-filter-value-_entityType␞typeNames-DATASET");
+    const activeFilterValue = page.getByTestId('active-filter-value-_entityType␞typeNames-DATASET');
     await expect(activeFilterValue).toBeVisible();
   });
 
@@ -79,7 +79,7 @@ test.describe('SearchV2 Features', () => {
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.expectActiveFilter('Hive');
 
-    const removeTypeFilterButton = page.getByTestId("remove-filter-_entityType␞typeNames");
+    const removeTypeFilterButton = page.getByTestId('remove-filter-_entityType␞typeNames');
     await removeTypeFilterButton.click();
     await searchPage.expectActiveFilterNotVisible('Datasets');
     await searchPage.expectActiveFilter('Hive');

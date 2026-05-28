@@ -15,7 +15,7 @@ export class DatasetHealthPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.healthPopover = page.getByTestId("assertions-details");
+    this.healthPopover = page.getByTestId('assertions-details');
   }
 
   // Health icon testid includes the full dataset URN — dynamic, returned as a locator

@@ -28,29 +28,29 @@ export class BusinessAttributePage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.createButton = page.getByTestId("add-business-attribute-button");
-    this.addBusinessAttributeButton = page.getByTestId("add-business-attribute-button");
-    this.nameInput = page.getByTestId("create-business-attribute-name");
+    this.createButton = page.getByTestId('add-business-attribute-button');
+    this.addBusinessAttributeButton = page.getByTestId('add-business-attribute-button');
+    this.nameInput = page.getByTestId('create-business-attribute-name');
     // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror focused state has no ARIA equivalent
     this.descriptionInput = page.locator('.ProseMirror-focused');
-    this.saveButton = page.getByTestId("create-business-attribute-button");
-    this.cancelButton = page.getByTestId("cancel-create-business-attribute-button");
-    this.attributeList = page.getByTestId("attribute-list");
-    this.dataTypeSelect = page.getByTestId("select-data-type");
-    this.editDataTypeButton = page.getByTestId("edit-data-type-button");
-    this.addDataTypeOption = page.getByTestId("add-data-type-option");
-    this.businessAttributeModalInput = page.getByTestId("business-attribute-modal-input");
-    this.businessAttributeOption = page.getByTestId("business-attribute-option");
-    this.addAttributeFromModalBtn = page.getByTestId("add-attribute-from-modal-btn");
+    this.saveButton = page.getByTestId('create-business-attribute-button');
+    this.cancelButton = page.getByTestId('cancel-create-business-attribute-button');
+    this.attributeList = page.getByTestId('attribute-list');
+    this.dataTypeSelect = page.getByTestId('select-data-type');
+    this.editDataTypeButton = page.getByTestId('edit-data-type-button');
+    this.addDataTypeOption = page.getByTestId('add-data-type-option');
+    this.businessAttributeModalInput = page.getByTestId('business-attribute-modal-input');
+    this.businessAttributeOption = page.getByTestId('business-attribute-option');
+    this.addAttributeFromModalBtn = page.getByTestId('add-attribute-from-modal-btn');
     this.createBusinessAttributeText = page.getByText('Create Business Attribute');
     // In V2 entity view, the more-actions trigger is inside ActionMenuItem with data-testid="view-more-button".
-    this.moreActionsButton = page.getByTestId("view-more-button");
+    this.moreActionsButton = page.getByTestId('view-more-button');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design dropdown menu has no ARIA role; scoping needed to avoid false matches
     this.deleteMenuButton = page.locator('.ant-dropdown-menu').getByText('Delete', { exact: true });
     // Scoped to the confirmation dialog so "Yes" text elsewhere is not matched.
     this.deleteConfirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
     this.relatedEntitiesTab = page.getByText('Related Entities');
-    this.filterEntitiesInput = page.getByPlaceholder("Filter entities...");
+    this.filterEntitiesInput = page.getByPlaceholder('Filter entities...');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design v5 select options lack [role="option"]; no semantic equivalent
     this.dataTypeDropdownOption = page.locator('.ant-select-dropdown .ant-select-item-option');
     this.businessAttributePageTitle = page.getByRole('heading', { name: 'Business Attribute', exact: true });
@@ -203,7 +203,7 @@ export class BusinessAttributePage extends BasePage {
 
   getBusinessAttributeSection(_fieldName: string): Locator {
     // In the V2 entity view, SidebarSection sets data-testid="sidebar-section-content-{title}".
-    return this.page.getByTestId("sidebar-section-content-Business Attribute");
+    return this.page.getByTestId('sidebar-section-content-Business Attribute');
   }
 
   async clickAddAttributeButton(fieldName: string): Promise<void> {

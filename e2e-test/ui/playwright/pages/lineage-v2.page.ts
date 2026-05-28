@@ -51,30 +51,30 @@ export class LineageV2Page extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.lineageEditMenuButton = page.getByTestId("lineage-edit-menu-button").first();
-    this.editUpstreamLineageButton = page.getByTestId("edit-upstream-lineage");
-    this.editDownstreamLineageButton = page.getByTestId("edit-downstream-lineage");
+    this.lineageEditMenuButton = page.getByTestId('lineage-edit-menu-button').first();
+    this.editUpstreamLineageButton = page.getByTestId('edit-upstream-lineage');
+    this.editDownstreamLineageButton = page.getByTestId('edit-downstream-lineage');
     // eslint-disable-next-line playwright/no-raw-locators -- AntD data-node-key attribute; getByRole('tab') may match by visible text but not by node key
     this.lineageTabKey = page.locator('[data-node-key="Lineage"]').first();
     // eslint-disable-next-line playwright/no-raw-locators -- React-generated HTML id on AntD sidebar tab; no data-testid available
     this.sidebarLineageTab = page.locator('#entity-sidebar-tabs-tab-Lineage');
-    this.upstreamDirectionOption = page.getByTestId("compact-lineage-tab-direction-select-option-upstream");
-    this.downstreamDirectionOption = page.getByTestId("compact-lineage-tab-direction-select-option-downstream");
-    this.columnLineageToggle = page.getByTestId("column-lineage-toggle");
-    this.degree2Filter = page.getByTestId("facet-degree-2");
-    this.degree3PlusFilter = page.getByTestId("facet-degree-3+");
-    this.filterByDescriptionOption = page.getByTestId("adv-search-add-filter-description");
-    this.filterTextInput = page.getByTestId("edit-text-input");
-    this.filterTextDoneButton = page.getByTestId("edit-text-done-btn");
+    this.upstreamDirectionOption = page.getByTestId('compact-lineage-tab-direction-select-option-upstream');
+    this.downstreamDirectionOption = page.getByTestId('compact-lineage-tab-direction-select-option-downstream');
+    this.columnLineageToggle = page.getByTestId('column-lineage-toggle');
+    this.degree2Filter = page.getByTestId('facet-degree-2');
+    this.degree3PlusFilter = page.getByTestId('facet-degree-3+');
+    this.filterByDescriptionOption = page.getByTestId('adv-search-add-filter-description');
+    this.filterTextInput = page.getByTestId('edit-text-input');
+    this.filterTextDoneButton = page.getByTestId('edit-text-done-btn');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design list container class; no data-testid or ARIA role on this wrapper
     this.listItems = page.locator('.ant-list-items');
-    this.downloadCsvButton = page.getByTestId("download-csv-button");
-    this.downloadCsvInput = page.getByTestId("download-as-csv-input");
-    this.csvModalDownloadButton = page.getByTestId("csv-modal-download-button");
-    this.lineageEditSearchInput = page.getByRole("dialog").getByTestId("search-input");
-    this.lineageTabDirectionSelect = page.getByTestId("lineage-tab-direction-select");
-    this.lineageTabDownstreamOption = page.getByTestId("lineage-tab-direction-select-option-downstream");
-    this.lineageTabUpstreamOption = page.getByTestId("lineage-tab-direction-select-option-upstream");
+    this.downloadCsvButton = page.getByTestId('download-csv-button');
+    this.downloadCsvInput = page.getByTestId('download-as-csv-input');
+    this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');
+    this.lineageEditSearchInput = page.getByRole('dialog').getByTestId('search-input');
+    this.lineageTabDirectionSelect = page.getByTestId('lineage-tab-direction-select');
+    this.lineageTabDownstreamOption = page.getByTestId('lineage-tab-direction-select-option-downstream');
+    this.lineageTabUpstreamOption = page.getByTestId('lineage-tab-direction-select-option-upstream');
     // eslint-disable-next-line playwright/no-raw-locators -- rc-virtual-list internal class; no data-testid or ARIA role
     this.columnDropdownVirtualList = page.locator('.rc-virtual-list');
     // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class name; no data-testid on ResultText
@@ -145,9 +145,9 @@ export class LineageV2Page extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(
-      this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`),
-    ).toBeAttached({ timeout: 10000 });
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).toBeAttached({
+      timeout: 10000,
+    });
   }
 
   async checkEdgeBetweenColumnsNotExists(
@@ -156,9 +156,9 @@ export class LineageV2Page extends BasePage {
     node2Urn: string,
     col2Name: string,
   ): Promise<void> {
-    await expect(
-      this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`),
-    ).not.toBeAttached({ timeout: 5000 });
+    await expect(this.page.getByTestId(`rf__edge-${node1Urn}::${col1Name}-${node2Urn}::${col2Name}`)).not.toBeAttached({
+      timeout: 5000,
+    });
   }
 
   // ── Expand / contract ───────────────────────────────────────────────────────
@@ -181,18 +181,13 @@ export class LineageV2Page extends BasePage {
   // ── Column interactions ─────────────────────────────────────────────────────
 
   async expandContractColumns(nodeUrn: string): Promise<void> {
-    const button = this.page
-      .getByTestId(`lineage-node-${nodeUrn}`)
-      .getByTestId('expand-contract-columns');
+    const button = this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId('expand-contract-columns');
     await button.scrollIntoViewIfNeeded();
     await button.click();
   }
 
   async hoverColumn(nodeUrn: string, columnName: string): Promise<void> {
-    await this.page
-      .getByTestId(`lineage-node-${nodeUrn}`)
-      .getByTestId(`column-${columnName}`)
-      .hover();
+    await this.page.getByTestId(`lineage-node-${nodeUrn}`).getByTestId(`column-${columnName}`).hover();
   }
 
   async unhoverColumn(nodeUrn: string, columnName: string): Promise<void> {
@@ -252,10 +247,9 @@ export class LineageV2Page extends BasePage {
   }
 
   async checkFilterMatches(nodeUrn: string, direction: 'up' | 'down', matchesNumber: string): Promise<void> {
-    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('matches')).toHaveText(
-      `${matchesNumber} matches`,
-      { timeout: 5000 },
-    );
+    await expect(this.getFilterNode(nodeUrn, direction).getByTestId('matches')).toHaveText(`${matchesNumber} matches`, {
+      timeout: 5000,
+    });
   }
 
   async checkFilterCounter(

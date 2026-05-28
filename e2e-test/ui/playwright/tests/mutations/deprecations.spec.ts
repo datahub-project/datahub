@@ -22,7 +22,7 @@ test.describe.skip('dataset deprecation', () => {
     await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
 
     // Open three-dot dropdown and mark as deprecated
-    await page.getByTestId("entity-header-dropdown").click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as deprecated').click();
 
     // Fill in the deprecation form modal
@@ -35,13 +35,13 @@ test.describe.skip('dataset deprecation', () => {
     await expect(page.getByText('DEPRECATED')).toBeVisible();
 
     // Un-deprecate via the three-dot menu
-    await page.getByTestId("entity-header-dropdown").click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as un-deprecated').click();
     await expect(page.getByText('Deprecation Updated')).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('DEPRECATED')).not.toBeVisible({ timeout: 10000 });
 
     // Mark as deprecated again
-    await page.getByTestId("entity-header-dropdown").click();
+    await page.getByTestId('entity-header-dropdown').click();
     await page.getByText('Mark as deprecated').click();
     await expect(page.getByText('Add Deprecation Details')).toBeVisible();
     // eslint-disable-next-line playwright/no-raw-locators -- ProseMirror focused state has no ARIA equivalent

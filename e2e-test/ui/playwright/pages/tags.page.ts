@@ -52,12 +52,12 @@ export class TagsPage extends BasePage {
       .getByRole('dialog')
       .filter({ has: page.getByTestId('create-tag-modal-create-button') });
     this.createTagNameInput = this.createTagModalContent.getByTestId('tag-name-field').getByRole('textbox');
-    this.createTagDescriptionInput = this.createTagModalContent.getByTestId('tag-description-field').getByRole('textbox');
+    this.createTagDescriptionInput = this.createTagModalContent
+      .getByTestId('tag-description-field')
+      .getByRole('textbox');
 
     this.editTagSaveButton = page.getByTestId('update-tag-button');
-    this.editTagModalContent = page
-      .getByRole('dialog')
-      .filter({ has: page.getByTestId('update-tag-button') });
+    this.editTagModalContent = page.getByRole('dialog').filter({ has: page.getByTestId('update-tag-button') });
     this.editTagDescriptionInput = this.editTagModalContent.getByTestId('tag-description-field').getByRole('textbox');
     this.actionEditButton = page.getByTestId('action-edit');
 
