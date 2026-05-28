@@ -12,8 +12,6 @@ import { DataHubLogger } from '../utils/logger';
  * - Table interactions (finding rows, opening dropdowns)
  */
 export class OwnershipManagementPage {
-  private readonly rowDropdownButtonSelector = '[data-testid="ownership-table-dropdown"]';
-
   readonly createOwnershipTypeButton: Locator;
   readonly ownershipTypeNameInput: Locator;
   readonly ownershipTypeDescriptionInput: Locator;
@@ -31,7 +29,7 @@ export class OwnershipManagementPage {
     this.ownershipTypeNameInput = page.getByTestId('ownership-type-name-input');
     this.ownershipTypeDescriptionInput = page.getByTestId('ownership-type-description-input');
     this.saveButton = page.getByTestId('ownership-builder-save');
-    this.tableBody = page.locator('table tbody');
+    this.tableBody = page.getByRole('rowgroup');
     this.editMenuItem = page.getByRole('menuitem', { name: 'Edit' });
     this.deleteMenuItem = page.getByRole('menuitem', { name: 'Delete' });
   }
@@ -89,12 +87,12 @@ export class OwnershipManagementPage {
     // Try to find the item in the table. If not found, reload the page to ensure
     // fresh data is loaded from the backend.
     try {
-      await expect(this.tableBody.locator(`text=${expectedName}`)).toBeVisible();
+      await expect(this.tableBody.getByText(expectedName)).toBeVisible();
     } catch {
       this.logger.info(`Item not found immediately, reloading page to fetch fresh data`);
       await this.page.reload();
       await expect(this.page.getByText('Manage Ownership')).toBeVisible();
-      await expect(this.tableBody.locator(`text=${expectedName}`)).toBeVisible();
+      await expect(this.tableBody.getByText(expectedName)).toBeVisible();
     }
 
     this.logger.info(`Ownership type saved successfully: ${expectedName}`);
@@ -104,7 +102,7 @@ export class OwnershipManagementPage {
    * Find a table row by ownership type name.
    */
   private getRowByName(name: string) {
-    return this.page.locator('tbody tr', { has: this.page.getByText(name) });
+    return this.page.getByRole('row').filter({ has: this.page.getByText(name) });
   }
 
   /**
@@ -113,7 +111,7 @@ export class OwnershipManagementPage {
   async openRowDropdown(name: string): Promise<void> {
     this.logger.info(`Opening dropdown for ownership type: ${name}`);
     const row = this.getRowByName(name);
-    await row.locator(this.rowDropdownButtonSelector).click();
+    await row.getByTestId('ownership-table-dropdown').click();
   }
 
   /**
@@ -189,7 +187,7 @@ export class OwnershipManagementPage {
    */
   async expectItemVisible(name: string): Promise<void> {
     this.logger.info(`Verifying item is visible in table: ${name}`);
-    await expect(this.tableBody.locator(`text=${name}`)).toBeVisible();
+    await expect(this.tableBody.getByText(name)).toBeVisible();
   }
 
   /**
@@ -197,6 +195,6 @@ export class OwnershipManagementPage {
    */
   async expectItemHidden(name: string): Promise<void> {
     this.logger.info(`Verifying item is hidden in table: ${name}`);
-    await expect(this.tableBody.locator(`text=${name}`)).toBeHidden();
+    await expect(this.tableBody.getByText(name)).toBeHidden();
   }
 }

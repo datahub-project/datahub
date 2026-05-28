@@ -80,22 +80,28 @@ export class GlossaryPage extends BasePage {
     this.modalComponent = new ModalComponent(page);
 
     this.sidebarContainer = page.getByTestId('glossary-browser-sidebar');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design active tab panel CSS class; no semantic role for the active tabpanel
     this.activeTabPanel = page.locator('.ant-tabs-tabpane-active');
 
     // `:visible` needed — multiple instances may exist in the DOM simultaneously.
+    // eslint-disable-next-line playwright/no-raw-locators -- Playwright :visible pseudo-selector; no Locator API equivalent for visibility filtering
     this.addTermGroupButtonV2 = page.getByTestId('add-term-group-button-v2').and(page.locator(':visible'));
+    // eslint-disable-next-line playwright/no-raw-locators -- Playwright :visible pseudo-selector; no Locator API equivalent for visibility filtering
     this.addTermButton = page.getByTestId('add-term-button').and(page.locator(':visible'));
 
-    this.createModalNameInput = page.getByTestId('create-glossary-entity-modal-name').locator('input');
+    this.createModalNameInput = page.getByTestId('create-glossary-entity-modal-name').getByRole('textbox');
     this.createModalSubmitButton = page.getByTestId('glossary-entity-modal-create-button');
 
     // Target inner visible dialog content — the AntD modal root is just a wrapper.
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design modal content CSS class; no data-testid or ARIA role on this wrapper
     this.moveModalContainer = page.getByTestId('move-glossary-entity-modal').locator('.ant-modal-content');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select search input; compound CSS selector with no data-testid
     this.moveModalSelectInput = this.moveModalContainer.locator('.ant-select-selector input');
     this.moveModalSubmitButton = page.getByTestId('glossary-entity-modal-move-button');
 
     // MoreVertOutlinedIcon is the data-testid set by EntityDropdown.tsx on the three-dot icon button.
     // `:visible` needed — multiple entity cards may render this icon simultaneously.
+    // eslint-disable-next-line playwright/no-raw-locators -- Playwright :visible pseudo-selector; no Locator API equivalent for visibility filtering
     this.entityMenuThreeDotButton = page.getByTestId('MoreVertOutlinedIcon').and(page.locator(':visible'));
     this.entityMenuDeleteButton = page.getByTestId('entity-menu-delete-button');
     this.entityMenuMoveButton = page.getByTestId('entity-menu-move-button');
@@ -103,16 +109,18 @@ export class GlossaryPage extends BasePage {
     // Scoped to the active tab panel to avoid matching the main nav search bar.
     this.searchInput = this.activeTabPanel.getByTestId('search-input');
 
+    // eslint-disable-next-line playwright/no-raw-locators -- Playwright :visible pseudo-selector; no Locator API equivalent for visibility filtering
     this.filtersToggleButton = page.getByTestId('toggle-filters-button').and(page.locator(':visible'));
     this.advancedSearchButton = page.getByTestId('search-results-advanced-search');
     this.addFilterButton = page.getByTestId('adv-search-add-filter-select');
     this.addFilterTagsButton = page.getByTestId('adv-search-add-filter-tags');
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design tag select overflow input; compound selector with no data-testid
     this.filterTagSelectInput = page.locator('div.ant-select-selection-overflow input');
     this.addTagsConfirmButton = page.getByTestId('add-tag-term-from-modal-btn');
 
     this.batchAddButton = page.getByTestId('glossary-batch-add');
-    // Scoped to modal content to avoid matching the page-level search bar.
-    this.batchAddModalSearchInput = page.locator('.ant-modal-content').getByTestId('search-input');
+    // Scoped to modal dialog to avoid matching the page-level search bar.
+    this.batchAddModalSearchInput = page.getByRole('dialog').getByTestId('search-input');
     this.batchAddConfirmButton = page.getByTestId('search-select-modal-continue-button');
     this.batchAddedToast = page.getByText('Added Glossary Term to entities!');
 
@@ -123,12 +131,13 @@ export class GlossaryPage extends BasePage {
     this.createdGlossaryTermToast = page.getByText('Created Glossary Term!');
     this.deletedEntityToast = page.getByText(/Deleted .+!/);
     this.movedEntityToast = page.getByText(/Moved .+!/);
-    this.propertiesTab = page.locator('[role="tab"]:has([data-testid="Properties-entity-tab-header"])');
+    this.propertiesTab = page.getByRole('tab').filter({ has: page.getByTestId('Properties-entity-tab-header') });
   }
 
   // ── Dynamic locator getters ───────────────────────────────────────────────────
 
   getMoveDropdownOption(name: string): Locator {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design select dropdown class; no ARIA role on the dropdown container
     return this.page.locator('.ant-select-dropdown').getByText(name, { exact: true });
   }
 
@@ -146,7 +155,8 @@ export class GlossaryPage extends BasePage {
 
   getPreviewEntityLocator(urn: string): Locator {
     // Prefix match covers both exact `preview-{urn}` and `preview-{urn}/subpath` testids
-    // that some entity types use.
+    // that some entity types use. getByTestId requires exact match, so raw locator needed.
+    // eslint-disable-next-line playwright/no-raw-locators -- data-testid prefix match ([^=]); getByTestId only supports exact matches
     return this.page.locator(`[data-testid^="preview-${urn}"]`);
   }
 
