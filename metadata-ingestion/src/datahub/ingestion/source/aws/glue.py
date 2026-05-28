@@ -139,6 +139,7 @@ from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.error import InvalidUrnError
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,15 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 }
 
 JDBC_PREFIX = "jdbc:"
+
+
+# Union variants share a column name with different types; stripping the [type=...]
+# qualifiers collapses them into the same v1 path and GMS dedups one of the entries.
+_HIVE_UNION_TYPE_RE = re.compile(r"^\s*uniontype\s*<", re.IGNORECASE)
+
+
+def _hive_type_requires_v2_paths(hive_type: str) -> bool:
+    return bool(_HIVE_UNION_TYPE_RE.match(hive_type))
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -284,6 +294,16 @@ class GlueSourceConfig(
             "When enabled, column-level Parameters from Glue are ingested as structured properties "
             "on each schemaField entity. A StructuredPropertyDefinition is upserted once per unique "
             "parameter key per recipe run; subsequent columns reuse the cached definition."
+        ),
+    )
+
+    simplify_nested_field_paths: bool = Field(
+        default=False,
+        description=(
+            "Emit v1 (simple) field paths for every column except `uniontype` — "
+            "`column` instead of `[version=2.0].[type=string].column`. "
+            "Aligns schemaField URNs with v1-emitting sources (e.g. dbt) for "
+            "column-level lineage and term/tag propagation."
         ),
     )
 
@@ -1901,6 +1921,28 @@ class GlueSource(StatefulIngestionSourceBase):
             and columns[0].get("Type", "") == "array<string>"
         )
 
+    def _build_schema_fields(
+        self,
+        *,
+        hive_column_name: str,
+        hive_column_type: str,
+        description: Optional[str],
+        default_nullable: bool,
+    ) -> List[SchemaField]:
+        fields = get_schema_fields_for_hive_column(
+            hive_column_name=hive_column_name,
+            hive_column_type=hive_column_type,
+            description=description,
+            default_nullable=default_nullable,
+        )
+        if (
+            self.source_config.simplify_nested_field_paths
+            and not _hive_type_requires_v2_paths(hive_column_type)
+        ):
+            for f in fields:
+                f.fieldPath = get_simple_field_path_from_v2_field_path(f.fieldPath)
+        return fields
+
     def _get_glue_schema_metadata(
         self, table: Dict, table_name: str
     ) -> Optional[SchemaMetadata]:
@@ -1910,7 +1952,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         # Process regular columns
         for field in schema:
-            schema_fields = get_schema_fields_for_hive_column(
+            schema_fields = self._build_schema_fields(
                 hive_column_name=field["Name"],
                 hive_column_type=field["Type"],
                 description=field.get("Comment"),
@@ -1922,7 +1964,7 @@ class GlueSource(StatefulIngestionSourceBase):
         # Process partition keys
         partition_keys = table.get("PartitionKeys", [])
         for partition_key in partition_keys:
-            schema_fields = get_schema_fields_for_hive_column(
+            schema_fields = self._build_schema_fields(
                 hive_column_name=partition_key["Name"],
                 hive_column_type=partition_key.get("Type", "unknown"),
                 description=partition_key.get("Comment"),
@@ -1956,7 +1998,7 @@ class GlueSource(StatefulIngestionSourceBase):
             fields: List[SchemaField] = []
             for field in schema_json["fields"]:
                 field_type = delta_type_to_hive_type(field.get("type", "unknown"))
-                schema_fields = get_schema_fields_for_hive_column(
+                schema_fields = self._build_schema_fields(
                     hive_column_name=field["name"],
                     hive_column_type=field_type,
                     description=field.get("description"),
@@ -2028,7 +2070,7 @@ class GlueSource(StatefulIngestionSourceBase):
                 params = column.get("Parameters")
                 if not params:
                     continue
-                schema_fields = get_schema_fields_for_hive_column(
+                schema_fields = self._build_schema_fields(
                     hive_column_name=column["Name"],
                     hive_column_type=column.get("Type", "string"),
                     description=column.get("Comment"),
