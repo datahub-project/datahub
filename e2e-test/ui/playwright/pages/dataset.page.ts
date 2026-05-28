@@ -70,7 +70,8 @@ export class DatasetPage extends BasePage {
     this.tagsSectionContainer = page.locator('#entity-profile-tags');
     this.addTagsButton = this.tagsSectionContainer.getByTestId('add-tags-button');
     this.tagTermModalInput = page.getByTestId('tag-term-modal-input');
-    this.tagTermInput = this.tagTermModalInput.getByRole('textbox');
+    // AntD Select renders its inner input with role="combobox", not "textbox".
+    this.tagTermInput = this.tagTermModalInput.getByRole('combobox');
     this.addTagFromModalButton = page.getByTestId('add-tag-term-from-modal-btn');
     this.tagUnassignConfirmButton = page.getByTestId('modal-confirm-button');
     this.tagAddedToast = page.getByText('Added Tags!');
