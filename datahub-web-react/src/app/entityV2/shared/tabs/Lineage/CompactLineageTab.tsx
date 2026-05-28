@@ -12,7 +12,7 @@ import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabC
 import { UnionType } from '@app/search/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { LineageDirection, LineageSearchPath } from '@types';
+import { EntityType, LineageDirection, LineageSearchPath } from '@types';
 
 const Container = styled.div`
     flex: 1;
@@ -107,6 +107,13 @@ const Results = styled.div`
     }
 `;
 
+const ImpactAnalysisPlaceholder = styled.div`
+    padding: 24px 20px;
+    color: ${(props) => props.theme.colors.textTertiary};
+    font-size: 13px;
+    line-height: 18px;
+`;
+
 enum LevelFilterType {
     DIRECT = 'DIRECT',
     INDIRECT = 'INDIRECT',
@@ -188,6 +195,21 @@ export const CompactLineageTab = ({ defaultDirection }: { defaultDirection: Line
     };
 
     const levelFilters = getLevelFilterSet(selectedLevels);
+
+    // For DataProducts the generic impact-analysis list (walked from the DP URN) only surfaces
+    // declared neighbour DataProducts and misses the asset-level rollup users expect. Until the
+    // member-rollup view ships (RFC L2b), short-circuit the compact tab with a placeholder so the
+    // sidebar doesn't show a misleading partial list. Hooks above are kept on the same call
+    // ordering as the full path so the early return doesn't violate the Rules of Hooks.
+    if (entityType === EntityType.DataProduct) {
+        return (
+            <Container>
+                <ImpactAnalysisPlaceholder>
+                    Lineage for this DataProduct is shown in the full Lineage tab graph.
+                </ImpactAnalysisPlaceholder>
+            </Container>
+        );
+    }
 
     return (
         <Container>

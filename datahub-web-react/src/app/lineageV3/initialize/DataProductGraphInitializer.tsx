@@ -4,6 +4,7 @@ import { ReactFlowProvider } from 'reactflow';
 import LineageDisplay from '@app/lineageV3/LineageDisplay';
 import { FetchStatus, LineageEntity, LineageNodesContext, useIgnoreSchemaFieldStatus } from '@app/lineageV3/common';
 import useFetchDataProductEntities from '@app/lineageV3/initialize/useFetchDataProductEntities';
+import useSearchAcrossLineage from '@app/lineageV3/queries/useSearchAcrossLineage';
 
 import { EntityType, LineageDirection } from '@types';
 
@@ -60,6 +61,13 @@ function useInitializeNodes(urn: string, type: EntityType): boolean {
         }
     }, [showGhostEntities, ignoreSchemaFieldStatus, type, nodes, adjacencyList, edges, setDisplayVersion]);
 
+    // searchAcrossLineage on the DataProduct URN itself surfaces declared
+    // DP-to-DP edges (DataProductUpstreams aspect). Inferred neighbour
+    // DPs derived from member-asset lineage are still rendered by
+    // computeDataProductGraph; the two are merged into a single bbox edge.
+    useSearchAcrossLineage(urn, type, context, LineageDirection.Upstream);
+    useSearchAcrossLineage(urn, type, context, LineageDirection.Downstream);
+
     return useFetchDataProductEntities();
 }
 
@@ -73,10 +81,13 @@ function makeRootNode(urn: string, type: EntityType): LineageEntity {
             [LineageDirection.Downstream]: true,
         },
         fetchStatus: {
-            // The DataProduct root node has no direct lineage of its own;
-            // lineage is derived from its member entities.
-            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
-            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            // Triggers searchAcrossLineage on the DataProduct URN itself, which surfaces
+            // declared DP-to-DP edges (DataProductUpstreams aspect) as first-class
+            // lineage. Inferred lineage from member assets is layered on top by
+            // computeDataProductGraph; the two are merged into a single visual bbox per
+            // neighbour DP downstream.
+            [LineageDirection.Upstream]: FetchStatus.UNFETCHED,
+            [LineageDirection.Downstream]: FetchStatus.UNFETCHED,
         },
         filters: {
             [LineageDirection.Upstream]: { facetFilters: new Map() },

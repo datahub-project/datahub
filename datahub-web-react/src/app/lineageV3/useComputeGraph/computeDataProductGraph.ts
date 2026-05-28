@@ -196,7 +196,7 @@ export default function computeDataProductGraph(
                 .filter((e) => !e.data?.hide),
         );
 
-        addNeighborDataProductBoxes(flowNodes, nodes, memberUrns, urn);
+        addNeighborDataProductBoxes(flowNodes, nodes, adjacencyList, memberUrns, urn, boundingBox);
         normalizeExternalColumns(flowNodes, memberUrns, boundingBox.width ?? (boundingBox.style?.width as number) ?? 0);
 
         for (let pass = 0; pass < 2; pass++) {
@@ -334,13 +334,31 @@ function addIntraProductEdges(
     });
 }
 
+interface NeighborDataProductGroup {
+    name?: string;
+    colorHex?: string;
+    domain?: any;
+    nodeIds: Urn[];
+    /**
+     * True if this neighbour DP is asserted via the DataProductUpstreams aspect
+     * on the root DP (a first-class DP→DP edge in the entity graph). May also have
+     * `nodeIds` populated when one or more member-asset paths also flow through this
+     * neighbour DP — declared and inferred lineage collapse into a single bbox so
+     * the visual edge between root DP and neighbour DP remains a single line.
+     */
+    declared: boolean;
+    direction?: LineageDirection;
+}
+
 function addNeighborDataProductBoxes(
     flowNodes: LineageVisualizationNode[],
     nodes: NodeContext['nodes'],
+    adjacencyList: NodeContext['adjacencyList'],
     memberUrns: Set<Urn>,
     rootUrn: Urn,
+    rootBoundingBox: Node<LineageBoundingBox> | undefined,
 ): void {
-    const groups = new Map<Urn, { name?: string; colorHex?: string; domain?: any; nodeIds: Urn[] }>();
+    const groups = new Map<Urn, NeighborDataProductGroup>();
 
     flowNodes.forEach((flowNode) => {
         if (flowNode.type !== LINEAGE_ENTITY_NODE_NAME) return;
@@ -366,37 +384,90 @@ function addNeighborDataProductBoxes(
                     colorHex,
                     domain: dpEntity?.domain,
                     nodeIds: [],
+                    declared: false,
                 });
             }
             groups.get(dpUrn)!.nodeIds.push(flowNode.id);
         });
     });
 
+    // Declared neighbour DPs come from searchAcrossLineage on the root DP itself
+    // (DataProductUpstreams aspect). Merge them into the same group so the
+    // bbox appears once even when both declared and inferred lineage point at it.
+    [LineageDirection.Upstream, LineageDirection.Downstream].forEach((direction) => {
+        const declaredNeighbours = adjacencyList[direction].get(rootUrn);
+        if (!declaredNeighbours) return;
+        declaredNeighbours.forEach((dpUrn) => {
+            const neighbour = nodes.get(dpUrn);
+            if (!neighbour || neighbour.type !== EntityType.DataProduct) return;
+            if (dpUrn === rootUrn) return;
+
+            if (!groups.has(dpUrn)) {
+                const entityProps = neighbour.entity?.genericEntityProperties as any;
+                groups.set(dpUrn, {
+                    name: neighbour.entity?.name ?? (entityProps?.properties?.name as string | undefined),
+                    colorHex: entityProps?.domain?.domain?.displayProperties?.colorHex,
+                    domain: entityProps?.domain,
+                    nodeIds: [],
+                    declared: true,
+                    direction,
+                });
+            } else {
+                const group = groups.get(dpUrn)!;
+                group.declared = true;
+                group.direction = group.direction ?? direction;
+            }
+        });
+    });
+
     groups.forEach((dpInfo, dpUrn) => {
         const nodeIdSet = new Set(dpInfo.nodeIds);
         const groupNodes = flowNodes.filter((n) => nodeIdSet.has(n.id));
-        if (!groupNodes.length) return;
 
         const padding = BOUNDING_BOX_PADDING / 2;
-        const minX = Math.min(...groupNodes.map((n) => n.position.x));
-        const maxX = Math.max(...groupNodes.map((n) => n.position.x));
-        const minY = Math.min(...groupNodes.map((n) => n.position.y));
-        const maxY = Math.max(...groupNodes.map((n) => n.position.y));
+        let boxX: number;
+        let boxY: number;
+        let width: number;
+        let height: number;
 
-        const boxX = minX - padding;
-        const boxY = minY - padding;
-        const width = LINEAGE_NODE_WIDTH + maxX - minX + padding * 2;
-        const height = LINEAGE_NODE_HEIGHT + maxY - minY + padding * 2;
+        if (groupNodes.length) {
+            const minX = Math.min(...groupNodes.map((n) => n.position.x));
+            const maxX = Math.max(...groupNodes.map((n) => n.position.x));
+            const minY = Math.min(...groupNodes.map((n) => n.position.y));
+            const maxY = Math.max(...groupNodes.map((n) => n.position.y));
 
-        groupNodes.forEach((n) => {
-            /* eslint-disable no-param-reassign */
-            n.position.x -= boxX;
-            n.position.y -= boxY;
-            n.parentId = dpUrn;
-            n.extent = 'parent';
-            n.draggable = false;
-            /* eslint-enable no-param-reassign */
-        });
+            boxX = minX - padding;
+            boxY = minY - padding;
+            width = LINEAGE_NODE_WIDTH + maxX - minX + padding * 2;
+            height = LINEAGE_NODE_HEIGHT + maxY - minY + padding * 2;
+
+            groupNodes.forEach((n) => {
+                /* eslint-disable no-param-reassign */
+                n.position.x -= boxX;
+                n.position.y -= boxY;
+                n.parentId = dpUrn;
+                n.extent = 'parent';
+                n.draggable = false;
+                /* eslint-enable no-param-reassign */
+            });
+        } else if (dpInfo.declared && rootBoundingBox) {
+            // Declared-only neighbour DP (no member-asset paths visible yet).
+            // Place an empty placeholder box to the left or right of the root box.
+            const rootW = (rootBoundingBox.width || (rootBoundingBox.style?.width as number) || 0) as number;
+            const rootH = (rootBoundingBox.height || (rootBoundingBox.style?.height as number) || 0) as number;
+            const placeholderW = Math.max(LINEAGE_NODE_WIDTH + padding * 2, 220);
+            const placeholderH = Math.max(LINEAGE_NODE_HEIGHT + padding * 2, 120);
+            const direction = dpInfo.direction ?? LineageDirection.Downstream;
+            boxX =
+                direction === LineageDirection.Upstream
+                    ? rootBoundingBox.position.x - placeholderW - ROOT_SEPARATION
+                    : rootBoundingBox.position.x + rootW + ROOT_SEPARATION;
+            boxY = rootBoundingBox.position.y + Math.max(0, rootH / 2 - placeholderH / 2);
+            width = placeholderW;
+            height = placeholderH;
+        } else {
+            return;
+        }
 
         const domainEntity = dpInfo.domain?.domain;
         const neighborEntity: FetchedEntityV2 | undefined = dpInfo.name
@@ -483,6 +554,18 @@ function buildExtraEdgeData(
     return (source: string, target: string): Partial<LineageEdgeData> => {
         const upstream = nodes.get(source);
         const downstream = nodes.get(target);
+
+        // Declared DP↔DP edges (DataProductUpstreams aspect) connect the root DP
+        // to a neighbour DP. Neither endpoint has parentDataProduct set, so the
+        // membership-based hide rule below would suppress them; surface them explicitly.
+        if (
+            upstream?.type === EntityType.DataProduct &&
+            downstream?.type === EntityType.DataProduct &&
+            !upstream.parentDataProduct &&
+            !downstream.parentDataProduct
+        ) {
+            return {};
+        }
 
         if (
             !upstream ||

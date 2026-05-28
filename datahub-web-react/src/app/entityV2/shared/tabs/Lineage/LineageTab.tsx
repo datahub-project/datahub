@@ -11,7 +11,7 @@ import LineageGraph from '@app/lineageV2/LineageGraph';
 import { useLineageV2 } from '@app/lineageV2/useLineageV2';
 import TabFullsizedContext from '@app/shared/TabFullsizedContext';
 
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 
 const LINEAGE_SWITCH_WIDTH = 90;
 
@@ -72,9 +72,18 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
     const isLineageV2 = useLineageV2();
     const { isVisualizeView, setVisualizeView, setVisualizeViewInEditMode } = useLineageViewState();
 
+    // DataProduct lineage is rendered as a member-bounding-box graph plus declared DP-to-DP edges.
+    // The generic impact-analysis list walks `searchAcrossLineage` from the DataProduct URN itself,
+    // which only surfaces declared neighbour DataProducts — not the asset-level rollup users expect
+    // ("what assets are impacted if anything in this DP changes?"). Until that member-rollup view
+    // ships (RFC L2b), suppress the Impact Analysis half of the tab and force the Explorer graph,
+    // which already conveys both declared edges and member lineage.
+    const suppressImpactAnalysis = entityType === EntityType.DataProduct;
+    const effectiveIsVisualizeView = suppressImpactAnalysis || isVisualizeView;
+
     return (
         <LineageTabWrapper>
-            {!isTabFullsize && (
+            {!isTabFullsize && !suppressImpactAnalysis && (
                 <LineageTabHeader>
                     <LineageSwitchWrapper>
                         <LineageViewSwitch selected={isVisualizeView} onClick={() => setVisualizeView(true)}>
@@ -86,14 +95,14 @@ function WideLineageTab({ defaultDirection }: { defaultDirection: LineageDirecti
                     </LineageSwitchWrapper>
                 </LineageTabHeader>
             )}
-            {!isVisualizeView && (
+            {!effectiveIsVisualizeView && (
                 <LineageColumnView
                     defaultDirection={defaultDirection}
                     setVisualizeViewInEditMode={setVisualizeViewInEditMode}
                 />
             )}
-            {isVisualizeView && !isLineageV2 && <LineageExplorer urn={urn} type={entityType} />}
-            {isVisualizeView && isLineageV2 && (
+            {effectiveIsVisualizeView && !isLineageV2 && <LineageExplorer urn={urn} type={entityType} />}
+            {effectiveIsVisualizeView && isLineageV2 && (
                 <VisualizationWrapper>
                     <LineageGraph />
                 </VisualizationWrapper>
