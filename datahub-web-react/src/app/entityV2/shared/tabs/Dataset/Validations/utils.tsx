@@ -13,8 +13,7 @@ export const getIsRowCountChange = (type: VolumeAssertionType) => {
     return [VolumeAssertionType.RowCountChange, VolumeAssertionType.IncrementingSegmentRowCountChange].includes(type);
 };
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used 
-   by callers to assemble a full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
     switch (volumeType) {
         case VolumeAssertionType.RowCountTotal:
@@ -27,10 +26,8 @@ export const getVolumeTypeDescription = (volumeType: VolumeAssertionType) => {
             throw new Error(`Unknown volume type ${volumeType}`);
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers
-   to assemble a full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getOperatorDescription = (operator: AssertionStdOperator) => {
     switch (operator) {
         case AssertionStdOperator.GreaterThanOrEqualTo:
@@ -43,10 +40,8 @@ export const getOperatorDescription = (operator: AssertionStdOperator) => {
             throw new Error(`Unknown operator ${operator}`);
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers 
-   to assemble a full assertion description; ' and ' between range values is part of that fragment and cannot be translated independently */
+/* untranslated-text -- sentence fragment, ' and ' between range values cannot be independently translated */
 export const getParameterDescription = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
         return formatNumberWithoutAbbreviation(
@@ -62,10 +57,8 @@ export const getParameterDescription = (parameters: AssertionStdParameters) => {
     }
     throw new Error('Invalid assertion parameters provided');
 };
-/* eslint-enable i18next/no-literal-string */
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers 
-   to assemble a full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getValueChangeTypeDescription = (valueChangeType: AssertionValueChangeType) => {
     switch (valueChangeType) {
         case AssertionValueChangeType.Absolute:
@@ -76,7 +69,6 @@ export const getValueChangeTypeDescription = (valueChangeType: AssertionValueCha
             throw new Error(`Unknown value change type ${valueChangeType}`);
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 type VolumeTypeField =
     | 'rowCountTotal'

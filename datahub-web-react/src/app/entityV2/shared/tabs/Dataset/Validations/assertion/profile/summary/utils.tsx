@@ -62,8 +62,7 @@ import { useGetUserQuery } from '@graphql/user.generated';
  * @link getOperatorText
  * Returns the Plain Text to render for the operator portion of the Assertion Description
  */
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getOperatorPlainText = (
     op: AssertionStdOperator,
     parameters: AssertionStdParameters | undefined,
@@ -124,7 +123,6 @@ const getOperatorPlainText = (
         }
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getSchemaAggregationText} utility function to get plain text from html description.
@@ -134,8 +132,7 @@ const getOperatorPlainText = (
  *
  * Schema assertions require an aggregation.
  */
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getSchemaAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     fields: Array<SchemaFieldRef> | undefined | null,
@@ -154,7 +151,6 @@ const getSchemaAggregationPlainText = (
             return 'Dataset columns are';
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getRowsAggregationText} utility function to get plain text from html description.
@@ -163,8 +159,7 @@ const getSchemaAggregationPlainText = (
  *
  * Row assertions require an aggregation.
  */
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | undefined | null) => {
     switch (aggregation) {
         case AssertionStdAggregation.RowCount:
@@ -176,7 +171,6 @@ const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | unde
             return 'Dataset rows are';
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  *
@@ -186,8 +180,7 @@ const getRowsAggregationPlainText = (aggregation: AssertionStdAggregation | unde
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  * for Assertions on Dataset Columns
  */
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getColumnAggregationPlainText = (
     aggregation: AssertionStdAggregation | undefined | null,
     field: SchemaFieldRef | undefined,
@@ -236,15 +229,13 @@ const getColumnAggregationPlainText = (
             return `Column ${columnText} values are`;
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * Returns the Plain Text to render for the aggregation portion of the Assertion Description
  */
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment concatenated by the caller to build a
-   full assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getAggregationPlainText = (
     scope: DatasetAssertionScope,
     aggregation: AssertionStdAggregation | undefined | null,
@@ -262,30 +253,26 @@ const getAggregationPlainText = (
             return 'Dataset is';
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link DatasetAssertionDescription} utility function to get plain text from html description.
  * @link DatasetAssertionDescription
  * A human-readable Plain Text description of a Dataset Assertion.
  */
-/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating aggregation and operator
-   fragments; the sentence structure cannot be expressed as a single translation key */
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
 const getDatasetAssertionPlainTextDescription = (datasetAssertion: DatasetAssertionInfo): string => {
     const { scope, aggregation, fields, operator, parameters, nativeType } = datasetAssertion;
     const aggregationPlainText = getAggregationPlainText(scope, aggregation, fields);
     const operatorPlainText = getOperatorPlainText(operator, parameters || undefined, nativeType || undefined);
     return `${aggregationPlainText} ${operatorPlainText}`;
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Volume Assertion.
  */
-/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating
-   type/operator/parameter/unit fragments in English word order; cannot be expressed as a single translation key */
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
 const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionInfo): string => {
     const volumeType = assertionInfo.type;
     const volumeTypeInfo = getVolumeTypeInfo(assertionInfo);
@@ -298,15 +285,13 @@ const getVolumeAssertionPlainTextDescription = (assertionInfo: VolumeAssertionIn
 
     return `Table ${volumeTypeDescription} ${operatorDescription} ${parameterDescription} ${valueChangeTypeDescription}`;
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Field Assertion.
  */
-/* eslint-disable i18next/no-literal-string -- Assembles a full description by concatenating field
-   transform/operator/parameter fragments in English word order; cannot be expressed as a single translation key */
+/* untranslated-text -- assembles full description by concatenating fragments, sentence structure differs by language */
 const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo) => {
     const field = getFieldDescription(assertionInfo);
     const transform = getFieldTransformDescription(assertionInfo);
@@ -317,30 +302,26 @@ const getFieldAssertionPlainTextDescription = (assertionInfo: FieldAssertionInfo
         (transform && 'column') || 'Values'
     } ${operator} ${parameters}`;
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * It refers the {@link getAggregationText} utility function to get plain text from html description.
  * @link getAggregationText
  * A human-readable Plain Text description of a Schema Assertion.
  */
-/* eslint-disable i18next/no-literal-string -- Assembles a full description with a hardcoded English fragment ('exactly
-   match'/'include'); cannot be expressed as a single translation key */
+/* untranslated-text -- assembles full description with English fragments, cannot be expressed as a single translation key */
 const getSchemaAssertionPlainTextDescription = (assertionInfo: SchemaAssertionInfo) => {
     const { compatibility } = assertionInfo;
     const matchText = compatibility === SchemaAssertionCompatibility.ExactMatch ? 'exactly match' : 'include';
     const expectedColumnCount = assertionInfo?.fields?.length || 0;
     return `Actual table columns ${matchText} ${expectedColumnCount} expected columns`;
 };
-/* eslint-enable i18next/no-literal-string */
 
 /** below functions are related to Freshness */
 
 /**
  * A human-readable Plain Text description of an Freshness Assertion.
  */
-/* eslint-disable i18next/no-literal-string -- Sentence prefix ('Table was updated'/'Data Task is run successfully')
-   concatenated with scheduleText; split sentence cannot be independently translated */
+/* untranslated-text -- assembles full description with English sentence prefix, split sentence cannot be independently translated */
 const getFreshnessAssertionPlainTextDescription = (
     assertionInfo: FreshnessAssertionInfo,
     monitorSchedule: CronSchedule,
@@ -367,7 +348,6 @@ const getFreshnessAssertionPlainTextDescription = (
         freshnessType === FreshnessAssertionType.DatasetChange ? 'Table was updated ' : 'Data Task is run successfully '
     }${scheduleText}`;
 };
-/* eslint-enable i18next/no-literal-string */
 
 /**
  * Returns a text element describing the given assertion

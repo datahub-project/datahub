@@ -78,7 +78,6 @@ export const AcrylAssertionRecommendedFilters: React.FC<AcrylAssertionRecommende
                     onClick={() => handleFilterClick(filter)}
                 >
                     <FilterName>{filter.displayName}</FilterName>
-                    {/* eslint-disable-next-line i18next/no-literal-string -- parentheses are universal UI formatting */}
                     <FilterCount>({filter.count})</FilterCount>
                 </FilterItemRow>
             ))}

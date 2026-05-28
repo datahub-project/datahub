@@ -37,8 +37,7 @@ const getAssertionStdOperator = ({ operator, isPlural }: { operator: AssertionSt
     return ASSERTION_OPERATOR_TO_DESCRIPTION[operator]?.toLowerCase();
 };
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers to assemble a full
-   assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
     switch (metric) {
         case FieldMetricType.NullCount:
@@ -79,10 +78,8 @@ export const getFieldMetricTypeReadableLabel = (metric: FieldMetricType) => {
             throw new Error(`Unknown field metric type ${metric}`);
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers to assemble a full
-   assertion description; cannot translate independently as word order differs by language */
+/* untranslated-text -- sentence fragment, word order differs by language */
 const getFieldTransformType = (transform: FieldTransformType) => {
     switch (transform) {
         case FieldTransformType.Length:
@@ -91,10 +88,8 @@ const getFieldTransformType = (transform: FieldTransformType) => {
             throw new Error(`Unknown field transform type ${transform}`);
     }
 };
-/* eslint-enable i18next/no-literal-string */
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment used by callers to assemble a full
-   assertion description; ' and ' between range values is part of that fragment and cannot be translated independently */
+/* untranslated-text -- sentence fragment, ' and ' between range values cannot be independently translated */
 const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     if (parameters.value) {
         return formatNumberWithoutAbbreviation(
@@ -110,7 +105,6 @@ const getAssertionStdParameters = (parameters: AssertionStdParameters) => {
     }
     return '';
 };
-/* eslint-enable i18next/no-literal-string */
 
 export const getFieldDescription = (assertionInfo: FieldAssertionInfo) => {
     const { type, fieldValuesAssertion, fieldMetricAssertion } = assertionInfo;

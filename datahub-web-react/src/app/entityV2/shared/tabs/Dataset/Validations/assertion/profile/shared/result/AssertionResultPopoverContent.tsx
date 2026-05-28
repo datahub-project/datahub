@@ -230,7 +230,6 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
     if (result?.nativeResults?.length) {
         externalResultsSections.push(
             <ThinDivider key="external-results-divider" />,
-            /* eslint-disable i18next/no-literal-string -- key:value colon separator is universal formatting */
             <PlatformRow key="external-results">
                 {result.nativeResults.map((entry) => (
                     <div key={entry.key}>
@@ -238,7 +237,6 @@ const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; r
                     </div>
                 ))}
             </PlatformRow>,
-            /* eslint-enable i18next/no-literal-string */
         );
         if (result.externalUrl) {
             const platform =

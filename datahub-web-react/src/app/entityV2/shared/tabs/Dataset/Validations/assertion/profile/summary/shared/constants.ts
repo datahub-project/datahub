@@ -1,7 +1,6 @@
 import { AssertionStdOperator } from '@types';
 
-/* eslint-disable i18next/no-literal-string -- Return value is a sentence fragment inserted mid-sentence by callers;
-   verb agreement and word order depend on the surrounding sentence and cannot be determined from the fragment alone */
+/* untranslated-text -- sentence fragments inserted mid-sentence, verb agreement depends on surrounding sentence */
 export const GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP = ({ isPlural }) => ({
     [AssertionStdOperator.EqualTo]: `${isPlural ? 'are' : 'Is'} equal to`,
     [AssertionStdOperator.NotEqualTo]: `${isPlural ? 'are' : 'Is'} not equal to`,
@@ -22,4 +21,3 @@ export const GET_ASSERTION_OPERATOR_TO_DESCRIPTION_MAP = ({ isPlural }) => ({
     [AssertionStdOperator.Between]: `${isPlural ? 'are' : 'Is'} within a range`,
     [AssertionStdOperator.Native]: undefined,
 });
-/* eslint-enable i18next/no-literal-string */

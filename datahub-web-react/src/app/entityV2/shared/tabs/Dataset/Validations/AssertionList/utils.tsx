@@ -83,7 +83,8 @@ const ASSERTION_STATUS_NAME_MAP = {
     },
 };
 
-const STATUS_GROUP_NAME_MAP = { ...ASSERTION_TYPE_NAME_MAP, ...ASSERTION_STATUS_NAME_MAP };
+const getStatusGroupDisplayName = (name: string): string =>
+    ASSERTION_STATUS_NAME_MAP[name] || ASSERTION_TYPE_NAME_MAP[name] || name;
 
 const RECOMMENDED_FILTER_NAME_MAP = {
     get [AssertionSourceType.External]() {
@@ -124,13 +125,13 @@ const getGroupNameBySummary = (record) => {
     const list: string[] = [];
     Object.keys(newSummary).forEach((key) => {
         if (newSummary[key] > 0) {
-            list.push(`${newSummary[key]} ${STATUS_GROUP_NAME_MAP[key]}`);
+            list.push(`${newSummary[key]} ${getStatusGroupDisplayName(key)}`);
         }
     });
 
     return (
         <TextContainer>
-            <Title strong>{STATUS_GROUP_NAME_MAP[record.name]}</Title>
+            <Title strong>{getStatusGroupDisplayName(record.name)}</Title>
             <Message type="secondary">
                 {i18next.t('entity.validations:assertionList.groupHeaderSummaryListTemplate', { listItems: list })}
             </Message>
@@ -215,7 +216,7 @@ export const getAssertionGroupsByDisplayOrder = (assertionGroups: AssertionGroup
 // Build the Filter Options as per the type & status
 const buildFilterOptions = (key: string, value: Record<string, number>, filterOptions: AssertionFilterOptions) => {
     Object.entries(value).forEach(([name, count]) => {
-        let displayName = key === 'type' ? getAssertionGroupName(name) : STATUS_GROUP_NAME_MAP[name] || name;
+        let displayName = key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name);
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }

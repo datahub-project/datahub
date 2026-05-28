@@ -104,8 +104,6 @@
     "datasetDescription.fallback.noDescription": "No description found",
     "datasetDescription.label.createdByTemplate": "Created by {{creator}}",
     "datasetDescription.label.lastUpdatedByTemplate": "Last updated by {{updater}}",
-    "datasetDescription.nativeTypeEntry": "<bold>type</bold>: {{value}}",
-    "datasetDescription.parameterEntry": "<bold>{{key}}</bold>: {{value}}",
     "datasetDescription.popover.reported": "Reported:",
     "datasetDescription.popover.viewLogic": "View Logic",
     "datasetDescription.tooltip.anUnknownTime": "an unknown time",

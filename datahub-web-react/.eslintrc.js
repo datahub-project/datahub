@@ -302,7 +302,7 @@ module.exports = {
                                       exclude: PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES,
                                   },
                                   words: {
-                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$'],
+                                      exclude: ['^_blank$', '^\\*$', '^[A-Z0-9_]+$', '^:\\s*$', '^[()]+$'],
                                   },
                               },
                           ],

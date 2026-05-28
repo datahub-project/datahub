@@ -4,5 +4,6 @@
     "na": "N/A",
     "name": "Name",
     "status": "Status",
-    "tags": "Tags"
+    "tags": "Tags",
+    "type": "type"
 }

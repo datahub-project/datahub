@@ -28,12 +28,10 @@ export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Pro
                 : t('freshnessContract.scheduleSinceCheck');
             break;
         case FreshnessAssertionScheduleType.FixedInterval:
-            /* eslint-disable i18next/no-literal-string -- combines number + lowercased unit + optional schedule into a
-               sentence; splitting into separate keys would break grammar in non-English languages */
+            /* untranslated-text -- number + unit + optional schedule fragment, word order differs by language */
             scheduleText = `In the past ${definition.fixedInterval?.multiple} ${definition.fixedInterval?.unit.toLocaleLowerCase()}s${
                 cronStr ? `, as of ${cronToString(cronStr).toLowerCase()}` : ''
             }`;
-            /* eslint-enable i18next/no-literal-string */
             break;
         default:
             break;
