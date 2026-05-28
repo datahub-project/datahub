@@ -2,6 +2,7 @@ package com.linkedin.metadata.ingestion;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
@@ -71,11 +72,20 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
    */
   private static final Pattern VALID_VERSION_PATTERN = Pattern.compile("^[\\w.+!-]+$");
 
+  /** Seconds to wait for the refresh thread to drain on graceful shutdown. */
+  private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
+
   private final String url;
   @Nullable private final String authHeader;
   private final AtomicReference<IngestionCliVersionMatrix> cached;
   private final AtomicLong lastFetchedAtMillis;
   private final ObjectMapper objectMapper;
+
+  /**
+   * The background refresh scheduler. Held as a field so {@link #shutdown()} can stop it on Spring
+   * context teardown — without this, the thread would leak across context restarts in dev / tests.
+   */
+  private final ScheduledExecutorService executor;
 
   /** Convenience constructor for unauthenticated (public) URLs. */
   public HttpUrlIngestionCliVersionMatrixSource(String url, int refreshIntervalSeconds) {
@@ -90,9 +100,29 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
     this.lastFetchedAtMillis = new AtomicLong(0L);
     this.objectMapper = new ObjectMapper();
 
-    ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    this.executor = Executors.newSingleThreadScheduledExecutor();
     // Fetch immediately on startup (delay=0), then repeat on the configured interval.
-    executor.scheduleAtFixedRate(this::refresh, 0, refreshIntervalSeconds, TimeUnit.SECONDS);
+    this.executor.scheduleAtFixedRate(this::refresh, 0, refreshIntervalSeconds, TimeUnit.SECONDS);
+  }
+
+  /**
+   * Gracefully stop the background refresh on Spring context teardown. Without this hook the
+   * scheduled-executor thread keeps the JVM alive and leaks across context restarts (matters in dev
+   * and in test contexts that re-create the bean).
+   */
+  @PreDestroy
+  public void shutdown() {
+    executor.shutdown();
+    try {
+      if (!executor.awaitTermination(SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+        // Refresh in progress took longer than the timeout — interrupt it. If a fetch was mid-IO
+        // the connection will close, and parseMatrix is purely in-memory so it can't dangle.
+        executor.shutdownNow();
+      }
+    } catch (InterruptedException e) {
+      executor.shutdownNow();
+      Thread.currentThread().interrupt();
+    }
   }
 
   @Override

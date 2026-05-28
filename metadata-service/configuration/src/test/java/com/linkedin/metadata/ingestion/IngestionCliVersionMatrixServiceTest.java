@@ -497,4 +497,47 @@ public class IngestionCliVersionMatrixServiceTest {
     }
     assertEquals(svc.resolveVersion("snowflake"), Optional.empty());
   }
+
+  // -------------------------------------------------------------------------
+  // Shutdown lifecycle — Spring @PreDestroy must terminate the refresh thread.
+  // Without this, a redeployment / context restart would leak the
+  // single-thread scheduled executor and keep the JVM from exiting cleanly.
+  // -------------------------------------------------------------------------
+
+  @Test
+  public void testShutdown_stopsBackgroundRefresh() throws Exception {
+    AtomicInteger callCount = new AtomicInteger();
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/matrix",
+        exchange -> {
+          callCount.incrementAndGet();
+          byte[] body = MATRIX_JSON.getBytes();
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream os = exchange.getResponseBody()) {
+            os.write(body);
+          }
+        });
+    server.start();
+    try {
+      String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
+      // 1-second refresh so we can see the cadence without slowing the test suite.
+      HttpUrlIngestionCliVersionMatrixSource source =
+          new HttpUrlIngestionCliVersionMatrixSource(url, 1);
+      waitForFirstFetch(source);
+
+      source.shutdown();
+      int callsAtShutdown = callCount.get();
+
+      // Wait well past two refresh intervals; callCount must not move because shutdown stopped
+      // the scheduled executor.
+      Thread.sleep(2500);
+      assertEquals(
+          callCount.get(),
+          callsAtShutdown,
+          "Refresh thread must stop firing after shutdown() — no new HTTP calls expected");
+    } finally {
+      server.stop(0);
+    }
+  }
 }
