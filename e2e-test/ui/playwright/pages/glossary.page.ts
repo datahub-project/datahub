@@ -109,8 +109,8 @@ export class GlossaryPage extends BasePage {
     // Scoped to the active tab panel to avoid matching the main nav search bar.
     this.searchInput = this.activeTabPanel.getByTestId('search-input');
 
-    // eslint-disable-next-line playwright/no-raw-locators -- Playwright :visible pseudo-selector; no Locator API equivalent for visibility filtering
-    this.filtersToggleButton = page.getByTestId('toggle-filters-button').and(page.locator(':visible'));
+    // Scoped to the active tab panel to avoid matching the second instance inside the batch-add modal.
+    this.filtersToggleButton = this.activeTabPanel.getByTestId('toggle-filters-button');
     this.advancedSearchButton = page.getByTestId('search-results-advanced-search');
     this.addFilterButton = page.getByTestId('adv-search-add-filter-select');
     this.addFilterTagsButton = page.getByTestId('adv-search-add-filter-tags');
@@ -205,23 +205,20 @@ export class GlossaryPage extends BasePage {
 
   async clickSidebarTerm(urn: string): Promise<void> {
     this.logger?.step('clickSidebarTerm', { urn });
-    // Sidebar tree renders asynchronously; wait before clicking.
-    await this.getSidebarTermLocator(urn).waitFor({ state: 'visible', timeout: 20000 });
-    await this.getSidebarTermLocator(urn).click();
+    // The sidebar tree re-renders when the parent node auto-expands; allow generous wait.
+    const locator = this.getSidebarTermLocator(urn);
+    await expect(locator).toBeVisible({ timeout: 45000 });
+    await locator.scrollIntoViewIfNeeded();
+    await locator.click();
     await this.waitForPageLoad();
   }
 
   async clickSidebarNode(urn: string): Promise<void> {
+    // ES indexing for freshly-created nodes takes >60 s in this environment.
+    // Navigate directly by URL — clickSidebarNode is purely used for navigation, not to test
+    // sidebar click behaviour itself.
     this.logger?.step('clickSidebarNode', { urn });
-    // ES indexing after entity creation can take 20–40 s. Reload until the node appears.
-    const locator = this.getSidebarNodeLocator(urn);
-    await expect(async () => {
-      await this.page.reload();
-      await this.waitForPageLoad();
-      await expect(locator).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 60000, intervals: [5000] });
-    await locator.click();
-    await this.waitForPageLoad();
+    await this.navigateToGlossaryNodeByUrn(urn);
   }
 
   async openContentsTab(): Promise<void> {
@@ -389,17 +386,16 @@ export class GlossaryPage extends BasePage {
   }
 
   async expectEntityInContentsTab(urn: string): Promise<void> {
-    // ES indexing after creation can take 20–40 s. Reload and re-open Contents tab until visible.
+    // ES indexing after creation can take 60+ s. Reload and re-open Contents tab until visible.
     const locator = this.getContentsTabItemLocator(urn);
-    if (!(await locator.isVisible())) {
-      await expect(async () => {
+    await expect(async () => {
+      if (!(await locator.isVisible())) {
         await this.page.reload();
         await this.waitForPageLoad();
         await this.openContentsTab();
-        await expect(locator).toBeVisible({ timeout: 5000 });
-      }).toPass({ timeout: 45000, intervals: [5000] });
-    }
-    await expect(locator).toBeVisible({ timeout: 5000 });
+      }
+      await expect(locator).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 90000, intervals: [5000] });
   }
 
   async expectEntityNotInContentsTab(urn: string): Promise<void> {
@@ -407,13 +403,13 @@ export class GlossaryPage extends BasePage {
   }
 
   async expectSidebarContainsNode(urn: string): Promise<void> {
-    // ES indexing after creation can take 20–40 s. Reload until the sidebar node appears.
+    // ES indexing after creation can take 60+ s. Reload until the sidebar node appears.
     const locator = this.getSidebarNodeLocator(urn);
     await expect(async () => {
       await this.page.reload();
       await this.waitForPageLoad();
       await expect(locator).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 60000, intervals: [5000] });
+    }).toPass({ timeout: 120000, intervals: [5000] });
   }
 
   async expectSidebarNotContainsNode(urn: string): Promise<void> {
