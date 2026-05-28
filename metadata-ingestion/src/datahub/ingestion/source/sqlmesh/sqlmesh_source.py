@@ -603,6 +603,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # warehouse URNs identical to those used in _emit_assertions —
         # keeping assertion-definition and run-event URN hashes consistent.
         self._resolved_effective: Optional[_EffectiveProjectConfig] = None
+        # Per-gateway resolved configs for multi-gateway projects. Keyed by
+        # gateway name. Built after Context loads from ctx.engine_adapters.
+        # Single-gateway projects end up with a one-entry dict; emitters use
+        # _effective_for_model(model) to look up the right one. None until
+        # _ingest_project_with_worker populates it.
+        self._effective_by_gateway: Dict[str, _EffectiveProjectConfig] = {}
+        self._selected_gateway: Optional[str] = None
         # Capability probes (set after Context loads). Emitters consult these
         # to choose signal sources; e.g. pipeline-freshness prefers state but
         # falls back to engine_adapter, volume prefers engine_adapter but
@@ -675,6 +682,155 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 e,
             )
             return "unknown"
+
+    def _read_selected_gateway(
+        self,
+        sqlmesh_ctx: "SqlmeshContextType",
+        effective: _EffectiveProjectConfig,
+    ) -> str:
+        """Return the canonical name of the currently-selected gateway.
+
+        SQLMesh normalises gateway names to lowercase. We prefer the value
+        SQLMesh resolved (``ctx.selected_gateway``) over the user's config
+        because the user can omit the gateway and let the project default
+        kick in.
+        """
+        gw = getattr(sqlmesh_ctx, "selected_gateway", None) or effective.gateway
+        if not gw:
+            # Final fallback — SQLMesh always has SOME selected gateway, but
+            # be defensive about API drift.
+            gw = "default"
+        return str(gw).lower()
+
+    def _build_per_gateway_effectives(
+        self,
+        sqlmesh_ctx: "SqlmeshContextType",
+        default_effective: _EffectiveProjectConfig,
+    ) -> Dict[str, _EffectiveProjectConfig]:
+        """Build one _EffectiveProjectConfig per gateway visible to the Context.
+
+        Single-gateway projects produce a one-entry dict that mirrors
+        ``default_effective`` exactly — no behavioral change for those.
+
+        For multi-gateway projects we iterate ``ctx.engine_adapters``, read
+        each adapter's dialect to auto-detect ``target_platform``, and layer
+        the user's ``gateway_overrides`` on top. The default gateway always
+        appears under its own name so ``_effective_for_model`` can fall back
+        when ``model.gateway`` is None.
+        """
+        result: Dict[str, _EffectiveProjectConfig] = {}
+
+        # Always include the default gateway exactly as the caller resolved
+        # it — preserves auto-detection / Snowflake-lowercase / etc. that
+        # already ran for the default.
+        result[self._selected_gateway or default_effective.gateway or "default"] = (
+            default_effective
+        )
+
+        # Discover additional gateways from ctx.engine_adapters when SQLMesh
+        # exposes the multi-gateway map. Older / minimal Context mocks may
+        # not, so degrade silently to single-gateway in that case.
+        engine_adapters = getattr(sqlmesh_ctx, "engine_adapters", None) or {}
+        default_catalogs = (
+            getattr(sqlmesh_ctx, "default_catalog_per_gateway", None) or {}
+        )
+
+        for gw_name in engine_adapters:
+            gw_key = str(gw_name).lower()
+            if gw_key in result:
+                continue  # already covered by the default-gateway entry
+
+            override = self.config.gateway_overrides.get(
+                gw_name
+            ) or self.config.gateway_overrides.get(gw_key)
+
+            # Auto-detect target_platform from this gateway's adapter dialect.
+            # We can't reuse _detect_target_platform because it reads
+            # ctx.connection_config (default-gateway only); for non-default
+            # gateways we inspect engine_adapters[gw].dialect directly.
+            auto_platform = None
+            try:
+                auto_platform = SQLMESH_TO_DATAHUB_PLATFORM.get(
+                    str(engine_adapters[gw_name].dialect).lower(),
+                    str(engine_adapters[gw_name].dialect).lower(),
+                )
+            except Exception:
+                pass
+            target_platform = (
+                (override.target_platform if override else None)
+                or auto_platform
+                or "unknown"
+            )
+
+            # convert_urns_to_lowercase: project-level default, with
+            # auto-on for Snowflake matching the default-gateway logic.
+            convert_lc = (
+                override.convert_urns_to_lowercase
+                if override and override.convert_urns_to_lowercase is not None
+                else (
+                    default_effective.convert_urns_to_lowercase
+                    or target_platform == "snowflake"
+                )
+            )
+
+            result[gw_key] = _EffectiveProjectConfig(
+                project_path=default_effective.project_path,
+                gateway=gw_name,
+                environment=default_effective.environment,
+                target_platform=target_platform,
+                target_platform_instance=(
+                    override.target_platform_instance if override else None
+                ),
+                sqlmesh_platform_instance=default_effective.sqlmesh_platform_instance,
+                default_catalog=(override.default_catalog if override else None)
+                or default_catalogs.get(gw_name),
+                convert_urns_to_lowercase=convert_lc,
+                env_suffix_target=default_effective.env_suffix_target,
+                env_catalog_mapping=dict(default_effective.env_catalog_mapping),
+            )
+
+        return result
+
+    def _effective_for_model(
+        self, model: Optional["SqlmeshModel"]
+    ) -> _EffectiveProjectConfig:
+        """Resolve the right _EffectiveProjectConfig for this model's gateway.
+
+        Falls back to the selected/default gateway when the model has no
+        explicit ``gateway`` field, when the gateway isn't in our map (e.g.
+        SQLMesh added it after Context load — unlikely), or when called
+        with a None model (legacy code paths). Always returns a non-None
+        value so callers can use it without further guarding.
+        """
+        if not self._effective_by_gateway:
+            # Pre-Context-load paths — return _resolved_effective if set,
+            # else a stub so we never raise.
+            return self._resolved_effective or _EffectiveProjectConfig(
+                project_path=self.config.project_path,
+                gateway=self.config.gateway,
+                environment=self.config.environment,
+                target_platform=self.config.target_platform,
+                target_platform_instance=self.config.target_platform_instance,
+                sqlmesh_platform_instance=self.config.sqlmesh_platform_instance,
+                default_catalog=self.config.default_catalog,
+                convert_urns_to_lowercase=self.config.convert_urns_to_lowercase,
+            )
+
+        gw_name = None
+        if model is not None:
+            gw_name = getattr(model, "gateway", None)
+        gw_key = str(gw_name).lower() if gw_name else (self._selected_gateway or "")
+
+        return self._effective_by_gateway.get(
+            gw_key,
+            # Last-resort: the selected gateway's config. Better than raising
+            # and stopping ingest because of one quirky model.
+            self._effective_by_gateway.get(
+                self._selected_gateway or "",
+                self._resolved_effective
+                or next(iter(self._effective_by_gateway.values())),
+            ),
+        )
 
     # -------------------------------------------------------------------------
     # Project ingestion
@@ -758,7 +914,9 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             self._capabilities.has_graph,
         )
 
-        # Resolve target_platform (auto-detect if not configured)
+        # Resolve target_platform (auto-detect if not configured) — for the
+        # default gateway. Multi-gateway projects get one effective per
+        # gateway built immediately below.
         target_platform = self._detect_target_platform(sqlmesh_ctx, effective)
 
         # Read environment suffix config directly from the loaded Context — no user config needed.
@@ -791,6 +949,21 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # the same way _emit_assertions does (consistent assertion hash).
         self._resolved_effective = effective
 
+        # Build per-gateway effectives. For single-gateway projects this
+        # produces a one-entry dict equivalent to `effective`; multi-gateway
+        # projects get one entry per gateway with platform / instance /
+        # catalog auto-detected per gateway and user overrides applied.
+        self._selected_gateway = self._read_selected_gateway(sqlmesh_ctx, effective)
+        self._effective_by_gateway = self._build_per_gateway_effectives(
+            sqlmesh_ctx, effective
+        )
+        if len(self._effective_by_gateway) > 1:
+            logger.info(
+                "Multi-gateway project: %d gateways (%s)",
+                len(self._effective_by_gateway),
+                ", ".join(sorted(self._effective_by_gateway)),
+            )
+
         logger.info(
             "Ingesting SQLMesh project %r (gateway=%r, env=%r, warehouse=%r)",
             effective.project_path,
@@ -804,9 +977,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         )
 
         # Build the full FQN list first (needed for containers, preview, and changed-mode).
+        # For multi-gateway projects each model uses its own gateway's
+        # default_catalog when qualifying its name; single-gateway projects
+        # see no difference because every lookup returns the same effective.
         all_fqns: Dict[str, Any] = {}  # fqn → model
         for model_name_key, model in sqlmesh_ctx.models.items():
-            fqn = self._build_logical_fqn(str(model_name_key), effective)
+            model_effective = self._effective_for_model(model)
+            fqn = self._build_logical_fqn(str(model_name_key), model_effective)
             if not self.config.model_name_pattern.allowed(fqn):
                 continue
             if self.config.model_kind_filter:
@@ -953,13 +1130,27 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         """
         Log a sample of sqlmesh ↔ warehouse URN pairs before emitting.
         Helps users validate that sibling URNs will match their warehouse connector.
+
+        For multi-gateway projects each entry shows the gateway in brackets so
+        users can spot routing problems (e.g. a model on the wrong gateway).
         """
-        sample = list(all_fqns.keys())[: self.config.preview_urns_sample_size]
+        sample = list(all_fqns.items())[: self.config.preview_urns_sample_size]
         lines = ["URN preview (sqlmesh → warehouse sibling):"]
-        for fqn in sample:
-            sqlmesh_urn = self._make_sqlmesh_urn(fqn, effective)
-            warehouse_urn = self._make_warehouse_urn(fqn, effective)
-            lines.append(f"  sqlmesh : {sqlmesh_urn}")
+        for fqn, model in sample:
+            model_effective = self._effective_for_model(model)
+            sqlmesh_urn = self._make_sqlmesh_urn(fqn, model_effective)
+            warehouse_urn = self._make_warehouse_urn(fqn, model_effective)
+            # Always show the gateway label so multi-gateway routing is
+            # diagnosable. The default-gateway effective has gateway=None
+            # because the top-level config field can be unset; fall back to
+            # the SQLMesh-resolved selected_gateway in that case.
+            gw_name = (
+                getattr(model, "gateway", None)
+                or model_effective.gateway
+                or self._selected_gateway
+                or "default"
+            )
+            lines.append(f"  sqlmesh : {sqlmesh_urn} [{gw_name}]")
             lines.append(f"  warehouse: {warehouse_urn}")
             lines.append("")
         logger.info("\n".join(lines))
@@ -983,6 +1174,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         result: Dict[str, str] = {}
         for model in sqlmesh_ctx.models.values():
             try:
+                # Multi-gateway: each model's gateway has its own catalog
+                # naming + URN-lowercasing settings. Single-gateway projects
+                # see this as a no-op since every model resolves to the same
+                # effective.
+                model_effective = self._effective_for_model(model)
                 catalog = getattr(model, "catalog", None)
                 physical_schema = getattr(model, "physical_schema", None)
                 schema_name = getattr(model, "schema_name", None)
@@ -996,8 +1192,8 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                     ]
                     if catalog:
                         parts = [catalog] + parts
-                    phys = self._normalize_name(".".join(parts), effective)
-                    logical_fqn = self._build_logical_fqn(model_name, effective)
+                    phys = self._normalize_name(".".join(parts), model_effective)
+                    logical_fqn = self._build_logical_fqn(model_name, model_effective)
                     result[logical_fqn] = phys
             except Exception as e:
                 self.report.num_snapshots_without_physical_name += 1
@@ -1199,6 +1395,10 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         effective: _EffectiveProjectConfig,
         sqlmesh_ctx: "SqlmeshContextType",
     ) -> Iterable[MetadataWorkUnit]:
+        # For multi-gateway projects, the model's own gateway dictates the
+        # warehouse platform / instance / catalog. For single-gateway projects
+        # this returns the same value as the `effective` parameter.
+        effective = self._effective_for_model(model)
         physical_name = physical_name_by_model.get(fqn) or physical_name_by_model.get(
             self._build_logical_fqn(str(getattr(model, "name", fqn)), effective)
         )
@@ -1436,9 +1636,18 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         Category 2 — declared external (EXTERNAL kind): sqlmesh URN by default,
                       warehouse URN when skip_external_models_in_lineage=True
         Category 3 — undeclared implicit (get_model returns None): warehouse URN
+
+        For multi-gateway projects: the dep's OWN gateway determines its
+        warehouse URN, not the caller's gateway. If the dep is in our model
+        map we resolve via _effective_for_model(dep_model); otherwise we
+        fall back to the caller's effective (the dep is undeclared and we
+        have no better signal).
         """
-        dep_fqn = self._build_logical_fqn(dep_name, effective)
         dep_model = sqlmesh_ctx.get_model(dep_name)
+        dep_effective = (
+            self._effective_for_model(dep_model) if dep_model is not None else effective
+        )
+        dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
 
         if dep_model is None:
             logger.debug(
@@ -1446,13 +1655,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 dep_name,
             )
             self.report.num_undeclared_upstream_refs += 1
-            return self._make_warehouse_urn(dep_fqn, effective)
+            return self._make_warehouse_urn(dep_fqn, dep_effective)
 
         kind = getattr(dep_model, "kind", None)
         is_external = str(getattr(kind, "model_kind_name", "")).upper() == "EXTERNAL"
         if is_external and self.config.skip_external_models_in_lineage:
-            return self._make_warehouse_urn(dep_fqn, effective)
-        return self._make_sqlmesh_urn(dep_fqn, effective)
+            return self._make_warehouse_urn(dep_fqn, dep_effective)
+        return self._make_sqlmesh_urn(dep_fqn, dep_effective)
 
     def _build_upstreams(
         self,

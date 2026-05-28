@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Dict, List, Literal, Optional
 
 import cachetools
-from pydantic import Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from datahub.configuration.common import AllowDenyPattern, TransparentSecretStr
 from datahub.configuration.source_common import (
@@ -83,6 +83,47 @@ class SqlmeshSourceReport(StaleEntityRemovalSourceReport):
             message="Model processing failed and will be skipped.",
             context=f"{model_name}: {reason}",
         )
+
+
+class GatewayOverride(BaseModel):
+    """Per-gateway overrides for warehouse-URN construction.
+
+    SQLMesh projects can declare multiple gateways (e.g. Snowflake for some
+    models, BigQuery for others). The top-level ``target_platform`` /
+    ``target_platform_instance`` / ``default_catalog`` apply to the default
+    gateway; ``gateway_overrides`` lets you set per-gateway values for the
+    others. Anything left ``None`` falls back to auto-detection from
+    ``ctx.engine_adapters[gateway].dialect``.
+    """
+
+    target_platform: Optional[str] = Field(
+        default=None,
+        description=(
+            "Warehouse platform for this gateway. Auto-detected from the "
+            "gateway connection type if not set."
+        ),
+    )
+    target_platform_instance: Optional[str] = Field(
+        default=None,
+        description=(
+            "platform_instance for this gateway. Must match the warehouse "
+            "connector's platform_instance for sibling URN stitching."
+        ),
+    )
+    default_catalog: Optional[str] = Field(
+        default=None,
+        description=(
+            "default_catalog for this gateway. Prepended to 2-part model "
+            "names to build 3-part warehouse URNs."
+        ),
+    )
+    convert_urns_to_lowercase: Optional[bool] = Field(
+        default=None,
+        description=(
+            "Force-lowercase URNs for this gateway. Defaults to the "
+            "project-level value, or True for Snowflake."
+        ),
+    )
 
 
 class SqlmeshSourceConfig(
@@ -169,6 +210,26 @@ class SqlmeshSourceConfig(
             "SQLMesh model names omit the catalog. "
             "Example: set to 'analytics' so that 'star.dim_developer' becomes "
             "'analytics.star.dim_developer', matching what the Snowflake connector emits."
+        ),
+    )
+    gateway_overrides: Dict[str, GatewayOverride] = Field(
+        default_factory=dict,
+        description=(
+            "Per-gateway overrides for multi-gateway SQLMesh projects (different "
+            "models writing to different warehouses). Keyed by gateway name. "
+            "The top-level ``target_platform`` / ``target_platform_instance`` / "
+            "``default_catalog`` continue to apply to the default gateway; this "
+            "block sets values for the others. Any field left ``None`` is "
+            "auto-detected from the gateway's connection config. Single-gateway "
+            "projects can ignore this entirely.\n\n"
+            "Example::\n\n"
+            "  gateway_overrides:\n"
+            "    bigquery_lake:\n"
+            "      target_platform: bigquery\n"
+            "      target_platform_instance: prod_bigquery\n"
+            "      default_catalog: lake-prod\n"
+            "    snowflake_dwh:\n"
+            "      target_platform_instance: prod_snowflake\n"
         ),
     )
     sqlmesh_is_primary_sibling: bool = Field(

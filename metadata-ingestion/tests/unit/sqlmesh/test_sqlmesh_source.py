@@ -114,6 +114,185 @@ def _run_project(
         return list(source._ingest_project())
 
 
+def _make_multi_gateway_context(
+    models: dict,
+    *,
+    gateway_dialects: dict[str, str],
+    selected_gateway: str,
+    default_catalog_per_gateway: dict[str, str] | None = None,
+    snapshots: dict | None = None,
+) -> MagicMock:
+    """Build a mock SqlmeshContext with multiple gateways visible.
+
+    gateway_dialects: gateway_name → dialect string (e.g. "snowflake", "bigquery").
+                      Drives auto-detection of target_platform per gateway.
+    selected_gateway: which gateway is the default (used when model.gateway is None).
+    """
+    mock_ctx = _make_mock_context(
+        models,
+        snapshots or {},
+        connection_type=gateway_dialects[selected_gateway],
+    )
+    mock_ctx.selected_gateway = selected_gateway
+    mock_ctx.engine_adapters = {
+        gw: MagicMock(dialect=dialect) for gw, dialect in gateway_dialects.items()
+    }
+    mock_ctx.default_catalog_per_gateway = default_catalog_per_gateway or {}
+    return mock_ctx
+
+
+def _run_multi_gateway_project(
+    source: SqlmeshSource,
+    models: dict,
+    *,
+    gateway_dialects: dict[str, str],
+    selected_gateway: str,
+    default_catalog_per_gateway: dict[str, str] | None = None,
+) -> list:
+    mock_ctx = _make_multi_gateway_context(
+        models,
+        gateway_dialects=gateway_dialects,
+        selected_gateway=selected_gateway,
+        default_catalog_per_gateway=default_catalog_per_gateway,
+    )
+    with patch(
+        "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+        return_value=mock_ctx,
+    ):
+        return list(source._ingest_project())
+
+
+class TestMultiGateway:
+    """Multi-gateway: different models targeting different warehouses.
+
+    The connector reads ctx.engine_adapters to discover all gateways and
+    builds per-gateway _EffectiveProjectConfig. _effective_for_model(model)
+    resolves model.gateway → the right config; URN construction picks up
+    the per-gateway platform / instance / catalog.
+    """
+
+    def test_single_gateway_project_unchanged(self):
+        """Existing single-gateway tests should keep passing — the dict has
+        one entry and every model resolves to the default. This is a
+        sanity test that _effective_for_model doesn't perturb anything
+        when no multi-gateway machinery is set up by the mock."""
+        source = _make_source()
+        model = _make_mock_model()
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        from datahub.metadata.schema_classes import SiblingsClass
+
+        siblings = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+        )
+        # Sibling points at the warehouse URN — same as single-gateway today.
+        assert WAREHOUSE_PLATFORM in siblings.siblings[0]
+
+    def test_per_model_warehouse_urn_from_gateway(self):
+        """Two models on different gateways get sibling URNs on different
+        warehouse platforms. The default-gateway model uses the auto-detected
+        Snowflake platform; the bigquery-gateway model uses bigquery."""
+        from datahub.metadata.schema_classes import SiblingsClass
+
+        source = _make_source({"target_platform": "snowflake"})
+        model_snow = _make_mock_model("star.dim_developer")
+        model_snow.gateway = None  # uses default
+        model_bq = _make_mock_model("star.fct_orders")
+        model_bq.gateway = "bigquery_lake"
+
+        workunits = _run_multi_gateway_project(
+            source,
+            {"star.dim_developer": model_snow, "star.fct_orders": model_bq},
+            gateway_dialects={
+                "snowflake_prod": "snowflake",
+                "bigquery_lake": "bigquery",
+            },
+            selected_gateway="snowflake_prod",
+        )
+
+        siblings_by_sqlmesh_urn = {
+            wu.metadata.entityUrn: wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+        }
+        # Find the sibling for each model — sibling[0] is the warehouse URN
+        snow_sibling = next(
+            s for urn, s in siblings_by_sqlmesh_urn.items() if "dim_developer" in urn
+        )
+        bq_sibling = next(
+            s for urn, s in siblings_by_sqlmesh_urn.items() if "fct_orders" in urn
+        )
+        assert "snowflake" in snow_sibling.siblings[0]
+        assert "bigquery" in bq_sibling.siblings[0]
+
+    def test_gateway_overrides_apply_platform_instance(self):
+        """User-supplied target_platform_instance on a non-default gateway
+        flows through to the warehouse URN."""
+        from datahub.metadata.schema_classes import SiblingsClass
+
+        source = _make_source(
+            {
+                "target_platform": "snowflake",
+                "gateway_overrides": {
+                    "bigquery_lake": {
+                        "target_platform": "bigquery",
+                        "target_platform_instance": "prod_bigquery",
+                    }
+                },
+            }
+        )
+        model_bq = _make_mock_model("star.fct_orders")
+        model_bq.gateway = "bigquery_lake"
+
+        workunits = _run_multi_gateway_project(
+            source,
+            {"star.fct_orders": model_bq},
+            gateway_dialects={
+                "snowflake_prod": "snowflake",
+                "bigquery_lake": "bigquery",
+            },
+            selected_gateway="snowflake_prod",
+        )
+
+        bq_sibling = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+        )
+        assert "prod_bigquery" in bq_sibling.siblings[0]
+
+    def test_default_catalog_per_gateway_used_when_no_override(self):
+        """When the user doesn't override default_catalog for a non-default
+        gateway, we fall back to ctx.default_catalog_per_gateway."""
+        from datahub.metadata.schema_classes import SiblingsClass
+
+        source = _make_source({"target_platform": "snowflake"})
+        # Bare two-part name — needs catalog prepending to be 3-part.
+        model_bq = _make_mock_model("star.fct_orders")
+        model_bq.gateway = "bigquery_lake"
+
+        workunits = _run_multi_gateway_project(
+            source,
+            {"star.fct_orders": model_bq},
+            gateway_dialects={
+                "snowflake_prod": "snowflake",
+                "bigquery_lake": "bigquery",
+            },
+            selected_gateway="snowflake_prod",
+            default_catalog_per_gateway={"bigquery_lake": "lake-prod"},
+        )
+
+        bq_sibling = next(
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), SiblingsClass)
+        )
+        # Warehouse URN prepends the gateway's auto-discovered default_catalog
+        assert "lake-prod" in bq_sibling.siblings[0]
+
+
 class TestSiblingEmission:
     def test_siblings_always_emitted_for_each_model(self):
         """Siblings link sqlmesh entity to warehouse view — no snapshot needed."""
