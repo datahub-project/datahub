@@ -1,6 +1,5 @@
 package com.linkedin.metadata.ingestion;
 
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -82,11 +81,11 @@ public class IngestionCliVersionMatrixService {
    */
   public Optional<MatrixResolution> resolveVersionWithSource(String connectorType) {
     IngestionCliVersionMatrix matrix = source.getMatrix();
-    Map<String, ConnectorEntry> serverEntry = matrix.getEntriesForServer(serverVersion);
+    ServerEntry serverEntry = matrix.getEntriesForServer(serverVersion);
     if (serverEntry == null) {
       return Optional.empty();
     }
-    ConnectorEntry connectorEntry = serverEntry.get(connectorType);
+    ConnectorEntry connectorEntry = serverEntry.getConnectorEntry(connectorType);
     if (connectorEntry == null) {
       return Optional.empty();
     }

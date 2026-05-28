@@ -6,7 +6,6 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -174,7 +173,7 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
               + (root == null ? "null" : root.getNodeType().toString().toLowerCase()));
     }
 
-    Map<String, Map<String, ConnectorEntry>> entries = new HashMap<>();
+    Map<String, ServerEntry> entries = new HashMap<>();
     root.fields()
         .forEachRemaining(
             serverEntry -> {
@@ -200,7 +199,7 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
                           connectors.put(connector, parsed);
                         }
                       });
-              entries.put(serverVersion, Collections.unmodifiableMap(connectors));
+              entries.put(serverVersion, new ServerEntry(connectors));
             });
     return new IngestionCliVersionMatrix(entries);
   }
