@@ -9,30 +9,30 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { EntityDocumentationPage } from '../../pages/entity-documentation.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 
 test.use({ featureName: 'mutations' });
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SamplePlaywrightHiveDataset,PROD)';
 
 test.describe('edit documentation and link to dataset', () => {
-  let docPage: EntityDocumentationPage;
+  let docPage: DatasetPage;
 
   test.beforeEach(async ({ page, logger, logDir }) => {
-    docPage = new EntityDocumentationPage(page, logger, logDir);
+    docPage = new DatasetPage(page, logger, logDir);
   });
 
   test('edit field documentation', async ({ page }) => {
     const testId = Math.floor(Math.random() * 100000);
     const documentationEdited = `This is test${testId} documentation EDITED`;
 
-    await docPage.navigateToDatasetSchemaTab(DATASET_URN);
-    await docPage.editFieldDescription('field_foo', documentationEdited);
+    await docPage.navigateToDatasetSchema(DATASET_URN);
+    await docPage.documentation.editFieldDescription('field_foo', documentationEdited);
     await expect(page.getByText(documentationEdited).first()).toBeVisible();
     await expect(page.getByText('(edited)')).toBeVisible();
 
     // Restore original description
-    await docPage.editFieldDescription('field_foo', 'Foo field description has changed');
+    await docPage.documentation.editFieldDescription('field_foo', 'Foo field description has changed');
     await expect(page.getByText('Foo field description has changed').first()).toBeVisible();
     await expect(page.getByText('(edited)')).toBeVisible();
   });

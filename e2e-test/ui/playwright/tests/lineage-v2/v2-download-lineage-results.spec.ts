@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { LineageV2Page } from '../../pages/lineage-v2.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
@@ -59,14 +59,14 @@ test.describe('download lineage results to .csv file', () => {
     // Download and verify can take significant time
     test.setTimeout(120000);
 
-    const lp = new LineageV2Page(page, logger, logDir);
-    await lp.goToDataset(TEST_DATASET_URN, 'SamplePlaywrightKafkaDataset');
-    await lp.clickLineageTab();
+    const lp = new DatasetPage(page, logger, logDir);
+    await lp.navigateToDataset(TEST_DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    await lp.lineage.open();
 
     // ── 1st degree ───────────────────────────────────────────────────────────
 
-    await lp.clickImpactAnalysis();
-    const firstDegreeCsv = await lp.downloadCsvAndRead('first_degree_results.csv');
+    await lp.lineage.clickImpactAnalysis();
+    const firstDegreeCsv = await lp.lineage.downloadCsvAndRead('first_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(firstDegreeCsv).toContain(urn);
@@ -80,12 +80,12 @@ test.describe('download lineage results to .csv file', () => {
 
     // ── 1st + 2nd degree ─────────────────────────────────────────────────────
 
-    await lp.clickDegree2Filter();
+    await lp.lineage.clickDegree2Filter();
     await page.waitForTimeout(5000);
     // Verify result count is between 8-9 (flexible range as displayed in the UI)
     await expect(page.getByText(/1 - [8-9] of [8-9]/).first()).toBeVisible({ timeout: 15000 });
 
-    const secondDegreeCsv = await lp.downloadCsvAndRead('second_degree_results.csv');
+    const secondDegreeCsv = await lp.lineage.downloadCsvAndRead('second_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(secondDegreeCsv).toContain(urn);
@@ -99,11 +99,11 @@ test.describe('download lineage results to .csv file', () => {
 
     // ── 3+ degree (multi-page download) ─────────────────────────────────────
 
-    await lp.clickDegree3PlusFilter();
+    await lp.lineage.clickDegree3PlusFilter();
     await page.waitForTimeout(5000);
     await expect(page.getByText(/1 - 10/).first()).toBeVisible({ timeout: 15000 });
 
-    const thirdDegreeCsv = await lp.downloadCsvAndRead('third_plus_degree_results.csv');
+    const thirdDegreeCsv = await lp.lineage.downloadCsvAndRead('third_plus_degree_results.csv');
 
     for (const urn of FIRST_DEGREE_URNS) {
       expect(thirdDegreeCsv).toContain(urn);

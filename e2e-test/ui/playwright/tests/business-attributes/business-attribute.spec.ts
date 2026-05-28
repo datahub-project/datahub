@@ -10,7 +10,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { BusinessAttributePage } from '../../pages/business-attribute.page';
-import { DatasetPage } from '../../pages/dataset.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 import { GraphQLHelper } from '../../helpers/graphql-helper';
 
 test.use({ featureName: 'business-attributes' });
@@ -38,7 +38,7 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute CRUD Operations', () => {
-    test('should create, view, and delete a business attribute', async () => {
+    test('should create, view, and delete a business attribute', async ({ page }) => {
       test.setTimeout(180000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
@@ -51,9 +51,10 @@ test.describe('Business Attributes', () => {
       await businessAttributePage.expectAttributeVisible(TEST_ATTRIBUTE);
 
       await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.closeAnyOpenModal();
-      await datasetPage.addBusinessAttributeToField(FIELD_NAME, TEST_ATTRIBUTE);
-      await datasetPage.removeBusinessAttributeFromField(FIELD_NAME, TEST_ATTRIBUTE);
+      await page.keyboard.press('Escape');
+      await datasetPage.schema.clickField(FIELD_NAME);
+      await datasetPage.schema.drawer.addBusinessAttribute(TEST_ATTRIBUTE);
+      await datasetPage.schema.drawer.removeBusinessAttribute(TEST_ATTRIBUTE);
 
       await businessAttributePage.navigateToBusinessAttributes();
       await businessAttributePage.selectAttribute(TEST_ATTRIBUTE);
@@ -65,14 +66,14 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute Inheritance', () => {
-    test('should inherit tags and terms from business attribute to dataset field', async () => {
+    test('should inherit tags and terms from business attribute to dataset field', async ({ page }) => {
       test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
       await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.closeAnyOpenModal();
-      await datasetPage.clickSchemaField(FIELD_NAME);
+      await page.keyboard.press('Escape');
+      await datasetPage.schema.clickField(FIELD_NAME);
 
       await businessAttributePage.expectTextVisible('Business Attribute');
       await businessAttributePage.clickAddAttributeButton(FIELD_NAME);
@@ -118,14 +119,14 @@ test.describe('Business Attributes', () => {
   });
 
   test.describe('Business Attribute Field Operations', () => {
-    test('should remove business attribute from dataset field', async () => {
+    test('should remove business attribute from dataset field', async ({ page }) => {
       test.setTimeout(60000);
       const enabled = await businessAttributePage.checkBusinessAttributeFeature(graphqlHelper);
       test.skip(!enabled, 'Business Attribute feature is not enabled');
 
       await datasetPage.navigateToDataset(DATASET_URN);
-      await datasetPage.closeAnyOpenModal();
-      await datasetPage.clickSchemaField(FIELD_NAME);
+      await page.keyboard.press('Escape');
+      await datasetPage.schema.clickField(FIELD_NAME);
 
       const businessAttributeSection = businessAttributePage.getBusinessAttributeSection(FIELD_NAME);
       await businessAttributePage.removeAttributeFromSection(businessAttributeSection, TEST_ATTRIBUTE_2);

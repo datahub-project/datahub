@@ -9,7 +9,7 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
-import { LineageV2Page } from '../../pages/lineage-v2.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 
 const DATASET_ENTITY_TYPE = 'dataset';
 // HDFS dataset — the downstream entity in the lineage graph
@@ -29,32 +29,37 @@ test.describe('column-Level lineage and impact analysis path test', () => {
     // Graph navigation + two impact-analysis modal flows takes ~70s locally; allow extra for CI.
     test.setTimeout(120000);
 
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     // Navigate to the HDFS dataset lineage graph
     await lp.goToLineageGraph(DATASET_ENTITY_TYPE, DATASET_URN);
     await expect(page.getByText('SamplePlaywrightHdfs').first()).toBeVisible({ timeout: 15000 });
 
     // Expand columns on HDFS dataset (downstream node)
-    await lp.expandContractColumns(DATASET_URN);
+    await lp.lineage.expandContractColumns(DATASET_URN);
     await expect(page.getByText('shipment_info', { exact: true }).first()).toBeVisible({ timeout: 10000 });
 
     // Expand columns on Kafka dataset (upstream node)
-    await lp.expandContractColumns(UPSTREAM_URN);
-    await expect(lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar')).toBeVisible({ timeout: 10000 });
+    await lp.lineage.expandContractColumns(UPSTREAM_URN);
+    await expect(lp.lineage.getReactFlowNode(UPSTREAM_URN).getByText('field_bar')).toBeVisible({ timeout: 10000 });
 
     // Click field_bar in the upstream Kafka node
-    await lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar').click();
+    await lp.lineage.getReactFlowNode(UPSTREAM_URN).getByText('field_bar').click();
 
     // Verify the selected field_bar indicator is active (fill not white)
     await expect(
-      lp.getReactFlowNode(UPSTREAM_URN).getByText('field_bar').locator('..').locator('svg, circle, path').first(),
+      lp.lineage
+        .getReactFlowNode(UPSTREAM_URN)
+        .getByText('field_bar')
+        .locator('..')
+        .locator('svg, circle, path')
+        .first(),
     ).not.toHaveAttribute('fill', 'white');
 
     // Verify shipment_info has a connection indicator (stroke not transparent).
     // Use exact: true to avoid matching sub-fields like shipment_info.date, shipment_info.target, etc.
     await expect(
-      lp
+      lp.lineage
         .getReactFlowNode(DATASET_URN)
         .getByText('shipment_info', { exact: true })
         .locator('..')
@@ -63,9 +68,9 @@ test.describe('column-Level lineage and impact analysis path test', () => {
     ).not.toHaveAttribute('stroke', 'transparent');
 
     // Click shipment_info in downstream node
-    await lp.getReactFlowNode(DATASET_URN).getByText('shipment_info', { exact: true }).click();
+    await lp.lineage.getReactFlowNode(DATASET_URN).getByText('shipment_info', { exact: true }).click();
     await expect(
-      lp
+      lp.lineage
         .getReactFlowNode(DATASET_URN)
         .getByText('shipment_info', { exact: true })
         .locator('..')
@@ -73,7 +78,7 @@ test.describe('column-Level lineage and impact analysis path test', () => {
         .first(),
     ).not.toHaveAttribute('fill', 'white');
     await expect(
-      lp
+      lp.lineage
         .getReactFlowNode(UPSTREAM_URN)
         .getByText('field_bar', { exact: true })
         .locator('..')
@@ -83,38 +88,38 @@ test.describe('column-Level lineage and impact analysis path test', () => {
 
     // ── Impact analysis upstream column path modal ──────────────────────────
 
-    await lp.goToDataset(DATASET_URN, 'SamplePlaywrightHdfsDataset');
-    await lp.clickLineageTab();
-    await lp.clickImpactAnalysis();
-    await lp.clickColumnLineageToggle();
-    await lp.clickDownstreamOption();
+    await lp.navigateToDataset(DATASET_URN, 'SamplePlaywrightHdfsDataset');
+    await lp.lineage.open();
+    await lp.lineage.clickImpactAnalysis();
+    await lp.lineage.clickColumnLineageToggle();
+    await lp.lineage.clickDownstreamOption();
 
     // Switch to upstream
-    await lp.clickUpstreamOption();
+    await lp.lineage.clickUpstreamOption();
     await expect(page.getByText('SamplePlaywrightKafkaDataset').first()).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('field_bar')).toBeHidden();
 
-    await lp.selectColumnFromDropdown('shipment_info');
+    await lp.lineage.selectColumnFromDropdown('shipment_info');
     await expect(page.getByText('field_bar').first()).toBeVisible({ timeout: 10000 });
 
-    await lp.clickResultTextAndOpenModal();
-    await lp.verifyColumnPathModal('shipment_info', 'field_bar');
-    await lp.closeEntityPathsModal();
+    await lp.lineage.clickResultTextAndOpenModal();
+    await lp.lineage.verifyColumnPathModal('shipment_info', 'field_bar');
+    await lp.lineage.closeColumnPathModal();
 
     // ── Impact analysis downstream column path modal ───────────────────────
 
-    await lp.goToDataset(UPSTREAM_URN, 'SamplePlaywrightKafkaDataset');
-    await lp.clickLineageTab();
-    await lp.clickImpactAnalysis();
-    await lp.clickColumnLineageToggle();
+    await lp.navigateToDataset(UPSTREAM_URN, 'SamplePlaywrightKafkaDataset');
+    await lp.lineage.open();
+    await lp.lineage.clickImpactAnalysis();
+    await lp.lineage.clickColumnLineageToggle();
 
     // Use exact: true to avoid matching sub-field names that contain "shipment_info" as prefix.
     await expect(page.getByText('shipment_info', { exact: true })).toBeHidden();
-    await lp.selectColumnFromDropdown('field_bar');
+    await lp.lineage.selectColumnFromDropdown('field_bar');
     await expect(page.getByText('shipment_info', { exact: true }).first()).toBeVisible({ timeout: 10000 });
 
-    await lp.clickResultTextAndOpenModal();
-    await lp.verifyColumnPathModal('shipment_info', 'field_bar');
-    await lp.closeEntityPathsModal();
+    await lp.lineage.clickResultTextAndOpenModal();
+    await lp.lineage.verifyColumnPathModal('shipment_info', 'field_bar');
+    await lp.lineage.closeColumnPathModal();
   });
 });

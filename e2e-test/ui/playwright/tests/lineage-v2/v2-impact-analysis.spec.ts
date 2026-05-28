@@ -15,7 +15,7 @@
 
 import { request as playwrightRequest } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
-import { LineageV2Page } from '../../pages/lineage-v2.page';
+import { DatasetPage } from '../../pages/entity/dataset.page';
 import { seedTimeRangeLineage } from '../../utils/lineage-time-seeder';
 import { gmsUrl } from '../../utils/constants';
 import { readGmsToken } from '../../fixtures/login';
@@ -58,8 +58,9 @@ test.describe('impact analysis', () => {
   });
 
   test('can see 1 hop of lineage by default', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
-    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    const lp = new DatasetPage(page, logger, logDir);
+    await lp.navigateToDataset(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    await lp.lineage.open();
 
     // Multi-hop datasets should not be visible at 1-hop depth
     await expect(page.getByText('User Creations')).toBeHidden();
@@ -67,10 +68,11 @@ test.describe('impact analysis', () => {
   });
 
   test('can see lineage multiple hops away', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
-    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    const lp = new DatasetPage(page, logger, logDir);
+    await lp.navigateToDataset(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    await lp.lineage.open();
 
-    await lp.clickImpactAnalysis();
+    await lp.lineage.clickImpactAnalysis();
     await page.getByText('3+').click();
 
     await expect(page.getByText('User Creations').first()).toBeVisible({ timeout: 15000 });
@@ -78,24 +80,25 @@ test.describe('impact analysis', () => {
   });
 
   test('can filter the lineage results as well', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
-    await lp.goToDatasetLineage(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    const lp = new DatasetPage(page, logger, logDir);
+    await lp.navigateToDataset(DATASET_URN, 'SamplePlaywrightKafkaDataset');
+    await lp.lineage.open();
 
-    await lp.clickImpactAnalysis();
+    await lp.lineage.clickImpactAnalysis();
     await page.getByText('3+').click();
 
-    await lp.clickAdvancedFilter();
-    await lp.clickAddFilter();
-    await lp.clickFilterByDescription();
-    await lp.typeFilterText('fct_users_deleted');
-    await lp.confirmFilterText();
+    await lp.lineage.clickAdvancedFilter();
+    await lp.lineage.clickAddFilter();
+    await lp.lineage.clickFilterByDescription();
+    await lp.lineage.typeFilterText('fct_users_deleted');
+    await lp.lineage.confirmFilterText();
 
     await expect(page.getByText('User Creations')).toBeHidden();
     await expect(page.getByText('User Deletions').first()).toBeVisible({ timeout: 15000 });
   });
 
   test('can view column level impact analysis and turn it off', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     // Navigate directly to the column lineage URL
     const columnParam = encodeURIComponent('[version=2.0].[type=boolean].field_bar');
@@ -104,7 +107,7 @@ test.describe('impact analysis', () => {
 
     // Impact analysis can take a moment
     await page.waitForTimeout(5000);
-    await lp.clickImpactAnalysis();
+    await lp.lineage.clickImpactAnalysis();
 
     await expect(page.getByText('SamplePlaywrightHdfsDataset').first()).toBeVisible({ timeout: 15000 });
     await expect(page.getByText('shipment_info').first()).toBeVisible({ timeout: 10000 });
@@ -112,7 +115,7 @@ test.describe('impact analysis', () => {
     await expect(page.getByText('Baz Chart 1')).toBeHidden();
 
     // Toggle off column-level impact analysis
-    await lp.clickColumnLineageToggle();
+    await lp.lineage.clickColumnLineageToggle();
     await page.waitForTimeout(2000);
 
     await expect(page.getByText('SamplePlaywrightHdfsDataset').first()).toBeVisible({ timeout: 10000 });
@@ -122,7 +125,7 @@ test.describe('impact analysis', () => {
   });
 
   test('can filter lineage edges by time', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     await page.goto(
       `/dataset/${DATASET_URN}/Lineage?filter_degree___false___EQUAL___0=1&is_lineage_mode=false&page=1&unionType=0&start_time_millis=${JAN_1_2021_TIMESTAMP}&end_time_millis=${JAN_1_2022_TIMESTAMP}`,
@@ -130,7 +133,7 @@ test.describe('impact analysis', () => {
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(5000);
 
-    await lp.clickImpactAnalysis();
+    await lp.lineage.clickImpactAnalysis();
 
     // No lineage edges should exist for the 2021 time window
     await expect(page.getByText('SamplePlaywrightHdfsDataset')).toBeHidden();
@@ -151,7 +154,7 @@ test.describe('impact analysis', () => {
     // causing the backend to treat the root as a transparent hop.
     await apiMock.setFeatureFlags({ lineageGraphV3: true });
 
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     // Between 14 days ago and 7 days ago, only transactions was an input
     await lp.goToLineageGraphWithTimeRange(
@@ -179,7 +182,7 @@ test.describe('impact analysis', () => {
   });
 
   test('can see when a data job is replaced', async ({ page, logger, logDir }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     // Between 14 days ago and 7 days ago — temperature_etl_1 is the input
     await page.goto(
@@ -187,8 +190,8 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await lp.clickSidebarLineageTab();
-    await lp.clickUpstreamDirection();
+    await lp.lineage.openSidebarLineageTab();
+    await lp.lineage.clickUpstreamDirection();
     await expect(page.getByText('temperature_etl_1').first()).toBeVisible({ timeout: 10000 });
 
     // Since 7 days ago, temperature_etl_1 has been replaced by temperature_etl_2
@@ -197,8 +200,8 @@ test.describe('impact analysis', () => {
     );
     await page.waitForLoadState('domcontentloaded');
     await page.waitForTimeout(2000);
-    await lp.clickSidebarLineageTab();
-    await lp.clickUpstreamDirection();
+    await lp.lineage.openSidebarLineageTab();
+    await lp.lineage.clickUpstreamDirection();
     await expect(page.getByText('temperature_etl_2').first()).toBeVisible({ timeout: 10000 });
   });
 
@@ -207,14 +210,14 @@ test.describe('impact analysis', () => {
     logger,
     logDir,
   }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText('SamplePlaywrightKafkaDataset').first()).toBeVisible({ timeout: 15000 });
 
-    await lp.clickLineageEditMenuButton();
-    await lp.clickEditUpstreamLineage();
+    await lp.lineage.clickLineageEditMenuButton();
+    await lp.lineage.clickEditUpstreamLineage();
 
     await expect(page.getByText('Select the Upstreams to add to SamplePlaywrightKafkaDataset')).toBeVisible({
       timeout: 10000,
@@ -226,14 +229,14 @@ test.describe('impact analysis', () => {
     logger,
     logDir,
   }) => {
-    const lp = new LineageV2Page(page, logger, logDir);
+    const lp = new DatasetPage(page, logger, logDir);
 
     await page.goto(`/dataset/${DATASET_URN}/Lineage?is_lineage_mode=false&lineageView=impact`);
     await page.waitForLoadState('domcontentloaded');
     await expect(page.getByText('SamplePlaywrightKafkaDataset').first()).toBeVisible({ timeout: 15000 });
 
-    await lp.clickLineageEditMenuButton();
-    await lp.clickEditDownstreamLineage();
+    await lp.lineage.clickLineageEditMenuButton();
+    await lp.lineage.clickEditDownstreamLineage();
 
     await expect(page.getByText('Select the Downstreams to add to SamplePlaywrightKafkaDataset')).toBeVisible({
       timeout: 10000,
