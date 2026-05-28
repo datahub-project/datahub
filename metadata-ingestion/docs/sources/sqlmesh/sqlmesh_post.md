@@ -38,20 +38,21 @@ External and embedded models skip the freshness and volume families
 (they have no rebuild schedule and no own materialised output).
 
 Today only the assertion **definitions** are emitted; evaluation is
-performed by DataHub's monitor framework (Cloud) or by re-ingestion-time
-run events (planned, OSS-friendly). The `audit_results_path` config still
-provides a manual pass/fail path for audit assertions.
+performed by DataHub's monitor framework (auto-run on Cloud) or by
+re-ingestion-time run events (planned). The `audit_results_path` config
+still provides a manual pass/fail path for audit assertions.
 
-#### Smart anomaly detection (Acryl Cloud)
+#### Smart anomaly detection
 
 When `emit_smart_assertion_anomaly_detection: true` (default), every
 emitted assertion carries `customProperties["sqlmesh.anomaly_detection"]
-= "requested"`. Cloud's monitor framework reads this marker to wrap the
-assertion's static threshold in its ML detector — so a drop below the
-historical baseline fires even when the static rule passes. The marker
-is silently ignored on OSS DataHub; assertions still evaluate as static
-pass/fail there. Set the flag to `false` on OSS only if the customProperty
-in the UI is undesirable.
+= "requested"`. DataHub stores this like any other custom property —
+it shows in the assertion's properties panel and is queryable through
+the GraphQL API. Cloud's monitor framework additionally reads the
+marker to wrap the assertion's static threshold in an ML detector, so
+a drop below the historical baseline fires even when the static rule
+passes. Set the flag to `false` only if you don't want the marker
+visible on assertions in the UI.
 
 #### Stateful ingestion
 
@@ -69,11 +70,11 @@ and soft-deletes entities that have been removed from the SQLMesh project.
 - **Assertion run events**: Today only assertion definitions are emitted.
   Per-ingest run events with actual signal values (row counts via
   `ctx.engine_adapter`, fingerprint `updated_ts` from the state store)
-  are planned so OSS DataHub without Cloud monitors gets a usable
+  are planned so DataHub instances without Cloud monitors get a usable
   Validation tab.
 - **Metadata Tests**: `emit_metadata_tests` is reserved on the config but
-  the Test JSON DSL is undocumented in OSS DataHub, so the flag is
-  currently a no-op. Will wire up once the DSL is exposed.
+  the Test JSON DSL is undocumented in DataHub, so the flag is currently
+  a no-op. Will wire up once the DSL is exposed.
 - **incremental_mode: changed**: Changed-only incremental processing is defined in
   the config but not yet implemented; it falls back to full mode with a warning.
 - **Sibling merging**: Sibling stitching requires the warehouse connector to be running

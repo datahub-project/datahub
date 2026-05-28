@@ -426,41 +426,45 @@ class SqlmeshSourceConfig(
     emit_metadata_tests: bool = Field(
         default=True,
         description=(
-            "Emit DataHub Metadata Test entities derived from the SQLMesh project's "
-            "linter rules and ``model_defaults.audits``. Metadata Tests evaluate "
-            "metadata completeness (has owner, has description, has required audit) "
-            "and are an **Acryl Cloud feature**: on OSS DataHub the ``urn:li:test:…`` "
-            "entities are accepted but the server-side test runner is not present, "
-            "so they sit inert. Set to false on OSS to keep the UI clean."
+            "Emit DataHub Metadata Test entities (``urn:li:test:…``) derived from "
+            "the SQLMesh project's linter rules and ``model_defaults.audits``. "
+            "DataHub accepts the MCPs; the runner is only present on Cloud. "
+            "Until the Test JSON DSL is documented this flag is reserved and "
+            "inert. Set to false to keep the UI clean."
         ),
     )
     emit_freshness_assertions: bool = Field(
         default=True,
         description=(
-            "Emit FRESHNESS assertions for each model. Two assertions are emitted "
-            "per model: one for upstream freshness (MIN(upstream lastModified) vs "
-            "SLA) and one for pipeline-rebuild lag (when the fingerprint table was "
-            "last re-written by SQLMesh). Works on both OSS and Acryl Cloud."
+            "Emit two FRESHNESS assertions per non-external, non-embedded model: "
+            "``pipeline_freshness`` (the fingerprint table must have been rebuilt "
+            "recently) and ``upstream_freshness`` (upstream sources must have been "
+            "updated recently). The SLA window is 3× the model's cron cadence "
+            "with a 1-hour floor. Standard DataHub assertion entities — they "
+            "show on the Validation tab as registered checks. Evaluation is "
+            "performed by DataHub monitors (Cloud auto-runs them)."
         ),
     )
     emit_volume_assertions: bool = Field(
         default=True,
         description=(
-            "Emit VOLUME assertions with row-count run events for each model. The "
-            "row count is queried from the warehouse INFORMATION_SCHEMA via "
-            "SQLMesh's engine adapter (falling back to DataHub Graph profile if "
-            "available). Works on both OSS and Acryl Cloud; the run-event history "
-            "feeds Cloud's anomaly detector when enabled."
+            "Emit one VOLUME assertion per non-external, non-embedded model "
+            "asserting ``row_count >= 1``. Detects the catastrophic empty-table "
+            "rebuild failure mode. Standard DataHub assertion entity. "
+            "Per-ingest run events with actual row counts via "
+            "``ctx.engine_adapter`` are planned so users without monitors also "
+            "get an evaluation history."
         ),
     )
     emit_smart_assertion_anomaly_detection: bool = Field(
         default=True,
         description=(
-            "Opt emitted assertions into Acryl Cloud's smart-anomaly detector by "
-            "attaching the anomaly-detection flag to ``AssertionInfo``. **Acryl "
-            "Cloud feature**: the flag is silently ignored on OSS DataHub, where "
-            "assertions still work as static pass/fail. Set to false on OSS only "
-            "if the extra property is undesirable."
+            "Attach ``customProperties['sqlmesh.anomaly_detection'] = 'requested'`` "
+            "to every emitted assertion. DataHub stores the property like any "
+            "other custom property; Cloud's monitor framework additionally reads "
+            "the marker to wrap the assertion's static threshold in its ML "
+            "anomaly detector. Set to false only if the marker in the UI is "
+            "undesirable."
         ),
     )
 
