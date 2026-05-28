@@ -176,11 +176,14 @@ JDBC_PREFIX = "jdbc:"
 # Hive complex types that must keep v2 field paths. Only `uniontype` qualifies:
 # its variants share a column name with different types, so stripping the [type=...]
 # qualifiers collapses them into the same v1 path and GMS dedups one of the entries.
-_COMPLEX_HIVE_TYPE_RE = re.compile(r"^\s*uniontype\s*<", re.IGNORECASE)
+# Matches anywhere in the type string (not just at the top level) so columns like
+# `struct<payload:uniontype<int,string>>` correctly keep v2 paths for their nested
+# union variants — otherwise those variants silently dedup on ingest.
+_COMPLEX_HIVE_TYPE_RE = re.compile(r"uniontype\s*<", re.IGNORECASE)
 
 
 def _is_complex_hive_type(hive_type: str) -> bool:
-    return bool(_COMPLEX_HIVE_TYPE_RE.match(hive_type))
+    return bool(_COMPLEX_HIVE_TYPE_RE.search(hive_type))
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -1942,7 +1945,16 @@ class GlueSource(StatefulIngestionSourceBase):
             hive_column_type
         ):
             for f in fields:
-                f.fieldPath = get_simple_field_path_from_v2_field_path(f.fieldPath)
+                simplified = get_simple_field_path_from_v2_field_path(f.fieldPath)
+                if simplified:
+                    f.fieldPath = simplified
+                else:
+                    logger.warning(
+                        "simplify_nested_field_paths produced empty path for column "
+                        "%r (v2 path: %r); keeping v2 path to avoid malformed URN",
+                        hive_column_name,
+                        f.fieldPath,
+                    )
         return fields
 
     def _get_glue_schema_metadata(

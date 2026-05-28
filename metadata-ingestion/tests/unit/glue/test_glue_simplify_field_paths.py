@@ -34,6 +34,12 @@ def _build_glue_source(*, simplify: bool) -> GlueSource:
         ("struct<id:int,name:string>", False),
         ("uniontype<int,string>", True),
         ("  UNIONTYPE<int,string>  ", True),  # leading whitespace + uppercase
+        # Uniontype nested inside other complex types must also be detected,
+        # otherwise its variants collide on v1 downgrade and GMS dedups one.
+        ("struct<payload:uniontype<int,string>>", True),
+        ("array<uniontype<int,string>>", True),
+        ("map<string,uniontype<int,string>>", True),
+        ("struct<a:array<struct<b:uniontype<int,string>>>>", True),
     ],
 )
 def test_is_complex_hive_type(hive_type: str, expected: bool) -> None:
@@ -64,19 +70,36 @@ def test_flag_on_downgrades_scalar_to_v1() -> None:
     assert fields[0].fieldPath == "email"
 
 
-def test_flag_on_preserves_v2_for_uniontype() -> None:
+@pytest.mark.parametrize(
+    "hive_type",
+    [
+        "uniontype<int,string>",
+        # Nested unions must also be detected — otherwise the variant SchemaField
+        # entries collapse to the same v1 path and one is silently dropped by GMS.
+        "struct<payload:uniontype<int,string>>",
+        "array<uniontype<int,string>>",
+        "map<string,uniontype<int,string>>",
+    ],
+)
+def test_flag_on_preserves_v2_for_uniontype(hive_type: str) -> None:
     source = _build_glue_source(simplify=True)
     fields = source._build_schema_fields(
         hive_column_name="payload",
-        hive_column_type="uniontype<int,string>",
+        hive_column_type=hive_type,
         description=None,
         default_nullable=True,
     )
-    assert fields, "expected at least one SchemaField for uniontype"
+    assert fields, f"expected at least one SchemaField for {hive_type}"
     for f in fields:
         assert f.fieldPath.startswith("[version=2.0]"), (
-            f"uniontype produced non-v2 fieldPath: {f.fieldPath}"
+            f"{hive_type!r} produced non-v2 fieldPath: {f.fieldPath}"
         )
+    # And critically: no collisions in the path set (the very property the helper
+    # exists to protect).
+    paths = [f.fieldPath for f in fields]
+    assert len(set(paths)) == len(paths), (
+        f"{hive_type!r} produced duplicate fieldPaths: {paths}"
+    )
 
 
 @pytest.mark.parametrize(
@@ -154,6 +177,28 @@ def test_flag_on_downgrades_map_to_v1(hive_type: str, expected_paths: set) -> No
     assert paths == expected_paths
     for f in fields:
         assert not f.fieldPath.startswith("[version=2.0]")
+
+
+def test_flag_on_keeps_v2_when_downgrade_would_produce_empty_path(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    # Column names ending with `]` are stripped to an empty path by the v2->v1
+    # converter. The empty path would yield a malformed schemaField URN that
+    # silently dedups across columns, so we must fall back to the v2 path and warn.
+    source = _build_glue_source(simplify=True)
+    with caplog.at_level("WARNING"):
+        fields = source._build_schema_fields(
+            hive_column_name="arr[idx]",
+            hive_column_type="string",
+            description=None,
+            default_nullable=True,
+        )
+    assert len(fields) == 1
+    assert fields[0].fieldPath == "[version=2.0].[type=string].arr[idx]"
+    assert any(
+        "produced empty path" in r.message and "arr[idx]" in r.message
+        for r in caplog.records
+    )
 
 
 def test_flag_on_preserves_description_on_downgrade() -> None:
