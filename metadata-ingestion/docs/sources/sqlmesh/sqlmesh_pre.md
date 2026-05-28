@@ -161,6 +161,48 @@ SQLMesh user / service account needs at ingestion time:
 If you're using a Tobiko Cloud deployment the state-store read is
 fulfilled by the cloud API token; the warehouse read still applies.
 
+#### The SQLMesh project directory is required
+
+Unlike state and warehouse access (which the connector can degrade
+around), the **SQLMesh project files themselves are mandatory**.
+SQLMesh's Python API loads everything — model SQL, audits, macros,
+the gateway config — from a directory; there is no API path that
+returns model metadata without it. If the connector can't read
+`config.yaml` / `config.py` at `project_path`, ingestion fails fast.
+
+This affects deployment in a few ways depending on where the project
+lives:
+
+- **Same repo as the warehouse / dbt project**: trivial — the project
+  is in the working tree, point `project_path` at it.
+- **Separate repo**: clone or sync the SQLMesh project alongside the
+  recipe at ingest time. In CI this is typically a second
+  `actions/checkout` for the SQLMesh repo. In Kubernetes a `git-sync`
+  sidecar (or initContainer that does a shallow clone) is the standard
+  pattern, both for keeping the project current and for avoiding a
+  full image rebuild on every commit.
+- **Tobiko Cloud-managed projects**: the source files still live in
+  the user's git repo even when state is in Tobiko Cloud — Tobiko
+  Cloud doesn't host the SQL. Same patterns apply.
+- **Project doesn't fit on the ingestion host** (very large repos):
+  the connector only reads the files; no SQLMesh-side execution
+  happens during ingest. A sparse-checkout limited to the SQLMesh
+  project subtree is sufficient.
+
+What the connector reads from the project at ingestion time:
+
+- `config.yaml` / `config.py` — for the gateway list and SQLMesh
+  defaults
+- `models/**/*.sql` and `models/**/*.py` — model definitions, audits,
+  lineage
+- `audits/**` and `macros/**` — referenced by models
+- `external_models.yaml` — declared external sources (Category 2)
+
+Optional / read separately from a configured path:
+
+- `audit_results_path` JSON — produced externally by
+  `sqlmesh audit --output` or your own tooling; outside `project_path`
+
 #### What works with vs without state-store access
 
 The connector probes three capabilities once at Context load
