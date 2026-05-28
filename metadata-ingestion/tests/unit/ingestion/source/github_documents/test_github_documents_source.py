@@ -28,7 +28,7 @@ def source() -> GitHubDocumentsSource:
 
 def test_get_workunits_emits_folder_then_file(source: GitHubDocumentsSource) -> None:
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
-        return_value=[GitHubFileInfo(path="docs/readme.md", size=12)]
+        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
     )
     source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
         return_value="abc123"
@@ -40,6 +40,24 @@ def test_get_workunits_emits_folder_then_file(source: GitHubDocumentsSource) -> 
     workunits = list(source.get_workunits())
     assert len(workunits) >= 1
     assert source.report.files_processed == 1
+
+
+def test_get_workunits_reports_truncated_tree(source: GitHubDocumentsSource) -> None:
+    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
+        return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], True)
+    )
+    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
+        return_value="abc123"
+    )
+    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
+        return_value="# Hello"
+    )
+
+    list(source.get_workunits())
+    assert source.report.tree_truncated is True
+    assert any(
+        "truncated" in (entry.message or "").lower() for entry in source.report.warnings
+    )
 
 
 @patch(

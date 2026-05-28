@@ -46,7 +46,9 @@ public class DocumentImportService {
   private static final Pattern MULTI_DASH = Pattern.compile("-{2,}");
   private static final int MAX_ID_LENGTH = 200;
   private static final int MAX_TEXT_CHARS = 1_000_000;
-  private static final int ID_HASH_SUFFIX_LENGTH = 8;
+
+  /** Hex characters appended to document ids (8 bytes of SHA-256). */
+  private static final int ID_HASH_SUFFIX_HEX_LENGTH = 16;
 
   private final SystemEntityClient entityClient;
 
@@ -67,6 +69,10 @@ public class DocumentImportService {
       @Nonnull Urn actorUrn) {
 
     ImportResult result = new ImportResult();
+
+    if (parentDocumentUrn != null) {
+      validateParentDocumentUrn(opContext, parentDocumentUrn);
+    }
 
     for (DocumentCandidate candidate : candidates) {
       try {
@@ -211,9 +217,28 @@ public class DocumentImportService {
     try {
       MessageDigest digest = MessageDigest.getInstance("SHA-256");
       byte[] hash = digest.digest(sourceId.getBytes(StandardCharsets.UTF_8));
-      return HexFormat.of().formatHex(hash, 0, ID_HASH_SUFFIX_LENGTH / 2);
+      return HexFormat.of().formatHex(hash, 0, ID_HASH_SUFFIX_HEX_LENGTH / 2);
     } catch (NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 not available", e);
+    }
+  }
+
+  private void validateParentDocumentUrn(
+      @Nonnull OperationContext opContext, @Nonnull Urn parentDocumentUrn) {
+    if (!Constants.DOCUMENT_ENTITY_NAME.equals(parentDocumentUrn.getEntityType())) {
+      throw new IllegalArgumentException(
+          String.format(
+              "parentDocumentUrn must be a document entity, got: %s",
+              parentDocumentUrn.getEntityType()));
+    }
+    try {
+      if (!entityClient.exists(opContext, parentDocumentUrn)) {
+        throw new IllegalArgumentException(
+            String.format("Parent document does not exist: %s", parentDocumentUrn));
+      }
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          String.format("Failed to validate parent document %s", parentDocumentUrn), e);
     }
   }
 

@@ -83,9 +83,20 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         path_prefix = self.config.path_prefix.strip("/")
         extensions = self.config.file_extensions
 
-        files = self.client.list_matching_files(
+        files, tree_truncated = self.client.list_matching_files(
             owner_repo, branch, path_prefix, extensions
         )
+        if tree_truncated:
+            self.report.tree_truncated = True
+            self.report.warning(
+                title="github-tree-truncated",
+                message=(
+                    f"GitHub returned a truncated tree for {owner_repo}@{branch}; "
+                    "only a subset of files will be imported. "
+                    "Narrow path_prefix or split across multiple ingestion sources."
+                ),
+                context=f"repository={owner_repo}, branch={branch}",
+            )
         if not files:
             logger.info("No matching files found in %s (branch=%s)", owner_repo, branch)
             return

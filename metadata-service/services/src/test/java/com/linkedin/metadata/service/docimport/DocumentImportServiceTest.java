@@ -2,6 +2,8 @@ package com.linkedin.metadata.service.docimport;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -30,7 +32,7 @@ public class DocumentImportServiceTest {
   public void testMakeDocumentId_basicSanitization() {
     String id = DocumentImportService.makeDocumentId("upload.readme");
     assertTrue(id.startsWith("upload.readme-"));
-    assertEquals(id.length(), "upload.readme-".length() + 8);
+    assertEquals(id.length(), "upload.readme-".length() + 16);
   }
 
   @Test
@@ -87,9 +89,56 @@ public class DocumentImportServiceTest {
   }
 
   @Test
+  public void testImportDocuments_rejectsNonDocumentParent() {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    DocumentImportService service = new DocumentImportService(mockClient);
+    Urn datasetParent = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,foo,PROD)");
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.importDocuments(
+                OP_CONTEXT,
+                List.of(
+                    DocumentCandidate.builder()
+                        .title("Child")
+                        .text("x")
+                        .sourceId("upload.child")
+                        .build()),
+                ImportUseCase.CONTEXT_DOCUMENT,
+                true,
+                datasetParent,
+                ACTOR));
+  }
+
+  @Test
+  public void testImportDocuments_rejectsMissingParent() throws Exception {
+    SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    doReturn(false).when(mockClient).exists(any(OperationContext.class), eq(PARENT_DOC));
+    DocumentImportService service = new DocumentImportService(mockClient);
+
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            service.importDocuments(
+                OP_CONTEXT,
+                List.of(
+                    DocumentCandidate.builder()
+                        .title("Child")
+                        .text("x")
+                        .sourceId("upload.child")
+                        .build()),
+                ImportUseCase.CONTEXT_DOCUMENT,
+                true,
+                PARENT_DOC,
+                ACTOR));
+  }
+
+  @Test
   public void testImportDocuments_flatCandidatesWithRootParent() throws Exception {
     SystemEntityClient mockClient = mock(SystemEntityClient.class);
-    when(mockClient.exists(any(OperationContext.class), any(Urn.class))).thenReturn(false);
+    when(mockClient.exists(any(OperationContext.class), any(Urn.class)))
+        .thenAnswer(invocation -> PARENT_DOC.equals(invocation.getArgument(1)));
 
     DocumentImportService service = new DocumentImportService(mockClient);
 

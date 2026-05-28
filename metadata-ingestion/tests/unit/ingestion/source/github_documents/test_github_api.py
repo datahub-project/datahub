@@ -1,8 +1,12 @@
 """Unit tests for GitHub API helpers."""
 
+import base64
+from unittest.mock import patch
+
 import pytest
 
 from datahub.ingestion.source.github_documents.github_api import (
+    GitHubApiClient,
     GitHubFileInfo,
     _matches_filters,
     collect_intermediate_directories,
@@ -67,4 +71,32 @@ def test_normalize_document_id_includes_hash_suffix() -> None:
     id_a = normalize_document_id("upload.docs/a b")
     id_b = normalize_document_id("upload.docs/a-b")
     assert id_a != id_b
-    assert id_a.endswith(id_a.split("-")[-1])
+    assert len(id_a.split("-")[-1]) == 16
+
+
+def test_fetch_file_content_decodes_non_utf8_with_replacement() -> None:
+    client = GitHubApiClient("ghp_test")
+    invalid_utf8 = base64.b64encode(b"\xff\xfe").decode("ascii")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {
+            "content": invalid_utf8,
+            "encoding": "base64",
+            "size": 2,
+        }
+        content = client.fetch_file_content("acme/docs", "bad.txt", "main")
+    assert content is not None
+    assert "\ufffd" in content
+
+
+def test_list_matching_files_returns_truncated_flag() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {
+            "tree": [{"type": "blob", "path": "readme.md", "size": 1}],
+            "truncated": True,
+        }
+        files, tree_truncated = client.list_matching_files(
+            "acme/docs", "main", "", [".md"]
+        )
+    assert tree_truncated is True
+    assert len(files) == 1

@@ -6,7 +6,7 @@ import base64
 import logging
 import re
 from dataclasses import dataclass
-from typing import List, Optional, Set
+from typing import List, Optional, Set, Tuple
 from urllib.parse import quote
 
 import requests
@@ -71,7 +71,7 @@ def normalize_document_id(source_id: str) -> str:
     """Normalize a source id into a stable document entity id (matches GMS import service)."""
     import hashlib
 
-    hash_suffix = hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:8]
+    hash_suffix = hashlib.sha256(source_id.encode("utf-8")).hexdigest()[:16]
     safe = re.sub(r"[^a-zA-Z0-9_.\-]", "-", source_id)
     safe = re.sub(r"-{2,}", "-", safe)
     safe = safe.strip("-").lower()
@@ -101,7 +101,7 @@ class GitHubApiClient:
         branch: str,
         path_prefix: str,
         extensions: List[str],
-    ) -> List[GitHubFileInfo]:
+    ) -> Tuple[List[GitHubFileInfo], bool]:
         tree_url = (
             f"{GITHUB_API_BASE}/repos/{owner_repo}/git/trees/{quote(branch, safe='')}"
             "?recursive=true"
@@ -111,13 +111,7 @@ class GitHubApiClient:
             raise RuntimeError(
                 f"Could not access branch '{branch}' in repository {owner_repo}"
             )
-        if tree.get("truncated"):
-            logger.warning(
-                "GitHub returned a truncated tree for %s@%s; only a subset of files will be imported. "
-                "Use path_prefix to narrow scope or split across multiple ingestion sources.",
-                owner_repo,
-                branch,
-            )
+        tree_truncated = bool(tree.get("truncated"))
 
         ext_set = {ext.lower() for ext in extensions}
         normalized_prefix = path_prefix.strip("/")
@@ -131,7 +125,7 @@ class GitHubApiClient:
                 continue
             size = item.get("size")
             matching.append(GitHubFileInfo(path=path, size=size))
-        return matching
+        return matching, tree_truncated
 
     def fetch_file_content(
         self, owner_repo: str, file_path: str, branch: str
@@ -158,7 +152,7 @@ class GitHubApiClient:
 
         if node.get("content") and node.get("encoding") == "base64":
             encoded = node["content"].replace("\n", "").replace(" ", "")
-            return base64.b64decode(encoded).decode("utf-8")
+            return base64.b64decode(encoded).decode("utf-8", errors="replace")
 
         download_url = node.get("download_url")
         if download_url:
