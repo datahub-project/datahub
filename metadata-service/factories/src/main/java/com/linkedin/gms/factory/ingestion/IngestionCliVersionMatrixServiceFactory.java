@@ -1,6 +1,8 @@
 package com.linkedin.gms.factory.ingestion;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.CliVersionMatrixConfiguration;
+import com.linkedin.metadata.config.HttpMatrixSourceConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
@@ -21,11 +23,13 @@ import org.springframework.context.annotation.Scope;
  *
  * <ul>
  *   <li>{@code ingestionCliVersionMatrixSource} — implements {@link
- *       IngestionCliVersionMatrixSource}; chosen based on configuration. Today the only "live"
- *       implementation is {@link HttpUrlIngestionCliVersionMatrixSource}, picked when {@code
- *       ingestion.versionMatrixUrl} is set. Otherwise a {@link NoOpIngestionCliVersionMatrixSource}
- *       is bound. Future implementations (GMS-aspect-backed, config-server-backed, …) can plug in
- *       here without any change to the consumer service.
+ *       IngestionCliVersionMatrixSource}. The implementation is selected from {@code
+ *       ingestion.cliVersionMatrix.source}: {@code "http"} → {@link
+ *       HttpUrlIngestionCliVersionMatrixSource}, {@code "none"} → {@link
+ *       NoOpIngestionCliVersionMatrixSource}. When the discriminator is unset, the choice is
+ *       inferred from {@code ingestion.cliVersionMatrix.http.url} so existing deployments keep
+ *       working without an env change. Future implementations (GMS-aspect-backed,
+ *       config-server-backed, …) get a new discriminator value here.
  *   <li>{@code ingestionCliVersionMatrixService} — consumes whichever {@link
  *       IngestionCliVersionMatrixSource} is bound and applies the resolution policy (cohort →
  *       connector default → application default).
@@ -40,6 +44,9 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class IngestionCliVersionMatrixServiceFactory {
 
+  private static final String SOURCE_HTTP = "http";
+  private static final String SOURCE_NONE = "none";
+
   @Autowired
   @Qualifier("configurationProvider")
   private ConfigurationProvider configProvider;
@@ -49,23 +56,40 @@ public class IngestionCliVersionMatrixServiceFactory {
   private GitVersion gitVersion;
 
   /**
-   * Picks the storage backend for the matrix. Today this is either HTTP-fetch or no-op; the
-   * decision is driven by whether a URL is configured. New backends should be added here behind an
-   * explicit config flag rather than by replacing the existing decision.
+   * Picks the storage backend for the matrix. Reads {@code ingestion.cliVersionMatrix.source} as
+   * the primary signal; falls back to inferring from {@code http.url} presence when the
+   * discriminator is unset (backward-compat for deployments that pre-date this discriminator).
    */
   @Bean(name = "ingestionCliVersionMatrixSource")
   @Scope("singleton")
   @Nonnull
   protected IngestionCliVersionMatrixSource ingestionCliVersionMatrixSource() {
-    IngestionConfiguration ingestionConfig = configProvider.getIngestion();
-    String url = ingestionConfig.getVersionMatrixUrl();
-    if (url == null || url.isEmpty()) {
+    CliVersionMatrixConfiguration matrixConfig =
+        configProvider.getIngestion().getCliVersionMatrix();
+    if (matrixConfig == null) {
       return new NoOpIngestionCliVersionMatrixSource();
     }
-    return new HttpUrlIngestionCliVersionMatrixSource(
-        url,
-        ingestionConfig.getVersionMatrixRefreshSeconds(),
-        ingestionConfig.getVersionMatrixAuthToken());
+
+    HttpMatrixSourceConfiguration httpConfig = matrixConfig.getHttp();
+    boolean httpUrlPresent =
+        httpConfig != null && httpConfig.getUrl() != null && !httpConfig.getUrl().isEmpty();
+
+    if (resolveSource(matrixConfig.getSource(), httpUrlPresent).equals(SOURCE_HTTP)) {
+      return new HttpUrlIngestionCliVersionMatrixSource(
+          httpConfig.getUrl(), httpConfig.getRefreshSeconds(), httpConfig.getAuthToken());
+    }
+    return new NoOpIngestionCliVersionMatrixSource();
+  }
+
+  /**
+   * Resolve the active source backend. Explicit {@code source} wins; an unset value is inferred
+   * from URL presence so deployments that pre-date this discriminator continue to work.
+   */
+  private static String resolveSource(String configuredSource, boolean httpUrlPresent) {
+    if (configuredSource != null && !configuredSource.trim().isEmpty()) {
+      return configuredSource.trim().toLowerCase();
+    }
+    return httpUrlPresent ? SOURCE_HTTP : SOURCE_NONE;
   }
 
   @Bean(name = "ingestionCliVersionMatrixService")
