@@ -10,6 +10,8 @@ This plugin extracts the following:
 - Jobs and their component transformations, data sources, and data sinks
 - Upstream lineage from JDBC sources (e.g. PostgreSQL, MySQL, Redshift) referenced by Glue jobs
 
+Optional: enable `simplify_nested_field_paths` to emit v1 (simple) schemaField paths for cross-source URN alignment with v1-emitting connectors like dbt. Union types are not supported. See [Aligning Field Paths with v1-Emitting Sources](#aligning-field-paths-with-v1-emitting-sources) for details.
+
 ### Prerequisites
 
 Before running ingestion, ensure network connectivity to the source, valid authentication credentials, and read permissions for metadata APIs required by this module.

@@ -173,13 +173,14 @@ GLUE_NATIVE_CONNECTION_TYPE_MAP: Dict[str, str] = {
 JDBC_PREFIX = "jdbc:"
 
 
-# Union variants share a column name with different types; stripping the [type=...]
+# Hive complex types that must keep v2 field paths. Only `uniontype` qualifies:
+# its variants share a column name with different types, so stripping the [type=...]
 # qualifiers collapses them into the same v1 path and GMS dedups one of the entries.
-_HIVE_UNION_TYPE_RE = re.compile(r"^\s*uniontype\s*<", re.IGNORECASE)
+_COMPLEX_HIVE_TYPE_RE = re.compile(r"^\s*uniontype\s*<", re.IGNORECASE)
 
 
-def _hive_type_requires_v2_paths(hive_type: str) -> bool:
-    return bool(_HIVE_UNION_TYPE_RE.match(hive_type))
+def _is_complex_hive_type(hive_type: str) -> bool:
+    return bool(_COMPLEX_HIVE_TYPE_RE.match(hive_type))
 
 
 def _sanitize_jdbc_url(jdbc_url: str) -> str:
@@ -300,10 +301,12 @@ class GlueSourceConfig(
     simplify_nested_field_paths: bool = Field(
         default=False,
         description=(
-            "Emit v1 (simple) field paths for every column except `uniontype` — "
-            "`column` instead of `[version=2.0].[type=string].column`. "
-            "Aligns schemaField URNs with v1-emitting sources (e.g. dbt) for "
-            "column-level lineage and term/tag propagation."
+            "Emit v1 (simple) field paths — `column` instead of "
+            "`[version=2.0].[type=string].column`. Aligns schemaField URNs with "
+            "v1-emitting sources (e.g. dbt) for column-level lineage and term/tag "
+            "propagation. **Union types are not supported**: `uniontype<...>` "
+            "columns continue to emit v2 paths because v1 cannot disambiguate "
+            "union variants."
         ),
     )
 
@@ -1935,9 +1938,8 @@ class GlueSource(StatefulIngestionSourceBase):
             description=description,
             default_nullable=default_nullable,
         )
-        if (
-            self.source_config.simplify_nested_field_paths
-            and not _hive_type_requires_v2_paths(hive_column_type)
+        if self.source_config.simplify_nested_field_paths and not _is_complex_hive_type(
+            hive_column_type
         ):
             for f in fields:
                 f.fieldPath = get_simple_field_path_from_v2_field_path(f.fieldPath)

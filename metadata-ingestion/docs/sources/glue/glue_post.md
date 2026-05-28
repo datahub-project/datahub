@@ -110,6 +110,23 @@ source:
 
 When this is configured, dataset URNs produced by the Glue connector will include the same `platform_instance` and `env` as the target platform's connector, ensuring entities merge correctly in DataHub. If the target platform connector does not use a `platform_instance`, no configuration is needed — URNs will match by default.
 
+#### Aligning Field Paths with v1-Emitting Sources
+
+By default the Glue connector emits v2 schemaField paths (`[version=2.0].[type=string].email`), while sources like dbt emit v1 paths (`email`). The URN mismatch blocks column-level lineage and term/tag propagation across the boundary.
+
+Set `simplify_nested_field_paths: true` to emit v1 paths for every column type — scalars, arrays, maps, structs, and nested combinations:
+
+```yaml
+source:
+  type: glue
+  config:
+    simplify_nested_field_paths: true
+```
+
+**Union types are not supported.** Columns with type `uniontype<...>` continue to emit v2 paths because v1 cannot disambiguate union variants — downgrading them would collapse the SchemaField entries into the same path and one would be dropped.
+
+Flipping this flag on an existing ingestion changes every schemaField URN on the affected datasets. Annotations attached to the old v2 URNs (tags, terms, descriptions, column-level lineage edges) become orphaned until the tables are re-ingested.
+
 #### Column Parameters as Structured Properties
 
 When `extract_column_parameters` is enabled, column-level `Parameters` from the Glue catalog are

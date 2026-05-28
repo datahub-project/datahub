@@ -4,7 +4,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.aws.glue import (
     GlueSource,
     GlueSourceConfig,
-    _hive_type_requires_v2_paths,
+    _is_complex_hive_type,
 )
 
 
@@ -36,8 +36,8 @@ def _build_glue_source(*, simplify: bool) -> GlueSource:
         ("  UNIONTYPE<int,string>  ", True),  # leading whitespace + uppercase
     ],
 )
-def test_hive_type_requires_v2_paths(hive_type: str, expected: bool) -> None:
-    assert _hive_type_requires_v2_paths(hive_type) is expected
+def test_is_complex_hive_type(hive_type: str, expected: bool) -> None:
+    assert _is_complex_hive_type(hive_type) is expected
 
 
 def test_flag_off_keeps_v2_for_scalar() -> None:
