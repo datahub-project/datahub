@@ -291,7 +291,8 @@ def test_lineage_overrides():
     )
 
     # Transform presto urn to hive urn
-    # resulting platform instance for hive = mapped platform instance + presto_catalog
+    # Hive is two-tier, so the presto catalog is dropped from the URN to match
+    # what the Hive ingestion source emits.
     assert (
         TableauUpstreamReference(
             "presto_catalog",
@@ -306,7 +307,7 @@ def test_lineage_overrides():
                 platform_override_map={"presto": "hive"},
             ),
         )
-        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.presto_catalog.test-schema.test-table,PROD)"
+        == "urn:li:dataset:(urn:li:dataPlatform:hive,my_instance.test-schema.test-table,PROD)"
     )
 
     # transform hive urn to presto urn
@@ -325,6 +326,28 @@ def test_lineage_overrides():
             ),
         )
         == "urn:li:dataset:(urn:li:dataPlatform:presto,my_presto_instance.presto_catalog.test-schema.test-table,PROD)"
+    )
+
+
+def test_lineage_overrides_presto_to_athena():
+    # Tableau models an Athena connection as `presto` with a `hive` catalog.
+    # Remapping presto -> athena must produce Athena's two-tier
+    # `schema.table` URN, not Presto's three-tier `catalog.schema.table`.
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            "test-database-id",
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map={"presto": "athena_instance"},
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,athena_instance.test-schema.test-table,PROD)"
     )
 
 
