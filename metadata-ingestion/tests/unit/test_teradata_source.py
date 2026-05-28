@@ -3504,7 +3504,9 @@ class TestExecuteWithRetry:
             _execute_with_retry(mock_conn, "SELECT 1", max_attempts=1, report=report)
 
         assert len(report.warnings) == 1
-        assert "Database execute failed" in report.warnings[0].title
+        warning_title = report.warnings[0].title
+        assert warning_title is not None
+        assert "Database execute failed" in warning_title
 
     def test_permanent_error_no_warning_when_suppressed(self):
         """warn_on_permanent_failure=False: probe callers that handle the exception
@@ -3546,7 +3548,9 @@ class TestExecuteWithRetry:
 
         assert mock_conn.execute.call_count == 2
         assert len(report.warnings) == 1
-        assert "after retries" in report.warnings[0].title
+        warning_title = report.warnings[0].title
+        assert warning_title is not None
+        assert "after retries" in warning_title
 
 
 class TestFetchmanyWithRetry:
