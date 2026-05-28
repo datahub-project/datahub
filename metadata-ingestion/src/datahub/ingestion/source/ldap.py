@@ -347,7 +347,10 @@ class LDAPSource(StatefulIngestionSourceBase):
                     m_cn,
                     ldap.SCOPE_BASE,
                     manager_filter,
-                    serverctrls=[self.lc] if self.lc else [],
+                    # SCOPE_BASE resolves a single DN entry, so RFC2696 pagination
+                    # controls are unnecessary here and can be rejected by AD.
+                    # Keep pagination controls only on the main SCOPE_SUBTREE search.
+                    serverctrls=[],
                 )
                 result = self.ldap_client.result3(manager_msgid)
                 if result[1]:
