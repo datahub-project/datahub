@@ -1,7 +1,6 @@
 package com.linkedin.metadata.ingestion;
 
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
@@ -69,7 +68,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"cohorts\": [{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}]"
                 + "}}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
-    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
+    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertNotNull(snowflake);
     assertNull(
         snowflake.getDefaultVersion(), "invalid _default should be dropped, not stored verbatim");
@@ -87,7 +86,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "{\"version\": \"1.5.0.6\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
-    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
+    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertEquals(snowflake.getCohorts().size(), 1, "first cohort (no version) should be dropped");
     assertEquals(snowflake.getCohorts().get(0).getVersion(), "1.5.0.6");
   }
@@ -101,7 +100,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "{\"version\": \"<script>alert(1)</script>\", \"deployments\": [\"acme\"]}"
                 + "]}}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
-    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
+    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertTrue(
         snowflake.getCohorts().isEmpty(), "cohort with invalid version pattern should be dropped");
   }
@@ -127,7 +126,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
         MAPPER.readTree("{\"1.5.0\": {\"snowflake\": {\"cohorts\": [" + cohorts + "]}}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
     assertEquals(
-        m.getEntriesForServer("1.5.0").get("snowflake").getCohorts().size(),
+        m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake").getCohorts().size(),
         realVersions.length,
         "all real PyPI-style versions should pass the permissive pattern");
   }
@@ -142,13 +141,15 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
-    assertFalse(
-        m.getEntriesForServer("1.5.0").containsKey("snowflake"),
+    assertNull(
+        m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake"),
         "malformed connector entry should be dropped");
     assertNotNull(
-        m.getEntriesForServer("1.5.0").get("bigquery"),
+        m.getEntriesForServer("1.5.0").getConnectorEntry("bigquery"),
         "well-formed sibling connector should survive");
-    assertEquals(m.getEntriesForServer("1.5.0").get("bigquery").getDefaultVersion(), "1.4.0.3");
+    assertEquals(
+        m.getEntriesForServer("1.5.0").getConnectorEntry("bigquery").getDefaultVersion(),
+        "1.4.0.3");
   }
 
   @Test
@@ -166,7 +167,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
                 + "\"bigquery\": {\"_default\": \"1.4.0.3\"}"
                 + "}}");
     IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
-    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").get("snowflake");
+    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
     assertEquals(snowflake.getDefaultVersion(), "1.5.0.5");
     assertEquals(snowflake.getCohorts().size(), 1);
     Cohort cohort = snowflake.getCohorts().get(0);
@@ -175,7 +176,7 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
     assertTrue(cohort.getDeployments().contains("acme"));
     assertTrue(cohort.getDeployments().contains("beta"));
 
-    ConnectorEntry bigquery = m.getEntriesForServer("1.5.0").get("bigquery");
+    ConnectorEntry bigquery = m.getEntriesForServer("1.5.0").getConnectorEntry("bigquery");
     assertEquals(bigquery.getDefaultVersion(), "1.4.0.3");
     assertTrue(bigquery.getCohorts().isEmpty());
   }

@@ -6,8 +6,10 @@ import java.util.Map;
 /**
  * In-memory snapshot of the per-connector ingestion CLI version matrix.
  *
- * <p>The matrix is keyed by server release version, then by connector type, with each entry
- * carrying a {@code _default} version and an optional ordered list of canary cohorts.
+ * <p>The matrix is keyed by server release version → {@link ServerEntry}, which in turn maps
+ * connector type to a {@link ConnectorEntry} carrying a {@code _default} version and an optional
+ * ordered list of canary cohorts. Wrapping the inner map in {@link ServerEntry} keeps lookup sites
+ * self-documenting and gives us a single place to add server-level behavior later.
  *
  * <p>This is a pure POJO produced by {@link IngestionCliVersionMatrixSource} implementations and
  * consumed by {@link IngestionCliVersionMatrixService} — the storage layer (HTTP, GMS aspect,
@@ -20,10 +22,9 @@ public final class IngestionCliVersionMatrix {
   public static final IngestionCliVersionMatrix EMPTY =
       new IngestionCliVersionMatrix(Collections.emptyMap());
 
-  private final Map<String, Map<String, ConnectorEntry>> entriesByServerVersion;
+  private final Map<String, ServerEntry> entriesByServerVersion;
 
-  public IngestionCliVersionMatrix(
-      Map<String, Map<String, ConnectorEntry>> entriesByServerVersion) {
+  public IngestionCliVersionMatrix(Map<String, ServerEntry> entriesByServerVersion) {
     this.entriesByServerVersion =
         entriesByServerVersion == null
             ? Collections.emptyMap()
@@ -31,10 +32,10 @@ public final class IngestionCliVersionMatrix {
   }
 
   /**
-   * Lookup the per-connector matrix entries for a given server release. Returns {@code null} if the
-   * server version has no entry — callers fall back to the application default.
+   * Lookup the per-connector entries for a given server release. Returns {@code null} if the server
+   * version has no entry — callers fall back to the application default.
    */
-  public Map<String, ConnectorEntry> getEntriesForServer(String serverVersion) {
+  public ServerEntry getEntriesForServer(String serverVersion) {
     return entriesByServerVersion.get(serverVersion);
   }
 
