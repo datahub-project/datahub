@@ -93,6 +93,31 @@ public class LineageRegistryTest {
   }
 
   @Test
+  public void testDomainDeclaredLineageRegistered() {
+    // The domainUpstreams aspect (see DomainUpstream.pdl) declares a @Relationship with
+    // isLineage=true and entityTypes=[domain]. Once the aspect is attached to the domain entity in
+    // entity-registry.yml the LineageRegistry must surface a Domain -> Domain DownstreamOf edge in
+    // both directions, which is what lets searchAcrossLineage traverse declared Domain↔Domain
+    // edges natively without any resolver-level aggregation pass over member DataProducts or
+    // assets.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("domain", LineageDirection.UPSTREAM);
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.OUTGOING, "domain")),
+        "Domain should have an outgoing DownstreamOf edge to another Domain on the upstream "
+            + "side once domainUpstreams is registered");
+
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        lineageRegistry.getLineageRelationships("domain", LineageDirection.DOWNSTREAM);
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo("DownstreamOf", RelationshipDirection.INCOMING, "domain")),
+        "Domain should have an incoming DownstreamOf edge from another Domain on the downstream "
+            + "side once domainUpstreams is registered");
+  }
+
+  @Test
   public void testGetLineageRelationshipsForNonExistentEntity() {
     // Test
     List<LineageRegistry.EdgeInfo> edges =

@@ -414,8 +414,27 @@
           }
         ]
       }
+    },
+    "domain": {
+      "domainUpstreams": {
+        "aspect": "domainUpstreams",
+        "fields": [
+          {
+            "name": "domain",
+            "path": "upstreams.domain",
+            "isLineage": true,
+            "relationship": {
+              "name": "DownstreamOf",
+              "entityTypes": [
+                "domain"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-05-28T09:25:58.847322+00:00"
+  "generated_at": "2026-05-28T12:52:48.489368+00:00"
 }

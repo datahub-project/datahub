@@ -235,6 +235,7 @@ entities:
     keyAspect: domainKey
     aspects:
       - domainProperties
+      - domainUpstreams
       - institutionalMemory
       - ownership
       - structuredProperties

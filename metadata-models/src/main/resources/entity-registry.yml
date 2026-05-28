@@ -260,6 +260,7 @@ entities:
     searchGroup: primary
     aspects:
       - domainProperties
+      - domainUpstreams
       - institutionalMemory
       - ownership
       - structuredProperties

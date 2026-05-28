@@ -1,0 +1,67 @@
+namespace com.linkedin.domain
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+
+/**
+ * A single declared upstream lineage edge from one Domain to another.
+ *
+ * Edges declared via this record participate in the entity-lineage graph
+ * (isLineage = true), so searchAcrossLineage walks Domain -> Domain natively
+ * without any aggregation pass over member assets or DataProducts. This is the
+ * "first-class" lineage relationship for Domains; lineage that is only
+ * derivable by walking members (the DataProducts owned by a Domain and the
+ * lineage of their member assets) is rendered as a visual overlay by the UI
+ * and is not stored as a relationship here.
+ *
+ * Mirrors com.linkedin.dataproduct.DataProductUpstream.
+ */
+record DomainUpstream {
+
+  /**
+   * Audit stamp for the most recent update of this lineage edge.
+   */
+  auditStamp: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
+
+  /**
+   * Audit stamp for the original creation of this lineage edge.
+   */
+  created: optional AuditStamp
+
+  /**
+   * The upstream Domain that the owning Domain depends on.
+   *
+   * Restricted to domain URNs in this revision. The entityTypes list may be
+   * widened in a future revision to allow declared edges to non-Domain
+   * entities; any such extension is non-breaking because consumers already
+   * address the field via the generic Urn type.
+   */
+  @Relationship = {
+    "name": "DownstreamOf",
+    "entityTypes": [ "domain" ],
+    "isLineage": true,
+    "createdOn": "upstreams/*/created/time"
+    "createdActor": "upstreams/*/created/actor"
+    "updatedOn": "upstreams/*/auditStamp/time"
+    "updatedActor": "upstreams/*/auditStamp/actor"
+    "properties": "upstreams/*/properties"
+  }
+  @Searchable = {
+    "fieldName": "upstreamDomains",
+    "hasValuesFieldName": "hasUpstreamDomains",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  domain: Urn
+
+  /**
+   * Free-form properties bag attached to the edge. Typically populated by the
+   * governance tool that asserted the lineage (contract identifier, SLA tier,
+   * etc.); not interpreted server-side.
+   */
+  properties: optional map[string, string]
+}

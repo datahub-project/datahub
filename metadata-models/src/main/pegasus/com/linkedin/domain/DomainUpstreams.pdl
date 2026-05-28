@@ -1,0 +1,47 @@
+namespace com.linkedin.domain
+
+
+/**
+ * Declared upstream lineage for a Domain.
+ *
+ * Each entry in `upstreams` is an explicit producer/consumer assertion that one
+ * Domain depends on another. Because DomainUpstream marks its destination field
+ * as @Relationship.isLineage = true, edges declared here flow into the
+ * entity-lineage graph and are walked by searchAcrossLineage in the same pass
+ * as dataset / data-job / DataProduct lineage -- no aggregation resolver
+ * required.
+ *
+ * This aspect is intentionally orthogonal to:
+ *
+ *   - DataProduct membership in a Domain    -- which DataProducts belong to a
+ *                                              Domain (the existing `domains`
+ *                                              aspect on the DataProduct), not
+ *                                              a lineage edge.
+ *   - UpstreamLineage on member datasets    -- asset-level lineage that the UI
+ *                                              renders as a visual Domain
+ *                                              bounding box overlay.
+ *   - DataProductUpstreams                  -- declared lineage between member
+ *                                              DataProducts; the Domain layer
+ *                                              is one level higher.
+ *
+ * Declared Domain-to-Domain edges are additive: a Domain may have declared
+ * upstream Domains AND have asset-level lineage between member DataProducts of
+ * those Domains; both are surfaced in the lineage view at their respective
+ * layers.
+ *
+ * Aspect name `domainUpstreams` mirrors the entity-prefixed convention used by
+ * `dataProductUpstreams`, `dataJobInputOutput`, and `datasetUpstreamLineage`.
+ * The trailing "Lineage" suffix is omitted to match the shorter `*InputOutput`
+ * style and to keep the field name (`upstreams`) and aspect name visually
+ * aligned.
+ */
+@Aspect = {
+  "name": "domainUpstreams"
+}
+record DomainUpstreams {
+
+  /**
+   * List of declared upstream Domains.
+   */
+  upstreams: array[DomainUpstream] = []
+}
