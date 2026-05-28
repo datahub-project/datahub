@@ -75,7 +75,7 @@
         "i18next": "^23",
         "i18next-http-backend": "^2",
         "i18next-resources-to-backend": "^1",
-        "js-cookie": "^2.2.1",
+        "js-cookie": "^3.0.7",
         "js-yaml": "^4.1.0",
         "monaco-editor": "^0.28.1",
         "prosemirror-autocomplete": "^0.4.3",
