@@ -2,10 +2,10 @@ package com.linkedin.gms.factory.ingestion;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.HttpUrlMatrixSource;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
-import com.linkedin.metadata.ingestion.MatrixSource;
-import com.linkedin.metadata.ingestion.NoOpMatrixSource;
+import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixSource;
+import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.version.GitVersion;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,18 +15,20 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
 
 /**
- * Wires up the per-connector CLI version matrix.
+ * Wires up the per-connector ingestion CLI version matrix.
  *
  * <p>The wiring is split into two beans so that storage and consumption are decoupled:
  *
  * <ul>
- *   <li>{@code matrixSource} — implements {@link MatrixSource}; chosen based on configuration.
- *       Today the only "live" implementation is {@link HttpUrlMatrixSource}, picked when {@code
- *       ingestion.versionMatrixUrl} is set. Otherwise a {@link NoOpMatrixSource} is bound. Future
- *       implementations (GMS-aspect-backed, config-server-backed, …) can plug in here without any
- *       change to the consumer service.
- *   <li>{@code ingestionVersionMatrixService} — consumes whichever {@link MatrixSource} is bound
- *       and applies the resolution policy (cohort → connector default → workspace default).
+ *   <li>{@code ingestionCliVersionMatrixSource} — implements {@link
+ *       IngestionCliVersionMatrixSource}; chosen based on configuration. Today the only "live"
+ *       implementation is {@link HttpUrlIngestionCliVersionMatrixSource}, picked when {@code
+ *       ingestion.versionMatrixUrl} is set. Otherwise a {@link NoOpIngestionCliVersionMatrixSource}
+ *       is bound. Future implementations (GMS-aspect-backed, config-server-backed, …) can plug in
+ *       here without any change to the consumer service.
+ *   <li>{@code ingestionCliVersionMatrixService} — consumes whichever {@link
+ *       IngestionCliVersionMatrixSource} is bound and applies the resolution policy (cohort →
+ *       connector default → application default).
  * </ul>
  *
  * <p>The deployment identifier is sourced from {@code ingestion.deploymentId}, which is bound to
@@ -36,7 +38,7 @@ import org.springframework.context.annotation.Scope;
  * applies.
  */
 @Configuration
-public class IngestionVersionMatrixServiceFactory {
+public class IngestionCliVersionMatrixServiceFactory {
 
   @Autowired
   @Qualifier("configurationProvider")
@@ -51,29 +53,30 @@ public class IngestionVersionMatrixServiceFactory {
    * decision is driven by whether a URL is configured. New backends should be added here behind an
    * explicit config flag rather than by replacing the existing decision.
    */
-  @Bean(name = "matrixSource")
+  @Bean(name = "ingestionCliVersionMatrixSource")
   @Scope("singleton")
   @Nonnull
-  protected MatrixSource matrixSource() {
+  protected IngestionCliVersionMatrixSource ingestionCliVersionMatrixSource() {
     IngestionConfiguration ingestionConfig = configProvider.getIngestion();
     String url = ingestionConfig.getVersionMatrixUrl();
     if (url == null || url.isEmpty()) {
-      return new NoOpMatrixSource();
+      return new NoOpIngestionCliVersionMatrixSource();
     }
-    return new HttpUrlMatrixSource(
+    return new HttpUrlIngestionCliVersionMatrixSource(
         url,
         ingestionConfig.getVersionMatrixRefreshSeconds(),
         ingestionConfig.getVersionMatrixAuthToken());
   }
 
-  @Bean(name = "ingestionVersionMatrixService")
+  @Bean(name = "ingestionCliVersionMatrixService")
   @Scope("singleton")
   @Nonnull
-  protected IngestionVersionMatrixService getInstance(
-      @Qualifier("matrixSource") final MatrixSource matrixSource) {
+  protected IngestionCliVersionMatrixService getInstance(
+      @Qualifier("ingestionCliVersionMatrixSource")
+          final IngestionCliVersionMatrixSource matrixSource) {
     IngestionConfiguration ingestionConfig = configProvider.getIngestion();
     String serverVersion = (String) gitVersion.toConfig().get("version");
-    return new IngestionVersionMatrixService(
+    return new IngestionCliVersionMatrixService(
         matrixSource, serverVersion, ingestionConfig.getDeploymentId());
   }
 }

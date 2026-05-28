@@ -22,9 +22,9 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * {@link MatrixSource} backed by a publicly-readable HTTP URL serving the matrix JSON. Suitable for
- * any deployment that wants to fetch the matrix from a CDN, object store (S3, GCS), or a GitHub raw
- * URL without rebuilding or redeploying GMS to change connector versions.
+ * {@link IngestionCliVersionMatrixSource} backed by a publicly-readable HTTP URL serving the matrix
+ * JSON. Suitable for any deployment that wants to fetch the matrix from a CDN, object store (S3,
+ * GCS), or a GitHub raw URL without rebuilding or redeploying GMS to change connector versions.
  *
  * <p>The remote JSON must follow this schema:
  *
@@ -55,7 +55,7 @@ import lombok.extern.slf4j.Slf4j;
  * header is sent (the public-URL path is unchanged).
  */
 @Slf4j
-public class HttpUrlMatrixSource implements MatrixSource {
+public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersionMatrixSource {
 
   private static final String DEFAULT_FIELD = "_default";
   private static final String COHORTS_FIELD = "cohorts";
@@ -74,19 +74,20 @@ public class HttpUrlMatrixSource implements MatrixSource {
 
   private final String url;
   @Nullable private final String authHeader;
-  private final AtomicReference<Matrix> cached;
+  private final AtomicReference<IngestionCliVersionMatrix> cached;
   private final AtomicLong lastFetchedAtMillis;
   private final ObjectMapper objectMapper;
 
   /** Convenience constructor for unauthenticated (public) URLs. */
-  public HttpUrlMatrixSource(String url, int refreshIntervalSeconds) {
+  public HttpUrlIngestionCliVersionMatrixSource(String url, int refreshIntervalSeconds) {
     this(url, refreshIntervalSeconds, null);
   }
 
-  public HttpUrlMatrixSource(String url, int refreshIntervalSeconds, @Nullable String authHeader) {
+  public HttpUrlIngestionCliVersionMatrixSource(
+      String url, int refreshIntervalSeconds, @Nullable String authHeader) {
     this.url = url;
     this.authHeader = authHeader;
-    this.cached = new AtomicReference<>(Matrix.EMPTY);
+    this.cached = new AtomicReference<>(IngestionCliVersionMatrix.EMPTY);
     this.lastFetchedAtMillis = new AtomicLong(0L);
     this.objectMapper = new ObjectMapper();
 
@@ -96,7 +97,7 @@ public class HttpUrlMatrixSource implements MatrixSource {
   }
 
   @Override
-  public Matrix getMatrix() {
+  public IngestionCliVersionMatrix getMatrix() {
     return cached.get();
   }
 
@@ -119,7 +120,7 @@ public class HttpUrlMatrixSource implements MatrixSource {
 
       try (InputStream is = conn.getInputStream()) {
         JsonNode root = objectMapper.readTree(is);
-        Matrix parsed;
+        IngestionCliVersionMatrix parsed;
         try {
           parsed = parseMatrix(root);
         } catch (IllegalArgumentException schemaError) {
@@ -151,7 +152,8 @@ public class HttpUrlMatrixSource implements MatrixSource {
   }
 
   /**
-   * Parses the nested schema into a {@link Matrix} with two layers of validation:
+   * Parses the nested schema into an {@link IngestionCliVersionMatrix} with two layers of
+   * validation:
    *
    * <ul>
    *   <li><b>File-level (fail closed)</b>: if the root isn't a JSON object, throws {@link
@@ -165,7 +167,7 @@ public class HttpUrlMatrixSource implements MatrixSource {
    *
    * <p>Package-private so tests can drive it directly with arbitrary {@link JsonNode} input.
    */
-  static Matrix parseMatrix(JsonNode root) {
+  static IngestionCliVersionMatrix parseMatrix(JsonNode root) {
     if (root == null || !root.isObject()) {
       throw new IllegalArgumentException(
           "matrix root must be a JSON object, got: "
@@ -200,7 +202,7 @@ public class HttpUrlMatrixSource implements MatrixSource {
                       });
               entries.put(serverVersion, Collections.unmodifiableMap(connectors));
             });
-    return new Matrix(entries);
+    return new IngestionCliVersionMatrix(entries);
   }
 
   /**
@@ -237,7 +239,7 @@ public class HttpUrlMatrixSource implements MatrixSource {
           log.warn(
               "Ignoring invalid '_default' version: server='{}' connector='{}' version='{}'. "
                   + "Cohort matches still apply; this connector will fall through to "
-                  + "WORKSPACE_DEFAULT when no cohort matches.",
+                  + "APPLICATION_DEFAULT when no cohort matches.",
               serverVersion,
               connector,
               candidate);

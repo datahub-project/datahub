@@ -347,7 +347,7 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -454,7 +454,7 @@ public class GmsGraphQLEngine {
   private final FeatureFlags featureFlags;
 
   private final IngestionConfiguration ingestionConfiguration;
-  private final IngestionVersionMatrixService ingestionVersionMatrixService;
+  private final IngestionCliVersionMatrixService ingestionCliVersionMatrixService;
   private final AuthenticationConfiguration authenticationConfiguration;
   private final AuthorizationConfiguration authorizationConfiguration;
   private final VisualConfiguration visualConfiguration;
@@ -598,7 +598,7 @@ public class GmsGraphQLEngine {
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
-    this.ingestionVersionMatrixService = args.ingestionVersionMatrixService;
+    this.ingestionCliVersionMatrixService = args.ingestionCliVersionMatrixService;
     this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
     this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
     this.visualConfiguration = args.visualConfiguration;
@@ -1373,7 +1373,7 @@ public class GmsGraphQLEngine {
                   new CreateIngestionExecutionRequestResolver(
                       this.entityClient,
                       this.ingestionConfiguration,
-                      this.ingestionVersionMatrixService))
+                      this.ingestionCliVersionMatrixService))
               .dataFetcher(
                   "cancelIngestionExecutionRequest",
                   new CancelIngestionExecutionRequestResolver(this.entityClient))
@@ -1382,7 +1382,7 @@ public class GmsGraphQLEngine {
                   new CreateTestConnectionRequestResolver(
                       this.entityClient,
                       this.ingestionConfiguration,
-                      this.ingestionVersionMatrixService))
+                      this.ingestionCliVersionMatrixService))
               .dataFetcher(
                   "upsertCustomAssertion", new UpsertCustomAssertionResolver(assertionService))
               .dataFetcher(

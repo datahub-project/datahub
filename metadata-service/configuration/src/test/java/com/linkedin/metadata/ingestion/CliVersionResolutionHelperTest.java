@@ -11,12 +11,12 @@ import org.testng.annotations.Test;
 /**
  * Focused unit tests for {@link CliVersionResolutionHelper}.
  *
- * <p>Covers the precedence ladder (per-source &gt; matrix cohort &gt; matrix connector default &gt;
- * workspace default) and the per-source normalization contract (null, empty, and whitespace-only
- * strings all fall through to the next tier). The whitespace case matches the contract of {@code
- * IngestionUtils.resolveIngestionCliVersion(...)} from #17471 — bootstrap YAML templating can
- * render any of the three, and forwarding them to the executor silently picks the bundled CLI
- * rather than the configured default.
+ * <p>Covers the precedence ladder (source config override &gt; matrix cohort &gt; matrix connector
+ * default &gt; application default) and the per-source normalization contract (null, empty, and
+ * whitespace-only strings all fall through to the next tier). The whitespace case matches the
+ * contract of {@code IngestionUtils.resolveIngestionCliVersion(...)} from #17471 — bootstrap YAML
+ * templating can render any of the three, and forwarding them to the executor silently picks the
+ * bundled CLI rather than the configured default.
  */
 public class CliVersionResolutionHelperTest {
 
@@ -30,7 +30,7 @@ public class CliVersionResolutionHelperTest {
             "0.13.5", "snowflake", null, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), "0.13.5");
-    assertEquals(result.getStamp().getSource(), CliVersionSource.PER_SOURCE);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.SOURCE_CONFIG_OVERRIDE);
     assertEquals(result.getStamp().getServerVersion(), SERVER_VERSION);
   }
 
@@ -41,7 +41,7 @@ public class CliVersionResolutionHelperTest {
             "  0.13.5  ", "snowflake", null, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), "0.13.5");
-    assertEquals(result.getStamp().getSource(), CliVersionSource.PER_SOURCE);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.SOURCE_CONFIG_OVERRIDE);
   }
 
   @Test
@@ -50,7 +50,7 @@ public class CliVersionResolutionHelperTest {
         CliVersionResolutionHelper.resolve(null, null, null, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), DEFAULT_CLI);
-    assertEquals(result.getStamp().getSource(), CliVersionSource.WORKSPACE_DEFAULT);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.APPLICATION_DEFAULT);
   }
 
   @Test
@@ -59,29 +59,31 @@ public class CliVersionResolutionHelperTest {
         CliVersionResolutionHelper.resolve("", null, null, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), DEFAULT_CLI);
-    assertEquals(result.getStamp().getSource(), CliVersionSource.WORKSPACE_DEFAULT);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.APPLICATION_DEFAULT);
   }
 
   @Test
   public void testPerSourceWhitespaceOnlyFallsThroughToDefault() {
     // Documents the contract from #17471: a bootstrap YAML field that renders as a blank string
-    // must be treated as "unset" so we hit the workspace default rather than passing the blank
+    // must be treated as "unset" so we hit the application default rather than passing the blank
     // through to the executor.
     CliVersionResolutionHelper.Result result =
         CliVersionResolutionHelper.resolve("   ", null, null, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), DEFAULT_CLI);
-    assertEquals(result.getStamp().getSource(), CliVersionSource.WORKSPACE_DEFAULT);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.APPLICATION_DEFAULT);
   }
 
   @Test
-  public void testMatrixConnectorDefaultWinsOverWorkspaceDefault() {
-    IngestionVersionMatrixService matrixService = Mockito.mock(IngestionVersionMatrixService.class);
+  public void testMatrixConnectorDefaultWinsOverApplicationDefault() {
+    IngestionCliVersionMatrixService matrixService =
+        Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrixService.resolveVersionWithSource("snowflake"))
         .thenReturn(
             Optional.of(
-                new IngestionVersionMatrixService.MatrixResolution(
-                    "0.13.5", IngestionVersionMatrixService.MatrixSourceLevel.CONNECTOR_DEFAULT)));
+                new IngestionCliVersionMatrixService.MatrixResolution(
+                    "0.13.5",
+                    IngestionCliVersionMatrixService.MatrixSourceLevel.CONNECTOR_DEFAULT)));
 
     CliVersionResolutionHelper.Result result =
         CliVersionResolutionHelper.resolve(
@@ -93,12 +95,13 @@ public class CliVersionResolutionHelperTest {
 
   @Test
   public void testMatrixCohortWinsOverConnectorDefault() {
-    IngestionVersionMatrixService matrixService = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrixService =
+        Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrixService.resolveVersionWithSource("snowflake"))
         .thenReturn(
             Optional.of(
-                new IngestionVersionMatrixService.MatrixResolution(
-                    "0.13.6", IngestionVersionMatrixService.MatrixSourceLevel.COHORT)));
+                new IngestionCliVersionMatrixService.MatrixResolution(
+                    "0.13.6", IngestionCliVersionMatrixService.MatrixSourceLevel.COHORT)));
 
     CliVersionResolutionHelper.Result result =
         CliVersionResolutionHelper.resolve(
@@ -111,14 +114,15 @@ public class CliVersionResolutionHelperTest {
   @Test
   public void testNullConnectorTypeSkipsMatrix() {
     // A malformed test-connection recipe produces a null connector type; we must skip the matrix
-    // and fall through to the workspace default rather than throwing.
-    IngestionVersionMatrixService matrixService = Mockito.mock(IngestionVersionMatrixService.class);
+    // and fall through to the application default rather than throwing.
+    IngestionCliVersionMatrixService matrixService =
+        Mockito.mock(IngestionCliVersionMatrixService.class);
 
     CliVersionResolutionHelper.Result result =
         CliVersionResolutionHelper.resolve(null, null, matrixService, DEFAULT_CLI, SERVER_VERSION);
 
     assertEquals(result.getVersion(), DEFAULT_CLI);
-    assertEquals(result.getStamp().getSource(), CliVersionSource.WORKSPACE_DEFAULT);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.APPLICATION_DEFAULT);
     Mockito.verifyNoInteractions(matrixService);
   }
 
@@ -131,6 +135,6 @@ public class CliVersionResolutionHelperTest {
 
     assertEquals(result.getVersion(), "");
     assertNotNull(result.getStamp());
-    assertEquals(result.getStamp().getSource(), CliVersionSource.WORKSPACE_DEFAULT);
+    assertEquals(result.getStamp().getSource(), CliVersionSource.APPLICATION_DEFAULT);
   }
 }

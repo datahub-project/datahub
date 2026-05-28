@@ -17,7 +17,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.query.ListResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -124,8 +124,10 @@ public class IngestionSchedulerTest {
             Mockito.mock(OperationContext.class),
             mockClient,
             ingestionConfiguration,
-            new IngestionVersionMatrixService(
-                new com.linkedin.metadata.ingestion.NoOpMatrixSource(), "test", null),
+            new IngestionCliVersionMatrixService(
+                new com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource(),
+                "test",
+                null),
             1,
             1200);
     ingestionScheduler.init();

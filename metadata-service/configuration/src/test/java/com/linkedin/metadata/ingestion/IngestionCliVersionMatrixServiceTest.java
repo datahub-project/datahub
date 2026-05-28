@@ -14,7 +14,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.testng.annotations.Test;
 
-public class IngestionVersionMatrixServiceTest {
+public class IngestionCliVersionMatrixServiceTest {
 
   private static final String SERVER_VERSION = "1.3.1.4";
 
@@ -44,19 +44,20 @@ public class IngestionVersionMatrixServiceTest {
           + "}";
 
   /**
-   * Returns a service backed by {@link HttpUrlMatrixSource} pointed at a temp-file URL containing
-   * {@link #MATRIX_JSON}. Polls briefly so the asynchronous initial fetch has a chance to populate
-   * the cache before the assertions run.
+   * Returns a service backed by {@link HttpUrlIngestionCliVersionMatrixSource} pointed at a
+   * temp-file URL containing {@link #MATRIX_JSON}. Polls briefly so the asynchronous initial fetch
+   * has a chance to populate the cache before the assertions run.
    */
-  private IngestionVersionMatrixService serviceWithMatrix(String serverVersion, String deploymentId)
-      throws IOException {
+  private IngestionCliVersionMatrixService serviceWithMatrix(
+      String serverVersion, String deploymentId) throws IOException {
     Path tmp = Files.createTempFile("version-matrix", ".json");
     Files.write(tmp, MATRIX_JSON.getBytes());
     tmp.toFile().deleteOnExit();
 
-    HttpUrlMatrixSource httpSource = new HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, serverVersion, deploymentId);
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, serverVersion, deploymentId);
 
     // Wait briefly for the initial fetch to complete (delay=0 in the scheduled executor).
     for (int i = 0; i < 20; i++) {
@@ -72,13 +73,15 @@ public class IngestionVersionMatrixServiceTest {
   }
 
   // -------------------------------------------------------------------------
-  // Feature disabled (NoOpMatrixSource — what the factory binds when URL is unset)
+  // Feature disabled (NoOpIngestionCliVersionMatrixSource — what the factory binds when URL is
+  // unset)
   // -------------------------------------------------------------------------
 
   @Test
   public void testDisabled_noOpSource() {
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(new NoOpMatrixSource(), SERVER_VERSION, "deployment-b1");
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(
+            new NoOpIngestionCliVersionMatrixSource(), SERVER_VERSION, "deployment-b1");
     assertEquals(svc.resolveVersion("snowflake"), Optional.empty());
   }
 
@@ -88,14 +91,14 @@ public class IngestionVersionMatrixServiceTest {
 
   @Test
   public void testCustomerNotInAnyCohort_usesConnectorDefault() throws Exception {
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-unknown");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-unknown");
     assertEquals(svc.resolveVersion("snowflake"), Optional.of("1.3.1.4"));
   }
 
   @Test
   public void testConnectorWithoutCohorts_returnsDefault() throws Exception {
     // bigquery is in the matrix with only a `default` and no `cohorts` array.
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b1");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b1");
     assertEquals(svc.resolveVersion("bigquery"), Optional.of("0.14.2"));
   }
 
@@ -105,13 +108,13 @@ public class IngestionVersionMatrixServiceTest {
 
   @Test
   public void testCustomerInFirstCohort_getsCohortVersion() throws Exception {
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b2");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b2");
     assertEquals(svc.resolveVersion("snowflake"), Optional.of("1.3.1.5"));
   }
 
   @Test
   public void testCustomerInSecondCohort_getsCohortVersion() throws Exception {
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-d1");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-d1");
     assertEquals(svc.resolveVersion("snowflake"), Optional.of("1.3.1.6"));
   }
 
@@ -123,13 +126,13 @@ public class IngestionVersionMatrixServiceTest {
   public void testNullCustomerId_neverMatchesCohort() throws Exception {
     // A deployment that didn't wire DATAHUB_EXECUTOR_CUSTOMER_ID should fall through to the
     // connector default rather than throw or behave unpredictably.
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, null);
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, null);
     assertEquals(svc.resolveVersion("snowflake"), Optional.of("1.3.1.4"));
   }
 
   @Test
   public void testEmptyCustomerId_neverMatchesCohort() throws Exception {
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "");
     assertEquals(svc.resolveVersion("snowflake"), Optional.of("1.3.1.4"));
   }
 
@@ -140,15 +143,15 @@ public class IngestionVersionMatrixServiceTest {
   @Test
   public void testUnknownConnector_returnsEmpty() throws Exception {
     // Connectors not present in the matrix should return empty so the caller falls back to the
-    // workspace-wide defaultCliVersion. This is intentionally different from the old `_default`
+    // application-wide defaultCliVersion. This is intentionally different from the old `_default`
     // server-level fallback the prior schema had.
-    IngestionVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b1");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix(SERVER_VERSION, "deployment-b1");
     assertEquals(svc.resolveVersion("redshift"), Optional.empty());
   }
 
   @Test
   public void testUnknownServerVersion_returnsEmpty() throws Exception {
-    IngestionVersionMatrixService svc = serviceWithMatrix("2.0.0", "deployment-b1");
+    IngestionCliVersionMatrixService svc = serviceWithMatrix("2.0.0", "deployment-b1");
     assertEquals(svc.resolveVersion("snowflake"), Optional.empty());
   }
 
@@ -160,10 +163,10 @@ public class IngestionVersionMatrixServiceTest {
   public void testUnreachableUrlReturnsEmpty() {
     // A URL that will always fail — the source should log a warning and the service returns empty
     // (no prior matrix to fall back to).
-    HttpUrlMatrixSource httpSource =
-        new HttpUrlMatrixSource("http://localhost:19999/does-not-exist", 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource("http://localhost:19999/does-not-exist", 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
     try {
       Thread.sleep(200);
@@ -179,9 +182,10 @@ public class IngestionVersionMatrixServiceTest {
     Files.write(tmp, "not valid json".getBytes());
     tmp.toFile().deleteOnExit();
 
-    HttpUrlMatrixSource httpSource = new HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
     try {
       Thread.sleep(300);
@@ -217,9 +221,10 @@ public class IngestionVersionMatrixServiceTest {
     Files.write(tmp, json.getBytes());
     tmp.toFile().deleteOnExit();
 
-    HttpUrlMatrixSource httpSource = new HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
     for (int i = 0; i < 20; i++) {
       Optional<String> v = svc.resolveVersion("snowflake");
@@ -255,9 +260,10 @@ public class IngestionVersionMatrixServiceTest {
     Files.write(tmp, json.getBytes());
     tmp.toFile().deleteOnExit();
 
-    HttpUrlMatrixSource httpSource = new HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
     for (int i = 0; i < 20; i++) {
       Optional<String> v = svc.resolveVersion("snowflake");
@@ -271,7 +277,8 @@ public class IngestionVersionMatrixServiceTest {
   }
 
   // -------------------------------------------------------------------------
-  // HttpUrlMatrixSource HTTP-level behavior (auth header, fetch-failure cache retention)
+  // HttpUrlIngestionCliVersionMatrixSource HTTP-level behavior (auth header, fetch-failure cache
+  // retention)
   // These exercise the network code path; the other tests use file:// URIs which can't surface
   // request-header or HTTP-status behavior.
   // -------------------------------------------------------------------------
@@ -293,7 +300,8 @@ public class IngestionVersionMatrixServiceTest {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
-      HttpUrlMatrixSource source = new HttpUrlMatrixSource(url, 3600, "token ghp_test_xyz");
+      HttpUrlIngestionCliVersionMatrixSource source =
+          new HttpUrlIngestionCliVersionMatrixSource(url, 3600, "token ghp_test_xyz");
       waitForFirstFetch(source);
       assertEquals(
           captured.get(),
@@ -322,7 +330,8 @@ public class IngestionVersionMatrixServiceTest {
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
       // 2-arg constructor — no authHeader.
-      HttpUrlMatrixSource source = new HttpUrlMatrixSource(url, 3600);
+      HttpUrlIngestionCliVersionMatrixSource source =
+          new HttpUrlIngestionCliVersionMatrixSource(url, 3600);
       waitForFirstFetch(source);
       assertFalse(
           sawAuthHeader.get(),
@@ -355,10 +364,11 @@ public class IngestionVersionMatrixServiceTest {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
-      HttpUrlMatrixSource source = new HttpUrlMatrixSource(url, 3600);
+      HttpUrlIngestionCliVersionMatrixSource source =
+          new HttpUrlIngestionCliVersionMatrixSource(url, 3600);
       waitForFirstFetch(source);
 
-      Matrix beforeFailure = source.getMatrix();
+      IngestionCliVersionMatrix beforeFailure = source.getMatrix();
       long firstFetchTimestamp = source.getLastFetchedAtMillis();
       assertTrue(firstFetchTimestamp > 0, "Initial fetch should have populated the cache");
 
@@ -379,7 +389,8 @@ public class IngestionVersionMatrixServiceTest {
   }
 
   /** Polls until the source's initial scheduled fetch has populated the cache, or fails fast. */
-  private static void waitForFirstFetch(HttpUrlMatrixSource source) throws InterruptedException {
+  private static void waitForFirstFetch(HttpUrlIngestionCliVersionMatrixSource source)
+      throws InterruptedException {
     for (int i = 0; i < 30; i++) {
       if (source.getLastFetchedAtMillis() > 0) {
         return;
@@ -406,8 +417,10 @@ public class IngestionVersionMatrixServiceTest {
     server.start();
     try {
       String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
-      // Explicit empty string — distinct branch from null in HttpUrlMatrixSource.refresh().
-      HttpUrlMatrixSource source = new HttpUrlMatrixSource(url, 3600, "");
+      // Explicit empty string — distinct branch from null in
+      // HttpUrlIngestionCliVersionMatrixSource.refresh().
+      HttpUrlIngestionCliVersionMatrixSource source =
+          new HttpUrlIngestionCliVersionMatrixSource(url, 3600, "");
       waitForFirstFetch(source);
       assertFalse(
           sawAuthHeader.get(),
@@ -423,14 +436,16 @@ public class IngestionVersionMatrixServiceTest {
   // -------------------------------------------------------------------------
 
   @Test
-  public void testNoOpMatrixSource_returnsEmptyAndZeroTimestamp() {
-    NoOpMatrixSource source = new NoOpMatrixSource();
+  public void testNoOpIngestionCliVersionMatrixSource_returnsEmptyAndZeroTimestamp() {
+    NoOpIngestionCliVersionMatrixSource source = new NoOpIngestionCliVersionMatrixSource();
     assertSame(
-        source.getMatrix(), Matrix.EMPTY, "NoOpMatrixSource should always return Matrix.EMPTY");
+        source.getMatrix(),
+        IngestionCliVersionMatrix.EMPTY,
+        "NoOpIngestionCliVersionMatrixSource should always return IngestionCliVersionMatrix.EMPTY");
     assertEquals(
         source.getLastFetchedAtMillis(),
         0L,
-        "NoOpMatrixSource should report 0 for last-fetched timestamp");
+        "NoOpIngestionCliVersionMatrixSource should report 0 for last-fetched timestamp");
   }
 
   @Test
@@ -454,7 +469,7 @@ public class IngestionVersionMatrixServiceTest {
   @Test
   public void testConnectorWithoutDefault_andNoCohortMatch_returnsEmpty() throws Exception {
     // Connector exists in the matrix but has no `_default` field AND we don't match any cohort.
-    // Caller should fall through to workspace-wide defaultCliVersion.
+    // Caller should fall through to application-wide defaultCliVersion.
     String json =
         "{\n"
             + "  \"1.3.1.4\": {\n"
@@ -469,9 +484,10 @@ public class IngestionVersionMatrixServiceTest {
     Files.write(tmp, json.getBytes());
     tmp.toFile().deleteOnExit();
 
-    HttpUrlMatrixSource httpSource = new HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, SERVER_VERSION, "deployment-unknown");
+    HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-unknown");
 
     for (int i = 0; i < 20; i++) {
       if (httpSource.getLastFetchedAtMillis() > 0) {

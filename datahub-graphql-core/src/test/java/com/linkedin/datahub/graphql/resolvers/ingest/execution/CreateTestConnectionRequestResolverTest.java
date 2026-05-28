@@ -12,7 +12,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -43,13 +43,13 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrix.resolveVersionWithSource("snowflake"))
         .thenReturn(
             Optional.of(
-                new IngestionVersionMatrixService.MatrixResolution(
+                new IngestionCliVersionMatrixService.MatrixResolution(
                     MATRIX_SNOWFLAKE_VERSION,
-                    IngestionVersionMatrixService.MatrixSourceLevel.COHORT)));
+                    IngestionCliVersionMatrixService.MatrixSourceLevel.COHORT)));
 
     CreateTestConnectionRequestResolver resolver =
         new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration, matrix);
@@ -67,13 +67,13 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrix.resolveVersionWithSource("snowflake"))
         .thenReturn(
             Optional.of(
-                new IngestionVersionMatrixService.MatrixResolution(
+                new IngestionCliVersionMatrixService.MatrixResolution(
                     MATRIX_SNOWFLAKE_VERSION,
-                    IngestionVersionMatrixService.MatrixSourceLevel.COHORT)));
+                    IngestionCliVersionMatrixService.MatrixSourceLevel.COHORT)));
 
     CreateTestConnectionRequestResolver resolver =
         new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration, matrix);
@@ -136,7 +136,7 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrix.resolveVersionWithSource("snowflake")).thenReturn(Optional.empty());
 
     CreateTestConnectionRequestResolver resolver =
@@ -155,7 +155,7 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     CreateTestConnectionRequestResolver resolver =
         new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration, matrix);
 
@@ -206,13 +206,13 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrix.resolveVersionWithSource("snowflake"))
         .thenReturn(
             Optional.of(
-                new IngestionVersionMatrixService.MatrixResolution(
+                new IngestionCliVersionMatrixService.MatrixResolution(
                     MATRIX_SNOWFLAKE_VERSION,
-                    IngestionVersionMatrixService.MatrixSourceLevel.COHORT)));
+                    IngestionCliVersionMatrixService.MatrixSourceLevel.COHORT)));
     Mockito.when(matrix.getServerVersion()).thenReturn("1.3.1.4");
 
     CreateTestConnectionRequestResolver resolver =
@@ -222,7 +222,7 @@ public class CreateTestConnectionRequestResolverTest {
         runAndCaptureResolution(resolver, mockClient, TEST_INPUT_NO_VERSION);
 
     assertEquals(captured.getArgs().get("version"), MATRIX_SNOWFLAKE_VERSION);
-    com.linkedin.execution.CliVersionProvenance stamp = captured.getCliVersionProvenance();
+    com.linkedin.execution.CliVersionAudit stamp = captured.getCliVersionAudit();
     assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.MATRIX_COHORT);
     assertEquals(stamp.getServerVersion(), "1.3.1.4");
   }
@@ -232,7 +232,8 @@ public class CreateTestConnectionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
-    // No matrix configured — the explicit version must still produce a PER_SOURCE stamp.
+    // No matrix configured — the explicit version must still produce a SOURCE_CONFIG_OVERRIDE
+    // stamp.
     CreateTestConnectionRequestResolver resolver =
         new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
 
@@ -240,19 +241,19 @@ public class CreateTestConnectionRequestResolverTest {
         runAndCaptureResolution(resolver, mockClient, TEST_INPUT_WITH_VERSION);
 
     assertEquals(captured.getArgs().get("version"), EXPLICIT_VERSION);
-    com.linkedin.execution.CliVersionProvenance stamp = captured.getCliVersionProvenance();
-    assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.PER_SOURCE);
+    com.linkedin.execution.CliVersionAudit stamp = captured.getCliVersionAudit();
+    assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.SOURCE_CONFIG_OVERRIDE);
     // No matrix service wired → no serverVersion to stamp.
     assertFalse(stamp.hasServerVersion());
   }
 
   @Test
-  public void testStampsResolutionMetadata_workspaceDefault() throws Exception {
+  public void testStampsResolutionMetadata_applicationDefault() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
-    IngestionVersionMatrixService matrix = Mockito.mock(IngestionVersionMatrixService.class);
+    IngestionCliVersionMatrixService matrix = Mockito.mock(IngestionCliVersionMatrixService.class);
     Mockito.when(matrix.resolveVersionWithSource("snowflake")).thenReturn(Optional.empty());
     Mockito.when(matrix.getServerVersion()).thenReturn("1.3.1.4");
 
@@ -263,16 +264,16 @@ public class CreateTestConnectionRequestResolverTest {
         runAndCaptureResolution(resolver, mockClient, TEST_INPUT_NO_VERSION);
 
     assertEquals(captured.getArgs().get("version"), DEFAULT_VERSION);
-    com.linkedin.execution.CliVersionProvenance stamp = captured.getCliVersionProvenance();
-    assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.WORKSPACE_DEFAULT);
-    // serverVersion is stamped even on WORKSPACE_DEFAULT when the matrix service is wired.
+    com.linkedin.execution.CliVersionAudit stamp = captured.getCliVersionAudit();
+    assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.APPLICATION_DEFAULT);
+    // serverVersion is stamped even on APPLICATION_DEFAULT when the matrix service is wired.
     assertEquals(stamp.getServerVersion(), "1.3.1.4");
   }
 
   /**
    * Captures the proposal and returns the full {@link ExecutionRequestInput}, so tests can assert
-   * on both {@code args.version} (where the CLI version string lives) and {@code
-   * cliVersionProvenance} (where the provenance stamp lives).
+   * on both {@code args.version} (where the CLI version string lives) and {@code cliVersionAudit}
+   * (where the audit stamp lives).
    */
   private static ExecutionRequestInput runAndCaptureResolution(
       CreateTestConnectionRequestResolver resolver,
@@ -297,8 +298,8 @@ public class CreateTestConnectionRequestResolverTest {
             proposal.getAspect().getContentType(),
             ExecutionRequestInput.class);
     assertTrue(
-        recovered.hasCliVersionProvenance(),
-        "Expected cliVersionProvenance to be stamped on the ExecutionRequestInput");
+        recovered.hasCliVersionAudit(),
+        "Expected cliVersionAudit to be stamped on the ExecutionRequestInput");
     return recovered;
   }
 

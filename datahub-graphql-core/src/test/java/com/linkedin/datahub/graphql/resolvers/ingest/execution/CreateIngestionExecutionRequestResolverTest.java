@@ -20,7 +20,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.IngestionVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -114,7 +114,7 @@ public class CreateIngestionExecutionRequestResolverTest {
     config.setDefaultCliVersion("default-global");
 
     // Matrix maps "1.3.1.4" → { "snowflake": "matrix-snowflake-version" }
-    IngestionVersionMatrixService matrixService =
+    IngestionCliVersionMatrixService matrixService =
         matrixServiceForConnector("snowflake", "matrix-snowflake-version", "1.3.1.4");
 
     CreateIngestionExecutionRequestResolver resolver =
@@ -128,7 +128,7 @@ public class CreateIngestionExecutionRequestResolverTest {
    * When the matrix has no entry for the connector under the current server version, the resolver
    * falls back to the global {@code defaultCliVersion}. (Replaces the old {@code _default}
    * server-level fallback the previous schema offered — the new schema requires explicit
-   * per-connector entries, and unknown connectors fall through to the workspace default.)
+   * per-connector entries, and unknown connectors fall through to the application default.)
    */
   @Test
   public void testVersionMatrixConnectorNotPresent_fallsBackToDefaultCliVersion() throws Exception {
@@ -139,7 +139,7 @@ public class CreateIngestionExecutionRequestResolverTest {
     config.setDefaultCliVersion("default-global");
 
     // Matrix has snowflake only; mysql is absent.
-    IngestionVersionMatrixService matrixService =
+    IngestionCliVersionMatrixService matrixService =
         matrixServiceForConnector("snowflake", "matrix-snowflake-version", "1.3.1.4");
 
     CreateIngestionExecutionRequestResolver resolver =
@@ -159,9 +159,11 @@ public class CreateIngestionExecutionRequestResolverTest {
     config.setDefaultCliVersion("default-global");
 
     // Matrix service backed by a NoOp source → always returns empty
-    IngestionVersionMatrixService matrixService =
-        new IngestionVersionMatrixService(
-            new com.linkedin.metadata.ingestion.NoOpMatrixSource(), "1.3.1.4", null);
+    IngestionCliVersionMatrixService matrixService =
+        new IngestionCliVersionMatrixService(
+            new com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource(),
+            "1.3.1.4",
+            null);
 
     CreateIngestionExecutionRequestResolver resolver =
         new CreateIngestionExecutionRequestResolver(mockClient, config, matrixService);
@@ -215,7 +217,7 @@ public class CreateIngestionExecutionRequestResolverTest {
    *
    * <p>deploymentId is left null since these tests don't exercise cohort matching.
    */
-  private static IngestionVersionMatrixService matrixServiceForConnector(
+  private static IngestionCliVersionMatrixService matrixServiceForConnector(
       String connector, String version, String serverVersion) throws Exception {
     String json =
         String.format("{\"%s\":{\"%s\":{\"_default\":\"%s\"}}}", serverVersion, connector, version);
@@ -224,10 +226,11 @@ public class CreateIngestionExecutionRequestResolverTest {
     java.nio.file.Files.write(tmp, json.getBytes());
     tmp.toFile().deleteOnExit();
 
-    com.linkedin.metadata.ingestion.HttpUrlMatrixSource httpSource =
-        new com.linkedin.metadata.ingestion.HttpUrlMatrixSource(tmp.toUri().toString(), 3600);
-    IngestionVersionMatrixService svc =
-        new IngestionVersionMatrixService(httpSource, serverVersion, null);
+    com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource httpSource =
+        new com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource(
+            tmp.toUri().toString(), 3600);
+    IngestionCliVersionMatrixService svc =
+        new IngestionCliVersionMatrixService(httpSource, serverVersion, null);
 
     // Wait for the initial background fetch to complete
     for (int i = 0; i < 20; i++) {

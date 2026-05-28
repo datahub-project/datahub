@@ -4,20 +4,20 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Resolves a CLI version for a given connector type, walking a {@link Matrix} returned by a
- * pluggable {@link MatrixSource}.
+ * Resolves a CLI version for a given connector type, walking an {@link IngestionCliVersionMatrix}
+ * returned by a pluggable {@link IngestionCliVersionMatrixSource}.
  *
  * <p>This class owns the <em>resolution policy</em> only — cohort ordering, allowlist matching,
  * connector-default fallback, and forensic metadata stamping. Where the matrix data comes from
  * (HTTP, a GMS metadata aspect, a config server, an in-memory test fixture, …) is the {@link
- * MatrixSource}'s problem.
+ * IngestionCliVersionMatrixSource}'s problem.
  *
  * <p>Cohort-based rollouts are aimed at multi-tenant deployments. Single-tenant installations leave
  * the deployment identifier unset, which makes cohort matching a no-op and falls through to the
- * connector's {@code _default}. When no {@code MatrixSource} is configured at all, the {@link
- * NoOpMatrixSource} wired by the factory ensures every {@link #resolveVersionWithSource(String)}
- * returns {@link Optional#empty()}, preserving the existing {@code defaultCliVersion} behavior
- * bit-identically.
+ * connector's {@code _default}. When no {@code IngestionCliVersionMatrixSource} is configured at
+ * all, the {@link NoOpIngestionCliVersionMatrixSource} wired by the factory ensures every {@link
+ * #resolveVersionWithSource(String)} returns {@link Optional#empty()}, preserving the existing
+ * {@code defaultCliVersion} behavior bit-identically.
  *
  * <p>Resolution priority when picking a CLI version for an execution:
  *
@@ -34,14 +34,14 @@ import java.util.Optional;
  * <p>Cohorts are evaluated in array order; the first deployments-list hit wins. An empty or missing
  * {@code deployments} list never matches.
  */
-public class IngestionVersionMatrixService {
+public class IngestionCliVersionMatrixService {
 
-  private final MatrixSource source;
+  private final IngestionCliVersionMatrixSource source;
   private final String serverVersion;
   private final String deploymentId;
 
-  public IngestionVersionMatrixService(
-      MatrixSource source, String serverVersion, String deploymentId) {
+  public IngestionCliVersionMatrixService(
+      IngestionCliVersionMatrixSource source, String serverVersion, String deploymentId) {
     this.source = source;
     this.serverVersion = serverVersion;
     this.deploymentId = deploymentId;
@@ -57,7 +57,8 @@ public class IngestionVersionMatrixService {
    * source. Returns {@link Optional#empty()} when:
    *
    * <ul>
-   *   <li>The source returned an empty matrix (no data yet, or {@link NoOpMatrixSource})
+   *   <li>The source returned an empty matrix (no data yet, or {@link
+   *       NoOpIngestionCliVersionMatrixSource})
    *   <li>The current server version has no entry in the matrix
    *   <li>The connector has no entry under the current server version
    * </ul>
@@ -80,7 +81,7 @@ public class IngestionVersionMatrixService {
    * resulting execution request (for post-hoc forensics).
    */
   public Optional<MatrixResolution> resolveVersionWithSource(String connectorType) {
-    Matrix matrix = source.getMatrix();
+    IngestionCliVersionMatrix matrix = source.getMatrix();
     Map<String, ConnectorEntry> serverEntry = matrix.getEntriesForServer(serverVersion);
     if (serverEntry == null) {
       return Optional.empty();
