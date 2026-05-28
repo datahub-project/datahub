@@ -24,6 +24,7 @@ import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.CliVersionResolutionLogger;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -35,10 +36,12 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import lombok.extern.slf4j.Slf4j;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 /** Creates an on-demand ingestion execution request. */
+@Slf4j
 public class CreateIngestionExecutionRequestResolver
     implements DataFetcher<CompletableFuture<String>> {
 
@@ -158,6 +161,13 @@ public class CreateIngestionExecutionRequestResolver
                           : null);
               arguments.put(VERSION_ARG_NAME, resolution.getVersion());
               execInput.setCliVersionAudit(resolution.getStamp());
+              CliVersionResolutionLogger.log(
+                  log,
+                  CliVersionResolutionLogger.TRIGGER_MANUAL,
+                  resolution,
+                  ingestionSourceInfo.getType(),
+                  CliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+                  ingestionSourceUrn.toString());
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {
                 debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

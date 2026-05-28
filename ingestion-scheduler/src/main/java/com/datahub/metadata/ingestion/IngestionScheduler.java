@@ -18,6 +18,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.CliVersionResolutionLogger;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.query.ListResult;
@@ -432,6 +433,13 @@ public class IngestionScheduler {
                 versionMatrixService != null ? versionMatrixService.getServerVersion() : null);
         arguments.put(VERSION_ARGUMENT_NAME, resolution.getVersion());
         input.setCliVersionAudit(resolution.getStamp());
+        CliVersionResolutionLogger.log(
+            log,
+            CliVersionResolutionLogger.TRIGGER_SCHEDULED,
+            resolution,
+            ingestionSourceInfo.getType(),
+            CliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+            ingestionSourceUrn.toString());
         String debugMode = "false";
         if (ingestionSourceInfo.getConfig().hasDebugMode()) {
           debugMode = ingestionSourceInfo.getConfig().isDebugMode() ? "true" : "false";

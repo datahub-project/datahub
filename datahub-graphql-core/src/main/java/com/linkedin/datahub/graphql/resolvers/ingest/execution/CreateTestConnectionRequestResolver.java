@@ -17,6 +17,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.CliVersionResolutionLogger;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -124,10 +125,11 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             // input.getVersion() may be null, empty, or whitespace-only (UI forms can submit any
             // of these); the helper normalizes all three to "unset" and falls through to the
             // matrix / application default. See #17471 for the whitespace-only edge case.
+            final String connectorType = extractSourceType(input.getRecipe());
             final CliVersionResolutionHelper.Result resolution =
                 CliVersionResolutionHelper.resolve(
                     input.getVersion(),
-                    extractSourceType(input.getRecipe()),
+                    connectorType,
                     _versionMatrixService,
                     _ingestionConfiguration.getDefaultCliVersion(),
                     _versionMatrixService != null
@@ -138,6 +140,13 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             }
             execInput.setArgs(new StringMap(arguments));
             execInput.setCliVersionAudit(resolution.getStamp());
+            CliVersionResolutionLogger.log(
+                log,
+                CliVersionResolutionLogger.TRIGGER_TEST_CONNECTION,
+                resolution,
+                connectorType,
+                CliVersionResolutionLogger.IDENTIFIER_EXECUTION_REQUEST,
+                executionRequestUrn.toString());
 
             final MetadataChangeProposal proposal =
                 buildMetadataChangeProposalWithKey(
