@@ -4,7 +4,7 @@
     "language.description": "Wählen Sie Ihre bevorzugte Anzeigesprache",
     "language.title": "Sprache der Benutzeroberfläche",
     "noSettings": "Keine Erscheinungseinstellungen gefunden.",
-    "showApplications.description": "Anwendungen sind eine weitere Möglichkeit, Ihre Daten zu organisieren, ähnlich wie Domains. Sie sind standardmäßig ausgeblendet.",
+    "showApplications.description": "Anwendungen sind eine weitere Möglichkeit, Ihre Daten zu organisieren, ähnlich wie Domänen. Sie sind standardmäßig ausgeblendet.",
     "showApplications.successMessage": "Einstellung aktualisiert!",
     "showApplications.title": "Anwendungen anzeigen"
 }
