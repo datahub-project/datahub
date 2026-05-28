@@ -413,13 +413,31 @@ class TestAssertionTarget:
     dbt's model→table mapping. Siblings bridge logical → physical in the UI.
     """
 
+    def _assertion_target_urn(self, info) -> str:
+        """Return whichever sub-aspect's URN this assertion attaches to.
+
+        After the SQL-typed unknown-audit change, AssertionInfo carries
+        sqlAssertion.entity instead of datasetAssertion.dataset for custom
+        audits. Both should point at the SQLMesh URN for the same model.
+        """
+        if info.datasetAssertion is not None:
+            return info.datasetAssertion.dataset
+        if info.sqlAssertion is not None:
+            return info.sqlAssertion.entity
+        if info.freshnessAssertion is not None:
+            return info.freshnessAssertion.entity
+        if info.volumeAssertion is not None:
+            return info.volumeAssertion.entity
+        raise AssertionError(f"Assertion has no targeted sub-aspect: {info}")
+
     def test_assertion_dataset_matches_sqlmesh_urn(self):
         from datahub.metadata.schema_classes import AssertionInfoClass
 
         source = _make_source()
         model = _make_mock_model()
-        # Unknown audit name → dataset-level assertion (no column resolution
-        # needed), exercising the URN-attachment path without sqlglot mocks.
+        # Unknown audit name exercises the SQL-typed assertion path
+        # (sqlAssertion sub-aspect), which is the URN attachment we care
+        # about for custom audits.
         model.audits = [("some_custom_audit", {})]
 
         workunits = _run_project(source, {"star.dim_developer": model}, {})
@@ -430,12 +448,11 @@ class TestAssertionTarget:
             if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
         ]
         assert len(assertion_infos) >= 1
-        info = assertion_infos[0]
-        assert info.datasetAssertion is not None
+        target = self._assertion_target_urn(assertion_infos[0])
         # Assertion must target the SQLMesh logical URN, never the warehouse
         # URN — placement is by design, not coincidence.
-        assert SQLMESH_PLATFORM in info.datasetAssertion.dataset
-        assert WAREHOUSE_PLATFORM not in info.datasetAssertion.dataset
+        assert SQLMESH_PLATFORM in target
+        assert WAREHOUSE_PLATFORM not in target
 
     def test_embedded_model_assertion_targets_sqlmesh_urn(self):
         """Embedded sqlmesh models don't materialize to the warehouse, but the
@@ -454,7 +471,40 @@ class TestAssertionTarget:
             if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
         ]
         assert len(assertion_infos) >= 1
-        assert SQLMESH_PLATFORM in assertion_infos[0].datasetAssertion.dataset
+        target = self._assertion_target_urn(assertion_infos[0])
+        assert SQLMESH_PLATFORM in target
+
+    def test_unknown_audit_uses_sql_assertion_type(self):
+        """Custom audits land as AssertionTypeClass.SQL with SqlAssertionInfo,
+        not as DATASET + _NATIVE_. The statement carries the audit name as a
+        comment so the Validation tab links back to the source definition."""
+        from datahub.metadata.schema_classes import (
+            AssertionInfoClass,
+            AssertionTypeClass,
+        )
+
+        source = _make_source()
+        model = _make_mock_model()
+        model.audits = [("custom_drift_check", {"threshold": 0.05})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        assertion_infos = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+            and wu.metadata.aspect.type == AssertionTypeClass.SQL
+        ]
+        assert len(assertion_infos) >= 1
+        info = assertion_infos[0]
+        assert info.sqlAssertion is not None
+        assert info.sqlAssertion.type == "METRIC"
+        assert "custom_drift_check" in info.sqlAssertion.statement
+        # threshold kwarg surfaced into the statement comment
+        assert "threshold" in info.sqlAssertion.statement
+        # passing == "violation count is zero"
+        assert info.sqlAssertion.operator == "EQUAL_TO"
+        assert info.sqlAssertion.parameters.value.value == "0"
 
 
 class TestFreshnessAssertions:

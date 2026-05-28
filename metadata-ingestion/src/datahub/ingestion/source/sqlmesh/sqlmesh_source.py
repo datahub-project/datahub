@@ -129,6 +129,8 @@ from datahub.metadata.schema_classes import (
     PlatformTypeClass,
     RowCountTotalClass,
     SiblingsClass,
+    SqlAssertionInfoClass,
+    SqlAssertionTypeClass,
     StatusClass,
     VolumeAssertionInfoClass,
     VolumeAssertionTypeClass,
@@ -2231,6 +2233,77 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             props["sqlmesh.anomaly_detection"] = "requested"
         return props
 
+    def _emit_sql_audit(
+        self,
+        audit_name: str,
+        kw: Dict[str, Any],
+        dataset_urn: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit an AssertionTypeClass.SQL assertion for a custom / unknown audit.
+
+        Previously these landed as ``DATASET`` + ``_NATIVE_`` operator and
+        appeared on the Validation tab as opaque "native" rows. Emitting as
+        ``SQL`` lets the UI render them as SQL-typed checks and carries the
+        audit kwargs in the statement field for traceability.
+
+        Statement: best-effort reconstruction of what SQLMesh will execute.
+        SQLMesh audits parse to SQLGlot expressions inside ``kw``; for an
+        OSS connector we don't have the rendered SQL handy, so we encode
+        the audit invocation as a SQL comment that ends in ``SELECT 0`` so
+        the statement still parses. Cloud's monitor runner ignores the
+        statement when an external runner (SQLMesh CLI) provides results
+        via ``audit_results_path``; the field is informational on the
+        Validation tab.
+
+        Operator + parameters: pinned to ``EQUAL_TO 0``, matching SQLMesh's
+        "audit passes when the violation count is zero" semantics. The
+        ``audit_results_path`` JSON's ``failing_rows`` integer is the
+        ``actualAggValue`` we'd compare against once we emit run events.
+        """
+        assertion_urn = self._assertion_urn(dataset_urn, audit_name, "")
+
+        # Stringify whatever kwargs SQLMesh handed us into a comment block so
+        # the statement is at least a hint to humans inspecting the assertion.
+        # We're explicit about this being a stub — the authoritative SQL is
+        # in the SQLMesh model file. Skip noisy keys (sqlglot Expression
+        # objects render to giant trees by default).
+        kw_lines: List[str] = []
+        for k, v in (kw or {}).items():
+            rendered = str(v)
+            if len(rendered) > 200:
+                rendered = rendered[:200] + "…"
+            kw_lines.append(f"--   {k}: {rendered}")
+        statement = (
+            f"-- SQLMesh audit '{audit_name}'\n"
+            f"-- Authoritative SQL lives in the model definition; this is a stub.\n"
+            + ("\n".join(kw_lines) + "\n" if kw_lines else "")
+            + "SELECT 0"
+        )
+
+        assertion_info = AssertionInfoClass(
+            type=AssertionTypeClass.SQL,
+            source=mce_builder.make_assertion_source(),
+            customProperties=self._anomaly_custom_props({"sqlmesh.audit": audit_name}),
+            sqlAssertion=SqlAssertionInfoClass(
+                type=SqlAssertionTypeClass.METRIC,
+                entity=dataset_urn,
+                statement=statement,
+                operator=AssertionStdOperatorClass.EQUAL_TO,
+                parameters=AssertionStdParametersClass(
+                    value=AssertionStdParameterClass(
+                        value="0",
+                        type=AssertionStdParameterTypeClass.NUMBER,
+                    ),
+                ),
+            ),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=StatusClass(removed=False)
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=assertion_urn, aspect=assertion_info
+        ).as_workunit()
+
     def _emit_single_audit(
         self,
         audit_name: str,
@@ -2239,28 +2312,13 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         dataset_urn: str,
     ) -> Iterable[MetadataWorkUnit]:
         if params is None:
-            # Unknown audit type — emit a single native dataset-rows assertion.
-            assertion_urn = self._assertion_urn(dataset_urn, audit_name, "")
-            assertion_info = AssertionInfoClass(
-                type=AssertionTypeClass.DATASET,
-                source=mce_builder.make_assertion_source(),
-                customProperties=self._anomaly_custom_props(
-                    {"sqlmesh.audit": audit_name}
-                ),
-                datasetAssertion=DatasetAssertionInfoClass(
-                    dataset=dataset_urn,
-                    scope=DatasetAssertionScopeClass.DATASET_ROWS,
-                    operator=AssertionStdOperatorClass._NATIVE_,
-                    aggregation=AssertionStdAggregationClass._NATIVE_,
-                    nativeType=audit_name,
-                ),
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=StatusClass(removed=False)
-            ).as_workunit()
-            yield MetadataChangeProposalWrapper(
-                entityUrn=assertion_urn, aspect=assertion_info
-            ).as_workunit()
+            # Unknown / custom audit — emit as AssertionTypeClass.SQL so
+            # the Validation tab renders it as a SQL-typed check rather
+            # than an opaque "_NATIVE_" dataset assertion. The statement
+            # field carries whatever audit kwargs we can extract (commented
+            # so it parses as a SQL no-op) plus a pointer back to the
+            # model definition for the real SQL.
+            yield from self._emit_sql_audit(audit_name, kw, dataset_urn)
             return
 
         if params.uses_columns:
