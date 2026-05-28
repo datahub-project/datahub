@@ -659,6 +659,7 @@ entities:
       - domains
       - applications
       - dataProductProperties
+      - dataProductUpstreams
       - institutionalMemory
       - status
       - structuredProperties

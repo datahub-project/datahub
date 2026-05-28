@@ -1,0 +1,41 @@
+namespace com.linkedin.dataproduct
+
+
+/**
+ * Declared upstream lineage for a DataProduct.
+ *
+ * Each entry in `upstreams` is an explicit producer/consumer assertion that one
+ * DataProduct depends on another. Because DataProductUpstream marks its destination
+ * field as @Relationship.isLineage = true, edges declared here flow into the
+ * entity-lineage graph and are walked by searchAcrossLineage in the same pass as
+ * dataset / data-job lineage -- no aggregation resolver required.
+ *
+ * This aspect is intentionally orthogonal to:
+ *
+ *   - dataProductProperties.assets        -- which assets are members of the DP
+ *                                            (a "DataProductContains" edge, not
+ *                                            a lineage edge).
+ *   - UpstreamLineage on member datasets  -- asset-level lineage that the UI
+ *                                            renders as a visual DataProduct
+ *                                            bounding box overlay.
+ *
+ * Declared DP-to-DP edges are additive: a DataProduct may have declared upstream
+ * DataProducts AND have asset-level lineage between members of those DataProducts;
+ * both are surfaced in the lineage view at their respective layers.
+ *
+ * Aspect name `dataProductUpstreams` mirrors the entity-prefixed convention used
+ * by `dataJobInputOutput`, `dataProcessInstanceRelationships`, and
+ * `datasetUpstreamLineage`. The trailing "Lineage" suffix is omitted to match
+ * the shorter `*InputOutput` / `*Relationships` style and to keep the field name
+ * (`upstreams`) and the aspect name visually aligned.
+ */
+@Aspect = {
+  "name": "dataProductUpstreams"
+}
+record DataProductUpstreams {
+
+  /**
+   * List of declared upstream DataProducts.
+   */
+  upstreams: array[DataProductUpstream] = []
+}

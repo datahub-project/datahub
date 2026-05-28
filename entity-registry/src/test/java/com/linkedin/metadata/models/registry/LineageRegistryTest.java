@@ -66,6 +66,33 @@ public class LineageRegistryTest {
   }
 
   @Test
+  public void testDataProductDeclaredLineageRegistered() {
+    // The dataProductUpstreams aspect (see DataProductUpstream.pdl) declares a
+    // @Relationship with isLineage=true and entityTypes=[dataProduct]. Once the aspect is
+    // attached to the dataProduct entity in entity-registry.yml the LineageRegistry must
+    // surface a DataProduct -> DataProduct DownstreamOf edge in both directions, which is
+    // what lets searchAcrossLineage traverse declared DP↔DP edges natively without any
+    // resolver-level aggregation pass over member assets.
+    List<LineageRegistry.EdgeInfo> upstreamEdges =
+        lineageRegistry.getLineageRelationships("dataProduct", LineageDirection.UPSTREAM);
+    assertTrue(
+        upstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.OUTGOING, "dataProduct")),
+        "DataProduct should have an outgoing DownstreamOf edge to another DataProduct on the "
+            + "upstream side once dataProductUpstreams is registered");
+
+    List<LineageRegistry.EdgeInfo> downstreamEdges =
+        lineageRegistry.getLineageRelationships("dataProduct", LineageDirection.DOWNSTREAM);
+    assertTrue(
+        downstreamEdges.contains(
+            new LineageRegistry.EdgeInfo(
+                "DownstreamOf", RelationshipDirection.INCOMING, "dataProduct")),
+        "DataProduct should have an incoming DownstreamOf edge from another DataProduct on the "
+            + "downstream side once dataProductUpstreams is registered");
+  }
+
+  @Test
   public void testGetLineageRelationshipsForNonExistentEntity() {
     // Test
     List<LineageRegistry.EdgeInfo> edges =

@@ -1,0 +1,66 @@
+namespace com.linkedin.dataproduct
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+
+/**
+ * A single declared upstream lineage edge from one DataProduct to another.
+ *
+ * Edges declared via this record participate in the entity-lineage graph
+ * (isLineage = true), so searchAcrossLineage walks DataProduct -> DataProduct
+ * natively without any aggregation pass over member assets. This is the
+ * "first-class" lineage relationship for DataProducts; lineage that is only
+ * derivable by walking members (the assets owned by a DataProduct and their
+ * own UpstreamLineage) is rendered as a visual overlay by the UI and is not
+ * stored as a relationship here.
+ */
+record DataProductUpstream {
+
+  /**
+   * Audit stamp for the most recent update of this lineage edge.
+   */
+  auditStamp: AuditStamp = {
+    "time": 0,
+    "actor": "urn:li:corpuser:unknown"
+  }
+
+  /**
+   * Audit stamp for the original creation of this lineage edge.
+   */
+  created: optional AuditStamp
+
+  /**
+   * The upstream DataProduct that the owning DataProduct depends on.
+   *
+   * Restricted to dataProduct URNs in this revision. The entityTypes list may
+   * be widened in a future revision to allow declared edges to non-DataProduct
+   * entities (e.g. raw datasets that are not yet wrapped in a DataProduct);
+   * any such extension is non-breaking because consumers already address the
+   * field via the generic Urn type.
+   */
+  @Relationship = {
+    "name": "DownstreamOf",
+    "entityTypes": [ "dataProduct" ],
+    "isLineage": true,
+    "createdOn": "upstreams/*/created/time"
+    "createdActor": "upstreams/*/created/actor"
+    "updatedOn": "upstreams/*/auditStamp/time"
+    "updatedActor": "upstreams/*/auditStamp/actor"
+    "properties": "upstreams/*/properties"
+  }
+  @Searchable = {
+    "fieldName": "upstreamDataProducts",
+    "hasValuesFieldName": "hasUpstreamDataProducts",
+    "fieldType": "URN",
+    "queryByDefault": false
+  }
+  dataProduct: Urn
+
+  /**
+   * Free-form properties bag attached to the edge. Typically populated by the
+   * connector or governance tool that asserted the lineage (contract identifier,
+   * SLA tier, etc.); not interpreted server-side.
+   */
+  properties: optional map[string, string]
+}
