@@ -97,8 +97,10 @@ public class CreateTestConnectionRequestResolverTest {
 
   @Test
   public void testEmptyVersionFallsBackToDefault() throws Exception {
-    // Bootstrap YAML templating can render input.version as an empty string; the helper normalizes
-    // that to "unset" so we still fall through to defaultCliVersion. See #17471.
+    // Bootstrap YAML templating can render input.version as an empty string (or whitespace-only)
+    // when the source has no version pin; the helper normalizes that to "unset" so we still fall
+    // through to defaultCliVersion. Without this, the blank would forward to the executor and
+    // silently pin to its bundled CLI.
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);

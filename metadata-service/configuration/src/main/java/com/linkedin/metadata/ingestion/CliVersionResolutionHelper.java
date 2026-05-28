@@ -61,9 +61,11 @@ public final class CliVersionResolutionHelper {
       @Nullable String serverVersion) {
 
     // Normalize the per-source version: bootstrap YAML templating can render null, empty, or
-    // whitespace-only strings, and all three should mean "unset" so we fall through to the
-    // matrix / application default. Matches the contract of
-    // IngestionUtils.resolveIngestionCliVersion(...) introduced in #17471.
+    // whitespace-only strings (a source created with no version pin renders as
+    // `version: "   "` after Mustache substitution), and all three must mean "unset" so we fall
+    // through to the matrix / application default. Without this trim, a blank template would
+    // forward verbatim to the executor and silently pin to whatever CLI it ships with —
+    // defeating both defaultCliVersion and the matrix.
     final String normalizedExplicit =
         explicitVersion != null && !explicitVersion.trim().isEmpty()
             ? explicitVersion.trim()

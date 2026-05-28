@@ -64,11 +64,27 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   private static final int FETCH_TIMEOUT_MS = 10_000;
 
   /**
-   * Basic version-string shape — alphanumeric, underscore, dot, plus, exclamation, hyphen. Catches
-   * obvious typos (whitespace, embedded JSON, HTML, etc.) without trying to validate PEP 440 fully.
-   * pip will catch any version that doesn't actually exist on PyPI; this check exists so operators
-   * fat-fingering the matrix file get a clean WARN at fetch time rather than a cryptic pip error
+   * Permissive cleanliness check for version strings — NOT a PEP 440 validator. The regex accepts
+   * any non-empty string composed of alphanumerics, underscore, dot, plus, exclamation, and hyphen.
+   * We deliberately do not parse semantic version structure (release segments, pre / post / dev
+   * tags, local version identifier) because pip is the source of truth: any string that passes here
+   * but isn't a real PyPI release surfaces a clear "No matching distribution" error from pip at
+   * install time. This check exists so operator fat-fingering of the matrix file (pasting HTML,
+   * whitespace, JSON) produces a structured WARN at fetch time rather than a cryptic pip error
    * minutes later on every execution.
+   *
+   * <p>Accepts every shape DataHub publishes to PyPI today:
+   *
+   * <ul>
+   *   <li>{@code 1.5.0.5}, {@code 1.4.0.3} — standard release
+   *   <li>{@code 1.5.0.6rc1} — release candidate
+   *   <li>{@code 1.5.0.13.post1} — post-release
+   *   <li>{@code 1!0.0.0.dev0} — PEP 440 epoch + dev tag
+   *   <li>{@code acryl-1.6.0+acryl.20251031} — internal build with local version identifier
+   * </ul>
+   *
+   * <p>Rejects: whitespace, embedded JSON like {@code {"version":"…"}}, HTML fragments, URLs,
+   * anything containing characters outside the allowed set.
    */
   private static final Pattern VALID_VERSION_PATTERN = Pattern.compile("^[\\w.+!-]+$");
 

@@ -13,10 +13,10 @@ import org.testng.annotations.Test;
  *
  * <p>Covers the precedence ladder (source config override &gt; matrix cohort &gt; matrix connector
  * default &gt; application default) and the per-source normalization contract (null, empty, and
- * whitespace-only strings all fall through to the next tier). The whitespace case matches the
- * contract of {@code IngestionUtils.resolveIngestionCliVersion(...)} from #17471 — bootstrap YAML
- * templating can render any of the three, and forwarding them to the executor silently picks the
- * bundled CLI rather than the configured default.
+ * whitespace-only strings all fall through to the next tier). The whitespace case matters because
+ * bootstrap YAML templating renders {@code version: "{{ config.version }}"} as three spaces when
+ * the source has no version pin — forwarding that verbatim to the executor would silently pin to
+ * the bundled CLI rather than the configured default.
  */
 public class CliVersionResolutionHelperTest {
 
@@ -64,9 +64,10 @@ public class CliVersionResolutionHelperTest {
 
   @Test
   public void testPerSourceWhitespaceOnlyFallsThroughToDefault() {
-    // Documents the contract from #17471: a bootstrap YAML field that renders as a blank string
-    // must be treated as "unset" so we hit the application default rather than passing the blank
-    // through to the executor.
+    // A bootstrap YAML field rendered through Mustache as `version: "   "` (3 spaces, what we get
+    // when the source has no version pin) must be treated as "unset" — otherwise we'd forward the
+    // blank string to the executor, which would silently use its bundled CLI rather than the
+    // configured application default.
     CliVersionResolutionHelper.Result result =
         CliVersionResolutionHelper.resolve("   ", null, null, DEFAULT_CLI, SERVER_VERSION);
 
