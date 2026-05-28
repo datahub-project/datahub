@@ -75,6 +75,13 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   /** Seconds to wait for the refresh thread to drain on graceful shutdown. */
   private static final int SHUTDOWN_TIMEOUT_SECONDS = 5;
 
+  /**
+   * Thread name for the background refresh worker. Named so it stands out in thread dumps (the
+   * default {@code Executors.defaultThreadFactory()} would produce {@code pool-N-thread-1}, which
+   * gives an operator triaging a hung pod no idea what the thread does).
+   */
+  private static final String REFRESH_THREAD_NAME = "ingestion-cli-version-matrix-refresh";
+
   private final String url;
   @Nullable private final String authHeader;
   private final AtomicReference<IngestionCliVersionMatrix> cached;
@@ -100,7 +107,15 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
     this.lastFetchedAtMillis = new AtomicLong(0L);
     this.objectMapper = new ObjectMapper();
 
-    this.executor = Executors.newSingleThreadScheduledExecutor();
+    this.executor =
+        Executors.newSingleThreadScheduledExecutor(
+            r -> {
+              Thread t = new Thread(r, REFRESH_THREAD_NAME);
+              // Daemon so the JVM can still exit cleanly if @PreDestroy somehow doesn't fire
+              // (kill -9, container-runtime quirks). PreDestroy remains the primary shutdown path.
+              t.setDaemon(true);
+              return t;
+            });
     // Fetch immediately on startup (delay=0), then repeat on the configured interval.
     this.executor.scheduleAtFixedRate(this::refresh, 0, refreshIntervalSeconds, TimeUnit.SECONDS);
   }

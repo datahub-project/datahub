@@ -499,6 +499,48 @@ public class IngestionCliVersionMatrixServiceTest {
   }
 
   // -------------------------------------------------------------------------
+  // Thread-factory plumbing — name + daemon flag. Generic `pool-N-thread-1`
+  // names are useless in production thread dumps; daemon is belt-and-suspenders
+  // with the @PreDestroy shutdown hook in case the hook never fires.
+  // -------------------------------------------------------------------------
+
+  @Test
+  public void testRefreshThreadIsNamedAndDaemon() throws Exception {
+    // file:// URI is fine for this test — we just need the source to spin up its scheduler;
+    // the fetch itself is not what we're inspecting.
+    Path tmp = Files.createTempFile("thread-name", ".json");
+    Files.write(tmp, MATRIX_JSON.getBytes());
+    tmp.toFile().deleteOnExit();
+
+    HttpUrlIngestionCliVersionMatrixSource source =
+        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+    try {
+      waitForFirstFetch(source);
+
+      // Scan live threads for ours. Using Thread.getAllStackTraces() means we don't need to reach
+      // into the executor's internals — we just verify the thread exists with the expected name
+      // and is daemon, which is what an operator reading a thread dump would care about.
+      Thread refreshThread =
+          Thread.getAllStackTraces().keySet().stream()
+              .filter(t -> "ingestion-cli-version-matrix-refresh".equals(t.getName()))
+              .findFirst()
+              .orElse(null);
+
+      assertNotNull(
+          refreshThread,
+          "Refresh thread should carry a descriptive name (not the default pool-N-thread-1) so it "
+              + "is identifiable in thread dumps");
+      assertTrue(
+          refreshThread.isDaemon(),
+          "Refresh thread should be a daemon thread so the JVM can exit cleanly even if "
+              + "@PreDestroy is never called (e.g. forced kill, container-runtime edge cases)");
+    } finally {
+      // Clean shutdown so the daemon thread doesn't linger into the next test.
+      source.shutdown();
+    }
+  }
+
+  // -------------------------------------------------------------------------
   // Shutdown lifecycle — Spring @PreDestroy must terminate the refresh thread.
   // Without this, a redeployment / context restart would leak the
   // single-thread scheduled executor and keep the JVM from exiting cleanly.
