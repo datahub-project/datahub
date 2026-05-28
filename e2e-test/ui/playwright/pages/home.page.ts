@@ -101,19 +101,16 @@ export class HomePage extends BasePage {
 
   async getYourAssetsEntityCount(): Promise<number> {
     await this.yourAssetsModule.waitFor({ state: 'visible' });
-    await this.userOwnedEntities.waitFor({ state: 'visible' });
     return await this.yourAssetsEntityItems.count();
   }
 
   async getDomainsEntityCount(): Promise<number> {
     await this.domainsModule.waitFor({ state: 'visible' });
-    await this.domainEntities.waitFor({ state: 'visible' });
     return await this.domainsEntityItems.count();
   }
 
   async getPlatformsEntityCount(): Promise<number> {
     await this.platformsModule.waitFor({ state: 'visible' });
-    await this.platformEntities.waitFor({ state: 'visible' });
     return await this.platformsEntityItems.count();
   }
 
