@@ -595,6 +595,20 @@ class TableauConfig(
         description="Mappings to change platform instance in generated dataset urns based on database. Use only if you really know what you are doing.",
     )
 
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = Field(
+        default=None,
+        description=(
+            "Mappings from Tableau database UUIDs (the `id` field on Tableau's "
+            "DatabaseServer records) to DataHub platform_instance values. Use "
+            "this when multiple connections share the same hostname — for "
+            "example AWS Athena workgroups behind a region-level endpoint like "
+            "`athena.us-east-1.amazonaws.com` — so `database_hostname_to_platform"
+            "_instance_map` cannot disambiguate them. UUIDs are discoverable via "
+            "the Tableau Metadata API's `databaseServers` query. When set, takes "
+            "precedence over hostname-based routing."
+        ),
+    )
+
     extract_usage_stats: bool = Field(
         default=False,
         description="[experimental] Extract usage statistics for dashboards and charts.",
@@ -2120,6 +2134,7 @@ class TableauSiteSource:
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
                 self.database_server_hostname_map,
+                self.config.database_id_to_platform_instance_map,
             )
             table_id_to_urn[table[c.ID]] = table_urn
 
@@ -2692,6 +2707,7 @@ class TableauSiteSource:
                     Optional[TableauLineageOverrides],
                     Optional[Dict[str, str]],
                     Optional[Dict[str, str]],
+                    Optional[Dict[str, str]],
                 ],
                 Tuple[Optional[str], Optional[str], str, str],
             ]
@@ -2739,6 +2755,7 @@ class TableauSiteSource:
                 self.config.lineage_overrides,
                 self.config.database_hostname_to_platform_instance_map,
                 self.database_server_hostname_map,
+                self.config.database_id_to_platform_instance_map,
             )
 
         logger.debug(
@@ -4076,10 +4093,11 @@ class TableauSiteSource:
                 platform_instance_map=self.config.platform_instance_map,
                 database_hostname_to_platform_instance_map=self.config.database_hostname_to_platform_instance_map,
                 database_server_hostname_map=self.database_server_hostname_map,
+                database_id_to_platform_instance_map=self.config.database_id_to_platform_instance_map,
             )
 
             fully_qualified_name = get_fully_qualified_table_name(
-                platform=original_platform,
+                platform=platform,
                 upstream_db=upstream_db or "",
                 schema=schema,
                 table_name=raw_table_name,

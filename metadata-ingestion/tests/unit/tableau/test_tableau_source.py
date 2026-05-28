@@ -351,6 +351,70 @@ def test_lineage_overrides_presto_to_athena():
     )
 
 
+def test_database_id_to_platform_instance_map_routes_per_uuid():
+    # When multiple Athena workgroups (PROD/DEV/STG) share a region-level
+    # hostname, hostname-based routing collapses them onto a single instance.
+    # The Tableau database UUID stays distinct per connection, so a
+    # database_id_to_platform_instance_map can disambiguate.
+    prod_uuid = "uuid-prod"
+    dev_uuid = "uuid-dev"
+    stg_uuid = "uuid-stg"
+
+    id_map = {
+        prod_uuid: "athena_prod_instance",
+        dev_uuid: "athena_dev_instance",
+        stg_uuid: "athena_stg_instance",
+    }
+
+    for uuid, expected_instance in id_map.items():
+        assert (
+            TableauUpstreamReference(
+                "hive",
+                uuid,
+                "test-schema",
+                "test-table",
+                "presto",
+            ).make_dataset_urn(
+                env=DEFAULT_ENV,
+                platform_instance_map=None,
+                lineage_overrides=TableauLineageOverrides(
+                    platform_override_map={"presto": "athena"},
+                ),
+                database_id_to_platform_instance_map=id_map,
+            )
+            == f"urn:li:dataset:(urn:li:dataPlatform:athena,{expected_instance}.test-schema.test-table,PROD)"
+        )
+
+
+def test_database_id_to_platform_instance_map_wins_over_hostname():
+    # When both maps could match, UUID routing wins because it identifies one
+    # connection unambiguously whereas a hostname can collide across envs.
+    uuid = "uuid-prod"
+    shared_hostname = "athena.us-east-1.amazonaws.com"
+
+    assert (
+        TableauUpstreamReference(
+            "hive",
+            uuid,
+            "test-schema",
+            "test-table",
+            "presto",
+        ).make_dataset_urn(
+            env=DEFAULT_ENV,
+            platform_instance_map=None,
+            lineage_overrides=TableauLineageOverrides(
+                platform_override_map={"presto": "athena"},
+            ),
+            database_hostname_to_platform_instance_map={
+                shared_hostname: "wrong_instance",
+            },
+            database_server_hostname_map={uuid: shared_hostname},
+            database_id_to_platform_instance_map={uuid: "right_instance"},
+        )
+        == "urn:li:dataset:(urn:li:dataPlatform:athena,right_instance.test-schema.test-table,PROD)"
+    )
+
+
 def test_database_hostname_to_platform_instance_map():
     # Simple - snowflake table
     assert (

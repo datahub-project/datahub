@@ -797,6 +797,7 @@ class TableauUpstreamReference:
         lineage_overrides: Optional[TableauLineageOverrides] = None,
         database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
         database_server_hostname_map: Optional[Dict[str, str]] = None,
+        database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
     ) -> str:
         (
             upstream_db,
@@ -811,6 +812,7 @@ class TableauUpstreamReference:
             platform_instance_map=platform_instance_map,
             database_hostname_to_platform_instance_map=database_hostname_to_platform_instance_map,
             database_server_hostname_map=database_server_hostname_map,
+            database_id_to_platform_instance_map=database_id_to_platform_instance_map,
         )
 
         # Build the URN with the overridden platform's semantics so the result
@@ -836,6 +838,7 @@ def get_overridden_info(
     lineage_overrides: Optional[TableauLineageOverrides] = None,
     database_hostname_to_platform_instance_map: Optional[Dict[str, str]] = None,
     database_server_hostname_map: Optional[Dict[str, str]] = None,
+    database_id_to_platform_instance_map: Optional[Dict[str, str]] = None,
 ) -> Tuple[Optional[str], Optional[str], str, str]:
     original_platform = platform = get_platform(connection_type)
     if (
@@ -867,6 +870,17 @@ def get_overridden_info(
             and hostname in database_hostname_to_platform_instance_map
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
+
+    # UUID-based routing wins over hostname-based routing because it's strictly
+    # more specific: one Tableau database UUID identifies exactly one connection,
+    # whereas a hostname can be shared across connections (e.g. AWS Athena
+    # workgroups behind a region-level endpoint).
+    if (
+        database_id_to_platform_instance_map is not None
+        and upstream_db_id is not None
+        and upstream_db_id in database_id_to_platform_instance_map
+    ):
+        platform_instance = database_id_to_platform_instance_map[upstream_db_id]
 
     # Two-tier check uses the overridden platform: when a three-tier source
     # (e.g. presto) is remapped to a two-tier target (e.g. athena), the URN
