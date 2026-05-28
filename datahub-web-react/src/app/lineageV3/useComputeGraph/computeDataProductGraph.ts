@@ -350,7 +350,7 @@ interface NeighborDataProductGroup {
     direction?: LineageDirection;
 }
 
-function addNeighborDataProductBoxes(
+export function addNeighborDataProductBoxes(
     flowNodes: LineageVisualizationNode[],
     nodes: NodeContext['nodes'],
     adjacencyList: NodeContext['adjacencyList'],
