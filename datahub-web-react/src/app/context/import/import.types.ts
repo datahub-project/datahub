@@ -10,4 +10,7 @@ export enum ImportSourceType {
     CONFLUENCE = 'CONFLUENCE',
 }
 
+/** Context docs import always creates editable native documents by default. */
+export const CONTEXT_DOCUMENT_IMPORT_MODE = 'NATIVE' as const;
+
 export type ImportStep = 'source' | 'configure' | 'importing' | 'result';

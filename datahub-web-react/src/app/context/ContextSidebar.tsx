@@ -265,11 +265,7 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
-    const handleImportSuccess = useDocumentImportSuccess({
-        expandNode,
-        getNode,
-        loadChildren,
-    });
+    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
 
     return (
         <SidebarContainer
@@ -282,9 +278,7 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>Documents</SidebarTitle>}
                 <HeaderButtons>
-                    {!isCollapsed && canCreateDocuments && (
-                        <ImportDocumentsButton defaultParentUrn={currentDocumentUrn} onSuccess={handleImportSuccess} />
-                    )}
+                    {!isCollapsed && canCreateDocuments && <ImportDocumentsButton onSuccess={handleImportSuccess} />}
                     {!isCollapsed && (
                         <Tooltip
                             title={

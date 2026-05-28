@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import ImportDocumentsModal from '@app/context/import/ImportDocumentsModal';
 import '@app/context/import/__tests__/testSetup';
-import { DocumentTreeContext, DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 const mockLaunchDocumentIngestion = vi.fn();
@@ -22,34 +21,16 @@ vi.mock('@app/context/useUserContext', () => ({
 
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({
-        featureFlags: { showIngestionPageRedesign: true },
+        config: {
+            featureFlags: { showIngestionPageRedesign: true },
+        },
+        loaded: true,
     }),
 }));
 
-const mockDocumentTreeContextValue = {
-    nodes: new Map<string, DocumentTreeNode>(),
-    rootUrns: [],
-    expandedUrns: new Set<string>(),
-    getNode: vi.fn(),
-    getRootNodes: vi.fn().mockReturnValue([]),
-    getChildren: vi.fn().mockReturnValue([]),
-    updateNodeTitle: vi.fn(),
-    moveNode: vi.fn(),
-    deleteNode: vi.fn(),
-    addNode: vi.fn(),
-    setNodeChildren: vi.fn(),
-    initializeTree: vi.fn(),
-    setExpandedUrns: vi.fn(),
-    toggleExpanded: vi.fn(),
-    expandNode: vi.fn(),
-    collapseNode: vi.fn(),
-};
-
 const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
     <MockedProvider mocks={[]} addTypename={false}>
-        <CustomThemeProvider>
-            <DocumentTreeContext.Provider value={mockDocumentTreeContextValue}>{children}</DocumentTreeContext.Provider>
-        </CustomThemeProvider>
+        <CustomThemeProvider>{children}</CustomThemeProvider>
     </MockedProvider>
 );
 
@@ -73,7 +54,7 @@ describe('ImportDocumentsModal', () => {
 
         expect(screen.getByText('Import Documents')).toBeInTheDocument();
         expect(screen.getByText('Upload Files')).toBeInTheDocument();
-        expect(screen.getByText('GitHub Repository')).toBeInTheDocument();
+        expect(screen.getByText('GitHub')).toBeInTheDocument();
     });
 
     it('navigates to file upload configuration when Upload Files is clicked', async () => {
@@ -90,7 +71,7 @@ describe('ImportDocumentsModal', () => {
         });
     });
 
-    it('launches ingestion setup when GitHub Repository is selected', async () => {
+    it('launches ingestion setup immediately when GitHub is selected', () => {
         const onClose = vi.fn();
         render(
             <Wrapper>
@@ -98,30 +79,10 @@ describe('ImportDocumentsModal', () => {
             </Wrapper>,
         );
 
-        fireEvent.click(screen.getByText('GitHub Repository'));
+        fireEvent.click(screen.getByText('GitHub'));
 
-        await waitFor(() => {
-            expect(screen.getByText('Continue to setup')).toBeInTheDocument();
-        });
-
-        fireEvent.click(screen.getByText('Continue to setup'));
-
-        expect(mockLaunchDocumentIngestion).toHaveBeenCalled();
+        expect(mockLaunchDocumentIngestion).toHaveBeenCalledWith({ source: 'GITHUB' });
         expect(onClose).toHaveBeenCalled();
-    });
-
-    it('shows parent selector in configure step', async () => {
-        render(
-            <Wrapper>
-                <ImportDocumentsModal visible onClose={vi.fn()} />
-            </Wrapper>,
-        );
-
-        fireEvent.click(screen.getByText('Upload Files'));
-
-        await waitFor(() => {
-            expect(screen.getByText('Import into:')).toBeInTheDocument();
-        });
     });
 
     it('shows Cancel button on source step', () => {

@@ -3,6 +3,7 @@
 import pytest
 from pydantic import SecretStr, ValidationError
 
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
 
 
@@ -192,15 +193,23 @@ def test_multiple_page_ids():
 
 def test_document_import_mode_defaults_to_external():
     config = NotionSourceConfig(api_key=SecretStr("secret_test_key"))
-    assert config.document_import_mode.value == "EXTERNAL"
+    assert config.document_import_mode == DocumentImportMode.EXTERNAL
     assert config.document_mapping.source.type == "EXTERNAL"
 
 
-def test_document_import_mode_native():
-    from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
-
+def test_native_mode_sets_mapping():
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         document_import_mode=DocumentImportMode.NATIVE,
     )
+    assert config.document_import_mode == DocumentImportMode.NATIVE
     assert config.document_mapping.source.type == "NATIVE"
+
+
+def test_external_mode_sets_mapping():
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        document_import_mode=DocumentImportMode.EXTERNAL,
+    )
+    assert config.document_import_mode == DocumentImportMode.EXTERNAL
+    assert config.document_mapping.source.type == "EXTERNAL"

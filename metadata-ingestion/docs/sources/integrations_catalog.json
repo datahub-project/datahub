@@ -990,7 +990,7 @@
   "github-documents": {
     "platform_type": "Collaboration",
     "connection_type": "Pull",
-    "description": "Import markdown and text files from a GitHub repository as DataHub Documents on a schedule.",
+    "description": "Import files from a GitHub repository as DataHub Documents on a schedule.",
     "img_path": "img/logos/platforms/github.svg"
   },
   "excel": {

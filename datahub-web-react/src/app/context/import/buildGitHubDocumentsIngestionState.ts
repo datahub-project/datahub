@@ -1,14 +1,9 @@
 import { buildIngestionSourceState } from '@app/context/import/buildIngestionSourceState';
+import { CONTEXT_DOCUMENT_IMPORT_MODE } from '@app/context/import/import.types';
 
 const GITHUB_DOCUMENTS_SOURCE_TYPE = 'github-documents';
 
-type BuildGitHubDocumentsIngestionStateParams = {
-    parentDocumentUrn?: string | null;
-};
-
-export function buildGitHubDocumentsIngestionState({ parentDocumentUrn }: BuildGitHubDocumentsIngestionStateParams) {
-    const parentUrnYaml = parentDocumentUrn ? `"${parentDocumentUrn}"` : 'null';
-
+export function buildGitHubDocumentsIngestionState() {
     const recipe = `source:
   type: github-documents
   config:
@@ -19,8 +14,7 @@ export function buildGitHubDocumentsIngestionState({ parentDocumentUrn }: BuildG
     file_extensions:
       - .md
       - .txt
-    parent_document_urn: ${parentUrnYaml}
-    document_import_mode: NATIVE
+    document_import_mode: ${CONTEXT_DOCUMENT_IMPORT_MODE}
     show_in_global_context: true
 
 sink:
@@ -31,8 +25,8 @@ sink:
 
     return buildIngestionSourceState({
         sourceType: GITHUB_DOCUMENTS_SOURCE_TYPE,
-        displayName: 'GitHub Documents',
-        recipe,
+        displayName: 'GitHub',
+        recipeYaml: recipe,
     });
 }
 

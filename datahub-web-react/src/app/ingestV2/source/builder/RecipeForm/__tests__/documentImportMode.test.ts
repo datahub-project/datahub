@@ -26,4 +26,22 @@ describe('documentImportMode', () => {
         const recipe = { source: { config: { document_import_mode: 'EXTERNAL' } } };
         expect(GITHUB_DOCUMENTS_IMPORT_MODE.getValueFromRecipeOverride?.(recipe)).toBe('EXTERNAL');
     });
+
+    it('writes Notion default EXTERNAL mode into recipe when unset', () => {
+        const recipe = { source: { type: 'notion', config: {} } };
+        const updated = NOTION_DOCUMENTS_IMPORT_MODE.setValueOnRecipeOverride?.(recipe, undefined);
+        expect(updated.source.config.document_import_mode).toBe('EXTERNAL');
+    });
+
+    it('writes Confluence default EXTERNAL mode into recipe when unset', () => {
+        const recipe = { source: { type: 'confluence', config: {} } };
+        const updated = CONFLUENCE_DOCUMENTS_IMPORT_MODE.setValueOnRecipeOverride?.(recipe, undefined);
+        expect(updated.source.config.document_import_mode).toBe('EXTERNAL');
+    });
+
+    it('writes NATIVE mode into Notion recipe when selected', () => {
+        const recipe = { source: { type: 'notion', config: {} } };
+        const updated = NOTION_DOCUMENTS_IMPORT_MODE.setValueOnRecipeOverride?.(recipe, 'NATIVE');
+        expect(updated.source.config.document_import_mode).toBe('NATIVE');
+    });
 });

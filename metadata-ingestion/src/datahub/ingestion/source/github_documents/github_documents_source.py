@@ -6,6 +6,10 @@ import logging
 import os
 from typing import Dict, Iterable, Optional
 
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -39,7 +43,10 @@ from datahub.ingestion.source.github_documents.github_documents_report import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import DocumentStateClass
+from datahub.metadata.schema_classes import (
+    DataPlatformInstanceClass,
+    DocumentStateClass,
+)
 from datahub.sdk.document import Document
 
 logger = logging.getLogger(__name__)
@@ -260,6 +267,13 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
         return self.config.parent_document_urn
 
+    def _build_github_external_url(
+        self, owner_repo: str, branch: str, github_path: str
+    ) -> str:
+        return (
+            f"https://github.com/{owner_repo}/blob/{branch}/{github_path.lstrip('/')}"
+        )
+
     def _build_document(
         self,
         doc_id: str,
@@ -271,8 +285,11 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         parent_document: Optional[str],
         custom_properties: Dict[str, str],
     ) -> Document:
+        external_url = self._build_github_external_url(owner_repo, branch, github_path)
+        external_id = github_path or owner_repo
+
         if self.config.document_import_mode == DocumentImportMode.NATIVE:
-            return Document.create_document(
+            doc = Document.create_document(
                 id=doc_id,
                 title=title,
                 text=text,
@@ -281,21 +298,34 @@ class GitHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 parent_document=parent_document,
                 show_in_global_context=self.config.show_in_global_context,
             )
+            doc.set_source(
+                "NATIVE",
+                external_url=external_url,
+                external_id=external_id,
+            )
+        else:
+            doc = Document.create_external_document(
+                id=doc_id,
+                title=title,
+                platform=self.platform,
+                external_url=external_url,
+                external_id=external_id,
+                text=text,
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties=custom_properties,
+                parent_document=parent_document,
+                show_in_global_context=self.config.show_in_global_context,
+            )
 
-        external_url = (
-            f"https://github.com/{owner_repo}/blob/{branch}/{github_path.lstrip('/')}"
-        )
-        return Document.create_external_document(
-            id=doc_id,
-            title=title,
-            platform=self.platform,
-            external_url=external_url,
-            external_id=github_path,
-            text=text,
-            status=DocumentStateClass.PUBLISHED,
-            custom_properties=custom_properties,
-            parent_document=parent_document,
-            show_in_global_context=self.config.show_in_global_context,
+        self._attach_platform_instance(doc, owner_repo)
+        return doc
+
+    def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
+        doc._set_aspect(
+            DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.platform),
+                instance=make_dataplatform_instance_urn(self.platform, owner_repo),
+            )
         )
 
     def get_report(self) -> GitHubDocumentsSourceReport:

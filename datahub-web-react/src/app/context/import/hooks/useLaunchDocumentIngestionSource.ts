@@ -17,31 +17,30 @@ import { useLaunchIngestionSourceCreate } from '@app/ingestV2/source/multiStepBu
 
 type LaunchDocumentIngestionSourceParams = {
     source: ImportSourceType;
-    parentDocumentUrn?: string | null;
 };
 
 export function useLaunchDocumentIngestionSource() {
     const launchIngestionSourceCreate = useLaunchIngestionSourceCreate();
 
     return useCallback(
-        ({ source, parentDocumentUrn }: LaunchDocumentIngestionSourceParams) => {
+        ({ source }: LaunchDocumentIngestionSourceParams) => {
             switch (source) {
                 case ImportSourceType.GITHUB:
                     launchIngestionSourceCreate({
                         sourceType: GITHUB_DOCUMENTS_INGESTION_SOURCE_TYPE,
-                        initialBuilderState: buildGitHubDocumentsIngestionState({ parentDocumentUrn }),
+                        initialBuilderState: buildGitHubDocumentsIngestionState(),
                     });
                     break;
                 case ImportSourceType.NOTION:
                     launchIngestionSourceCreate({
                         sourceType: NOTION_INGESTION_SOURCE_TYPE,
-                        initialBuilderState: buildNotionDocumentsIngestionState({ parentDocumentUrn }),
+                        initialBuilderState: buildNotionDocumentsIngestionState(),
                     });
                     break;
                 case ImportSourceType.CONFLUENCE:
                     launchIngestionSourceCreate({
                         sourceType: CONFLUENCE_INGESTION_SOURCE_TYPE,
-                        initialBuilderState: buildConfluenceDocumentsIngestionState({ parentDocumentUrn }),
+                        initialBuilderState: buildConfluenceDocumentsIngestionState(),
                     });
                     break;
                 default:

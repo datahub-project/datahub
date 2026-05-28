@@ -1,16 +1,9 @@
 import { buildIngestionSourceState } from '@app/context/import/buildIngestionSourceState';
+import { CONTEXT_DOCUMENT_IMPORT_MODE } from '@app/context/import/import.types';
 
 const CONFLUENCE_SOURCE_TYPE = 'confluence';
 
-type BuildConfluenceDocumentsIngestionStateParams = {
-    parentDocumentUrn?: string | null;
-};
-
-export function buildConfluenceDocumentsIngestionState({
-    parentDocumentUrn,
-}: BuildConfluenceDocumentsIngestionStateParams) {
-    const parentUrnYaml = parentDocumentUrn ? `"${parentDocumentUrn}"` : 'null';
-
+export function buildConfluenceDocumentsIngestionState() {
     const recipe = `source:
   type: confluence
   config:
@@ -18,8 +11,7 @@ export function buildConfluenceDocumentsIngestionState({
     username: null
     api_token: null
     cloud: true
-    document_import_mode: EXTERNAL
-    parent_document_urn: ${parentUrnYaml}
+    document_import_mode: ${CONTEXT_DOCUMENT_IMPORT_MODE}
     hierarchy:
       enabled: true
     stateful_ingestion:
@@ -34,7 +26,7 @@ sink:
     return buildIngestionSourceState({
         sourceType: CONFLUENCE_SOURCE_TYPE,
         displayName: 'Confluence',
-        recipe,
+        recipeYaml: recipe,
     });
 }
 

@@ -1,4 +1,3 @@
-import { GithubLogo } from '@phosphor-icons/react/dist/csr/GithubLogo';
 import { Upload } from '@phosphor-icons/react/dist/csr/Upload';
 import React from 'react';
 
@@ -13,6 +12,7 @@ import { ImportSourceType } from '@app/context/import/import.types';
 import { Text } from '@src/alchemy-components';
 
 import confluenceLogo from '@images/confluencelogo.svg';
+import githubLogo from '@images/githublogo.png';
 import notionLogo from '@images/notionlogo.png';
 
 type ImportDocumentsSourceGridProps = {
@@ -38,21 +38,19 @@ export default function ImportDocumentsSourceGrid({
             {canImportFromScheduledSources && (
                 <>
                     <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.GITHUB)}>
-                        <SourceIcon>
-                            <GithubLogo size={32} />
-                        </SourceIcon>
-                        <Text weight="semiBold">GitHub Repository</Text>
-                        <HelperText>Schedule imports via an ingestion source</HelperText>
+                        <SourceLogo src={githubLogo} alt="GitHub" />
+                        <Text weight="semiBold">GitHub</Text>
+                        <HelperText>Import context documents from a GitHub repository</HelperText>
                     </SourceCard>
                     <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.NOTION)}>
                         <SourceLogo src={notionLogo} alt="Notion" />
                         <Text weight="semiBold">Notion</Text>
-                        <HelperText>Schedule imports via an ingestion source</HelperText>
+                        <HelperText>Import context documents from a Notion workspace</HelperText>
                     </SourceCard>
                     <SourceCard type="button" onClick={() => onSelectSource(ImportSourceType.CONFLUENCE)}>
                         <SourceLogo src={confluenceLogo} alt="Confluence" />
                         <Text weight="semiBold">Confluence</Text>
-                        <HelperText>Schedule imports via an ingestion source</HelperText>
+                        <HelperText>Import context documents from a Confluence space</HelperText>
                     </SourceCard>
                 </>
             )}

@@ -81,11 +81,13 @@ export const IngestionSourceBuilderModal = ({
         : IngestionSourceBuilderStep.SELECT_TEMPLATE;
 
     const [stepStack, setStepStack] = useState([initialStep]);
-    const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>({
-        schedule: {
-            interval: '0 0 * * *',
+    const [ingestionBuilderState, setIngestionBuilderState] = useState<SourceBuilderState>(
+        initialState || {
+            schedule: {
+                interval: '0 0 * * *',
+            },
         },
-    });
+    );
 
     const { ingestionSources } = useIngestionSources();
 
@@ -104,22 +106,27 @@ export const IngestionSourceBuilderModal = ({
     );
 
     // Reset the modal state when initialState changes or modal opens
-    const prevInitialState = useRef(initialState);
+    const prevInitialState = useRef<SourceBuilderState | undefined>(undefined);
     const prevOpen = useRef(open);
     useEffect(() => {
         const stateChanged = !isEqual(prevInitialState.current, initialState);
         const modalOpened = !prevOpen.current && open;
 
-        if (stateChanged) {
-            setIngestionBuilderState(initialState || {});
+        if (stateChanged || modalOpened) {
+            setIngestionBuilderState(
+                initialState || {
+                    schedule: {
+                        interval: '0 0 * * *',
+                    },
+                },
+            );
             setStepStack([initialStep]);
-            setSelectedSourceType?.('');
+            setSelectedSourceType?.(initialState?.type ?? '');
             prevInitialState.current = initialState;
         }
 
         // Fire event when modal opens
         if (modalOpened) {
-            setStepStack([initialStep]); // Ensure correct step when modal opens
             sendAnalyticsStepViewedEvent(initialStep);
         }
 
