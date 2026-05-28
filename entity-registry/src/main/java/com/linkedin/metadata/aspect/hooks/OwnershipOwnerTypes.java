@@ -58,8 +58,13 @@ public class OwnershipOwnerTypes extends MutationHook {
 
       UrnArrayMap materialized = new UrnArrayMap(typeOwners);
       Ownership ownership = item.getAspect(Ownership.class);
-      UrnArrayMap existing = ownership.getOwnerTypes();
-      DataMap existingData = existing != null ? existing.data() : new DataMap();
+      if (ownership.getOwners().isEmpty()) {
+        results.add(Pair.of(item, false));
+        continue;
+      }
+
+      DataMap existingData =
+          ownership.hasOwnerTypes() ? ownership.getOwnerTypes().data() : new DataMap();
       if (existingData.equals(materialized.data())) {
         results.add(Pair.of(item, false));
       } else {
