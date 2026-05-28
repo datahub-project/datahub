@@ -4,6 +4,8 @@ import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.CliVersionMatrixConfiguration;
+import com.linkedin.metadata.config.HttpMatrixSourceConfiguration;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
@@ -16,11 +18,10 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 /**
- * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. Exercises the branch that
- * picks {@link NoOpIngestionCliVersionMatrixSource} vs {@link
- * HttpUrlIngestionCliVersionMatrixSource} based on whether {@code versionMatrixUrl} is configured —
- * the rest of the codebase only ever exercises the no-op path (test contexts don't set the env
- * var).
+ * Direct unit tests for {@link IngestionCliVersionMatrixServiceFactory}. Covers the {@code
+ * ingestion.cliVersionMatrix.source} discriminator (explicit {@code "http"} / {@code "none"}) and
+ * the backward-compat auto-inference path (unset discriminator infers from {@code http.url}
+ * presence so deployments that pre-date this discriminator keep working).
  */
 public class IngestionCliVersionMatrixServiceFactoryTest {
 
@@ -34,6 +35,8 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     factory = new IngestionCliVersionMatrixServiceFactory();
     configProvider = mock(ConfigurationProvider.class);
     ingestionConfig = new IngestionConfiguration();
+    ingestionConfig.setCliVersionMatrix(new CliVersionMatrixConfiguration());
+    ingestionConfig.getCliVersionMatrix().setHttp(new HttpMatrixSourceConfiguration());
     gitVersion = mock(GitVersion.class);
 
     when(configProvider.getIngestion()).thenReturn(ingestionConfig);
@@ -46,45 +49,93 @@ public class IngestionCliVersionMatrixServiceFactoryTest {
     setField(factory, "gitVersion", gitVersion);
   }
 
+  // ---------------------------------------------------------------------------
+  // Backward-compat auto-inference (source unset)
+  // ---------------------------------------------------------------------------
+
   @Test
-  public void testMatrixSource_whenUrlIsNull_wiresNoOp() {
-    ingestionConfig.setVersionMatrixUrl(null);
+  public void testMatrixSource_whenSourceUnsetAndUrlNull_wiresNoOp() {
+    // Default state from setUp: source unset, http.url null. Should infer "none".
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "Unset source + unset url should infer 'none' (OSS-safe default)");
+  }
+
+  @Test
+  public void testMatrixSource_whenSourceUnsetAndUrlEmpty_wiresNoOp() {
+    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("");
 
     IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
 
     assertTrue(
         source instanceof NoOpIngestionCliVersionMatrixSource,
-        "Unset versionMatrixUrl should wire NoOpIngestionCliVersionMatrixSource (OSS-safe default)");
+        "Unset source + empty url should infer 'none'");
   }
 
   @Test
-  public void testMatrixSource_whenUrlIsEmpty_wiresNoOp() {
-    ingestionConfig.setVersionMatrixUrl("");
-
-    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
-
-    assertTrue(
-        source instanceof NoOpIngestionCliVersionMatrixSource,
-        "Empty-string versionMatrixUrl should be treated like unset → NoOpIngestionCliVersionMatrixSource");
-  }
-
-  @Test
-  public void testMatrixSource_whenUrlIsSet_wiresHttpUrlSource() {
-    // file:// URI is fine — the factory only inspects the string, not whether it's reachable.
-    ingestionConfig.setVersionMatrixUrl("file:///tmp/nonexistent-matrix.json");
-    ingestionConfig.setVersionMatrixRefreshSeconds(3600);
-    ingestionConfig.setVersionMatrixAuthToken(null);
+  public void testMatrixSource_whenSourceUnsetButUrlPresent_infersHttp() {
+    // Backward-compat: pre-discriminator deployments only set the URL. Should still wire HTTP.
+    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+    ingestionConfig.getCliVersionMatrix().getHttp().setRefreshSeconds(3600);
 
     IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
 
     assertTrue(
         source instanceof HttpUrlIngestionCliVersionMatrixSource,
-        "Configured versionMatrixUrl should wire HttpUrlIngestionCliVersionMatrixSource");
+        "URL-only configuration must keep wiring HTTP for pre-discriminator deployments");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Explicit discriminator
+  // ---------------------------------------------------------------------------
+
+  @Test
+  public void testMatrixSource_explicitHttp_wiresHttpUrlSource() {
+    ingestionConfig.getCliVersionMatrix().setSource("http");
+    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+    ingestionConfig.getCliVersionMatrix().getHttp().setRefreshSeconds(3600);
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof HttpUrlIngestionCliVersionMatrixSource,
+        "Explicit source='http' with url present should wire HttpUrlIngestionCliVersionMatrixSource");
   }
 
   @Test
+  public void testMatrixSource_explicitNone_overridesUrlPresence() {
+    // Explicit "none" must win even when a URL is configured.
+    ingestionConfig.getCliVersionMatrix().setSource("none");
+    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof NoOpIngestionCliVersionMatrixSource,
+        "Explicit source='none' must override URL presence (kill-switch semantics)");
+  }
+
+  @Test
+  public void testMatrixSource_sourceIsCaseInsensitive() {
+    ingestionConfig.getCliVersionMatrix().setSource("HTTP");
+    ingestionConfig.getCliVersionMatrix().getHttp().setUrl("file:///tmp/nonexistent.json");
+    ingestionConfig.getCliVersionMatrix().getHttp().setRefreshSeconds(3600);
+
+    IngestionCliVersionMatrixSource source = factory.ingestionCliVersionMatrixSource();
+
+    assertTrue(
+        source instanceof HttpUrlIngestionCliVersionMatrixSource,
+        "Source discriminator should be case-insensitive (operators may set HTTP or http)");
+  }
+
+  // ---------------------------------------------------------------------------
+  // Service construction
+  // ---------------------------------------------------------------------------
+
+  @Test
   public void testGetInstance_buildsServiceWithServerVersionFromGitVersion() {
-    ingestionConfig.setVersionMatrixUrl(null);
     ingestionConfig.setDeploymentId("test-deployment");
     when(gitVersion.toConfig()).thenReturn(Map.of("version", "1.5.0"));
 
