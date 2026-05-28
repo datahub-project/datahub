@@ -1,8 +1,0 @@
-{
-    "moduleName": "Documentation",
-    "moduleDescription": "Pin docs for your DataHub users",
-    "addTitle": "Add Documentation",
-    "contentPlaceholder": "Write some text here...",
-    "editTitle": "Edit Documentation",
-    "subtitle": "Document important information for your users"
-}

@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { EmptyContainer } from '@app/homeV3/styledComponents';
 
 const EmptySection = () => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
     return (
         <EmptyContainer>
-            <Text>{t('noAssetsFound')}</Text>
+            <Text>{t('assetCollection.noAssetsFound')}</Text>
         </EmptyContainer>
     );
 };

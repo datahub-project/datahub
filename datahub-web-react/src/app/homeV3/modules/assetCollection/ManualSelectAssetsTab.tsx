@@ -64,7 +64,7 @@ type Props = {
 };
 
 const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
     const entityRegistry = useEntityRegistryV2();
 
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
@@ -120,7 +120,7 @@ const ManualSelectAssetsTab = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <Container>
             <LeftSection>
-                <SearchHeader weight="bold">{t('searchAndSelectHeader')}</SearchHeader>
+                <SearchHeader weight="bold">{t('assetCollection.searchAndSelectHeader')}</SearchHeader>
                 <SearchBar value={searchQuery} onChange={handleSearchChange} />
                 <AssetFilters
                     searchQuery={searchQuery}

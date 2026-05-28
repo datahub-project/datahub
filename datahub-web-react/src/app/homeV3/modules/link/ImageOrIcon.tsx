@@ -12,7 +12,7 @@ const Image = styled.img`
 `;
 
 export default function ImageOrIcon({ imageUrl }: { imageUrl?: string | null }) {
-    const { t } = useTranslation('module.link');
+    const { t } = useTranslation('modules');
     const [hasError, setHasError] = useState(false);
 
     React.useEffect(() => {
@@ -20,7 +20,7 @@ export default function ImageOrIcon({ imageUrl }: { imageUrl?: string | null }) 
     }, [imageUrl]);
 
     if (imageUrl && !hasError) {
-        return <Image src={imageUrl} alt={t('imageAlt')} onError={() => setHasError(true)} />;
+        return <Image src={imageUrl} alt={t('link.imageAlt')} onError={() => setHasError(true)} />;
     }
 
     return <Icon icon={LinkSimple} size="3xl" color="gray" />;

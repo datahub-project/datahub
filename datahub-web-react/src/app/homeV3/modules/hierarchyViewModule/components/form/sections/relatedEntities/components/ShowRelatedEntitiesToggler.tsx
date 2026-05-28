@@ -19,14 +19,14 @@ interface Props {
 }
 
 export default function ShowRelatedEntitiesSwitch({ isChecked, onChange }: Props) {
-    const { t } = useTranslation('module.hierarchy');
+    const { t } = useTranslation('modules');
     return (
         <Wrapper>
             <LabelContainer>
                 <Text weight="bold" lineHeight="sm">
-                    {t('showRelatedEntitiesLabel')}
+                    {t('hierarchy.showRelatedEntitiesLabel')}
                 </Text>
-                <Text lineHeight="sm">{t('showRelatedEntitiesDescription')}</Text>
+                <Text lineHeight="sm">{t('hierarchy.showRelatedEntitiesDescription')}</Text>
             </LabelContainer>
             <Switch label="" isChecked={isChecked} onChange={() => onChange(!isChecked)} />
         </Wrapper>

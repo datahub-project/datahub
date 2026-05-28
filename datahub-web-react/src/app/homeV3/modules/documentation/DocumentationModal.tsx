@@ -18,7 +18,7 @@ const ModalContent = styled.div`
 
 // Modal for editing rich text modules
 const DocumentationModal = () => {
-    const { t } = useTranslation('module.documentation');
+    const { t } = useTranslation('modules');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -53,8 +53,8 @@ const DocumentationModal = () => {
 
     return (
         <BaseModuleModal
-            title={isEditing ? t('editTitle') : t('addTitle')}
-            subtitle={t('subtitle')}
+            title={isEditing ? t('documentation.editTitle') : t('documentation.addTitle')}
+            subtitle={t('documentation.subtitle')}
             onUpsert={handleUpsertDocumentationModule}
             submitButtonProps={{ disabled: isDisabled }}
         >

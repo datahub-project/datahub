@@ -1,7 +1,0 @@
-{
-    "moduleName": "Your Assets",
-    "moduleDescription": "Assets the current user owns",
-    "emptyDescription": "Select an asset and add yourself as an owner to see the assets in this list",
-    "emptyLink": "Discover the assets you want to own",
-    "emptyTitle": "No Owned Assets"
-}

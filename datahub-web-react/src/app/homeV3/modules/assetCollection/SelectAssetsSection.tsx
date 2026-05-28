@@ -32,12 +32,12 @@ const SelectAssetsSection = ({
     dynamicFilter,
     setDynamicFilter,
 }: Props) => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
 
     const tabs: Tab[] = [
         {
             key: SELECT_ASSET_TYPE_MANUAL,
-            label: t('selectAssetsTab'),
+            label: t('assetCollection.selectAssetsTab'),
             content: (
                 <ManualSelectAssetsTab
                     selectedAssetUrns={selectedAssetUrns}
@@ -47,7 +47,7 @@ const SelectAssetsSection = ({
         },
         {
             key: SELECT_ASSET_TYPE_DYNAMIC,
-            label: t('dynamicFilterTab'),
+            label: t('assetCollection.dynamicFilterTab'),
             content: <DynamicSelectAssetsTab dynamicFilter={dynamicFilter} setDynamicFilter={setDynamicFilter} />,
         },
     ];

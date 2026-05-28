@@ -1,8 +1,0 @@
-{
-    "moduleName": "Platforms",
-    "moduleDescription": "Most used platforms in your organization",
-    "emptyDescription": "You have not ingested any data.",
-    "emptyLink": "Add data sources",
-    "emptyTitle": "No Platforms Yet",
-    "viewAssets": "View {{formattedCount}} {{platformName}} assets"
-}

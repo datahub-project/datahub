@@ -14,7 +14,7 @@ import useGetDomainUtils from '@app/homeV3/modules/domains/useDomainModuleUtils'
 import { DataHubPageModuleType } from '@types';
 
 const TopDomainsModule = (props: ModuleProps) => {
-    const { t } = useTranslation('module.domains');
+    const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { isReloading } = useModuleContext();
 
@@ -27,9 +27,9 @@ const TopDomainsModule = (props: ModuleProps) => {
             {domains.length === 0 ? (
                 <EmptyContent
                     icon={Globe}
-                    title={t('emptyTitle')}
-                    description={t('emptyDescription')}
-                    linkText={t('emptyLink')}
+                    title={t('domains.emptyTitle')}
+                    description={t('domains.emptyDescription')}
+                    linkText={t('domains.emptyLink')}
                     onLinkClick={navigateToDomains}
                 />
             ) : (

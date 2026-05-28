@@ -17,7 +17,7 @@ const ModalContent = styled.div`
 `;
 
 export default function LinkModal() {
-    const { t } = useTranslation('module.link');
+    const { t } = useTranslation('modules');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -53,8 +53,8 @@ export default function LinkModal() {
 
     return (
         <BaseModuleModal
-            title={isEditing ? t('editTitle') : t('addTitle')}
-            subtitle={t('subtitle')}
+            title={isEditing ? t('link.editTitle') : t('link.addTitle')}
+            subtitle={t('link.subtitle')}
             onUpsert={handleUpsertDocumentationModule}
             width="40%"
             submitButtonProps={{ disabled: isDisabled }}

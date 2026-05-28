@@ -33,7 +33,7 @@ type Props = {
 };
 
 const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Props) => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
     const [orderedUrns, setOrderedUrns] = useState(selectedAssetUrns);
 
     useEffect(() => {
@@ -94,7 +94,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     } else {
         content = (
             <EmptyContainer>
-                <Text color="gray">{t('noAssetsSelected')}</Text>
+                <Text color="gray">{t('assetCollection.noAssetsSelected')}</Text>
             </EmptyContainer>
         );
     }
@@ -102,7 +102,7 @@ const SelectedAssetsSection = ({ selectedAssetUrns, setSelectedAssetUrns }: Prop
     return (
         <SelectedAssetsContainer>
             <Text color="gray" weight="bold">
-                {t('selectedAssetsHeader')}
+                {t('assetCollection.selectedAssetsHeader')}
             </Text>
             <VerticalDragAndDrop items={orderedUrns} onChange={onChangeOrder}>
                 <ResultsContainer data-testid="selected-assets-list">{content}</ResultsContainer>

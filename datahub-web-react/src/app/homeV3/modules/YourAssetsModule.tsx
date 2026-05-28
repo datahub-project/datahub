@@ -23,7 +23,7 @@ const ContentWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 export default function YourAssetsModule(props: ModuleProps) {
-    const { t } = useTranslation('module.yourAssets');
+    const { t } = useTranslation('modules');
     const { user } = useUserContext();
     const { loading, fetchEntities, total } = useGetAssetsYouOwn(user, DEFAULT_PAGE_SIZE);
 
@@ -46,9 +46,9 @@ export default function YourAssetsModule(props: ModuleProps) {
                     emptyState={
                         <EmptyContent
                             icon={User}
-                            title={t('emptyTitle')}
-                            description={t('emptyDescription')}
-                            linkText={t('emptyLink')}
+                            title={t('yourAssets.emptyTitle')}
+                            description={t('yourAssets.emptyDescription')}
+                            linkText={t('yourAssets.emptyLink')}
                             onLinkClick={navigateToSearch}
                         />
                     }

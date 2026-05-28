@@ -16,7 +16,7 @@ interface Props {
 }
 
 const useDomainModuleUtils = ({ domains }: Props) => {
-    const { t } = useTranslation('module.domains');
+    const { t } = useTranslation('modules');
     const history = useHistory();
 
     const navigateToDomains = () => {
@@ -32,12 +32,12 @@ const useDomainModuleUtils = ({ domains }: Props) => {
             <>
                 {assetCount > 0 && (
                     <Text size="sm">
-                        {t('assetCount', { count: assetCount, formattedCount: formatNumber(assetCount) })}{' '}
+                        {t('domains.assetCount', { count: assetCount, formattedCount: formatNumber(assetCount) })}{' '}
                     </Text>
                 )}
                 {dataProductCount > 0 && (
                     <Text size="sm">
-                        {`, ${t('dataProductCount', { count: dataProductCount, formattedCount: formatNumber(dataProductCount) })}`}
+                        {`, ${t('domains.dataProductCount', { count: dataProductCount, formattedCount: formatNumber(dataProductCount) })}`}
                     </Text>
                 )}
             </>

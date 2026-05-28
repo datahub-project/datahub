@@ -18,7 +18,7 @@ import { DataHubPageModuleType, Entity } from '@types';
 const NUMBER_OF_PLATFORMS = 15;
 
 const PlatformsModule = (props: ModuleProps) => {
-    const { t } = useTranslation('module.platforms');
+    const { t } = useTranslation('modules');
     const { platformPrivileges } = useUserContext();
 
     const { config } = useAppConfig();
@@ -51,7 +51,7 @@ const PlatformsModule = (props: ModuleProps) => {
         const platformEntity = platforms.find((platform) => platform.platform.urn === entity.urn);
         return (
             <Tooltip
-                title={t('viewAssets', {
+                title={t('platforms.viewAssets', {
                     formattedCount: formatNumberWithoutAbbreviation(platformEntity?.count),
                     platformName: platformEntity?.platform.name,
                 })}
@@ -67,9 +67,9 @@ const PlatformsModule = (props: ModuleProps) => {
             {platforms.length === 0 ? (
                 <EmptyContent
                     icon={Database}
-                    title={t('emptyTitle')}
-                    description={t('emptyDescription')}
-                    linkText={hasPermissionsToManageIngestion ? t('emptyLink') : undefined}
+                    title={t('platforms.emptyTitle')}
+                    description={t('platforms.emptyDescription')}
+                    linkText={hasPermissionsToManageIngestion ? t('platforms.emptyLink') : undefined}
                     onLinkClick={navigateToDataSources}
                 />
             ) : (

@@ -20,7 +20,7 @@ const ScrollWrapper = styled.div`
 `;
 
 export default function SelectAssetsSection() {
-    const { t } = useTranslation('module.hierarchy');
+    const { t } = useTranslation('modules');
     const form = Form.useFormInstance();
 
     const {
@@ -39,7 +39,7 @@ export default function SelectAssetsSection() {
     const tabs = [
         {
             key: ASSET_TYPE_DOMAINS,
-            label: t('domainsTab'),
+            label: t('hierarchy.domainsTab'),
             content: (
                 <FormItem name="domainAssets">
                     <ScrollWrapper>
@@ -50,7 +50,7 @@ export default function SelectAssetsSection() {
         },
         {
             key: ASSET_TYPE_GLOSSARY,
-            label: t('glossaryTab'),
+            label: t('hierarchy.glossaryTab'),
             content: (
                 <FormItem name="glossaryAssets">
                     <ScrollWrapper>
@@ -63,7 +63,7 @@ export default function SelectAssetsSection() {
 
     return (
         <Wrapper>
-            <Text weight="bold">{t('searchAndSelectHeader')}</Text>
+            <Text weight="bold">{t('hierarchy.searchAndSelectHeader')}</Text>
             <FormItem name={FORM_FIELD_ASSET_TYPE}>
                 <ButtonTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
             </FormItem>

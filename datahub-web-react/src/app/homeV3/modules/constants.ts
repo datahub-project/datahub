@@ -90,7 +90,7 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         type: EntityType.DatahubPageModule,
                         properties: {
                             get name() {
-                                return i18next.t('module.yourAssets:moduleName');
+                                return i18next.t('modules:yourAssets.moduleName');
                             },
                             type: DataHubPageModuleType.OwnedAssets,
                             visibility: {
@@ -104,7 +104,7 @@ export const DEFAULT_TEMPLATE: PageTemplateFragment = {
                         type: EntityType.DatahubPageModule,
                         properties: {
                             get name() {
-                                return i18next.t('module.domains:moduleName');
+                                return i18next.t('modules:domains.moduleName');
                             },
                             type: DataHubPageModuleType.Domains,
                             visibility: {

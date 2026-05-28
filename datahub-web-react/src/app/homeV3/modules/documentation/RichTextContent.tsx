@@ -25,7 +25,7 @@ type Props = {
 };
 
 const RichTextContent = ({ content, form }: Props) => {
-    const { t } = useTranslation('module.documentation');
+    const { t } = useTranslation('modules');
     const { urn: assetUrn } = useEntityData();
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
         scenario: UploadDownloadScenario.AssetDocumentation,
@@ -39,7 +39,7 @@ const RichTextContent = ({ content, form }: Props) => {
                 <EditorContainer>
                     <Editor
                         content={content}
-                        placeholder={t('contentPlaceholder')}
+                        placeholder={t('documentation.contentPlaceholder')}
                         hideBorder
                         dataTestId="rich-text-documentation"
                         onChange={(newContent) => form.setFieldValue(CONTENT_FIELD_NAME, newContent)}

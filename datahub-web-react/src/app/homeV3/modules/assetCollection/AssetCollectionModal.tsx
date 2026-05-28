@@ -20,7 +20,7 @@ const ModalContent = styled.div`
 `;
 
 const AssetCollectionModal = () => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -107,8 +107,8 @@ const AssetCollectionModal = () => {
 
     return (
         <BaseModuleModal
-            title={isEditing ? t('editTitle') : t('addTitle')}
-            subtitle={t('subtitle')}
+            title={isEditing ? t('assetCollection.editTitle') : t('assetCollection.addTitle')}
+            subtitle={t('assetCollection.subtitle')}
             onUpsert={handleUpsertAssetCollectionModule}
             submitButtonProps={{ disabled: isDisabled }}
             bodyStyles={{ overflow: 'hidden' }}

@@ -23,7 +23,7 @@ const ContentWrapper = styled.div`
 const DEFAULT_PAGE_SIZE = 10;
 
 const AssetCollectionModule = (props: ModuleProps) => {
-    const { t } = useTranslation('module.assetCollection');
+    const { t } = useTranslation('modules');
     const [isFirstFetch, setIsFirstFetch] = useState(true);
     const assetUrns = useMemo(
         () =>
@@ -173,7 +173,11 @@ const AssetCollectionModule = (props: ModuleProps) => {
                     )}
                     pageSize={DEFAULT_PAGE_SIZE}
                     emptyState={
-                        <EmptyContent icon={Stack} title={t('emptyTitle')} description={t('emptyDescription')} />
+                        <EmptyContent
+                            icon={Stack}
+                            title={t('assetCollection.emptyTitle')}
+                            description={t('assetCollection.emptyDescription')}
+                        />
                     }
                     totalItemCount={totalForInfiniteScroll}
                 />

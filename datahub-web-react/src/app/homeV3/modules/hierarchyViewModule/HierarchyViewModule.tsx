@@ -19,7 +19,7 @@ import { PageRoutes } from '@conf/Global';
 import { AndFilterInput } from '@types';
 
 export default function HierarchyViewModule(props: ModuleProps) {
-    const { t } = useTranslation('module.hierarchy');
+    const { t } = useTranslation('modules');
     const history = useHistory();
     const { showViewAll = true } = props;
     const { isReloading } = useModuleContext();
@@ -75,7 +75,11 @@ export default function HierarchyViewModule(props: ModuleProps) {
     return (
         <LargeModule {...props} onClickViewAll={showViewAll ? onClickViewAll : undefined} dataTestId="hierarchy-module">
             {assetUrns.length === 0 ? (
-                <EmptyContent icon={Stack} title={t('emptyTitle')} description={t('emptyDescription')} />
+                <EmptyContent
+                    icon={Stack}
+                    title={t('hierarchy.emptyTitle')}
+                    description={t('hierarchy.emptyDescription')}
+                />
             ) : (
                 <AssetsTreeView
                     key={key}

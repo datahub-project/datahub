@@ -14,7 +14,7 @@ import { useGetDomainChildrenCountQuery } from '@graphql/domain.generated';
 import { EntityType } from '@types';
 
 export default function ChildHierarchyModule(props: ModuleProps) {
-    const { t } = useTranslation('module.childHierarchy');
+    const { t } = useTranslation('modules');
     const { urn, entityType } = useEntityData();
     const module = getChildHierarchyModule(props.module, urn, entityType);
     const { isReloading } = useModuleContext();
@@ -30,7 +30,11 @@ export default function ChildHierarchyModule(props: ModuleProps) {
     if (isEmpty) {
         return (
             <LargeModule {...props} module={module} dataTestId="hierarchy-module">
-                <EmptyContent icon={Stack} title={t('emptyTitle')} description={t('emptyDescription')} />
+                <EmptyContent
+                    icon={Stack}
+                    title={t('childHierarchy.emptyTitle')}
+                    description={t('childHierarchy.emptyDescription')}
+                />
             </LargeModule>
         );
     }

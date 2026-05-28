@@ -13,7 +13,7 @@ interface Props {
 const URL_PLACEHOLDER = 'https://www.datahub.com';
 
 export default function LinkForm({ form, formValues }: Props) {
-    const { t } = useTranslation('module.link');
+    const { t } = useTranslation('modules');
     return (
         <Form form={form} initialValues={formValues}>
             <Form.Item
@@ -21,29 +21,29 @@ export default function LinkForm({ form, formValues }: Props) {
                 rules={[
                     {
                         required: true,
-                        message: t('urlValidation'),
+                        message: t('link.urlValidation'),
                     },
                     {
                         type: 'url',
-                        message: t('urlValidationInvalid'),
+                        message: t('link.urlValidationInvalid'),
                     },
                 ]}
             >
-                <Input label={t('urlLabel')} placeholder={URL_PLACEHOLDER} isRequired data-testid="link-url" />
+                <Input label={t('link.urlLabel')} placeholder={URL_PLACEHOLDER} isRequired data-testid="link-url" />
             </Form.Item>
             <Form.Item
                 name="imageUrl"
                 rules={[
                     {
                         type: 'url',
-                        message: t('imageUrlValidation'),
+                        message: t('link.imageUrlValidation'),
                     },
                 ]}
             >
-                <Input label={t('imageUrlLabel')} placeholder={t('imageUrlPlaceholder')} />
+                <Input label={t('link.imageUrlLabel')} placeholder={t('link.imageUrlPlaceholder')} />
             </Form.Item>
             <Form.Item name="description">
-                <TextArea label={t('descriptionLabel')} placeholder={t('descriptionPlaceholder')} />
+                <TextArea label={t('link.descriptionLabel')} placeholder={t('link.descriptionPlaceholder')} />
             </Form.Item>
         </Form>
     );

@@ -13,7 +13,7 @@ import { filterAssetUrnsByAssetType, getAssetTypeFromAssetUrns } from '@app/home
 import { DataHubPageModuleType } from '@types';
 
 export default function HierarchyViewModal() {
-    const { t } = useTranslation('module.hierarchy');
+    const { t } = useTranslation('modules');
     const {
         upsertModule,
         moduleModalState: { position, close, isEditing, initialState },
@@ -91,8 +91,8 @@ export default function HierarchyViewModal() {
 
     return (
         <BaseModuleModal
-            title={isEditing ? t('editTitle') : t('addTitle')}
-            subtitle={t('subtitle')}
+            title={isEditing ? t('hierarchy.editTitle') : t('hierarchy.addTitle')}
+            subtitle={t('hierarchy.subtitle')}
             onUpsert={handleUpsertAssetCollectionModule}
             maxWidth="900px"
             submitButtonProps={{ disabled: isSubmitButtonDisabled }}
