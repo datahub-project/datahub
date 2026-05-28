@@ -748,18 +748,46 @@ def register_metric_view_mock_data(workspace_client):
     ]
 
     metric_view_yaml = (
-        "version: 0.1\n"
+        "version: 1.1\n"
         "source: metric_catalog.analytics.orders\n"
         "filter: \"o_orderstatus = 'F'\"\n"
-        "materialization: materialized\n"
+        "joins:\n"
+        "  - name: customer\n"
+        "    source: metric_catalog.analytics.customer\n"
+        "    on: o_custkey = c_custkey\n"
+        "materialization:\n"
+        "  schedule: every 6 hours\n"
+        "  mode: relaxed\n"
         "dimensions:\n"
         "  - name: order_date\n"
         "    expr: o_orderdate\n"
-        "    description: Calendar date the order was placed.\n"
+        "    comment: Calendar date the order was placed.\n"
+        "    display_name: Order Date\n"
+        "    synonyms: [date, day]\n"
         "measures:\n"
         "  - name: total_revenue\n"
         "    expr: SUM(o_totalprice)\n"
-        "    description: Sum of order totals in USD.\n"
+        "    comment: Sum of order totals in USD.\n"
+        "    synonyms: [revenue, sales]\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: order_count\n"
+        "    expr: COUNT(1)\n"
+        "    comment: Number of orders placed.\n"
+        "  - name: aov\n"
+        "    expr: MEASURE(total_revenue) / MEASURE(order_count)\n"
+        "    comment: Average order value.\n"
+        "    format:\n"
+        "      type: currency\n"
+        "      currency_code: USD\n"
+        "  - name: rolling_7d\n"
+        "    expr: COUNT(DISTINCT o_orderkey)\n"
+        "    comment: Rolling 7-day distinct order count.\n"
+        "    window:\n"
+        "      - order: order_date\n"
+        "        range: trailing 7 day\n"
+        "        semiadditive: last\n"
     )
 
     orders_dict = {
@@ -834,6 +862,42 @@ def register_metric_view_mock_data(workspace_client):
                 "type_precision": 0,
                 "type_scale": 0,
                 "position": 1,
+                "nullable": True,
+            },
+            {
+                "name": "order_count",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"order_count","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 2,
+                "nullable": True,
+            },
+            {
+                "name": "aov",
+                "type_text": "double",
+                "type_json": (
+                    '{"name":"aov","type":"double","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "DOUBLE",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 3,
+                "nullable": True,
+            },
+            {
+                "name": "rolling_7d",
+                "type_text": "long",
+                "type_json": (
+                    '{"name":"rolling_7d","type":"long","nullable":true,"metadata":{}}'
+                ),
+                "type_name": "LONG",
+                "type_precision": 0,
+                "type_scale": 0,
+                "position": 4,
                 "nullable": True,
             },
         ],
@@ -983,3 +1047,391 @@ def test_metric_view_ingestion_flag_off(pytestconfig, tmp_path, requests_mock):
             output_path=f"/{tmp_path}/{output_file_name}",
             golden_path=f"{test_resources_dir}/metric_view_flag_off_mces_golden.json",
         )
+
+
+def register_mock_data_with_constraints(workspace_client):
+    """Extend the standard mock data so that:
+    - tables.list() returns a column with partition_index (for isPartitioningKey)
+    - tables.get() returns PK + FK constraints (unavailable via list())
+    """
+
+    register_mock_data(workspace_client)
+
+    # Override tables.list so columnA carries partition_index
+    workspace_client.tables.list = lambda *args, **kwargs: [
+        databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                        "partition_index": 0,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/tables/cff27aa1",
+                "owner": "account users",
+                "properties": {},
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+            }
+        ),
+    ]
+
+    # Override tables.get to return PK + FK table_constraints
+    workspace_client.tables.get = (
+        lambda *args, **kwargs: databricks.sdk.service.catalog.TableInfo.from_dict(
+            {
+                "name": "quickstart_table",
+                "catalog_name": "quickstart_catalog",
+                "schema_name": "quickstart_schema",
+                "table_type": "MANAGED",
+                "data_source_format": "DELTA",
+                "columns": [
+                    {
+                        "name": "columnA",
+                        "type_text": "int",
+                        "type_json": '{"name":"columnA","type":"integer","nullable":true,"metadata":{}}',
+                        "type_name": "INT",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 0,
+                        "nullable": True,
+                        "partition_index": 0,
+                    },
+                    {
+                        "name": "columnB",
+                        "type_text": "string",
+                        "type_json": '{"name":"columnB","type":"string","nullable":true,"metadata":{}}',
+                        "type_name": "STRING",
+                        "type_precision": 0,
+                        "type_scale": 0,
+                        "position": 1,
+                        "nullable": True,
+                    },
+                ],
+                "storage_location": "s3://db-02eec1f70bfe4115445be9fdb1aac6ac-s3-root-bucket/...",
+                "owner": "account users",
+                "properties": {},
+                "generation": 2,
+                "metastore_id": "2c983545-d403-4f87-9063-5b7e3b6d3736",
+                "full_name": "quickstart_catalog.quickstart_schema.quickstart_table",
+                "created_at": 1666185698688,
+                "created_by": "abc@acryl.io",
+                "updated_at": 1666186049633,
+                "updated_by": "abc@acryl.io",
+                "table_id": "cff27aa1-1c6a-4d78-b713-562c660c2896",
+                "table_constraints": [
+                    {
+                        "primary_key_constraint": {
+                            "name": "quickstart_table_pk",
+                            "child_columns": ["columnA"],
+                        }
+                    },
+                    {
+                        "foreign_key_constraint": {
+                            "name": "quickstart_table_fk",
+                            "child_columns": ["columnB"],
+                            "parent_table": "quickstart_catalog.quickstart_schema.quickstart_table_ref",
+                            "parent_columns": ["columnA"],
+                        }
+                    },
+                ],
+            }
+        )
+    )
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_ingestion_with_constraints(pytestconfig, tmp_path, requests_mock):
+    """Test that PK, FK, and partition key constraints are correctly ingested."""
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/unity"
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_constraints_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data_with_constraints(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-constraints-test",
+            "pipeline_name": "unity-catalog-constraints-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": True,
+                    "include_partition_keys": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mce_golden_file = "unity_catalog_constraints_mces_golden.json"
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=f"/{tmp_path}/{output_file_name}",
+            golden_path=f"{test_resources_dir}/{mce_golden_file}",
+        )
+
+
+def test_constraints_disabled_does_not_call_tables_get(requests_mock):
+    """When include_table_constraints=False, get_table_constraints() must not be called."""
+    from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
+
+    register_mock_api(request_mock=requests_mock)
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+        patch.object(
+            UnityCatalogApiProxy, "get_table_constraints"
+        ) as mock_get_constraints,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-no-constraints-test",
+            "pipeline_name": "unity-catalog-no-constraints-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": "/dev/null",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        mock_get_constraints.assert_not_called()
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_partition_keys_without_constraints(pytestconfig, tmp_path, requests_mock):
+    """When include_partition_keys=True but include_table_constraints=False,
+    isPartitioningKey is set while isPartOfKey stays None."""
+
+    register_mock_api(request_mock=requests_mock)
+
+    output_file_name = "unity_catalog_partition_only_mcps.json"
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data_with_constraints(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-partition-only-test",
+            "pipeline_name": "unity-catalog-partition-only-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": False,
+                    "include_partition_keys": True,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": f"/{tmp_path}/{output_file_name}",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # Verify isPartitioningKey is set but isPartOfKey is False (schema default)
+        # Note: isPartOfKey is a non-nullable boolean in the Avro schema and always
+        # defaults to False — it cannot be None in serialized output.
+        import json
+
+        output_path = f"/{tmp_path}/{output_file_name}"
+        with open(output_path) as f:
+            mcps = json.load(f)
+        schema_aspects = [
+            mcp
+            for mcp in mcps
+            if mcp.get("aspect", {}).get("json", {}).get("fields") is not None
+        ]
+        assert len(schema_aspects) > 0
+        for schema in schema_aspects:
+            fields = schema["aspect"]["json"]["fields"]
+            for field in fields:
+                # isPartOfKey defaults to False (non-nullable boolean in Avro schema)
+                assert field.get("isPartOfKey") is False, (
+                    f"Expected isPartOfKey=False for field {field['fieldPath']} "
+                    f"when include_table_constraints=False"
+                )
+            # columnA has partition_index=0, so it should have isPartitioningKey=True
+            partition_fields = [f for f in fields if f.get("isPartitioningKey") is True]
+            assert len(partition_fields) > 0, (
+                "Expected at least one field with isPartitioningKey=True"
+            )
+            # primaryKeys should be None (absent)
+            assert schema["aspect"]["json"].get("primaryKeys") is None
+
+
+@time_machine.travel(
+    datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc), tick=False
+)
+def test_constraints_exception_path(requests_mock):
+    """When the tables.get() call inside get_table_constraints() raises an
+    exception, the pipeline continues gracefully (no PK/FK emitted, warning
+    reported)."""
+
+    register_mock_api(request_mock=requests_mock)
+
+    with (
+        patch(
+            "datahub.ingestion.source.unity.connection.WorkspaceClient"
+        ) as mock_client,
+        patch.object(HiveMetastoreProxy, "get_inspector") as get_inspector,
+        patch.object(HiveMetastoreProxy, "_execute_sql") as execute_sql,
+    ):
+        workspace_client: mock.MagicMock = mock.MagicMock()
+        mock_client.return_value = workspace_client
+        register_mock_data(workspace_client)
+
+        inspector = mock.MagicMock()
+        inspector.get_schema_names.return_value = []
+        get_inspector.return_value = inspector
+        execute_sql.side_effect = mock_hive_sql
+
+        # Simulate a rate-limit / permission error on tables.get()
+        workspace_client.tables.get = mock.MagicMock(
+            side_effect=Exception("403 Forbidden: insufficient privileges")
+        )
+
+        config_dict: dict = {
+            "run_id": "unity-catalog-constraint-error-test",
+            "pipeline_name": "unity-catalog-constraint-error-test-pipeline",
+            "source": {
+                "type": "unity-catalog",
+                "config": {
+                    "workspace_url": "https://dummy.cloud.databricks.com",
+                    "token": "fake",
+                    "include_ownership": False,
+                    "include_hive_metastore": False,
+                    "include_table_lineage": False,
+                    "include_column_lineage": False,
+                    "include_usage_statistics": False,
+                    "include_table_constraints": True,
+                    "include_partition_keys": False,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": "/dev/null",
+                },
+            },
+        }
+        pipeline = Pipeline.create(config_dict)
+        pipeline.run()
+        pipeline.raise_from_status()
+
+        # The pipeline succeeded despite the exception — graceful degradation
+        workspace_client.tables.get.assert_called()

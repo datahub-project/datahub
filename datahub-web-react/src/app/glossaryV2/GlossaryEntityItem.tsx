@@ -1,4 +1,3 @@
-import { Tooltip } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
@@ -7,6 +6,7 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import GlossaryListCard from '@app/glossaryV2/GlossaryListCard';
 import GlossaryNodeCard from '@app/glossaryV2/GlossaryNodeCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Tooltip } from '@src/alchemy-components';
 
 import { GlossaryNodeFragment, RootGlossaryNodeWithFourLayersFragment } from '@graphql/fragments.generated';
 import { DisplayProperties, EntityType, GlossaryNode } from '@types';
@@ -69,31 +69,41 @@ function GlossaryEntityItem(props: Props) {
     const { termCount, nodeCount } = countTermsAndNodes(node as RootGlossaryNodeWithFourLayersFragment);
     const maxDepth = countMaxDepth(node as RootGlossaryNodeWithFourLayersFragment);
 
+    const showAsCard = type === EntityType.GlossaryNode && props.showAsCard;
+
+    const inner = (
+        <Link to={`${entityRegistry.getEntityUrl(type, urn)}`} data-testid={`glossary-entity-item-${urn}`}>
+            {showAsCard ? (
+                <GlossaryNodeCard
+                    name={name}
+                    description={description}
+                    displayProperties={displayProperties}
+                    urn={urn}
+                    termCount={termCount}
+                    nodeCount={nodeCount}
+                    maxDepth={maxDepth}
+                />
+            ) : (
+                <GlossaryListCard
+                    name={name}
+                    description={description}
+                    type={type}
+                    urn={urn}
+                    entityData={entityData}
+                    termCount={termCount}
+                    nodeCount={nodeCount}
+                />
+            )}
+        </Link>
+    );
+
+    if (showAsCard) {
+        return inner;
+    }
+
     return (
         <Tooltip title={name} showArrow={false} placement="top">
-            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`} data-testid={`glossary-entity-item-${urn}`}>
-                {type === EntityType.GlossaryNode && props.showAsCard ? (
-                    <GlossaryNodeCard
-                        name={name}
-                        description={description}
-                        displayProperties={displayProperties}
-                        urn={urn}
-                        termCount={termCount}
-                        nodeCount={nodeCount}
-                        maxDepth={maxDepth}
-                    />
-                ) : (
-                    <GlossaryListCard
-                        name={name}
-                        description={description}
-                        type={type}
-                        urn={urn}
-                        entityData={entityData}
-                        termCount={termCount}
-                        nodeCount={nodeCount}
-                    />
-                )}
-            </Link>
+            {inner}
         </Tooltip>
     );
 }

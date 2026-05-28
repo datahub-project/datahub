@@ -29,13 +29,13 @@ const ExtraPluginKey = 'extra_pip_plugins';
 export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, selectedSource }: StepProps) => {
     const me = useUserContext();
     const [existingOwners, setExistingOwners] = useState<Owner[]>(selectedSource?.ownership?.owners || []);
-    const defaultActors = useMemo(() => {
+    const initialOwners = useMemo(() => {
         if (!isEditing && me.user && me.loaded) {
             return [me.user];
         }
         return existingOwners.map((owner) => owner.owner);
     }, [existingOwners, isEditing, me.user, me.loaded]);
-    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(defaultActors.map((actor) => actor.urn));
+    const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>(initialOwners.map((actor) => actor.urn));
     const [areOwnersInitialized, setAreOwnersInitialized] = useState<boolean>(false);
 
     useEffect(() => {
@@ -61,13 +61,20 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
         [updateState, state],
     );
 
-    // Initialize state with default owners while source creation
+    // Initialize owners in parent state now that ActorsSearchSelect is controlled-only.
     useEffect(() => {
         if (me.loaded && !isEditing && !areOwnersInitialized) {
-            setOwners(defaultActors);
+            setOwners(initialOwners);
+            setSelectedOwnerUrns(initialOwners.map((actor) => actor.urn));
+            setAreOwnersInitialized(true);
+            return;
+        }
+        if (isEditing && selectedSource && !areOwnersInitialized) {
+            setOwners(initialOwners);
+            setSelectedOwnerUrns(initialOwners.map((actor) => actor.urn));
             setAreOwnersInitialized(true);
         }
-    }, [defaultActors, isEditing, me.loaded, areOwnersInitialized, setOwners]);
+    }, [initialOwners, isEditing, me.loaded, areOwnersInitialized, selectedSource, setOwners]);
 
     const setExecutorId = (execId: string) => {
         const newState: SourceBuilderState = {
@@ -239,11 +246,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, isEditing, se
                     }
                     style={{ marginBottom: 16 }}
                 >
-                    <ActorsSearchSelect
-                        selectedActorUrns={selectedOwnerUrns}
-                        onUpdate={onUpdateOwners}
-                        defaultActors={defaultActors}
-                    />
+                    <ActorsSearchSelect selectedActorUrns={selectedOwnerUrns} onUpdate={onUpdateOwners} />
                 </Form.Item>
 
                 <Collapse ghost>

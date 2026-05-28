@@ -30,7 +30,7 @@ function PlatformHeaderIcons(props: Props) {
     const theme = useTheme();
     const iconStyles = {
         borderRadius: '16px',
-        border: `1px solid ${theme.colors.bg}`,
+        border: `1px solid ${theme.colors.borderWhite}`,
         padding: '10px',
     };
 

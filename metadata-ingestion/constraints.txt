@@ -628,7 +628,7 @@ ibm-db-sa==0.4.3 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via acryl-datahub
 id==1.5.0
     # via twine
-idna==3.11
+idna==3.15
     # via
     #   anyio
     #   httpx
@@ -1446,6 +1446,7 @@ requests==2.32.5
     #   spacy
     #   tableauserverclient
     #   tableschema
+    #   thoughtspot-rest-api
     #   trino
     #   twine
     #   unstructured
@@ -1467,6 +1468,7 @@ requests-oauthlib==2.0.0
 requests-toolbelt==1.0.0
     # via
     #   gql
+    #   thoughtspot-rest-api
     #   twine
     #   unstructured-client
     #   zeep
@@ -1694,6 +1696,8 @@ textual==8.0.2
     # via memray
 thinc==8.2.5
     # via spacy
+thoughtspot-rest-api==2.0.3
+    # via acryl-datahub
 thrift==0.16.0
     # via
     #   acryl-pyhive

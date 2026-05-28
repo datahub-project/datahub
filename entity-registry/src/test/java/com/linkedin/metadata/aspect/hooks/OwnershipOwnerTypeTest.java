@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -111,6 +112,95 @@ public class OwnershipOwnerTypeTest {
         resulted.getFirst().getAspect(Ownership.class).getOwnerTypes(),
         originalOwnership.getOwnerTypes());
     assertEquals(resulted.getSecond(), false);
+  }
+
+  @Test
+  public void testWriteMutationSkipsWhenOwnersEmpty() {
+    Ownership ownership = new Ownership();
+    ownership.setOwners(new OwnerArray());
+    TestMCP mcp = getTestMcpBuilder().recordTemplate(ownership).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    assertFalse(result.get(0).getSecond());
+    assertFalse(ownership.hasOwnerTypes());
+  }
+
+  /**
+   * OpenAPI createEntityIfNotExists uses CREATE_ENTITY. The hook must run on that change type so
+   * the first ownership write materializes ownerTypes, not only subsequent UPSERTs.
+   */
+  @Test
+  public void testCreateEntityMaterializesOwnerTypesWhenProposalOmitsThem()
+      throws URISyntaxException {
+    Ownership proposal = getOwnership(true, false, false);
+    TestMCP mcp =
+        getTestMcpBuilder().changeType(ChangeType.CREATE_ENTITY).recordTemplate(proposal).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(
+        result.get(0).getSecond(),
+        "CREATE_ENTITY writes must materialize ownerTypes when the proposal omits them.");
+    assertEquals(
+        proposal.getOwnerTypes().get("urn:li:ownershipType:__system__business_owner").get(0),
+        getBusinessOwner());
+  }
+
+  @Test
+  public void testApplyWriteMutationIncludesCreateEntityChangeType() throws URISyntaxException {
+    test.setConfig(
+        AspectPluginConfig.builder()
+            .className(OwnershipOwnerTypes.class.getName())
+            .enabled(true)
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName("*")
+                        .aspectName(OWNERSHIP_ASPECT_NAME)
+                        .build()))
+            .build());
+
+    Ownership proposal = getOwnership(true, false, false);
+    TestMCP mcp =
+        getTestMcpBuilder().changeType(ChangeType.CREATE_ENTITY).recordTemplate(proposal).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.applyWriteMutation(Set.of(mcp), retrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(
+        result.get(0).getSecond(),
+        "Hook must apply on CREATE_ENTITY when that change type is configured.");
+  }
+
+  /**
+   * Regression: ingestion sources commonly emit Ownership with owners populated and ownerTypes
+   * omitted. When the owner list is unchanged from the stored aspect, the hook must still
+   * re-materialize ownerTypes on the proposal so the empty map cannot wipe the persisted one.
+   */
+  @Test
+  public void testRepeatIngestPreservesOwnerTypesWhenProposalOmitsThem() throws URISyntaxException {
+    Ownership stored = getOwnership(true, true, false);
+    Ownership proposal = getOwnership(true, false, false);
+    TestMCP mcp = withPrevious(getTestMcpBuilder().recordTemplate(proposal), stored).build();
+
+    List<Pair<ChangeMCP, Boolean>> result =
+        test.writeMutation(Set.of(mcp), retrieverContext).toList();
+
+    assertEquals(result.size(), 1);
+    assertTrue(
+        result.get(0).getSecond(),
+        "Hook must mutate the proposal so the omitted ownerTypes does not overwrite storage.");
+    assertEquals(
+        proposal.getOwnerTypes(),
+        stored.getOwnerTypes(),
+        "Re-materialized ownerTypes should match the previously stored map.");
   }
 
   @Test

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -11,7 +11,7 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
         id: DOMAINS_INTRO_ID,
         title: 'Domains',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to DataHub <strong>Domains</strong>!
                 </p>
@@ -26,7 +26,7 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -34,11 +34,11 @@ export const DomainsOnboardingConfig: OnboardingStep[] = [
         selector: `#${DOMAINS_CREATE_DOMAIN_ID}`,
         title: 'Create a new Domain',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Click here to create a new <strong>Domain</strong>.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Heading } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
@@ -53,8 +53,8 @@ function hasSeenPrerequisiteStepIfExists(step: OnboardingStep, userUrn: string, 
     return true;
 }
 
-const StepTitle = styled(Typography.Title)`
-    margin-botton: 5px;
+const StepTitle = styled.div`
+    margin-bottom: 5px;
 `;
 
 export function getStepsToRender(
@@ -78,7 +78,11 @@ export function getStepsToRender(
             ...step,
             content: (
                 <div>
-                    <StepTitle level={5}>{step?.title}</StepTitle>
+                    <StepTitle>
+                        <Heading type="h5" size="lg" weight="bold">
+                            {step?.title}
+                        </Heading>
+                    </StepTitle>
                     <div>{step?.content}</div>
                 </div>
             ),
