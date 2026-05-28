@@ -46,6 +46,7 @@ public class FeatureFlags {
   private boolean showStatsTabRedesign = false;
   private boolean showHomePageRedesign = false;
   private boolean lineageGraphV3 = true;
+  private boolean lineageDataProductDeclaredEnabled = false;
   private boolean showProductUpdates = false;
   private String productUpdatesJsonUrl;
   private String productUpdatesJsonFallbackResource;

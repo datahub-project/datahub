@@ -147,6 +147,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowHomePageRedesign()).thenReturn(false);
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
     when(mockFeatureFlags.isLineageGraphV3()).thenReturn(false);
+    when(mockFeatureFlags.isLineageDataProductDeclaredEnabled()).thenReturn(false);
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);

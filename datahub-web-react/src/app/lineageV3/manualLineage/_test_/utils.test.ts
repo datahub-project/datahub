@@ -28,6 +28,11 @@ describe('getValidEntityTypes', () => {
             const result = getValidEntityTypes(LineageDirection.Downstream);
             expect(result).toStrictEqual([]);
         });
+
+        it('should return DATA_PRODUCT if DataProduct entity type is passed', () => {
+            const result = getValidEntityTypes(LineageDirection.Downstream, EntityType.DataProduct);
+            expect(result).toStrictEqual(['DATA_PRODUCT']);
+        });
     });
 
     describe('For UpStream', () => {
@@ -54,6 +59,11 @@ describe('getValidEntityTypes', () => {
         it('should return empty Array if empty Entity type is passed', () => {
             const result = getValidEntityTypes(LineageDirection.Upstream);
             expect(result).toStrictEqual([]);
+        });
+
+        it('should return DATA_PRODUCT if DataProduct entity type is passed', () => {
+            const result = getValidEntityTypes(LineageDirection.Upstream, EntityType.DataProduct);
+            expect(result).toStrictEqual(['DATA_PRODUCT']);
         });
     });
 });

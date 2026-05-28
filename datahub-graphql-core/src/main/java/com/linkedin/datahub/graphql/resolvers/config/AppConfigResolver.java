@@ -277,6 +277,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setShowHomePageRedesign(_featureFlags.isShowHomePageRedesign())
             .setShowProductUpdates(_featureFlags.isShowProductUpdates())
             .setLineageGraphV3(_featureFlags.isLineageGraphV3())
+            .setLineageDataProductDeclaredEnabled(
+                _featureFlags.isLineageDataProductDeclaredEnabled())
             .setLogicalModelsEnabled(_featureFlags.isLogicalModelsEnabled())
             .setShowHomepageUserRole(_featureFlags.isShowHomepageUserRole())
             .setAssetSummaryPageV1(_featureFlags.isAssetSummaryPageV1())

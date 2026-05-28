@@ -116,6 +116,14 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       upstreamUrnsToRemove,
                       actor);
                   break;
+                case Constants.DATA_PRODUCT_ENTITY_NAME:
+                  _lineageService.updateDataProductLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      actor);
+                  break;
                 default:
               }
             } catch (Exception e) {

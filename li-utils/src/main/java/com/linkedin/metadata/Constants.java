@@ -398,6 +398,7 @@ public class Constants {
   public static final String DATA_PRODUCT_KEY_ASPECT_NAME = "dataProductKey";
   public static final String DATA_PRODUCT_PROPERTIES_ASPECT_NAME = "dataProductProperties";
   public static final String DATA_PRODUCTS_ASPECT_NAME = "dataProducts";
+  public static final String DATA_PRODUCT_UPSTREAMS_ASPECT_NAME = "dataProductUpstreams";
 
   // Application
   public static final String APPLICATION_PROPERTIES_ASPECT_NAME = "applicationProperties";

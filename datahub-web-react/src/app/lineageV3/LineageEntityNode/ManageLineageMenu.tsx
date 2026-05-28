@@ -15,6 +15,7 @@ import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entityV2/shared/constants
 import { LineageEntity, onClickPreventSelect } from '@app/lineageV3/common';
 import ManageLineageModal from '@app/lineageV3/manualLineage/ManageLineageModal';
 import { getLineageUrl } from '@app/lineageV3/utils/lineageUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, LineageDirection } from '@types';
@@ -131,7 +132,11 @@ export default function ManageLineageMenu({ node, refetch, isRootUrn, isGhost, i
     const isDashboard = node.type === EntityType.Dashboard;
     const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
     const isUpstreamDisabled = disableUpstream || !canEditLineage;
-    const isManualLineageSupported = ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type);
+    const { config } = useAppConfig();
+    const isDataProduct = node.type === EntityType.DataProduct;
+    const dataProductLineageAuthoringEnabled = !!config.featureFlags.lineageDataProductDeclaredEnabled;
+    const isManualLineageSupported =
+        ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(node.type) && (!isDataProduct || dataProductLineageAuthoringEnabled);
 
     const items: ItemType[] = [];
 

@@ -206,6 +206,7 @@ export const ENTITY_TYPES_WITH_MANUAL_LINEAGE = new Set([
     EntityType.Chart,
     EntityType.Dataset,
     EntityType.DataJob,
+    EntityType.DataProduct,
 ]);
 
 export const GLOSSARY_ENTITY_TYPES = [EntityType.GlossaryTerm, EntityType.GlossaryNode];

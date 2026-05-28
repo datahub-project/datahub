@@ -46,6 +46,9 @@ public class UpdateLineageResolverTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
   private static final String DATAJOB_URN_2 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String DATA_PRODUCT_URN_1 = "urn:li:dataProduct:dp1";
+  private static final String DATA_PRODUCT_URN_2 = "urn:li:dataProduct:dp2";
+  private static final String DATA_PRODUCT_URN_3 = "urn:li:dataProduct:dp3";
 
   @BeforeMethod
   public void setupTest() {
@@ -135,6 +138,25 @@ public class UpdateLineageResolverTest {
         .thenAnswer(args -> args.getArgument(1));
 
     assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  // Adds an upstream DP and removes another upstream DP for a downstream DP. Verifies the
+  // resolver dispatches to the new LineageService.updateDataProductLineage method.
+  @Test
+  public void testUpdateDataProductLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Collections.singletonList(createLineageEdge(DATA_PRODUCT_URN_1, DATA_PRODUCT_URN_2));
+    List<LineageEdge> edgesToRemove =
+        Collections.singletonList(createLineageEdge(DATA_PRODUCT_URN_1, DATA_PRODUCT_URN_3));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    Mockito.verify(_lineageService, Mockito.times(1))
+        .updateDataProductLineage(any(), any(), any(), any(), any());
   }
 
   @Test

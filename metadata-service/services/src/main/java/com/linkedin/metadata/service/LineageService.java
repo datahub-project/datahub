@@ -18,6 +18,9 @@ import com.linkedin.dashboard.DashboardInfo;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datajob.DataJobInputOutput;
+import com.linkedin.dataproduct.DataProductUpstream;
+import com.linkedin.dataproduct.DataProductUpstreamArray;
+import com.linkedin.dataproduct.DataProductUpstreams;
 import com.linkedin.dataset.DatasetLineageType;
 import com.linkedin.dataset.Upstream;
 import com.linkedin.dataset.UpstreamArray;
@@ -99,6 +102,25 @@ public class LineageService {
       throws Exception {
     if (!_entityClient.exists(opContext, urn)) {
       throw new IllegalArgumentException(String.format("Error: urn does not exist: %s", urn));
+    }
+  }
+
+  /**
+   * Validates that all urns target dataProduct entities and that each one exists. Declared
+   * DataProduct -> DataProduct lineage is intentionally restricted to other DataProducts in this
+   * revision; widening the entity types is a non-breaking change because the underlying PDL field
+   * is typed as Urn.
+   */
+  public void validateDataProductUrns(
+      @Nonnull OperationContext opContext, @Nonnull final List<Urn> urns) throws Exception {
+    for (final Urn urn : urns) {
+      if (!urn.getEntityType().equals(Constants.DATA_PRODUCT_ENTITY_NAME)) {
+        throw new IllegalArgumentException(
+            String.format(
+                "Tried to add lineage edge with non-dataProduct node when we expect a dataProduct. Upstream urn: %s",
+                urn));
+      }
+      validateUrnExists(opContext, urn);
     }
   }
 
@@ -778,5 +800,101 @@ public class LineageService {
     properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
     newEdge.setProperties(properties);
     edgeArray.add(newEdge);
+  }
+
+  /**
+   * Updates declared DataProduct lineage by taking a list of upstream DataProducts to add and
+   * remove and rewriting the {@code dataProductUpstreams} aspect on the downstream DP.
+   * The @Relationship.isLineage=true annotation on {@link DataProductUpstream#getDataProduct()}
+   * means searchAcrossLineage will surface these edges natively in both directions; no aggregation
+   * resolver is required.
+   */
+  public void updateDataProductLineage(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    if (!downstreamUrn.getEntityType().equals(Constants.DATA_PRODUCT_ENTITY_NAME)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Tried to update DataProduct lineage on non-dataProduct urn: %s", downstreamUrn));
+    }
+    if (upstreamUrnsToAdd.stream().anyMatch(downstreamUrn::equals)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Refused to declare a DataProduct as its own upstream. Urn: %s", downstreamUrn));
+    }
+    validateDataProductUrns(opContext, upstreamUrnsToAdd);
+    try {
+      MetadataChangeProposal changeProposal =
+          buildDataProductLineageProposal(
+              opContext, downstreamUrn, upstreamUrnsToAdd, upstreamUrnsToRemove, actor);
+      _entityClient.ingestProposal(opContext, changeProposal, false);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to update DataProduct lineage for urn %s", downstreamUrn), e);
+    }
+  }
+
+  /**
+   * Reads the existing {@code dataProductUpstreams} aspect (if any), removes the entries matched by
+   * {@code upstreamUrnsToRemove}, appends new {@link DataProductUpstream} entries for each urn in
+   * {@code upstreamUrnsToAdd} that is not already present, stamps each new edge with the actor /
+   * now timestamp, and returns the resulting MCP. Existing entries are preserved as-is so contract
+   * metadata captured during ingestion is not clobbered by a UI authoring round-trip.
+   */
+  @Nonnull
+  public MetadataChangeProposal buildDataProductLineageProposal(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn downstreamUrn,
+      @Nonnull final List<Urn> upstreamUrnsToAdd,
+      @Nonnull final List<Urn> upstreamUrnsToRemove,
+      @Nonnull final Urn actor)
+      throws Exception {
+    EntityResponse entityResponse =
+        _entityClient.getV2(
+            opContext,
+            Constants.DATA_PRODUCT_ENTITY_NAME,
+            downstreamUrn,
+            ImmutableSet.of(Constants.DATA_PRODUCT_UPSTREAMS_ASPECT_NAME));
+
+    DataProductUpstreams lineage = new DataProductUpstreams();
+    if (entityResponse != null
+        && entityResponse.getAspects().containsKey(Constants.DATA_PRODUCT_UPSTREAMS_ASPECT_NAME)) {
+      DataMap dataMap =
+          entityResponse
+              .getAspects()
+              .get(Constants.DATA_PRODUCT_UPSTREAMS_ASPECT_NAME)
+              .getValue()
+              .data();
+      lineage = new DataProductUpstreams(dataMap);
+    }
+
+    if (!lineage.hasUpstreams()) {
+      lineage.setUpstreams(new DataProductUpstreamArray());
+    }
+    final DataProductUpstreamArray upstreams = lineage.getUpstreams();
+
+    upstreams.removeIf(upstream -> upstreamUrnsToRemove.contains(upstream.getDataProduct()));
+
+    for (final Urn upstreamUrn : upstreamUrnsToAdd) {
+      if (upstreams.stream().anyMatch(u -> u.getDataProduct().equals(upstreamUrn))) {
+        continue;
+      }
+      final DataProductUpstream newUpstream = new DataProductUpstream();
+      newUpstream.setDataProduct(upstreamUrn);
+      newUpstream.setAuditStamp(getAuditStamp(actor));
+      newUpstream.setCreated(getAuditStamp(actor));
+      final StringMap properties = new StringMap();
+      properties.put(SOURCE_FIELD_NAME, UI_SOURCE);
+      newUpstream.setProperties(properties);
+      upstreams.add(newUpstream);
+    }
+
+    lineage.setUpstreams(upstreams);
+    return buildMetadataChangeProposal(
+        downstreamUrn, Constants.DATA_PRODUCT_UPSTREAMS_ASPECT_NAME, lineage);
   }
 }

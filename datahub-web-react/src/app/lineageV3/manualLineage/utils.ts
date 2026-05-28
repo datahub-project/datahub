@@ -11,6 +11,8 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 return [EntityType.Chart, EntityType.Dataset];
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset];
+            case EntityType.DataProduct:
+                return [EntityType.DataProduct];
             default:
                 console.warn('Unexpected entity type to get valid upstream entity types for');
                 return [];
@@ -26,6 +28,8 @@ export function getValidEntityTypes(lineageDirection: LineageDirection, entityTy
                 return [];
             case EntityType.DataJob:
                 return [EntityType.DataJob, EntityType.Dataset];
+            case EntityType.DataProduct:
+                return [EntityType.DataProduct];
             default:
                 console.warn('Unexpected entity type to get valid downstream entity types for');
                 return [];

@@ -820,6 +820,13 @@ type FeatureFlagsConfig {
   lineageGraphV3: Boolean!
 
   """
+  Enables authoring of declared DataProduct -> DataProduct lineage edges. When false, the Manage
+  Lineage affordance on a DataProduct's lineage tab is hidden and the mutation is no-op'd on the
+  client. The backend dataProductUpstreams aspect remains writable via ingestion APIs.
+  """
+  lineageDataProductDeclaredEnabled: Boolean!
+
+  """
   Enables logical models feature
   """
   logicalModelsEnabled: Boolean!

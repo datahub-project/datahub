@@ -6,6 +6,7 @@ import styled from 'styled-components';
 
 import { ENTITY_TYPES_WITH_MANUAL_LINEAGE } from '@app/entity/shared/constants';
 import { MenuItemStyle } from '@app/entity/view/menu/item/styledComponent';
+import { useAppConfig } from '@app/useAppConfig';
 import { Direction } from '@src/app/lineage/types';
 
 import { EntityType } from '@types';
@@ -68,7 +69,13 @@ export default function ManageLineageMenuForImpactAnalysis({
     const isDashboard = entityType === EntityType.Dashboard;
     const isDownstreamDisabled = disableDownstream || isDashboard || !canEditLineage;
     const isUpstreamDisabled = disableUpstream || !canEditLineage;
-    const isManualLineageSupported = entityType && ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(entityType);
+    const { config } = useAppConfig();
+    const isDataProduct = entityType === EntityType.DataProduct;
+    const dataProductLineageAuthoringEnabled = !!config.featureFlags.lineageDataProductDeclaredEnabled;
+    const isManualLineageSupported =
+        !!entityType &&
+        ENTITY_TYPES_WITH_MANUAL_LINEAGE.has(entityType) &&
+        (!isDataProduct || dataProductLineageAuthoringEnabled);
 
     // if we don't show manual lineage options or the center node option, this menu has no options
     if (!isManualLineageSupported && isCenterNode) return null;

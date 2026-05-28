@@ -491,6 +491,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "featureFlags.graphServiceDiffModeEnabled",
           "featureFlags.hideDbtSourceInLineage",
           "featureFlags.lineageGraphV2",
+          "featureFlags.lineageDataProductDeclaredEnabled",
           "featureFlags.lineageGraphV3",
           "featureFlags.lineageSearchCacheEnabled",
           "featureFlags.logicalModelsEnabled",
