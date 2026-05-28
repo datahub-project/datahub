@@ -123,8 +123,10 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                 IngestionUtils.injectPipelineName(
                     input.getRecipe(), executionRequestUrn.toString()));
             // input.getVersion() may be null, empty, or whitespace-only (UI forms can submit any
-            // of these); the helper normalizes all three to "unset" and falls through to the
-            // matrix / application default. See #17471 for the whitespace-only edge case.
+            // of these — an unfilled "version" field commonly renders as a 3-space string). The
+            // helper normalizes all three to "unset" so resolution falls through to the matrix /
+            // application default; without that normalization the blank would forward verbatim to
+            // the executor and silently pin to its bundled CLI.
             final String connectorType = extractSourceType(input.getRecipe());
             final CliVersionResolutionHelper.Result resolution =
                 CliVersionResolutionHelper.resolve(

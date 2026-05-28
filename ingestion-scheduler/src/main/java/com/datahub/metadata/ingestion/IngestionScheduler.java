@@ -417,9 +417,12 @@ public class IngestionScheduler {
             IngestionUtils.injectPipelineName(
                 ingestionSourceInfo.getConfig().getRecipe(), ingestionSourceUrn.toString());
         arguments.put(RECIPE_ARGUMENT_NAME, recipe);
-        // Per-source version may be null, empty, or whitespace-only (bootstrap YAML templating
-        // can render any of these); the helper normalizes all three to "unset" and falls through
-        // to the matrix / application default. See #17471 for the whitespace-only edge case.
+        // Per-source version may be null, empty, or whitespace-only — bootstrap YAML templating
+        // renders `version: "{{ config.version }}"` as 3 spaces when the source has no pin, and
+        // Mustache treats missing keys as empty rather than failing. The helper normalizes all
+        // three to "unset" so resolution falls through to the matrix / application default;
+        // without that, the blank would forward to the executor and silently pin to its bundled
+        // CLI.
         final String explicitVersion =
             ingestionSourceInfo.getConfig().hasVersion()
                 ? ingestionSourceInfo.getConfig().getVersion()
