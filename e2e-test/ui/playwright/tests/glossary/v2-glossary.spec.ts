@@ -31,6 +31,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('create term group at root level', async ({ cleanup }) => {
+    test.setTimeout(120000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
 
     const termGroupUrn = await glossaryPage.createTermGroup(termGroupName);
@@ -41,6 +42,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('create glossary term inside term group', async ({ cleanup }) => {
+    test.setTimeout(120000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -55,6 +57,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('add glossary term to dataset via sidebar', async ({ page, logger, logDir, cleanup }) => {
+    test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -74,6 +77,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('batch add term to dataset via Add to Assets', async ({ page, logger, logDir, cleanup }) => {
+    test.setTimeout(150000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 
@@ -98,6 +102,7 @@ test.describe('glossary term group and term lifecycle', () => {
   });
 
   test('delete glossary term', async ({ cleanup }) => {
+    test.setTimeout(120000);
     const termGroupName = withRandomSuffix('GlossaryGroup');
     const termName = withRandomSuffix('GlossaryTerm');
 

@@ -205,13 +205,22 @@ export class GlossaryPage extends BasePage {
 
   async clickSidebarTerm(urn: string): Promise<void> {
     this.logger?.step('clickSidebarTerm', { urn });
+    // Sidebar tree renders asynchronously; wait before clicking.
+    await this.getSidebarTermLocator(urn).waitFor({ state: 'visible', timeout: 20000 });
     await this.getSidebarTermLocator(urn).click();
     await this.waitForPageLoad();
   }
 
   async clickSidebarNode(urn: string): Promise<void> {
     this.logger?.step('clickSidebarNode', { urn });
-    await this.getSidebarNodeLocator(urn).click();
+    // ES indexing after entity creation can take 20–40 s. Reload until the node appears.
+    const locator = this.getSidebarNodeLocator(urn);
+    await expect(async () => {
+      await this.page.reload();
+      await this.waitForPageLoad();
+      await expect(locator).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 60000, intervals: [5000] });
+    await locator.click();
     await this.waitForPageLoad();
   }
 
@@ -323,6 +332,7 @@ export class GlossaryPage extends BasePage {
    */
   async applyFacetTagFilter(tagUrn: string): Promise<void> {
     this.logger?.step('applyFacetTagFilter', { tagUrn });
+    await expect(this.filtersToggleButton).toBeVisible({ timeout: 15000 });
     await this.filtersToggleButton.click();
     await this.getFacetTagCheckbox(tagUrn).click();
   }
@@ -333,6 +343,7 @@ export class GlossaryPage extends BasePage {
    */
   async filterRelatedAssetsByTag(tagName: string): Promise<void> {
     this.logger?.step('filterRelatedAssetsByTag', { tagName });
+    await expect(this.filtersToggleButton).toBeVisible({ timeout: 15000 });
     await this.filtersToggleButton.click();
     await this.advancedSearchButton.click();
     await this.addFilterButton.click();
@@ -378,19 +389,35 @@ export class GlossaryPage extends BasePage {
   }
 
   async expectEntityInContentsTab(urn: string): Promise<void> {
-    await expect(this.getContentsTabItemLocator(urn)).toBeVisible();
+    // ES indexing after creation can take 20–40 s. Reload and re-open Contents tab until visible.
+    const locator = this.getContentsTabItemLocator(urn);
+    if (!(await locator.isVisible())) {
+      await expect(async () => {
+        await this.page.reload();
+        await this.waitForPageLoad();
+        await this.openContentsTab();
+        await expect(locator).toBeVisible({ timeout: 5000 });
+      }).toPass({ timeout: 45000, intervals: [5000] });
+    }
+    await expect(locator).toBeVisible({ timeout: 5000 });
   }
 
   async expectEntityNotInContentsTab(urn: string): Promise<void> {
-    await expect(this.getContentsTabItemLocator(urn)).toBeHidden();
+    await expect(this.getContentsTabItemLocator(urn)).toBeHidden({ timeout: 15000 });
   }
 
   async expectSidebarContainsNode(urn: string): Promise<void> {
-    await expect(this.getSidebarNodeLocator(urn)).toBeVisible();
+    // ES indexing after creation can take 20–40 s. Reload until the sidebar node appears.
+    const locator = this.getSidebarNodeLocator(urn);
+    await expect(async () => {
+      await this.page.reload();
+      await this.waitForPageLoad();
+      await expect(locator).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 60000, intervals: [5000] });
   }
 
   async expectSidebarNotContainsNode(urn: string): Promise<void> {
-    await expect(this.getSidebarNodeLocator(urn)).toBeHidden();
+    await expect(this.getSidebarNodeLocator(urn)).toBeHidden({ timeout: 15000 });
   }
 
   async expectPreviewEntityByUrn(urn: string): Promise<void> {
