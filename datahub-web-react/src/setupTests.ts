@@ -10,6 +10,9 @@ import enCommonActions from '@src/i18n/locales/en/common.actions.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
+import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import enModules from '@src/i18n/locales/en/modules.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
 import enSettingsPermissions from '@src/i18n/locales/en/settings.permissions.json';
@@ -22,11 +25,15 @@ import '@utils/dayjs';
 i18n.use(initReactI18next).init({
     lng: 'en',
     fallbackLng: 'en',
+    initImmediate: false,
     ns: [
         'common.actions',
         'entity.identity',
         'entity.ownership',
         'entity.views',
+        'home.v2',
+        'home.v3',
+        'modules',
         'settings.features',
         'settings.page',
         'settings.permissions',
@@ -41,6 +48,9 @@ i18n.use(initReactI18next).init({
             'entity.identity': enEntityIdentity,
             'entity.ownership': enEntityOwnership,
             'entity.views': enEntityViews,
+            'home.v2': enHomeV2,
+            'home.v3': enHomeV3,
+            modules: enModules,
             'settings.features': enSettingsFeatures,
             'settings.page': enSettingsPage,
             'settings.permissions': enSettingsPermissions,
