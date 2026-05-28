@@ -871,10 +871,9 @@ def get_overridden_info(
         ):
             platform_instance = database_hostname_to_platform_instance_map.get(hostname)
 
-    # UUID-based routing wins over hostname-based routing because it's strictly
-    # more specific: one Tableau database UUID identifies exactly one connection,
-    # whereas a hostname can be shared across connections (e.g. AWS Athena
-    # workgroups behind a region-level endpoint).
+    # database id is strictly more specific than hostname: one id identifies
+    # one connection, whereas a hostname can be shared (e.g. Athena workgroups
+    # behind a regional endpoint). Apply id routing last so it wins on conflict.
     if (
         database_id_to_platform_instance_map is not None
         and upstream_db_id is not None
