@@ -37,7 +37,7 @@ export class DomainsPage extends BasePage {
     this.batchAddButton = page.getByTestId("domain-batch-add");
     // AntD modal content scopes the search so it doesn't match the page-level search bar
     this.modalSearchInput = page.getByRole('dialog').getByTestId('search-input');
-    this.continueButton = page.getByRole('button', { name: 'Continue' });
+    this.continueButton = page.getByTestId('search-select-modal-continue-button');
     // eslint-disable-next-line playwright/no-raw-locators -- sidebar-domain-section has no data-testid; compound CSS selector required
     this.sidebarRemoveIcon = page.locator('.sidebar-domain-section [data-testid="remove-icon"]');
     this.modalConfirmButton = page.getByTestId("modal-confirm-button");
