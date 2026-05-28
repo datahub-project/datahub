@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { EdgeId, LineageEdge, LineageEntity, LineageNodesContext, NodeContext } from '@app/lineageV3/common';
 import DAGNodeInitializer from '@app/lineageV3/initialize/DataFlowGraphInitializer';
 import DataProductGraphInitializer from '@app/lineageV3/initialize/DataProductGraphInitializer';
+import DomainGraphInitializer from '@app/lineageV3/initialize/DomainGraphInitializer';
 import ImpactAnalysisNodeInitializer from '@app/lineageV3/initialize/ImpactAnalysisNodeInitializer';
 import useShouldHideTransformations from '@app/lineageV3/settings/useShouldHideTransformations';
 import useShouldShowDataProcessInstances from '@app/lineageV3/settings/useShouldShowDataProcessInstances';
@@ -59,7 +60,8 @@ export default function LineageExplorer(props: Props) {
         <LineageNodesContext.Provider value={context}>
             {type === EntityType.DataFlow && <DAGNodeInitializer urn={urn} type={type} />}
             {type === EntityType.DataProduct && <DataProductGraphInitializer urn={urn} type={type} />}
-            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && (
+            {type === EntityType.Domain && <DomainGraphInitializer urn={urn} type={type} />}
+            {type !== EntityType.DataFlow && type !== EntityType.DataProduct && type !== EntityType.Domain && (
                 <ImpactAnalysisNodeInitializer urn={urn} type={type} />
             )}
         </LineageNodesContext.Provider>

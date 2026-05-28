@@ -11800,6 +11800,11 @@ type Domain implements Entity {
   type: EntityType!
 
   """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+
+  """
   Id of the domain
   """
   id: String!

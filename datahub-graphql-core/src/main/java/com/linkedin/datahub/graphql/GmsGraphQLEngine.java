@@ -3105,6 +3105,7 @@ public class GmsGraphQLEngine {
         "Domain",
         typeWiring ->
             typeWiring
+                .dataFetcher("exists", new EntityExistsResolver(entityService))
                 .dataFetcher("entities", new DomainEntitiesResolver(this.entityClient))
                 .dataFetcher("parentDomains", new ParentDomainsResolver(this.entityClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))

@@ -1,4 +1,10 @@
-import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import {
+    AppstoreOutlined,
+    FileDoneOutlined,
+    FileOutlined,
+    PartitionOutlined,
+    UnorderedListOutlined,
+} from '@ant-design/icons';
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
 import * as React from 'react';
@@ -23,6 +29,7 @@ import SidebarNotesSection from '@app/entityV2/shared/sidebarSection/SidebarNote
 import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
 import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
 import { EntityTab } from '@app/entityV2/shared/types';
 import SummaryTab from '@app/entityV2/summary/SummaryTab';
@@ -71,7 +78,7 @@ export class DomainEntity implements Entity<Domain> {
 
     isBrowseEnabled = () => false;
 
-    isLineageEnabled = () => false;
+    isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
 
@@ -174,6 +181,11 @@ export class DomainEntity implements Entity<Domain> {
                 icon: FileDoneOutlined,
             },
             {
+                name: 'Lineage',
+                component: LineageTab,
+                icon: PartitionOutlined,
+            },
+            {
                 name: 'Properties',
                 component: PropertiesTab,
                 icon: UnorderedListOutlined,
@@ -220,6 +232,14 @@ export class DomainEntity implements Entity<Domain> {
 
     displayName = (data: Domain) => {
         return data?.properties?.name || data?.id || data.urn;
+    };
+
+    getLineageVizConfig = (entity: Domain) => {
+        return {
+            urn: entity.urn,
+            name: entity.properties?.name || entity.urn,
+            type: EntityType.Domain,
+        };
     };
 
     getOverridePropertiesFromEntity = (data: Domain) => {

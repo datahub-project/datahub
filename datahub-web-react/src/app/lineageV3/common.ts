@@ -61,6 +61,7 @@ export interface LineageEntity extends NodeBase {
     filters: Record<LineageDirection, Filters>;
     parentDataJob?: Urn;
     parentDataProduct?: Urn;
+    parentDomain?: Urn;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';
@@ -415,6 +416,9 @@ export function onClickPreventSelect(event: React.MouseEvent): true {
 export function useNodeColor(type?: EntityType): [string, string] {
     const theme = useTheme();
 
+    if (type === EntityType.Domain) {
+        return [theme.colors.glossaryPaletteGreen, ''];
+    }
     if (type === EntityType.DataProduct) {
         return [theme.colors.glossaryPaletteViolet, ''];
     }
