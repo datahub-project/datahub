@@ -227,7 +227,7 @@ def pipeline_ctx() -> PipelineContext:
     return PipelineContext(run_id="test")
 
 
-def test_parse_real_semicolons_path(pipeline_ctx: PipelineContext):
+def test_parse_real_semicolons_path(pipeline_ctx: PipelineContext) -> None:
     """Query with real semicolons takes the _has_real_semicolons=True path."""
     sql = "SELECT id FROM db_a.schema_a.table_a;\nSELECT val FROM db_b.schema_b.table_b"
     result = parse_custom_sql(
@@ -245,7 +245,7 @@ def test_parse_real_semicolons_path(pipeline_ctx: PipelineContext):
     assert any("table_b" in urn for urn in in_tables)
 
 
-def test_parse_blank_line_separated_statements(pipeline_ctx: PipelineContext):
+def test_parse_blank_line_separated_statements(pipeline_ctx: PipelineContext) -> None:
     """Blank-line-separated SELECTs (no real semicolons) get separators inserted
     and are parsed via create_lineage_from_sql_statements."""
     sql = "SELECT id FROM db_a.schema_a.table_a\n\n\nSELECT val FROM db_b.schema_b.table_b"
@@ -264,7 +264,9 @@ def test_parse_blank_line_separated_statements(pipeline_ctx: PipelineContext):
     assert any("table_b" in urn for urn in in_tables)
 
 
-def test_parse_nested_cte_no_cte_alias_in_upstreams(pipeline_ctx: PipelineContext):
+def test_parse_nested_cte_no_cte_alias_in_upstreams(
+    pipeline_ctx: PipelineContext,
+) -> None:
     """Regression test: CTE aliases must NOT appear in upstream URNs.
 
     Runs _NESTED_CTE_SQL through the full production pre-processing sequence
