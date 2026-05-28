@@ -194,6 +194,8 @@ def test_empty_column_names_filtered_from_fine_grained_lineage() -> None:
     assert len(result.fineGrainedLineages) == 1
 
     fgl = result.fineGrainedLineages[0]
+    assert fgl.upstreams is not None
+    assert fgl.downstreams is not None
     assert len(fgl.upstreams) == 1
     assert len(fgl.downstreams) == 1
 
