@@ -111,6 +111,7 @@ from datahub.metadata.schema_classes import (
     DataPlatformInfoClass,
     DatasetAssertionInfoClass,
     DatasetAssertionScopeClass,
+    DatasetProfileClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -126,6 +127,8 @@ from datahub.metadata.schema_classes import (
     IncidentStatusClass,
     IncidentTypeClass,
     NullTypeClass,
+    OperationClass,
+    OperationTypeClass,
     PlatformTypeClass,
     RowCountTotalClass,
     SiblingsClass,
@@ -464,6 +467,72 @@ def _freshness_sla_for_model(model: "SqlmeshModel") -> Tuple[str, int]:
     # IntervalUnit is a str-Enum in sqlmesh; both .value and str() work.
     key = getattr(interval_unit, "value", str(interval_unit)).lower()
     return _INTERVAL_UNIT_TO_SLA.get(key, _DEFAULT_FRESHNESS_SLA)
+
+
+# Approximate milliseconds in each CalendarInterval unit. Used to convert
+# the (unit, multiple) SLA window into a comparable duration. Approximation
+# is intentional — calendar arithmetic is fiddly and freshness SLAs are
+# tolerance windows, not deadlines down to the millisecond.
+_CALENDAR_INTERVAL_MS: Dict[str, int] = {
+    "SECOND": 1_000,
+    "MINUTE": 60_000,
+    "HOUR": 3_600_000,
+    "DAY": 86_400_000,
+    "WEEK": 7 * 86_400_000,
+    "MONTH": 30 * 86_400_000,
+    "QUARTER": 91 * 86_400_000,
+    "YEAR": 365 * 86_400_000,
+}
+
+
+def _sla_window_to_ms(unit: str, multiple: int) -> int:
+    """Convert (CalendarInterval, multiple) → duration in milliseconds.
+
+    Falls back to a 24-hour window if the unit isn't recognised — better
+    to over-alert than under-alert on freshness when we hit an unfamiliar
+    unit.
+    """
+    per_unit = _CALENDAR_INTERVAL_MS.get(unit.upper(), 86_400_000)
+    return per_unit * max(1, multiple)
+
+
+def _build_count_query(physical_name: str, dialect: Optional[str] = None) -> str:
+    """Render ``SELECT COUNT(*) FROM <table>`` with dialect-correct quoting.
+
+    The naive ``f"SELECT COUNT(*) FROM {physical_name}"`` form breaks on
+    catalogs / schemas / tables that contain hyphens or other identifier-
+    significant characters (e.g. SQLMesh's example sushi project uses the
+    catalog ``sushi-example``, which DuckDB parses as ``sushi - example``).
+    Parsing the dotted form back into a SQLGlot Table also fails for the
+    same reason. The robust path is to split on ``.`` and build the Table
+    expression by parts, letting SQLGlot quote per dialect.
+
+    Supports 1-, 2-, and 3-part names. The default identifier policy uses
+    SQLGlot's ``identify=True`` which double-quotes everything (or backticks
+    for BigQuery).
+    """
+    from sqlglot import exp
+
+    parts = physical_name.split(".")
+    if len(parts) == 3:
+        table_expr = exp.Table(
+            this=exp.to_identifier(parts[2]),
+            db=exp.to_identifier(parts[1]),
+            catalog=exp.to_identifier(parts[0]),
+        )
+    elif len(parts) == 2:
+        table_expr = exp.Table(
+            this=exp.to_identifier(parts[1]),
+            db=exp.to_identifier(parts[0]),
+        )
+    else:
+        table_expr = exp.Table(this=exp.to_identifier(physical_name))
+
+    return (
+        exp.select(exp.Count(this=exp.Star()))
+        .from_(table_expr)
+        .sql(dialect=dialect, identify=True)
+    )
 
 
 @dataclass
@@ -1531,8 +1600,10 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         # semantically meaningful target for the audit; siblings let users
         # navigate from the logical model to its current materialization.
         yield from self._emit_assertions(model, sqlmesh_urn)
-        yield from self._emit_freshness_assertions(model, sqlmesh_urn)
-        yield from self._emit_volume_assertions(model, sqlmesh_urn)
+        yield from self._emit_freshness_assertions(model, sqlmesh_urn, sqlmesh_ctx)
+        yield from self._emit_volume_assertions(
+            model, sqlmesh_urn, physical_name, sqlmesh_ctx
+        )
 
     def _build_custom_properties(
         self,
@@ -2007,9 +2078,11 @@ class SqlmeshSource(StatefulIngestionSourceBase):
             startedAt=ts_ms,
             created=created,
         )
-        yield MetadataChangeProposalWrapper(
-            entityUrn=incident_urn, aspect=StatusClass(removed=False)
-        ).as_workunit()
+        # Note: deliberately NOT emitting StatusClass on the incident entity —
+        # blue (and likely other OSS GMS deployments) registers IncidentInfo
+        # as an aspect on Incident but doesn't accept Status on it, returning
+        # HTTP 422 "Unknown aspect status for entity incident". The
+        # incidentInfo aspect alone is sufficient to create the entity.
         yield MetadataChangeProposalWrapper(
             entityUrn=incident_urn, aspect=incident_info
         ).as_workunit()
@@ -2068,6 +2141,7 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         self,
         model: "SqlmeshModel",
         sqlmesh_urn: str,
+        sqlmesh_ctx: Optional["SqlmeshContextType"] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit two FRESHNESS assertions per model:
 
@@ -2145,6 +2219,77 @@ class SqlmeshSource(StatefulIngestionSourceBase):
                 entityUrn=assertion_urn, aspect=assertion_info
             ).as_workunit()
 
+        # Once per model, emit an OperationAspect carrying the fingerprint
+        # rebuild timestamp from SQLMesh state. This is the canonical
+        # timeseries that Cloud's Monitor framework reads to evaluate
+        # freshness assertions (the same way warehouse connectors emit
+        # OperationAspect for table modifications). One emission per
+        # model, not per assertion — the timestamp is the same for both
+        # pipeline_freshness and upstream_freshness checks.
+        yield from self._emit_pipeline_operation(
+            sqlmesh_urn=sqlmesh_urn,
+            model=model,
+            sqlmesh_ctx=sqlmesh_ctx,
+        )
+
+    def _emit_pipeline_operation(
+        self,
+        *,
+        sqlmesh_urn: str,
+        model: "SqlmeshModel",
+        sqlmesh_ctx: Optional["SqlmeshContextType"],
+    ) -> Iterable[MetadataWorkUnit]:
+        """Emit an ``OperationAspect`` carrying the fingerprint rebuild time.
+
+        ``OperationAspect.lastUpdatedTimestamp`` is the canonical timeseries
+        the rest of DataHub (and Cloud's freshness anomaly detector) reads
+        to answer "when was this dataset last touched?". Every warehouse
+        connector emits this aspect for INSERT/UPDATE events on the source
+        table; we do the equivalent for SQLMesh by mapping a fingerprint
+        rebuild to a single ``CUSTOM`` operation at ``snapshot.updated_ts``.
+
+        Cloud's monitor framework then evaluates our FRESHNESS assertion
+        against this timeseries automatically — no AssertionRunEvent
+        emission needed from us. OSS users see the operation history on
+        the dataset's Activity tab.
+
+        Source of the timestamp: ``ctx.snapshots[fqn].updated_ts`` from
+        SQLMesh state. Skipped silently when state is unreachable.
+        """
+        if not self._capabilities.has_state or sqlmesh_ctx is None:
+            return
+
+        try:
+            snapshots = sqlmesh_ctx.snapshots
+            snapshot = snapshots.get(getattr(model, "fqn", None)) or snapshots.get(
+                str(getattr(model, "name", ""))
+            )
+            updated_ts = (
+                int(getattr(snapshot, "updated_ts", 0)) if snapshot is not None else 0
+            )
+        except Exception as e:
+            logger.debug(
+                "Could not read snapshot.updated_ts for %s; skipping operation aspect (%s)",
+                getattr(model, "name", "?"),
+                e,
+            )
+            return
+
+        if updated_ts <= 0:
+            return
+
+        now_ms = int(time.time() * 1000)
+        operation = OperationClass(
+            timestampMillis=now_ms,
+            operationType=OperationTypeClass.CUSTOM,
+            customOperationType="SQLMESH_FINGERPRINT_REBUILD",
+            lastUpdatedTimestamp=updated_ts,
+            actor=mce_builder.make_user_urn("__sqlmesh_ingest__"),
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=sqlmesh_urn, aspect=operation
+        ).as_workunit()
+
     def _freshness_assertion_urn(self, sqlmesh_urn: str, kind: str) -> str:
         """Stable urn:li:assertion:... for the named freshness assertion."""
         raw = f"{sqlmesh_urn}:freshness:{kind}"
@@ -2159,6 +2304,8 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         self,
         model: "SqlmeshModel",
         sqlmesh_urn: str,
+        physical_name: Optional[str] = None,
+        sqlmesh_ctx: Optional["SqlmeshContextType"] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Emit a VOLUME assertion per model — row count must be >= 1.
 
@@ -2175,6 +2322,12 @@ class SqlmeshSource(StatefulIngestionSourceBase):
 
         External and embedded models are skipped (no warehouse output to
         count).
+
+        Also emits an AssertionRunEvent with the observed row count when
+        ``has_warehouse_query`` is true and the fingerprint table name is
+        known — this populates the Validation tab on DataHub without
+        requiring a separate monitor runner. Failures fire an Incident via
+        ``_emit_incident_for_failure`` (gated by ``emit_incidents_on_failure``).
         """
         if not self.config.emit_volume_assertions:
             return
@@ -2214,6 +2367,81 @@ class SqlmeshSource(StatefulIngestionSourceBase):
         ).as_workunit()
         yield MetadataChangeProposalWrapper(
             entityUrn=assertion_urn, aspect=assertion_info
+        ).as_workunit()
+
+        # Emit a run event with the observed row count so the Validation
+        # tab shows PASS / FAIL instead of "not yet run". Cheap on most
+        # warehouses (Snowflake/BigQuery use INFORMATION_SCHEMA; DuckDB
+        # streams the table); expensive on Postgres-style scans for huge
+        # tables — accept that tradeoff for now.
+        if not self._capabilities.has_warehouse_query:
+            return
+        if sqlmesh_ctx is None:
+            return
+
+        # Prefer the snapshot's authoritative table_name() because the
+        # derived `physical_name` (built from model.data_hash) doesn't
+        # always match the hash SQLMesh actually used to materialise the
+        # fingerprint. ``snapshot.table_name()`` returns a SQL fragment
+        # already quoted for the dialect (e.g. ``"sushi-example".schema.t``)
+        # so we splice it directly. The model-attribute fallback is
+        # unquoted, so it goes through SQLGlot to be safe.
+        live_physical_name = None
+        snapshot_provided = False
+        try:
+            if self._capabilities.has_state:
+                snapshots = sqlmesh_ctx.snapshots
+                snapshot = snapshots.get(getattr(model, "fqn", None)) or snapshots.get(
+                    str(getattr(model, "name", ""))
+                )
+                if snapshot is not None:
+                    tn = snapshot.table_name()
+                    if tn:
+                        live_physical_name = str(tn)
+                        snapshot_provided = True
+        except Exception as e:
+            logger.debug(
+                "Could not read snapshot.table_name() for %s (%s); using derived name",
+                getattr(model, "name", "?"),
+                e,
+            )
+
+        if not live_physical_name:
+            live_physical_name = physical_name
+        if not live_physical_name:
+            return
+
+        try:
+            if snapshot_provided:
+                # SQLMesh's table_name() is already dialect-quoted; splice directly.
+                query = f"SELECT COUNT(*) FROM {live_physical_name}"
+            else:
+                dialect = getattr(sqlmesh_ctx.engine_adapter, "DIALECT", None)
+                query = _build_count_query(live_physical_name, dialect=dialect)
+            row = sqlmesh_ctx.engine_adapter.fetchone(query)
+            row_count = int(row[0]) if row and row[0] is not None else 0
+        except Exception as e:
+            logger.debug(
+                "Volume row-count query failed for %s (%s); skipping profile emission",
+                live_physical_name,
+                e,
+            )
+            return
+
+        # Emit the row count as a DatasetProfile (the canonical timeseries
+        # warehouse profilers populate). Cloud's volume anomaly detector
+        # reads DatasetProfile.rowCount history to baseline against; OSS
+        # users see the value on the dataset's Profile tab. The VOLUME
+        # assertion definition stays unchanged — Monitor evaluates the
+        # static "row_count >= 1" policy against this aspect, and writes
+        # AssertionRunEvent / fires incidents on its own.
+        ts_ms = int(time.time() * 1000)
+        profile = DatasetProfileClass(
+            timestampMillis=ts_ms,
+            rowCount=row_count,
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=sqlmesh_urn, aspect=profile
         ).as_workunit()
 
     def _anomaly_custom_props(

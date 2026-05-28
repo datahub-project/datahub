@@ -1299,6 +1299,85 @@ class TestNormalization:
         assert eff.sqlmesh_platform_instance == "project_a"
 
 
+class TestBuildCountQuery:
+    """Identifier quoting in _build_count_query — SQLGlot has to render the
+    three-part name with dialect-correct quoting so hyphens, reserved words,
+    and other identifier-significant characters don't break the query.
+    """
+
+    def test_three_part_name_hyphenated_catalog_duckdb(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        # 'sushi-example' is the canonical pathological case — bare splice
+        # gives DuckDB `sushi - example` (a subtraction).
+        sql = _build_count_query(
+            "sushi-example.sqlmesh__sushimoderate.sushimoderate__top_waiters__abc",
+            dialect="duckdb",
+        )
+        assert '"sushi-example"' in sql
+        assert '"sqlmesh__sushimoderate"' in sql
+        assert '"sushimoderate__top_waiters__abc"' in sql
+        assert sql.startswith("SELECT COUNT(*)")
+
+    def test_three_part_name_snowflake_uppercase(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        sql = _build_count_query(
+            "ANALYTICS.SQLMESH__STAR.STAR__DIM_DEVELOPER__123",
+            dialect="snowflake",
+        )
+        # Snowflake double-quotes preserve case; identifiers are kept.
+        assert '"ANALYTICS"' in sql
+        assert '"SQLMESH__STAR"' in sql
+        assert '"STAR__DIM_DEVELOPER__123"' in sql
+
+    def test_three_part_name_bigquery_uses_backticks(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        sql = _build_count_query(
+            "my-gcp-project.sqlmesh__schema.dim_user__abc",
+            dialect="bigquery",
+        )
+        # BigQuery quotes identifiers with backticks.
+        assert "`my-gcp-project`" in sql
+        assert "`sqlmesh__schema`" in sql
+        assert "`dim_user__abc`" in sql
+
+    def test_two_part_name(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        sql = _build_count_query("schema.table", dialect="duckdb")
+        assert '"schema"' in sql
+        assert '"table"' in sql
+        assert "FROM " in sql
+
+    def test_one_part_name(self):
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        sql = _build_count_query("standalone_table", dialect="duckdb")
+        assert '"standalone_table"' in sql
+
+    def test_reserved_word_table_name_quoted(self):
+        """SQL reserved words in identifiers must be quoted to be usable."""
+        from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
+            _build_count_query,
+        )
+
+        sql = _build_count_query("catalog.schema.order", dialect="duckdb")
+        # "order" is a SQL reserved word; quoting prevents parser confusion
+        assert '"order"' in sql
+
+
 class TestSchemaEmission:
     def test_no_schema_when_disabled(self):
         source = _make_source({"include_schema": False})
