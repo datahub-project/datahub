@@ -9,3 +9,12 @@ yarn = "1.22.22"
 [tasks.regenerate-pre-commit]
 description = "Regenerate the pre-commit configuration to add new/removed projects"
 run = "python3 .github/scripts/generate_pre_commit.py"
+
+# Point local `uv` invocations (outside Gradle) at the same index profile and
+# netrc that Docker builds and Gradle-driven installs use. Mirrors the wiring
+# in gradle/python/python-uv.gradle so that `uv pip install ...` from an
+# activated venv resolves the same private packages without per-shell setup.
+# .netrc is gitignored — copy docker/snippets/uv/.netrc.example to populate it.
+[env]
+UV_CONFIG_FILE = "{{ config_root }}/docker/snippets/uv/profiles/default.toml"
+NETRC = "{{ config_root }}/docker/snippets/uv/.netrc"
