@@ -18,7 +18,7 @@ export function buildConfluenceDocumentsIngestionState({
     username: null
     api_token: null
     cloud: true
-    document_import_mode: NATIVE
+    document_import_mode: EXTERNAL
     parent_document_urn: ${parentUrnYaml}
     hierarchy:
       enabled: true

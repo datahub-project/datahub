@@ -188,3 +188,19 @@ def test_multiple_page_ids():
     )
 
     assert len(config.page_ids) == 2
+
+
+def test_document_import_mode_defaults_to_external():
+    config = NotionSourceConfig(api_key=SecretStr("secret_test_key"))
+    assert config.document_import_mode.value == "EXTERNAL"
+    assert config.document_mapping.source.type == "EXTERNAL"
+
+
+def test_document_import_mode_native():
+    from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        document_import_mode=DocumentImportMode.NATIVE,
+    )
+    assert config.document_mapping.source.type == "NATIVE"

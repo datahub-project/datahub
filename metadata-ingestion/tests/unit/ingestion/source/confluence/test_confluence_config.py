@@ -145,6 +145,30 @@ def test_recursive_default() -> None:
     assert config.recursive is True
 
 
+def test_document_import_mode_defaults_to_external() -> None:
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+    assert config.document_import_mode.value == "EXTERNAL"
+    assert config.document_mapping.source.type == "EXTERNAL"
+
+
+def test_document_import_mode_native() -> None:
+    from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
+
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "document_import_mode": DocumentImportMode.NATIVE,
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+    assert config.document_mapping.source.type == "NATIVE"
+
+
 def test_advanced_configuration() -> None:
     """Test advanced configuration with all options."""
     config_dict = {

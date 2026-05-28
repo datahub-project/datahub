@@ -89,7 +89,11 @@ import {
     TARGET_PLATFORM,
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
-import { DOCUMENT_IMPORT_MODE } from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
+import {
+    CONFLUENCE_DOCUMENTS_IMPORT_MODE,
+    GITHUB_DOCUMENTS_IMPORT_MODE,
+    NOTION_DOCUMENTS_IMPORT_MODE,
+} from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
 import {
     DORIS,
     DORIS_DATABASE,
@@ -724,9 +728,9 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
     },
     [NOTION]: {
-        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS, NOTION_DOCUMENTS_IMPORT_MODE],
         filterFields: [],
-        advancedFields: [DOCUMENT_IMPORT_MODE],
+        advancedFields: [],
     },
     [GITHUB_DOCUMENTS]: {
         fields: [
@@ -735,13 +739,10 @@ export const RECIPE_FIELDS: RecipeFields = {
             GITHUB_DOCUMENTS_BRANCH,
             GITHUB_DOCUMENTS_PATH_PREFIX,
             GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            GITHUB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
-        advancedFields: [
-            GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN,
-            DOCUMENT_IMPORT_MODE,
-            GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT,
-        ],
+        advancedFields: [GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN, GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT],
     },
     [CONFLUENCE]: {
         fields: [
@@ -750,9 +751,10 @@ export const RECIPE_FIELDS: RecipeFields = {
             CONFLUENCE_USERNAME,
             CONFLUENCE_API_TOKEN,
             CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+            CONFLUENCE_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
-        advancedFields: [DOCUMENT_IMPORT_MODE],
+        advancedFields: [],
         filterSectionTooltip:
             'Control which Confluence content is ingested by filtering spaces and pages. Leave empty to ingest all accessible content.',
         defaultOpenSections: [RecipeSections.Filter],

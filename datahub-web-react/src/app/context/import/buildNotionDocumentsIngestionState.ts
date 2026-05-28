@@ -15,7 +15,7 @@ export function buildNotionDocumentsIngestionState({ parentDocumentUrn }: BuildN
     api_key: null
     page_ids: []
     recursive: true
-    document_import_mode: NATIVE
+    document_import_mode: EXTERNAL
     parent_document_urn: ${parentUrnYaml}
     hierarchy:
       enabled: true
