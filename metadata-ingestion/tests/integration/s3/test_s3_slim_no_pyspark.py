@@ -10,9 +10,21 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import Iterable, Set
 from unittest.mock import patch
 
 import pytest
+
+
+def _collect_aspect_names(workunits: Iterable) -> Set[str]:
+    """Extract the set of aspect names emitted by an ingestion run."""
+    aspect_names: Set[str] = set()
+    for wu in workunits:
+        metadata = getattr(wu, "metadata", None)
+        aspect_name = getattr(metadata, "aspectName", None)
+        if aspect_name:
+            aspect_names.add(aspect_name)
+    return aspect_names
 
 
 @pytest.mark.integration
@@ -119,6 +131,47 @@ class TestS3SlimNoPySpark:
 
         workunits = list(source.get_workunits())
         assert len(workunits) > 0
+
+    def test_infer_schema_true_emits_schema_metadata(self, tmp_path: Path) -> None:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.s3.source import S3Source
+
+        test_file = tmp_path / "test.csv"
+        test_file.write_text("id,name,value\n1,test,100\n2,sample,200\n")
+
+        ctx = PipelineContext(run_id="test-s3-infer-schema-on")
+        source = S3Source.create(
+            {
+                "path_specs": [{"include": f"{tmp_path}/*.csv"}],
+                "profiling": {"enabled": False},
+            },
+            ctx,
+        )
+
+        aspect_names = _collect_aspect_names(source.get_workunits())
+        assert "schemaMetadata" in aspect_names
+
+    def test_infer_schema_false_skips_schema_metadata(self, tmp_path: Path) -> None:
+        from datahub.ingestion.api.common import PipelineContext
+        from datahub.ingestion.source.s3.source import S3Source
+
+        test_file = tmp_path / "test.csv"
+        test_file.write_text("id,name,value\n1,test,100\n2,sample,200\n")
+
+        ctx = PipelineContext(run_id="test-s3-infer-schema-off")
+        source = S3Source.create(
+            {
+                "path_specs": [{"include": f"{tmp_path}/*.csv"}],
+                "profiling": {"enabled": False},
+                "infer_schema": False,
+            },
+            ctx,
+        )
+
+        aspect_names = _collect_aspect_names(source.get_workunits())
+        # Schema must not be emitted, but the rest of the dataset metadata still is.
+        assert "schemaMetadata" not in aspect_names
+        assert "datasetProperties" in aspect_names
 
 
 @pytest.mark.integration

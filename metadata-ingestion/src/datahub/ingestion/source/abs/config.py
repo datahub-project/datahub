@@ -97,6 +97,17 @@ class DataLakeSourceConfig(
         description="Number of files to list to sample for schema inference. This will be ignored if sample_files is set to False in the pathspec.",
     )
 
+    infer_schema: bool = Field(
+        default=True,
+        description=(
+            "Whether to infer schema from sampled files and emit a `schemaMetadata` aspect. "
+            "When set to `False`, the source will skip schema inference entirely and not emit "
+            "a `schemaMetadata` aspect for any dataset, leaving any existing schema (e.g. "
+            "written by a separate, schema-aware pipeline) untouched. All other aspects "
+            "(properties, partitions, containers, lineage, profiling, tags) are still emitted."
+        ),
+    )
+
     _rename_path_spec_to_plural = pydantic_renamed_field(
         "path_spec", "path_specs", lambda path_spec: [path_spec]
     )
