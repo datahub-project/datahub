@@ -7,6 +7,52 @@ All SQLMesh model kinds are supported: `FULL`, `INCREMENTAL_BY_TIME_RANGE`,
 `EXTERNAL`, and `EMBEDDED`. Each maps to a DataHub dataset subtype (`Model`, `Seed`,
 `Source`, or `Embedded`).
 
+#### Data quality assertions
+
+Three families of DataHub Assertions are emitted per model, all attached to
+the SQLMesh logical URN (sibling stitching surfaces them on the warehouse
+sibling in the UI automatically):
+
+1. **Audit-derived `DATASET` assertions** — each `not_null`,
+   `unique_values`, `unique_combination_of_columns`, `number_of_rows`,
+   `forall`, `accepted_range`, and `accepted_values` audit in the model's
+   SQL becomes a typed assertion. Unrecognised audit names fall back to a
+   `_NATIVE_` dataset-rows assertion so they're still discoverable.
+
+2. **`FRESHNESS` assertions** — two per non-external, non-embedded model
+   (`pipeline_freshness` and `upstream_freshness`). Both use a
+   `FIXED_INTERVAL` schedule derived from the model's `interval_unit`:
+   3× the cron cadence with a 1-hour floor (mapping in
+   `_INTERVAL_UNIT_TO_SLA`). The two-assertion split is diagnostic: when
+   freshness drifts, `customProperties.sqlmesh.freshness_kind` tells you
+   whether the pipeline stopped rebuilding or upstream data is stale.
+
+3. **`VOLUME` assertions** — one per model, asserting `row_count >= 1`.
+   Catches the catastrophic empty-table-after-rebuild failure mode
+   universally. Tighter expected-value thresholds aren't predictable from
+   the model definition; anomaly detection (Cloud feature) wraps the
+   static threshold with an ML baseline derived from accumulated run-event
+   history.
+
+External and embedded models skip the freshness and volume families
+(they have no rebuild schedule and no own materialised output).
+
+Today only the assertion **definitions** are emitted; evaluation is
+performed by DataHub's monitor framework (Cloud) or by re-ingestion-time
+run events (planned, OSS-friendly). The `audit_results_path` config still
+provides a manual pass/fail path for audit assertions.
+
+#### Smart anomaly detection (Acryl Cloud)
+
+When `emit_smart_assertion_anomaly_detection: true` (default), every
+emitted assertion carries `customProperties["sqlmesh.anomaly_detection"]
+= "requested"`. Cloud's monitor framework reads this marker to wrap the
+assertion's static threshold in its ML detector — so a drop below the
+historical baseline fires even when the static rule passes. The marker
+is silently ignored on OSS DataHub; assertions still evaluate as static
+pass/fail there. Set the flag to `false` on OSS only if the customProperty
+in the UI is undesirable.
+
 #### Stateful ingestion
 
 When `stateful_ingestion.enabled: true`, the connector tracks emitted URNs across runs
@@ -20,6 +66,14 @@ and soft-deletes entities that have been removed from the SQLMesh project.
 - **Audit run results**: Pass/fail status on the Validation tab requires an external
   JSON results file (`audit_results_path`). The connector does not execute audits
   itself at ingestion time.
+- **Assertion run events**: Today only assertion definitions are emitted.
+  Per-ingest run events with actual signal values (row counts via
+  `ctx.engine_adapter`, fingerprint `updated_ts` from the state store)
+  are planned so OSS DataHub without Cloud monitors gets a usable
+  Validation tab.
+- **Metadata Tests**: `emit_metadata_tests` is reserved on the config but
+  the Test JSON DSL is undocumented in OSS DataHub, so the flag is
+  currently a no-op. Will wire up once the DSL is exposed.
 - **incremental_mode: changed**: Changed-only incremental processing is defined in
   the config but not yet implemented; it falls back to full mode with a warning.
 - **Sibling merging**: Sibling stitching requires the warehouse connector to be running

@@ -6,6 +6,17 @@ API—no running SQLMesh server is required. It emits Dataset entities on the
 view (Snowflake, BigQuery, DuckDB, etc.) as a sibling, so DataHub merges both into a
 single unified view in the UI.
 
+#### Fingerprint table abstraction
+
+SQLMesh internally manages model versions through **fingerprint tables**—versioned physical
+tables with hashes in their names (e.g., `schema.model__47716296`). These are implementation
+details that track snapshots and enable efficient incremental processing. The connector
+automatically abstracts away this complexity: fingerprint tables are never exposed in DataHub.
+
+Instead, users see only the **logical views** (clean published model names like `schema.model`)
+and the **physical source tables** that feed into them. This keeps the data lineage graph
+clean and focused on business semantics, not internal versioning mechanics.
+
 #### Sibling stitching
 
 For sibling URNs to stitch correctly, the `sqlmesh` connector and your warehouse connector
