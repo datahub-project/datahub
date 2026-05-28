@@ -477,6 +477,34 @@ They are still honoured for backward compatibility but will be removed in a futu
 
 :::
 
+##### Local Python installs (non-Docker)
+
+Local Gradle Python install tasks — `./gradlew :metadata-ingestion:installDev` and the equivalents
+in `datahub-actions`, the `metadata-ingestion-modules/*` plugins, and `smoke-test` — consume the
+same profile and netrc that Docker builds use, so a private index is picked up automatically with
+no per-developer shell wiring.
+
+Wiring:
+
+- `UV_CONFIG_FILE` is exported to every `uv pip` invocation, pointing at
+  `docker/snippets/uv/profiles/${uvProfile}.toml` (falling back to `profiles/default.toml` if the
+  selected profile file doesn't exist).
+- `NETRC` is exported when a netrc file is present at `docker/snippets/uv/.netrc` or at the path
+  given by `DATAHUB_NETRC_PATH`.
+
+In the default OSS configuration this is a no-op: `default.toml` declares only PyPI, so uv resolves
+exactly as it does today. To opt in to a private index for local installs, either edit
+`profiles/default.toml` to declare your index, or set `datahub.dependencies.python.uvProfile` to a
+custom profile name and author the matching `profiles/<name>.toml`.
+
+For direct `uv pip install` calls inside an already-activated venv (no Gradle in the loop), export
+the same env vars in your shell, mise, or direnv config:
+
+```bash
+export UV_CONFIG_FILE="$(git rev-parse --show-toplevel)/docker/snippets/uv/profiles/default.toml"
+export NETRC="$(git rev-parse --show-toplevel)/docker/snippets/uv/.netrc"
+```
+
 ## Deploying Local Versions
 
 This guide explains how to set up and deploy DataHub locally for development purposes.

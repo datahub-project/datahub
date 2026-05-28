@@ -16,6 +16,7 @@
 
 apply from: "../gradle/versioning/versioning.gradle"
 apply from: "../gradle/coverage/python-coverage.gradle"
+apply from: "${rootProject.projectDir}/gradle/python/python-uv.gradle"
 apply from: '../gradle/docker/docker.gradle'
 apply from: '../gradle/docker/python-docker.gradle'
 
