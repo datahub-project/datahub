@@ -24,7 +24,6 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   private readonly creationSuccessMessage: Locator;
   private readonly deletionSuccessMessage: Locator;
   private readonly accessTokenModal: Locator;
-  private readonly accountMenuButtonSelector: string;
 
   constructor(page: Page, options?: PageOptions) {
     super(page, options);
@@ -43,12 +42,11 @@ export class ServiceAccountsPage extends BaseSettingsPage {
     this.closeTokenModalButton = page.getByTestId('access-token-modal-close-button');
     this.createTokenMenuItem = page.getByTestId('menu-item-create-token');
     this.deleteMenuItem = page.getByTestId('menu-item-delete');
-    this.tableBody = page.getByRole('tabpanel', { name: 'Service Accounts' }).locator('tbody');
+    this.tableBody = page.getByTestId('service-accounts-table-container').locator('tbody');
     this.tableRows = this.tableBody.locator('tr');
     this.creationSuccessMessage = page.getByText(TOAST_MESSAGES.SERVICE_ACCOUNT_CREATED);
     this.deletionSuccessMessage = page.getByText(TOAST_MESSAGES.SERVICE_ACCOUNT_DELETED);
     this.accessTokenModal = page.getByText(TOAST_MESSAGES.NEW_ACCESS_TOKEN);
-    this.accountMenuButtonSelector = '[data-testid*="service-account-menu-"]';
   }
 
   async navigate(): Promise<void> {
@@ -64,7 +62,7 @@ export class ServiceAccountsPage extends BaseSettingsPage {
   }
 
   private getAccountMenuButton(accountName: string): Locator {
-    return this.getAccountRow(accountName).locator(this.accountMenuButtonSelector);
+    return this.getAccountRow(accountName).locator('button[data-testid^="service-account-menu-"]');
   }
 
   private async openAccountMenu(accountName: string): Promise<void> {

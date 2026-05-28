@@ -243,7 +243,7 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
                     variant="text"
                     icon={{ icon: DotsThreeVertical, weight: 'bold', size: 'xl', color: 'gray' }}
                     isCircle
-                    data-testid={`group-menu-${group.name}`}
+                    data-testid={`group-menu-${displayName}`}
                 />
             </Menu>
             {isConfirmingDelete && (

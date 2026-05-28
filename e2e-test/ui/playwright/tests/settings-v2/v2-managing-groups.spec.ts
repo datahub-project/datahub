@@ -95,7 +95,6 @@ test.describe('create and manage group', () => {
 
     // Navigate to group and add member
     await groupsPage.navigateToGroupProfile(groupName);
-    await groupsPage.navigateToMembersTab();
     await groupsPage.addMember('datahub');
     await groupsPage.verifyMemberVisible('datahub');
 

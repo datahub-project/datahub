@@ -35,7 +35,9 @@ export class HomePagePostsPage extends BaseSettingsPage {
     this.tableRows = this.tableBody.locator('tr');
     this.menuEditItem = page.getByTestId('menu-item-edit');
     this.menuDeleteItem = page.getByTestId('menu-item-delete');
-    this.homePageAnnouncementsTab = page.locator('#v2-home-page-announcements');
+    this.homePageAnnouncementsTab = page.locator(
+      '[data-testid="home-page-announcements"], #v2-home-page-announcements',
+    );
   }
 
   async navigate(): Promise<void> {
@@ -83,27 +85,35 @@ export class HomePagePostsPage extends BaseSettingsPage {
   async submitCreate(): Promise<void> {
     await this.submitCreateButton.waitFor({ state: 'visible' });
     await this.submitCreateButton.click();
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the toast first (confirms API call completed)
+    // Then wait for networkidle to ensure page is fully updated
     await this.waitForToast(TOAST_MESSAGES.CREATED_POST);
+    await this.page.waitForLoadState('networkidle');
   }
 
   async submitUpdate(): Promise<void> {
     await this.submitUpdateButton.waitFor({ state: 'visible' });
     await this.submitUpdateButton.click();
-    await this.page.waitForLoadState('networkidle');
+    // Wait for the toast first (confirms API call completed)
+    // Then wait for networkidle to ensure page is fully updated
     await this.waitForToast(TOAST_MESSAGES.UPDATED_POST);
+    await this.page.waitForLoadState('networkidle');
   }
 
   async editPost(title: string): Promise<void> {
     const menuButton = this.getPostMenuButton(title);
+    await menuButton.waitFor({ state: 'visible' });
     await menuButton.click();
+    await this.menuEditItem.waitFor({ state: 'visible' });
     await this.menuEditItem.click();
     await expect(this.submitUpdateButton).toBeVisible();
   }
 
   async deletePost(title: string): Promise<void> {
     const menuButton = this.getPostMenuButton(title);
+    await menuButton.waitFor({ state: 'visible' });
     await menuButton.click();
+    await this.menuDeleteItem.waitFor({ state: 'visible' });
     await this.menuDeleteItem.click();
     await this.confirmButton.click();
   }

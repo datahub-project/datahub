@@ -1,7 +1,7 @@
 import { Locator, Page, expect } from '@playwright/test';
 import { BaseSettingsPage, type PageOptions } from './base.settings.page';
 import { TOAST_MESSAGES } from './constants';
-import { WAIT_TIMEOUT, TABLE_LOAD_DELAY } from '../../utils/constants';
+import { WAIT_TIMEOUT, DEFAULT_TIMEOUT } from '../../utils/constants';
 
 export class AccessTokensPage extends BaseSettingsPage {
   private readonly pageContainer: Locator;
@@ -52,7 +52,7 @@ export class AccessTokensPage extends BaseSettingsPage {
 
   async reloadPage(): Promise<void> {
     await this.page.reload();
-    await expect(this.pageContainer).toBeVisible({ timeout: 10000 });
+    await expect(this.pageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
   }
 
   async createPersonalToken(name: string, description: string): Promise<void> {
@@ -85,8 +85,7 @@ export class AccessTokensPage extends BaseSettingsPage {
   async verifyTokenInList(name: string, description: string): Promise<void> {
     await expect(this.pageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
     await expect(this.tableBody).toBeVisible({ timeout: WAIT_TIMEOUT });
-    await this.page.waitForTimeout(TABLE_LOAD_DELAY);
-    await expect(this.page.getByText(name)).toBeVisible({ timeout: WAIT_TIMEOUT });
+    await expect(this.page.getByText(name)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
     await expect(this.page.getByText(description)).toBeVisible({ timeout: WAIT_TIMEOUT });
   }
 

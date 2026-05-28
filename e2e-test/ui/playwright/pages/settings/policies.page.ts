@@ -4,8 +4,8 @@ import { TOAST_MESSAGES } from './constants';
 import { WAIT_TIMEOUT, SHORT_TIMEOUT } from '../../utils/constants';
 
 export class PoliciesPage extends BaseSettingsPage {
-  readonly searchInput: Locator;
-  readonly tableBody: Locator;
+  private readonly searchInput: Locator;
+  private readonly tableBody: Locator;
   private readonly managePage: Locator;
   private readonly addPolicyButton: Locator;
   private readonly policyNameInput: Locator;
@@ -78,6 +78,12 @@ export class PoliciesPage extends BaseSettingsPage {
     return this.getPolicyRow(policyName).getByTestId('policy-row-menu-button');
   }
 
+  private async clickMenuButton(menuButton: Locator): Promise<void> {
+    await menuButton.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT });
+    await menuButton.click();
+    await expect(this.menuItems.first()).toBeVisible({ timeout: SHORT_TIMEOUT });
+  }
+
   async searchForPolicy(policyName: string): Promise<void> {
     await this.searchInput.clear();
     await this.searchInput.fill(policyName);
@@ -85,9 +91,7 @@ export class PoliciesPage extends BaseSettingsPage {
 
   async openRowMenu(policyName: string): Promise<void> {
     const menuButton = this.getPolicyRowMenuButton(policyName);
-    await menuButton.waitFor({ state: 'visible', timeout: SHORT_TIMEOUT });
-    await menuButton.click({ force: true });
-    await expect(this.menuItems.first()).toBeVisible();
+    await this.clickMenuButton(menuButton);
   }
 
   async clickMenuAction(actionText: string): Promise<void> {
@@ -113,8 +117,7 @@ export class PoliciesPage extends BaseSettingsPage {
 
   async selectPlatformType(): Promise<void> {
     await this.policyTypeSelector.waitFor({ state: 'visible' });
-    const metadata = await this.metadataTypeButton.isVisible().catch(() => false);
-    if (metadata) {
+    if (await this.metadataTypeButton.isVisible({ timeout: SHORT_TIMEOUT })) {
       await this.metadataTypeButton.click();
     }
     await this.platformTypeButton.waitFor({ state: 'visible' });
@@ -211,7 +214,7 @@ export class PoliciesPage extends BaseSettingsPage {
     for (let i = 0; i < count; i++) {
       const row = this.allUsersRows.nth(i);
       const menuButton = row.getByTestId('policy-row-menu-button');
-      await menuButton.click({ force: true });
+      await this.clickMenuButton(menuButton);
       const deactivateItem = this.menuItems.getByText('Deactivate');
       if ((await deactivateItem.count()) > 0) {
         await deactivateItem.click();

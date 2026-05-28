@@ -213,6 +213,7 @@ export const EditOwnersModal = ({
             title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
             onCancel={onModalClose}
             keyboard
+            dataTestId="add-owners-modal"
             buttons={[
                 {
                     text: 'Cancel',

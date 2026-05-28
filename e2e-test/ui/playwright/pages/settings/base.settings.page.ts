@@ -58,7 +58,7 @@ export class BaseSettingsPage extends BasePage {
 
   async selectFromDropdown(base: Locator, dropdown: Locator, value: string): Promise<void> {
     await base.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT });
-    await base.click({ force: true });
+    await base.click();
     await this.page.waitForLoadState('networkidle');
 
     // Use fallback selector if main dropdown-search-input is not found
@@ -83,11 +83,11 @@ export class BaseSettingsPage extends BasePage {
       if (box) {
         await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       } else {
-        await checkboxBase.click({ force: true });
+        await checkboxBase.click();
       }
     } else {
       await optionRow.scrollIntoViewIfNeeded();
-      await optionRow.click({ force: true });
+      await optionRow.click();
     }
   }
 
