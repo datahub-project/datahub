@@ -249,6 +249,32 @@ class CustomAthenaRestDialect(AthenaRestDialect):
             detected_col_type = types.DECIMAL
             precision, scale = type_meta_information.split(",")
             args = [int(precision), int(scale)]
+        elif type_name.endswith("dtype"):
+            # Pandas nullable dtype names (e.g. `Int64Dtype`, `UInt32Dtype`, `BooleanDtype`)
+            # can leak into column type strings via great_expectations profiling on Athena
+            # result sets — they're lowered by the dialect and reach this method as e.g.
+            # `int64dtype`. Map them back to the matching SqlAlchemy type so the column
+            # doesn't fall through to NullType and disappear from the emitted schema.
+            base = type_name[:-5]
+            pandas_dtype_to_sql: Dict[str, Any] = {
+                "int8": types.INTEGER,
+                "int16": types.INTEGER,
+                "int32": types.INTEGER,
+                "uint8": types.INTEGER,
+                "uint16": types.INTEGER,
+                "uint32": types.INTEGER,
+                "int64": types.BIGINT,
+                "uint64": types.BIGINT,
+                "float32": types.FLOAT,
+                "float64": types.FLOAT,
+                "boolean": types.BOOLEAN,
+                "string": types.String,
+                "object": types.String,
+            }
+            mapped = pandas_dtype_to_sql.get(base)
+            if mapped is None:
+                return super()._get_column_type(type_name)
+            detected_col_type = mapped
         else:
             return super()._get_column_type(type_name)
         return detected_col_type(*args)

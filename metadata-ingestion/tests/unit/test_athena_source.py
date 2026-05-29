@@ -883,6 +883,35 @@ def test_column_type_decimal():
     assert result.scale == 2
 
 
+@pytest.mark.parametrize(
+    "type_name,expected_sql_type",
+    [
+        # Pandas nullable dtype names leak through great_expectations profiling on Athena
+        # result sets — they reach the dialect as lowercase `<base>dtype`.
+        ("int8dtype", types.INTEGER),
+        ("int16dtype", types.INTEGER),
+        ("int32dtype", types.INTEGER),
+        ("int64dtype", types.BIGINT),
+        ("uint64dtype", types.BIGINT),
+        ("float32dtype", types.FLOAT),
+        ("float64dtype", types.FLOAT),
+        ("booleandtype", types.BOOLEAN),
+        ("stringdtype", types.String),
+    ],
+)
+def test_get_column_type_pandas_nullable_dtypes(type_name, expected_sql_type):
+    result = CustomAthenaRestDialect()._get_column_type(type_=type_name)
+    assert isinstance(result, expected_sql_type)
+
+
+def test_get_column_type_unknown_dtype_suffix_falls_through():
+    # Unrecognised `*dtype` names must defer to the base class so dialect-level
+    # handling stays the same; this guards against the new branch over-claiming.
+    result = CustomAthenaRestDialect()._get_column_type(type_="mysterydtype")
+    # Base class signals "unknown" via NullType; that's the contract we rely on.
+    assert isinstance(result, types.NullType)
+
+
 def test_column_type_complex_combination():
     result = CustomAthenaRestDialect()._get_column_type(
         type_="struct<id:string,name:string,choices:array<struct<id:string,label:string>>>"
