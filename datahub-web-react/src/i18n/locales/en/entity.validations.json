@@ -105,6 +105,7 @@
     "datasetDescription.label.createdByTemplate": "Created by {{creator}}",
     "datasetDescription.label.lastUpdatedByTemplate": "Last updated by {{updater}}",
     "datasetDescription.popover.reported": "Reported:",
+    "datasetDescription.popover.type": "type",
     "datasetDescription.popover.viewLogic": "View Logic",
     "datasetDescription.tooltip.anUnknownTime": "an unknown time",
     "datasetDescription.tooltip.createdBy": "Created by: {{creator}}{{extra}} on {{date}}.",

@@ -401,7 +401,8 @@ export const DatasetAssertionDescription = ({ description, assertionInfo, lastEv
                         )}
                         <TypographyContainer>
                             <div>
-                                <Typography.Text strong>{tc('type')}</Typography.Text>: {nativeType || tc('na')}
+                                <Typography.Text strong>{t('datasetDescription.popover.type')}</Typography.Text>:{' '}
+                                {nativeType || tc('na')}
                             </div>
                             {nativeParameters?.map((parameter) => (
                                 <div key={parameter.key}>
