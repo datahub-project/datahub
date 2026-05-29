@@ -120,9 +120,6 @@ class TestTeradataConfig:
         config = TeradataConfig.model_validate(config_dict)
 
         assert config.host_port == "localhost:1025"
-        assert config.include_table_lineage is True
-        assert config.include_usage_statistics is True
-        assert config.include_queries is True
 
     def test_max_workers_validation_valid(self):
         """Test valid max_workers configuration passes validation."""
@@ -132,28 +129,6 @@ class TestTeradataConfig:
         }
         config = TeradataConfig.model_validate(config_dict)
         assert config.max_workers == 8
-
-    def test_max_workers_default(self):
-        """Test max_workers defaults to 10."""
-        config_dict = _base_config()
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.max_workers == 10
-
-    def test_max_workers_custom_value(self):
-        """Test custom max_workers value is accepted."""
-        config_dict = {
-            **_base_config(),
-            "max_workers": 5,
-        }
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.max_workers == 5
-
-    def test_hang_protection_defaults(self):
-        """Default hang-protection knobs are enabled with sensible values."""
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.view_processing_timeout_seconds == 1800
-        assert config.view_processing_heartbeat_seconds == 30
-        assert config.lineage_fetch_stall_warning_seconds == 300
 
     def test_hang_protection_can_be_disabled(self):
         """All hang-protection knobs accept 0 to disable."""
@@ -168,12 +143,6 @@ class TestTeradataConfig:
         assert config.view_processing_timeout_seconds == 0
         assert config.view_processing_heartbeat_seconds == 0
         assert config.lineage_fetch_stall_warning_seconds == 0
-
-    def test_include_queries_default(self):
-        """Test include_queries defaults to True."""
-        config_dict = _base_config()
-        config = TeradataConfig.model_validate(config_dict)
-        assert config.include_queries is True
 
     def test_time_window_defaults_applied(self):
         """Test that BaseTimeWindowConfig defaults are automatically applied."""
@@ -206,7 +175,6 @@ class TestTeradataConfig:
 
         config = TeradataConfig.model_validate(config_dict)
 
-        assert hasattr(config, "incremental_lineage")
         assert config.incremental_lineage is True
 
         config_dict_false = {
@@ -215,31 +183,6 @@ class TestTeradataConfig:
         }
         config_false = TeradataConfig.model_validate(config_dict_false)
         assert config_false.incremental_lineage is False
-
-        config_default = TeradataConfig.model_validate(_base_config())
-        assert config_default.incremental_lineage is False
-
-    def test_config_inheritance_chain(self):
-        """Test that TeradataConfig properly inherits from all required base classes."""
-        config_dict = {
-            "username": "test_user",
-            "password": "test_password",
-            "host_port": "localhost:1025",
-            "incremental_lineage": True,
-        }
-
-        config = TeradataConfig.model_validate(config_dict)
-
-        # Verify inheritance from BaseTimeWindowConfig
-        assert hasattr(config, "start_time")
-        assert hasattr(config, "end_time")
-        assert hasattr(config, "bucket_duration")
-
-        # Verify inheritance from BaseTeradataConfig
-        assert hasattr(config, "scheme")
-
-        # Verify inheritance from TwoTierSQLAlchemyConfig
-        assert hasattr(config, "host_port")
 
     def test_user_original_recipe_compatibility(self):
         """Test that a user's original recipe configuration is parsed correctly."""

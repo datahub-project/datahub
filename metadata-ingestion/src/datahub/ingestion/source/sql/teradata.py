@@ -772,11 +772,17 @@ def optimized_get_columns(
                 self.report.increment_columns_processed()
 
         except Exception as e:
-            logger.error(
-                f"Failed to process column {getattr(row, 'ColumnName', 'unknown')}: {e}"
-            )
+            column_name = getattr(row, "ColumnName", "unknown")
             if hasattr(self, "report"):
                 self.report.increment_column_extraction_failures()
+                self.report.warning(
+                    title="Column extraction failed",
+                    message=f"Failed to process column {column_name!r}. The column will be omitted from the schema.",
+                    context=str(e),
+                    exc=e,
+                )
+            else:
+                logger.error(f"Failed to process column {column_name}: {e}")
             continue
 
     if hasattr(self, "report"):
@@ -2649,7 +2655,16 @@ ORDER by DataBaseName, TableName;
                 _mark_phase("completed")
 
         except Exception as e:
-            logger.error(f"Error fetching lineage entries: {e}")
+            self.report.warning(
+                title="Lineage fetch failed",
+                message=(
+                    "Failed to fetch lineage entries from Teradata audit logs. "
+                    "Lineage data for this run will be incomplete. "
+                    "Check Teradata connectivity and DBC.QryLogV access."
+                ),
+                context=str(e),
+                exc=e,
+            )
             raise
         finally:
             watchdog_stop.set()
@@ -2694,6 +2709,7 @@ ORDER by DataBaseName, TableName;
                         f"was exhausted. Historical lineage will be skipped for this run. "
                         f"Consider increasing connection_pool_timeout_ms or reducing max_workers."
                     ),
+                    exc=e,
                 )
             elif _should_retry_connect(e):
                 self.report.warning(
@@ -2703,6 +2719,7 @@ ORDER by DataBaseName, TableName;
                         f"after {self.config.retry_max_attempts} attempts due to a transient "
                         f"error: {e}. Historical lineage will be skipped for this run."
                     ),
+                    exc=e,
                 )
             else:
                 logger.info(
