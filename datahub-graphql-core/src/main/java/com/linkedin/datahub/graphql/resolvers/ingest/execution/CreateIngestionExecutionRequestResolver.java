@@ -23,9 +23,9 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
-import com.linkedin.metadata.ingestion.CliVersionResolutionLogger;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionLogger;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -152,8 +152,8 @@ public class CreateIngestionExecutionRequestResolver
                   ingestionSourceInfo.getConfig().hasVersion()
                       ? ingestionSourceInfo.getConfig().getVersion()
                       : null;
-              final CliVersionResolutionHelper.Result resolution =
-                  CliVersionResolutionHelper.resolve(
+              final IngestionCliVersionResolutionHelper.Result resolution =
+                  IngestionCliVersionResolutionHelper.resolve(
                       explicitVersion,
                       ingestionSourceInfo.getType(),
                       _versionMatrixService,
@@ -163,12 +163,12 @@ public class CreateIngestionExecutionRequestResolver
                           : null);
               arguments.put(VERSION_ARG_NAME, resolution.getVersion());
               execInput.setCliVersionAudit(resolution.getStamp());
-              CliVersionResolutionLogger.log(
+              IngestionCliVersionResolutionLogger.log(
                   log,
-                  CliVersionResolutionLogger.TRIGGER_MANUAL,
+                  IngestionCliVersionResolutionLogger.TRIGGER_MANUAL,
                   resolution,
                   ingestionSourceInfo.getType(),
-                  CliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
+                  IngestionCliVersionResolutionLogger.IDENTIFIER_INGESTION_SOURCE,
                   ingestionSourceUrn.toString());
               String debugMode = "false";
               if (ingestionSourceInfo.getConfig().hasDebugMode()) {

@@ -16,9 +16,9 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestSource;
 import com.linkedin.metadata.config.IngestionConfiguration;
-import com.linkedin.metadata.ingestion.CliVersionResolutionHelper;
-import com.linkedin.metadata.ingestion.CliVersionResolutionLogger;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionHelper;
+import com.linkedin.metadata.ingestion.IngestionCliVersionResolutionLogger;
 import com.linkedin.metadata.key.ExecutionRequestKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.IngestionUtils;
@@ -128,8 +128,8 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             // application default; without that normalization the blank would forward verbatim to
             // the executor and silently pin to its bundled CLI.
             final String connectorType = extractSourceType(input.getRecipe());
-            final CliVersionResolutionHelper.Result resolution =
-                CliVersionResolutionHelper.resolve(
+            final IngestionCliVersionResolutionHelper.Result resolution =
+                IngestionCliVersionResolutionHelper.resolve(
                     input.getVersion(),
                     connectorType,
                     _versionMatrixService,
@@ -142,12 +142,12 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             }
             execInput.setArgs(new StringMap(arguments));
             execInput.setCliVersionAudit(resolution.getStamp());
-            CliVersionResolutionLogger.log(
+            IngestionCliVersionResolutionLogger.log(
                 log,
-                CliVersionResolutionLogger.TRIGGER_TEST_CONNECTION,
+                IngestionCliVersionResolutionLogger.TRIGGER_TEST_CONNECTION,
                 resolution,
                 connectorType,
-                CliVersionResolutionLogger.IDENTIFIER_EXECUTION_REQUEST,
+                IngestionCliVersionResolutionLogger.IDENTIFIER_EXECUTION_REQUEST,
                 executionRequestUrn.toString());
 
             final MetadataChangeProposal proposal =

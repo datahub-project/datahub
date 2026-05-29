@@ -13,10 +13,9 @@ import java.util.Optional;
  *
  * <p>Cohort-based rollouts are aimed at multi-tenant deployments. Single-tenant installations leave
  * the deployment identifier unset, which makes cohort matching a no-op and falls through to the
- * connector's {@code _default}. When no {@code IngestionCliVersionMatrixSource} is configured at
- * all, the {@link NoOpIngestionCliVersionMatrixSource} wired by the factory ensures every {@link
- * #resolveVersionWithSource(String)} returns {@link Optional#empty()}, preserving the existing
- * {@code defaultCliVersion} behavior bit-identically.
+ * connector's {@code _default}. When no matrix backend is configured, the factory wires a {@link
+ * NoOpIngestionCliVersionMatrixSource} so {@link #resolveVersionWithSource(String)} always returns
+ * {@link Optional#empty()} and callers use {@code defaultCliVersion}.
  *
  * <p>Resolution priority when picking a CLI version for an execution:
  *
