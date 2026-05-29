@@ -39,11 +39,9 @@ export class ManageViewsPage extends BasePage {
   // ============================================================================
 
   private getViewRowByName(viewName: string): Locator {
-    return this.page
-      .locator('tbody tr', {
-        has: this.page.getByText(new RegExp(viewName, 'i')),
-      })
-      .first();
+    return this.page.getByRole('row', {
+      name: new RegExp(viewName, 'i'),
+    });
   }
 
   private getViewDropdownButton(viewRow: Locator): Locator {

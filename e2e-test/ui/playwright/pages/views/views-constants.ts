@@ -2,9 +2,9 @@
 export const TEST_DATA = {
   FILTER_FIELD: 'fieldGlossaryTerms',
   FILTER_OPERATOR: 'equals',
-  FILTER_VALUE: 'PlaywrightColumnInfoType',
-  EXPECTED_RESULT_COUNT: 3,
-  EXPECTED_DATASET: 'Playwright_logging_events',
+  FILTER_VALUE: 'PlaywrightViewsTestTerm',
+  EXPECTED_RESULT_COUNT: 2,
+  EXPECTED_DATASET: 'PlaywrightViewsTest1',
 } as const;
 
 // URLs

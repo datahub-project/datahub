@@ -4,9 +4,11 @@ import { TIMEOUTS } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
 import { TEST_DATA, TEXT_PATTERNS, URLS } from '../../pages/views/views-constants';
 
+test.use({ featureName: 'views' });
+
 test.describe('View Select', () => {
   let viewSelectPage: ViewSelectPage;
-  const viewName = withRandomSuffix('Test View');
+  const viewName = withRandomSuffix('View');
 
   test.beforeEach(async ({ page, logger, logDir }) => {
     viewSelectPage = new ViewSelectPage(page, logger, logDir);

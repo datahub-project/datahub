@@ -2,9 +2,11 @@ import { test } from '../../fixtures/base-test';
 import { ManageViewsPage } from '../../pages/views/manage-views.page';
 import { withRandomSuffix } from '../../utils/random';
 
+test.use({ featureName: 'views' });
+
 test.describe('Manage Views', () => {
   let manageViewsPage: ManageViewsPage;
-  const viewName = withRandomSuffix('Test View');
+  const viewName = withRandomSuffix('View');
   const editedViewName = `${viewName} - Edited`;
 
   test.beforeEach(async ({ page, logger, logDir }) => {

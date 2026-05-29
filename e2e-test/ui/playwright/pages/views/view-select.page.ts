@@ -23,7 +23,7 @@ export class ViewSelectPage extends BasePage {
   readonly confirmDeleteYes: Locator;
   readonly viewsButton: Locator;
   readonly viewSelectItem: Locator;
-  readonly viewSelectPopover: Locator;
+  readonly entityTitle: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -45,8 +45,8 @@ export class ViewSelectPage extends BasePage {
     this.confirmDeleteYes = page.getByRole('button', { name: 'Yes' });
     this.viewsButton = page.getByTestId('views-button');
     this.viewSelectItem = page.getByTestId('view-select-item');
-    this.viewSelectPopover = page.locator('.view-select-popover');
     this.closeIcon = page.getByTestId('views-clear-button');
+    this.entityTitle = page.getByTestId('entity-title');
   }
 
   // ============================================================================
@@ -64,11 +64,8 @@ export class ViewSelectPage extends BasePage {
   }
 
   private getFilterValueOption(searchValue: string): Locator {
-    return this.page.locator(`label:has-text("${searchValue}")`).first();
-  }
-
-  private getCheckboxContainer(valueOption: Locator): Locator {
-    return valueOption.locator('div[data-checked]');
+    // Find text containing the search value - the parent label handles the checkbox toggle
+    return this.page.getByText(searchValue, { exact: false });
   }
 
   private getTextElement(text: string): Locator {
@@ -143,39 +140,31 @@ export class ViewSelectPage extends BasePage {
     await this.conditionSelect.waitFor({ state: 'visible', timeout: TIMEOUTS.LONG });
     await this.conditionSelect.scrollIntoViewIfNeeded();
     await this.conditionSelect.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     const fieldOption = this.getFieldOption(fieldName);
     await fieldOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await fieldOption.click();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Select operator
     await this.conditionOperatorSelect.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await this.conditionOperatorSelect.click();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const operatorOption = this.getOperatorOption(operator);
     await operatorOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await operatorOption.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // Click the entity search input dropdown to open it
     await this.entitySearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await this.entitySearchInput.click();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Fill the search input that appears in the dropdown
     await this.dropdownSearchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await this.dropdownSearchInput.fill(searchValue);
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     // Click the checkbox for the value option
     const valueOption = this.getFilterValueOption(searchValue);
     await valueOption.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    const checkboxContainer = this.getCheckboxContainer(valueOption);
-    await checkboxContainer.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
+    await valueOption.click();
 
     // Update the filter
     await this.footerButtonUpdate.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
@@ -197,7 +186,7 @@ export class ViewSelectPage extends BasePage {
   }
 
   async verifyDatasetVisible(datasetName: string): Promise<void> {
-    await this.expectTextVisible(datasetName);
+    await expect(this.entityTitle.filter({ hasText: datasetName })).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async verifyViewDeleted(viewName: string): Promise<void> {
@@ -207,7 +196,6 @@ export class ViewSelectPage extends BasePage {
   async clearView(): Promise<void> {
     // Hover over the views button to make close icon visible
     await this.viewsButton.hover();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     // Click the close icon
     await this.closeIcon.waitFor({ state: 'visible', timeout: TIMEOUTS.SHORT });
@@ -217,11 +205,7 @@ export class ViewSelectPage extends BasePage {
 
   async openViewDropdown(viewName: string): Promise<void> {
     await this.viewsButton.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
     await this.waitForPopoverOpen();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-
-    await this.viewSelectItem.first().waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
     const selectedViewItem = this.getSelectedViewItem(viewName);
@@ -233,13 +217,11 @@ export class ViewSelectPage extends BasePage {
     const dropdownTrigger = this.getViewDropdownTrigger(selectedViewItem);
     await dropdownTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await dropdownTrigger.click();
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   async editViewFromSelect(currentName: string, newName: string): Promise<void> {
     await this.openViewDropdown(currentName);
     await this.menuItemEdit.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.viewNameInput.waitFor({ state: 'visible' });
     await this.viewNameInput.clear();
@@ -265,9 +247,9 @@ export class ViewSelectPage extends BasePage {
   async deleteView(viewName: string): Promise<void> {
     await this.openViewDropdown(viewName);
     await this.menuItemDelete.click();
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
 
     await this.confirmDeleteYes.click();
     await this.page.waitForLoadState('networkidle');
+    await this.waitForPopoverClose();
   }
 }
