@@ -117,7 +117,7 @@ class KafkaEventSourceConfig(ConfigModel):
     commit_retry_count: int = 5
     commit_retry_backoff: float = 10.0
     enable_mcl_pre_deserialization_filter: bool = Field(
-        default=False,
+        default=True,
         description=(
             "When True, use the pipeline's EventTypeFilter criteria to drop "
             "MetadataChangeLog (MCL) messages before the expensive avrogen "
