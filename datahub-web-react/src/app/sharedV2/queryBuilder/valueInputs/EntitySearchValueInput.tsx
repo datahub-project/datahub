@@ -1,5 +1,6 @@
 import { Select, SelectOption } from '@components';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
@@ -47,6 +48,7 @@ export const EntitySearchValueInput = ({
     placeholder,
     onChangeSelectedUrns,
 }: Props) => {
+    const { t } = useTranslation('shared.query-builder');
     const entityRegistry = useEntityRegistry();
     const [entityCache, setEntityCache] = useState<Map<string, Entity>>(new Map());
 
@@ -172,13 +174,13 @@ export const EntitySearchValueInput = ({
             isMultiSelect={isMultiSelect}
             onUpdate={onUpdate}
             onSearchChange={onSearch}
-            placeholder={placeholder || 'Select a value...'}
+            placeholder={placeholder || t('value.defaultPlaceholder')}
             data-testid="entity-search-input"
             selectLabelProps={
                 isMultiSelect && selectedUrns.length > 0
                     ? {
                           variant: 'labeled',
-                          label: label ?? 'Items',
+                          label: label ?? t('value.items'),
                       }
                     : undefined
             }

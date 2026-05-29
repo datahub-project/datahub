@@ -13,12 +13,7 @@ import logging
 
 import pytest
 
-from tests.utils import (
-    execute_graphql,
-    run_datahub_cmd,
-    wait_for_writes_to_sync,
-    with_test_retry,
-)
+from tests.utils import execute_graphql, run_datahub_cmd, with_test_retry
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +50,6 @@ class TestDemoDataBootstrap:
             },
         )
         assert result.exit_code == 0, f"CLI failed: {result.output}"
-        wait_for_writes_to_sync()
 
         @with_test_retry()
         def _check():
@@ -106,12 +100,7 @@ class TestShowcaseData:
                 "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
             },
         )
-        # Allow partial failures — some MCPs may have minor schema mismatches
-        # but the bulk of the data should still be ingested successfully.
-        assert "events_produced" in result.output, (
-            f"Load produced no output: {result.output}"
-        )
-        wait_for_writes_to_sync()
+        assert result.exit_code == 0, f"CLI failed: {result.output}"
         yield
         logger.info("Unloading showcase-ecommerce data pack")
         run_datahub_cmd(
@@ -167,5 +156,28 @@ class TestShowcaseData:
             res = execute_graphql(auth_session, query)
             total = res["data"]["search"]["total"]
             assert total > 0, f"Expected glossary terms from showcase pack, got {total}"
+
+        _check()
+
+    def test_showcase_has_structured_properties(self, auth_session):
+        """Showcase pack should define structured properties before assignments."""
+
+        @with_test_retry()
+        def _check():
+            query = """{
+                search(
+                    input: {
+                        type: STRUCTURED_PROPERTY
+                        query: "showcase"
+                        start: 0
+                        count: 0
+                    }
+                ) {
+                    total
+                }
+            }"""
+            res = execute_graphql(auth_session, query)
+            total = res["data"]["search"]["total"]
+            assert total > 0, f"Expected showcase structured properties, got {total}"
 
         _check()

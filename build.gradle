@@ -1,9 +1,10 @@
 import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.api.artifacts.DependencySubstitutions
 
 
 buildscript {
-  ext.jdkVersionDefault = 17
-  ext.javaClassVersionDefault = 17
+  ext.jdkVersionDefault = 21
+  ext.javaClassVersionDefault = 21
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
@@ -23,51 +24,70 @@ buildscript {
   ext.junitJupiterVersion = '5.12.2'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.74.2'
-  ext.mavenVersion = '3.9.14'
+  ext.mavenVersion = '3.9.15'
   ext.versionGradle = '8.14.3'
-  ext.springVersion = '6.2.17'
-  ext.springBootVersion = '3.5.6'
-  ext.springKafkaVersion = '3.3.8'
-  ext.openTelemetryVersion = '1.60.1'
+  // CVE-2026-22745 (spring-webmvc): fixed in 7.0.7+ / 6.2.18+
+  ext.springVersion = '7.0.7'
+  // CVE-2026-22751 (spring-security 7.0.5+ via BOM), CVE-2026-40976 / GHSA (spring-boot 4.0.6+)
+  ext.springBootVersion = '4.0.6'
+  ext.springKafkaVersion = '4.0.4'
+  // CVE-2026-45292 (W3C Baggage unbounded memory): fixed in opentelemetry-api / trace-propagators 1.62.0+
+  ext.openTelemetryVersion = '1.62.0'
   ext.neo4jVersion = '5.20.0'
   ext.neo4jApocVersion = '5.20.0'
   ext.testContainersVersion = '1.21.4'
   ext.elasticsearchVersion = '2.19.4' // ES 7.10, Opensearch 1.x, 2.x
   ext.elasticsearch8Version = '8.17.4' // ES 8.x Java client
-  ext.jacksonVersion = '2.18.6'
-  ext.jettyVersion = '12.0.32'
-  // see also datahub-frontend/play.gradle
-  ext.playVersion = '2.8.22'
+  // CVE-2026-5795 (JASPIAuthenticator ThreadLocal): fixed in 12.0.34+
+  ext.jettyVersion = '12.1.7'
+  // see also datahub-frontend/play.gradle (Play 3 + Apache Pekko)
+  ext.playVersion = '3.0.10'
   ext.playScalaVersion = '2.13'
-  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.playGradlePluginVersion = '3.1.0-M9'
+  ext.pekkoVersion = '1.0.3' // aligned with org.playframework:play_2.13 bom
   ext.aircompressorVersion = '2.0.3' // CVE-2025-67721: Snappy/LZ4 buffer reuse info leak
   ext.commonsCompressVersion = '1.27.1' // CVE-2024-25710, CVE-2024-26308; min safe 1.26.0
   ext.hiveLlapCommonVersion = '4.0.0' // LlapSignerImpl signature comparison; upgrade from 2.3.x
-  ext.log4jVersion = '2.25.3'
+  // CVE-2026-34477: Ssl verifyHostName ignored for SMTP/Socket/Syslog appenders; fixed in 2.25.4+
+  ext.log4jVersion = '2.25.4'
   ext.minaCoreVersion = '2.2.4' // CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE
   ext.rhinoVersion = '1.7.15.1' // CVE-2025-66453 (NativeNumber.toFixed / DToA DoS); also 1.8.1, 1.7.14.1
-  // Spark-lineage only (spark-lineage-legacy, acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
+  // Spark-lineage only (acryl-spark-lineage) – CVE-pinned versions for Spark/Hadoop stack
   ext.sparkLineageDnsjavaVersion = '3.6.0'           // CVE-2024-25638
   ext.sparkLineageJettisonVersion = '1.5.2'          // CVE-2022-40150, CVE-2022-45685, CVE-2022-45693, CVE-2023-1436, CVE-2022-40149
   ext.sparkLineageNimbusJoseJwtVersion = '10.0.2'    // CVE-2023-52428; min 9.37.2, use 10.x to avoid downgrading
-  ext.sparkLineageJetty94Version = '9.4.57.v20241219' // CVE-2024-13009 (Jetty 9.4 EOL line)
+  // Spark-lineage only; Jetty 9.4 EOL. CVE-2026-5795 fixed in 9.4.61+; latest on Maven Central when pinned was 9.4.58.
+  ext.sparkLineageJetty94Version = '9.4.58.v20250814'
   ext.sparkLineageCommonsConfiguration2Version = '2.10.1' // CVE-2024-29131, CVE-2024-29133
   ext.slf4jVersion = '1.7.36'
   // CVE-2026-1225 / GHSA-qqpg-mvqg-649v: logback-core fixed in 1.5.25+
   ext.logbackClassic = '1.5.32'
-  ext.hadoop3Version = '3.3.6' // Hadoop >3.3.4 required for CVE fixes (command injection, path traversal, deserialization RCE)
-  ext.kafkaVersion = '8.0.0'
-  ext.hazelcastVersion = '5.6.0'
+  ext.hadoop3Version = '3.4.1' // Hadoop >=3.4.0 for CVE-2024-23454 (RunJar temp-dir permissions per HADOOP-19031); >3.3.4 for CVE-2021-37404, command injection, path traversal, deserialization RCE
+  // CVE-2017-3162 (DataNode servlet, Hadoop before 2.7.0) is fixed by any 3.x client; pin thirdparty jar so scanners do not flag Hadoop 2.x-era metadata on 1.3.0.
+  ext.hadoopShadedProtobuf_3_25_Version = '1.5.0'
+  // CVE-2024-23454 (RunJar temp dir permissions) is fixed in hadoop-common 3.4.0+; pin thirdparty jar beyond Hadoop’s transitive 1.3.0 for scanner hygiene.
+  ext.hadoopShadedGuavaVersion = '1.5.0'
+  ext.kafkaVersion = '8.1.0'
+  // at.yawk.lz4 fork (CVE-2025-12183); single version for externalDependency.lz4Java + resolutionStrategy
+  ext.lz4JavaVersion = '1.11.0'
+  ext.hazelcastVersion = '5.7.0'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
   ext.openLineageVersion = '1.33.0'
   ext.awsSdk2Version = '2.30.33'
-  ext.micrometerVersion = '1.15.1'
-  ext.vertxVersion = '4.5.24'  // CVE-2026-1002 (e.g. from fabric8 kubernetes-httpclient-vertx)
-  ext.nettyVersion = '4.1.132.Final' // align all io.netty modules
-  // gRPC line version (grpc-netty-shaded bundles its own Netty; inspect META-INF/io.grpc.netty.shaded.io.netty.versions.properties in that jar).
-  // 1.80.0 -> shaded netty-common 4.1.130.Final; 1.77.0 -> 4.1.127.Final.
-  ext.grpcVersion = '1.80.0'
+  ext.micrometerVersion = '1.16.4'
+  // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
+  ext.vertxVersion = '4.5.27'
+  // CVE-2026-41417 (netty-codec-http): 4.1.133+ or 4.2.13+; CVE-2026-42577 (netty-transport-native-epoll): 4.2.13+
+  ext.nettyVersion = '4.2.13.Final' // align all io.netty modules (excl. netty-tcnative line)
+  // CVE-2026-40542 / GHSA: SCRAM-SHA-256 authentication verification (httpclient5 5.6 → 5.6.1+)
+  ext.httpClient5Version = '5.6.1'
+  // Align org.bouncycastle *-jdk18on (bcpkix, bcprov, bcutil); CVE-2026-0636 (bcprov fixed in 1.84+)
+  ext.bouncyCastleJdk18onVersion = '1.84'
+  // gRPC protobuf/stub line from Pegasus/Rest.li transitives (not gRPC transport — grpc-netty-shaded is excluded repo-wide).
+  ext.grpcVersion = '1.81.0'
+  // Align with Spring Boot 4.0.6 / reactor-bom 2025.0.5; io.netty transitives aligned via eachDependency + nettyVersion.
+  ext.reactorNettyVersion = '1.3.5'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -98,6 +118,15 @@ plugins {
 
 apply from: "gradle/docker/docker-utils.gradle"
 
+// Jackson BOM patch version — bump here and in buildSrc/build.gradle (buildSrc classpath).
+ext.jacksonVersion = '2.21.3'
+// Parquet stack (parquet-jackson 1.16.0+ shades Jackson per GHSA-72hv-8253-57qq).
+ext.parquetVersion = '1.17.1'
+// Minor-only annotation line matches jackson-bom (e.g. 2.21 for jackson 2.21.x patch releases).
+ext.jacksonMinorRelease = jacksonVersion.contains('.')
+    ? jacksonVersion.substring(0, jacksonVersion.lastIndexOf('.'))
+    : jacksonVersion
+
 project.ext.spec = [
     'product' : [
         'pegasus' : [
@@ -116,13 +145,11 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
-    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:10.2.10", // akka-parsing is part of akka-http, so use akka http version
-    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
-    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
-    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
-    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
-    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'pekkoActor': "org.apache.pekko:pekko-actor_$playScalaVersion:$pekkoVersion",
+    'pekkoStream': "org.apache.pekko:pekko-stream_$playScalaVersion:$pekkoVersion",
+    'pekkoActorTyped': "org.apache.pekko:pekko-actor-typed_$playScalaVersion:$pekkoVersion",
+    'pekkoSlf4j': "org.apache.pekko:pekko-slf4j_$playScalaVersion:$pekkoVersion",
+    'pekkoJackson': "org.apache.pekko:pekko-serialization-jackson_$playScalaVersion:$pekkoVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -151,7 +178,7 @@ project.ext.externalDependency = [
     'micrometerPrometheus': "io.micrometer:micrometer-registry-prometheus:$micrometerVersion",
     'micrometerJmx': "io.micrometer:micrometer-registry-jmx:$micrometerVersion",
     'micrometerObserve': "io.micrometer:micrometer-observation:$micrometerVersion",
-    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.5.1",
+    'micrometerOtelBridge': "io.micrometer:micrometer-tracing-bridge-otel:1.6.4",
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
     'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
@@ -163,10 +190,11 @@ project.ext.externalDependency = [
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
     'graphqlJava': 'com.graphql-java:graphql-java:22.3',
     'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:22.0',
+    'graphqlJavaOtel': 'io.opentelemetry.instrumentation:opentelemetry-graphql-java-20.0:2.27.0-alpha',
     'gson': 'com.google.code.gson:gson:2.12.0',
     'guice': 'com.google.inject:guice:7.0.0',
     'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
-    'guava': 'com.google.guava:guava:32.1.3-jre',
+    'guava': 'com.google.guava:guava:33.6.0-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -176,11 +204,13 @@ project.ext.externalDependency = [
     'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
-    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.4.3',
+    // CVE-2025-35036 / GHSA-7v6m-28jr-rg84 (EL in constraint violation messages); Play java-forms pulls 6.1.x otherwise
+    'hibernateValidator': 'org.hibernate.validator:hibernate-validator:6.2.5.Final',
+    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:' + httpClient5Version,
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
-     // The jacksonBom controls the version of other jackson modules, pin the version once
-     // implementation platform(externalDependency.jacksonBom)
-    'jacksonBom': "com.fasterxml.jackson:jackson-bom:$jacksonVersion",
+    // The jacksonBom controls the version of other jackson modules; pin the version once.
+    // implementation enforcedPlatform(externalDependency.jacksonBom)
+    'jacksonBom': "com.fasterxml.jackson:jackson-bom:${jacksonVersion}",
     'jacksonJDK8': 'com.fasterxml.jackson.datatype:jackson-datatype-jdk8',
     'jacksonDataPropertyFormat': 'com.fasterxml.jackson.dataformat:jackson-dataformat-properties',
     'jacksonCore': 'com.fasterxml.jackson.core:jackson-core',
@@ -190,7 +220,7 @@ project.ext.externalDependency = [
     'woodstoxCore': 'com.fasterxml.woodstox:woodstox-core:6.4.0',
     'xercesImpl': 'xerces:xercesImpl:2.12.0',
     'javatuples': 'org.javatuples:javatuples:1.2',
-    'javaxInject' : 'javax.inject:javax.inject:1',
+    'javaxInject' : 'jakarta.inject:jakarta.inject-api:2.0.1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
     'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
     'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.46',
@@ -223,19 +253,20 @@ project.ext.externalDependency = [
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
     'lombok': 'org.projectlombok:lombok:1.18.42',
+    // Fork with maintained JNI natives; root resolutionStrategy maps org.lz4:lz4-java here too
+    'lz4Java': 'at.yawk.lz4:lz4-java:' + lz4JavaVersion,
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
-    'mockito': 'org.mockito:mockito-core:4.11.0',
-    'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
-    'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
-    'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
+    'mockito': 'org.mockito:mockito-core:5.20.0',
+    'mockServer': 'org.mock-server:mockserver-netty:5.15.0',
+    'mockServerClient': 'org.mock-server:mockserver-client-java:5.15.0',
     'mysqlConnector': 'com.mysql:mysql-connector-j:9.4.0',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.7.12',
     'gcpCloudSqlConnector': 'com.google.cloud.sql:mysql-socket-factory-connector-j-8:1.25.3',
     'testContainersNeo4j': 'org.testcontainers:neo4j:' + testContainersVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
-    'nettyReactor': 'io.projectreactor.netty:reactor-netty-http:1.2.13',
-    'nettyCore': 'io.projectreactor.netty:reactor-netty-core:1.2.13',
+    'nettyReactor': "io.projectreactor.netty:reactor-netty-http:${reactorNettyVersion}",
+    'nettyCore': "io.projectreactor.netty:reactor-netty-core:${reactorNettyVersion}",
     'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
     'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
@@ -246,57 +277,72 @@ project.ext.externalDependency = [
     'opentelemetryExporter': 'io.opentelemetry:opentelemetry-exporter-otlp:' + openTelemetryVersion,
     'openTelemetryExporterLogging': 'io.opentelemetry:opentelemetry-exporter-logging:' + openTelemetryVersion,
     'openTelemetryExporterCommon': 'io.opentelemetry:opentelemetry-exporter-otlp-common:' + openTelemetryVersion,
-    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.26.1',
+    'opentelemetryAnnotations': 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-annotations:2.27.0',
+    'opentelemetrySdkTesting': 'io.opentelemetry:opentelemetry-sdk-testing:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
-    // 1.16.0+ shades jackson 2.19.2 in parquet-jackson (GHSA-72hv-8253-57qq fix; 1.15.2 had 2.18.1)
-    'parquet': 'org.apache.parquet:parquet-avro:1.16.0',
-    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.16.0',
+    // Parquet stack aligned (parquet-jackson shades Jackson; see ext.parquetVersion).
+    'parquet': "org.apache.parquet:parquet-avro:${parquetVersion}",
+    'parquetHadoop': "org.apache.parquet:parquet-hadoop:${parquetVersion}",
+    'parquetJackson': "org.apache.parquet:parquet-jackson:${parquetVersion}",
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
-    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
-    'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
-    'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
-    'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    // org.playframework JARs: no version here — datahub-frontend uses platform(play-bom) and $playVersion on that BOM only.
+    'playCache': "org.playframework:play-cache_$playScalaVersion",
+    'playCaffeineCache': "org.playframework:play-caffeine-cache_$playScalaVersion",
+    'playWs': "org.playframework:play-ahc-ws_$playScalaVersion",
+    // Explicit version so dependency locking / isolated resolves still resolve when BOM order differs.
+    'playDocs': "org.playframework:play-docs_$playScalaVersion:$playVersion",
+    'playGuice': "org.playframework:play-guice_$playScalaVersion",
     // Required at runtime for play.data.validation.Constraints (e.g. sign-up email validation);
     // compile-only transitives do not land in the staged Play distribution lib/.
-    'playJavaForms': "com.typesafe.play:play-java-forms_$playScalaVersion:$playVersion",
-    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
-    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
-    'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
-    'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
-    'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:6.1.2',
-    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.7.8',
+    'playJavaForms': "org.playframework:play-java-forms_$playScalaVersion",
+    'playPekkoHttpServer': "org.playframework:play-pekko-http-server_$playScalaVersion",
+    'playServer': "org.playframework:play-server_$playScalaVersion",
+    'playTest': "org.playframework:play-test_$playScalaVersion",
+    'playFilters': "org.playframework:play-filters-helpers_$playScalaVersion",
+    'pac4j': 'org.pac4j:pac4j-oidc:6.4.1',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:13.0.2-PLAY3.0",
+    // CVE-2026-42198: SCRAM iteration DoS fixed in 42.7.11+
+    'postgresql': 'org.postgresql:postgresql:42.7.11',
     'protobuf': 'com.google.protobuf:protobuf-java:4.32.0',
     'grpcProtobuf': "io.grpc:grpc-protobuf:$grpcVersion",
-    'grpcNettyShaded': "io.grpc:grpc-netty-shaded:$grpcVersion",
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.12',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
-    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
+    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.1.0',
+    // CVE-2026-23903 / CVE-2026-23901: fixed in Shiro 2.1.0+ (see shiro.apache.org/security-reports.html)
+    'shiroCore': 'org.apache.shiro:shiro-core:2.1.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
-    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.3.4',
-    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.3.4',
+    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.5.0',
+    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.5.0',
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
     'springBootTest': "org.springframework.boot:spring-boot-starter-test:$springBootVersion",
     'springBoot': "org.springframework.boot:spring-boot:$springBootVersion",
     'springBootAutoconfigure': "org.springframework.boot:spring-boot-autoconfigure:$springBootVersion",
+    // Bridge for Jackson 2 (com.fasterxml) until full migration to Jackson 3 (tools.jackson)
+    'springBootJackson2': "org.springframework.boot:spring-boot-jackson2:$springBootVersion",
     'springBootStarterWeb': "org.springframework.boot:spring-boot-starter-web:$springBootVersion",
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
     'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
-    'springRetry': "org.springframework.retry:spring-retry:2.0.11",
+    // Spring Boot 4.0: Kafka and Micrometer auto-configs moved to separate modules
+    'springBootKafka': "org.springframework.boot:spring-boot-kafka:$springBootVersion",
+    'springBootMicrometerMetrics': "org.springframework.boot:spring-boot-micrometer-metrics:$springBootVersion",
+    // Spring Boot 4.0: Jetty, Cassandra, Elasticsearch auto-configs moved to separate modules
+    'springBootJetty': "org.springframework.boot:spring-boot-jetty:$springBootVersion",
+    'springBootCassandra': "org.springframework.boot:spring-boot-cassandra:$springBootVersion",
+    'springBootElasticsearch': "org.springframework.boot:spring-boot-elasticsearch:$springBootVersion",
+    // Spring Boot 4.0: WebMvc test slice moved to separate module
+    'springBootWebMvcTest': "org.springframework.boot:spring-boot-webmvc-test:$springBootVersion",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.12",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.30',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
     'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.30',
@@ -318,11 +364,13 @@ project.ext.externalDependency = [
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
     'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
-    'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
+    'annotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
     'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
-    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7'
+    'javaxMail': 'com.sun.mail:jakarta.mail:2.0.2',
+    // Standard compatibility artifact to satisfy legacy javax.mail references while keeping jakarta.mail upgraded.
+    'javaxMailCompat': 'com.sun.mail:javax.mail:1.6.2'
 ]
 
 allprojects {
@@ -334,19 +382,19 @@ allprojects {
   apply plugin: 'com.adarshr.test-logger'
 
   testlogger {
-    theme 'mocha' // Clean, modern output
-    showExceptions true
-    showStackTraces true
-    showFullStackTraces false
-    showCauses true
-    showSummary true
-    showPassed false // Only show failures for cleaner output
-    showSkipped true
-    showFailed true
-    showStandardStreams false
-    showPassedStandardStreams false
-    showSkippedStandardStreams false
-    showFailedStandardStreams true
+    theme = 'mocha' // Clean, modern output
+    showExceptions = true
+    showStackTraces = true
+    showFullStackTraces = false
+    showCauses = true
+    showSummary = true
+    showPassed = false // Only show failures for cleaner output
+    showSkipped = true
+    showFailed = true
+    showStandardStreams = false
+    showPassedStandardStreams = false
+    showSkippedStandardStreams = false
+    showFailedStandardStreams = true
   }
 
   tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
@@ -425,6 +473,15 @@ allprojects {
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 
   configurations.all {
+    // Replace LinkedIn’s helper-all 0.2.138 (vulnerable embedded commons-lang3) with the in-repo
+    // fat JAR in :vendor:avroutil1-helper-all-fork. See that module’s build.gradle and dependency locks.
+    resolutionStrategy.dependencySubstitution { DependencySubstitutions s ->
+      // "project(...)" unqualified is Project#project here, not DependencySubstitutions#project; use s.project(...).
+      s.substitute(s.module("com.linkedin.avroutil1:helper-all:0.2.138"))
+        .using(s.project(":vendor:avroutil1-helper-all-fork"))
+        .because("CVE-patched avro-util helper-all (see vendor/avroutil1-helper-all-fork)")
+    }
+
     exclude group: "io.netty", module: "netty"
     exclude group: "log4j", module: "log4j"
     exclude group: "org.springframework.boot", module: "spring-boot-starter-logging"
@@ -439,10 +496,14 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: 'org.glassfish', module: 'jakarta.json'
     exclude group: 'com.typesafe.play', module: 'shaded-asynchttpclient'
     exclude group: "com.typesafe.akka", module: "akka-protobuf-v3_$playScalaVersion"
+    exclude group: "org.apache.pekko", module: "pekko-protobuf-v3_$playScalaVersion"
     exclude group: 'com.typesafe.play', module: 'shaded-oauth'
     exclude group: 'commons-httpclient', module: 'commons-httpclient'
     exclude group: 'commons-collections', module: 'commons-collections'
     exclude group: 'commons-lang', module: 'commons-lang'
+    // DataHub does not use gRPC transport; Pegasus/Rest.li pull grpc-netty-shaded transitively.
+    // Excluded to drop the shaded Netty copy (CVE-2026-42579, CVE-2026-42581, CVE-2026-42584; fixed in Netty 4.1.133+ / 4.2.13+ on the app classpath via nettyVersion).
+    exclude group: 'io.grpc', module: 'grpc-netty-shaded'
 
     // Tomcat excluded for jetty
     exclude group: 'org.apache.tomcat.embed', module: 'tomcat-embed-el'
@@ -463,22 +524,36 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "org.apache.hive:hive-llap-common:${rootProject.ext.hiveLlapCommonVersion}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-common:${rootProject.ext.hadoop3Version}"
     resolutionStrategy.force "org.apache.hadoop:hadoop-client:${rootProject.ext.hadoop3Version}"
-    resolutionStrategy.force 'org.bouncycastle:bcprov-jdk18on:1.83'
+    resolutionStrategy.force "org.bouncycastle:bcpkix-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcprov-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
+    resolutionStrategy.force "org.bouncycastle:bcutil-jdk18on:${rootProject.ext.bouncyCastleJdk18onVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981; overrides d2's 3.6.3
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
       if (details.requested.group == 'org.lz4' && details.requested.name == 'lz4-java') {
-        details.useTarget("at.yawk.lz4:lz4-java:1.10.1")
-        details.because("CVE-2025-12183, upgrade to 1.10.1")
+        details.useTarget(rootProject.ext.externalDependency.lz4Java)
+        details.because("CVE-2025-12183; align org.lz4:lz4-java to at.yawk fork (${rootProject.ext.lz4JavaVersion})")
       }
       if (details.requested.group == 'org.apache.mina' && details.requested.name == 'mina-core') {
         details.useTarget("org.apache.mina:mina-core:${rootProject.ext.minaCoreVersion}")
         details.because("CVE-2024-52046, ObjectSerializationDecoder deserialization/RCE")
       }
-      // Align all Jackson modules to jacksonVersion (e.g. play config must not use 2.18.4 / 2.11.4)
+      if (details.requested.group == 'org.apache.hadoop.thirdparty' && details.requested.name == 'hadoop-shaded-protobuf_3_25') {
+        details.useVersion(rootProject.ext.hadoopShadedProtobuf_3_25_Version)
+        details.because("hadoop-shaded-protobuf_3_25 ${rootProject.ext.hadoopShadedProtobuf_3_25_Version}; CVE-2017-3162 is in hadoop-hdfs DataNode (fixed 2.7.0+, we use hadoop-client ${rootProject.ext.hadoop3Version})")
+      }
+      if (details.requested.group == 'org.apache.hadoop.thirdparty' && details.requested.name == 'hadoop-shaded-guava') {
+        details.useVersion(rootProject.ext.hadoopShadedGuavaVersion)
+        details.because("hadoop-shaded-guava ${rootProject.ext.hadoopShadedGuavaVersion}; CVE-2024-23454 is RunJar in hadoop-common (fixed 3.4.0+, we use hadoop-client ${rootProject.ext.hadoop3Version})")
+      }
+      // Align all Jackson modules to jacksonVersion (e.g. Play pegasusPlugin classpath ~2.10.x).
+      // jackson-annotations uses the minor-only line in Jackson 2.21+ (see jackson-bom).
       if (details.requested.group == 'com.fasterxml.jackson.core' || details.requested.group == 'com.fasterxml.jackson.dataformat' || details.requested.group == 'com.fasterxml.jackson.datatype' || details.requested.group == 'com.fasterxml.jackson.module') {
         def v = rootProject.ext.jacksonVersion
+        if (details.requested.group == 'com.fasterxml.jackson.core' && details.requested.name == 'jackson-annotations') {
+          v = rootProject.ext.jacksonMinorRelease
+        }
         details.useTarget("${details.requested.group}:${details.requested.name}:${v}")
         details.because("Jackson aligned to ${v}")
       }
@@ -490,14 +565,32 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
       }
       if (details.requested.group == 'io.grpc') {
         details.useVersion(rootProject.ext.grpcVersion)
-        details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (incl. grpc-stub with grpc-netty-shaded)")
+        details.because("gRPC stack aligned to ${rootProject.ext.grpcVersion} (grpc-netty-shaded excluded — no gRPC transport)")
+      }
+      if (details.requested.group == 'io.projectreactor.netty') {
+        details.useVersion(rootProject.ext.reactorNettyVersion)
+        details.because("reactor-netty aligned to ${rootProject.ext.reactorNettyVersion} for CVE fixes")
+      }
+      // Exclude opentelemetry-semconv (legacy alpha line; semconv lives under io.opentelemetry.semconv)
+      // and opentelemetry-api-incubator (separate -alpha release line; not published at the stable version).
+      if (details.requested.group == 'io.opentelemetry'
+          && details.requested.name != 'opentelemetry-semconv'
+          && details.requested.name != 'opentelemetry-api-incubator') {
+        details.useVersion(rootProject.ext.openTelemetryVersion)
+        details.because("OpenTelemetry aligned to ${rootProject.ext.openTelemetryVersion} for CVE-2026-45292")
+      }
+      if (details.requested.group == 'org.apache.parquet') {
+        details.useVersion(rootProject.ext.parquetVersion)
+        details.because("Parquet stack aligned to ${rootProject.ext.parquetVersion}")
       }
     }
-    resolutionStrategy.force 'at.yawk.lz4:lz4-java:1.10.1'
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast)
-    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force rootProject.ext.externalDependency.get('guava')
+    resolutionStrategy.force rootProject.ext.externalDependency.lz4Java
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-core:${rootProject.ext.jacksonVersion}"  // GHSA-72hv-8253-57qq (e.g. from hazelcast); Pegasus plugin classpath (CVE-2025-52999)
+    resolutionStrategy.force "com.fasterxml.jackson.core:jackson-annotations:${rootProject.ext.jacksonMinorRelease}"
     resolutionStrategy.force "com.fasterxml.jackson.core:jackson-databind:${rootProject.ext.jacksonVersion}"
     resolutionStrategy.force "com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:${rootProject.ext.jacksonVersion}"
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.capabilitiesResolution.withCapability('org.lz4:lz4-java') {
       select(candidates.find { it.id.group == 'at.yawk.lz4' } ?: candidates.first())
     }
@@ -541,8 +634,9 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
 }
 
 // Spark-lineage only: force CVE-pinned versions (not applied to rest of repo).
-configure(subprojects.findAll { it.name == 'spark-lineage-legacy' || it.name == 'acryl-spark-lineage' }) {
+configure(subprojects.findAll { it.name == 'acryl-spark-lineage' }) {
   configurations.all {
+    resolutionStrategy.force rootProject.ext.externalDependency.get('parquetJackson')
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
     resolutionStrategy.force "dnsjava:dnsjava:${rootProject.ext.sparkLineageDnsjavaVersion}"
     resolutionStrategy.force "org.codehaus.jettison:jettison:${rootProject.ext.sparkLineageJettisonVersion}"
@@ -604,6 +698,10 @@ subprojects {
   // Enable dependency locking for all configurations
   dependencyLocking {
     lockAllConfigurations()
+    // Root build.gradle substitutes com.linkedin.avroutil1:helper-all:0.2.138 with
+    // :vendor:avroutil1-helper-all-fork. The external module is never resolved from a repo,
+    // so strict lock validation would fail on existing lockfile lines for helper-all.
+    ignoredDependencies.add("com.linkedin.avroutil1:helper-all")
   }
 
   def gitPropertiesTask = tasks.register("copyGitProperties", Copy) {
@@ -614,6 +712,9 @@ subprojects {
   }
 
   plugins.withType(JavaPlugin).configureEach {
+    if (project.name == 'avroutil1-helper-all-fork') {
+      return
+    }
     project.tasks.named(JavaPlugin.CLASSES_TASK_NAME).configure{
       dependsOn gitPropertiesTask
     }
@@ -627,9 +728,13 @@ subprojects {
 
     // Exclude unwanted transitive dependencies from log4j (fixed in logging-parent 12.0.0)
     // See: https://github.com/apache/logging-log4j2/issues/3066
+    // Note: jspecify exclusion was removed because Spring Framework 7.0 requires it at runtime
+    // Exclude Jackson 3 (tools.jackson) — we use spring-boot-jackson2 bridge to stay on Jackson 2.
+    // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'org.jspecify', module: 'jspecify'
+      exclude group: 'tools.jackson.core'
+      exclude group: 'tools.jackson'
     }
 
     dependencies {
@@ -643,8 +748,8 @@ subprojects {
         implementation("io.netty:netty-transport-native-epoll:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-kqueue:${rootProject.ext.nettyVersion}")
         implementation("io.netty:netty-transport-native-unix-common:${rootProject.ext.nettyVersion}")
-        implementation('io.projectreactor.netty:reactor-netty-core:1.2.13')
-        implementation('io.projectreactor.netty:reactor-netty-http:1.2.13')
+        implementation("io.projectreactor.netty:reactor-netty-core:${rootProject.ext.reactorNettyVersion}")
+        implementation("io.projectreactor.netty:reactor-netty-http:${rootProject.ext.reactorNettyVersion}")
         implementation("org.apache.logging.log4j:log4j-core:$log4jVersion") // GHSA-vc5p-v9hr-52mj
         implementation("org.apache.logging.log4j:log4j-jul:$log4jVersion")
         implementation('org.jline:jline:3.25.1') // CVE-2023-50572: OOM in GroovyEngine.execute
@@ -654,6 +759,7 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-cbor:$jacksonVersion")
         implementation('com.squareup.okhttp3:okhttp:4.12.0')
+        implementation("org.apache.httpcomponents.client5:httpclient5:${rootProject.ext.httpClient5Version}") // CVE-2026-40542
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
         implementation(externalDependency.xercesImpl) // Xerces CVEs (2 high, 1 medium)

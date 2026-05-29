@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -11,7 +11,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
         id: POLICIES_INTRO_ID,
         title: 'Policies',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to DataHub <strong>Policies</strong>!
                 </p>
@@ -33,7 +33,7 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -41,11 +41,11 @@ export const PoliciesOnboardingConfig: OnboardingStep[] = [
         selector: `#${POLICIES_CREATE_POLICY_ID}`,
         title: 'Create a new Policy',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Click here to create a new <strong>Policy</strong>.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

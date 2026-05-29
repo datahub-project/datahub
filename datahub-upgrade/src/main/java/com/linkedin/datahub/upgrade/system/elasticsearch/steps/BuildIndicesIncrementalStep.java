@@ -86,7 +86,7 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return (context) -> {
       try {
         List<ReindexConfig> configsNeedingReindex =
-            IndexUtils.getIndicesNeedingReindex(
+            IndexUtils.getIndicesNeedingReindexOrBuild(
                 context.opContext(), indexedServices, structuredProperties);
         if (configsNeedingReindex.isEmpty()) {
           log.info("No indices require incremental reindex");
@@ -117,6 +117,32 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
           }
 
+          // Fresh-install case: index doesn't exist yet. Delegate to buildIndex, which
+          // short-circuits to
+          // createIndex(config.name(), config) when !exists(), and persist state as COMPLETED so
+          // Phase 2 and resumed runs skip it.
+          if (!config.exists()) {
+            log.info("Index {} does not exist; creating directly", config.name());
+            indexBuilder.buildIndex(config);
+            long createTime = System.currentTimeMillis();
+            upgradeState =
+                IncrementalReindexState.setPhase1State(
+                    upgradeState,
+                    config.name(),
+                    config.name(),
+                    null,
+                    createTime,
+                    0L,
+                    null,
+                    false,
+                    IncrementalReindexState.Status.COMPLETED);
+            upgradeState =
+                IncrementalReindexState.setReindexCompleteTime(
+                    upgradeState, config.name(), createTime);
+            checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
+            continue;
+          }
+
           boolean requiresDataBackfill = config.requiresDataBackfill();
 
           // Resume polling if a previous run created the next index but didn't finish polling
@@ -129,11 +155,25 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
               && !existingNextIndex.get().isEmpty()) {
             log.info("Resuming polling for index {} -> {}", config.name(), existingNextIndex.get());
             int targetShards = ESIndexBuilder.extractTargetShards(config);
+            long persistedSourceDocCount =
+                IncrementalReindexState.get(
+                        upgradeState, config.name(), IncrementalReindexState.SOURCE_DOC_COUNT)
+                    .map(Long::parseLong)
+                    .orElse(0L);
+            String persistedTaskId =
+                IncrementalReindexState.get(
+                        upgradeState, config.name(), IncrementalReindexState.TASK_ID)
+                    .orElse("");
             // On resume, reindexInfo from the original submission is not available — use empty map.
             // Stall-retry will re-submit with fresh optimal settings if needed.
             ESIndexBuilder.PollReindexResult pollResult =
                 indexBuilder.pollReindexCompletion(
-                    config.name(), existingNextIndex.get(), targetShards, new HashMap<>(), "");
+                    config.name(),
+                    existingNextIndex.get(),
+                    () -> persistedSourceDocCount,
+                    targetShards,
+                    new HashMap<>(),
+                    persistedTaskId);
             upgradeState =
                 handlePollResult(
                     context,
@@ -181,6 +221,8 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
                   result.nextIndexName(),
                   oldBackingIndexName,
                   result.reindexStartTime(),
+                  result.sourceDocCount(),
+                  result.taskId(),
                   requiresDataBackfill,
                   IncrementalReindexState.Status.IN_PROGRESS);
           checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
@@ -207,10 +249,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             continue;
           }
 
+          final long sourceDocCount = result.sourceDocCount();
           ESIndexBuilder.PollReindexResult pollResult =
               indexBuilder.pollReindexCompletion(
                   config.name(),
                   result.nextIndexName(),
+                  () -> sourceDocCount,
                   result.targetShards(),
                   result.reindexInfo(),
                   result.taskId());

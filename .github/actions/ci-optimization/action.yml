@@ -34,13 +34,16 @@ outputs:
     value: ${{ steps.filter.outputs.kafka-setup == 'true' }}
   smoke-test-change:
     description: "Smoke test change"
-    value: ${{ steps.filter.outputs.smoke-test == 'true' }}
+    value: ${{ steps.filter.outputs.smoke-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
   actions-change:
     description: "Actions code has changed"
     value: ${{ steps.filter.outputs.actions == 'true' }}
   java-client-change:
     description: "Java client code has changed"
     value: ${{ steps.filter.outputs.java-client == 'true' || steps.trigger.outputs.trigger == 'manual' }}
+  playwright-change:
+    description: "Playwright E2E test code has changed"
+    value: ${{ steps.filter.outputs.playwright-test == 'true' || steps.trigger.outputs.trigger == 'manual' }}
 
 runs:
   using: "composite"
@@ -120,3 +123,5 @@ runs:
           java-client:
             - "metadata-integration/java/datahub-client/**"
             - "metadata-models/**"
+          playwright-test:
+            - "e2e-test/ui/playwright/**"

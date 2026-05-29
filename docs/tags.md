@@ -1,3 +1,8 @@
+---
+title: Tags Overview
+description: "Use Tags in DataHub as informal, loosely-controlled labels to classify and search for datasets, schemas, and containers."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Tags
@@ -67,7 +72,7 @@ You can search for a tag in the search bar, and even filter entities by the pres
 **Add Ownership, Tags, Terms, and more to DataHub via CSV!**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/BGt59KpH1Ds" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/BGt59KpH1Ds" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL

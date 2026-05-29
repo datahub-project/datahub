@@ -1,4 +1,4 @@
-import { Button, Carousel, Heading, LoadedImage, Modal } from '@components';
+import { Button, Carousel, LoadedImage, Modal } from '@components';
 import React, { useEffect, useRef, useState } from 'react';
 
 import analytics, { EventType } from '@app/analytics';
@@ -7,6 +7,8 @@ import { ANT_NOTIFICATION_Z_INDEX } from '@app/shared/constants';
 import {
     LoadingContainer,
     SlideContainer,
+    SlideDescription,
+    SlideTitle,
     StyledDocsLink,
     VideoContainer,
     VideoSlide,
@@ -102,6 +104,32 @@ export const WelcomeToDataHubModal = () => {
         setVideosReady((prev) => ({ ...prev, [videoKey]: true }));
     };
 
+    // Keyboard navigation: Left/Right cycle slides, Escape closes the modal.
+    // Bound at document level because focus inside the modal sits on a non-carousel
+    // element (close button / body), so react-slick's built-in handler never fires.
+    useEffect(() => {
+        if (!shouldShow) return undefined;
+
+        function handleKeyDown(e: KeyboardEvent) {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                carouselRef.current?.prev();
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                carouselRef.current?.next();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeTour('escape_key');
+            }
+        }
+
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+        // closeTour is stable for the lifetime of an open modal; depending on currentSlide
+        // would re-bind on every slide change without changing behavior.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [shouldShow]);
+
     // Track page view when modal opens
     useEffect(() => {
         if (shouldShow && !hasTrackedView.current) {
@@ -160,6 +188,7 @@ export const WelcomeToDataHubModal = () => {
                 title={WELCOME_TO_DATAHUB_MODAL_TITLE}
                 width={MODAL_WIDTH}
                 onCancel={() => closeTour('close_button')}
+                keyboard={false}
                 buttons={[
                     {
                         text: 'Get Started',
@@ -169,7 +198,7 @@ export const WelcomeToDataHubModal = () => {
                 ]}
             >
                 <SlideContainer>
-                    <Heading type="h2">&nbsp;</Heading>
+                    <SlideTitle>&nbsp;</SlideTitle>
                     <VideoContainer>
                         <LoadingContainer width={MODAL_IMAGE_WIDTH}>Loading...</LoadingContainer>
                     </VideoContainer>
@@ -190,6 +219,7 @@ export const WelcomeToDataHubModal = () => {
             title={WELCOME_TO_DATAHUB_MODAL_TITLE}
             width={MODAL_WIDTH}
             onCancel={() => closeTour('close_button')}
+            keyboard={false}
             buttons={[]}
             zIndex={ANT_NOTIFICATION_Z_INDEX + 2} // 2 higher because home settings button is 1 higher
         >
@@ -228,12 +258,10 @@ export const WelcomeToDataHubModal = () => {
                 infinite={false}
             >
                 <SlideContainer>
-                    <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                        Find Any Asset, Anywhere
-                    </Heading>
-                    <Heading type="h3" size="md" color="gray" colorLevel={1700}>
+                    <SlideTitle>Find Any Asset, Anywhere</SlideTitle>
+                    <SlideDescription>
                         Search datasets, models, dashboards, and more across your entire stack
-                    </Heading>
+                    </SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.search}
@@ -244,12 +272,8 @@ export const WelcomeToDataHubModal = () => {
                     </VideoContainer>
                 </SlideContainer>
                 <SlideContainer>
-                    <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                        Understand Your Data&apos;s Origin
-                    </Heading>
-                    <Heading type="h3" size="md" color="gray" colorLevel={1700}>
-                        See the full story of how your data was created and transformed
-                    </Heading>
+                    <SlideTitle>Understand Your Data&apos;s Origin</SlideTitle>
+                    <SlideDescription>See the full story of how your data was created and transformed</SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.lineage}
@@ -260,12 +284,8 @@ export const WelcomeToDataHubModal = () => {
                     </VideoContainer>
                 </SlideContainer>
                 <SlideContainer>
-                    <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                        Manage Breaking Changes Confidently
-                    </Heading>
-                    <Heading type="h3" size="md" color="gray" colorLevel={1700}>
-                        Preview the full impact of schema and column changes
-                    </Heading>
+                    <SlideTitle>Manage Breaking Changes Confidently</SlideTitle>
+                    <SlideDescription>Preview the full impact of schema and column changes</SlideDescription>
                     <VideoContainer>
                         <VideoSlide
                             videoSrc={videoSources?.impact}
@@ -277,12 +297,8 @@ export const WelcomeToDataHubModal = () => {
                 </SlideContainer>
                 {videoSources.aiDocs && (
                     <SlideContainer>
-                        <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                            Documentation Without the Work
-                        </Heading>
-                        <Heading type="h3" size="md" color="gray" colorLevel={1700}>
-                            Save hours of manual work while improving discoverability
-                        </Heading>
+                        <SlideTitle>Documentation Without the Work</SlideTitle>
+                        <SlideDescription>Save hours of manual work while improving discoverability</SlideDescription>
                         <VideoContainer>
                             <VideoSlide
                                 videoSrc={videoSources?.aiDocs}
@@ -294,12 +310,10 @@ export const WelcomeToDataHubModal = () => {
                     </SlideContainer>
                 )}
                 <SlideContainer>
-                    <Heading type="h2" size="lg" color="gray" colorLevel={600} weight="bold">
-                        Ready to Get Started?
-                    </Heading>
-                    <Heading type="h3" size="md" color="gray" colorLevel={1700}>
+                    <SlideTitle>Ready to Get Started?</SlideTitle>
+                    <SlideDescription>
                         Explore our comprehensive documentation or jump right in and start discovering your data
-                    </Heading>
+                    </SlideDescription>
                     <LoadedImage
                         src={welcomeModalHomeScreenshot}
                         alt={WELCOME_TO_DATAHUB_MODAL_TITLE}

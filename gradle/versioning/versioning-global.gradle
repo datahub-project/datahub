@@ -3,7 +3,7 @@
 
 Uses git tags to mint versions by default. 
 git tags can be of a few forms:
-- short sha (typical for a PR or a commit) (e.g. 38960ae)
+- short sha (typical for a PR or a commit) (e.g. sha-38960ae)
 - versioned tags (typical for a release) (e.g. v0.8.45, v0.8.45.1, v0.8.45rc1, v0.8.45.1rc4)
 
 Produces the following variables and supports token replacement

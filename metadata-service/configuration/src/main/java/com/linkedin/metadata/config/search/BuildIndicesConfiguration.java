@@ -1,6 +1,6 @@
 package com.linkedin.metadata.config.search;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -257,6 +257,12 @@ public class BuildIndicesConfiguration {
    * running to get the next index in line with any missed writes
    */
   private boolean incrementalReindexEnabled;
+
+  /**
+   * Seconds between polls when checking if a timeseries catch-up reindex task is still running via
+   * the listTasks API. Default 5 seconds.
+   */
+  private long taskPollIntervalSeconds = 5;
 
   /**
    * When true (and incrementalReindexEnabled is also true), the MAE consumer dual-writes to the old

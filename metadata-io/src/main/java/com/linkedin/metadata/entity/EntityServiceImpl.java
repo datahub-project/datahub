@@ -1678,6 +1678,21 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   @Override
   public List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async) {
+    // Apply MCP observers (pre-transaction metrics collection, external actions).
+    // Only on sync path — async MCPs come back via MCE consumer with async=false.
+    if (!async) {
+      try {
+        aspectsBatch.applyMCPObservers(aspectsBatch.getItems());
+      } catch (VirtualMachineError e) {
+        throw e;
+      } catch (Throwable t) {
+        // Outermost guard around the observer call site. Inner layers in MCPObserver.apply and
+        // AspectsBatch.applyMCPObservers already isolate per-observer failures; anything that
+        // leaks here is a non-observer bug (batch wiring, retriever context) — log it as such
+        // rather than as an observer failure so it doesn't get triaged to the wrong owner.
+        log.warn("MCP observer call site failed; ingest continuing", t);
+      }
+    }
     Stream<IngestResult> timeseriesIngestResults =
         ingestTimeseriesProposal(opContext, aspectsBatch, async);
     Stream<IngestResult> nonTimeseriesIngestResults =
@@ -2943,6 +2958,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           collectMetrics(opContext.getMetricUtils().orElse(null), exceptions).toString());
     }
 
+    // Hard delete wipes all aspects in one shot; capture propertyDefinition before deleteUrn so
+    // PropertyDefinitionDeleteSideEffect can scroll ES and emit PATCH REMOVE MCPs (see
+    // docs/api/tutorials/structured-properties.md).
+    final PropertyDefinitionBeforeHardDelete propertyDefinitionBeforeHardDelete =
+        new PropertyDefinitionBeforeHardDelete();
+
     final RollbackResult result =
         aspectDao
             .runInTransactionWithRetry(
@@ -3065,11 +3086,30 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       if (hardDelete) {
                         // If this is the key aspect, delete the entity entirely.
                         // If Using CDCs, need to ensure key aspect is the deleted last.
+                        if (STRUCTURED_PROPERTY_ENTITY_NAME.equals(entityUrn.getEntityType())) {
+                          try {
+                            SystemAspect definitionAspect =
+                                aspectDao.getLatestAspect(
+                                    opContext,
+                                    urn,
+                                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                    false);
+                            propertyDefinitionBeforeHardDelete.definition =
+                                definitionAspect.getRecordTemplate();
+                            propertyDefinitionBeforeHardDelete.metadata =
+                                definitionAspect.getSystemMetadata();
+                          } catch (EntityNotFoundException e) {
+                            log.debug(
+                                "No {} aspect to capture before hard delete of {}",
+                                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                                urn);
+                          }
+                        }
                         additionalRowsDeleted = aspectDao.deleteUrn(opContext, txContext, urn);
                       } else if (deleteItem
                           .getEntitySpec()
                           .hasAspect(Constants.STATUS_ASPECT_NAME)) {
-                        // soft delete by setting status.removed=true (if applicable)
+                        // Soft delete: set removed=true.
                         final Status statusAspect = new Status();
                         statusAspect.setRemoved(true);
 
@@ -3131,7 +3171,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .orElse(null);
 
     if (result != null) {
-      processPostCommitMCLSideEffects(opContext, List.of(result.toMCL(auditStamp)));
+      List<MetadataChangeLog> mclsForSideEffects = new ArrayList<>();
+      if (propertyDefinitionBeforeHardDelete.definition != null) {
+        mclsForSideEffects.add(
+            constructMCL(
+                null,
+                urnToEntityName(entityUrn),
+                entityUrn,
+                ChangeType.DELETE,
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                auditStamp,
+                null,
+                null,
+                propertyDefinitionBeforeHardDelete.definition,
+                propertyDefinitionBeforeHardDelete.metadata));
+      }
+      mclsForSideEffects.add(result.toMCL(auditStamp));
+      processPostCommitMCLSideEffects(opContext, mclsForSideEffects);
     }
 
     return result;
@@ -3332,5 +3388,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     } else {
       log.debug(message);
     }
+  }
+
+  /** Mutable holder for propertyDefinition captured inside a transaction lambda. */
+  private static final class PropertyDefinitionBeforeHardDelete {
+    private RecordTemplate definition;
+    private SystemMetadata metadata;
   }
 }

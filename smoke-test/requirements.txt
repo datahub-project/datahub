@@ -9,6 +9,7 @@ slack-sdk==3.18.1
 aiohttp
 joblib
 pytest-xdist
+pytest-timeout==2.3.1
 networkx
 # libaries for linting below this
 mypy==1.14.1
@@ -25,6 +26,3 @@ deepdiff!=8.0.0
 opensearch-py==2.6.0
 
 python-dotenv==1.0.1
-
-# For semantic search tests (embedding generation)
-litellm>=1.0.0

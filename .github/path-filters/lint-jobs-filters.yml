@@ -3,6 +3,8 @@ lint-job:
   - ".github/path-filters/lint-job-filter.yml"
 markdown:
   - added|modified: "**/*.md"
+  - ".github/scripts/check_docusaurus_markdown.py"
+  - "datahub-web-react/build.gradle"
 github-actions:
   - added|modified: ".github/**/*.yml"
   - added|modified: ".github/**/*.yaml"
@@ -28,3 +30,5 @@ smoke-test-cypress:
   - "smoke-test/tests/cypress/**"
 datahub-web-react:
   - added|modified: "datahub-web-react/**"
+playwright-e2e:
+  - added|modified: "e2e-test/ui/playwright/**"

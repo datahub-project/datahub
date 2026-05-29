@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Union
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pydantic import ValidationError
 from requests.adapters import ConnectionError
 from tableauserverclient import PermissionsRule
@@ -35,7 +35,7 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 
-FROZEN_TIME = "2021-12-07 07:00:00"
+FROZEN_TIME = "2021-12-07T07:00:00Z"
 
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
@@ -358,7 +358,7 @@ def tableau_ingest_common(
             return pipeline
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
@@ -416,7 +416,7 @@ def mock_data() -> List[dict]:
     ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_cll.json"
@@ -442,7 +442,7 @@ def test_tableau_cll_ingest(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_pattern_mces.json"
@@ -465,7 +465,7 @@ def test_project_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_mces.json"
@@ -488,7 +488,7 @@ def test_project_path_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_nested_project_mces.json"
@@ -511,7 +511,7 @@ def test_project_hierarchy(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_extract_all_project_mces.json"
@@ -533,6 +533,7 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_pattern_allow_mces.json"
     golden_file_name: str = "tableau_project_path_pattern_allow_mces_golden.json"
@@ -552,6 +553,7 @@ def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_project_path_pattern_deny_mces.json"
     golden_file_name: str = "tableau_project_path_pattern_deny_mces_golden.json"
@@ -571,7 +573,7 @@ def test_project_path_pattern_deny(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_with_platform_instance(
     pytestconfig, tmp_path, mock_datahub_graph
@@ -621,7 +623,7 @@ def test_tableau_ingest_with_platform_instance(
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
     golden_file_name: str = "tableau_mces_golden.json"
@@ -762,7 +764,7 @@ def test_tableau_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph)
     assert sorted(deleted_dashboard_urns) == sorted(difference_dashboard_urns)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration_batch_5
 def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_signout_timeout_mces.json"
@@ -779,7 +781,7 @@ def test_tableau_signout_timeout(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces.json"
@@ -796,7 +798,7 @@ def test_get_all_datasources_failure(pytestconfig, tmp_path, mock_datahub_graph)
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_multiple_sites.json"
@@ -857,7 +859,7 @@ def test_tableau_ingest_multiple_sites(pytestconfig, tmp_path, mock_datahub_grap
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_mces_ingest_sites_as_container.json"
@@ -880,7 +882,7 @@ def test_tableau_ingest_sites_as_container(pytestconfig, tmp_path, mock_datahub_
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_site_name_pattern_mces.json"
@@ -903,7 +905,7 @@ def test_site_name_pattern(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_permission_ingestion_mces.json"
@@ -928,7 +930,7 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_no_hidden_assets_mces.json"
@@ -950,7 +952,7 @@ def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_ingest_hidden_worksheets_mces.json"
@@ -972,7 +974,7 @@ def test_ingest_hidden_worksheets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
@@ -993,7 +995,7 @@ def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_hidden_asset_tags_mces.json"
@@ -1015,7 +1017,7 @@ def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
     new_config = config_source_default.copy()
@@ -1029,7 +1031,7 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
         TableauConfig.model_validate(new_config)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
     output_file_name: str = "tableau_filtered_upstream_asset.json"
@@ -1072,7 +1074,7 @@ def test_filter_upstream_assets(pytestconfig, tmp_path, mock_datahub_graph):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
 def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
@@ -1123,7 +1125,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
             )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=True)
 @pytest.mark.integration
 def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
@@ -1178,3 +1180,139 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
 
             assert reporter.warnings == []
             assert reporter.failures == []
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_tableau_virtual_connections(pytestconfig, tmp_path, mock_datahub_graph):
+    """Test Tableau virtual connections ingestion with lineage"""
+    output_file_name: str = "tableau_virtual_connections_mces.json"
+    golden_file_name: str = "tableau_virtual_connections_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": True,
+        "extract_column_level_lineage": True,
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            # VC test uses modified fixture with VirtualConnectionTable reference for Customer Payment Query
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_vc_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            # VC lookup (consumed by lookup_vc_ids_from_table_ids)
+            read_response("virtualConnectionsConnection_all.json"),
+            # DB table lookup for VC column lineage (consumed by _build_database_tables_lookup)
+            read_response("databaseTablesConnection_all.json"),
+            # VC details for vc-123 (consumed by emit_virtual_connections)
+            read_response("virtualConnectionsDetailed_vc1_all.json"),
+            # Custom SQL (consumed by emit_custom_sql_datasources)
+            read_response("customSQLTablesConnection_all.json"),
+            # DB tables for emit_upstream_tables (second query - for actual table emission)
+            read_response("databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_tableau_virtual_connections_disabled(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    """Test that no virtual connections are ingested when disabled"""
+    output_file_name: str = "tableau_virtual_connections_disabled_mces.json"
+    golden_file_name: str = "tableau_virtual_connections_disabled_mces_golden.json"
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": False,  # Explicitly disabled
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=mock_data(),  # Standard data without VC
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections_disabled",
+        pipeline_config=new_pipeline_config,
+    )
+
+
+@time_machine.travel(FROZEN_TIME, tick=False)
+@pytest.mark.integration
+def test_tableau_virtual_connections_no_column_lineage(
+    pytestconfig, tmp_path, mock_datahub_graph
+):
+    """Test virtual connections ingestion without column-level lineage"""
+    output_file_name: str = "tableau_virtual_connections_no_column_lineage_mces.json"
+    golden_file_name: str = (
+        "tableau_virtual_connections_no_column_lineage_mces_golden.json"
+    )
+
+    new_pipeline_config: Dict[Any, Any] = {
+        **config_source_default,
+        "ingest_virtual_connections": True,
+        "extract_column_level_lineage": False,  # Disabled column lineage
+    }
+
+    tableau_ingest_common(
+        pytestconfig=pytestconfig,
+        tmp_path=tmp_path,
+        side_effect_query_metadata_response=[
+            read_response("workbooksConnection_all.json"),
+            read_response("sheetsConnection_all.json"),
+            read_response("dashboardsConnection_all.json"),
+            read_response("embeddedDatasourcesConnection_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a561c7beccd3_all.json"),
+            # VC test uses modified fixture with VirtualConnectionTable reference for Customer Payment Query
+            read_response("embeddedDatasourcesFieldUpstream_04ed1dcc7090_vc_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_6f5f4cc0b6c6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_69eb47587cc2_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_a0fced25e056_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_1570e7f932f6_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_c651da2f6ad8_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_26675da44a38_all.json"),
+            read_response("embeddedDatasourcesFieldUpstream_bda46be068e3_all.json"),
+            read_response("publishedDatasourcesConnection_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_8e19660bb5dd_all.json"),
+            read_response("publishedDatasourcesFieldUpstream_17139d6e97ae_all.json"),
+            # VC lookup (consumed by lookup_vc_ids_from_table_ids)
+            read_response("virtualConnectionsConnection_all.json"),
+            # DB table lookup for VC column lineage (consumed by _build_database_tables_lookup)
+            read_response("databaseTablesConnection_all.json"),
+            # VC details for vc-123 (consumed by emit_virtual_connections)
+            read_response("virtualConnectionsDetailed_vc1_all.json"),
+            # Custom SQL (consumed by emit_custom_sql_datasources)
+            read_response("customSQLTablesConnection_all.json"),
+            # DB tables for emit_upstream_tables (second query - for actual table emission)
+            read_response("databaseTablesConnection_all.json"),
+        ],
+        golden_file_name=golden_file_name,
+        output_file_name=output_file_name,
+        mock_datahub_graph=mock_datahub_graph,
+        pipeline_name="test_tableau_virtual_connections_no_column_lineage",
+        pipeline_config=new_pipeline_config,
+    )

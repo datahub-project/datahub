@@ -44,11 +44,10 @@ class Constant:
     TILE_LIST = "TILE_LIST"
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
-    DATASET_GET = "DATASET_GET"
+    DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
     REPORT_GET = "REPORT_GET"
-    DATASOURCE_GET = "DATASOURCE_GET"
     TILE_GET = "TILE_GET"
     ENTITY_USER_LIST = "ENTITY_USER_LIST"
     SCAN_CREATE = "SCAN_CREATE"
@@ -142,6 +141,8 @@ class Constant:
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
+    USERS = "users"
+    TILES = "tiles"
 
     # DirectLake / Fabric artifact constants
     RELATIONS = "relations"
@@ -293,6 +294,35 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+class OraclePlatformDetail(PlatformDetail):
+    """Oracle-specific platform detail. Adds ``default_schema`` for inline native SQL."""
+
+    # Required (not Optional) so a recipe entry containing ``default_schema=``
+    # unambiguously resolves to OraclePlatformDetail in the
+    # ``server_to_platform_instance`` Union below. ConfigModel sets
+    # ``extra='forbid'`` so a plain ``{platform_instance: ...}`` already cannot
+    # absorb into Oracle; the requirement defends against a recipe author
+    # leaving ``default_schema:`` blank and silently producing
+    # ``default_schema=None``.
+    default_schema: str = pydantic.Field(
+        description=(
+            "Default Oracle schema applied to unqualified table references found "
+            'inside ``Oracle.Database(…, Query="…")`` inline native SQL. Set to '
+            "whatever schema your Oracle ingestion uses as the URN prefix. Only "
+            "configure this on Oracle servers that need it; other platforms "
+            "should use plain PlatformDetail. Empty/whitespace values are rejected."
+        ),
+    )
+
+    @field_validator("default_schema")
+    @classmethod
+    def _strip_and_validate_default_schema(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("default_schema must not be empty or whitespace")
+        return stripped
+
+
 class OwnershipMapping(ConfigModel):
     create_corp_user: bool = pydantic.Field(
         default=True,
@@ -359,6 +389,17 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+# Workspace ``type`` values returned by the PowerBI admin API for personal
+# workspaces. These are not addressable by id in the PowerBI UI - they are
+# reachable only via the ``/groups/me`` alias and only by their owner, so
+# ``/groups/{guid}`` for these types resolves to ``GroupNotAccessible``.
+PERSONAL_WORKSPACE_TYPE = "PersonalGroup"
+LEGACY_PERSONAL_WORKSPACE_TYPE = "Personal"
+NON_ADDRESSABLE_WORKSPACE_TYPES = frozenset(
+    {PERSONAL_WORKSPACE_TYPE, LEGACY_PERSONAL_WORKSPACE_TYPE}
+)
+
+
 class PowerBiEnvironment(ConfigEnum):
     COMMERCIAL = "COMMERCIAL"
     GOVERNMENT = "GOVERNMENT"
@@ -368,6 +409,17 @@ class PowerBiEnvironment(ConfigEnum):
         if self == PowerBiEnvironment.GOVERNMENT:
             return "https://app.powerbigov.us"
         return "https://app.powerbi.com"
+
+    def workspace_url(self, workspace_id: str, workspace_type: str) -> Optional[str]:
+        """Build a clickable PowerBI UI URL for a workspace.
+
+        Returns ``None`` for personal workspace types (see
+        ``NON_ADDRESSABLE_WORKSPACE_TYPES``); surfacing ``/groups/{guid}``
+        for those would produce a dead ``GroupNotAccessible`` link.
+        """
+        if workspace_type in NON_ADDRESSABLE_WORKSPACE_TYPES:
+            return None
+        return f"{self.web_app_base_url}/groups/{workspace_id}"
 
 
 class PowerBiAppUrlPattern(ConfigEnum):
@@ -425,7 +477,7 @@ class PowerBiDashboardSourceConfig(
     )
     # PowerBI datasource's server to platform instance mapping
     server_to_platform_instance: Dict[
-        str, Union[PlatformDetail, DataBricksPlatformDetail]
+        str, Union[OraclePlatformDetail, DataBricksPlatformDetail, PlatformDetail]
     ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
@@ -677,6 +729,27 @@ class PowerBiDashboardSourceConfig(
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
         return self
+
+    @field_validator("server_to_platform_instance", mode="after")
+    @classmethod
+    def _reject_case_insensitive_duplicate_server_keys(cls, value: Dict) -> Dict:
+        # Oracle TNS lookup is case-insensitive in the source system, and the
+        # resolver falls back to a case-insensitive key match. If a recipe
+        # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+        # one silently by dict insertion order — a wrong-platform-instance
+        # outcome. Reject the ambiguity at config-load time.
+        seen: Dict[str, str] = {}
+        for key in value:
+            lower = key.lower()
+            if lower in seen:
+                raise ValueError(
+                    "server_to_platform_instance has case-insensitive duplicate keys: "
+                    f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                    "than just case (the resolver falls back to a case-insensitive "
+                    "match for Oracle TNS aliases)."
+                )
+            seen[lower] = key
+        return value
 
     @field_validator("dataset_type_mapping", mode="after")
     @classmethod

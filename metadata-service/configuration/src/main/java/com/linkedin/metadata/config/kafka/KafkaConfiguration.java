@@ -1,8 +1,8 @@
 package com.linkedin.metadata.config.kafka;
 
+import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,6 +25,7 @@ public class KafkaConfiguration {
       "spring.deserializer.value.delegate.class";
   public static final String MCP_EVENT_CONSUMER_NAME = "mcpEventConsumer";
   public static final String MCL_EVENT_CONSUMER_NAME = "mclEventConsumer";
+  public static final String MCL_BATCH_EVENT_CONSUMER_NAME = "mclBatchEventConsumer";
   public static final String PE_EVENT_CONSUMER_NAME = "platformEventConsumer";
   public static final String SIMPLE_EVENT_CONSUMER_NAME = "simpleKafkaConsumer";
   public static final String CDC_EVENT_CONSUMER_NAME = "cdcKafkaConsumer";

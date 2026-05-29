@@ -12,18 +12,19 @@ adlfs==2026.2.0
     # via pyiceberg
 aenum==3.1.16
     # via okta
+aerospike==19.2.0
+    # via acryl-datahub
 aiobotocore==3.2.1
     # via s3fs
 aiofiles==25.1.0
     # via unstructured-client
 aiohappyeyeballs==2.6.1
     # via aiohttp
-aiohttp==3.13.3
+aiohttp==3.13.5
     # via
     #   acryl-datahub
     #   aiobotocore
     #   azure-core
-    #   litellm
     #   okta
     #   s3fs
 aioitertools==0.13.0
@@ -48,7 +49,6 @@ anyio==4.12.1
     #   gql
     #   httpx
     #   jupyter-server
-    #   openai
     #   starlette
     #   watchfiles
 appnope==0.1.4 ; sys_platform == 'darwin'
@@ -90,7 +90,7 @@ attrs==25.4.0
     #   pytest-docker
     #   referencing
     #   zeep
-authlib==1.6.9
+authlib==1.7.0
     # via
     #   acryl-datahub
     #   confluent-kafka
@@ -150,6 +150,7 @@ backports-tarfile==1.2.0 ; python_full_version < '3.12' and platform_machine != 
 beautifulsoup4==4.14.3
     # via
     #   atlassian-python-api
+    #   markdownify
     #   nbconvert
     #   redshift-connector
     #   unstructured
@@ -216,6 +217,7 @@ certifi==2026.2.25
     #   elasticsearch
     #   httpcore
     #   httpx
+    #   pinecone-client
     #   requests
     #   sentry-sdk
     #   snowflake-connector-python
@@ -241,10 +243,10 @@ click==8.3.1
     #   click-default-group
     #   dask
     #   dataflows-tabulator
+    #   dlt
     #   feast
     #   flask
     #   geomet
-    #   litellm
     #   mlflow-skinny
     #   nltk
     #   pyiceberg
@@ -294,10 +296,12 @@ coverage==7.13.4
     #   acryl-datahub
     #   pytest-cov
 cramjam==2.11.0
-    # via python-snappy
+    # via
+    #   acryl-datahub
+    #   python-snappy
 croniter==6.0.0
     # via acryl-datahub-cloud
-cryptography==46.0.5
+cryptography==46.0.7
     # via
     #   acryl-datahub
     #   acryl-great-expectations
@@ -305,6 +309,7 @@ cryptography==46.0.5
     #   azure-identity
     #   azure-storage-blob
     #   google-auth
+    #   joserfc
     #   moto
     #   msal
     #   oracledb
@@ -356,6 +361,7 @@ deepmerge==2.0
     # via acryl-datahub
 defusedxml==0.7.1
     # via
+    #   acryl-datahub
     #   nbconvert
     #   python3-openid
     #   tableauserverclient
@@ -368,9 +374,9 @@ deprecated==1.3.1
 dill==0.3.9
     # via feast
 distro==1.9.0
-    # via
-    #   google-genai
-    #   openai
+    # via google-genai
+dlt==1.26.0
+    # via acryl-datahub
 dnspython==2.7.0
     # via
     #   acryl-datahub
@@ -415,14 +421,11 @@ fastavro==1.12.1
     #   confluent-kafka
 fastjsonschema==2.21.2
     # via nbformat
-fastuuid==0.14.0
-    # via litellm
 feast==0.47.0
     # via acryl-datahub
 filelock==3.25.0
     # via
     #   acryl-datahub
-    #   huggingface-hub
     #   snowflake-connector-python
 filetype==1.2.0
     # via unstructured
@@ -436,8 +439,6 @@ flatdict==4.1.0
     #   okta
 fqdn==1.5.1
     # via jsonschema
-freezegun==1.5.5
-    # via acryl-datahub
 frozenlist==1.8.0
     # via
     #   aiohttp
@@ -446,7 +447,7 @@ fsspec==2026.2.0
     # via
     #   adlfs
     #   dask
-    #   huggingface-hub
+    #   dlt
     #   pyathena
     #   pyiceberg
     #   s3fs
@@ -461,7 +462,10 @@ gitdb==4.0.12
 gitpython==3.1.46
     # via
     #   acryl-datahub
+    #   dlt
     #   mlflow-skinny
+giturlparse==0.14.0
+    # via dlt
 google-api-core==2.25.2
     # via
     #   google-cloud-aiplatform
@@ -473,10 +477,12 @@ google-api-core==2.25.2
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   sqlalchemy-bigquery
 google-auth==2.49.0
     # via
+    #   acryl-datahub
     #   databricks-sdk
     #   google-api-core
     #   google-cloud-aiplatform
@@ -488,6 +494,7 @@ google-auth==2.49.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   google-cloud-storage
     #   google-genai
     #   sqlalchemy-bigquery
@@ -519,6 +526,8 @@ google-cloud-resource-manager==1.16.0
     # via
     #   acryl-datahub
     #   google-cloud-aiplatform
+google-cloud-secret-manager==2.27.0
+    # via acryl-datahub
 google-cloud-storage==3.4.1
     # via
     #   google-cloud-aiplatform
@@ -556,6 +565,7 @@ grpc-google-iam-v1==0.14.3
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 grpcio==1.78.0
     # via
     #   acryl-datahub
@@ -566,6 +576,7 @@ grpcio==1.78.0
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -588,8 +599,6 @@ hdbcli==2.27.24 ; platform_machine != 'aarch64' and platform_machine != 'arm64'
     # via
     #   acryl-datahub
     #   sqlalchemy-hana
-hf-xet==1.3.2 ; platform_machine == 'AMD64' or platform_machine == 'aarch64' or platform_machine == 'amd64' or platform_machine == 'arm64' or platform_machine == 'x86_64'
-    # via huggingface-hub
 html5lib==1.1
     # via unstructured
 htmlbuilder==1.0.0
@@ -604,25 +613,22 @@ httpx==0.28.1
     # via
     #   confluent-kafka
     #   google-genai
-    #   huggingface-hub
     #   jupyterlab
-    #   litellm
     #   mixpanel
     #   notion-client
-    #   openai
     #   unstructured-client
     #   unstructured-ingest
-huggingface-hub==1.6.0
-    # via tokenizers
 humanfriendly==10.0
     # via acryl-datahub
+humanize==4.15.0
+    # via dlt
 ibm-db==3.2.8 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via ibm-db-sa
 ibm-db-sa==0.4.3 ; platform_machine == 'x86_64' or sys_platform == 'darwin'
     # via acryl-datahub
 id==1.5.0
     # via twine
-idna==3.11
+idna==3.15
     # via
     #   anyio
     #   httpx
@@ -640,7 +646,6 @@ importlib-metadata==8.7.1
     #   build
     #   dask
     #   keyring
-    #   litellm
     #   mlflow-skinny
     #   opentelemetry-api
 importlib-resources==6.5.2 ; python_full_version < '3.12'
@@ -694,13 +699,10 @@ jinja2==3.1.6
     #   jupyter-server
     #   jupyterlab
     #   jupyterlab-server
-    #   litellm
     #   memray
     #   moto
     #   nbconvert
     #   spacy
-jiter==0.13.0
-    # via openai
 jmespath==1.1.0
     # via
     #   aiobotocore
@@ -709,6 +711,8 @@ jmespath==1.1.0
     #   botocore
 joblib==1.5.3
     # via nltk
+joserfc==1.6.4
+    # via authlib
 jpype1==1.6.0
     # via acryl-datahub
 json5==0.13.0
@@ -718,7 +722,9 @@ jsonlines==4.0.0
 jsonpatch==1.33
     # via acryl-great-expectations
 jsonpath-ng==1.7.0
-    # via acryl-datahub
+    # via
+    #   acryl-datahub
+    #   dlt
 jsonpickle==4.1.1
     # via acryl-datahub
 jsonpointer==3.0.0
@@ -735,7 +741,6 @@ jsonschema==4.24.1
     #   feast
     #   jupyter-events
     #   jupyterlab-server
-    #   litellm
     #   nbformat
     #   tableschema
 jsonschema-specifications==2025.9.1
@@ -796,8 +801,6 @@ linear-tsv==1.1.0
     # via dataflows-tabulator
 linkify-it-py==2.1.0
     # via markdown-it-py
-litellm==1.83.0
-    # via acryl-datahub
 lkml==1.3.7
     # via acryl-datahub
 locket==1.0.0
@@ -826,6 +829,8 @@ markdown-it-py==4.0.0
     #   mdit-py-plugins
     #   rich
     #   textual
+markdownify==1.2.2
+    # via acryl-datahub
 markupsafe==3.0.3
     # via
     #   flask
@@ -966,8 +971,6 @@ okta==1.7.0
     # via acryl-datahub
 olefile==0.47
     # via python-oxmsg
-openai==2.26.0
-    # via litellm
 openpyxl==3.1.5
     # via
     #   acryl-datahub
@@ -991,8 +994,10 @@ orderly-set==5.5.0
     # via
     #   acryl-datahub
     #   deepdiff
-orjson==3.11.7 ; platform_python_implementation != 'PyPy'
-    # via trino
+orjson==3.11.7 ; python_full_version >= '3.14' or platform_python_implementation != 'PyPy'
+    # via
+    #   dlt
+    #   trino
 overrides==7.7.0 ; python_full_version < '3.12'
     # via jupyter-server
 packaging==24.2
@@ -1002,11 +1007,11 @@ packaging==24.2
     #   build
     #   dask
     #   db-dtypes
+    #   dlt
     #   geoalchemy2
     #   google-cloud-aiplatform
     #   google-cloud-bigquery
     #   gunicorn
-    #   huggingface-hub
     #   ipykernel
     #   jpype1
     #   jupyter-events
@@ -1019,6 +1024,7 @@ packaging==24.2
     #   pytest
     #   pytest-rerunfailures
     #   redshift-connector
+    #   requirements-parser
     #   snowflake-connector-python
     #   spacy
     #   sqlalchemy-bigquery
@@ -1051,10 +1057,22 @@ patchy==2.8.0
     # via acryl-datahub
 pathspec==1.0.4
     # via mypy
+pathvalidate==3.3.1
+    # via dlt
+pendulum==3.2.0
+    # via dlt
 pexpect==4.9.0 ; sys_platform != 'emscripten' and sys_platform != 'win32'
     # via ipython
 phonenumbers==8.13.0
     # via acryl-datahub-classify
+pinecone-client==5.0.1
+    # via acryl-datahub
+pinecone-plugin-inference==1.1.0
+    # via pinecone-client
+pinecone-plugin-interface==0.0.7
+    # via
+    #   pinecone-client
+    #   pinecone-plugin-inference
 pip==26.0.1
     # via acryl-datahub
 platformdirs==4.9.4
@@ -1065,6 +1083,7 @@ platformdirs==4.9.4
     #   zeep
 pluggy==1.6.0
     # via
+    #   dlt
     #   pytest
     #   pytest-cov
 ply==3.11
@@ -1095,6 +1114,7 @@ proto-plus==1.27.1
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
 protobuf==5.29.6
     # via
     #   acryl-datahub
@@ -1109,6 +1129,7 @@ protobuf==5.29.6
     #   google-cloud-dataplex
     #   google-cloud-logging
     #   google-cloud-resource-manager
+    #   google-cloud-secret-manager
     #   googleapis-common-protos
     #   grpc-google-iam-v1
     #   grpcio-status
@@ -1177,10 +1198,8 @@ pydantic==2.11.10
     #   feast
     #   google-cloud-aiplatform
     #   google-genai
-    #   litellm
     #   mixpanel
     #   mlflow-skinny
-    #   openai
     #   pyiceberg
     #   spacy
     #   thinc
@@ -1237,7 +1256,7 @@ pyparsing==3.3.2
     #   acryl-great-expectations
     #   pyiceberg
     #   rdflib
-pypdf==6.8.0
+pypdf==6.10.2
     # via unstructured-client
 pypdfium2==5.6.0
     # via unstructured-client
@@ -1251,7 +1270,7 @@ pyspark==3.5.8
     # via acryl-datahub
 pyspnego==0.12.1
     # via requests-ntlm
-pytest==9.0.2
+pytest==9.0.3
     # via
     #   acryl-datahub
     #   pytest-asyncio
@@ -1281,11 +1300,11 @@ python-dateutil==2.9.0.post0
     #   arrow
     #   botocore
     #   croniter
-    #   freezegun
     #   google-cloud-bigquery
     #   jupyter-client
     #   moto
     #   pandas
+    #   pendulum
     #   python-liquid
     #   strictyaml
     #   tableschema
@@ -1293,9 +1312,7 @@ python-dateutil==2.9.0.post0
     #   unstructured-ingest
     #   vertica-python
 python-dotenv==1.2.2
-    # via
-    #   litellm
-    #   uvicorn
+    # via uvicorn
 python-iso639==2026.1.31
     # via unstructured
 python-jose==3.5.0
@@ -1329,6 +1346,7 @@ pytz==2026.1.post1
     #   asynch
     #   clickhouse-driver
     #   croniter
+    #   dlt
     #   neo4j
     #   pandas
     #   python-liquid
@@ -1337,7 +1355,9 @@ pytz==2026.1.post1
     #   trino
     #   zeep
 pywin32==311 ; sys_platform == 'win32'
-    # via docker
+    # via
+    #   dlt
+    #   docker
 pywin32-ctypes==0.2.3 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'win32'
     # via keyring
 pywinpty==3.0.3 ; (os_name == 'nt' and platform_machine != 'arm64') or (os_name == 'nt' and sys_platform != 'darwin')
@@ -1349,8 +1369,8 @@ pyyaml==6.0.3
     # via
     #   acryl-datahub
     #   dask
+    #   dlt
     #   feast
-    #   huggingface-hub
     #   jupyter-events
     #   mlflow-skinny
     #   moto
@@ -1381,9 +1401,7 @@ referencing==0.37.0
     #   jsonschema-specifications
     #   jupyter-events
 regex==2026.2.28
-    # via
-    #   nltk
-    #   tiktoken
+    # via nltk
 requests==2.32.5
     # via
     #   acryl-datahub
@@ -1396,6 +1414,7 @@ requests==2.32.5
     #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
+    #   dlt
     #   docker
     #   feast
     #   google-api-core
@@ -1427,7 +1446,7 @@ requests==2.32.5
     #   spacy
     #   tableauserverclient
     #   tableschema
-    #   tiktoken
+    #   thoughtspot-rest-api
     #   trino
     #   twine
     #   unstructured
@@ -1449,9 +1468,12 @@ requests-oauthlib==2.0.0
 requests-toolbelt==1.0.0
     # via
     #   gql
+    #   thoughtspot-rest-api
     #   twine
     #   unstructured-client
     #   zeep
+requirements-parser==0.13.0
+    # via dlt
 responses==0.26.0
     # via
     #   acryl-datahub
@@ -1472,9 +1494,12 @@ rich==14.3.3
     # via
     #   memray
     #   pyiceberg
+    #   rich-argparse
     #   textual
     #   twine
     #   typer
+rich-argparse==1.8.0
+    # via dlt
 rpds-py==0.30.0
     # via
     #   jsonschema
@@ -1511,6 +1536,8 @@ scramp==1.4.8
     # via redshift-connector
 secretstorage==3.5.0 ; platform_machine != 'ppc64le' and platform_machine != 's390x' and sys_platform == 'linux'
     # via keyring
+semver==3.0.4
+    # via dlt
 send2trash==2.1.0
     # via jupyter-server
 sentry-sdk==2.54.0
@@ -1518,6 +1545,7 @@ sentry-sdk==2.54.0
 setuptools==81.0.0
     # via
     #   acryl-datahub
+    #   dlt
     #   grpcio-tools
     #   jupyterlab
     #   redshift-connector
@@ -1527,6 +1555,8 @@ shellingham==1.5.4
     # via typer
 simple-salesforce==1.12.9
     # via acryl-datahub
+simplejson==4.1.1
+    # via dlt
 six==1.17.0
     # via
     #   avro-gen3
@@ -1536,6 +1566,7 @@ six==1.17.0
     #   isodate
     #   langdetect
     #   linear-tsv
+    #   markdownify
     #   python-dateutil
     #   rfc3339-validator
     #   tableschema
@@ -1552,9 +1583,7 @@ smart-open==7.5.1
 smmap==5.0.3
     # via gitdb
 sniffio==1.3.1
-    # via
-    #   google-genai
-    #   openai
+    # via google-genai
 snowflake-connector-python==4.4.0
     # via
     #   acryl-datahub
@@ -1610,9 +1639,11 @@ sqlalchemy2-stubs==0.0.2a38
     # via
     #   acryl-datahub
     #   sqlalchemy
-sqlglot==30.0.3
-    # via acryl-datahub
-sqlglotc==30.0.3
+sqlglot==30.8.0
+    # via
+    #   acryl-datahub
+    #   dlt
+sqlglotc==30.8.0
     # via sqlglot
 sqlparse==0.5.5
     # via
@@ -1648,6 +1679,7 @@ tabulate==0.9.0
 tenacity==8.5.0
     # via
     #   acryl-datahub
+    #   dlt
     #   feast
     #   google-genai
     #   pyathena
@@ -1664,6 +1696,8 @@ textual==8.0.2
     # via memray
 thinc==8.2.5
     # via spacy
+thoughtspot-rest-api==2.0.3
+    # via acryl-datahub
 thrift==0.16.0
     # via
     #   acryl-pyhive
@@ -1673,14 +1707,10 @@ thrift==0.16.0
     #   thrift-sasl
 thrift-sasl==0.4.3
     # via acryl-pyhive
-tiktoken==0.12.0
-    # via litellm
 time-machine==3.2.0
     # via acryl-datahub
 tinycss2==1.4.0
     # via bleach
-tokenizers==0.22.2
-    # via litellm
 toml==0.10.2
     # via
     #   acryl-datahub
@@ -1694,7 +1724,9 @@ tomli==2.4.0 ; python_full_version <= '3.11'
     #   mypy
     #   pytest
 tomlkit==0.14.0
-    # via snowflake-connector-python
+    # via
+    #   dlt
+    #   snowflake-connector-python
 toolz==1.1.0
     # via
     #   altair
@@ -1712,9 +1744,8 @@ tqdm==4.67.3
     # via
     #   acryl-great-expectations
     #   feast
-    #   huggingface-hub
     #   nltk
-    #   openai
+    #   pinecone-client
     #   spacy
     #   unstructured
     #   unstructured-ingest
@@ -1741,7 +1772,6 @@ typeguard==4.5.1
     # via feast
 typer==0.24.1
     # via
-    #   huggingface-hub
     #   spacy
     #   typer-slim
 typer-slim==0.24.0
@@ -1811,12 +1841,12 @@ typing-extensions==4.15.0
     #   cattrs
     #   cloudpathlib
     #   cryptography
+    #   dlt
     #   exceptiongroup
     #   fastapi
     #   google-cloud-aiplatform
     #   google-genai
     #   grpcio
-    #   huggingface-hub
     #   ipython
     #   looker-sdk
     #   mistune
@@ -1829,11 +1859,11 @@ typing-extensions==4.15.0
     #   mypy-boto3-s3
     #   mypy-boto3-sagemaker
     #   mypy-boto3-sts
-    #   openai
     #   opentelemetry-api
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
     #   oracledb
+    #   pinecone-client
     #   pydantic
     #   pydantic-core
     #   pydash
@@ -1865,8 +1895,10 @@ typing-inspection==0.4.2
 tzdata==2025.3
     # via
     #   arrow
+    #   dlt
     #   faker
     #   pandas
+    #   pendulum
     #   tzlocal
 tzlocal==5.3.1
     # via
@@ -1877,7 +1909,7 @@ tzlocal==5.3.1
     #   trino
 uc-micro-py==2.0.0
     # via linkify-it-py
-ujson==5.12.0
+ujson==5.12.1
     # via acryl-datahub
 unicodecsv==0.14.1
     # via
@@ -1899,6 +1931,7 @@ urllib3==1.26.20
     #   databricks-sql-connector
     #   docker
     #   elasticsearch
+    #   pinecone-client
     #   requests
     #   responses
     #   sentry-sdk
@@ -1955,6 +1988,8 @@ werkzeug==3.1.6
     #   moto
 widgetsnbextension==4.0.15
     # via ipywidgets
+win-precise-time==1.4.2 ; (python_full_version < '3.13' and os_name == 'nt' and platform_machine != 'arm64') or (python_full_version < '3.13' and os_name == 'nt' and sys_platform != 'darwin')
+    # via dlt
 wrapt==2.1.2
     # via
     #   aiobotocore

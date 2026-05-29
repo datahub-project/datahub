@@ -175,6 +175,10 @@ class DremioSourceMapEntry:
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.USAGE_STATS, "Enabled by default to get usage stats")
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
+)
 class DremioSource(StatefulIngestionSourceBase):
     """
     Source that extracts metadata from Dremio via REST API and SQL queries.

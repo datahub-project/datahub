@@ -1,5 +1,6 @@
 ---
 title: Complete a Form
+description: "Step-by-step guide for assignees to complete a published DataHub Compliance Form via Task Center notifications and asset workflows."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -7,6 +8,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # Complete a DataHub Compliance Form
 
 <FeatureAvailability/>
+
+:::note
+Completing Compliance Forms via the DataHub UI is only available in DataHub Cloud. If you are using DataHub Core, form completion is available programmatically via the `submitFormPrompt` and `verifyForm` GraphQL mutations. For general form management, refer to the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
+:::
 
 Once a Compliance Form has been published (see [Create a Compliance Form](create-a-form.md)), Assignees will receive notifications in their Task Center prompting them to complete the Form for each Asset they are responsible for.
 

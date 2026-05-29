@@ -52,7 +52,9 @@ import java.util.function.Supplier;
 import org.apache.commons.io.IOUtils;
 import org.apache.http.HttpEntity;
 import org.apache.lucene.search.TotalHits;
+import org.mockito.ArgumentCaptor;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
@@ -931,5 +933,24 @@ public class TimeseriesAspectServiceUnitTest {
     Assert.assertTrue(result.containsKey(expectedUrn2));
     Assert.assertEquals(result.get(expectedUrn1).get(aspectName), sourceMap1);
     Assert.assertEquals(result.get(expectedUrn2).get(aspectName), sourceMap2);
+  }
+
+  @Test
+  public void testUpsertDocumentRoutesByDocId() {
+    String entityName = "dataset";
+    String aspectName = "datasetProfile";
+    String docId = "ts-doc-abc";
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("urn", "urn:li:dataset:foo");
+    document.put("timestampMillis", 1_700_000_000_000L);
+
+    when(indexConvention.getTimeseriesAspectIndexName(entityName, aspectName))
+        .thenReturn("dataset_datasetprofileaspect_v1");
+
+    _timeseriesAspectService.upsertDocument(opContext, entityName, aspectName, docId, document);
+
+    ArgumentCaptor<UpdateRequest> captor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(bulkProcessor).add(eq(docId), captor.capture());
+    Assert.assertEquals(captor.getValue().id(), docId);
   }
 }

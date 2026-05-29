@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -11,7 +11,7 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
         id: GROUPS_INTRO_ID,
         title: 'Groups',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Welcome to Datahub <strong>Groups</strong>!
                 </p>
@@ -34,7 +34,7 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -42,11 +42,11 @@ export const GroupsOnboardingConfig: OnboardingStep[] = [
         selector: `#${GROUPS_CREATE_GROUP_ID}`,
         title: 'Create a new Group',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     Click here to create a new <strong>Group</strong>.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

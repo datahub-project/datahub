@@ -1,6 +1,7 @@
 import { useApolloClient } from '@apollo/client';
 import { Modal } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
@@ -32,6 +33,8 @@ const MenuTrigger = styled.div<{ $visible?: boolean; $isShowNavBarRedesign?: boo
     }
 `;
 
+const VERTICAL_ELLIPSIS = '⋮';
+
 const DEFAULT_VIEW_BUILDER_STATE = {
     mode: ViewBuilderMode.EDITOR,
     visible: false,
@@ -58,6 +61,8 @@ export const ViewDropdownMenu = ({
     onClickDelete,
     selectView,
 }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const userContext = useUserContext();
     const client = useApolloClient();
@@ -95,8 +100,8 @@ export const ViewDropdownMenu = ({
             })
             .catch(() => {
                 notification.error({
-                    message: 'Failed to update default view',
-                    description: 'An unexpected error occurred.',
+                    message: t('updateDefaultError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });
@@ -127,8 +132,8 @@ export const ViewDropdownMenu = ({
             })
             .catch(() => {
                 notification.error({
-                    message: "Failed to update organization's default view",
-                    description: 'An unexpected error occurred.',
+                    message: t('updateOrgDefaultError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });
@@ -167,15 +172,15 @@ export const ViewDropdownMenu = ({
                         });
                     }
                     notification.success({
-                        message: 'View removed',
+                        message: t('deleteSuccess'),
                         duration: 2,
                     });
                 }
             })
             .catch(() => {
                 notification.error({
-                    message: 'Failed to delete View',
-                    description: 'An unexpected error occurred.',
+                    message: t('deleteError'),
+                    description: t('errorDescription'),
                     duration: 3,
                 });
             });
@@ -186,13 +191,13 @@ export const ViewDropdownMenu = ({
             onClickDelete();
         } else {
             Modal.confirm({
-                title: `Confirm Remove ${view.name}`,
-                content: 'Are you sure you want to remove this View?',
+                title: t('deleteConfirm.title', { name: view.name }),
+                content: t('deleteConfirm.content'),
                 onOk() {
                     deleteView(view.urn);
                 },
                 onCancel() {},
-                okText: 'Yes',
+                okText: tc('yes'),
                 maskClosable: true,
                 closable: true,
             });
@@ -218,16 +223,16 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'edit',
-            title: 'Edit',
-            tooltip: 'Edit this View',
+            title: tc('edit'),
+            tooltip: t('menu.editTooltip'),
             onClick: onEditView,
         });
     } else {
         menuItems.push({
             type: 'item',
             key: 'preview',
-            title: 'Preview',
-            tooltip: 'See the View definition',
+            title: tc('preview'),
+            tooltip: t('menu.previewTooltip'),
             onClick: onPreviewView,
         });
     }
@@ -236,16 +241,16 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'remove-default',
-            title: 'Remove as default',
-            tooltip: 'Remove this View as your personal default',
+            title: t('menu.removeDefault'),
+            tooltip: t('menu.removeDefaultTooltip'),
             onClick: () => setUserDefault(null),
         });
     } else {
         menuItems.push({
             type: 'item',
             key: 'set-default',
-            title: 'Make my default',
-            tooltip: 'Make this View your personal default',
+            title: t('menu.makeDefault'),
+            tooltip: t('menu.makeDefaultTooltip'),
             onClick: () => setUserDefault(view.urn),
         });
     }
@@ -254,8 +259,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'remove-global-default',
-            title: 'Remove organization default',
-            tooltip: "Remove this View as your organization's default",
+            title: t('menu.removeOrgDefault'),
+            tooltip: t('menu.removeOrgDefaultTooltip'),
             onClick: () => setGlobalDefault(null),
         });
     }
@@ -264,8 +269,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'set-global-default',
-            title: 'Make organization default',
-            tooltip: "Make this View your organization's default",
+            title: t('menu.makeOrgDefault'),
+            tooltip: t('menu.makeOrgDefaultTooltip'),
             onClick: () => setGlobalDefault(view.urn),
         });
     }
@@ -274,8 +279,8 @@ export const ViewDropdownMenu = ({
         menuItems.push({
             type: 'item',
             key: 'delete',
-            title: 'Delete',
-            tooltip: 'Delete this View',
+            title: tc('delete'),
+            tooltip: t('menu.deleteTooltip'),
             danger: true,
             onClick: confirmDeleteView,
         });
@@ -296,7 +301,7 @@ export const ViewDropdownMenu = ({
                     role="button"
                     tabIndex={0}
                 >
-                    &#8942;
+                    {VERTICAL_ELLIPSIS}
                 </MenuTrigger>
             </Menu>
             {viewBuilderState.visible && (

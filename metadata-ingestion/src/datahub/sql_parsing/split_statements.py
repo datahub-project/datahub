@@ -228,19 +228,24 @@ class _StatementSplitter:
         )
         if (
             is_control_keyword
-            and keyword == END_KEYWORD
+            and keyword.upper() == END_KEYWORD
             and self.current_case_statements > 0
         ):
             # If we're closing a CASE statement with END, we can just decrement the counter and continue.
             self.current_case_statements -= 1
         elif is_control_keyword:
-            # Yield current statement if any
-            yield from self._yield_if_complete()
-            # Yield keyword as its own statement
-            yield keyword
-            self.i += keyword_len
-            self.does_select_mean_new_statement = True
-            raise _AlreadyIncremented()
+            if keyword.upper() == "IF" and re.match(
+                r"IF\s+(NOT\s+)?EXISTS\b", self.sql[self.i :], re.IGNORECASE
+            ):
+                pass  # IF EXISTS / IF NOT EXISTS is DDL syntax, not control flow
+            else:
+                # Yield current statement if any
+                yield from self._yield_if_complete()
+                # Yield keyword as its own statement
+                yield keyword
+                self.i += keyword_len
+                self.does_select_mean_new_statement = True
+                raise _AlreadyIncremented()
 
         (
             is_strict_new_statement_keyword,

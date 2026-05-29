@@ -226,6 +226,27 @@ describe('getDefaultSummaryPageTemplate', () => {
             glossaryTermResult?.properties?.assetSummary?.summaryElements,
         );
     });
+
+    it('should return correct template for Document entity type', () => {
+        const result = getDefaultSummaryPageTemplate(EntityType.Document);
+
+        expect(result.properties.rows).toEqual([{ modules: [] }]);
+
+        const elements = result.properties.assetSummary?.summaryElements ?? [];
+        const elementTypes = elements.map((el) => el.elementType);
+
+        expect(elementTypes).toContain(SummaryElementType.DocumentType);
+        expect(elementTypes).toContain(SummaryElementType.DocumentStatus);
+        expect(elementTypes).toContain(SummaryElementType.Created);
+        expect(elementTypes).toContain(SummaryElementType.LastModified);
+        expect(elementTypes).toContain(SummaryElementType.LastIngested);
+        expect(elementTypes).toContain(SummaryElementType.Owners);
+
+        // LastIngested must appear after LastModified
+        const lastModifiedIdx = elementTypes.indexOf(SummaryElementType.LastModified);
+        const lastIngestedIdx = elementTypes.indexOf(SummaryElementType.LastIngested);
+        expect(lastIngestedIdx).toBeGreaterThan(lastModifiedIdx);
+    });
 });
 
 describe('filterNonExistentStructuredProperties', () => {

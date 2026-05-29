@@ -71,7 +71,6 @@ public class ListServiceAccountsResolver
                 ImmutableList.of(
                     new FacetFilterInput(
                         SUB_TYPES_FIELD,
-                        null,
                         ImmutableList.of(ServiceAccountUtils.SERVICE_ACCOUNT_SUB_TYPE),
                         false,
                         FilterOperator.EQUAL));

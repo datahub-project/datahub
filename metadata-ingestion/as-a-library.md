@@ -1,3 +1,7 @@
+---
+description: "Use DataHub's Python emitters to construct and push metadata events programmatically from CI/CD pipelines, custom scripts, and orchestrators."
+---
+
 # Python Emitter
 
 In some cases, you might want to construct Metadata events directly and use programmatic ways to emit that metadata to DataHub. Use-cases are typically push-based and include emitting metadata events from CI/CD pipelines, custom orchestrators etc.

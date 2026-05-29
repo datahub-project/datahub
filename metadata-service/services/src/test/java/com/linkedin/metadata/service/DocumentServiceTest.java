@@ -654,7 +654,8 @@ public class DocumentServiceTest {
     Assert.assertEquals(filter.getOr().size(), 1);
     Assert.assertEquals(filter.getOr().get(0).getAnd().size(), 1);
     Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getField(), "parentDocument");
-    Assert.assertEquals(filter.getOr().get(0).getAnd().get(0).getValue(), parentUrn.toString());
+    Assert.assertEquals(
+        filter.getOr().get(0).getAnd().get(0).getValues().get(0), parentUrn.toString());
   }
 
   @Test

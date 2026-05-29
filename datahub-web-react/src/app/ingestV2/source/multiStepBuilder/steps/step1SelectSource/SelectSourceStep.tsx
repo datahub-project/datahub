@@ -1,4 +1,4 @@
-import { Badge, Icon, SearchBar, colors } from '@components';
+import { Badge, Icon, SearchBar } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useRef, useState } from 'react';
@@ -50,7 +50,7 @@ const SectionHeader = styled.div`
     justify-content: space-between;
     font-size: 16px;
     font-weight: 700;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const CardsWrapper = styled.div`
@@ -126,6 +126,7 @@ export function SelectSourceStep() {
     return (
         <StepContainer ref={containerRef}>
             <SearchBar
+                data-testid="source-type-search-input"
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(value) => handleSearch(value)}

@@ -30,11 +30,81 @@
           "description": "Can extract ABS object/container tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from blob timestamps",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.abs.source.ABSSource",
       "platform_id": "abs",
       "platform_name": "ABS Data Lake",
+      "support_status": "INCUBATING"
+    },
+    "aerospike": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.aerospike.AerospikeSource",
+      "platform_id": "aerospike",
+      "platform_name": "Aerospike",
+      "support_status": "TESTING"
+    },
+    "airbyte": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default when stateful ingestion is turned on.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Requires recipe configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.airbyte.source.AirbyteSource",
+      "platform_id": "airbyte",
+      "platform_name": "Airbyte",
       "support_status": "INCUBATING"
     },
     "athena": {
@@ -56,7 +126,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
@@ -103,7 +173,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Supported for S3 tables",
+          "description": "Supported via upstream lineage to Glue, Iceberg, or S3 entities depending on catalog type",
           "subtype_modifier": [
             "View",
             "Table"
@@ -235,6 +305,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PARTITION_SUPPORT",
           "description": "Enabled by default, partition keys and clustering keys are supported.",
           "subtype_modifier": null,
@@ -352,6 +428,12 @@
         {
           "capability": "DOMAINS",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_log_operations`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -652,6 +734,12 @@
           "supported": true
         },
         {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via configuration `include_glossaries`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Project containers are generated instead",
           "subtype_modifier": null,
@@ -678,7 +766,7 @@
       ],
       "classname": "datahub.ingestion.source.dataplex.dataplex.DataplexSource",
       "platform_id": "dataplex",
-      "platform_name": "Dataplex",
+      "platform_name": "Google Cloud Knowledge Catalog (Dataplex)",
       "support_status": "INCUBATING"
     },
     "db2": {
@@ -847,6 +935,12 @@
           "description": "Can extract S3 object/bucket tags if enabled",
           "subtype_modifier": null,
           "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Delta table history",
+          "subtype_modifier": null,
+          "supported": true
         }
       ],
       "classname": "datahub.ingestion.source.delta_lake.source.DeltaLakeSource",
@@ -860,6 +954,38 @@
       "platform_id": "demo-data",
       "platform_name": "Demo Data",
       "support_status": null
+    },
+    "dlt": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Emitted when dlt pipeline state contains owner information",
+          "subtype_modifier": null,
+          "supported": false
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Emits outlet lineage from dlt DataJobs to destination Dataset URNs. Configure destination_platform_map to match your destination connector's env/instance.",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.dlt.dlt.DltSource",
+      "platform_id": "dlt",
+      "platform_name": "dlt",
+      "support_status": "INCUBATING"
     },
     "doris": {
       "capabilities": [
@@ -994,6 +1120,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_lineage`; generated from Dremio job history",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1217,8 +1349,26 @@
           "supported": true
         },
         {
+          "capability": "LINEAGE_FINE",
+          "description": "Extracted from view definitions via SQL parsing when `extract_views` is enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Extracted from queryinsights.exec_requests_history (30-day retention) when `usage.include_usage_statistics` is enabled. Column-level usage is derived via SQL parsing of the query text.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DELETION_DETECTION",
           "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `usage.include_usage_statistics` and `usage.include_operational_stats`",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1408,6 +1558,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Glue table created and last modified timestamps",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1501,6 +1657,12 @@
           "supported": true
         },
         {
+          "capability": "USAGE_STATS",
+          "description": "Optionally enabled via `include_query_usage` (queries) and `include_usage_stats` (rollup) \u2014 mines `_SYS_STATISTICS.HOST_SQL_PLAN_CACHE`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "DESCRIPTIONS",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -1515,6 +1677,12 @@
         {
           "capability": "DOMAINS",
           "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Derived from observed queries when `include_operational_stats` and `include_query_usage` are enabled",
           "subtype_modifier": null,
           "supported": true
         },
@@ -1545,10 +1713,10 @@
           "supported": true
         }
       ],
-      "classname": "datahub.ingestion.source.sql.hana.HanaSource",
+      "classname": "datahub.ingestion.source.sql.hana.hana.HanaSource",
       "platform_id": "hana",
       "platform_name": "SAP HANA",
-      "support_status": "TESTING"
+      "support_status": "INCUBATING"
     },
     "hex": {
       "capabilities": [
@@ -1798,6 +1966,56 @@
       "classname": "datahub.ingestion.source.iceberg.iceberg.IcebergSource",
       "platform_id": "iceberg",
       "platform_name": "Iceberg",
+      "support_status": "INCUBATING"
+    },
+    "informatica": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Projects and folders as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "From IDMC object createdBy/updatedBy",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "IDMC object tags emitted as DataHub GlobalTags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Table-level lineage via v3 Export API",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.informatica.source.InformaticaSource",
+      "platform_id": "informatica",
+      "platform_name": "Informatica",
       "support_status": "INCUBATING"
     },
     "json-schema": {
@@ -2131,6 +2349,38 @@
       "platform_id": "mariadb",
       "platform_name": "MariaDB",
       "support_status": "CERTIFIED"
+    },
+    "matillion-dpc": {
+      "capabilities": [
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default, can be disabled via configuration `parse_sql_for_lineage`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default via OpenLineage data from pipeline executions",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.matillion_dpc.matillion.MatillionSource",
+      "platform_id": "matillion-dpc",
+      "platform_name": "Matillion",
+      "support_status": "INCUBATING"
     },
     "metabase": {
       "capabilities": [
@@ -2665,6 +2915,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_query_usage` and `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "SCHEMA_METADATA",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -2689,6 +2945,44 @@
       "classname": "datahub.ingestion.source.sql.oracle.OracleSource",
       "platform_id": "oracle",
       "platform_name": "Oracle",
+      "support_status": "INCUBATING"
+    },
+    "pinecone": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Supported via the `domain` config field",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.pinecone.pinecone_source.PineconeSource",
+      "platform_id": "pinecone",
+      "platform_name": "Pinecone",
       "support_status": "INCUBATING"
     },
     "postgres": {
@@ -3285,6 +3579,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3340,6 +3640,12 @@
         {
           "capability": "TAGS",
           "description": "Can extract S3 object/bucket tags if enabled",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default as UPDATE operations from object timestamps",
           "subtype_modifier": null,
           "supported": true
         },
@@ -3442,6 +3748,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default from Salesforce object created and last modified timestamps",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Can be equivalent to Salesforce organization",
           "subtype_modifier": null,
@@ -3474,8 +3786,15 @@
           "capability": "CONTAINERS",
           "description": "Enabled by default",
           "subtype_modifier": [
-            "Sigma Workspace"
+            "Sigma Workspace",
+            "Sigma Data Model"
           ],
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled by default.",
+          "subtype_modifier": null,
           "supported": true
         },
         {
@@ -3638,6 +3957,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default, can be disabled via configuration `include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -3716,6 +4041,12 @@
         {
           "capability": "LINEAGE_FINE",
           "description": "Parsed from SQL queries",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Parsed from non-SELECT SQL queries",
           "subtype_modifier": null,
           "supported": true
         },
@@ -4073,6 +4404,12 @@
           "supported": true
         },
         {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Optionally enabled via `include_usage_statistics`; controlled by `usage.include_operational_stats`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "PLATFORM_INSTANCE",
           "description": "Enabled by default",
           "subtype_modifier": null,
@@ -4101,6 +4438,150 @@
       "platform_id": "teradata",
       "platform_name": "Teradata",
       "support_status": "TESTING"
+    },
+    "thoughtspot": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Workspaces (Orgs) emit as containers",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Column-level lineage from TS's pre-resolved `columns[*].sources` field on `metadata/search` (TS-internal) and from `physicalColumnName` (cross-platform external). TML edocs are consulted separately for chart-layer details (search query, source-table FQNs, chart type), not for column-level lineage.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "USAGE_STATS",
+          "description": "Per-entity cumulative view counts via `metadata_search` `include_stats`; enabled by `include_usage_stats: true`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OWNERSHIP",
+          "description": "Enabled by default, configured via `include_ownership`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TAGS",
+          "description": "Resolved from `/tags/search` and emitted as GlobalTags",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Worksheet\u2192Table, Chart\u2192Worksheet, Dashboard\u2192Worksheet, plus cross-platform Worksheet\u2192external warehouse (Databricks / Snowflake / BigQuery / ...) configured via `external_connections`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.thoughtspot.source.ThoughtSpotSource",
+      "platform_id": "thoughtspot",
+      "platform_name": "ThoughtSpot",
+      "support_status": "INCUBATING"
+    },
+    "timescaledb": {
+      "capabilities": [
+        {
+          "capability": "CONTAINERS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "CLASSIFICATION",
+          "description": "Optionally enabled via `classification.enabled`",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_FINE",
+          "description": "Enabled for continuous aggregates via column-level lineage",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DATA_PROFILING",
+          "description": "Optionally enabled via configuration",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DESCRIPTIONS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "DOMAINS",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "SCHEMA_METADATA",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "LINEAGE_COARSE",
+          "description": "Enabled by default to get lineage for views via `include_view_lineage`",
+          "subtype_modifier": [
+            "View"
+          ],
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.sql.timescaledb.TimescaleDBSource",
+      "platform_id": "timescaledb",
+      "platform_name": "TimescaleDB",
+      "support_status": "INCUBATING"
     },
     "trino": {
       "capabilities": [
@@ -4229,6 +4710,12 @@
         {
           "capability": "OWNERSHIP",
           "description": "Supported via the `include_ownership` config",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "OPERATION_CAPTURE",
+          "description": "Enabled by default via usage extraction, can be disabled via `include_operational_stats`",
           "subtype_modifier": null,
           "supported": true
         },

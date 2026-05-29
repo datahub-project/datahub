@@ -1,3 +1,8 @@
+---
+title: Search Overview
+description: "Use the DataHub search bar to find datasets, columns, dashboards, charts, and pipelines across your data ecosystem."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Search
@@ -188,7 +193,7 @@ If you want to:
 **What can you do with DataHub?**
 
 <p align="center">
-<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="560" height="315" src="https://www.youtube.com/embed/dubrKIcv37c" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe>
 </p>
 
 ### GraphQL
