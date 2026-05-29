@@ -6,12 +6,14 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.nio.file.Files;
-import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.Test;
 
 public class IngestionCliVersionMatrixServiceTest {
@@ -43,25 +45,61 @@ public class IngestionCliVersionMatrixServiceTest {
           + "  }\n"
           + "}";
 
+  /** Servers started by {@link #startMatrixServer(String)}; stopped after each test method. */
+  private final List<HttpServer> serversToStop = new ArrayList<>();
+
+  @AfterMethod
+  public void stopServers() {
+    for (HttpServer s : serversToStop) {
+      try {
+        s.stop(0);
+      } catch (Exception ignored) {
+      }
+    }
+    serversToStop.clear();
+  }
+
   /**
-   * Returns a service backed by {@link HttpUrlIngestionCliVersionMatrixSource} pointed at a
-   * temp-file URL containing {@link #MATRIX_JSON}. Polls briefly so the asynchronous initial fetch
-   * has a chance to populate the cache before the assertions run.
+   * Spins up a one-shot embedded {@link HttpServer} on a random localhost port that serves {@code
+   * matrixJson} at {@code /matrix}. The server is tracked and stopped by {@link #stopServers()}
+   * after each test. Returns the URL to point a matrix source at.
+   */
+  private String startMatrixServer(String matrixJson) throws IOException {
+    HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/matrix",
+        exchange -> {
+          byte[] body = matrixJson.getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, body.length);
+          try (OutputStream os = exchange.getResponseBody()) {
+            os.write(body);
+          }
+        });
+    server.start();
+    serversToStop.add(server);
+    return "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
+  }
+
+  /**
+   * Returns a service backed by {@link HttpUrlIngestionCliVersionMatrixSource} pointed at an
+   * embedded HTTP server serving {@link #MATRIX_JSON}. Polls briefly so the asynchronous initial
+   * fetch has a chance to populate the cache before the assertions run.
    */
   private IngestionCliVersionMatrixService serviceWithMatrix(
       String serverVersion, String deploymentId) throws IOException {
-    Path tmp = Files.createTempFile("version-matrix", ".json");
-    Files.write(tmp, MATRIX_JSON.getBytes());
-    tmp.toFile().deleteOnExit();
+    return serviceWithMatrix(MATRIX_JSON, serverVersion, deploymentId);
+  }
 
+  private IngestionCliVersionMatrixService serviceWithMatrix(
+      String matrixJson, String serverVersion, String deploymentId) throws IOException {
     HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(matrixJson), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, serverVersion, deploymentId);
 
     // Wait briefly for the initial fetch to complete (delay=0 in the scheduled executor).
     for (int i = 0; i < 20; i++) {
-      if (svc.resolveVersion("bigquery").isPresent()) {
+      if (httpSource.getLastFetchedAtMillis() > 0) {
         break;
       }
       try {
@@ -178,12 +216,8 @@ public class IngestionCliVersionMatrixServiceTest {
 
   @Test
   public void testMalformedJsonReturnsEmpty() throws Exception {
-    Path tmp = Files.createTempFile("bad-matrix", ".json");
-    Files.write(tmp, "not valid json".getBytes());
-    tmp.toFile().deleteOnExit();
-
     HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer("not valid json"), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -217,12 +251,8 @@ public class IngestionCliVersionMatrixServiceTest {
             + "  }\n"
             + "}";
 
-    Path tmp = Files.createTempFile("cohort-no-version", ".json");
-    Files.write(tmp, json.getBytes());
-    tmp.toFile().deleteOnExit();
-
     HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -256,12 +286,8 @@ public class IngestionCliVersionMatrixServiceTest {
             + "  }\n"
             + "}";
 
-    Path tmp = Files.createTempFile("cohort-no-deployments", ".json");
-    Files.write(tmp, json.getBytes());
-    tmp.toFile().deleteOnExit();
-
     HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-b1");
 
@@ -278,9 +304,8 @@ public class IngestionCliVersionMatrixServiceTest {
 
   // -------------------------------------------------------------------------
   // HttpUrlIngestionCliVersionMatrixSource HTTP-level behavior (auth header, fetch-failure cache
-  // retention)
-  // These exercise the network code path; the other tests use file:// URIs which can't surface
-  // request-header or HTTP-status behavior.
+  // retention). These tests inspect request headers and response status codes that the simpler
+  // serviceWithMatrix() helper does not expose.
   // -------------------------------------------------------------------------
 
   @Test
@@ -480,12 +505,8 @@ public class IngestionCliVersionMatrixServiceTest {
             + "    }\n"
             + "  }\n"
             + "}";
-    Path tmp = Files.createTempFile("no-default", ".json");
-    Files.write(tmp, json.getBytes());
-    tmp.toFile().deleteOnExit();
-
     HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(json), 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, SERVER_VERSION, "deployment-unknown");
 
@@ -506,14 +527,9 @@ public class IngestionCliVersionMatrixServiceTest {
 
   @Test
   public void testRefreshThreadIsNamedAndDaemon() throws Exception {
-    // file:// URI is fine for this test — we just need the source to spin up its scheduler;
-    // the fetch itself is not what we're inspecting.
-    Path tmp = Files.createTempFile("thread-name", ".json");
-    Files.write(tmp, MATRIX_JSON.getBytes());
-    tmp.toFile().deleteOnExit();
-
+    // Any HTTP endpoint suffices — we're inspecting the refresh thread, not the fetched data.
     HttpUrlIngestionCliVersionMatrixSource source =
-        new HttpUrlIngestionCliVersionMatrixSource(tmp.toUri().toString(), 3600);
+        new HttpUrlIngestionCliVersionMatrixSource(startMatrixServer(MATRIX_JSON), 3600);
     try {
       waitForFirstFetch(source);
 
