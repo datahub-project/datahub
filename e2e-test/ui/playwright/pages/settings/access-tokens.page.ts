@@ -29,8 +29,8 @@ export class AccessTokensPage extends BaseSettingsPage {
     this.tokenValue = page.getByTestId('access-token-value');
     this.closeModalButton = page.getByTestId('access-token-modal-close-button');
     this.confirmButton = page.getByTestId('modal-confirm-button');
-    this.tableBody = page.locator('tbody');
-    this.tableRows = this.tableBody.locator('tr');
+    this.tableBody = page.getByRole('table');
+    this.tableRows = this.tableBody.getByRole('row');
     this.newAccessTokenMessage = page.getByText(TOAST_MESSAGES.NEW_ACCESS_TOKEN);
     this.revokeConfirmMessage = page.getByText(TOAST_MESSAGES.ARE_YOU_SURE_REVOKE_TOKEN);
   }

@@ -23,7 +23,6 @@ export class GroupsPage extends BaseSettingsPage {
   private readonly addOwnerConfirmButton: Locator;
   private readonly deleteGroupConfirmButton: Locator;
   private readonly modalDeleteItem: Locator;
-  private readonly bodyElement: Locator;
   private readonly membersSection: Locator;
   private readonly groupEditProfileModal: Locator;
   private readonly createGroupModal: Locator;
@@ -56,7 +55,6 @@ export class GroupsPage extends BaseSettingsPage {
     this.addOwnerConfirmButton = page.getByTestId('modal-add-owner-button');
     this.deleteGroupConfirmButton = page.getByTestId('delete-group-confirm-button');
     this.modalDeleteItem = page.getByTestId('menu-item-delete');
-    this.bodyElement = page.locator('body');
     this.membersSection = page.getByTestId('sidebar-section-content-Members');
     this.groupEditProfileModal = page.getByTestId('group-edit-profile-modal');
     this.createGroupModal = page.getByTestId('create-group-modal');
@@ -78,7 +76,7 @@ export class GroupsPage extends BaseSettingsPage {
   // ── Dynamic selectors for groups ────────────────────────────────────────
   // These helpers create locators based on runtime data (group names, etc.)
   private getGroupLink(groupName: string): Locator {
-    return this.page.getByRole('link', { name: new RegExp(groupName, 'i') }).first();
+    return this.page.getByRole('link', { name: new RegExp(groupName, 'i') });
   }
 
   private getGroupHeading(groupName: string): Locator {
@@ -86,11 +84,7 @@ export class GroupsPage extends BaseSettingsPage {
   }
 
   private getGroupMenuButton(groupName: string): Locator {
-    // Find the row containing the group link with this name, then find the menu button in that row
-    const groupRow = this.page.locator('tbody tr', {
-      has: this.getGroupLink(groupName),
-    });
-    return groupRow.locator('td').last().locator('button').first();
+    return this.page.getByTestId(`group-menu-${groupName}`);
   }
 
   async navigateToGroupProfile(groupName: string): Promise<void> {
@@ -119,6 +113,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.createGroupModal.waitFor({ state: 'hidden', timeout: MODAL_TIMEOUT });
     await this.page.waitForLoadState('networkidle');
     await expect(this.manageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
+    await this.page.waitForLoadState('networkidle');
 
     await this.getGroupLink(name).waitFor({ state: 'visible', timeout: DEFAULT_TIMEOUT });
   }
@@ -176,7 +171,7 @@ export class GroupsPage extends BaseSettingsPage {
     await this.aboutTextEdit.focus();
     await this.page.keyboard.press('End');
     await this.page.keyboard.type(append);
-    await this.bodyElement.click();
+    await this.page.mouse.click(0, 0);
     await this.waitForToast(TOAST_MESSAGES.CHANGES_SAVED);
     await expect(this.page.getByText(`${currentText}${append}`)).toBeVisible({ timeout: WAIT_TIMEOUT });
   }

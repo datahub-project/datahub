@@ -13,11 +13,10 @@ export class HomePagePostsPage extends BaseSettingsPage {
   private readonly submitCreateButton: Locator;
   private readonly submitUpdateButton: Locator;
   private readonly confirmButton: Locator;
-  private readonly tableBody: Locator;
   private readonly tableRows: Locator;
   private readonly menuEditItem: Locator;
   private readonly menuDeleteItem: Locator;
-  private readonly homePageAnnouncementsTab: Locator;
+  private readonly v2HomePageAnnouncementsTab: Locator;
 
   constructor(page: Page, options?: PageOptions) {
     super(page, options);
@@ -31,13 +30,10 @@ export class HomePagePostsPage extends BaseSettingsPage {
     this.submitCreateButton = page.getByTestId('create-post-button');
     this.submitUpdateButton = page.getByTestId('update-post-button');
     this.confirmButton = page.getByTestId('modal-confirm-button');
-    this.tableBody = page.locator('tbody');
-    this.tableRows = this.tableBody.locator('tr');
+    this.tableRows = page.getByRole('row');
     this.menuEditItem = page.getByTestId('menu-item-edit');
     this.menuDeleteItem = page.getByTestId('menu-item-delete');
-    this.homePageAnnouncementsTab = page.locator(
-      '[data-testid="home-page-announcements"], #v2-home-page-announcements',
-    );
+    this.v2HomePageAnnouncementsTab = page.getByTestId('v2-home-page-announcements');
   }
 
   async navigate(): Promise<void> {
@@ -123,7 +119,7 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.skipOnboarding();
     await this.skipIntroducePage();
     await this.page.keyboard.press('Escape');
-    await this.homePageAnnouncementsTab.click();
+    await this.v2HomePageAnnouncementsTab.click();
   }
 
   async verifyPostVisible(title: string): Promise<void> {
@@ -141,7 +137,7 @@ export class HomePagePostsPage extends BaseSettingsPage {
     await this.skipOnboarding();
     await this.skipIntroducePage();
     await this.page.keyboard.press('Escape');
-    await this.homePageAnnouncementsTab.click();
+    await this.v2HomePageAnnouncementsTab.click();
     await this.page.waitForLoadState('networkidle');
     await expect(this.page.getByText(title)).toBeHidden();
   }

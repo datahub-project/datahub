@@ -19,11 +19,6 @@ export class BaseSettingsPage extends BasePage {
   private readonly confirmPasswordInput: Locator;
   private readonly signUpButton: Locator;
   private readonly modalDialog: Locator;
-  private readonly dropdownOptionSelector: string = '[data-testid^="option-"]';
-  private readonly dropdownCheckboxSelector: string = 'input[type="checkbox"]';
-  private readonly dropdownCheckedSelector: string = '[data-checked]';
-  private readonly dropdownFallbackSearchSelector: string =
-    'input[placeholder*="search"], input[placeholder*="Search"]';
   protected readonly cleanup?: ScopedCleanup;
 
   constructor(page: Page, options?: PageOptions) {
@@ -41,19 +36,15 @@ export class BaseSettingsPage extends BasePage {
 
   // ── Dropdown helper selectors ────────────────────────────────────────────
   private getDropdownOption(dropdown: Locator, value: string): Locator {
-    return dropdown.locator(this.dropdownOptionSelector).filter({ hasText: value });
+    return dropdown.filter({ hasText: value });
   }
 
   private getDropdownCheckbox(optionRow: Locator): Locator {
-    return optionRow.locator(this.dropdownCheckboxSelector);
-  }
-
-  private getDropdownCheckedElement(optionRow: Locator): Locator {
-    return optionRow.locator(this.dropdownCheckedSelector);
+    return optionRow.getByRole('checkbox');
   }
 
   private getDropdownSearchInput(): Locator {
-    return this.dropdownSearchInput.or(this.page.locator(this.dropdownFallbackSearchSelector));
+    return this.dropdownSearchInput.or(this.page.getByPlaceholder(/search/i));
   }
 
   async selectFromDropdown(base: Locator, dropdown: Locator, value: string): Promise<void> {
@@ -77,13 +68,13 @@ export class BaseSettingsPage extends BasePage {
     await optionRow.waitFor({ state: 'visible', timeout: WAIT_TIMEOUT });
     const checkboxInput = this.getDropdownCheckbox(optionRow);
     if ((await checkboxInput.count()) > 0) {
-      const checkboxBase = this.getDropdownCheckedElement(optionRow);
       await optionRow.scrollIntoViewIfNeeded();
-      const box = await checkboxBase.boundingBox();
+      // Click using bounding box to handle styled checkboxes that may not be directly visible
+      const box = await checkboxInput.boundingBox();
       if (box) {
         await this.page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
       } else {
-        await checkboxBase.click();
+        await checkboxInput.click();
       }
     } else {
       await optionRow.scrollIntoViewIfNeeded();

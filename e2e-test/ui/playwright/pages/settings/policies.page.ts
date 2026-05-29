@@ -17,7 +17,6 @@ export class PoliciesPage extends BaseSettingsPage {
   private readonly saveButton: Locator;
   private readonly policyFilterBase: Locator;
   private readonly policyFilterAll: Locator;
-  private readonly menuItems: Locator;
   private readonly confirmButton: Locator;
   private readonly policyTypeSelector: Locator;
   private readonly metadataTypeButton: Locator;
@@ -32,7 +31,7 @@ export class PoliciesPage extends BaseSettingsPage {
     super(page, options);
     this.searchInput = page.getByTestId('search-bar-input');
     this.tableBody = page.getByTestId('policies-table-body');
-    this.tableRows = this.tableBody.locator('tr');
+    this.tableRows = this.tableBody.getByRole('row');
     this.managePage = page.getByTestId('manage-permissions-page');
     this.addPolicyButton = page.getByTestId('add-policy-button');
     this.policyNameInput = page.getByTestId('policy-name');
@@ -44,14 +43,13 @@ export class PoliciesPage extends BaseSettingsPage {
     this.saveButton = page.getByTestId('save-button');
     this.policyFilterBase = page.getByTestId('policy-filter-base');
     this.policyFilterAll = page.getByTestId('option-ALL');
-    this.menuItems = page.locator('[data-testid^="menu-item-"]');
     this.policyTypeSelector = page.getByTestId('policy-type');
-    this.metadataTypeButton = this.policyTypeSelector.locator('[title="Metadata"]');
+    this.metadataTypeButton = this.policyTypeSelector.getByTitle('Metadata');
     this.platformTypeButton = page.getByTestId('platform');
     this.allPrivilegesOption = page.getByTestId('option-all-privileges');
     this.allUsersOption = page.getByTestId('option-all-users');
     this.allGroupsOption = page.getByTestId('option-all-groups');
-    this.allUsersRows = this.tableBody.locator('tr:has-text("All Users")');
+    this.allUsersRows = this.tableBody.getByRole('row').filter({ hasText: 'All Users' });
     // Policy deletion uses Ant Design's Modal.confirm, which renders a plain "Yes" button
     this.confirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
   }
@@ -78,10 +76,14 @@ export class PoliciesPage extends BaseSettingsPage {
     return this.getPolicyRow(policyName).getByTestId('policy-row-menu-button');
   }
 
+  private getMenuItems(): Locator {
+    return this.page.getByRole('menuitem');
+  }
+
   private async clickMenuButton(menuButton: Locator): Promise<void> {
     await menuButton.waitFor({ state: 'attached', timeout: SHORT_TIMEOUT });
     await menuButton.click();
-    await expect(this.menuItems.first()).toBeVisible({ timeout: SHORT_TIMEOUT });
+    await this.page.waitForLoadState('networkidle');
   }
 
   async searchForPolicy(policyName: string): Promise<void> {
@@ -95,7 +97,7 @@ export class PoliciesPage extends BaseSettingsPage {
   }
 
   async clickMenuAction(actionText: string): Promise<void> {
-    const item = this.menuItems.getByText(actionText);
+    const item = this.getMenuItems().getByText(actionText);
     await expect(item).toBeVisible();
     await item.click();
   }
@@ -210,12 +212,11 @@ export class PoliciesPage extends BaseSettingsPage {
 
   async deactivateExistingAllUserPolicies(): Promise<void> {
     await expect(this.tableRows).toBeVisible();
-    const count = await this.allUsersRows.count();
-    for (let i = 0; i < count; i++) {
-      const row = this.allUsersRows.nth(i);
+    const rows = await this.allUsersRows.all();
+    for (const row of rows) {
       const menuButton = row.getByTestId('policy-row-menu-button');
       await this.clickMenuButton(menuButton);
-      const deactivateItem = this.menuItems.getByText('Deactivate');
+      const deactivateItem = this.getMenuItems().getByText('Deactivate');
       if ((await deactivateItem.count()) > 0) {
         await deactivateItem.click();
         await this.waitForToast(TOAST_MESSAGES.SUCCESSFULLY_DEACTIVATED_POLICY);
