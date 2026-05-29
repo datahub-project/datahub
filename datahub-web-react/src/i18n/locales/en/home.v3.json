@@ -1,0 +1,10 @@
+{
+    "defaultTemplateBar.editingWarning": "Editing Organization Default Home",
+    "header.discoverLabel": "Discover",
+    "error.failedToAddSummaryElement": "Failed to add summary element",
+    "error.failedToRemoveSummaryElement": "Failed to remove summary element",
+    "error.failedToReplaceSummaryElement": "Failed to replace summary element",
+    "error.noTemplateAvailable": "No template available to update",
+    "toast.editedDescription": "To reset your home page click \"Reset to Organization Default\"",
+    "toast.editedTitle": "You’ve edited your home page"
+}

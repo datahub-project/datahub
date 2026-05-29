@@ -58,6 +58,12 @@ on:
         required: false
         type: boolean
         default: false
+      notify_slack:
+        description: "Send Slack failure notification (for testing; production
+          notifications fire automatically)"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   actions: read
@@ -168,3 +174,45 @@ jobs:
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "/repos/${REPOSITORY}/actions/runs/${RUN_ID}/rerun-failed-jobs"
+
+  # Notify Slack on CI failure on protected branches.
+  # Fires when:
+  #   - workflow_dispatch with notify_slack=true (manual testing)
+  #   - workflow_run that failed or timed out,
+  #       - triggered by schedule/release
+  #       - or a push to a protected branch (default, release/*, hotfix/*)
+  notify-slack-failure:
+    name: Notify Slack on CI failure
+    if: >-
+      (github.event_name == 'workflow_dispatch' && inputs.notify_slack == true)
+      || (github.event_name == 'workflow_run'
+          && contains(fromJSON('["failure","timed_out"]'), github.event.workflow_run.conclusion)
+          && (contains(fromJSON('["schedule","release"]'), github.event.workflow_run.event)
+              || (github.event.workflow_run.event == 'push'
+                  && (github.event.workflow_run.head_branch == github.event.repository.default_branch
+                      || startsWith(github.event.workflow_run.head_branch, 'releases/')
+                      || startsWith(github.event.workflow_run.head_branch, 'hotfixes/')))))
+    uses: ./.github/workflows/notify-slack-status.yml
+    secrets: inherit
+    with:
+      run_id: ${{ inputs.run_id || github.event.workflow_run.id }}
+      attempt: ${{ inputs.attempt || github.event.workflow_run.run_attempt }}
+      thread_ts_file: ${{ github.event.workflow_run.event != 'schedule' && '.slack-thread-ts.json' || '' }}
+      channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
+
+  # Notify Slack when the Docker build succeeds on a push or release event.
+  # Posts a standalone message (not threaded) so it's visible as a positive signal
+  # separate from any failure thread on the same commit.
+  notify-slack-docker-success:
+    name: Notify Slack on Docker build success
+    if: >-
+      github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.name == 'Docker Build, Scan, Test'
+      && contains(fromJSON('["push","release"]'), github.event.workflow_run.event)
+    uses: ./.github/workflows/notify-slack-status.yml
+    secrets: inherit
+    with:
+      run_id: ${{ github.event.workflow_run.id }}
+      conclusion: success
+      channel: ${{ vars.BUILD_STATUS_NOTIFICATION_SLACK_CHANNEL }}
