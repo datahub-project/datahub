@@ -24,6 +24,7 @@ export class ViewSelectPage extends BasePage {
   readonly viewsButton: Locator;
   readonly viewSelectItem: Locator;
   readonly entityTitle: Locator;
+  readonly viewsPopover: Locator;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -47,6 +48,7 @@ export class ViewSelectPage extends BasePage {
     this.viewSelectItem = page.getByTestId('view-select-item');
     this.closeIcon = page.getByTestId('views-clear-button');
     this.entityTitle = page.getByTestId('entity-title');
+    this.viewsPopover = page.getByTestId('views-popover');
   }
 
   // ============================================================================
@@ -91,23 +93,11 @@ export class ViewSelectPage extends BasePage {
   }
 
   private async waitForPopoverOpen(): Promise<void> {
-    await this.page.waitForFunction(
-      () => {
-        const popover = document.querySelector('.view-select-popover');
-        return popover && !popover.classList.contains('ant-popover-hidden');
-      },
-      { timeout: TIMEOUTS.MEDIUM },
-    );
+    await this.viewsPopover.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
   }
 
   private async waitForPopoverClose(): Promise<void> {
-    await this.page.waitForFunction(
-      () => {
-        const popover = document.querySelector('.view-select-popover');
-        return popover && popover.classList.contains('ant-popover-hidden');
-      },
-      { timeout: TIMEOUTS.SHORT },
-    );
+    await this.viewsPopover.waitFor({ state: 'hidden', timeout: TIMEOUTS.SHORT });
   }
 
   // ============================================================================

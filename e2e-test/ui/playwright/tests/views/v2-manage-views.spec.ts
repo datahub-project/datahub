@@ -2,8 +2,6 @@ import { test } from '../../fixtures/base-test';
 import { ManageViewsPage } from '../../pages/views/manage-views.page';
 import { withRandomSuffix } from '../../utils/random';
 
-test.use({ featureName: 'views' });
-
 test.describe('Manage Views', () => {
   let manageViewsPage: ManageViewsPage;
   const viewName = withRandomSuffix('View');
@@ -29,9 +27,11 @@ test.describe('Manage Views', () => {
 
     // Set as default
     await manageViewsPage.setViewAsDefault(editedViewName);
+    await manageViewsPage.expectViewVisible(editedViewName);
 
     // Remove default
     await manageViewsPage.removeViewAsDefault(editedViewName);
+    await manageViewsPage.expectViewVisible(editedViewName);
 
     // Delete view
     await manageViewsPage.deleteView(editedViewName);
