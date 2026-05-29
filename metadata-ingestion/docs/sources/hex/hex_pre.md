@@ -14,7 +14,7 @@ The connector authenticates with a Hex **Workspace token** issued from `Settings
 
 - `Projects → Read access` — list projects/components and read their detail and run history.
 - `Cells → Read access` — read SQL cells for lineage and context documents.
-- `Read project queried tables` — lineage from Hex's pre-resolved table list. Available on the Hex **ENTERPRISE tier only**; skip this scope on lower tiers (the connector falls back to SQL parsing).
+- `Read project queried tables` — lineage from Hex's pre-resolved table list. Available on **Hex Enterprise workspaces only**; skip this scope on lower Hex tiers — the connector falls back to SQL parsing.
 - `Data connections → Read access` — map each Hex connection to its warehouse platform/database/schema.
 - `Users → Read access` — _optional_, only needed to auto-discover the workspace (org) UUID used in external URLs. Skip this scope and set `workspace_id` in the recipe instead.
 

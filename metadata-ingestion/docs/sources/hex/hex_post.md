@@ -2,9 +2,12 @@
 
 #### Upstream Lineage
 
-By default, lineage comes from **SQL parsing** of cells using [`sqlglot`](https://github.com/tobymao/sqlglot) with each connection's dialect. Unqualified `FROM table` refs are resolved using the connection's default database/schema from `/v1/data-connections`, overridable via `connection_platform_map`.
+Lineage is tiered, with both tiers opt-out via `include_lineage: false`:
 
-Set `use_queried_tables_lineage: true` (Hex ENTERPRISE tier only) to use Hex's `/v1/projects/{id}/queriedTables` API as the primary lineage source for published projects and components. Unpublished entities still fall back to SQL parsing since `queriedTables` is only populated for published runs. A `403` falls back to SQL parsing for everything.
+- **Tier 1 — `queriedTables` (Hex Enterprise workspaces only, opt-in via `use_queried_tables_lineage: true`)**: Hex's own runtime-proven table list for **published** projects and components, served by `/v1/projects/{id}/queriedTables`. Unpublished entities always fall back to Tier 2 since `queriedTables` is only populated for published runs. A `403` (non-Enterprise Hex workspace) falls back to Tier 2 for everything and emits a warning.
+- **Tier 2 — SQL parsing via [`sqlglot`](https://github.com/tobymao/sqlglot) (all workspaces, default)**: each cell is parsed with its connection's dialect.
+
+Both tiers resolve warehouse URNs via `/v1/data-connections` (platform + default database/schema), overridable per-connection via `connection_platform_map`. For projects that import components, native project SQL is separated from inlined component SQL via the export API so component lineage isn't attributed twice. Cells whose `dataConnectionId` cannot be resolved are skipped with a structured warning — see [Missing Upstream Lineage](#missing-upstream-lineage) for triage.
 
 ##### Connection Platform Resolution
 
@@ -29,6 +32,16 @@ connection_platform_map:
     default_database: my-gcp-project
 ```
 
+#### Migration from `query_fetcher`
+
+Earlier versions of this connector derived lineage by querying DataHub for prior Hex-emitted query metadata (`query_fetcher.py`). That path has been removed: lineage now comes from SQL parsing of cells by default, or from Hex's `queriedTables` API when `use_queried_tables_lineage: true` is set on a Hex Enterprise workspace.
+
+The following config fields fed only the old path and are now removed — drop them from your recipe (the connector will emit a warning if they are still present):
+
+- `lineage_start_time`
+- `lineage_end_time`
+- `datahub_page_size`
+
 #### Stale Entity Removal
 
 Enable by configuring `stateful_ingestion`. Projects deleted in Hex are soft-deleted in DataHub on the next run.
@@ -49,7 +62,7 @@ Each Project and Component emits an all-time `viewsCount` and a rolling 7-day wi
 
 ### Limitations
 
-1. **`queriedTables` require Hex ENTERPRISE subscricption and opt-in.** Defaults to SQL parsing; enable `use_queried_tables_lineage` on ENTERPRISE workspaces to use Hex's API as the primary source.
+1. **`queriedTables` requires a Hex Enterprise workspace and opt-in.** Defaults to SQL parsing; enable `use_queried_tables_lineage` on Hex Enterprise workspaces to use Hex's API as the primary source.
 2. **Non-SQL query paths produce no lineage.** SQL parsing cannot recover table references from `hextoolkit` Python cells, dynamic SQL built from variables, or parameterized table names — the resulting projects will be missing those upstreams.
 3. **Context documents are not a complete mirror of the Hex notebook.** Only a subset of cell types is captured, so the rendered document will not match the source notebook exactly.
 4. **Upstream lineage may be missing or mismatched when Hex's `/v1/data-connections` metadata is incomplete or uses an unrecognized `connectionDetails` shape.** Without `default_database` / `default_schema`, neither SQL parsing nor `queriedTables` can assemble fully-qualified URNs; without the right `platform_instance`, URNs won't align with the warehouse ingestion. Set the affected `dataConnectionId` under `connection_platform_map` with the correct `platform_instance` / `default_database` / `default_schema`, or report the new connection shape to the DataHub team so the parser can be updated.
@@ -64,4 +77,4 @@ The source report lists every skipped cell with its `dataConnectionId` and a rea
 
 #### Column Lineage Looks Sparse
 
-When `use_queried_tables_lineage` is enabled on ENTERPRISE, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.
+When `use_queried_tables_lineage` is enabled on a Hex Enterprise workspace, the report exposes `enterprise_cells_with_mismatch` and `enterprise_sample_mismatched_cells` — SQL cells whose parsed table URN did not match the `queriedTables` result. Adjusting `default_database` / `default_schema` in `connection_platform_map` resolves most cases.

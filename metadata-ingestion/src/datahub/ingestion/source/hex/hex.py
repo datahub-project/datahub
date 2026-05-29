@@ -84,9 +84,10 @@ class HexReport(
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default via queriedTables API (ENTERPRISE) or SQL parsing from cells (all tiers). "
-    "Applied to both projects and components. Unpublished entities always use SQL parsing. "
-    "No warehouse ingestion dependency required.",
+    "Enabled by default via queriedTables API (Hex Enterprise workspaces) or SQL "
+    "parsing from cells (all Hex tiers). Applied to both projects and components. "
+    "Unpublished entities always use SQL parsing. No warehouse ingestion dependency "
+    "required.",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -286,7 +287,7 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                 if qt_resp.ok:
                     enterprise_lineage = True
                     report.capability_report[
-                        "Lineage via queriedTables API (ENTERPRISE)"
+                        "Lineage via queriedTables API (Hex Enterprise workspaces)"
                     ] = CapabilityReport(
                         capable=True,
                         mitigation_message="Hex returns the exact list of warehouse tables "
@@ -294,13 +295,14 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
                     )
                 else:
                     report.capability_report[
-                        "Lineage via queriedTables API (ENTERPRISE)"
+                        "Lineage via queriedTables API (Hex Enterprise workspaces)"
                     ] = CapabilityReport(
                         capable=False,
-                        failure_reason=f"HTTP {qt_resp.status_code} — workspace is not on "
-                        "the ENTERPRISE tier or token lacks access.",
-                        mitigation_message="Upgrade to Hex ENTERPRISE to unlock exact lineage. "
-                        "SQL-parsing lineage (Tier 2) is still available.",
+                        failure_reason=f"HTTP {qt_resp.status_code} — workspace is not "
+                        "on Hex's Enterprise tier or the token lacks access.",
+                        mitigation_message="Upgrade the Hex workspace to Hex Enterprise "
+                        "to unlock exact lineage. SQL-parsing lineage (Tier 2) is still "
+                        "available on lower Hex tiers.",
                     )
 
             # Tier 2: cells + SQL parsing (all tiers)

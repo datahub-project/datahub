@@ -1772,7 +1772,7 @@
         },
         {
           "capability": "LINEAGE_COARSE",
-          "description": "Enabled by default via queriedTables API (ENTERPRISE) or SQL parsing from cells (all tiers). Applied to both projects and components. Unpublished entities always use SQL parsing. No warehouse ingestion dependency required.",
+          "description": "Enabled by default via queriedTables API (Hex Enterprise workspaces) or SQL parsing from cells (all Hex tiers). Applied to both projects and components. Unpublished entities always use SQL parsing. No warehouse ingestion dependency required.",
           "subtype_modifier": null,
           "supported": true
         }

@@ -834,6 +834,16 @@ class HexApi:
             )
             if resp.status_code == 403:
                 self._queried_tables_tier_available = False
+                self.report.warning(
+                    title="queriedTables unavailable on this workspace",
+                    message=(
+                        "The /projects/{id}/queriedTables endpoint requires a Hex "
+                        "Enterprise workspace. Lineage will fall back to SQL parsing "
+                        "of cell sources. Set use_queried_tables_lineage: false to "
+                        "silence this warning."
+                    ),
+                    context=f"hex_item_id={hex_item_id}",
+                )
                 return None
             resp.raise_for_status()
             self._queried_tables_tier_available = True
