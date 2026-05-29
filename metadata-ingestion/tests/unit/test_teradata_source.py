@@ -1,6 +1,7 @@
 import logging
 import re
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from threading import current_thread
 from typing import Any, Dict, List, Optional
@@ -3252,8 +3253,6 @@ class TestTeradataReportFields:
         a helper will cause this test to fail non-deterministically (and very
         reliably at n_threads=16, m_per_thread=1000).
         """
-        import concurrent.futures
-
         report = TeradataReport()
         n_threads, m_per_thread = 16, 1000
         duration_per_call = 0.001  # 1 ms per add_column_extraction_duration call
@@ -3267,7 +3266,7 @@ class TestTeradataReportFields:
                 report.increment_primary_keys_processed()
                 report.add_column_extraction_duration(duration_per_call)
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=n_threads) as ex:
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
             list(ex.map(worker, range(n_threads)))
 
         expected_count = n_threads * m_per_thread
