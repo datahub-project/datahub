@@ -170,9 +170,11 @@ Requirements:
 
 ### Known Issues
 
+- **(Operations / Elasticsearch 8) Spurious mappings reindex on every Helm upgrade.** Deployments backed by **Elasticsearch 8.x** may trigger a full index mappings reindex on **every** system-update run (including each Helm upgrade), even when no authored mapping change was shipped. ES8 persists mappings differently than DataHub's authored definitions (for example injecting `type: object` on nested object fields), so the index builder detects spurious drift and schedules reindex work repeatedly. This is most likely when **`ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true`** (including Docker quickstart, which enables it for initial index builds). **Workaround:** Let the **first** system-update after install or upgrade finish so indices are created, then set **`ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=false`** on **`datahub-gms`** and **`datahub-upgrade`** before later Helm upgrades until a fixed release is available.
+
 ### Potential Downtime
 
-- **System-update / Elasticsearch:** Upgrades that trigger reindexing, incremental index migration, or optional Elasticsearch ZDU (#16887) can run for an extended period depending on catalog size. Reindex duration was improved (#16949) and a perpetual ES8 reindex loop fix was included (#17402). Helm upgrades without `--atomic` may report failure while background reindex jobs continue — allow system-update to finish before retrying. See **Helm Notes** under the [0.10.0](#0100) section below for timeout guidance patterns.
+- **System-update / Elasticsearch:** Upgrades that trigger reindexing, incremental index migration, or optional Elasticsearch ZDU (#16887) can run for an extended period depending on catalog size. Reindex duration was improved (#16949). Elasticsearch 8 deployments with mappings reindex enabled may repeat unnecessary reindex work on every Helm upgrade — see **Known Issues** above. Helm upgrades without `--atomic` may report failure while background reindex jobs continue — allow system-update to finish before retrying. See **Helm Notes** under the [0.10.0](#0100) section below for timeout guidance patterns.
 - **First deploy after bootstrap moves:** Entity Types ingestion moved to system-update (see Breaking Changes). Expect additional system-update work on the first upgrade after this release.
 - **Aspect schema version sweep (#16930):** Large deployments may observe background migration activity during upgrade; plan maintenance windows accordingly.
 
