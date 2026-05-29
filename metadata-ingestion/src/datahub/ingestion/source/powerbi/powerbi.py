@@ -44,6 +44,7 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
 from datahub.ingestion.source.powerbi.config import (
+    POWERBI_TYPE_TO_DATA_PLATFORM_PAIR,
     Constant,
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
@@ -632,6 +633,76 @@ class Mapper:
             self.extract_profile(dataset_mcps, workspace, dataset, table, ds_urn)
 
         return dataset_mcps
+
+    def paginated_report_datasource_urns(
+        self,
+        report: powerbi_data_classes.Report,
+    ) -> List[str]:
+        """Resolve a paginated report's embedded datasources to upstream URNs.
+
+        Produces coarse-grained (server[.database]) URNs; table-level lineage
+        would require parsing the .rdl XML.
+        """
+        urns: List[str] = []
+        for ds in report.datasources:
+            if ds.powerbi_dataset_id is not None:
+                # Bound to a shared Power BI dataset; lineage comes from
+                # report.dataset (resolved in PowerBiAPI.get_reports), not here.
+                continue
+
+            # Normalise like dataset_type_mapping does (e.g. "Amazon Redshift"
+            # -> "AmazonRedshift") so spaced API type names still resolve.
+            pair = POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type
+            ) or POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type.replace(" ", "")
+            )
+            if pair is None:
+                self.__reporter.info(
+                    title="Unmapped Paginated Report Datasource",
+                    message=(
+                        f"PowerBI datasource type {ds.datasource_type!r} has no "
+                        "DataHub platform mapping; lineage skipped."
+                    ),
+                    context=f"report={report.name}, server={ds.server}",
+                )
+                continue
+
+            # Respect a user-narrowed dataset_type_mapping, consistent with the
+            # M-Query lineage path: a platform excluded from the mapping should
+            # not produce lineage even though it is a known platform.
+            if not self.__config.is_platform_in_dataset_type_mapping(
+                ds.datasource_type
+            ):
+                logger.debug(
+                    "Skipping paginated report datasource for platform %r: not "
+                    "in dataset_type_mapping.",
+                    ds.datasource_type,
+                )
+                continue
+
+            platform_detail = (
+                self.__dataplatform_instance_resolver.get_platform_instance(
+                    PowerBIPlatformDetail(
+                        data_platform_pair=pair,
+                        data_platform_server=ds.server,
+                    )
+                )
+            )
+
+            name_parts = [p for p in [ds.server, ds.database] if p]
+            urns.append(
+                self.lineage_urn_to_lowercase(
+                    builder.make_dataset_urn_with_platform_instance(
+                        platform=pair.datahub_data_platform_name,
+                        name=".".join(name_parts),
+                        platform_instance=platform_detail.platform_instance,
+                        env=platform_detail.env or self.__config.env,
+                    )
+                )
+            )
+
+        return urns
 
     def extract_profile(
         self,
@@ -1492,11 +1563,14 @@ class Mapper:
         )
 
         # collect all upstream datasets; using a set to retain unique urns
-        dataset_urns = {
+        dataset_urns: Set[str] = {
             dataset.entityUrn
             for dataset in ds_mcps
             if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
         }
+        # Paginated (RDL) reports without a shared dataset get their lineage
+        # solely from this fallback path.
+        dataset_urns.update(self.paginated_report_datasource_urns(report))
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]
