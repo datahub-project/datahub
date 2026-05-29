@@ -25,7 +25,9 @@ def get_dialect_str(platform: str) -> str:
     """
     platform_lower = platform.lower()
 
-    if platform_lower == "presto-on-hive":
+    if platform_lower in {"presto-on-hive", "glue"}:
+        # Glue Data Catalog is typically queried via Athena/Presto using hive-style SQL,
+        # and sqlglot has no dedicated `glue` dialect.
         return "hive"
     elif platform_lower == "mssql":
         return "tsql"
