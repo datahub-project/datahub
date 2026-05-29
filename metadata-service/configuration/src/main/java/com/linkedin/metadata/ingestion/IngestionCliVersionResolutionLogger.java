@@ -6,16 +6,14 @@ import org.slf4j.Logger;
 /**
  * Shared structured logging for CLI version resolution at the three call sites ({@code
  * CreateIngestionExecutionRequestResolver}, {@code CreateTestConnectionRequestResolver}, {@code
- * IngestionScheduler}). Lives separately from {@link CliVersionResolutionHelper} on purpose — the
- * helper stays logging-free per review guidance, and emitting the line at the resolver layer keeps
- * each log entry tagged with the caller's class.
+ * IngestionScheduler}). Callers pass their own SLF4J logger so each entry is tagged with the
+ * caller's class — operators' existing class-name log filters keep working.
  *
- * <p>Why structured logging matters here: the resolution ladder spans four tiers and three
- * different trigger paths. Without a parallel-shaped log line at each call site, "which CLI did
- * this run get and why?" requires log archaeology. With it, {@code grep "Resolved ingestion CLI
- * version"} across all three resolvers' logs shows every resolution in the same shape.
+ * <p>The resolution ladder spans four tiers and three trigger paths. Producing a parallel-shaped
+ * line at every call site lets {@code grep "Resolved ingestion CLI version"} surface every
+ * resolution in the same shape, with the trigger label distinguishing the source.
  */
-public final class CliVersionResolutionLogger {
+public final class IngestionCliVersionResolutionLogger {
 
   /** Trigger label for the on-demand GraphQL execution request path. */
   public static final String TRIGGER_MANUAL = "manual trigger";
@@ -32,7 +30,7 @@ public final class CliVersionResolutionLogger {
   /** Identifier key for an execution-request URN (used when no ingestion source exists). */
   public static final String IDENTIFIER_EXECUTION_REQUEST = "executionRequest";
 
-  private CliVersionResolutionLogger() {}
+  private IngestionCliVersionResolutionLogger() {}
 
   /**
    * Emit a DEBUG line capturing which tier of the resolution ladder produced the version, and a
@@ -42,8 +40,8 @@ public final class CliVersionResolutionLogger {
    * @param log SLF4J logger to use. Pass the caller's {@code @Slf4j}-generated {@code log} so log
    *     lines appear under the caller's class.
    * @param trigger short label distinguishing the call site (see {@link #TRIGGER_MANUAL}, etc.)
-   * @param resolution result from {@link CliVersionResolutionHelper#resolve(String, String,
-   *     IngestionCliVersionMatrixService, String, String)}
+   * @param resolution result from {@link IngestionCliVersionResolutionHelper#resolve(String,
+   *     String, IngestionCliVersionMatrixService, String, String)}
    * @param connectorType source type from the recipe, may be {@code null} when the recipe lacks a
    *     parseable {@code source.type}
    * @param identifierKey self-describing key for {@code identifierValue} — typically {@link
@@ -53,7 +51,7 @@ public final class CliVersionResolutionLogger {
   public static void log(
       final Logger log,
       final String trigger,
-      final CliVersionResolutionHelper.Result resolution,
+      final IngestionCliVersionResolutionHelper.Result resolution,
       @Nullable final String connectorType,
       final String identifierKey,
       final String identifierValue) {

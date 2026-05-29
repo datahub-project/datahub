@@ -8,13 +8,12 @@ import java.util.Map;
  *
  * <p>The matrix is keyed by server release version → {@link ServerEntry}, which in turn maps
  * connector type to a {@link ConnectorEntry} carrying a {@code _default} version and an optional
- * ordered list of canary cohorts. Wrapping the inner map in {@link ServerEntry} keeps lookup sites
- * self-documenting and gives us a single place to add server-level behavior later.
+ * ordered list of canary cohorts.
  *
- * <p>This is a pure POJO produced by {@link IngestionCliVersionMatrixSource} implementations and
- * consumed by {@link IngestionCliVersionMatrixService} — the storage layer (HTTP, GMS aspect,
- * config server, …) is decoupled from the resolution layer that walks the matrix and applies
- * precedence rules.
+ * <p>A pure POJO: {@link IngestionCliVersionMatrixSource} implementations produce it and {@link
+ * IngestionCliVersionMatrixService} consumes it. The storage layer (HTTP, GMS aspect, config
+ * server, …) is decoupled from the resolution layer that walks the matrix and applies precedence
+ * rules.
  */
 public final class IngestionCliVersionMatrix {
 

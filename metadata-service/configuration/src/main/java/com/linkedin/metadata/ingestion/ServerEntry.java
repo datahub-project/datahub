@@ -8,9 +8,8 @@ import java.util.Set;
  * The per-connector entries for a single GMS server release in the ingestion CLI version matrix.
  *
  * <p>Maps connector type (e.g. {@code "snowflake"}, {@code "bigquery"}) to that connector's {@link
- * ConnectorEntry}. Wrapping the inner map in a named POJO instead of exposing {@code Map<String,
- * ConnectorEntry>} keeps lookup sites self-documenting: {@code serverEntry.getConnectorEntry(type)}
- * vs the previous {@code serverEntry.get(type)} where the meaning of either string was opaque.
+ * ConnectorEntry}. The named lookup method {@link #getConnectorEntry(String)} makes the meaning of
+ * the string key obvious at every call site.
  */
 public final class ServerEntry {
 

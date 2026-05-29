@@ -32,9 +32,9 @@ import javax.annotation.Nullable;
  *   <li>Application default — {@code defaultCliVersion} from application.yaml
  * </ol>
  */
-public final class CliVersionResolutionHelper {
+public final class IngestionCliVersionResolutionHelper {
 
-  private CliVersionResolutionHelper() {}
+  private IngestionCliVersionResolutionHelper() {}
 
   /**
    * Resolve a CLI version for an ingestion or test-connection request.
@@ -60,12 +60,11 @@ public final class CliVersionResolutionHelper {
       @Nullable String defaultCliVersion,
       @Nullable String serverVersion) {
 
-    // Normalize the per-source version: bootstrap YAML templating can render null, empty, or
-    // whitespace-only strings (a source created with no version pin renders as
-    // `version: "   "` after Mustache substitution), and all three must mean "unset" so we fall
-    // through to the matrix / application default. Without this trim, a blank template would
-    // forward verbatim to the executor and silently pin to whatever CLI it ships with —
-    // defeating both defaultCliVersion and the matrix.
+    // Normalize the per-source version: bootstrap YAML templating can render `version: "{{
+    // config.version }}"` as null, empty, or three spaces when the source has no version pin,
+    // and all three must collapse to "unset" so resolution falls through to the matrix /
+    // application default. A blank string forwarded to the executor would silently pin to its
+    // bundled CLI rather than the configured default.
     final String normalizedExplicit =
         explicitVersion != null && !explicitVersion.trim().isEmpty()
             ? explicitVersion.trim()

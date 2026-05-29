@@ -4,11 +4,9 @@ import lombok.Data;
 
 /**
  * HTTP-fetched ingestion CLI version matrix configuration. Bound under {@code
- * ingestion.cliVersionMatrix.http} in application.yaml.
- *
- * <p>Lives in its own POJO so adding alternative matrix backends in the future (GMS aspect,
- * AppConfig, etcd, …) does not require piling more flat properties under {@code ingestion:} — each
- * backend gets its own nested block keyed off the {@code source} discriminator on the parent.
+ * ingestion.cliVersionMatrix.http} in application.yaml. Each backend defined under {@code
+ * cliVersionMatrix} gets its own nested block keyed off the {@code source} discriminator on the
+ * parent.
  */
 @Data
 public class HttpMatrixSourceConfiguration {

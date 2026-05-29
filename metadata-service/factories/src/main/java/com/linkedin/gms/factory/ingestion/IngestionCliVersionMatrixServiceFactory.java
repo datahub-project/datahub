@@ -24,12 +24,10 @@ import org.springframework.context.annotation.Scope;
  * <ul>
  *   <li>{@code ingestionCliVersionMatrixSource} — implements {@link
  *       IngestionCliVersionMatrixSource}. The implementation is selected from {@code
- *       ingestion.cliVersionMatrix.source}: {@code "http"} → {@link
- *       HttpUrlIngestionCliVersionMatrixSource}, {@code "none"} → {@link
- *       NoOpIngestionCliVersionMatrixSource}. When the discriminator is unset, the choice is
- *       inferred from {@code ingestion.cliVersionMatrix.http.url} so existing deployments keep
- *       working without an env change. Future implementations (GMS-aspect-backed,
- *       config-server-backed, …) get a new discriminator value here.
+ *       ingestion.cliVersionMatrix.source}: {@code "none"} short-circuits to {@link
+ *       NoOpIngestionCliVersionMatrixSource}; otherwise an HTTP source is wired when {@code
+ *       http.url} is set and a no-op source is wired when the URL is empty. Future backends (GMS
+ *       aspect, config server, …) add their own discriminator value handled here.
  *   <li>{@code ingestionCliVersionMatrixService} — consumes whichever {@link
  *       IngestionCliVersionMatrixSource} is bound and applies the resolution policy (cohort →
  *       connector default → application default).
@@ -44,7 +42,6 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class IngestionCliVersionMatrixServiceFactory {
 
-  private static final String SOURCE_HTTP = "http";
   private static final String SOURCE_NONE = "none";
 
   @Autowired
@@ -56,9 +53,9 @@ public class IngestionCliVersionMatrixServiceFactory {
   private GitVersion gitVersion;
 
   /**
-   * Picks the storage backend for the matrix. Reads {@code ingestion.cliVersionMatrix.source} as
-   * the primary signal; falls back to inferring from {@code http.url} presence when the
-   * discriminator is unset (backward-compat for deployments that pre-date this discriminator).
+   * Picks the storage backend for the matrix from {@code ingestion.cliVersionMatrix.source}.
+   * Explicit {@code "none"} is a kill-switch that always wins. Otherwise the HTTP source is wired
+   * when {@code http.url} is non-empty, and a no-op source when the URL is empty.
    */
   @Bean(name = "ingestionCliVersionMatrixSource")
   @Scope("singleton")
@@ -69,27 +66,19 @@ public class IngestionCliVersionMatrixServiceFactory {
     if (matrixConfig == null) {
       return new NoOpIngestionCliVersionMatrixSource();
     }
-
-    HttpMatrixSourceConfiguration httpConfig = matrixConfig.getHttp();
-    boolean httpUrlPresent =
-        httpConfig != null && httpConfig.getUrl() != null && !httpConfig.getUrl().isEmpty();
-
-    if (resolveSource(matrixConfig.getSource(), httpUrlPresent).equals(SOURCE_HTTP)) {
-      return new HttpUrlIngestionCliVersionMatrixSource(
-          httpConfig.getUrl(), httpConfig.getRefreshSeconds(), httpConfig.getAuthToken());
+    if (SOURCE_NONE.equalsIgnoreCase(trim(matrixConfig.getSource()))) {
+      return new NoOpIngestionCliVersionMatrixSource();
     }
-    return new NoOpIngestionCliVersionMatrixSource();
+    HttpMatrixSourceConfiguration httpConfig = matrixConfig.getHttp();
+    if (httpConfig == null || httpConfig.getUrl() == null || httpConfig.getUrl().isEmpty()) {
+      return new NoOpIngestionCliVersionMatrixSource();
+    }
+    return new HttpUrlIngestionCliVersionMatrixSource(
+        httpConfig.getUrl(), httpConfig.getRefreshSeconds(), httpConfig.getAuthToken());
   }
 
-  /**
-   * Resolve the active source backend. Explicit {@code source} wins; an unset value is inferred
-   * from URL presence so deployments that pre-date this discriminator continue to work.
-   */
-  private static String resolveSource(String configuredSource, boolean httpUrlPresent) {
-    if (configuredSource != null && !configuredSource.trim().isEmpty()) {
-      return configuredSource.trim().toLowerCase();
-    }
-    return httpUrlPresent ? SOURCE_HTTP : SOURCE_NONE;
+  private static String trim(String s) {
+    return s == null ? null : s.trim();
   }
 
   @Bean(name = "ingestionCliVersionMatrixService")

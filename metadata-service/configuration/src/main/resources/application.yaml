@@ -108,9 +108,9 @@ ingestion:
   # basis. Update the matrix file externally (S3/CDN/gist) without redeploying GMS to change
   # connector versions. Set source=none (or leave url empty) to disable.
   cliVersionMatrix:
-    # Source backend: "http" or "none". When unset, inferred from http.url presence — leaves
-    # existing deployments that only set INGESTION_VERSION_MATRIX_URL working unchanged.
-    source: "${INGESTION_VERSION_MATRIX_SOURCE:}"
+    # Source backend: "http" (default) or "none". Setting "none" is an explicit kill-switch even
+    # when an http.url is configured. With "http" but no url, the factory wires a no-op source.
+    source: "${INGESTION_VERSION_MATRIX_SOURCE:http}"
     http:
       url: "${INGESTION_VERSION_MATRIX_URL:}"
       refreshSeconds: ${INGESTION_VERSION_MATRIX_REFRESH_SECONDS:600}

@@ -104,10 +104,7 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   private final AtomicLong lastFetchedAtMillis;
   private final ObjectMapper objectMapper;
 
-  /**
-   * The background refresh scheduler. Held as a field so {@link #shutdown()} can stop it on Spring
-   * context teardown — without this, the thread would leak across context restarts in dev / tests.
-   */
+  /** Background refresh scheduler, stopped by {@link #shutdown()} on Spring context teardown. */
   private final ScheduledExecutorService executor;
 
   /** Convenience constructor for unauthenticated (public) URLs. */
@@ -137,9 +134,9 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   }
 
   /**
-   * Gracefully stop the background refresh on Spring context teardown. Without this hook the
-   * scheduled-executor thread keeps the JVM alive and leaks across context restarts (matters in dev
-   * and in test contexts that re-create the bean).
+   * Gracefully stop the background refresh on Spring context teardown. Spring invokes this hook
+   * during bean destruction so the scheduled-executor thread does not leak across context restarts
+   * (relevant in dev hot-reload and integration-test contexts that re-create the bean).
    */
   @PreDestroy
   public void shutdown() {
