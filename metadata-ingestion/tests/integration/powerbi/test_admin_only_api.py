@@ -307,13 +307,7 @@ def register_mock_admin_api(
                                         "reportUserAccessRight": "Owner",
                                     },
                                 ],
-                            },
-                            {
-                                "id": "0d8a7c10-3c4d-4f2a-9b7e-1a2b3c4d5e6f",
-                                "reportType": "PaginatedReport",
-                                "name": "AdminPaginatedReport",
-                                "description": "Paginated report without a datasetId; lineage unavailable in admin_apis_only mode",
-                            },
+                            }
                         ],
                     },
                 ]
