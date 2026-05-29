@@ -8,7 +8,12 @@ from pydantic import SecretStr
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
-from datahub.ingestion.source.github_documents.github_api import GitHubFileInfo
+from datahub.ingestion.source.github_documents.github_api import (
+    GitHubFileInfo,
+    make_dir_source_id,
+    make_file_source_id,
+    make_repo_source_id,
+)
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
@@ -20,6 +25,51 @@ from datahub.metadata.schema_classes import (
     DocumentInfoClass,
     DocumentSourceTypeClass,
 )
+
+
+def _entity_urns_by_source_id(workunits: list) -> dict[str, str]:
+    urns: dict[str, str] = {}
+    for wu in workunits:
+        if not isinstance(wu, MetadataWorkUnit):
+            continue
+        info = wu.get_aspect_of_type(DocumentInfoClass)
+        if not info or not info.customProperties:
+            continue
+        source_id = info.customProperties.get("import_source_id")
+        if source_id:
+            urns[source_id] = wu.get_urn()
+    return urns
+
+
+def _document_infos_by_source_id(workunits: list) -> dict[str, DocumentInfoClass]:
+    infos: dict[str, DocumentInfoClass] = {}
+    for wu in workunits:
+        if not isinstance(wu, MetadataWorkUnit):
+            continue
+        info = wu.get_aspect_of_type(DocumentInfoClass)
+        if info and info.customProperties:
+            source_id = info.customProperties.get("import_source_id")
+            if source_id:
+                infos[source_id] = info
+    return infos
+
+
+def _mock_github_client(
+    source: GitHubDocumentsSource,
+    *,
+    files: list[GitHubFileInfo],
+    tree_truncated: bool = False,
+    file_content: str | None = "# Hello",
+) -> None:
+    source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
+        return_value=(files, tree_truncated)
+    )
+    source.client.get_latest_commit_sha = MagicMock(  # type: ignore[method-assign]
+        return_value="abc123"
+    )
+    source.client.fetch_file_content = MagicMock(  # type: ignore[method-assign]
+        return_value=file_content
+    )
 
 
 @pytest.fixture
@@ -170,7 +220,9 @@ def test_test_connection_config_parse_failure() -> None:
     assert "Failed to parse config" in (report.internal_failure_reason or "")
 
 
-def test_external_mode_emits_external_source_type(source: GitHubDocumentsSource) -> None:
+def test_external_mode_emits_external_source_type(
+    source: GitHubDocumentsSource,
+) -> None:
     source.config.document_import_mode = DocumentImportMode.EXTERNAL
     source.client.list_matching_files = MagicMock(  # type: ignore[method-assign]
         return_value=([GitHubFileInfo(path="docs/readme.md", size=12)], False)
@@ -261,3 +313,71 @@ def test_parent_document_urn_skips_repo_root() -> None:
 
     list(source.get_workunits())
     assert source.report.folders_processed == 0
+
+
+def test_nested_file_hierarchy_links_parent_documents(
+    source: GitHubDocumentsSource,
+) -> None:
+    owner_repo = "acme/docs"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/guides/setup.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    infos = _document_infos_by_source_id(workunits)
+
+    repo_source_id = make_repo_source_id(owner_repo)
+    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
+    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+
+    repo_info = infos[repo_source_id]
+    guides_info = infos[guides_dir_source_id]
+    file_info = infos[file_source_id]
+
+    assert repo_info.parentDocument is None
+    assert guides_info.parentDocument is not None
+    assert guides_info.parentDocument.document == urns[repo_source_id]
+    assert file_info.parentDocument is not None
+    assert file_info.parentDocument.document == urns[guides_dir_source_id]
+
+
+def test_top_level_file_parent_is_repo_root(source: GitHubDocumentsSource) -> None:
+    owner_repo = "acme/docs"
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    urns = _entity_urns_by_source_id(workunits)
+    infos = _document_infos_by_source_id(workunits)
+
+    repo_source_id = make_repo_source_id(owner_repo)
+    file_source_id = make_file_source_id(owner_repo, "docs/readme.md")
+
+    assert infos[file_source_id].parentDocument is not None
+    assert infos[file_source_id].parentDocument.document == urns[repo_source_id]
+
+
+def test_configured_parent_document_urn_used_for_top_level_files() -> None:
+    parent_urn = "urn:li:document:parent"
+    config = GitHubDocumentsSourceConfig(
+        github_token=SecretStr("ghp_test"),
+        repository="acme/docs",
+        path_prefix="docs",
+        parent_document_urn=parent_urn,
+    )
+    source = GitHubDocumentsSource(config, PipelineContext(run_id="test-run"))
+    _mock_github_client(
+        source,
+        files=[GitHubFileInfo(path="docs/readme.md", size=12)],
+    )
+
+    workunits = list(source.get_workunits())
+    infos = _document_infos_by_source_id(workunits)
+    file_source_id = make_file_source_id("acme/docs", "docs/readme.md")
+
+    assert infos[file_source_id].parentDocument is not None
+    assert infos[file_source_id].parentDocument.document == parent_urn

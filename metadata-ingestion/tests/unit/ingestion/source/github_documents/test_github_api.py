@@ -112,9 +112,11 @@ def test_parse_repo_identifier_http_url() -> None:
 
 def test_list_matching_files_raises_when_tree_missing() -> None:
     client = GitHubApiClient("ghp_test")
-    with patch.object(client, "_get_json", return_value=None):
-        with pytest.raises(RuntimeError, match="Could not access branch"):
-            client.list_matching_files("acme/docs", "missing", "", [".md"])
+    with (
+        patch.object(client, "_get_json", return_value=None),
+        pytest.raises(RuntimeError, match="Could not access branch"),
+    ):
+        client.list_matching_files("acme/docs", "missing", "", [".md"])
 
 
 def test_list_matching_files_filters_extensions_and_prefix() -> None:
@@ -167,8 +169,12 @@ def test_fetch_file_content_decodes_base64_utf8() -> None:
 def test_fetch_file_content_uses_download_url() -> None:
     client = GitHubApiClient("ghp_test")
     with patch.object(client, "_get_json") as mock_get_json:
-        mock_get_json.return_value = {"download_url": "https://raw.githubusercontent.com/a/b"}
-        with patch.object(client, "_get_text", return_value="raw text") as mock_get_text:
+        mock_get_json.return_value = {
+            "download_url": "https://raw.githubusercontent.com/a/b"
+        }
+        with patch.object(
+            client, "_get_text", return_value="raw text"
+        ) as mock_get_text:
             content = client.fetch_file_content("acme/docs", "readme.md", "main")
     assert content == "raw text"
     mock_get_text.assert_called_once_with("https://raw.githubusercontent.com/a/b")

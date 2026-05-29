@@ -16,7 +16,7 @@ Store the token in a DataHub secret and reference it from your ingestion recipe.
 
 Ensure the token can read the repository, branch, and paths you configure.
 
-### Capabilities
+#### Supported imports
 
 - Import `.md`, `.txt`, and other configured extensions
 - Preserve folder hierarchy as parent-child documents

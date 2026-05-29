@@ -60,9 +60,7 @@ export type ImportDocumentsFromFilesResult = {
   documentUrns: string[];
 };
 
-export async function waitForImportDocumentsFromFiles(
-  page: Page,
-): Promise<ImportDocumentsFromFilesResult> {
+export async function waitForImportDocumentsFromFiles(page: Page): Promise<ImportDocumentsFromFilesResult> {
   const response = await page.waitForResponse(
     (res) => {
       if (!res.url().includes('graphql') || res.request().method() !== 'POST') {
@@ -94,9 +92,7 @@ export async function getDocumentParentUrn(page: Page, documentUrn: string): Pro
     { urn: documentUrn },
   );
 
-  const document = result.data?.document as
-    | { info?: { parentDocument?: { document?: { urn?: string } } } }
-    | undefined;
+  const document = result.data?.document as { info?: { parentDocument?: { document?: { urn?: string } } } } | undefined;
   return document?.info?.parentDocument?.document?.urn ?? null;
 }
 

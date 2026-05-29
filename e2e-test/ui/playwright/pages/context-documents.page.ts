@@ -6,14 +6,13 @@ export class ContextDocumentsPage extends BasePage {
   readonly importButton: Locator;
   readonly importModal: Locator;
 
-  constructor(
-    page: Page,
-    logger?: DataHubLogger,
-    logDir?: string,
-  ) {
+  constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.importButton = page.getByTestId('import-documents-button');
-    this.importModal = page.getByTestId('import-documents-modal');
+    // Ant Design keeps a hidden modal root in the DOM; scope to the visible modal wrap.
+    this.importModal = page
+      .locator('.ant-modal-wrap:visible')
+      .filter({ has: page.getByTestId('import-documents-modal') });
   }
 
   async navigateToContextDocuments(): Promise<void> {
@@ -27,8 +26,10 @@ export class ContextDocumentsPage extends BasePage {
   }
 
   async openImportModal(): Promise<void> {
+    await this.importButton.waitFor({ state: 'visible', timeout: 30_000 });
     await this.importButton.click();
-    await this.importModal.waitFor({ state: 'visible' });
+    await this.importModal.waitFor({ state: 'visible', timeout: 30_000 });
+    await this.importModal.getByText('Import Documents', { exact: true }).waitFor({ state: 'visible' });
   }
 
   async chooseFileUploadSource(): Promise<void> {

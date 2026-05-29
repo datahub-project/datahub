@@ -319,9 +319,21 @@ describe('MultiStepFormBottomPanel', () => {
     it('calls renderLeftButtons when provided', async () => {
         const mockRenderLeftButtons = vi.fn((buttons) => <div data-testid="custom-left">{buttons}</div>);
 
+        const TestComponent = () => {
+            const { setCurrentStepCompleted, currentStepIndex } = useMultiStepContext();
+
+            React.useEffect(() => {
+                if (currentStepIndex === 0) {
+                    setCurrentStepCompleted();
+                }
+            }, [currentStepIndex, setCurrentStepCompleted]);
+
+            return <MultiStepFormBottomPanel renderLeftButtons={mockRenderLeftButtons} />;
+        };
+
         renderWithTheme(
             <MultiStepFormProvider<TestState> steps={[mockStep1, mockStep2]}>
-                <MultiStepFormBottomPanel renderLeftButtons={mockRenderLeftButtons} />
+                <TestComponent />
             </MultiStepFormProvider>,
         );
 

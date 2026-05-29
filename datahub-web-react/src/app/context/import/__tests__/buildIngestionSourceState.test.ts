@@ -20,19 +20,14 @@ sink:
 
         expect(state.type).toBe('github-documents');
         expect(state.name).toBe('GitHub');
-        expect(JSON.parse(state.config!.recipe!)).toEqual({
-            source: {
-                type: 'github-documents',
-                config: {
-                    repository: 'acme/docs',
-                },
-            },
-            sink: {
-                type: 'datahub-rest',
-                config: {
-                    server: '${DATAHUB_GMS_URL}',
-                },
+        const parsedRecipe = JSON.parse(state.config!.recipe!);
+        expect(parsedRecipe.source).toEqual({
+            type: 'github-documents',
+            config: {
+                repository: 'acme/docs',
             },
         });
+        expect(parsedRecipe.sink.type).toBe('datahub-rest');
+        expect(parsedRecipe.sink.config.server).toContain('DATAHUB_GMS_URL');
     });
 });

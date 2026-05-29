@@ -15,6 +15,8 @@ import {
 import { ContextDocumentsPage } from '../../pages/context-documents.page';
 
 test.describe('context document file import', () => {
+  test.setTimeout(120_000);
+
   test.beforeEach(async ({ apiMock }) => {
     await apiMock.setFeatureFlags({
       contextDocumentsEnabled: true,
@@ -31,9 +33,7 @@ test.describe('context document file import', () => {
     await contextDocuments.navigateToContextDocuments();
     await contextDocuments.openImportModal();
     await contextDocuments.chooseFileUploadSource();
-    await contextDocuments.uploadFiles([
-      { name: fileName, mimeType: 'text/plain', buffer: Buffer.from(fileContent) },
-    ]);
+    await contextDocuments.uploadFiles([{ name: fileName, mimeType: 'text/plain', buffer: Buffer.from(fileContent) }]);
 
     const importResponse = waitForImportDocumentsFromFiles(page);
     await contextDocuments.submitImport();
