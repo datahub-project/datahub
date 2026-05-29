@@ -86,35 +86,19 @@ def _extract_connection_defaults(
     return db, schema
 
 
-def _api_call(name: str, paginated: bool = False) -> Callable[[_F], _F]:
-    """
-    Decorator that tracks Hex API calls on self.report.
+def _api_call(name: str) -> Callable[[_F], _F]:
+    """Decorator that increments self.report.api_calls[name] once per call.
 
-    For non-paginated methods: increments api_calls[name] once per call.
-    For paginated methods (paginated=True): increments api_calls[name] once
-    per outer invocation AND injects a _track_page() helper onto self that
-    the method body calls once per inner HTTP request. This produces:
-
-      api_calls["list_cells"]       # outer invocations (one per project)
-      api_calls["list_cells.pages"] # actual HTTP page requests
+    For paginated endpoints, the method body calls self._track_page(name) once
+    per inner HTTP request to populate api_calls[<name>.pages] alongside the
+    outer-invocation count.
     """
 
     def decorator(func: _F) -> _F:
-        pages_key = f"{name}.pages"
-
         @functools.wraps(func)
         def wrapper(self: "HexApi", *args: Any, **kwargs: Any) -> Any:
             self.report.api_calls[name] = self.report.api_calls.get(name, 0) + 1
             self.report.api_total_calls += 1
-            if paginated:
-                # Inject a page-tracking helper the method body can call.
-                def _track_page() -> None:
-                    self.report.api_calls[pages_key] = (
-                        self.report.api_calls.get(pages_key, 0) + 1
-                    )
-                    self.report.api_total_calls += 1
-
-                self._track_page = _track_page  # type: ignore[attr-defined]
             return func(self, *args, **kwargs)
 
         return wrapper  # type: ignore[return-value]
@@ -358,9 +342,6 @@ class HexApi:
         # entities skip the API hop entirely. Per-entity failures (unpublished,
         # network errors) do NOT flip this flag.
         self._queried_tables_tier_available: Optional[bool] = None
-        # Callable attribute, not a method, so @_api_call(paginated=True) can
-        # override it via self._track_page = ... without a [method-assign] error.
-        self._track_page: Callable[[], None] = lambda: None
         # Proactive rate limiter: stay under Hex's 60 req/min limit.
         # Patching session.request means every get/post/etc. is throttled
         # transparently — no call-site changes needed.
@@ -380,6 +361,12 @@ class HexApi:
 
     def _auth_header(self) -> Dict[str, str]:
         return {"Authorization": f"Bearer {self.token}"}
+
+    def _track_page(self, name: str) -> None:
+        """Bump the per-page counter for a paginated endpoint."""
+        pages_key = f"{name}.pages"
+        self.report.api_calls[pages_key] = self.report.api_calls.get(pages_key, 0) + 1
+        self.report.api_total_calls += 1
 
     def _create_retry_session(self) -> requests.Session:
         """Create a requests session with retry logic for rate limiting.
@@ -655,7 +642,7 @@ class HexApi:
             )
             return None
 
-    @_api_call("list_cells", paginated=True)
+    @_api_call("list_cells")
     def fetch_cells(self, project_id: str) -> List[dict]:
         """
         Return all cells for a project via paginated REST calls.
@@ -683,7 +670,7 @@ class HexApi:
                 )
                 resp.raise_for_status()
                 data = resp.json()
-                self._track_page()  # counts list_cells.pages
+                self._track_page("list_cells")
             except Exception as e:
                 self.report.warning(
                     title="Failed to fetch cells",
