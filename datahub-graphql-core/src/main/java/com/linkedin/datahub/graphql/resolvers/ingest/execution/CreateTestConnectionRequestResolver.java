@@ -4,6 +4,9 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -30,8 +33,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
-import org.json.JSONException;
-import org.json.JSONObject;
 
 /**
  * Creates an on-demand "test connection" ingestion execution request.
@@ -62,6 +63,9 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private static final String DEFAULT_EXECUTOR_ID = "default";
   private static final String SOURCE_FIELD = "source";
   private static final String TYPE_FIELD = "type";
+
+  /** Reused for the small recipe-JSON peek done by {@link #extractSourceType(String)}. */
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -179,17 +183,11 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
       return null;
     }
     try {
-      JSONObject recipe = new JSONObject(recipeJson);
-      if (!recipe.has(SOURCE_FIELD)) {
-        return null;
-      }
-      JSONObject source = recipe.getJSONObject(SOURCE_FIELD);
-      if (!source.has(TYPE_FIELD)) {
-        return null;
-      }
-      String type = source.getString(TYPE_FIELD);
-      return (type != null && !type.isEmpty()) ? type : null;
-    } catch (JSONException e) {
+      // path() returns a missing node when a segment is absent, so the chained lookup handles
+      // missing source / missing type uniformly without explicit has() checks.
+      JsonNode type = MAPPER.readTree(recipeJson).path(SOURCE_FIELD).path(TYPE_FIELD);
+      return type.isTextual() && !type.asText().isEmpty() ? type.asText() : null;
+    } catch (JsonProcessingException e) {
       log.debug("Could not extract source.type from recipe for version-matrix lookup", e);
       return null;
     }
