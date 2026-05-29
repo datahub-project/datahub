@@ -536,3 +536,81 @@ class TestHexTestConnection:
         assert lineage_cap.failure_reason is not None
         assert "403" in lineage_cap.failure_reason
         assert "Read projects" in lineage_cap.failure_reason
+
+
+class TestQueriedTablesFallback:
+    """Ingestion-level: when use_queried_tables_lineage=True and Hex's
+    /projects/{id}/queriedTables returns 403, SQL-cell parsing takes over,
+    the tier is marked unavailable, and a warning is surfaced in the report."""
+
+    def test_queried_tables_403_falls_back_to_sql_parsing(self):
+        project_id = "proj-1"
+        # lastPublishedAt is required — _build_lineage skips queriedTables for drafts.
+        project = {
+            "id": project_id,
+            "title": "Published",
+            "type": "PROJECT",
+            "lastPublishedAt": "2024-08-22T10:00:00Z",
+        }
+        sql_cell = {
+            "staticId": "cell-1",
+            "cellType": "SQL",
+            "dataConnectionId": "conn-sf",
+            "contents": {"sqlCell": {"source": "SELECT * FROM db.public.customers"}},
+        }
+
+        def make_response(status: int, payload: dict) -> MagicMock:
+            response = MagicMock(status_code=status, ok=status < 400)
+            response.json.return_value = payload
+            response.raise_for_status = MagicMock(
+                side_effect=None if status < 400 else Exception(f"HTTP {status}")
+            )
+            return response
+
+        def mock_get(url: str, **_: object) -> MagicMock:
+            if "queriedTables" in url:
+                return make_response(403, {})
+            if url.endswith("/data-connections"):
+                return make_response(
+                    200,
+                    {"values": [{"id": "conn-sf", "name": "SF", "type": "snowflake"}]},
+                )
+            if url.endswith("/cells"):
+                return make_response(200, {"values": [sql_cell], "pagination": {}})
+            if url.endswith("/projects"):
+                return make_response(200, {"values": [project], "pagination": {}})
+            return make_response(404, {})
+
+        # Empty export forces the connector down the /cells path.
+        def mock_post(_url: str, **_kwargs: object) -> MagicMock:
+            return make_response(200, {"content": "cells: []\n"})
+
+        config = {
+            "workspace_name": "ws",
+            "workspace_id": "ws-uuid",  # skip /users/me discovery
+            "token": "t",
+            "use_queried_tables_lineage": True,
+            "include_run_history": False,
+            "include_context_documents": False,
+        }
+
+        with patch(
+            "datahub.ingestion.source.hex.hex.HexApi._create_retry_session"
+        ) as factory:
+            session = MagicMock()
+            session.get.side_effect = mock_get
+            session.post.side_effect = mock_post
+            session.request.side_effect = lambda method, url, **kw: (
+                mock_post(url, **kw)
+                if method.upper() == "POST"
+                else mock_get(url, **kw)
+            )
+            factory.return_value = session
+
+            source = HexSource.create(config, PipelineContext(run_id="t"))
+            list(source.get_workunits_internal())
+
+        assert source.hex_api._queried_tables_tier_available is False
+        upstream = source.project_registry[project_id].upstream_datasets
+        assert upstream and any("db.public.customers" in u for u in upstream)
+        assert any("queriedTables" in (w.title or "") for w in source.report.warnings)
