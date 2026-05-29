@@ -645,15 +645,39 @@ class Mapper:
         """
         urns: List[str] = []
         for ds in report.datasources:
-            pair = POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(ds.datasource_type)
+            if ds.powerbi_dataset_id is not None:
+                # Bound to a shared Power BI dataset; lineage comes from
+                # report.dataset (resolved in PowerBiAPI.get_reports), not here.
+                continue
+
+            # Normalise like dataset_type_mapping does (e.g. "Amazon Redshift"
+            # -> "AmazonRedshift") so spaced API type names still resolve.
+            pair = POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type
+            ) or POWERBI_TYPE_TO_DATA_PLATFORM_PAIR.get(
+                ds.datasource_type.replace(" ", "")
+            )
             if pair is None:
                 self.__reporter.info(
                     title="Unmapped Paginated Report Datasource",
                     message=(
                         f"PowerBI datasource type {ds.datasource_type!r} has no "
-                        "SupportedDataPlatform mapping; lineage skipped."
+                        "DataHub platform mapping; lineage skipped."
                     ),
                     context=f"report={report.name}, server={ds.server}",
+                )
+                continue
+
+            # Respect a user-narrowed dataset_type_mapping, consistent with the
+            # M-Query lineage path: a platform excluded from the mapping should
+            # not produce lineage even though it is a known platform.
+            if not self.__config.is_platform_in_dataset_type_mapping(
+                ds.datasource_type
+            ):
+                logger.debug(
+                    "Skipping paginated report datasource for platform %r: not "
+                    "in dataset_type_mapping.",
+                    ds.datasource_type,
                 )
                 continue
 

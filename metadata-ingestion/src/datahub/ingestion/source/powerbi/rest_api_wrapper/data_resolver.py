@@ -864,6 +864,10 @@ class AdminAPIResolver(DataResolverBase):
     ) -> List[ReportDatasource]:
         # No admin-API variant exists for /reports/{id}/datasources;
         # callers in admin_apis_only mode will get empty lineage.
+        logger.debug(
+            "get_report_datasources is a no-op in admin_apis_only mode (report_id=%s)",
+            report_id,
+        )
         return []
 
     def get_modified_workspaces(self, modified_since: str) -> List[str]:

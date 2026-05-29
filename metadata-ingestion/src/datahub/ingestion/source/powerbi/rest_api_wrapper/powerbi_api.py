@@ -300,6 +300,21 @@ class PowerBiAPI:
                     f"workspace={workspace.name}, "
                     f"report_name={report.name}, report_id={report.id}"
                 )
+                if self.__config.admin_apis_only:
+                    # /reports/{id}/datasources has no admin-API variant, so
+                    # paginated report lineage cannot be fetched in this mode.
+                    self.reporter.info(
+                        title="Paginated Report Lineage Unavailable",
+                        message=(
+                            "Paginated report lineage requires the regular "
+                            "/reports/{id}/datasources API, which is "
+                            "unavailable in admin_apis_only mode. Disable "
+                            "admin_apis_only or grant Report.Read.All to the "
+                            "service principal to enable it."
+                        ),
+                        context=context,
+                    )
+                    continue
                 try:
                     report.datasources = self._get_resolver().get_report_datasources(
                         workspace=workspace, report_id=report.id
@@ -321,19 +336,40 @@ class PowerBiAPI:
                         context=context,
                     )
                 else:
-                    if not report.datasources:
-                        # API call succeeded with no rows: either the report
-                        # genuinely has no datasources, or we are in
-                        # admin_apis_only mode where this endpoint is a no-op.
+                    bound_dataset_id = next(
+                        (
+                            ds.powerbi_dataset_id
+                            for ds in report.datasources
+                            if ds.powerbi_dataset_id is not None
+                        ),
+                        None,
+                    )
+                    if bound_dataset_id is not None:
+                        # RDL report bound to a shared semantic model: reuse the
+                        # same dataset->report lineage as a regular report.
+                        report.dataset_id = bound_dataset_id
+                        report.dataset = self.dataset_registry.get(bound_dataset_id)
+                        if report.dataset is None:
+                            self.reporter.info(
+                                title="Missing Lineage For Paginated Report",
+                                message=(
+                                    "Paginated report is bound to a Power BI "
+                                    "dataset that was not found in any scanned "
+                                    "workspace (likely a cross-workspace "
+                                    "reference filtered by workspace_id_pattern); "
+                                    "lineage will be missing."
+                                ),
+                                context=f"{context}, dataset_id={bound_dataset_id}",
+                            )
+                    elif not report.datasources:
+                        # Succeeded with no rows: the report genuinely has no
+                        # datasources (admin_apis_only is handled earlier).
                         self.reporter.info(
                             title="Missing Lineage For Paginated Report",
                             message=(
-                                "Paginated report has no shared dataset and "
-                                "the /datasources endpoint returned no rows; "
-                                "upstream lineage will be empty. In "
-                                "admin_apis_only mode this endpoint is "
-                                "unavailable - grant Report.Read.All to the "
-                                "service principal to enable this fallback."
+                                "Paginated report has no shared dataset and the "
+                                "/datasources endpoint returned no rows; upstream "
+                                "lineage will be empty."
                             ),
                             context=context,
                         )
