@@ -4,8 +4,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PreDestroy;
 import java.io.InputStream;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -22,9 +25,11 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * {@link IngestionCliVersionMatrixSource} backed by a publicly-readable HTTP URL serving the matrix
- * JSON. Suitable for any deployment that wants to fetch the matrix from a CDN, object store (S3,
- * GCS), or a GitHub raw URL without rebuilding or redeploying GMS to change connector versions.
+ * {@link IngestionCliVersionMatrixSource} backed by a publicly-readable HTTP / HTTPS URL serving
+ * the matrix JSON. Suitable for any deployment that wants to fetch the matrix from a CDN, object
+ * store (S3, GCS), or a GitHub raw URL without rebuilding or redeploying GMS to change connector
+ * versions. Uses {@link java.net.http.HttpClient}, which is HTTP/HTTPS-only by design — non-HTTP
+ * schemes ({@code file://}, {@code jar://}, {@code ftp://}, …) are rejected at request-send time.
  *
  * <p>The remote JSON must follow this schema:
  *
@@ -103,6 +108,7 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   private final AtomicReference<IngestionCliVersionMatrix> cached;
   private final AtomicLong lastFetchedAtMillis;
   private final ObjectMapper objectMapper;
+  private final HttpClient httpClient;
 
   /** Background refresh scheduler, stopped by {@link #shutdown()} on Spring context teardown. */
   private final ScheduledExecutorService executor;
@@ -119,6 +125,8 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
     this.cached = new AtomicReference<>(IngestionCliVersionMatrix.EMPTY);
     this.lastFetchedAtMillis = new AtomicLong(0L);
     this.objectMapper = new ObjectMapper();
+    this.httpClient =
+        HttpClient.newBuilder().connectTimeout(Duration.ofMillis(FETCH_TIMEOUT_MS)).build();
 
     this.executor =
         Executors.newSingleThreadScheduledExecutor(
@@ -166,16 +174,29 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
   /** Package-private so tests can force a refresh without waiting for the scheduled tick. */
   void refresh() {
     try {
-      URL connectionUrl = new URL(url);
-      URLConnection conn = connectionUrl.openConnection();
-      conn.setConnectTimeout(FETCH_TIMEOUT_MS);
-      conn.setReadTimeout(FETCH_TIMEOUT_MS);
-      conn.setRequestProperty("User-Agent", "DataHub-GMS");
+      HttpRequest.Builder reqBuilder =
+          HttpRequest.newBuilder(URI.create(url))
+              .timeout(Duration.ofMillis(FETCH_TIMEOUT_MS))
+              .header("User-Agent", "DataHub-GMS")
+              .GET();
       if (authHeader != null && !authHeader.isEmpty()) {
-        conn.setRequestProperty("Authorization", authHeader);
+        reqBuilder.header("Authorization", authHeader);
+      }
+      // HttpClient enforces HTTP/HTTPS at send-time — non-HTTP schemes (file://, jar://, ftp://,
+      // …) throw IllegalArgumentException, which the outer catch turns into the same retain-cache
+      // WARN we already emit for other fetch failures.
+      HttpResponse<InputStream> response =
+          httpClient.send(reqBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
+
+      if (response.statusCode() / 100 != 2) {
+        log.warn(
+            "Non-2xx response fetching ingestion version matrix from {}: HTTP {}. Retaining last known matrix.",
+            url,
+            response.statusCode());
+        return;
       }
 
-      try (InputStream is = conn.getInputStream()) {
+      try (InputStream is = response.body()) {
         JsonNode root = objectMapper.readTree(is);
         IngestionCliVersionMatrix parsed;
         try {
@@ -200,6 +221,11 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
             url,
             parsed.size());
       }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.warn(
+          "Interrupted while refreshing ingestion version matrix from {}. Retaining last known matrix.",
+          url);
     } catch (Exception e) {
       log.warn(
           "Failed to refresh ingestion version matrix from {}. Retaining last known matrix.",

@@ -222,13 +222,23 @@ public class CreateIngestionExecutionRequestResolverTest {
     String json =
         String.format("{\"%s\":{\"%s\":{\"_default\":\"%s\"}}}", serverVersion, connector, version);
 
-    java.nio.file.Path tmp = java.nio.file.Files.createTempFile("matrix", ".json");
-    java.nio.file.Files.write(tmp, json.getBytes());
-    tmp.toFile().deleteOnExit();
+    com.sun.net.httpserver.HttpServer server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/matrix",
+        exchange -> {
+          byte[] body = json.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, body.length);
+          try (java.io.OutputStream os = exchange.getResponseBody()) {
+            os.write(body);
+          }
+        });
+    server.start();
+    Runtime.getRuntime().addShutdownHook(new Thread(() -> server.stop(0)));
+    String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/matrix";
 
     com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource httpSource =
-        new com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource(
-            tmp.toUri().toString(), 3600);
+        new com.linkedin.metadata.ingestion.HttpUrlIngestionCliVersionMatrixSource(url, 3600);
     IngestionCliVersionMatrixService svc =
         new IngestionCliVersionMatrixService(httpSource, serverVersion, null);
 
