@@ -14,7 +14,7 @@ type Props = {
 };
 
 export const AssertionSummaryContent = ({ assertion }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const lastEvaluatedAtMillis = assertion.runEvents?.runEvents?.[0]?.timestampMillis;
     return (
         <>

@@ -40,7 +40,7 @@ export const DataContractAssertionGroupSelect = ({
     selectedUrns,
     onSelect,
 }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <>
             <Category>

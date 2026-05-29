@@ -21,7 +21,7 @@ type Props = {
 };
 
 export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
     const externalUrl =

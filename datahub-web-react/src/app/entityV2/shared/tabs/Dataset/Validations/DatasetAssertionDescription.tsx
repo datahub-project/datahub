@@ -364,7 +364,7 @@ const TOOLTIP_MAX_WIDTH = 440;
  * For example, Column 'X' values are in [1, 2, 3]
  */
 export const DatasetAssertionDescription = ({ description, assertionInfo, lastEvaluation }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.labels');
     const { scope, aggregation, fields, operator, parameters, nativeType, nativeParameters, logic } =
         assertionInfo ?? {};

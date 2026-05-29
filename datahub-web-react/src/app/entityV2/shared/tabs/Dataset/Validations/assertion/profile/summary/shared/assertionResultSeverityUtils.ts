@@ -17,11 +17,11 @@ export const getAssertionResultSeverityDisplay = (result?: AssertionResult): Sev
 
     switch (String(result.severity).toUpperCase()) {
         case 'HIGH':
-            return { label: i18next.t('entity.validations:severity.high'), icon: HighSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.high'), icon: HighSeverityIcon };
         case 'MEDIUM':
-            return { label: i18next.t('entity.validations:severity.medium'), icon: MediumSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.medium'), icon: MediumSeverityIcon };
         case 'LOW':
-            return { label: i18next.t('entity.validations:severity.low'), icon: LowSeverityIcon };
+            return { label: i18next.t('entity.profile.validations:severity.low'), icon: LowSeverityIcon };
         default:
             return undefined;
     }

@@ -36,15 +36,15 @@ export function getTimeRangeDisplay(timeRange: TimeRange) {
     });
 
     if (isLessThanOneHour(timeRange)) {
-        return i18next.t('entity.validations:timeline.lastHour');
+        return i18next.t('entity.profile.validations:timeline.lastHour');
     }
     if (isLessThanOneDay(timeRange)) {
-        return i18next.t('entity.validations:timeline.lastDay');
+        return i18next.t('entity.profile.validations:timeline.lastDay');
     }
     if (isGreaterThanOneYear(timeRange)) {
-        return i18next.t('entity.validations:timeline.lastYear');
+        return i18next.t('entity.profile.validations:timeline.lastYear');
     }
-    return i18next.t('entity.validations:timeline.timeRange', { startDate, endDate });
+    return i18next.t('entity.profile.validations:timeline.timeRange', { startDate, endDate });
 }
 
 export const getFormattedTimeString = (timestampMs: number) => {

@@ -19,7 +19,7 @@ type Props = {
 };
 
 export const ProviderSummarySection = ({ assertion, showDivider = true }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const platformName = assertion?.platform?.properties?.displayName || assertion?.platform?.name;
     const hasPlatformLogo = !!assertion?.platform?.properties?.logoUrl;
     return (

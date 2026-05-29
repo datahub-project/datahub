@@ -12,7 +12,7 @@ type Props = {
 };
 
 export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     let scheduleText = '';
 
     const cronStr = definition.cron?.cron ?? evaluationSchedule?.cron;

@@ -34,7 +34,7 @@ const AssertionListContainer = styled.div`
  * Component used for rendering the Assertions Sub Tab on the Validations Tab
  */
 export const AcrylAssertionList = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();

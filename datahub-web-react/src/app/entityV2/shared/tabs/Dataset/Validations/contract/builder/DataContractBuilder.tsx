@@ -72,7 +72,7 @@ type Props = {
  * In order to build a data contract, we simply list all dataset assertions and allow the user to choose.
  */
 export const DataContractBuilder = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
     const isEdit = !!initialState;
     const [builderState, setBuilderState] = useState(initialState || DEFAULT_BUILDER_STATE);

@@ -69,18 +69,18 @@ const tryGetYAxisLabelForChartFromAssertionInfo = (
     let label: string | undefined;
     switch (assertionInfo?.type) {
         case AssertionType.Volume:
-            label = i18next.t('entity.validations:timeline.rowCount');
+            label = i18next.t('entity.profile.validations:timeline.rowCount');
             break;
         case AssertionType.Field:
             label = tryGetFieldAssertionYAxisLabel(assertionInfo.fieldAssertion);
             break;
         case AssertionType.Sql:
-            label = i18next.t('entity.validations:timeline.sqlQueryResult');
+            label = i18next.t('entity.profile.validations:timeline.sqlQueryResult');
             break;
         case AssertionType.DataSchema:
             break;
         case AssertionType.Freshness:
-            label = i18next.t('entity.validations:timeline.freshnessCheckResults');
+            label = i18next.t('entity.profile.validations:timeline.freshnessCheckResults');
             break;
         case AssertionType.Dataset:
             break;
@@ -94,7 +94,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
     let label: string | undefined;
     switch (info?.type) {
         case FieldAssertionType.FieldValues:
-            label = i18next.t('entity.validations:timeline.invalidRows');
+            label = i18next.t('entity.profile.validations:timeline.invalidRows');
             break;
         case FieldAssertionType.FieldMetric: {
             const maybeMetricType = info.fieldMetricAssertion?.metric;
@@ -103,7 +103,7 @@ function tryGetFieldAssertionYAxisLabel(info?: Maybe<FieldAssertionInfo>): strin
             } catch (e) {
                 // Best attempt
             }
-            label = label || maybeMetricType?.valueOf() || i18next.t('entity.validations:timeline.metricValue');
+            label = label || maybeMetricType?.valueOf() || i18next.t('entity.profile.validations:timeline.metricValue');
             break;
         }
         default:

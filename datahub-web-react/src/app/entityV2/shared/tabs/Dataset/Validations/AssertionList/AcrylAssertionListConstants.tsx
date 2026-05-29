@@ -21,25 +21,25 @@ const StyledCardTitle = styled.div<{ background: string; color: string }>`
 
 export const ASSERTION_TYPE_TO_HEADER_SUBTITLE: Record<AssertionType, string> = {
     get [AssertionType.Freshness]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.freshness');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.freshness');
     },
     get [AssertionType.Volume]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.volume');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.volume');
     },
     get [AssertionType.Field]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.field');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.field');
     },
     get [AssertionType.DataSchema]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.dataSchema');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataSchema');
     },
     get [AssertionType.Custom]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.custom');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.custom');
     },
     get [AssertionType.Sql]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.sql');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.sql');
     },
     get [AssertionType.Dataset]() {
-        return i18next.t('entity.validations:assertionTypeSubtitle.dataset');
+        return i18next.t('entity.profile.validations:assertionTypeSubtitle.dataset');
     },
 };
 
@@ -49,10 +49,10 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         backgroundColor: colors.bgSurfaceSuccess,
         resultType: AssertionResultType.Success,
         icon: <CheckOutlined />,
-        text: i18next.t('entity.validations:status.passing'),
+        text: i18next.t('entity.profile.validations:status.passing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceSuccess} color={colors.textSuccess}>
-                <CheckOutlined /> {i18next.t('entity.validations:status.passing')}
+                <CheckOutlined /> {i18next.t('entity.profile.validations:status.passing')}
             </StyledCardTitle>
         ),
     },
@@ -61,10 +61,10 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         backgroundColor: colors.bgSurfaceError,
         resultType: AssertionResultType.Failure,
         icon: <CloseOutlined />,
-        text: i18next.t('entity.validations:status.failing'),
+        text: i18next.t('entity.profile.validations:status.failing'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceError} color={colors.textError}>
-                <CloseOutlined /> {i18next.t('entity.validations:status.failing')}
+                <CloseOutlined /> {i18next.t('entity.profile.validations:status.failing')}
             </StyledCardTitle>
         ),
     },
@@ -73,10 +73,10 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         backgroundColor: colors.bgSurfaceWarning,
         resultType: AssertionResultType.Error,
         icon: <InfoCircleOutlined />,
-        text: i18next.t('entity.validations:status.errors'),
+        text: i18next.t('entity.profile.validations:status.errors'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurfaceWarning} color={colors.textWarning}>
-                <InfoCircleOutlined /> {i18next.t('entity.validations:status.error')}
+                <InfoCircleOutlined /> {i18next.t('entity.profile.validations:status.error')}
             </StyledCardTitle>
         ),
     },
@@ -85,10 +85,10 @@ export const getAssertionSummaryCardHeaderByStatus = (colors: ColorTheme) => ({
         backgroundColor: colors.bgSurface,
         resultType: null,
         icon: <InfoCircleOutlined />,
-        text: i18next.t('entity.validations:status.zeroRunning'),
+        text: i18next.t('entity.profile.validations:status.zeroRunning'),
         headerComponent: (
             <StyledCardTitle background={colors.bgSurface} color={colors.textTertiary}>
-                <InfoCircleOutlined /> {i18next.t('entity.validations:status.noRuns')}
+                <InfoCircleOutlined /> {i18next.t('entity.profile.validations:status.noRuns')}
             </StyledCardTitle>
         ),
     },

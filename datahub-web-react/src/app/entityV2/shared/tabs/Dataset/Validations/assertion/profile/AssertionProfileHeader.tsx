@@ -54,7 +54,7 @@ type Props = {
 // TODO: Add support for V2 styled actions: Delete, start, stop.
 // TODO: Replace with the newer close Icon.
 export const AssertionProfileHeader = ({ assertion, contract, result, canEditContract, close, refetch }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const isFieldAssertion = assertion?.info?.type === AssertionType.Field;
     return (
         <>

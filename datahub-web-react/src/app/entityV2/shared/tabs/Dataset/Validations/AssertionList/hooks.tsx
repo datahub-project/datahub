@@ -41,7 +41,7 @@ const LastRun = styled(Typography.Text)`
 `;
 
 export const useAssertionsTableColumns = ({ contract, refetch }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tl } = useTranslation('common.labels');
     const renderAssertionName = useCallback(
         (_, record) => (

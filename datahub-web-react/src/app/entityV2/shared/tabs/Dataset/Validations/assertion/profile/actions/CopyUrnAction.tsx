@@ -27,7 +27,7 @@ type Props = {
 };
 
 export const CopyUrnAction = ({ assertion, isExpandedView = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const [isUrnCopied, setIsUrnCopied] = useState(false);
     return (
         <ActionItem

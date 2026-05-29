@@ -40,7 +40,7 @@ type SummarySectionProps = {
 };
 
 export const AcrylAssertionSummarySection: React.FC<SummarySectionProps> = ({ group, visibleStatus }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const entityData = useEntityData();

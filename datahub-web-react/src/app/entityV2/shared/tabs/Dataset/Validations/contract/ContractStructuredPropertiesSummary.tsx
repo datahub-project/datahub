@@ -29,7 +29,7 @@ type Props = {
 };
 
 export const ContractStructuredPropertiesSummary = ({ contract, refetch }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     // turn `contract` into a `GenericEntityProperties` object
     const entityRegistry = useEntityRegistry();
     const entityData = entityRegistry.getGenericEntityProperties(EntityType.DataContract, contract);

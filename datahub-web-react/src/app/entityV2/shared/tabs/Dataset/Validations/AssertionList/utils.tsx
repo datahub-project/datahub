@@ -42,44 +42,44 @@ import {
 
 const ASSERTION_TYPE_NAME_MAP = {
     get VOLUME() {
-        return i18next.t('entity.validations:assertionType.volume');
+        return i18next.t('entity.profile.validations:assertionType.volume');
     },
     get SQL() {
-        return i18next.t('entity.validations:assertionType.sql');
+        return i18next.t('entity.profile.validations:assertionType.sql');
     },
     get FIELD() {
-        return i18next.t('entity.validations:assertionType.column');
+        return i18next.t('entity.profile.validations:assertionType.column');
     },
     get FRESHNESS() {
-        return i18next.t('entity.validations:assertionType.freshness');
+        return i18next.t('entity.profile.validations:assertionType.freshness');
     },
     get DATASET() {
-        return i18next.t('entity.validations:assertionType.other');
+        return i18next.t('entity.profile.validations:assertionType.other');
     },
     get DATA_SCHEMA() {
-        return i18next.t('entity.validations:assertionType.schema');
+        return i18next.t('entity.profile.validations:assertionType.schema');
     },
     get Unknown() {
-        return i18next.t('entity.validations:assertionType.unknown');
+        return i18next.t('entity.profile.validations:assertionType.unknown');
     },
 };
 const NO_STATUS = 'NO_STATUS';
 
 const ASSERTION_STATUS_NAME_MAP = {
     get FAILURE() {
-        return i18next.t('entity.validations:status.failing');
+        return i18next.t('entity.profile.validations:status.failing');
     },
     get SUCCESS() {
-        return i18next.t('entity.validations:status.passing');
+        return i18next.t('entity.profile.validations:status.passing');
     },
     get ERROR() {
-        return i18next.t('entity.validations:status.error');
+        return i18next.t('entity.profile.validations:status.error');
     },
     get INIT() {
-        return i18next.t('entity.validations:status.initializing');
+        return i18next.t('entity.profile.validations:status.initializing');
     },
     get [NO_STATUS]() {
-        return i18next.t('entity.validations:status.noStatus');
+        return i18next.t('entity.profile.validations:status.noStatus');
     },
 };
 
@@ -88,13 +88,13 @@ const getStatusGroupDisplayName = (name: string): string =>
 
 const RECOMMENDED_FILTER_NAME_MAP = {
     get [AssertionSourceType.External]() {
-        return i18next.t('entity.validations:sourceType.external');
+        return i18next.t('entity.profile.validations:sourceType.external');
     },
     get [AssertionSourceType.Native]() {
-        return i18next.t('entity.validations:sourceType.native');
+        return i18next.t('entity.profile.validations:sourceType.native');
     },
     get [AssertionSourceType.Inferred]() {
-        return i18next.t('entity.validations:sourceType.smartAssertions');
+        return i18next.t('entity.profile.validations:sourceType.smartAssertions');
     },
 };
 
@@ -133,7 +133,9 @@ const getGroupNameBySummary = (record) => {
         <TextContainer>
             <Title strong>{getStatusGroupDisplayName(record.name)}</Title>
             <Message type="secondary">
-                {i18next.t('entity.validations:assertionList.groupHeaderSummaryListTemplate', { listItems: list })}
+                {i18next.t('entity.profile.validations:assertionList.groupHeaderSummaryListTemplate', {
+                    listItems: list,
+                })}
             </Message>
         </TextContainer>
     );

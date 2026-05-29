@@ -124,7 +124,7 @@ const PopoverHeader = ({
     showProfileButton,
     onClickProfileButton,
 }: PopoverHeaderProps) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tl } = useTranslation('common.labels');
     return (
         <HeaderRow>
@@ -156,7 +156,7 @@ const PopoverHeader = ({
 };
 
 const ReasonSection = ({ reasonText }: { reasonText?: string }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     if (!reasonText) return null;
     return (
         <>
@@ -170,7 +170,7 @@ const ReasonSection = ({ reasonText }: { reasonText?: string }) => {
 };
 
 const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     if (!expectedText) return null;
     return (
         <>
@@ -184,7 +184,7 @@ const ExpectedSection = ({ expectedText }: { expectedText?: string }) => {
 };
 
 const SeveritySection = ({ result }: { result?: AssertionResult }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const severityDisplay = getAssertionResultSeverityDisplay(result);
     if (!severityDisplay) return null;
 
@@ -200,7 +200,7 @@ const SeveritySection = ({ result }: { result?: AssertionResult }) => {
 };
 
 const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: boolean }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     if (!show || !errorMessage) return null;
     return (
         <>
@@ -223,7 +223,7 @@ const MessageSection = ({ errorMessage, show }: { errorMessage?: string; show: b
 };
 
 const ExternalResultsSection = ({ assertion, result }: { assertion: Assertion; result?: AssertionResult }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     if (!isExternalAssertion(assertion)) return null;
 
     const externalResultsSections: React.ReactNode[] = [];

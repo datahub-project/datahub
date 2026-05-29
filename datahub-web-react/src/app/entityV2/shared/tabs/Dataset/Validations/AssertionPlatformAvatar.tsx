@@ -20,7 +20,7 @@ type Props = {
 };
 
 export const AssertionPlatformAvatar = ({ platform, externalUrl, noRightMargin }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const entityRegistry = useEntityRegistry();
     return (
         <Tooltip

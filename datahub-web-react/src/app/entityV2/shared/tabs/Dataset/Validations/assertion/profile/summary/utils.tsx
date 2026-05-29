@@ -363,7 +363,7 @@ export const useBuildAssertionPrimaryLabel = (
     monitorSchedule?: Maybe<CronSchedule>,
     options?: { showColumnTag?: boolean },
 ): JSX.Element => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     let primaryLabel = <Typography.Text>{t('datasetDescription.fallback.noDescription')}</Typography.Text>;
     if (assertionInfo?.description && assertionInfo?.type !== AssertionType.Field) {
         primaryLabel = <Typography.Text>{assertionInfo.description}</Typography.Text>;
@@ -421,7 +421,7 @@ export const useBuildAssertionPrimaryLabel = (
  */
 const useBuildSecondaryLabel = (assertionInfo?: Maybe<AssertionInfo>): JSX.Element | null => {
     const theme = useTheme();
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const entityRegistry = useEntityRegistry();
 
     // 1. Fetching the most recent actor data.

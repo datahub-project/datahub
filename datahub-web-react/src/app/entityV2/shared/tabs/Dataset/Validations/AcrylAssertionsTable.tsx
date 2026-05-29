@@ -107,7 +107,7 @@ export const AcrylAssertionsTable = ({
     onSelect,
     refetch,
 }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { entityData } = useEntityData();
     const [focusAssertionUrn, setFocusAssertionUrn] = useState<string | null>(null);
 

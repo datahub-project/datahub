@@ -21,7 +21,7 @@ type Props = {
 };
 
 export const CopyLinkAction = ({ assertion, isExpandedView = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const onCopyLink = useAssertionURNCopyLink(assertion.urn);
     return (
         <ActionItem

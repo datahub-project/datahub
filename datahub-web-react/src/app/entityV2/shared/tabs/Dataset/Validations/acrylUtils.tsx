@@ -42,10 +42,10 @@ const getStyledIconComponent = (type: AssertionType) => {
 export const ASSERTION_INFO = [
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.freshness');
+            return i18next.t('entity.profile.validations:assertionType.freshness');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.freshness');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.freshness');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.Freshness)),
         type: AssertionType.Freshness,
@@ -55,10 +55,10 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.volume');
+            return i18next.t('entity.profile.validations:assertionType.volume');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.volume');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.volume');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.Volume)),
         type: AssertionType.Volume,
@@ -68,10 +68,10 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.column');
+            return i18next.t('entity.profile.validations:assertionType.column');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.column');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.column');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.Field)),
         type: AssertionType.Field,
@@ -82,10 +82,10 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.schema');
+            return i18next.t('entity.profile.validations:assertionType.schema');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.schema');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.schema');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.DataSchema)),
         type: AssertionType.DataSchema,
@@ -95,10 +95,10 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.sql');
+            return i18next.t('entity.profile.validations:assertionType.sql');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.sql');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.sql');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.Sql)),
         type: AssertionType.Sql,
@@ -109,10 +109,10 @@ export const ASSERTION_INFO = [
     },
     {
         get name() {
-            return i18next.t('entity.validations:assertionType.other');
+            return i18next.t('entity.profile.validations:assertionType.other');
         },
         get description() {
-            return i18next.t('entity.validations:assertionTypeDescription.other');
+            return i18next.t('entity.profile.validations:assertionTypeDescription.other');
         },
         icon: React.createElement(getStyledIconComponent(AssertionType.Dataset)),
         type: AssertionType.Dataset,

@@ -42,7 +42,7 @@ type Props = {
 
 export const AssertionResultPill = ({ result, type = ResultStatusType.LATEST }: Props) => {
     const theme = useTheme();
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const resultType = result?.type;
     const resultColor = getResultColor(theme, resultType);
     const highlightColor = applyOpacityToHexColor(resultColor, 0.15);

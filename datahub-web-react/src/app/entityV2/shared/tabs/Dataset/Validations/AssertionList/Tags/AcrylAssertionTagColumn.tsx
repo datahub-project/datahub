@@ -67,7 +67,7 @@ interface AcrylAssertionTagColumnProps {
 }
 
 export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = ({ record, refetch }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);

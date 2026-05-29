@@ -39,40 +39,40 @@ export const getContractSummaryIcon = (
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return i18next.t('entity.validations:contractStatus.pending');
+        return i18next.t('entity.profile.validations:contractStatus.pending');
     }
     if (summary.total === 0) {
-        return i18next.t('entity.validations:contractStatus.noAssertionsRun');
+        return i18next.t('entity.profile.validations:contractStatus.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return i18next.t('entity.validations:contractStatus.passing');
+        return i18next.t('entity.profile.validations:contractStatus.passing');
     }
     if (summary.failing > 0) {
-        return i18next.t('entity.validations:contractStatus.failing');
+        return i18next.t('entity.profile.validations:contractStatus.failing');
     }
     if (summary.erroring > 0) {
-        return i18next.t('entity.validations:contractStatus.erroring');
+        return i18next.t('entity.profile.validations:contractStatus.erroring');
     }
-    return i18next.t('entity.validations:contractStatus.noAssertionsDefault');
+    return i18next.t('entity.profile.validations:contractStatus.noAssertionsDefault');
 };
 
 export const getContractSummaryMessage = (state: DataContractState, summary: AssertionStatusSummary) => {
     if (state === DataContractState.Pending) {
-        return i18next.t('entity.validations:contractMessage.pending');
+        return i18next.t('entity.profile.validations:contractMessage.pending');
     }
     if (summary.total === 0) {
-        return i18next.t('entity.validations:contractMessage.noAssertionsRun');
+        return i18next.t('entity.profile.validations:contractMessage.noAssertionsRun');
     }
     if (summary.passing === summary.total) {
-        return i18next.t('entity.validations:contractMessage.allPassing');
+        return i18next.t('entity.profile.validations:contractMessage.allPassing');
     }
     if (summary.failing > 0) {
-        return i18next.t('entity.validations:contractMessage.failing');
+        return i18next.t('entity.profile.validations:contractMessage.failing');
     }
     if (summary.erroring > 0) {
-        return i18next.t('entity.validations:contractMessage.erroring');
+        return i18next.t('entity.profile.validations:contractMessage.erroring');
     }
-    return i18next.t('entity.validations:contractMessage.noAssertionsDefault');
+    return i18next.t('entity.profile.validations:contractMessage.noAssertionsDefault');
 };
 
 /**
@@ -114,9 +114,10 @@ export const getDataContractCategoryFromAssertion = (assertion: Assertion) => {
 
 export const getDataContractCategoryLabel = (category: DataContractCategoryType): string => {
     const labels: Record<DataContractCategoryType, () => string> = {
-        [DataContractCategoryType.FRESHNESS]: () => i18next.t('entity.validations:contractCategory.freshness'),
-        [DataContractCategoryType.SCHEMA]: () => i18next.t('entity.validations:contractCategory.schema'),
-        [DataContractCategoryType.DATA_QUALITY]: () => i18next.t('entity.validations:contractCategory.dataQuality'),
+        [DataContractCategoryType.FRESHNESS]: () => i18next.t('entity.profile.validations:contractCategory.freshness'),
+        [DataContractCategoryType.SCHEMA]: () => i18next.t('entity.profile.validations:contractCategory.schema'),
+        [DataContractCategoryType.DATA_QUALITY]: () =>
+            i18next.t('entity.profile.validations:contractCategory.dataQuality'),
     };
     return labels[category]?.() ?? category;
 };

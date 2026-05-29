@@ -31,7 +31,7 @@ interface DetailsColumnProps {
 }
 
 export function DetailsColumn({ assertion, contract, lastEvaluation, onViewAssertionDetails }: DetailsColumnProps) {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     if (!assertion.info) {
         return <>{t('assertionList.noDetailsFound')}</>;
     }

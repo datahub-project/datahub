@@ -10,6 +10,6 @@ const SecondaryText = styled.div`
  * No results yet summarization.
  */
 export const NoResultsSummary = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     return <SecondaryText>{t('noResults.thisAssertionNotEvaluated')}</SecondaryText>;
 };

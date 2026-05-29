@@ -24,7 +24,7 @@ type Props = {
 };
 
 export const DataContractAssertionStatus = ({ assertion }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const latestRun = (assertion.runEvents?.runEvents?.length && assertion.runEvents?.runEvents[0]) || undefined;
     const latestResultType = latestRun?.result?.type || undefined;
 

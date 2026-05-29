@@ -25,7 +25,7 @@ const AcrylAssertionSummaryContainer = styled.div`
     overflow: auto;
 `;
 export const AcrylAssertionSummaryTab = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { urn } = useEntityData();
 
     const isHideSiblingMode = useIsSeparateSiblingsMode();

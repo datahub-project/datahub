@@ -20,7 +20,7 @@ type Props = {
 };
 
 export const SchemaSummaryModal = ({ schema, onClose }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tc } = useTranslation('common.actions');
     return (
         <Modal

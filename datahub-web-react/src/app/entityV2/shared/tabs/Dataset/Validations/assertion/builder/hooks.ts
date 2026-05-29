@@ -6,7 +6,7 @@ import { useHistory, useLocation } from 'react-router';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 
 export const useAssertionURNCopyLink = (urn: string) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
 
     const onCopyLink = () => {
         const assertionUrn = urn;

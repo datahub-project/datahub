@@ -43,7 +43,7 @@ type Props = {
 };
 
 export const ContractAction = ({ assertion, contract, canEdit, refetch, isExpandedView = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { urn: entityUrn } = useEntityData();
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();

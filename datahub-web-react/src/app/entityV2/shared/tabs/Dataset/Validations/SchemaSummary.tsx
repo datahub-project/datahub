@@ -41,7 +41,7 @@ type Props = {
 };
 
 export const SchemaSummary = ({ schema }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const columns = [
         {
             title: () => <ColumnHeader>{t('schemaSummary.nameColumn')}</ColumnHeader>,

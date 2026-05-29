@@ -47,7 +47,7 @@ export const AssertionScheduleSummary = ({
     nextEvaluatedAtMillis,
     isStopped = false,
 }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const localeTimezone = getLocaleTimezone();
 
     /**

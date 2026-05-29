@@ -65,21 +65,21 @@ export const getResultErrorMessage = (result: AssertionResult) => {
 
     switch (errorType) {
         case AssertionResultErrorType.SourceConnectionError:
-            return i18next.t('entity.validations:error.unableToConnect');
+            return i18next.t('entity.profile.validations:error.unableToConnect');
         case AssertionResultErrorType.SourceQueryFailed:
-            return i18next.t('entity.validations:error.failedEvaluateQuery');
+            return i18next.t('entity.profile.validations:error.failedEvaluateQuery');
         case AssertionResultErrorType.InsufficientData:
-            return i18next.t('entity.validations:error.notEnoughData');
+            return i18next.t('entity.profile.validations:error.notEnoughData');
         case AssertionResultErrorType.InvalidParameters:
-            return i18next.t('entity.validations:error.invalidParameters');
+            return i18next.t('entity.profile.validations:error.invalidParameters');
         case AssertionResultErrorType.InvalidSourceType:
-            return i18next.t('entity.validations:error.invalidSourceType');
+            return i18next.t('entity.profile.validations:error.invalidSourceType');
         case AssertionResultErrorType.UnsupportedPlatform:
-            return i18next.t('entity.validations:error.unsupportedPlatform');
+            return i18next.t('entity.profile.validations:error.unsupportedPlatform');
         case AssertionResultErrorType.CustomSqlError:
-            return i18next.t('entity.validations:error.customSqlError');
+            return i18next.t('entity.profile.validations:error.customSqlError');
         default:
-            return i18next.t('entity.validations:error.unknownError');
+            return i18next.t('entity.profile.validations:error.unknownError');
     }
 };
 

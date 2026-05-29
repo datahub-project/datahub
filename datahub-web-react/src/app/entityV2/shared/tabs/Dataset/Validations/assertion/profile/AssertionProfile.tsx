@@ -25,7 +25,7 @@ type Props = {
 // TODO: Handling Loading Errors.
 
 export const AssertionProfile = ({ urn, contract, close, refetch }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const {
         data,
         loading,

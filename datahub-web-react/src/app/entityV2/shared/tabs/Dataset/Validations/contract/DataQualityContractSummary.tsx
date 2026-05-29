@@ -44,7 +44,7 @@ type Props = {
 };
 
 export const DataQualityContractSummary = ({ contracts, showAction = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tl } = useTranslation('common.labels');
     const assertions: Assertion[] = contracts?.map((contract) => contract.assertion);
 

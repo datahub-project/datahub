@@ -23,7 +23,7 @@ const SubTitle = styled(Typography.Text)`
 `;
 
 export const AssertionListTitleContainer = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <AssertionTitleContainer>
             <div className="left-section">

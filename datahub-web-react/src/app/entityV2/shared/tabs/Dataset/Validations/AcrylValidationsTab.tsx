@@ -51,7 +51,7 @@ const DEFAULT_TAB = TabPaths.SUMMARY;
  * Acryl-specific component used for rendering the Entity Validations Tab.
  */
 export const AcrylValidationsTab = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const history = useHistory();
     const { pathname } = useLocation();
     const { entityData } = useEntityData();

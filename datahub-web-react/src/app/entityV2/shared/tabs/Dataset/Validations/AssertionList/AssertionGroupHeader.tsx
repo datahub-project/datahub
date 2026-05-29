@@ -40,7 +40,7 @@ type Props = {
 };
 
 export const AssertionGroupHeader = ({ group }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { summary } = group;
     const inactiveCount = summary.totalAssertions - summary.total;
     const parts = [

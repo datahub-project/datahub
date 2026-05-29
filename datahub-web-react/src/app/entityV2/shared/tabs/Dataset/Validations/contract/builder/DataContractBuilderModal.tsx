@@ -30,7 +30,7 @@ type Props = {
  * This component is a modal used for constructing new Data Contracts
  */
 export const DataContractBuilderModal = ({ entityUrn, initialState, onSubmit, onCancel }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? t('contractBuilder.titleEdit') : t('contractBuilder.newContractTitle');
 

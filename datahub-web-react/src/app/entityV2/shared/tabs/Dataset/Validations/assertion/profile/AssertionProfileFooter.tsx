@@ -29,7 +29,7 @@ const StyledBell = styled(BellTwoTone)`
 
 // TODO: Add support for V2 styled actions: Delete, start, stop.
 export const AssertionProfileFooter = () => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     return (
         <Container>
             <Tip>

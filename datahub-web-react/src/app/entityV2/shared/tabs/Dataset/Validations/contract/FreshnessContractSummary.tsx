@@ -56,7 +56,7 @@ type Props = {
 };
 
 export const FreshnessContractSummary = ({ contracts, showAction = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     // TODO: Support multiple per-asset contracts.
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const assertionDefinition = firstContract?.assertion?.info?.freshnessAssertion?.schedule;

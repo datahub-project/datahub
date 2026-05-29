@@ -28,7 +28,7 @@ type Props = {
 // TODO: Add the run summary table here as well.
 // TODO: here's where we will switch on the assertion itself.
 export const AssertionResultsTimeline = ({ assertion }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     /**
      * Retrieve a specific assertion's evaluations between a particular start and end time.
      */

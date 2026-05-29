@@ -12,7 +12,7 @@ const DataContractLogo = styled(AuditOutlined)`
 `;
 
 export const DataContractBadge = ({ link }: { link: string }) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const theme = useTheme();
     return (
         <Tooltip

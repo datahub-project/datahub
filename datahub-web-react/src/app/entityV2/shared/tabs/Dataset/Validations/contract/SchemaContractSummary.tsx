@@ -40,7 +40,7 @@ type Props = {
 };
 
 export const SchemaContractSummary = ({ contracts, showAction = false }: Props) => {
-    const { t } = useTranslation('entity.validations');
+    const { t } = useTranslation('entity.profile.validations');
     const { t: tl } = useTranslation('common.labels');
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const schemaMetadata = firstContract?.assertion?.info?.schemaAssertion?.schema;
