@@ -263,11 +263,7 @@ def test_powerbi_ingest_with_report_pattern(
     with open(tmp_path / "powerbi_report_server_mces.json") as f:
         output = json.load(f)
 
-    urns = [
-        entry.get("entityUrn", "")
-        for entry in output
-        if entry.get("entityUrn")
-    ]
+    urns = [entry.get("entityUrn", "") for entry in output if entry.get("entityUrn")]
     # Denied report is absent
     assert not any(denied_report_id in urn for urn in urns)
     # Other reports are still present
