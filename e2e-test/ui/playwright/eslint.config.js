@@ -27,14 +27,48 @@ module.exports = tseslint.config(
             // _ prefix is the TS convention for intentionally-unused parameters
             '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
 
-            // networkidle, force:true, waitForTimeout, and expect-expect are intentionally used
-            // across DataHub Playwright tests for reasons documented at the usage sites:
-            //   - networkidle: GraphQL responses remain in-flight after navigation
-            //   - force/waitForTimeout: Ant Design component workarounds
-            //   - expect-expect: assertions delegated into POM helper methods
+            // --- Locator discipline -------------------------------------------------
+            // Raw CSS/XPath strings must live in page objects, never in spec files.
+            // Exemptions: iframe selectors have no ARIA equivalent.
+            'playwright/no-raw-locators': ['error', { allowed: ['iframe'] }],
+
+            // Prefer semantic built-ins (getByRole, getByLabel, …) over page.locator()
+            'playwright/prefer-native-locators': 'warn',
+
+            // first()/nth() usually signals a missing data-testid
+            'playwright/no-nth-methods': 'warn',
+
+            // --- Deprecated / fragile APIs -----------------------------------------
+            // ElementHandle is deprecated; use Locator API instead
+            'playwright/no-element-handle': 'error',
+
+            // page.$eval / page.$$eval are hard to debug and race-prone
+            'playwright/no-eval': 'error',
+
+            // --- Correctness -------------------------------------------------------
+            // Catches forgotten await on Playwright calls
+            'playwright/missing-playwright-await': 'error',
+
+            // Prevents assertions outside test blocks
+            'playwright/no-standalone-expect': 'error',
+
+            // Blocks accidental .only from being committed
+            'playwright/no-focused-test': 'error',
+
+            // expect(locator).toBeVisible() > expect(await locator.isVisible()).toBe(true)
+            'playwright/prefer-web-first-assertions': 'error',
+
+            // --- Code quality ------------------------------------------------------
+            'playwright/no-duplicate-hooks': 'error',
+            'playwright/prefer-hooks-on-top': 'warn',
+
+            // --- Intentional overrides (documented) --------------------------------
+            // networkidle: GraphQL responses remain in-flight after navigation
             'playwright/no-networkidle': 'off',
+            // force/waitForTimeout: Ant Design component workarounds
             'playwright/no-force-option': 'off',
             'playwright/no-wait-for-timeout': 'off',
+            // expect-expect: assertions delegated into POM helper methods
             'playwright/expect-expect': 'off',
             'playwright/no-wait-for-selector': 'off',
             'playwright/no-skipped-test': 'off',
