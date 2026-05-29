@@ -1,24 +1,57 @@
+import i18next from 'i18next';
+
 import { AccessTokenDuration } from '@types';
 
 /** The duration for which an Access Token is valid. */
 export const ACCESS_TOKEN_DURATIONS = [
-    { text: '1 hour', duration: AccessTokenDuration.OneHour },
-    { text: '1 day', duration: AccessTokenDuration.OneDay },
-    { text: '1 month', duration: AccessTokenDuration.OneMonth },
-    { text: '3 months', duration: AccessTokenDuration.ThreeMonths },
-    { text: 'Never', duration: AccessTokenDuration.NoExpiry },
+    {
+        get text() {
+            return i18next.t('settings.tokens:duration.oneHour');
+        },
+        duration: AccessTokenDuration.OneHour,
+    },
+    {
+        get text() {
+            return i18next.t('settings.tokens:duration.oneDay');
+        },
+        duration: AccessTokenDuration.OneDay,
+    },
+    {
+        get text() {
+            return i18next.t('settings.tokens:duration.oneMonth');
+        },
+        duration: AccessTokenDuration.OneMonth,
+    },
+    {
+        get text() {
+            return i18next.t('settings.tokens:duration.threeMonths');
+        },
+        duration: AccessTokenDuration.ThreeMonths,
+    },
+    {
+        get text() {
+            return i18next.t('settings.tokens:duration.never');
+        },
+        duration: AccessTokenDuration.NoExpiry,
+    },
 ];
 
 const addHours = (hour: number) => {
     const result = new Date();
     result.setHours(result.getHours() + hour);
-    return `The token will expire on ${result.toLocaleDateString()} at ${result.toLocaleTimeString()}.`;
+    return i18next.t('settings.tokens:tokenWillExpireOn', {
+        date: result.toLocaleDateString(),
+        time: result.toLocaleTimeString(),
+    });
 };
 
 const addDays = (days: number) => {
     const result = new Date();
     result.setDate(result.getDate() + days);
-    return `The token will expire on ${result.toLocaleDateString()} at ${result.toLocaleTimeString()}.`;
+    return i18next.t('settings.tokens:tokenWillExpireOn', {
+        date: result.toLocaleDateString(),
+        time: result.toLocaleTimeString(),
+    });
 };
 
 export const getTokenExpireDate = (duration: AccessTokenDuration) => {
@@ -32,7 +65,7 @@ export const getTokenExpireDate = (duration: AccessTokenDuration) => {
         case AccessTokenDuration.ThreeMonths:
             return addDays(90);
         case AccessTokenDuration.NoExpiry:
-            return 'This token will never expire.';
+            return i18next.t('settings.tokens:tokenNeverExpires');
         default:
             return AccessTokenDuration.OneMonth;
     }

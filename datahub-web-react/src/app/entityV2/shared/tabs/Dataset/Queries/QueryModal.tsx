@@ -35,14 +35,14 @@ const QueryDetails = styled.div`
 const QueryTitle = styled(Typography.Title)<{ secondary?: boolean }>`
     && {
         margin-bottom: 16px;
-        color: ${(props) => (props.secondary && props.theme.colors.border) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 
 const StyledViewer = styled(Editor)<{ secondary?: boolean }>`
     .remirror-editor.ProseMirror {
         padding: 0;
-        color: ${(props) => (props.secondary && props.theme.colors.border) || undefined};
+        color: ${(props) => (props.secondary && props.theme.colors.textSecondary) || undefined};
     }
 `;
 

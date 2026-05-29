@@ -54,8 +54,8 @@ jobs:
           distribution: "zulu"
           java-version: 21
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
-      - name: run prettier --check
-        run: ./gradlew :datahub-web-react:mdPrettierCheck
+      - name: run markdown checks
+        run: ./gradlew :datahub-web-react:mdPrettierCheck :datahub-web-react:docusaurusMarkdownLint
 
   github-actions-format:
     name: github_actions_format_check
@@ -249,7 +249,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: "20"
+          node-version: "22"
       - name: Install dependencies
         working-directory: e2e-test/ui/playwright
         run: yarn install --frozen-lockfile

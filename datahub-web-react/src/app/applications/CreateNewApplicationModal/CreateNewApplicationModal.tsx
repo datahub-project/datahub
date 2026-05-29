@@ -1,6 +1,6 @@
 import { Modal } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ModalButton } from '@components/components/Modal/Modal';
 
@@ -19,16 +19,24 @@ type CreateNewApplicationModalProps = {
 };
 
 const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ onCreate, onClose, open }) => {
-    const { user } = useUserContext();
+    const { loaded: userLoaded, user } = useUserContext();
     const initialOwners = useMemo(() => (user ? [user] : []), [user]);
     const initialOwnerUrns = useMemo(() => initialOwners.map((owner) => owner.urn), [initialOwners]);
     const [applicationName, setApplicationName] = useState('');
     const [applicationDescription, setApplicationDescription] = useState('');
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
     const [createApplicationMutation] = useCreateApplicationMutation();
     const [batchAddOwnersMutation] = useBatchAddOwnersMutation();
+
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
     const clearFields = useCallback(() => {
         setApplicationName('');
@@ -106,7 +114,7 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             color: 'violet',
             variant: 'filled',
             onClick: onOk,
-            disabled: !applicationName || isLoading,
+            disabled: !applicationName || isLoading || !hasInitializedDefaultOwner,
             isLoading,
         },
     ];
@@ -129,7 +137,8 @@ const CreateNewApplicationModal: React.FC<CreateNewApplicationModalProps> = ({ o
             <OwnersSection
                 selectedOwnerUrns={selectedOwnerUrns}
                 setSelectedOwnerUrns={setSelectedOwnerUrns}
-                defaultOwners={user ? [user] : []}
+                isDisabled={!hasInitializedDefaultOwner}
+                isLoading={!hasInitializedDefaultOwner}
             />
         </Modal>
     );

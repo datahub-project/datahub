@@ -10,6 +10,7 @@ import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkMod
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -97,7 +98,7 @@ export const LinkList = () => {
                             <List.Item.Meta
                                 title={
                                     <Typography.Title level={5}>
-                                        <a href={link.url} target="_blank" rel="noreferrer">
+                                        <a href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                                             <ListOffsetIcon>
                                                 <LinkIcon url={link.url} />
                                             </ListOffsetIcon>

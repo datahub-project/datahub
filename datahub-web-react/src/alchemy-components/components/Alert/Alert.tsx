@@ -21,11 +21,21 @@ const DEFAULT_ICONS: Record<AlertVariant, React.ReactNode> = {
  * Inline status banner for success, error, warning, info, and brand messages.
  * Colors are derived from semantic theme tokens based on the variant.
  */
-export function Alert({ variant, title, description, icon, onClose, action, className, style }: AlertProps) {
+export function Alert({
+    variant,
+    title,
+    description,
+    icon,
+    onClose,
+    action,
+    className,
+    style,
+    'data-testid': dataTestId,
+}: AlertProps) {
     const displayIcon = icon ?? DEFAULT_ICONS[variant];
 
     return (
-        <AlertContainer $variant={variant} className={className} style={style}>
+        <AlertContainer $variant={variant} className={className} style={style} data-testid={dataTestId}>
             <AlertIconWrapper $variant={variant}>{displayIcon}</AlertIconWrapper>
             <AlertContent $variant={variant}>
                 <Text weight="semiBold" size="md">
