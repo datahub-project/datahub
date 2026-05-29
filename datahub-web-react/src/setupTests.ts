@@ -9,6 +9,7 @@ import { initReactI18next } from 'react-i18next';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
+import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
@@ -30,6 +31,7 @@ i18n.use(initReactI18next).init({
         'common.actions',
         'entity.identity',
         'entity.ownership',
+        'entity.profile.validations',
         'entity.views',
         'home.v2',
         'home.v3',
@@ -47,6 +49,7 @@ i18n.use(initReactI18next).init({
             'common.actions': enCommonActions,
             'entity.identity': enEntityIdentity,
             'entity.ownership': enEntityOwnership,
+            'entity.profile.validations': enEntityProfileValidations,
             'entity.views': enEntityViews,
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
