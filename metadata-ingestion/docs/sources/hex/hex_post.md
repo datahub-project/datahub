@@ -50,7 +50,7 @@ Enable by configuring `stateful_ingestion`. Projects deleted in Hex are soft-del
 
 #### Context Documents
 
-When `include_context_documents` is enabled (default), the connector emits a DataHub Document per Project and per Component containing SQL sources, visualization metadata, and notebook documentation.
+Opt-in via `include_context_documents: true`. When enabled, the connector emits a DataHub Document per Project and per Component containing SQL sources, visualization metadata, and notebook documentation.
 
 #### Run History
 

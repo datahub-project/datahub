@@ -164,10 +164,11 @@ class HexSourceConfig(
         "setting lastRefreshed.",
     )
     include_context_documents: bool = Field(
-        default=True,
-        description="Emit a DataHub Document per project containing SQL sources, "
-        "visualisation metadata, and notebook documentation. Documents are hidden from "
-        "global search and linked to the project Dashboard for AI agent retrieval.",
+        default=False,
+        description="Emit a DataHub Document per Project and per Component containing "
+        "SQL sources, visualisation metadata, and notebook documentation. Documents "
+        "are hidden from global search and linked to the Dashboard/Chart for AI agent "
+        "retrieval.",
     )
     category_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),

@@ -14,11 +14,15 @@ source:
     # include_components: false
     # include_lineage: false
     # include_run_history: false
-    # include_context_documents: false
     # set_ownership_from_email: false
     # collections_as_tags: false
     # status_as_tag: false
     # categories_as_tags: false
+
+    # (Optional) Emit a DataHub Document per Project and per Component for
+    # AI agent retrieval. Off by default — opt in if you use AI agents and
+    # want context documents in your catalog.
+    # include_context_documents: true
 
     # (Optional) Hex Enterprise workspaces only — use Hex's queriedTables API
     # as the primary lineage source for published projects/components.

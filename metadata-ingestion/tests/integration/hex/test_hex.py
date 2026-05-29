@@ -89,6 +89,7 @@ def test_hex_ingestion(pytestconfig, hex_mock_api_runner, test_resources_dir, tm
                     "base_url": "http://localhost:8000/api/v1",  # Mock Hex API URL
                     "platform_instance": "hex_test",
                     "include_lineage": False,
+                    "include_context_documents": True,
                 },
             },
             "sink": {
@@ -134,6 +135,7 @@ def test_hex_ingestion_with_lineage(
                     "base_url": "http://localhost:8000/api/v1",
                     "platform_instance": "hex_test",
                     "include_lineage": True,
+                    "include_context_documents": True,
                     "stateful_ingestion": {
                         "enabled": False,
                     },
