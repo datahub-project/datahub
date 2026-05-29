@@ -163,7 +163,9 @@ class KafkaEventSource(EventSource):
 
     # Pre-deserialization filter state (populated by set_filters when enabled)
     _skip_mcl_entirely: bool = field(default=False, init=False)
-    _early_mcl_criteria: Dict[str, Any] = field(default_factory=dict, init=False)
+    _early_mcl_criteria_list: List[Dict[str, Any]] = field(
+        default_factory=list, init=False
+    )
     _pipeline_name: str = field(default="", init=False)
 
     def __init__(self, config: KafkaEventSourceConfig, ctx: PipelineContext):
@@ -200,7 +202,7 @@ class KafkaEventSource(EventSource):
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
         self._skip_mcl_entirely = False
-        self._early_mcl_criteria: Dict[str, Any] = {}
+        self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
 
         # Initialize lag monitoring (if enabled)
@@ -244,6 +246,58 @@ class KafkaEventSource(EventSource):
         return cls(config, ctx)
 
     def set_filters(self, filters: List[Filter]) -> None:
+        """
+        Configure pre-deserialization filtering for MCL events (optimization).
+
+        CONSERVATIVE BY DESIGN: This optimization extracts what it CAN check before
+        deserialization and uses that for early rejection. Events that pass the early
+        filter will still be fully evaluated by the pipeline filter after deserialization.
+
+        FILTER SEMANTICS:
+        - Predicates are evaluated with OR logic: pass if ANY predicate matches
+        - Within a predicate, constraints are AND: must match ALL constraints
+        - List values use IN logic: field value must be in the list
+
+        Example:
+          predicates = [
+            {
+              entityType: "dataset",
+              aspectName: ["documentation", "ownership"]  # matches if aspectName IN this list
+            },  # predicate 1
+            {
+              entityType: "dataHubExecutionRequest",
+              changeType: "UPSERT",
+              aspectName: ["dataHubExecutionRequestInput", "dataHubExecutionRequestSignal"],
+              aspect: {value: {executorId: "default"}}  # NOT extractable - requires deserialization
+            },  # predicate 2
+            {
+              aspect: {value: {executorId: "default"}}  # NO extractable fields
+            }   # predicate 3
+          ]
+
+          Filter logic:
+            (entityType="dataset" AND aspectName IN ["documentation", "ownership"])
+            OR
+            (entityType="dataHubExecutionRequest" AND changeType="UPSERT"
+             AND aspectName IN ["dataHubExecutionRequestInput", "dataHubExecutionRequestSignal"]
+             AND aspect.value.executorId="default")
+            OR
+            (aspect.value.executorId="default")
+
+        OPTIMIZATION REQUIREMENT:
+        Optimization is ONLY enabled when ALL predicates have at least one extractable
+        field from _MCL_EARLY_FILTER_FIELDS (entityType, aspectName, entityUrn, changeType).
+
+        WHY: If ANY predicate has zero extractable fields (like predicate 3 above),
+        we cannot check that predicate early. Since predicates use OR semantics,
+        any message MIGHT match the unoptimizable predicate, so we cannot safely
+        reject anything. The optimization becomes useless and must be disabled.
+
+        When enabled, we extract partial criteria from each predicate (ignoring
+        non-extractable fields like aspect.value.executorId in predicate 2) and
+        apply OR semantics for early rejection. Messages passing the early filter
+        proceed to full deserialization and complete evaluation.
+        """
         if not self.source_config.enable_mcl_pre_deserialization_filter:
             logger.debug(
                 f"KafkaEventSource [{self._pipeline_name}]: MCL pre-deserialization filter disabled. "
@@ -289,39 +343,42 @@ class KafkaEventSource(EventSource):
             )
             return
 
-        # Collect early criteria from the MCL predicates.
-        # Only the known top-level Avro scalar fields are eligible; dict-valued fields
-        # require avrogen deserialization and are excluded.
-        early_criteria: Dict[str, Any] = {}
-        for predicate in mcl_predicates:
-            for key, val in predicate.items():
-                if key not in _MCL_EARLY_FILTER_FIELDS:
-                    continue
-                if not isinstance(val, dict):
-                    if key not in early_criteria:
-                        early_criteria[key] = val
-                    elif early_criteria[key] != val:
-                        logger.warning(
-                            f"KafkaEventSource [{self._pipeline_name}]: conflicting values "
-                            f"for '{key}' across MCL predicate list items — cannot apply "
-                            "pre-deserialization check for this field; it will be evaluated "
-                            "after avrogen deserialization."
-                        )
-                        early_criteria.pop(key)
+        # Extract early-checkable criteria from each predicate.
+        # CONSERVATIVE: We extract only what we CAN check (scalar/list fields from
+        # _MCL_EARLY_FILTER_FIELDS) and ignore fields that require deserialization.
+        # This creates a "partial view" of each predicate that's safe for early rejection.
+        criteria_list: List[Dict[str, Any]] = []
 
-        self._early_mcl_criteria = early_criteria
-        if early_criteria:
-            logger.info(
-                f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL criteria "
-                f"(checked before avrogen deserialization): {early_criteria}"
-            )
-        else:
-            logger.debug(
-                f"KafkaEventSource [{self._pipeline_name}]: enable_mcl_pre_deserialization_filter is set "
-                "but no eligible pre-deserialization fields were found in the MCL predicates. "
-                f"Early filtering is only applied on: {sorted(_MCL_EARLY_FILTER_FIELDS)}. "
-                "MCL messages will proceed to full avrogen deserialization."
-            )
+        for predicate in mcl_predicates:
+            # Extract ONLY the fields we can check pre-deserialization
+            predicate_criteria: Dict[str, Any] = {}
+
+            for key, val in predicate.items():
+                if key in _MCL_EARLY_FILTER_FIELDS and not isinstance(val, dict):
+                    # Scalar or list value that's accessible on raw Kafka message
+                    predicate_criteria[key] = val
+                # Ignore: key not in _MCL_EARLY_FILTER_FIELDS or dict-valued (requires deserialization)
+
+            if not predicate_criteria:
+                # This predicate has NO extractable fields - cannot optimize.
+                # If we can't check this predicate early, any message might match it (OR semantics),
+                # so we cannot safely reject anything. Disable optimization.
+                logger.warning(
+                    f"KafkaEventSource [{self._pipeline_name}]: MCL pre-deserialization "
+                    f"optimization skipped - at least one predicate has no extractable fields. "
+                    f"All fields in that predicate require deserialization. "
+                    f"Optimization only supports scalar/list values for: {sorted(_MCL_EARLY_FILTER_FIELDS)}. "
+                    f"All MCL events will proceed to full deserialization and filter evaluation."
+                )
+                return
+
+            criteria_list.append(predicate_criteria)
+
+        self._early_mcl_criteria_list = criteria_list
+        logger.info(
+            f"KafkaEventSource [{self._pipeline_name}]: pre-deserialization MCL optimization active. "
+            f"Criteria (OR semantics - pass if ANY match, conservative by design): {criteria_list}"
+        )
 
     def events(self) -> Iterable[EventEnvelope]:
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
@@ -370,22 +427,46 @@ class KafkaEventSource(EventSource):
         logger.info("Kafka consumer exiting main loop")
 
     def handle_mcl(self, msg: Any) -> Iterable[EventEnvelope]:
+        """
+        Handle MCL message with optional pre-deserialization filtering.
+
+        CONSERVATIVE BY DESIGN: If early criteria are configured, we check if the
+        message matches ANY criteria (OR semantics). If no match, reject early.
+        If match, proceed to deserialization and full filter evaluation.
+        """
         if self._skip_mcl_entirely:
             MCL_EARLY_FILTER_METRIC.labels(
                 pipeline_name=self._pipeline_name, result="entirely_rejected"
             ).inc()
             return
 
-        if self._early_mcl_criteria:
+        if self._early_mcl_criteria_list:
             raw: Dict[str, Any] = msg.value()
-            for key, val in self._early_mcl_criteria.items():
-                raw_val = raw.get(key)
-                match = raw_val in val if isinstance(val, list) else raw_val == val
-                if not match:
-                    MCL_EARLY_FILTER_METRIC.labels(
-                        pipeline_name=self._pipeline_name, result="rejected"
-                    ).inc()
-                    return
+
+            # OR semantics: pass if ANY criteria matches
+            matched = False
+            for criteria in self._early_mcl_criteria_list:
+                # AND within a single criteria: all keys must match
+                all_match = True
+                for key, val in criteria.items():
+                    raw_val = raw.get(key)
+                    match = raw_val in val if isinstance(val, list) else raw_val == val
+                    if not match:
+                        all_match = False
+                        break
+
+                if all_match:
+                    matched = True
+                    break
+
+            if not matched:
+                # No criteria matched - early reject (conservative: definite non-match)
+                MCL_EARLY_FILTER_METRIC.labels(
+                    pipeline_name=self._pipeline_name, result="rejected"
+                ).inc()
+                return
+
+            # At least one criteria matched - pass through (conservative: might match after full eval)
             MCL_EARLY_FILTER_METRIC.labels(
                 pipeline_name=self._pipeline_name, result="passed"
             ).inc()

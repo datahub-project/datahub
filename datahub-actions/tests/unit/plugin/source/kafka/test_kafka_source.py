@@ -128,7 +128,7 @@ def test_set_filters_noop_when_disabled():
     source = _make_source(enable_mcl_pre_deserialization_filter=False)
     source.set_filters([_ece_only_filter()])
     assert not source._skip_mcl_entirely
-    assert source._early_mcl_criteria == {}
+    assert source._early_mcl_criteria_list == []
 
 
 def test_set_filters_noop_when_no_event_type_filter():
@@ -137,7 +137,7 @@ def test_set_filters_noop_when_no_event_type_filter():
     source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source.set_filters([])  # no filters at all
     assert not source._skip_mcl_entirely
-    assert source._early_mcl_criteria == {}
+    assert source._early_mcl_criteria_list == []
 
 
 def test_set_filters_skip_mcl_entirely_when_no_mcl_type():
@@ -150,12 +150,13 @@ def test_set_filters_extracts_scalar_early_criteria():
     source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source.set_filters([_mcl_filter_with_entity_type("dataset")])
     assert not source._skip_mcl_entirely
-    assert source._early_mcl_criteria.get("entityType") == "dataset"
+    assert source._early_mcl_criteria_list == [{"entityType": "dataset"}]
 
 
-def test_set_filters_ignores_non_mcl_early_filter_fields():
-    """Fields outside the allowed set (entityType, aspectName, entityUrn, changeType)
-    must not appear in _early_mcl_criteria."""
+def test_set_filters_disabled_when_predicate_has_no_extractable_fields():
+    """Predicates with only nested/dict fields have no extractable criteria.
+    If ANY predicate has no extractable fields, optimization must be disabled
+    (OR semantics: any message might match the unoptimizable predicate)."""
     ctx = PipelineContext(pipeline_name="test", graph=None)
     f = EventTypeFilter.create(
         {
@@ -170,8 +171,8 @@ def test_set_filters_ignores_non_mcl_early_filter_fields():
     source = _make_source(enable_mcl_pre_deserialization_filter=True)
     source.set_filters([f])
     assert not source._skip_mcl_entirely
-    # dict-valued field excluded from early criteria
-    assert "aspect" not in source._early_mcl_criteria
+    # Optimization disabled - predicate has no extractable fields
+    assert source._early_mcl_criteria_list == []
 
 
 def test_handle_mcl_skipped_when_skip_mcl_entirely():
@@ -184,7 +185,7 @@ def test_handle_mcl_skipped_when_skip_mcl_entirely():
 
 def test_handle_mcl_skipped_when_early_criteria_not_matched():
     source = _make_source(enable_mcl_pre_deserialization_filter=True)
-    source._early_mcl_criteria = {"entityType": "schemaField"}
+    source._early_mcl_criteria_list = [{"entityType": "schemaField"}]
     msg = TestMessage(_MCL_MSG)  # entityType == "dataset"
     result = list(source.handle_mcl(msg))
     assert result == []
@@ -192,7 +193,7 @@ def test_handle_mcl_skipped_when_early_criteria_not_matched():
 
 def test_handle_mcl_passes_when_early_criteria_matched():
     source = _make_source(enable_mcl_pre_deserialization_filter=True)
-    source._early_mcl_criteria = {"entityType": "dataset"}
+    source._early_mcl_criteria_list = [{"entityType": "dataset"}]
     msg = TestMessage(_MCL_MSG)
     result = list(source.handle_mcl(msg))
     assert len(result) == 1
@@ -214,17 +215,17 @@ def test_handle_pe_not_affected_by_mcl_pre_deserialization_filter():
             },
         }
     )
-    for skip_mcl, early_criteria in [
-        (True, {}),
-        (False, {"entityType": "schemaField"}),
+    for skip_mcl, early_criteria_list in [
+        (True, []),
+        (False, [{"entityType": "schemaField"}]),
     ]:
         source = _make_source(enable_mcl_pre_deserialization_filter=True)
         source._skip_mcl_entirely = skip_mcl
-        source._early_mcl_criteria = early_criteria
+        source._early_mcl_criteria_list = early_criteria_list
 
         result = list(source.handle_pe(pe_msg))
         assert len(result) == 1, (
             f"PE event must pass through regardless of skip_mcl={skip_mcl}, "
-            f"early_criteria={early_criteria}"
+            f"early_criteria_list={early_criteria_list}"
         )
         assert result[0].event_type == "EntityChangeEvent_v1"

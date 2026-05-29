@@ -203,3 +203,112 @@ def test_body_predicate_or_across_predicate_list():
 def test_empty_predicate_list_rejects_all():
     f = _make_filter({"filter": {METADATA_CHANGE_LOG_EVENT_V1_TYPE: {"event": []}}})
     assert not f.matches(_env(METADATA_CHANGE_LOG_EVENT_V1_TYPE, entityType="dataset"))
+
+
+# ── nested/deep matching ──────────────────────────────────────────────────────
+
+
+def test_body_predicate_nested_dict_match():
+    """Predicates can match nested dictionary structures."""
+    f = _make_filter(
+        {
+            "filter": {
+                METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
+                    "event": [
+                        {
+                            "entityType": "dataHubExecutionRequest",
+                            "aspect": {"value": {"executorId": "default"}},
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    assert f.matches(
+        _env(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+            entityType="dataHubExecutionRequest",
+            aspect={"value": {"executorId": "default"}},
+        )
+    )
+
+
+def test_body_predicate_nested_dict_no_match():
+    """Nested dictionary predicates correctly reject non-matches."""
+    f = _make_filter(
+        {
+            "filter": {
+                METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
+                    "event": [
+                        {
+                            "entityType": "dataHubExecutionRequest",
+                            "aspect": {"value": {"executorId": "default"}},
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    assert not f.matches(
+        _env(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+            entityType="dataHubExecutionRequest",
+            aspect={"value": {"executorId": "custom"}},  # wrong executorId
+        )
+    )
+
+
+def test_body_predicate_mixed_scalar_and_nested():
+    """Predicates can combine scalar and nested dictionary matching."""
+    f = _make_filter(
+        {
+            "filter": {
+                METADATA_CHANGE_LOG_EVENT_V1_TYPE: {
+                    "event": [
+                        {
+                            "entityType": "dataHubExecutionRequest",
+                            "changeType": "UPSERT",
+                            "aspectName": [
+                                "dataHubExecutionRequestInput",
+                                "dataHubExecutionRequestSignal",
+                            ],
+                            "aspect": {"value": {"executorId": "default"}},
+                        }
+                    ]
+                }
+            }
+        }
+    )
+
+    # All conditions match
+    assert f.matches(
+        _env(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+            entityType="dataHubExecutionRequest",
+            changeType="UPSERT",
+            aspectName="dataHubExecutionRequestInput",
+            aspect={"value": {"executorId": "default"}},
+        )
+    )
+
+    # Scalar mismatch (wrong changeType)
+    assert not f.matches(
+        _env(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+            entityType="dataHubExecutionRequest",
+            changeType="DELETE",
+            aspectName="dataHubExecutionRequestInput",
+            aspect={"value": {"executorId": "default"}},
+        )
+    )
+
+    # Nested mismatch (wrong executorId)
+    assert not f.matches(
+        _env(
+            METADATA_CHANGE_LOG_EVENT_V1_TYPE,
+            entityType="dataHubExecutionRequest",
+            changeType="UPSERT",
+            aspectName="dataHubExecutionRequestInput",
+            aspect={"value": {"executorId": "custom"}},
+        )
+    )
