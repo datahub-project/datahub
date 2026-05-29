@@ -118,3 +118,27 @@ def test_get_avro_schema_for_sqlalchemy_unknown_column():
     assert schema_fields[0].type.type == NullTypeClass()
     assert schema_fields[0].fieldPath == "[version=2.0].[type=null]"
     assert schema_fields[0].nativeDataType == "test"
+
+
+def test_null_type_columns_get_unique_field_paths():
+    # When the dialect can't reflect a column type (rare gaps in SqlAlchemy dialects, or
+    # complex nested types not exposed by the dialect), SqlAlchemy hands back a real
+    # NullType instance. Each such column must get its column name appended so they don't
+    # collide on the shared `[version=2.0].[type=null]` path, which previously caused
+    # multiple columns to be reported as a single entry.
+    inspector_magic_mock = MagicMock()
+    inspector_magic_mock.dialect = DefaultDialect()
+
+    field_a = get_schema_fields_for_sqlalchemy_column(
+        column_name="col_a",
+        column_type=types.NullType(),
+        inspector=inspector_magic_mock,
+    )
+    field_b = get_schema_fields_for_sqlalchemy_column(
+        column_name="col_b",
+        column_type=types.NullType(),
+        inspector=inspector_magic_mock,
+    )
+    assert field_a[0].fieldPath == "[version=2.0].[type=null].col_a"
+    assert field_b[0].fieldPath == "[version=2.0].[type=null].col_b"
+    assert field_a[0].fieldPath != field_b[0].fieldPath

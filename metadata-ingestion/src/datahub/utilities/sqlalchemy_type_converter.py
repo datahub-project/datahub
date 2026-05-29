@@ -226,12 +226,19 @@ def get_schema_fields_for_sqlalchemy_column(
             )
         ]
 
-    # for all non-nested data types an additional modification of the `fieldPath` property is required
+    # For all non-nested data types we additionally suffix `fieldPath` with the column name
+    # so each column has a unique path. NullType is included for two reasons:
+    #   1. It is the fallback for any column whose type SqlAlchemy can't reflect (rare dialect
+    #      gaps, complex nested types the dialect doesn't expose), and
+    #   2. Without it, every such column would share the path `[version=2.0].[type=null]`,
+    #      which collapses them into a single entry downstream — observable as missing or
+    #      duplicate column names for affected tables.
     if type(column_type) in (
         *SqlAlchemyColumnToAvroConverter.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys(),
         types.TIMESTAMP,
         types.DATE,
         types.DECIMAL,
+        types.NullType,
     ):
         schema_fields[0].fieldPath += f".{column_name}"
 
