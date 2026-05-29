@@ -1,8 +1,9 @@
 import logging
 import re
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
 from threading import current_thread
 from typing import Any, Dict, List, Optional
@@ -1361,9 +1362,13 @@ class TestLineageQuerySeparation:
                     assert any("query 1/2" in str(call) for call in info_calls)
                     assert any("query 2/2" in str(call) for call in info_calls)
 
-                    # Should log completion of both queries
-                    assert any("Completed query 1" in str(call) for call in info_calls)
-                    assert any("Completed query 2" in str(call) for call in info_calls)
+                    # Should log completion of both queries (new format: "Completed lineage query_N")
+                    assert any(
+                        "Completed lineage query_1" in str(call) for call in info_calls
+                    )
+                    assert any(
+                        "Completed lineage query_2" in str(call) for call in info_calls
+                    )
 
 
 class TestQueryConstruction:
@@ -4619,3 +4624,235 @@ class TestViewProcessingErrorCounters:
         assert source.report.view_parse_errors == 0
         assert source.report.view_permission_errors == 0
         assert source.report.view_unknown_errors == 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers for _fetch_lineage_entries_chunked tests
+# ---------------------------------------------------------------------------
+
+
+def _make_lineage_source(
+    extra_config: Optional[Dict[str, Any]] = None,
+) -> TeradataSource:
+    """Lineage source with time-window config set so _fetch_lineage_entries_chunked works."""
+    cfg = {
+        **_base_config(),
+        "include_usage_statistics": True,
+        "start_time": datetime(2024, 1, 1, tzinfo=timezone.utc),
+        "end_time": datetime(2024, 1, 2, tzinfo=timezone.utc),
+        **(extra_config or {}),
+    }
+    return _create_source_patched(cfg)
+
+
+@contextmanager
+def _patch_lineage_fetch(
+    source: TeradataSource,
+    rows: list,
+    query_sql: str = "SELECT 1",
+    sleep_seconds: float = 0.0,
+):
+    """Context manager that patches the minimal set of methods so that
+    _fetch_lineage_entries_chunked returns *rows* without hitting a real DB.
+
+    *sleep_seconds* lets tests simulate a slow query by injecting a
+    time.sleep() call inside the patched _execute_with_cursor_fallback.
+    """
+    mock_conn = _make_mock_conn()
+    result_mock = MagicMock()
+    # fetchmany: first call returns rows, second signals end-of-results.
+    result_mock.fetchmany.side_effect = [rows, []]
+
+    def _fake_execute(conn, sql, **kwargs):
+        if sleep_seconds:
+            time.sleep(sleep_seconds)
+        return result_mock
+
+    patches = [
+        patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+        patch.object(
+            source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+        ),
+        patch.object(
+            source, "_execute_with_cursor_fallback", side_effect=_fake_execute
+        ),
+        patch.object(source, "_make_lineage_queries", return_value=[query_sql]),
+    ]
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        yield
+
+
+class TestLineageQueryTimingReport:
+    """lineage_query_timings and lineage_slow_queries_detected are populated
+    correctly by _fetch_lineage_entries_chunked."""
+
+    def test_timing_recorded_for_single_query(self):
+        """After a successful fetch the timing dict has one entry."""
+        source = _make_lineage_source()
+
+        with _patch_lineage_fetch(source, rows=[("r1",), ("r2",)]):
+            results = list(source._fetch_lineage_entries_chunked())
+
+        assert results == [("r1",), ("r2",)]
+        assert len(source.report.lineage_query_timings) == 1
+        label, elapsed = next(iter(source.report.lineage_query_timings.items()))
+        assert label.startswith("query_1 (")
+        assert elapsed >= 0.0
+
+    def test_label_is_current_only_when_no_pdcrinfo(self):
+        """A query that does not reference PDCRINFO gets the 'current_only' label."""
+        source = _make_lineage_source()
+        current_sql = "SELECT * FROM DBC.QryLogV WHERE ts > '2024-01-01'"
+
+        with _patch_lineage_fetch(source, rows=[], query_sql=current_sql):
+            list(source._fetch_lineage_entries_chunked())
+
+        assert "query_1 (current_only)" in source.report.lineage_query_timings
+
+    def test_label_is_historical_union_when_pdcrinfo_present(self):
+        """A query referencing PDCRINFO gets the 'historical_union' label."""
+        source = _make_lineage_source()
+        union_sql = (
+            "SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst UNION SELECT * FROM DBC.QryLogV"
+        )
+
+        with _patch_lineage_fetch(source, rows=[], query_sql=union_sql):
+            list(source._fetch_lineage_entries_chunked())
+
+        assert "query_1 (historical_union)" in source.report.lineage_query_timings
+
+    def test_multiple_queries_produce_one_timing_entry_each(self):
+        """When _make_lineage_queries returns N queries, N entries appear in the dict."""
+        source = _make_lineage_source()
+        mock_conn = _make_mock_conn()
+        result_mock = MagicMock()
+        result_mock.fetchmany.side_effect = [[], [], []]  # empty result for each query
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(
+                source,
+                "_execute_with_cursor_fallback",
+                return_value=result_mock,
+            ),
+            patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[
+                    "SELECT * FROM DBC.QryLogV",
+                    "SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst",
+                ],
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        assert len(source.report.lineage_query_timings) == 2
+        assert "query_1 (current_only)" in source.report.lineage_query_timings
+        assert "query_2 (historical_union)" in source.report.lineage_query_timings
+
+    def test_no_slow_query_detected_below_threshold(self):
+        """A fast query does not increment lineage_slow_queries_detected."""
+        source = _make_lineage_source({"lineage_slow_query_log_seconds": 60.0})
+
+        with _patch_lineage_fetch(source, rows=[], sleep_seconds=0.0):
+            list(source._fetch_lineage_entries_chunked())
+
+        assert source.report.lineage_slow_queries_detected == 0
+
+    def test_slow_query_increments_counter_and_warns(self, caplog):
+        """A query exceeding the threshold increments the counter and logs a warning."""
+        source = _make_lineage_source({"lineage_slow_query_log_seconds": 0.001})
+
+        sql = "SELECT * FROM DBC.QryLogV WHERE ts > '2024-01-01'"
+        with (
+            _patch_lineage_fetch(source, rows=[], query_sql=sql, sleep_seconds=0.05),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        assert source.report.lineage_slow_queries_detected == 1
+
+        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        assert len(slow_warnings) == 1
+        warning_msg = slow_warnings[0].message
+        assert "query_1 (current_only)" in warning_msg
+        assert "threshold" in warning_msg
+
+    def test_slow_query_warning_includes_sql_snippet(self, caplog):
+        """The warning message contains a prefix of the SQL text."""
+        source = _make_lineage_source({"lineage_slow_query_log_seconds": 0.001})
+
+        distinctive = "SELECT distinctive_marker FROM DBC.QryLogV"
+        with (
+            _patch_lineage_fetch(
+                source, rows=[], query_sql=distinctive, sleep_seconds=0.05
+            ),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        assert len(slow_warnings) == 1
+        assert "distinctive_marker" in slow_warnings[0].message
+
+    def test_slow_query_sql_truncated_to_500_chars(self, caplog):
+        """SQL longer than 500 characters is truncated with an ellipsis in the warning."""
+        source = _make_lineage_source({"lineage_slow_query_log_seconds": 0.001})
+
+        long_sql = "SELECT " + "x" * 600 + " FROM DBC.QryLogV"
+        with (
+            _patch_lineage_fetch(
+                source, rows=[], query_sql=long_sql, sleep_seconds=0.05
+            ),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        assert len(slow_warnings) == 1
+        assert "…" in slow_warnings[0].message
+
+    def test_disabled_threshold_never_warns(self, caplog):
+        """Setting lineage_slow_query_log_seconds=0 disables slow-query logging."""
+        source = _make_lineage_source({"lineage_slow_query_log_seconds": 0.0})
+
+        with (
+            _patch_lineage_fetch(source, rows=[], sleep_seconds=0.05),
+            caplog.at_level(
+                logging.WARNING, logger="datahub.ingestion.source.sql.teradata"
+            ),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        assert len(slow_warnings) == 0
+        assert source.report.lineage_slow_queries_detected == 0
+
+    def test_new_report_fields_default_to_zero(self):
+        """TeradataReport defaults: empty timings dict, zero slow-query counter."""
+        report = TeradataReport()
+        assert report.lineage_query_timings == {}
+        assert report.lineage_slow_queries_detected == 0
+
+    def test_config_default_threshold_is_60_seconds(self):
+        """lineage_slow_query_log_seconds defaults to 60.0."""
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.lineage_slow_query_log_seconds == 60.0
+
+    def test_config_threshold_accepts_zero(self):
+        """lineage_slow_query_log_seconds=0 is accepted (disables the feature)."""
+        config = TeradataConfig.model_validate(
+            {**_base_config(), "lineage_slow_query_log_seconds": 0}
+        )
+        assert config.lineage_slow_query_log_seconds == 0.0

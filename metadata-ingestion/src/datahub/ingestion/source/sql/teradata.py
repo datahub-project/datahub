@@ -992,6 +992,15 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     lineage_start_time: Optional[datetime] = None
     lineage_end_time: Optional[datetime] = None
 
+    # Per-query execution timing for lineage fetch.
+    # Value: total elapsed seconds covering
+    # both the execute step and the complete result fetch.
+    lineage_query_timings: Dict[str, float] = field(default_factory=dict)
+
+    # Number of lineage queries whose total execution time exceeded
+    # config.lineage_slow_query_log_seconds.
+    lineage_slow_queries_detected: int = 0
+
     # Audit query processing statistics
     num_audit_query_entries_processed: int = 0
 
@@ -1315,6 +1324,17 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "If no lineage row batch arrives from DBC.QryLogV within this many seconds, "
             "emit a warning identifying the stalled phase. Set to 0 to disable. "
             "Default is 300 (5 minutes)."
+        ),
+    )
+
+    lineage_slow_query_log_seconds: float = Field(
+        default=60.0,
+        ge=0.0,
+        description=(
+            "When a single lineage query (execute + full result fetch) takes longer than "
+            "this many seconds, emit a warning that includes the query label, the elapsed "
+            "time, and the first 500 characters of the SQL text so slow queries can be "
+            "identified and tuned. Set to 0 to disable. Default is 60 seconds."
         ),
     )
 
@@ -2723,12 +2743,25 @@ ORDER by DataBaseName, TableName;
                 )
 
                 total_count_all_queries = 0
+                slow_threshold = self.config.lineage_slow_query_log_seconds
 
                 for query_index, query in enumerate(queries, 1):
+                    # Derive a human-readable label so the report and logs can
+                    # identify which query is slow without printing the full SQL.
+                    query_kind = (
+                        "historical_union" if "PDCRINFO" in query else "current_only"
+                    )
+                    query_label = f"query_{query_index} ({query_kind})"
+
                     logger.info(
-                        f"Executing lineage query {query_index}/{len(queries)} for time range {self.config.start_time} to {self.config.end_time} with {cursor_type} cursor..."
+                        f"Executing lineage query {query_index}/{len(queries)} "
+                        f"[{query_label}] for time range "
+                        f"{self.config.start_time} to {self.config.end_time} "
+                        f"with {cursor_type} cursor..."
                     )
                     _mark_phase("executing_query", query_index)
+
+                    query_start = time.time()
 
                     # Use helper method to try server-side cursor with fallback
                     result = self._execute_with_cursor_fallback(conn, query)
@@ -2761,9 +2794,26 @@ ORDER by DataBaseName, TableName;
                         )
                         yield from batch
 
+                    query_elapsed = time.time() - query_start
+                    self.report.lineage_query_timings[query_label] = query_elapsed
+
                     logger.info(
-                        f"Completed query {query_index}: {query_total_count} lineage entries in {batch_count} batches"
+                        f"Completed lineage {query_label}: {query_total_count} entries "
+                        f"in {batch_count} batches ({query_elapsed:.1f}s)"
                     )
+
+                    if slow_threshold > 0 and query_elapsed > slow_threshold:
+                        self.report.lineage_slow_queries_detected += 1
+                        # Truncate SQL to 500 chars to keep the log line readable
+                        # while still providing enough context to identify the query.
+                        sql_snippet = query[:500].replace("\n", " ")
+                        if len(query) > 500:
+                            sql_snippet += " …"
+                        logger.warning(
+                            f"Slow lineage query detected: {query_label} took "
+                            f"{query_elapsed:.1f}s (threshold: {slow_threshold}s). "
+                            f"SQL (first 500 chars): {sql_snippet}"
+                        )
 
                 logger.info(
                     f"Completed fetching all queries: {total_count_all_queries} total lineage entries from {len(queries)} queries"
