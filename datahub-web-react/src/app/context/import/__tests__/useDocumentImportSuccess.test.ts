@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
+import '@app/context/import/__tests__/testSetup';
 import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 
 describe('useDocumentImportSuccess', () => {

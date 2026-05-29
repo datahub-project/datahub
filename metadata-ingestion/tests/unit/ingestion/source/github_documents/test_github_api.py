@@ -1,7 +1,7 @@
 """Unit tests for GitHub API helpers."""
 
 import base64
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -100,3 +100,108 @@ def test_list_matching_files_returns_truncated_flag() -> None:
         )
     assert tree_truncated is True
     assert len(files) == 1
+
+
+def test_make_repo_source_id() -> None:
+    assert make_repo_source_id("acme/docs") == "github.acme.docs._repo"
+
+
+def test_parse_repo_identifier_http_url() -> None:
+    assert parse_repo_identifier("http://github.com/acme/docs") == "acme/docs"
+
+
+def test_list_matching_files_raises_when_tree_missing() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json", return_value=None):
+        with pytest.raises(RuntimeError, match="Could not access branch"):
+            client.list_matching_files("acme/docs", "missing", "", [".md"])
+
+
+def test_list_matching_files_filters_extensions_and_prefix() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {
+            "tree": [
+                {"type": "blob", "path": "docs/readme.md", "size": 1},
+                {"type": "blob", "path": "docs/image.png", "size": 1},
+                {"type": "tree", "path": "docs", "size": 0},
+            ],
+            "truncated": False,
+        }
+        files, tree_truncated = client.list_matching_files(
+            "acme/docs", "main", "docs", [".md"]
+        )
+    assert tree_truncated is False
+    assert [file.path for file in files] == ["docs/readme.md"]
+
+
+def test_fetch_file_content_returns_none_when_api_fails() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json", return_value=None):
+        assert client.fetch_file_content("acme/docs", "readme.md", "main") is None
+
+
+def test_fetch_file_content_skips_oversized_file() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {
+            "size": 2_000_000,
+            "content": "",
+            "encoding": "base64",
+        }
+        assert client.fetch_file_content("acme/docs", "big.md", "main") is None
+
+
+def test_fetch_file_content_decodes_base64_utf8() -> None:
+    client = GitHubApiClient("ghp_test")
+    encoded = base64.b64encode(b"# Hello").decode("ascii")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {
+            "size": 7,
+            "content": encoded,
+            "encoding": "base64",
+        }
+        assert client.fetch_file_content("acme/docs", "readme.md", "main") == "# Hello"
+
+
+def test_fetch_file_content_uses_download_url() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json") as mock_get_json:
+        mock_get_json.return_value = {"download_url": "https://raw.githubusercontent.com/a/b"}
+        with patch.object(client, "_get_text", return_value="raw text") as mock_get_text:
+            content = client.fetch_file_content("acme/docs", "readme.md", "main")
+    assert content == "raw text"
+    mock_get_text.assert_called_once_with("https://raw.githubusercontent.com/a/b")
+
+
+def test_get_latest_commit_sha_returns_unknown_when_missing() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json", return_value={}):
+        assert client.get_latest_commit_sha("acme/docs", "main") == "unknown"
+
+
+def test_get_latest_commit_sha_returns_sha() -> None:
+    client = GitHubApiClient("ghp_test")
+    with patch.object(client, "_get_json", return_value={"commit": {"sha": "abc123"}}):
+        assert client.get_latest_commit_sha("acme/docs", "main") == "abc123"
+
+
+def test_get_json_returns_none_on_http_error() -> None:
+    client = GitHubApiClient("ghp_test")
+    response = MagicMock()
+    response.status_code = 404
+    with patch.object(client._session, "get", return_value=response):
+        assert client._get_json("https://api.github.com/test") is None
+
+
+def test_get_text_returns_none_on_http_error() -> None:
+    client = GitHubApiClient("ghp_test")
+    response = MagicMock()
+    response.status_code = 500
+    with patch.object(client._session, "get", return_value=response):
+        assert client._get_text("https://raw.githubusercontent.com/a/b") is None
+
+
+def test_collect_intermediate_directories_without_prefix() -> None:
+    files = [GitHubFileInfo(path="guides/setup.md", size=10)]
+    assert collect_intermediate_directories(files, "") == {"guides"}

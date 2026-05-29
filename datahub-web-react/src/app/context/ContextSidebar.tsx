@@ -4,8 +4,8 @@ import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
 import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Divider } from 'antd';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { matchPath, useHistory, useLocation } from 'react-router-dom';
+import React, { useCallback, useEffect, useState } from 'react';
+import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
@@ -184,19 +184,12 @@ export default function ContextSidebar({
     const { expandNode, getNode } = useDocumentTree();
     const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
-    const location = useLocation();
     const entityRegistry = useEntityRegistry();
 
     const { canCreate: canCreateDocuments } = useContextDocumentsPermissions();
 
     const width = useSidebarWidth(0.2);
     const isShowNavBarRedesign = useShowNavBarRedesign();
-
-    const currentDocumentUrn = useMemo(() => {
-        const documentPath = `/${entityRegistry.getPathName(EntityType.Document)}/:urn`;
-        const match = matchPath<{ urn: string }>(location.pathname, { path: documentPath });
-        return match?.params?.urn ?? null;
-    }, [entityRegistry, location.pathname]);
 
     // Debounce search query
     useEffect(() => {

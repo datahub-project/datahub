@@ -28,4 +28,26 @@ beforeAll(() => {
             writable: true,
         });
     }
+
+    if (!File.prototype.text) {
+        File.prototype.text = function text(this: File) {
+            return new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result ?? ''));
+                reader.onerror = () => reject(reader.error);
+                reader.readAsText(this);
+            });
+        };
+    }
+
+    if (!File.prototype.arrayBuffer) {
+        File.prototype.arrayBuffer = function arrayBuffer(this: File) {
+            return new Promise<ArrayBuffer>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result as ArrayBuffer);
+                reader.onerror = () => reject(reader.error);
+                reader.readAsArrayBuffer(this);
+            });
+        };
+    }
 });
