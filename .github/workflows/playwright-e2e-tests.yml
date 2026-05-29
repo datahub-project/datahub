@@ -96,7 +96,7 @@ jobs:
       matrix: ${{ fromJson(needs.setup.outputs.matrix || '{"include":[]}') }}
     if: ${{ needs.setup.outputs.matrix != '' && needs.setup.outputs.matrix != '{"include":[]}' }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
@@ -166,7 +166,7 @@ jobs:
             --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
 
       - name: Upload Playwright blob report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: playwright-blob-report-${{ matrix.shard }}
@@ -174,7 +174,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Playwright JUnit results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: playwright-junit-${{ matrix.shard }}
@@ -189,7 +189,7 @@ jobs:
           source .github/scripts/docker_logs.sh
 
       - name: Upload Docker logs on failure
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: docker-logs-playwright-${{ matrix.shard }}
@@ -197,7 +197,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Playwright traces and screenshots on failure
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: playwright-traces-${{ matrix.shard }}
@@ -216,12 +216,13 @@ jobs:
 
       - name: Upload test results to Codecov
         if: "!cancelled()"
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
         with:
           path: ~/.cache/yarn
@@ -233,14 +234,14 @@ jobs:
     needs: [setup, playwright_test]
     if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
@@ -272,7 +273,7 @@ jobs:
           fi
 
       - name: Upload merged Playwright HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: playwright-html-report
           path: playwright-report/

@@ -21,20 +21,20 @@ export class SearchPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.searchInput = page.locator('[data-testid="search-input"]');
-    this.searchBar = page.locator('[data-testid="search-bar"]');
-    this.searchResults = page.locator('[data-testid="search-results"]');
-    this.filtersV1 = page.locator('[data-testid="search-filters-v1"]');
-    this.filtersV2 = page.locator('[data-testid="search-filters-v2"]');
+    this.searchInput = page.getByTestId('search-input');
+    this.searchBar = page.getByTestId('search-bar');
+    this.searchResults = page.getByTestId('search-results');
+    this.filtersV1 = page.getByTestId('search-filters-v1');
+    this.filtersV2 = page.getByTestId('search-filters-v2');
     this.advancedButton = page.getByText('Advanced Filters');
     this.addFilterButton = page.getByText('Add Filter');
-    this.clearAllFiltersButton = page.locator('[data-testid="clear-all-filters"]');
-    this.moreFiltersDropdown = page.locator('[data-testid="more-filters-dropdown"]');
-    this.updateFiltersButton = page.locator('[data-testid="update-filters"]');
-    this.searchBarInput = page.locator('[data-testid="search-bar"]');
-    this.clearButton = page.locator('[data-testid="button-clear"]');
-    this.autocompleteDropdown = page.locator('[data-testid="search-bar-dropdown"]');
-    this.filterDropdownMenu = page.locator('[data-testid="filter-dropdown"]');
+    this.clearAllFiltersButton = page.getByTestId('clear-all-filters');
+    this.moreFiltersDropdown = page.getByTestId('more-filters-dropdown');
+    this.updateFiltersButton = page.getByTestId('update-filters');
+    this.searchBarInput = page.getByTestId('search-bar');
+    this.clearButton = page.getByTestId('button-clear');
+    this.autocompleteDropdown = page.getByTestId('search-bar-dropdown');
+    this.filterDropdownMenu = page.getByTestId('filter-dropdown');
   }
 
   async navigateToHome(): Promise<void> {
@@ -63,13 +63,14 @@ export class SearchPage extends BasePage {
     }
     // Dismiss the ReactTour overlay if it is blocking pointer events.
     // The overlay renders as div#___reactour covering the full viewport.
+    // eslint-disable-next-line playwright/no-raw-locators -- ReactTour uses a generated CSS id; no data-testid available
     const reactTour = this.page.locator('#___reactour');
     if (await reactTour.isVisible()) {
       await this.page.evaluate(() => {
         localStorage.setItem('skipOnboardingTour', 'true');
       });
       // Click the close button if it exists, otherwise press Escape.
-      const closeButton = reactTour.locator('button[aria-label="Close tour"]');
+      const closeButton = reactTour.getByRole('button', { name: 'Close tour' });
       if (await closeButton.isVisible()) {
         await closeButton.click();
       } else {
@@ -128,7 +129,7 @@ export class SearchPage extends BasePage {
    * depend on a filter that the backend may not return aggregations for.
    */
   async isFilterAvailable(filterName: string): Promise<boolean> {
-    const filterDropdown = this.page.locator(`[data-testid="filter-dropdown-${filterName}"]`);
+    const filterDropdown = this.page.getByTestId(`filter-dropdown-${filterName}`);
     if (await filterDropdown.isVisible()) return true;
 
     const moreFiltersBtn = this.moreFiltersDropdown;
@@ -136,14 +137,14 @@ export class SearchPage extends BasePage {
 
     await moreFiltersBtn.click();
     await this.page.waitForTimeout(300);
-    const moreFilterOption = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
+    const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
     const found = await moreFilterOption.isVisible();
     await this.page.keyboard.press('Escape');
     return found;
   }
 
   async selectFilterOption(filterName: string, optionLabel: string): Promise<void> {
-    const filterDropdown = this.page.locator(`[data-testid="filter-dropdown-${filterName}"]`);
+    const filterDropdown = this.page.getByTestId(`filter-dropdown-${filterName}`);
 
     // Some filters (e.g. Glossary Term, Tag) are only shown as top-level
     // dropdowns when the backend returns aggregations for those fields.
@@ -155,7 +156,7 @@ export class SearchPage extends BasePage {
       if (moreFiltersVisible) {
         await moreFiltersBtn.click();
         await this.page.waitForTimeout(500);
-        const moreFilterOption = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
+        const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
         const moreFilterVisible = await moreFilterOption.isVisible();
         if (moreFilterVisible) {
           await moreFilterOption.click();
@@ -213,7 +214,7 @@ export class SearchPage extends BasePage {
     // re-try checkbox (Platform, Glossary Term, Tag options).
     // The dropdown search input carries data-testid="search-input"; use .last()
     // to avoid matching the AntD Select combobox that shares the same testid.
-    const dropdownSearchInput = dropdownMenu.locator('[data-testid="search-input"]').last();
+    const dropdownSearchInput = dropdownMenu.getByTestId('search-input').last();
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
       await this.page.waitForTimeout(500);
@@ -238,7 +239,7 @@ export class SearchPage extends BasePage {
 
   async selectFilterOptionThroughMoreFilters(filterName: string, optionLabel: string): Promise<void> {
     await this.moreFiltersDropdown.click();
-    const moreFilter = this.page.locator(`[data-testid="more-filter-${filterName}"]`);
+    const moreFilter = this.page.getByTestId(`more-filter-${filterName}`);
     await moreFilter.click();
 
     // Handle multiple matches by using first occurrence in the filter dropdown
@@ -254,12 +255,12 @@ export class SearchPage extends BasePage {
   }
 
   async selectAdvancedFilter(filterName: string): Promise<void> {
-    await this.page.locator(`[data-testid="adv-search-add-filter-${filterName}"]`).click({ force: true });
+    await this.page.getByTestId(`adv-search-add-filter-${filterName}`).click({ force: true });
   }
 
   async fillTextFilter(text: string): Promise<void> {
-    await this.page.locator('[data-testid="edit-text-input"]').fill(text);
-    await this.page.locator('[data-testid="edit-text-done-btn"]').click({ force: true });
+    await this.page.getByTestId('edit-text-input').fill(text);
+    await this.page.getByTestId('edit-text-done-btn').click({ force: true });
   }
 
   async clickAllFilters(): Promise<void> {
@@ -315,11 +316,12 @@ export class SearchPage extends BasePage {
     if (mapping) {
       if (mapping.value) {
         // Specific field + value selector (e.g., Type filters)
-        const selector = `[data-testid="active-filter-value-${mapping.field}-${mapping.value}"]`;
-        await expect(this.page.locator(selector)).toBeVisible({ timeout: 10000 });
+        await expect(this.page.getByTestId(`active-filter-value-${mapping.field}-${mapping.value}`)).toBeVisible({
+          timeout: 10000,
+        });
       } else {
         // Field container only (e.g., Platform filters) - check by field and text
-        const container = this.page.locator(`[data-testid="active-filter-${mapping.field}"]`);
+        const container = this.page.getByTestId(`active-filter-${mapping.field}`);
         await expect(container).toBeVisible({ timeout: 10000 });
         // Also verify the label text is present
         await expect(container.getByText(filterLabel)).toBeVisible();
@@ -327,6 +329,7 @@ export class SearchPage extends BasePage {
     } else {
       // Fallback: search by text content (for tags and other dynamic filters)
       // Look for any active filter containing this text
+      // eslint-disable-next-line playwright/no-raw-locators -- substring match on data-testid ([data-testid*=]); getByTestId requires exact match
       const filterByText = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel });
       await expect(filterByText.first()).toBeVisible({ timeout: 10000 });
     }
@@ -338,11 +341,10 @@ export class SearchPage extends BasePage {
     if (mapping) {
       if (mapping.value) {
         // Specific field + value selector
-        const selector = `[data-testid="active-filter-value-${mapping.field}-${mapping.value}"]`;
-        await expect(this.page.locator(selector)).toBeHidden();
+        await expect(this.page.getByTestId(`active-filter-value-${mapping.field}-${mapping.value}`)).toBeHidden();
       } else {
         // Field container - check if it's not visible or doesn't contain the text
-        const container = this.page.locator(`[data-testid="active-filter-${mapping.field}"]`);
+        const container = this.page.getByTestId(`active-filter-${mapping.field}`);
         const count = await container.count();
         if (count > 0) {
           // Container exists but should not contain this label
@@ -351,6 +353,7 @@ export class SearchPage extends BasePage {
       }
     } else {
       // Fallback: search by text content
+      // eslint-disable-next-line playwright/no-raw-locators -- substring match on data-testid ([data-testid*=]); getByTestId requires exact match
       const filterByText = this.page.locator('[data-testid*="active-filter"]').filter({ hasText: filterLabel });
       await expect(filterByText).toBeHidden();
     }
@@ -361,17 +364,18 @@ export class SearchPage extends BasePage {
 
     if (mapping) {
       // Click the remove button for this field
-      const removeButton = this.page.locator(`[data-testid="remove-filter-${mapping.field}"]`);
+      const removeButton = this.page.getByTestId(`remove-filter-${mapping.field}`);
       await removeButton.click({ force: true });
     } else {
       // Fallback: find the filter by text and click its remove button
       // First find the active filter container with this text
+      // eslint-disable-next-line playwright/no-raw-locators -- substring match on data-testid ([data-testid*=]); getByTestId requires exact match
       const filterContainer = this.page
         .locator('[data-testid*="active-filter"]')
         .filter({ hasText: filterLabel })
         .first();
       // Then find the remove button within it
-      const removeButton = filterContainer.locator('button').first();
+      const removeButton = filterContainer.getByRole('button').first();
       await removeButton.click({ force: true });
     }
   }
@@ -411,7 +415,7 @@ export class SearchPage extends BasePage {
 
   async searchInModal(searchTerm: string): Promise<void> {
     // Find the search input inside the filter dropdown modal
-    const searchInputs = await this.page.locator('[data-testid="search-input"]').all();
+    const searchInputs = await this.page.getByTestId('search-input').all();
     if (searchInputs.length > 1) {
       // Use the second search input (first is the main search bar)
       await searchInputs[1].fill(searchTerm);
@@ -421,13 +425,16 @@ export class SearchPage extends BasePage {
   }
 
   async clickEntityResult(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- CSS class substring match for generated class; no data-testid on entity result container
     const firstResult = this.page.locator('[class*="entityUrn-urn"]').first();
     await firstResult.waitFor({ state: 'visible', timeout: 10000 });
+    // eslint-disable-next-line playwright/no-raw-locators -- href attribute substring match; no semantic Playwright API for href filtering
     const link = firstResult.locator('a[href*="urn:li"]').first();
     await link.click();
   }
 
   async expectPaginationVisible(): Promise<void> {
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design pagination next button CSS class; no data-testid available
     await expect(this.page.locator('.ant-pagination-next')).toBeVisible();
   }
 

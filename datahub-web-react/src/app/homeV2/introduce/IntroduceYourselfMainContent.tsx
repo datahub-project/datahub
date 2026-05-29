@@ -6,6 +6,7 @@ import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import { Button, Select, message } from 'antd';
 import { orderBy } from 'lodash';
 import React, { useContext, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
@@ -259,6 +260,8 @@ const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // TODO: Make section ordering dynamic based on populated data.
 export const IntroduceYourselfMainContent = () => {
+    const { t } = useTranslation('home.v2');
+    const { t: tc } = useTranslation('common.actions');
     const themeConfig = useTheme();
     const userContext = useUserContext();
     const { refetchUser, user } = userContext;
@@ -360,7 +363,7 @@ export const IntroduceYourselfMainContent = () => {
             .catch((_) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to provision a default view. An unexpected error occurred.`,
+                    content: t('introduceYourself.errorProvisionView'),
                     duration: 3,
                 });
             });
@@ -398,7 +401,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -423,7 +426,7 @@ export const IntroduceYourselfMainContent = () => {
             })
             .catch((err) => {
                 console.error(err);
-                message.error('Failed to save user details. :(');
+                message.error(t('introduceYourself.errorSaveDetails'));
             });
     };
 
@@ -457,12 +460,12 @@ export const IntroduceYourselfMainContent = () => {
     return (
         <Container>
             <Content>
-                <Title>Before we begin</Title>
-                <Subtitle>Tell us more about yourself, so we can personalize your experience</Subtitle>
+                <Title>{t('introduceYourself.mainTitle')}</Title>
+                <Subtitle>{t('introduceYourself.mainSubtitle')}</Subtitle>
                 <SelectWrapper>
                     <AccountCircleOutlinedIcon />
                     <Select
-                        placeholder="Select your Role"
+                        placeholder={t('introduceYourself.rolePlaceholder')}
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
                         data-testid="introduce-role-select"
                         size="large"
@@ -481,7 +484,7 @@ export const IntroduceYourselfMainContent = () => {
                 <SelectWrapper>
                     <SettingsOutlinedIcon />
                     <Select
-                        placeholder="Optional - Select your Data Tools"
+                        placeholder={t('introduceYourself.dataToolsPlaceholder')}
                         size="large"
                         style={selectStyles}
                         onChange={(value) => setSelectedPlatforms(value)}
@@ -539,11 +542,11 @@ export const IntroduceYourselfMainContent = () => {
                     loading={loading}
                     disabled={!hasPersona}
                 >
-                    Get Started
+                    {t('introduceYourself.getStarted')}
                 </DoneButton>
                 <Footer>
-                    <Tooltip placement="bottom" title="Continue to DataHub">
-                        <SkipButton onClick={onSkip}>Skip</SkipButton>
+                    <Tooltip placement="bottom" title={t('introduceYourself.continueTo')}>
+                        <SkipButton onClick={onSkip}>{tc('skip')}</SkipButton>
                     </Tooltip>
                 </Footer>
             </Content>
