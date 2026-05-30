@@ -38,21 +38,26 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ inputs.github_token }}
+        RUN_ATTEMPT: ${{ github.run_attempt }}
+        RUN_ID: ${{ inputs.run_id }}
+        TEST_STRATEGY: ${{ inputs.test_strategy }}
+        BATCH: ${{ inputs.batch }}
+        REPOSITORY: ${{ github.repository }}
       run: |
 
-        PREVIOUS_ATTEMPT=$(( ${{ github.run_attempt }} - 1 ))
-        echo "Downloading artifacts from run ${{ inputs.run_id }}, attempt ${PREVIOUS_ATTEMPT}"
+        PREVIOUS_ATTEMPT=$(( RUN_ATTEMPT - 1 ))
+        echo "Downloading artifacts from run ${RUN_ID}, attempt ${PREVIOUS_ATTEMPT}"
 
-        mkdir -p "${{ github.workspace }}/previous-test-results"
+        mkdir -p "${GITHUB_WORKSPACE}/previous-test-results"
 
-        ARTIFACT_NAME="Test Results (smoke tests) ${{ inputs.test_strategy }} ${{ inputs.batch }}"
+        ARTIFACT_NAME="Test Results (smoke tests) ${TEST_STRATEGY} ${BATCH}"
         echo "Looking for artifact: ${ARTIFACT_NAME}"
 
-        ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${{ inputs.run_id }}/artifacts" \
+        ARTIFACT_ID=$(gh api "repos/${REPOSITORY}/actions/runs/${RUN_ID}/artifacts" \
           --jq ".artifacts[] | select(.name == \"${ARTIFACT_NAME}\") | .id" | head -1)
 
         if [[ -z "$ARTIFACT_ID" ]]; then
-          echo "No artifact found for batch ${{ inputs.batch }}"
+          echo "No artifact found for batch ${BATCH}"
           echo "download_success=false" >> "$GITHUB_OUTPUT"
           echo "parse_result=no_artifacts" >> "$GITHUB_OUTPUT"
           exit 0
@@ -60,11 +65,11 @@ runs:
 
         echo "Found artifact ID: ${ARTIFACT_ID}"
 
-        cd "${{ github.workspace }}/previous-test-results"
-        gh api "repos/${{ github.repository }}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
+        cd "${GITHUB_WORKSPACE}/previous-test-results"
+        gh api "repos/${REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > artifact.zip
         unzip -q artifact.zip
 
-        if [[ "${{ inputs.test_strategy }}" == "cypress" ]]; then
+        if [[ "${TEST_STRATEGY}" == "cypress" ]]; then
           if find . -path "*/smoke-test-results/cypress-test-*.xml" -print -quit | grep -q .; then
             echo "Successfully downloaded cypress test results"
             echo "download_success=true" >> "$GITHUB_OUTPUT"
@@ -90,12 +95,14 @@ runs:
         steps.download-artifacts.outputs.download_success == 'true'
       id: parse-cypress-failures
       shell: bash
+      env:
+        BATCH: ${{ inputs.batch }}
       run: |
 
-        OUTPUT_FILE="${{ github.workspace }}/failed-tests-batch-${{ inputs.batch }}.txt"
+        OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-tests-batch-${BATCH}.txt"
 
         python3 .github/scripts/parse_failed_cypress_tests.py \
-          --input-dir "${{ github.workspace }}/previous-test-results" \
+          --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
           --output "${OUTPUT_FILE}"
 
         EXIT_CODE=$?
@@ -126,12 +133,14 @@ runs:
         steps.download-artifacts.outputs.download_success == 'true'
       id: parse-pytest-failures
       shell: bash
+      env:
+        BATCH: ${{ inputs.batch }}
       run: |
 
-        OUTPUT_FILE="${{ github.workspace }}/failed-modules-batch-${{ inputs.batch }}.txt"
+        OUTPUT_FILE="${GITHUB_WORKSPACE}/failed-modules-batch-${BATCH}.txt"
 
         python3 .github/scripts/parse_failed_pytest_tests.py \
-          --input-dir "${{ github.workspace }}/previous-test-results" \
+          --input-dir "${GITHUB_WORKSPACE}/previous-test-results" \
           --output "${OUTPUT_FILE}"
 
         EXIT_CODE=$?
@@ -159,4 +168,4 @@ runs:
     - name: Clean up downloaded artifacts
       shell: bash
       run: |
-        rm -rf "${{ github.workspace }}/previous-test-results"
+        rm -rf "${GITHUB_WORKSPACE}/previous-test-results"
