@@ -10,7 +10,7 @@ apply from: "../gradle/versioning/versioning.gradle"
 
 ext {
     compose_base = "profiles/docker-compose.yml"
-    project_name = "datahub"
+    project_name = System.getenv("COMPOSE_PROJECT_NAME") ?: "datahub"
 
     backend_profile_modules = [
             ':datahub-upgrade',
@@ -369,6 +369,20 @@ ext {
         }
 
         return runningModuleToContainer
+    }
+}
+
+apply from: 'postgres/quickstart-publish.gradle'
+
+// Resolve the compose profile(s) for a given quickstart_configs key (used by docker-unified CI when a PR has a smoke:<key> label).
+// Usage: ./gradlew :docker:resolveQuickstartProfile -PconfigKey=quickstartDebug -q
+tasks.register("resolveQuickstartProfile") {
+    doLast {
+        def configKey = project.findProperty('configKey')
+        if (!configKey) throw new GradleException("Missing -PconfigKey. Valid keys: ${quickstart_configs.keySet()}")
+        def config = quickstart_configs[configKey]
+        if (!config) throw new GradleException("Unknown quickstart config key: ${configKey}. Valid keys: ${quickstart_configs.keySet()}")
+        println(config.profile ?: config.profiles?.join(','))
     }
 }
 

@@ -2,6 +2,10 @@
 
 Give [Genie Code](https://docs.databricks.com/en/genie/genie-code.html) access to your enterprise data context in DataHub — find trustworthy data, understand lineage, look up ownership, and generate better SQL queries, all without leaving your notebook.
 
+:::tip OAuth MCP alternative (DataHub Cloud v1.0.2+)
+On DataHub Cloud v1.0.2+, you can register `https://<tenant>.acryl.io/integrations/ai/mcp` directly with Databricks as an external MCP tool using **OAuth 2.0** — DataHub supports Dynamic Client Registration so Databricks registers itself and stores refresh tokens automatically, eliminating the PAT in the Unity Catalog connection below. Your tenant URL is required here; the global `https://mcp.datahub.com/mcp` endpoint is not yet supported by Databricks. See the [OAuth + DCR section of the MCP guide](../../features/feature-guides/mcp.md#oauth2-with-dynamic-client-registration-recommended).
+:::
+
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/databricks/genie-code-datahub-query.png" alt="Genie Code querying DataHub catalog"/>
 </p>

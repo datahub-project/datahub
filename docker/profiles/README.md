@@ -50,9 +50,7 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
-Note: Quickstart profiles use docker images with the `head` tag. These images up updated when changes are committed
-to the DataHub github repository. This can be overridden to use a stable release tag by prefixing the commands with
-`DATAHUB_VERSION=v0.12.1` for example.
+Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
 ### `quickstart`
 
