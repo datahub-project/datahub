@@ -1,6 +1,9 @@
 import type enCommonActions from '@src/i18n/locales/en/common.actions.json';
+import type enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
+import type enCommonLabels from '@src/i18n/locales/en/common.labels.json';
 import type enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import type enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
+import type enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import type enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import type enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import type enHomeV3 from '@src/i18n/locales/en/home.v3.json';
@@ -17,8 +20,11 @@ declare module 'i18next' {
     interface CustomTypeOptions {
         resources: {
             'common.actions': typeof enCommonActions;
+            'common.feedback': typeof enCommonFeedback;
+            'common.labels': typeof enCommonLabels;
             'entity.identity': typeof enEntityIdentity;
             'entity.ownership': typeof enEntityOwnership;
+            'entity.profile.validations': typeof enEntityProfileValidations;
             'entity.views': typeof enEntityViews;
             'home.v2': typeof enHomeV2;
             'home.v3': typeof enHomeV3;

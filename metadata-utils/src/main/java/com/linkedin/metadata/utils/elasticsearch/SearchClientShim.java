@@ -76,7 +76,7 @@ import org.opensearch.index.reindex.UpdateByQueryRequest;
  * allows DataHub to support ES 7.17 (with API compatibility), ES 8.x, ES 9.x and OpenSearch 2.x.,
  * through a common interface.
  */
-public interface SearchClientShim<T> extends Closeable {
+public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison {
 
   /** Enum representing the different search engine types supported by the shim */
   enum SearchEngineType {
