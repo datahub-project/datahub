@@ -330,7 +330,8 @@ class DremioCatalog:
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
-        for dataset_details in self.api.get_all_tables_and_columns():
+        containers = self.get_containers()
+        for dataset_details in self.api.get_all_tables_and_columns(containers):
             dremio_dataset = DremioDataset(
                 dataset_details=dataset_details,
                 api_operations=self.api,
@@ -397,20 +398,9 @@ class DremioCatalog:
         ]
         return all(query.get(field) for field in required_fields)
 
-    def get_queries(
-        self,
-        start_time: Optional[datetime] = None,
-        end_time: Optional[datetime] = None,
-    ) -> Iterator[DremioQuery]:
-        """Get all valid Dremio queries for lineage analysis.
-
-        Optional start_time/end_time override the config-level time window. This
-        is used by the stateful time-window handler to advance start_time to the
-        previous run's end_time, so only new job history is re-processed.
-        """
-        for query in self.api.extract_all_queries(
-            start_time=start_time, end_time=end_time
-        ):
+    def get_queries(self) -> Iterator[DremioQuery]:
+        """Get all valid Dremio queries for lineage analysis."""
+        for query in self.api.extract_all_queries():
             if not self.is_valid_query(query):
                 continue
             yield DremioQuery(
