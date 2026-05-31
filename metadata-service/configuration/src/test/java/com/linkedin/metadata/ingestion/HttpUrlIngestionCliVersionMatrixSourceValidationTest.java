@@ -132,6 +132,26 @@ public class HttpUrlIngestionCliVersionMatrixSourceValidationTest {
   }
 
   @Test
+  public void permissiveVersionPatternAcceptsSpecialSentinels() throws Exception {
+    // Ingestion supports special non-PyPI version sentinels (e.g. "bundled", "no-acryl-datahub").
+    // These are not PEP 440 versions and must not be rejected by the cleanliness check.
+    JsonNode root =
+        MAPPER.readTree(
+            "{\"1.5.0\": {\"snowflake\": {"
+                + "\"_default\": \"bundled\","
+                + "\"cohorts\": [{\"version\": \"no-acryl-datahub\", \"deployments\": [\"acme\"]}]"
+                + "}}}");
+    IngestionCliVersionMatrix m = HttpUrlIngestionCliVersionMatrixSource.parseMatrix(root);
+    ConnectorEntry snowflake = m.getEntriesForServer("1.5.0").getConnectorEntry("snowflake");
+    assertEquals(snowflake.getDefaultVersion(), "bundled", "'bundled' sentinel must be accepted");
+    assertEquals(snowflake.getCohorts().size(), 1);
+    assertEquals(
+        snowflake.getCohorts().get(0).getVersion(),
+        "no-acryl-datahub",
+        "'no-acryl-datahub' sentinel must be accepted");
+  }
+
+  @Test
   public void connectorValueNotObjectIsSkippedOthersKept() throws Exception {
     // "snowflake" got assigned an array by mistake — drop it. "bigquery" is fine — keep it.
     JsonNode root =
