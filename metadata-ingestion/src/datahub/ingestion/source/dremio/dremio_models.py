@@ -216,13 +216,3 @@ class DremioProfilingResult(BaseModel):
                 column_data[stat_name] = value
 
         return DremioColumnStats.model_validate(column_data)
-
-    def get_column_stat(
-        self,
-        column_name: str,
-        stat_type: str,
-        default: Optional[Union[str, int, float]] = None,
-    ) -> Optional[Union[str, int, float]]:
-        """Get a specific column statistic (backwards compatibility)."""
-        field_name = f"{column_name}_{stat_type}"
-        return getattr(self, field_name, default)

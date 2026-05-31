@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Optional
 
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
@@ -35,11 +34,6 @@ class DremioSourceReport(
     )
 
     sql_aggregator: Optional[SqlAggregatorReport] = None
-
-    def report_upstream_latency(self, start_time: datetime, end_time: datetime) -> None:
-        # recording total combined latency is not very useful, keeping this method as a placeholder
-        # for future implementation of min / max / percentiles etc.
-        pass
 
     def report_container_scanned(self, name: str) -> None:
         self.containers_scanned += 1

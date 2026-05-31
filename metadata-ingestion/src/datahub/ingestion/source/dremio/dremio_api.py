@@ -1,7 +1,6 @@
 import concurrent.futures
 import json
 import logging
-import re
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -19,9 +18,6 @@ from urllib3.exceptions import InsecureRequestWarning
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
-from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
-    DremioToDataHubSourceTypeMapping,
-)
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerResponse,
     DremioEntityContainerType,
@@ -170,7 +166,6 @@ class DremioAPIOperations:
     def __init__(
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
-        self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
         self.filter = DremioFilter(connection_args, report)
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
@@ -1026,64 +1021,6 @@ class DremioAPIOperations:
             )
         return None
 
-    def _check_pattern_match(
-        self,
-        pattern: str,
-        paths: List[str],
-        allow_prefix: bool = True,
-    ) -> bool:
-        """
-        Helper method to check if a pattern matches any of the paths.
-        Handles hierarchical matching where each level is matched independently.
-        Also handles prefix matching for partial paths.
-        """
-        if pattern == ".*":
-            return True
-
-        # Convert the pattern to regex with proper anchoring
-        regex_pattern = pattern
-        if pattern.startswith("^"):
-            # Already has start anchor
-            regex_pattern = pattern.replace(".", r"\.")  # Escape dots
-            regex_pattern = regex_pattern.replace(
-                r"\.*", ".*"
-            )  # Convert .* to wildcard
-        else:
-            # Add start anchor and handle dots
-            regex_pattern = "^" + pattern.replace(".", r"\.").replace(r"\.*", ".*")
-
-        # Handle end matching
-        if not pattern.endswith(".*"):
-            if pattern.endswith("$"):
-                # Keep explicit end anchor
-                pass
-            elif not allow_prefix:
-                # Add end anchor for exact matching
-                regex_pattern = regex_pattern + "$"
-
-        return any(re.match(regex_pattern, path, re.IGNORECASE) for path in paths)
-
-    def _could_match_pattern(self, pattern: str, path_components: List[str]) -> bool:
-        """
-        Check if a container path could potentially match a schema pattern.
-        This handles hierarchical path matching for container filtering.
-        """
-        if pattern == ".*":
-            return True
-
-        current_path = ".".join(path_components)
-
-        # Handle simple .* patterns (like "a.b.c.*")
-        if pattern.endswith(".*") and not any(c in pattern for c in "^$[](){}+?\\"):
-            # Simple dotstar pattern - check prefix matching
-            pattern_prefix = pattern[:-2]  # Remove ".*"
-            return current_path.lower().startswith(
-                pattern_prefix.lower()
-            ) or pattern_prefix.lower().startswith(current_path.lower())
-        else:
-            # Complex regex pattern - use existing regex matching logic
-            return self._check_pattern_match(pattern, [current_path], allow_prefix=True)
-
     def get_all_containers(self):
         """
         Query the Dremio sources API and return filtered source information.
@@ -1119,21 +1056,22 @@ class DremioAPIOperations:
                     else source.get("name", "")
                 )
 
-                # Check if container should be included
-                if source_name and self.filter.should_include_container(
-                    [], source_name
-                ):
-                    container_data = {
-                        **source,  # Original source data
-                        **source_resp,  # Source details (may be empty)
-                        "name": source_name,  # Preserve the source name
-                        "container_type": DremioEntityContainerType.SOURCE,
-                        "root_path": source_config.get("rootPath"),
-                        "database_name": db,
-                        "path": [],  # Root sources should have empty path for proper browse paths
-                    }
+                if source_name:
+                    if self.filter.should_include_container([], source_name):
+                        container_data = {
+                            **source,  # Original source data
+                            **source_resp,  # Source details (may be empty)
+                            "name": source_name,  # Preserve the source name
+                            "container_type": DremioEntityContainerType.SOURCE,
+                            "root_path": source_config.get("rootPath"),
+                            "database_name": db,
+                            "path": [],  # Root sources should have empty path for proper browse paths
+                        }
 
-                    return DremioContainerResponse.model_validate(container_data)
+                        self.report.report_container_scanned(source_name)
+                        return DremioContainerResponse.model_validate(container_data)
+
+                    self.report.report_container_filtered(source_name)
             elif container_type in (
                 DremioEntityContainerType.SPACE.value,
                 DremioEntityContainerType.HOME.value,
@@ -1146,23 +1084,26 @@ class DremioAPIOperations:
                     else source.get("name", "")
                 )
 
-                # Check if container should be included
-                if space_name and self.filter.should_include_container([], space_name):
-                    # Map HOME to SPACE for subtype (both are treated as spaces in DataHub)
-                    mapped_container_type = (
-                        DremioEntityContainerType.SPACE
-                        if container_type == DremioEntityContainerType.HOME.value
-                        else DremioEntityContainerType.SPACE
-                    )
+                if space_name:
+                    if self.filter.should_include_container([], space_name):
+                        # Map HOME to SPACE for subtype (both are treated as spaces in DataHub)
+                        mapped_container_type = (
+                            DremioEntityContainerType.SPACE
+                            if container_type == DremioEntityContainerType.HOME.value
+                            else DremioEntityContainerType.SPACE
+                        )
 
-                    container_data = {
-                        **source,  # Original source data
-                        "name": space_name,  # Preserve the space name
-                        "containerType": mapped_container_type.value,  # Use alias and value
-                        "path": [],  # Root spaces should have empty path for proper browse paths
-                    }
+                        container_data = {
+                            **source,  # Original source data
+                            "name": space_name,  # Preserve the space name
+                            "containerType": mapped_container_type.value,  # Use alias and value
+                            "path": [],  # Root spaces should have empty path for proper browse paths
+                        }
 
-                    return DremioContainerResponse.model_validate(container_data)
+                        self.report.report_container_scanned(space_name)
+                        return DremioContainerResponse.model_validate(container_data)
+
+                    self.report.report_container_filtered(space_name)
             return None
 
         def process_source_and_containers(source):
@@ -1242,6 +1183,7 @@ class DremioAPIOperations:
                 ):
                     folder_name = entity_path[-1]
                     folder_path = entity_path[:-1]
+                    folder_full_name = ".".join(folder_path + [folder_name])
 
                     if self.filter.should_include_container(folder_path, folder_name):
                         # Create folder container data
@@ -1253,9 +1195,12 @@ class DremioAPIOperations:
                             "root_container_type": root_container_type,  # Pass down root type
                         }
 
+                        self.report.report_container_scanned(folder_full_name)
                         containers.append(
                             DremioContainerResponse.model_validate(folder_data)
                         )
+                    else:
+                        self.report.report_container_filtered(folder_full_name)
 
                 # Recursively process child containers
                 for container in response.get("children", []):

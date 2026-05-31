@@ -169,7 +169,9 @@ class DremioProfiler:
         profile_sql = self._build_profile_sql(table_name, columns)
         try:
             with PerfTimer() as timer:
-                results = self.api_operations.execute_query(profile_sql)
+                results = self.api_operations.execute_query(
+                    profile_sql, timeout=self.QUERY_TIMEOUT
+                )
 
             logger.debug(
                 f"Profiling query for {table_name} ({len(columns)} columns) completed in {timer.elapsed_seconds():.2f} seconds"
