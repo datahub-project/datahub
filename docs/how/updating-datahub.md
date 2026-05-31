@@ -62,6 +62,8 @@ Requirements:
 
 - **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
 
+- **(Ingestion / Dremio)** Lineage aspects are now emitted as PATCH operations by default (`incremental_lineage: true`). This preserves lineage edges added manually in DataHub between runs instead of overwriting them. Set `incremental_lineage: false` in the recipe to restore the previous full-overwrite behavior.
+
 ## v1.6.0
 
 Requirements:
