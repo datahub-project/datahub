@@ -19,20 +19,6 @@ public class IngestionUtils {
   private IngestionUtils() {}
 
   /**
-   * Returns the CLI version to pass into an ingestion execution when the ingestion source config
-   * may carry an optional version (including blank strings from templated bootstrap YAML). Blank or
-   * null configured values fall back to the server default.
-   */
-  @Nonnull
-  public static String resolveIngestionCliVersion(
-      @Nullable String configuredVersion, @Nonnull String defaultCliVersion) {
-    if (configuredVersion != null && !configuredVersion.trim().isEmpty()) {
-      return configuredVersion.trim();
-    }
-    return defaultCliVersion;
-  }
-
-  /**
    * Best-effort extraction of {@code source.type} from a recipe JSON document. Returns {@code null}
    * for any malformed input — callers fall back to a default rather than failing the request, since
    * a malformed recipe surfaces a clearer error downstream when the executor parses it.
