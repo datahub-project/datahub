@@ -20,6 +20,7 @@ from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
+from datahub.ingestion.source.dremio.dremio_models import DremioEntityContainerType
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
@@ -38,13 +39,6 @@ class DremioEdition(Enum):
     CLOUD = "CLOUD"
     ENTERPRISE = "ENTERPRISE"
     COMMUNITY = "COMMUNITY"
-
-
-class DremioEntityContainerType(Enum):
-    SPACE = "SPACE"
-    CONTAINER = "CONTAINER"
-    FOLDER = "FOLDER"
-    SOURCE = "SOURCE"
 
 
 class DremioAPIOperations:

@@ -342,34 +342,34 @@ class DremioCatalog:
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
         for container in self.api.get_all_containers():
-            container_type = container.container_type
+            container_type = container.get("container_type")
             if container_type == DremioEntityContainerType.SOURCE:
                 yield DremioSourceContainer(
-                    container_name=container.name,
-                    location_id=container.id,  # Allow None for sources without IDs
-                    path=container.path or [],
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=container.get("path") or [],
                     api_operations=self.api,
-                    dremio_source_type=container.source_type or "",
-                    root_path=container.root_path,
-                    database_name=container.database_name,
+                    dremio_source_type=container.get("source_type") or "",
+                    root_path=container.get("root_path"),
+                    database_name=container.get("database_name"),
                 )
             elif container_type == DremioEntityContainerType.SPACE:
                 yield DremioSpace(
-                    container_name=container.name,
-                    location_id=container.id,  # Allow None for spaces without IDs
-                    path=container.path or [],
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=container.get("path") or [],
                     api_operations=self.api,
                 )
             elif container_type == DremioEntityContainerType.FOLDER:
                 folder = DremioFolder(
-                    container_name=container.name,
-                    location_id=container.id,
-                    path=container.path or [],
+                    container_name=container.get("name"),
+                    location_id=container.get("id"),
+                    path=container.get("path") or [],
                     api_operations=self.api,
                 )
-                # Pass through the root container type for browse path creation
-                if hasattr(container, "root_container_type"):
-                    folder.root_container_type = container.root_container_type
+                root_container_type = container.get("root_container_type")
+                if root_container_type is not None:
+                    folder.root_container_type = root_container_type
                 yield folder
 
     def get_sources(self) -> Iterator[DremioSourceContainer]:
