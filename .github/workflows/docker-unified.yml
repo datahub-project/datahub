@@ -1374,24 +1374,32 @@ jobs:
         id: publish-s3-report
         if: always()
         continue-on-error: true
+        env:
+          GH_REPOSITORY: ${{ github.repository }}
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
             echo "No playwright-report directory — skipping S3 upload"
             exit 0
           fi
 
-          if [[ "${{ github.repository }}" == "datahub-project/datahub" ]]; then
+          if [[ "$GH_REPOSITORY" == "datahub-project/datahub" ]]; then
             BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
           else
             BUCKET="datahub-fork-ci-build-artifacts.dev.dh-int.zone"
           fi
 
-          WORKFLOW_NAME=$(echo "${{ github.workflow }}" \
+          WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
             | tr '[:upper:]' '[:lower:]' \
             | sed 's/[^a-z0-9]/-/g' \
             | sed -E 's/-+/-/g' \
             | sed 's/^-//;s/-$//')
-          S3_PATH="${{ github.repository_owner }}/${{ github.event.repository.name }}/workflows/${{ github.event_name }}/${{ github.run_id }}_${{ github.run_attempt }}/${WORKFLOW_NAME}/playwright-report"
+          S3_PATH="${GH_REPOSITORY_OWNER}/${GH_EVENT_REPOSITORY_NAME}/workflows/${GH_EVENT_NAME}/${GH_RUN_ID}_${GH_RUN_ATTEMPT}/${WORKFLOW_NAME}/playwright-report"
 
           aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
             --cache-control "no-cache, no-store, must-revalidate" \
