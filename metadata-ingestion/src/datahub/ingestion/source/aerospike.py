@@ -299,7 +299,7 @@ def construct_schema_aerospike(
         res = query.results(policy)
         records = [{**record[2], "PK": record[0][2]} for record in res]
     except Exception:
-        logger.exception(f"Error querying Aerospike set {as_set.ns}.{as_set.set}")
+        logger.exception("Error querying Aerospike set %s.%s", as_set.ns, as_set.set)
         raise
     return construct_schema(records, delimiter)
 

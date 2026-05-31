@@ -214,21 +214,40 @@ class TestClientConfigConstruction:
         assert config_arg["password"] == "s3cret"
         assert config_arg["auth_mode"] == aerospike.AUTH_EXTERNAL
 
-    def test_includes_tls_block_when_enabled(self, patched_aerospike_client):
+    @pytest.mark.parametrize(
+        "tls_enabled, extra_fields, expected_tls",
+        [
+            (
+                True,
+                {
+                    "tls_capath": "/etc/aerospike/certs",
+                    "tls_cafile": "/etc/aerospike/ca.pem",
+                },
+                {
+                    "enable": True,
+                    "capath": "/etc/aerospike/certs",
+                    "cafile": "/etc/aerospike/ca.pem",
+                },
+            ),
+            # When tls_enabled=False, tls_cafile/tls_capath must be ignored —
+            # guards against accidental cert paths leaking into a plaintext
+            # client config.
+            (False, {"tls_cafile": "/some/path"}, None),
+        ],
+        ids=["enabled-with-paths", "disabled-ignores-paths"],
+    )
+    def test_tls_block_construction(
+        self, patched_aerospike_client, tls_enabled, extra_fields, expected_tls
+    ):
         ctor_mock, _ = patched_aerospike_client
         _make_source(
-            {
-                "hosts": [("h", 3000)],
-                "tls_enabled": True,
-                "tls_capath": "/etc/aerospike/certs",
-                "tls_cafile": "/etc/aerospike/ca.pem",
-            }
+            {"hosts": [("h", 3000)], "tls_enabled": tls_enabled, **extra_fields}
         )
-        assert ctor_mock.call_args[0][0]["tls"] == {
-            "enable": True,
-            "capath": "/etc/aerospike/certs",
-            "cafile": "/etc/aerospike/ca.pem",
-        }
+        config_arg = ctor_mock.call_args[0][0]
+        if expected_tls is None:
+            assert "tls" not in config_arg
+        else:
+            assert config_arg["tls"] == expected_tls
 
     def test_passes_login_timeout_when_set(self, patched_aerospike_client):
         ctor_mock, _ = patched_aerospike_client
