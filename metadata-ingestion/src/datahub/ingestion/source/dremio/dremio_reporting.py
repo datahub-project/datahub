@@ -26,9 +26,9 @@ class DremioSourceReport(
     containers_scanned: int = 0
     containers_filtered: int = 0
 
-    # Number of lineage references (view parents, query upstreams/downstreams)
-    # that were skipped because they fell outside schema_pattern / dataset_pattern.
-    # Helps operators distinguish "no lineage in source" from "lineage filtered out".
+    # Distinguishes "no lineage in source" from "lineage filtered out by
+    # schema_pattern / dataset_pattern" — counts view parents and query
+    # upstreams/downstreams that were skipped.
     num_lineage_dropped_filtered: int = 0
 
     api_calls_total: int = 0

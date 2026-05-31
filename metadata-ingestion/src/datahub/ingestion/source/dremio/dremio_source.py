@@ -301,13 +301,8 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, dremio_api)
 
     def _is_allowed_table(self, name: str) -> bool:
-        """SqlParsingAggregator callback to filter lineage / usage / operations.
-
-        The aggregator passes us the dataset name extracted from the URN. We
-        reuse the same filter chain the catalog walk applies, so anything not
-        in scope for catalog ingestion is also out of scope for emitted
-        lineage edges.
-        """
+        # SqlParsingAggregator callback: keep lineage/usage/operations in sync
+        # with the catalog walk's filters so SQL-discovered URNs can't bypass them.
         allowed = _passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
@@ -696,12 +691,9 @@ class DremioSource(StatefulIngestionSourceBase):
             # Validate query dataset format matches catalog format
             self._validate_query_lineage_format(query)
 
-            # Pre-filter upstreams/downstream by the same catalog filters used
-            # for the walk: query lineage shouldn't introduce ghost datasets
-            # for filtered schemas or denylisted patterns. The aggregator's
-            # is_allowed_table callback is the second line of defense for any
-            # URN we don't filter here (e.g. those discovered via SQL parsing
-            # inside add_observed_query).
+            # Pre-filter explicit query upstreams/downstream; the aggregator's
+            # is_allowed_table callback is a second line of defense for URNs
+            # discovered inside add_observed_query's SQL parsing.
             downstream_name = query.affected_dataset.lower()
             downstream_allowed = _passes_dremio_filters(
                 name=downstream_name,
