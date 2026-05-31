@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 
 /**
  * Wires up the per-connector ingestion CLI version matrix.
@@ -58,7 +57,6 @@ public class IngestionCliVersionMatrixServiceFactory {
    * when {@code http.url} is non-empty, and a no-op source when the URL is empty.
    */
   @Bean(name = "ingestionCliVersionMatrixSource")
-  @Scope("singleton")
   @Nonnull
   protected IngestionCliVersionMatrixSource ingestionCliVersionMatrixSource() {
     CliVersionMatrixConfiguration matrixConfig =
@@ -82,7 +80,6 @@ public class IngestionCliVersionMatrixServiceFactory {
   }
 
   @Bean(name = "ingestionCliVersionMatrixService")
-  @Scope("singleton")
   @Nonnull
   protected IngestionCliVersionMatrixService getInstance(
       @Qualifier("ingestionCliVersionMatrixSource")
