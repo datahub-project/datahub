@@ -242,7 +242,7 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
+        if: ${{ steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
@@ -1368,7 +1368,7 @@ jobs:
         continue-on-error: true
         with:
           role-to-assume: ${{ github.repository == 'datahub-project/datahub' && 'arn:aws:iam::863541928889:role/github-actions-playwright-reports-oss' || 'arn:aws:iam::863541928889:role/github-actions-playwright-reports-fork' }}
-          aws-region: us-east-1
+          aws-region: us-west-2
 
       - name: Publish Playwright report to S3
         id: publish-s3-report
@@ -1381,9 +1381,9 @@ jobs:
           fi
 
           if [[ "${{ github.repository }}" == "datahub-project/datahub" ]]; then
-            BUCKET="datahub-oss-ci-build-artifacts-dev"
+            BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
           else
-            BUCKET="datahub-fork-ci-build-artifacts-dev"
+            BUCKET="datahub-fork-ci-build-artifacts.dev.dh-int.zone"
           fi
 
           WORKFLOW_NAME=$(echo "${{ github.workflow }}" \
@@ -1397,7 +1397,7 @@ jobs:
             --cache-control "no-cache, no-store, must-revalidate" \
             --delete
 
-          REPORT_URL="http://${BUCKET}.s3-website-us-east-1.amazonaws.com/${S3_PATH}/index.html"
+          REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
           echo "report_url=${REPORT_URL}" >> "$GITHUB_OUTPUT"
           echo "Published Playwright report to: ${REPORT_URL}"
 
