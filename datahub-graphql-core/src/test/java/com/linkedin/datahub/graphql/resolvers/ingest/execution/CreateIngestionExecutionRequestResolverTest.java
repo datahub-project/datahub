@@ -21,6 +21,7 @@ import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
@@ -36,6 +37,16 @@ public class CreateIngestionExecutionRequestResolverTest {
 
   private static final CreateIngestionExecutionRequestInput TEST_INPUT =
       new CreateIngestionExecutionRequestInput(TEST_INGESTION_SOURCE_URN.toString());
+
+  /**
+   * A matrix service backed by a {@link NoOpIngestionCliVersionMatrixSource} — what production
+   * wires when no matrix backend is configured. Always returns an empty matrix, so resolution falls
+   * through to {@code defaultCliVersion}.
+   */
+  private static IngestionCliVersionMatrixService disabledMatrixService() {
+    return new IngestionCliVersionMatrixService(
+        new NoOpIngestionCliVersionMatrixSource(), null, null);
+  }
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -62,7 +73,8 @@ public class CreateIngestionExecutionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion("default");
     CreateIngestionExecutionRequestResolver resolver =
-        new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateIngestionExecutionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -84,7 +96,8 @@ public class CreateIngestionExecutionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion("default");
     CreateIngestionExecutionRequestResolver resolver =
-        new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateIngestionExecutionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -281,7 +294,8 @@ public class CreateIngestionExecutionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion("default");
     CreateIngestionExecutionRequestResolver resolver =
-        new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateIngestionExecutionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
@@ -360,7 +374,8 @@ public class CreateIngestionExecutionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_CLI_VERSION);
     CreateIngestionExecutionRequestResolver resolver =
-        new CreateIngestionExecutionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateIngestionExecutionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     QueryContext mockContext = getMockAllowContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
