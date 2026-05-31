@@ -60,6 +60,8 @@ Requirements:
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
 
+- **(Ingestion / Dremio)** Query lineage and view-parent lineage emission now respect `schema_pattern` and `dataset_pattern` (and skip the `_accelerator_` reflection schema), matching the behavior of Snowflake and Redshift. Previously these filters only applied to the catalog walk: URNs discovered through `sys.jobs_recent` or view-parent references were emitted unconditionally, so DataHub materialized ghost dataset entities for filtered schemas with no parent container or browse path. A new report counter `num_lineage_dropped_filtered` records how many lineage references were skipped. **If you relied on lineage edges to filtered upstreams** (e.g. to keep references to system schemas that you excluded from the main catalog), widen `schema_pattern` / `dataset_pattern` to admit them — or run with the defaults, which allow everything.
+
 ## v1.6.0
 
 Requirements:

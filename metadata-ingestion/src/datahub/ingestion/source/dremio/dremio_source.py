@@ -1,8 +1,9 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -76,6 +77,49 @@ logger = logging.getLogger(__name__)
 
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
+
+
+def _passes_dremio_filters(
+    name: str,
+    catalog_dataset_names: Set[str],
+    dataset_pattern: AllowDenyPattern,
+    schema_pattern: AllowDenyPattern,
+) -> bool:
+    """Return True if a Dremio dataset name passes the same gates as the catalog walk.
+
+    Used by both the SqlParsingAggregator's `is_allowed_table` callback and the
+    direct view-lineage emission path so that URNs discovered through query
+    history or view-parent references can't bypass `schema_pattern` /
+    `dataset_pattern` and produce ghost datasets with no parent container.
+
+    `name` may arrive with or without the `dremio.` platform prefix; the
+    catalog walk matches patterns against the post-prefix form, so we
+    normalize before checking.
+    """
+    if name.startswith(f"{DREMIO_DATABASE_NAME}."):
+        name = name[len(DREMIO_DATABASE_NAME) + 1 :]
+
+    # Anything the catalog walk already accepted is by definition allowed.
+    if name in catalog_dataset_names:
+        return True
+
+    path_parts = name.split(".")
+    # Dremio reflections live under _accelerator_ and are never user-facing.
+    if path_parts and path_parts[0] == "_accelerator_":
+        return False
+
+    if not dataset_pattern.allowed(name):
+        return False
+
+    # Container portion of the path must also pass schema_pattern. Use
+    # AllowDenyPattern.allowed directly (not should_include_container, which
+    # has report side-effects we don't want at lineage emission time).
+    if len(path_parts) > 1:
+        container_path = ".".join(path_parts[:-1])
+        if not schema_pattern.allowed(container_path):
+            return False
+
+    return True
 
 
 class DremioSchemaResolver(SchemaResolver):
@@ -232,6 +276,11 @@ class DremioSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
+        # Track catalog dataset names for query lineage validation
+        # (must be initialized before the aggregator, whose is_allowed_table
+        # callback reads this set).
+        self.catalog_dataset_names: Set[str] = set()
+
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
@@ -241,14 +290,33 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
+            # Gate lineage / usage / operations emission by the same filters
+            # that the catalog walk applies, so query-discovered URNs can't
+            # leak past schema_pattern / dataset_pattern.
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
         # For profiling
         self.profiler = DremioProfiler(config, self.report, dremio_api)
 
-        # Track catalog dataset names for query lineage validation
-        self.catalog_dataset_names: set[str] = set()
+    def _is_allowed_table(self, name: str) -> bool:
+        """SqlParsingAggregator callback to filter lineage / usage / operations.
+
+        The aggregator passes us the dataset name extracted from the URN. We
+        reuse the same filter chain the catalog walk applies, so anything not
+        in scope for catalog ingestion is also out of scope for emitted
+        lineage edges.
+        """
+        allowed = _passes_dremio_filters(
+            name=name,
+            catalog_dataset_names=self.catalog_dataset_names,
+            dataset_pattern=self.config.dataset_pattern,
+            schema_pattern=self.config.schema_pattern,
+        )
+        if not allowed:
+            self.report.num_lineage_dropped_filtered += 1
+        return allowed
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -518,16 +586,33 @@ class DremioSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         """
         Generate lineage information for views.
+
+        Pre-filters parent references against the same catalog filters used by
+        the walk; bypassing them here would emit ghost upstream datasets that
+        the operator explicitly excluded via schema_pattern / dataset_pattern.
         """
-        upstream_urns = [
-            make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{upstream_table.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+        upstream_urns: List[str] = []
+        for upstream_table in parents:
+            upstream_name = upstream_table.lower()
+            if not _passes_dremio_filters(
+                name=upstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            ):
+                self.report.num_lineage_dropped_filtered += 1
+                continue
+            upstream_urns.append(
+                make_dataset_urn_with_platform_instance(
+                    platform=make_data_platform_urn(self.get_platform()),
+                    name=f"{DREMIO_DATABASE_NAME}.{upstream_name}",
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
             )
-            for upstream_table in parents
-        ]
+
+        if not upstream_urns:
+            return
 
         lineage = UpstreamLineage(
             upstreams=[
@@ -611,34 +696,61 @@ class DremioSource(StatefulIngestionSourceBase):
             # Validate query dataset format matches catalog format
             self._validate_query_lineage_format(query)
 
-            upstream_urns = [
-                make_dataset_urn_with_platform_instance(
+            # Pre-filter upstreams/downstream by the same catalog filters used
+            # for the walk: query lineage shouldn't introduce ghost datasets
+            # for filtered schemas or denylisted patterns. The aggregator's
+            # is_allowed_table callback is the second line of defense for any
+            # URN we don't filter here (e.g. those discovered via SQL parsing
+            # inside add_observed_query).
+            downstream_name = query.affected_dataset.lower()
+            downstream_allowed = _passes_dremio_filters(
+                name=downstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            )
+
+            upstream_urns: List[str] = []
+            for ds in query.queried_datasets:
+                ds_lower = ds.lower()
+                if not _passes_dremio_filters(
+                    name=ds_lower,
+                    catalog_dataset_names=self.catalog_dataset_names,
+                    dataset_pattern=self.config.dataset_pattern,
+                    schema_pattern=self.config.schema_pattern,
+                ):
+                    self.report.num_lineage_dropped_filtered += 1
+                    continue
+                upstream_urns.append(
+                    make_dataset_urn_with_platform_instance(
+                        platform=make_data_platform_urn(self.get_platform()),
+                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
+                        env=self.config.env,
+                        platform_instance=self.config.platform_instance,
+                    )
+                )
+
+            if downstream_allowed and upstream_urns:
+                downstream_urn = make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{ds.lower()}",
+                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
-                for ds in query.queried_datasets
-            ]
+                self.sql_parsing_aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=query.query,
+                        upstreams=upstream_urns,
+                        downstream=downstream_urn,
+                    ),
+                    merge_lineage=True,
+                )
+            elif not downstream_allowed:
+                self.report.num_lineage_dropped_filtered += 1
 
-            downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{query.affected_dataset.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-
-            # Add query to SqlParsingAggregator
-            self.sql_parsing_aggregator.add_known_query_lineage(
-                KnownQueryLineageInfo(
-                    query_text=query.query,
-                    upstreams=upstream_urns,
-                    downstream=downstream_urn,
-                ),
-                merge_lineage=True,
-            )
-
-        # Add observed query
+        # Always register the observed query for usage stats. The aggregator's
+        # is_allowed_table callback drops references to filtered datasets at
+        # emission time, so this is safe.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

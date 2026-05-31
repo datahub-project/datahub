@@ -26,6 +26,11 @@ class DremioSourceReport(
     containers_scanned: int = 0
     containers_filtered: int = 0
 
+    # Number of lineage references (view parents, query upstreams/downstreams)
+    # that were skipped because they fell outside schema_pattern / dataset_pattern.
+    # Helps operators distinguish "no lineage in source" from "lineage filtered out".
+    num_lineage_dropped_filtered: int = 0
+
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(
         default_factory=int_top_k_dict
