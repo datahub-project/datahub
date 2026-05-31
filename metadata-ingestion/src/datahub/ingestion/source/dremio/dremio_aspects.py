@@ -23,6 +23,10 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
     DremioGlossaryTerm,
 )
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioEntityContainerType,
+    DremioOwnerType,
+)
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     AuditStampClass,
@@ -72,30 +76,23 @@ class SchemaFieldTypeMapper:
     # From https://docs.dremio.com/cloud/reference/sql/data-types/
 
     FIELD_TYPE_MAPPING: Dict[str, Type] = {
-        # Bool
         "boolean": BooleanTypeClass,
-        # Binary
         "binary varying": BytesTypeClass,
-        # Numbers
         "decimal": NumberTypeClass,
         "integer": NumberTypeClass,
         "bigint": NumberTypeClass,
         "float": NumberTypeClass,
         "double": NumberTypeClass,
-        # Dates and times
         "timestamp": DateTypeClass,
         "date": DateTypeClass,
         "time": TimeTypeClass,
-        # Strings
         "char": StringTypeClass,
         "character": StringTypeClass,
         "character varying": StringTypeClass,
-        # Records
         "row": RecordTypeClass,
         "struct": RecordTypeClass,
         "list": RecordTypeClass,
         "map": RecordTypeClass,
-        # Arrays
         "array": ArrayTypeClass,
     }
 
@@ -189,7 +186,6 @@ class DremioAspects:
     def populate_container_mcp(
         self, container_urn: str, container: DremioContainer
     ) -> Iterable[MetadataWorkUnit]:
-        # Container Properties
         container_properties = self._create_container_properties(container)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=container_urn,
@@ -198,16 +194,14 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        if not container.path:
-            browse_paths_v2 = self._create_browse_paths_containers(container)
-            if browse_paths_v2:
-                mcp = MetadataChangeProposalWrapper(
-                    entityUrn=container_urn,
-                    aspect=browse_paths_v2,
-                )
-                yield mcp.as_workunit()
+        browse_paths_v2 = self._create_browse_paths_containers(container)
+        if browse_paths_v2:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=browse_paths_v2,
+            )
+            yield mcp.as_workunit()
 
-        # Container Class Folders
         container_class = self._create_container_class(container)
         if container_class:
             mcp = MetadataChangeProposalWrapper(
@@ -216,7 +210,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # Data Platform Instance
         data_platform_instance = self._create_data_platform_instance()
         if data_platform_instance:
             mcp = MetadataChangeProposalWrapper(
@@ -225,7 +218,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # SubTypes
         subtypes = SubTypesClass(typeNames=[container.subclass])
         mcp = MetadataChangeProposalWrapper(
             entityUrn=container_urn,
@@ -233,7 +225,6 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        # Status
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=container_urn,
@@ -244,7 +235,6 @@ class DremioAspects:
     def populate_dataset_mcp(
         self, dataset_urn: str, dataset: DremioDataset
     ) -> Iterable[MetadataWorkUnit]:
-        # Dataset Properties
         dataset_properties = self._create_dataset_properties(dataset)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -252,7 +242,6 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        # Ownership
         ownership = self._create_ownership(dataset)
         if ownership:
             mcp = MetadataChangeProposalWrapper(
@@ -261,7 +250,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # SubTypes
         subtypes = SubTypesClass(typeNames=[dataset.dataset_type.value])
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -269,7 +257,6 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        # Data Platform Instance
         data_platform_instance = self._create_data_platform_instance()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -277,7 +264,6 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        # Container Class
         container_class = self._create_container_class(dataset)
         if container_class:
             mcp = MetadataChangeProposalWrapper(
@@ -286,7 +272,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # View Definition
         if dataset.dataset_type == DremioDatasetType.VIEW:
             view_definition = self._create_view_properties(dataset)
             mcp = MetadataChangeProposalWrapper(
@@ -295,7 +280,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # Glossary Terms
         if dataset.glossary_terms:
             glossary_terms = self._create_glossary_terms(dataset)
             mcp = MetadataChangeProposalWrapper(
@@ -304,7 +288,6 @@ class DremioAspects:
             )
             yield mcp.as_workunit()
 
-        # Schema Metadata
         if dataset.columns:
             schema_metadata = self._create_schema_metadata(dataset)
             mcp = MetadataChangeProposalWrapper(
@@ -312,7 +295,6 @@ class DremioAspects:
                 aspect=schema_metadata,
             )
             yield mcp.as_workunit()
-
         else:
             logger.warning(
                 f"Dataset {dataset.path}.{dataset.resource_name} has not been queried in Dremio"
@@ -321,7 +303,6 @@ class DremioAspects:
                 f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
             )
 
-        # Status
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
@@ -370,6 +351,21 @@ class DremioAspects:
             paths.append(BrowsePathEntryClass(id="Spaces"))
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
             paths.append(BrowsePathEntryClass(id="Sources"))
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER.value:
+            # For folders, use the root container type to determine prefix
+            root_type = getattr(entity, "root_container_type", None)
+            if root_type == DremioEntityContainerType.SPACE:
+                paths.append(BrowsePathEntryClass(id="Spaces"))
+            elif root_type == DremioEntityContainerType.SOURCE:
+                paths.append(BrowsePathEntryClass(id="Sources"))
+
+        if entity.path:
+            for i, _path_element in enumerate(entity.path):
+                # Build the full path up to this element
+                partial_path = entity.path[: i + 1]
+                container_urn = self.get_container_urn(path=partial_path)
+                paths.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
+
         if paths:
             return BrowsePathsV2Class(path=paths)
         return None
@@ -394,21 +390,33 @@ class DremioAspects:
     def _create_dataset_properties(
         self, dataset: DremioDataset
     ) -> DatasetPropertiesClass:
+        custom_properties: Dict[str, str] = {}
+        if dataset.format_type:
+            custom_properties["format_type"] = dataset.format_type
+
+        created_ts: Optional[TimeStampClass] = None
+        if dataset.created:
+            try:
+                created_ts = TimeStampClass(
+                    time=round(
+                        datetime.strptime(
+                            dataset.created, "%Y-%m-%d %H:%M:%S.%f"
+                        ).timestamp()
+                        * 1000
+                    )
+                )
+            except (ValueError, AttributeError):
+                logger.debug(
+                    f"Could not parse created timestamp for dataset {dataset.resource_name}: {dataset.created!r}"
+                )
+
         return DatasetPropertiesClass(
             name=dataset.resource_name,
             qualifiedName=f"{'.'.join(dataset.path)}.{dataset.resource_name}",
             description=dataset.description,
             externalUrl=self._create_external_url(dataset=dataset),
-            created=TimeStampClass(
-                time=round(
-                    datetime.strptime(
-                        dataset.created, "%Y-%m-%d %H:%M:%S.%f"
-                    ).timestamp()
-                    * 1000
-                )
-                if hasattr(dataset, "created")
-                else 0,
-            ),
+            created=created_ts,
+            customProperties=custom_properties if custom_properties else None,
         )
 
     def _create_external_url(self, dataset: DremioDataset) -> str:
@@ -431,7 +439,7 @@ class DremioAspects:
         if self.ingest_owner and dataset.owner:
             owner_urn = (
                 make_user_urn(dataset.owner)
-                if dataset.owner_type == "USER"
+                if dataset.owner_type == DremioOwnerType.USER
                 else make_group_urn(dataset.owner)
             )
             ownership: OwnershipClass = OwnershipClass(
