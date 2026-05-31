@@ -1032,7 +1032,6 @@ class DremioAPIOperations:
             container_type = source.get("containerType")
 
             if container_type == DremioEntityContainerType.SOURCE.value:
-                # Only fetch source details if we have an ID
                 source_resp = {}
                 source_config = {}
                 if source.get("id"):
@@ -1042,14 +1041,13 @@ class DremioAPIOperations:
                         )
                         source_config = source_resp.get("config", {})
                     except Exception:
-                        # If we can't fetch source details, continue with basic info
+                        # Fall back to the basic source info if the details endpoint fails.
                         pass
 
                 db = source_config.get(
                     "database", source_config.get("databaseName", "")
                 )
 
-                # Extract name from path or use the name field
                 source_name = (
                     source.get("path", [""])[0]
                     if source.get("path")
@@ -1076,8 +1074,6 @@ class DremioAPIOperations:
                 DremioEntityContainerType.SPACE.value,
                 DremioEntityContainerType.HOME.value,
             ):
-                # Handle spaces and home spaces
-                # Extract name from path or use the name field
                 space_name = (
                     source.get("path", [""])[0]
                     if source.get("path")
@@ -1111,8 +1107,8 @@ class DremioAPIOperations:
             if not container:
                 return []
 
-            # Get sub-containers using ID or name as fallback
             sub_containers = []
+            # Fall back to name if no ID is present (some sources have one but not the other).
             resource_id = container.id or container.name
             if resource_id:
                 try:
@@ -1125,7 +1121,6 @@ class DremioAPIOperations:
                     logger.debug(
                         f"Failed to get sub-containers for {container.name}: {exc}"
                     )
-                    # Continue without sub-containers
 
             return [container] + sub_containers
 
@@ -1186,13 +1181,13 @@ class DremioAPIOperations:
                     folder_full_name = ".".join(folder_path + [folder_name])
 
                     if self.filter.should_include_container(folder_path, folder_name):
-                        # Create folder container data
                         folder_data = {
                             "id": location_id,
                             "name": folder_name,
                             "path": folder_path,
                             "container_type": DremioEntityContainerType.FOLDER,
-                            "root_container_type": root_container_type,  # Pass down root type
+                            # Passed down so the folder inherits its root's browse-path subtype.
+                            "root_container_type": root_container_type,
                         }
 
                         self.report.report_container_scanned(folder_full_name)
