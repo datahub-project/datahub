@@ -60,6 +60,8 @@ Requirements:
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
 
+- **(Ingestion / Dremio)** The Dremio Software connector now auto-detects whether `sys.jobs_recent.queried_datasets` is exposed as `VARCHAR` (pre-26.1.0) or `ARRAY<VARCHAR>` (26.1.0+) by probing the column once per ingestion and selecting an appropriate jobs query. Users upgrading their Dremio cluster to 26.1.0 or newer no longer have to disable usage/lineage extraction to avoid a `Function ARRAY_SIZE not found` error. No recipe changes are required; the probe runs lazily before query extraction.
+
 ## v1.6.0
 
 Requirements:

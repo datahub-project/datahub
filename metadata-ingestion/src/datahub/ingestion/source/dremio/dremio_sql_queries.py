@@ -294,6 +294,50 @@ class DremioSQLQueries:
         """
 
     @staticmethod
+    def get_query_all_jobs_array(
+        start_timestamp_millis: Optional[str] = None,
+        end_timestamp_millis: Optional[str] = None,
+    ) -> str:
+        """
+        Get query for all jobs on Dremio Software 26.1.0+ where
+        sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>.
+
+        The legacy `get_query_all_jobs` form uses LENGTH()/raw selection and
+        breaks at runtime once Dremio Software 26.1.0 changes the column type
+        from VARCHAR to ARRAY<VARCHAR>. We wrap the array as a bracket-string
+        so the downstream parser (DremioQuery._get_queried_datasets) keeps
+        working unchanged.
+
+        Args:
+            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 1 day ago)
+            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
+        """
+        if start_timestamp_millis is None:
+            start_timestamp_millis = (
+                DremioSQLQueries._get_default_start_timestamp_millis()
+            )
+        if end_timestamp_millis is None:
+            end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
+
+        return f"""
+        SELECT
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
+        FROM
+            SYS.JOBS_RECENT
+        WHERE
+            STATUS = 'COMPLETED'
+            AND ARRAY_SIZE(queried_datasets)>0
+            AND user_name != '$dremio$'
+            AND query_type not like '%INTERNAL%'
+            AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
+            AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        """
+
+    @staticmethod
     def get_query_all_jobs_cloud(
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
