@@ -123,6 +123,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 $width={sidebarWidth}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
                 id="browse-v2"
+                data-testid="browse-v2-results"
             >
                 <Controls isCollapsed={isClosed}>
                     {!isClosed ? (

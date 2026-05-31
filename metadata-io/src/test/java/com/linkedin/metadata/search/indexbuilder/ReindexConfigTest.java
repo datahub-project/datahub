@@ -1,11 +1,14 @@
 package com.linkedin.metadata.search.indexbuilder;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.collect.ImmutableMap;
+import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.util.*;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -20,6 +23,21 @@ public class ReindexConfigTest {
   private static final String TEST_INDEX_NAME = "test_index";
   private static final String PROPERTIES_KEY = "properties";
   private static final String TYPE_KEY = "type";
+
+  private static SearchClientShim<?> es8SettingsComparisonShim() {
+    SearchClientShim<?> shim = mock(SearchClientShim.class);
+    when(shim.indexSettingNamesForComparison(any(), any()))
+        .thenAnswer(
+            invocation ->
+                Es8SearchClientShim.IndexSettingsComparison.storedNamesForComparison(
+                    invocation.getArgument(0), invocation.getArgument(1)));
+    when(shim.indexSettingValuesEqual(any(), any()))
+        .thenAnswer(
+            invocation ->
+                Es8SearchClientShim.IndexSettingsComparison.valuesEqual(
+                    invocation.getArgument(0), invocation.getArgument(1)));
+    return shim;
+  }
 
   @BeforeMethod
   void setUp() {
@@ -1380,6 +1398,177 @@ public class ReindexConfigTest {
 
     // Should detect that settings are equal
     Assert.assertFalse(config.requiresApplySettings());
+  }
+
+  @Test
+  void testEngineRoundTrip_ES8_AnalyzerTypeCustom_IgnoredWhenTargetOmitsType() {
+    // V2LegacySettingsBuilder emits analyzers without "type"; ES8 persists type=custom.
+    Settings currentSettings =
+        Settings.builder()
+            .put("index.analysis.analyzer.browse_path_hierarchy.type", "custom")
+            .put("index.analysis.analyzer.browse_path_hierarchy.tokenizer", "path_hierarchy")
+            .put("index.analysis.analyzer.partial.type", "custom")
+            .put("index.analysis.analyzer.partial.tokenizer", "main_tokenizer")
+            .put("index.analysis.analyzer.partial.filter.0", "asciifolding")
+            .put("index.analysis.analyzer.partial.filter.1", "autocomplete_custom_delimiter")
+            .put("index.analysis.analyzer.partial.filter.2", "lowercase")
+            .put("index.analysis.filter.autocomplete_custom_delimiter.type", "word_delimiter")
+            .put("index.analysis.filter.autocomplete_custom_delimiter.preserve_original", "true")
+            .put("index.analysis.filter.autocomplete_custom_delimiter.split_on_numerics", "false")
+            .put(
+                "index.analysis.filter.autocomplete_custom_delimiter.split_on_case_change", "false")
+            .build();
+
+    Map<String, Object> targetSettings =
+        ImmutableMap.of(
+            "index",
+            ImmutableMap.of(
+                "analysis",
+                ImmutableMap.of(
+                    "analyzer",
+                    ImmutableMap.of(
+                        "browse_path_hierarchy",
+                        ImmutableMap.of("tokenizer", "path_hierarchy"),
+                        "partial",
+                        ImmutableMap.of(
+                            "tokenizer",
+                            "main_tokenizer",
+                            "filter",
+                            Arrays.asList(
+                                "asciifolding", "autocomplete_custom_delimiter", "lowercase"))),
+                    "filter",
+                    ImmutableMap.of(
+                        "autocomplete_custom_delimiter",
+                        ImmutableMap.of(
+                            "type",
+                            "word_delimiter",
+                            "preserve_original",
+                            true,
+                            "split_on_numerics",
+                            false,
+                            "split_on_case_change",
+                            false)))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .settingsComparisonShim(es8SettingsComparisonShim())
+            .build();
+
+    Assert.assertFalse(
+        config.requiresApplySettings(),
+        "ES8-injected analyzer type=custom must not force analysis settings reindex");
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testEngineRoundTrip_ES8_AnalyzerTypeCustom_TriggersReindexWithoutShim() {
+    Settings currentSettings =
+        Settings.builder()
+            .put("index.analysis.analyzer.browse_path_hierarchy.type", "custom")
+            .put("index.analysis.analyzer.browse_path_hierarchy.tokenizer", "path_hierarchy")
+            .build();
+
+    Map<String, Object> targetSettings =
+        ImmutableMap.of(
+            "index",
+            ImmutableMap.of(
+                "analysis",
+                ImmutableMap.of(
+                    "analyzer",
+                    ImmutableMap.of(
+                        "browse_path_hierarchy", ImmutableMap.of("tokenizer", "path_hierarchy")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .build();
+
+    Assert.assertTrue(
+        config.requiresApplySettings(),
+        "Without ES8 shim, injected type=custom must be treated as a settings drift");
+  }
+
+  @Test
+  void testEngineRoundTrip_ES8_AnalyzerRealChangeStillDetected() {
+    Settings currentSettings =
+        Settings.builder()
+            .put("index.analysis.analyzer.partial.type", "custom")
+            .put("index.analysis.analyzer.partial.tokenizer", "main_tokenizer")
+            .build();
+
+    Map<String, Object> targetSettings =
+        ImmutableMap.of(
+            "index",
+            ImmutableMap.of(
+                "analysis",
+                ImmutableMap.of(
+                    "analyzer",
+                    ImmutableMap.of("partial", ImmutableMap.of("tokenizer", "keyword")))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .settingsComparisonShim(es8SettingsComparisonShim())
+            .build();
+
+    Assert.assertTrue(
+        config.requiresApplySettings(), "Real analyzer tokenizer change must still be detected");
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  @Test
+  void testEngineRoundTrip_ES8_CaseInsensitiveBooleanValuesEqual() {
+    Settings currentSettings =
+        Settings.builder()
+            .put("index.analysis.filter.autocomplete_custom_delimiter.preserve_original", "True")
+            .build();
+
+    Map<String, Object> targetSettings =
+        ImmutableMap.of(
+            "index",
+            ImmutableMap.of(
+                "analysis",
+                ImmutableMap.of(
+                    "filter",
+                    ImmutableMap.of(
+                        "autocomplete_custom_delimiter",
+                        ImmutableMap.of("preserve_original", true)))));
+
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(new HashMap<>())
+            .targetMappings(new HashMap<>())
+            .currentSettings(currentSettings)
+            .targetSettings(targetSettings)
+            .enableIndexSettingsReindex(true)
+            .settingsComparisonShim(es8SettingsComparisonShim())
+            .build();
+
+    Assert.assertFalse(
+        config.requiresApplySettings(),
+        "ES8 shim should treat True/true as equal for boolean settings");
+    Assert.assertFalse(config.requiresReindex());
   }
 
   @Test

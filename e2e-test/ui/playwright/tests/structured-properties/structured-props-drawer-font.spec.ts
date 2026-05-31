@@ -40,9 +40,9 @@ test.describe('Structured-Properties Create drawer — font family', () => {
 
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     if (page.url().includes('/login')) {
-      await page.locator('[data-testid="username"]').fill(USERNAME);
-      await page.locator('[data-testid="password"]').fill(PASSWORD);
-      await page.locator('[data-testid="sign-in"]').click();
+      await page.getByTestId('username').fill(USERNAME);
+      await page.getByTestId('password').fill(PASSWORD);
+      await page.getByTestId('sign-in').click();
       await page.waitForURL((url) => !url.pathname.includes('login'), {
         waitUntil: 'domcontentloaded',
         timeout: 30_000,
@@ -51,6 +51,7 @@ test.describe('Structured-Properties Create drawer — font family', () => {
 
     // Dismiss any blocking modal/onboarding overlays.
     for (const sel of ['.ant-modal-close', 'button:has-text("Skip Tour")', 'button:has-text("Got it")']) {
+      // eslint-disable-next-line playwright/no-raw-locators -- dynamic selector loop includes Ant Design class names with no data-testid equivalent
       const m = page.locator(sel).first();
       if ((await m.count()) && (await m.isVisible().catch(() => false))) {
         await m.click().catch(() => {});
@@ -67,6 +68,7 @@ test.describe('Structured-Properties Create drawer — font family', () => {
     await createBtn.click();
 
     // Wait for the drawer chrome to render.
+    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design drawer content class; no data-testid or ARIA role equivalent
     const drawer = page.locator('.ant-drawer-content').first();
     await expect(drawer).toBeVisible({ timeout: 10_000 });
 
@@ -80,6 +82,7 @@ test.describe('Structured-Properties Create drawer — font family', () => {
 });
 
 async function expectMulish(page: Page, selector: string, label: string) {
+  // eslint-disable-next-line playwright/no-raw-locators -- utility helper accepts arbitrary CSS selectors including Ant Design class names
   await expectMulishElement(page.locator(selector).first(), label);
 }
 
