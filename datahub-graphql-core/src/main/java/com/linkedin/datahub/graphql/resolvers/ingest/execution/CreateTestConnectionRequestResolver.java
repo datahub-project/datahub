@@ -30,6 +30,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import lombok.extern.slf4j.Slf4j;
@@ -71,24 +72,14 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private final IngestionConfiguration _ingestionConfiguration;
   private final IngestionCliVersionMatrixService _versionMatrixService;
 
-  /** Two-arg constructor — no per-connector version matrix is consulted. */
-  public CreateTestConnectionRequestResolver(
-      final EntityClient entityClient, final IngestionConfiguration ingestionConfiguration) {
-    this(entityClient, ingestionConfiguration, null);
-  }
-
-  /**
-   * Three-arg constructor for deployments that want matrix-aware version resolution. When {@code
-   * versionMatrixService} is non-null the per-connector version matrix is consulted before falling
-   * back to {@code defaultCliVersion}.
-   */
   public CreateTestConnectionRequestResolver(
       final EntityClient entityClient,
       final IngestionConfiguration ingestionConfiguration,
       final IngestionCliVersionMatrixService versionMatrixService) {
     _entityClient = entityClient;
     _ingestionConfiguration = ingestionConfiguration;
-    _versionMatrixService = versionMatrixService;
+    // Always a wired Spring bean (NoOp-backed when no matrix backend is configured), never null.
+    _versionMatrixService = Objects.requireNonNull(versionMatrixService);
   }
 
   @Override
@@ -137,10 +128,7 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
                     input.getVersion(),
                     connectorType,
                     _versionMatrixService,
-                    _ingestionConfiguration.getDefaultCliVersion(),
-                    _versionMatrixService != null
-                        ? _versionMatrixService.getServerVersion()
-                        : null);
+                    _ingestionConfiguration.getDefaultCliVersion());
             if (resolution.getVersion() != null && !resolution.getVersion().isEmpty()) {
               arguments.put(VERSION_ARG_NAME, resolution.getVersion());
             }

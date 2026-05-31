@@ -41,7 +41,7 @@ public final class IngestionCliVersionResolutionLogger {
    *     lines appear under the caller's class.
    * @param trigger short label distinguishing the call site (see {@link #TRIGGER_MANUAL}, etc.)
    * @param resolution result from {@link IngestionCliVersionResolutionHelper#resolve(String,
-   *     String, IngestionCliVersionMatrixService, String, String)}
+   *     String, IngestionCliVersionMatrixService, String)}
    * @param connectorType source type from the recipe, may be {@code null} when the recipe lacks a
    *     parseable {@code source.type}
    * @param identifierKey self-describing key for {@code identifierValue} — typically {@link

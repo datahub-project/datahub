@@ -3,6 +3,7 @@ package com.linkedin.metadata.ingestion;
 import com.linkedin.execution.CliVersionAudit;
 import com.linkedin.execution.CliVersionSource;
 import java.util.Optional;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -43,12 +44,11 @@ public final class IngestionCliVersionResolutionHelper {
    *     empty if unset
    * @param connectorType the source-type string from the recipe (e.g. {@code "snowflake"}), or
    *     {@code null} if not derivable (e.g. malformed test-connection recipe)
-   * @param matrixService the version-matrix service; pass {@code null} for OSS callers that do not
-   *     consult a matrix (e.g. unit-test setups)
+   * @param matrixService the version-matrix service (always wired as a Spring bean — a {@link
+   *     NoOpIngestionCliVersionMatrixSource}-backed instance when no matrix backend is configured).
+   *     The GMS server version stamped on the audit record is read from {@link
+   *     IngestionCliVersionMatrixService#getServerVersion()}.
    * @param defaultCliVersion the application-wide fallback from {@code IngestionConfiguration}
-   * @param serverVersion the GMS server version (typically {@code GitVersion.getVersion()}).
-   *     Stamped on every returned record regardless of which tier hit; pass {@code null} only in
-   *     tests that don't care about audit data.
    * @return a {@link Result} carrying the resolved version string + the structured stamp. Never
    *     {@code null}; the {@code version} field is guaranteed non-null except when {@code
    *     defaultCliVersion} itself is null/empty (an OSS misconfiguration).
@@ -56,9 +56,13 @@ public final class IngestionCliVersionResolutionHelper {
   public static Result resolve(
       @Nullable String explicitVersion,
       @Nullable String connectorType,
-      @Nullable IngestionCliVersionMatrixService matrixService,
-      @Nullable String defaultCliVersion,
-      @Nullable String serverVersion) {
+      @Nonnull IngestionCliVersionMatrixService matrixService,
+      @Nullable String defaultCliVersion) {
+
+    // The GMS server version is read from the matrix service (its single source of truth) instead
+    // of being threaded in by every caller — keeps the audit stamp consistent across all three
+    // execution paths and avoids passing both the service and a value pulled from it.
+    final String serverVersion = matrixService.getServerVersion();
 
     // Normalize the per-source version: bootstrap YAML templating can render `version: "{{
     // config.version }}"` as null, empty, or three spaces when the source has no version pin,
@@ -76,7 +80,7 @@ public final class IngestionCliVersionResolutionHelper {
           stampWithSource(CliVersionSource.SOURCE_CONFIG_OVERRIDE, serverVersion));
     }
 
-    if (matrixService != null && connectorType != null && !connectorType.isEmpty()) {
+    if (connectorType != null && !connectorType.isEmpty()) {
       Optional<IngestionCliVersionMatrixService.MatrixResolution> matrixResult =
           matrixService.resolveVersionWithSource(connectorType);
       if (matrixResult.isPresent()) {
@@ -107,8 +111,8 @@ public final class IngestionCliVersionResolutionHelper {
 
   /**
    * Wraps the two outputs of {@link #resolve(String, String, IngestionCliVersionMatrixService,
-   * String, String)} — the plain CLI version string (for {@code args.version}) and the structured
-   * audit stamp (for the {@code cliVersionAudit} aspect field).
+   * String)} — the plain CLI version string (for {@code args.version}) and the structured audit
+   * stamp (for the {@code cliVersionAudit} aspect field).
    */
   public static final class Result {
     private final String version;

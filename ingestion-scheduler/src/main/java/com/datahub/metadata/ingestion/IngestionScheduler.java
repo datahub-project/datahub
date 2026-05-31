@@ -432,8 +432,7 @@ public class IngestionScheduler {
                 explicitVersion,
                 ingestionSourceInfo.getType(),
                 versionMatrixService,
-                ingestionConfiguration.getDefaultCliVersion(),
-                versionMatrixService != null ? versionMatrixService.getServerVersion() : null);
+                ingestionConfiguration.getDefaultCliVersion());
         arguments.put(VERSION_ARGUMENT_NAME, resolution.getVersion());
         input.setCliVersionAudit(resolution.getStamp());
         IngestionCliVersionResolutionLogger.log(

@@ -13,6 +13,7 @@ import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.IngestionConfiguration;
 import com.linkedin.metadata.ingestion.IngestionCliVersionMatrixService;
+import com.linkedin.metadata.ingestion.NoOpIngestionCliVersionMatrixSource;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
@@ -36,6 +37,16 @@ public class CreateTestConnectionRequestResolverTest {
       new CreateTestConnectionRequestInput(SNOWFLAKE_RECIPE, EXPLICIT_VERSION);
   private static final CreateTestConnectionRequestInput TEST_INPUT_NO_VERSION =
       new CreateTestConnectionRequestInput(SNOWFLAKE_RECIPE, null);
+
+  /**
+   * A matrix service backed by a {@link NoOpIngestionCliVersionMatrixSource} — what production
+   * wires when no matrix backend is configured. Always returns an empty matrix (so resolution falls
+   * through to {@code defaultCliVersion}) and reports no server version.
+   */
+  private static IngestionCliVersionMatrixService disabledMatrixService() {
+    return new IngestionCliVersionMatrixService(
+        new NoOpIngestionCliVersionMatrixSource(), null, null);
+  }
 
   @Test
   public void testExplicitInputVersionWins() throws Exception {
@@ -90,7 +101,8 @@ public class CreateTestConnectionRequestResolverTest {
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
     CreateTestConnectionRequestResolver resolver =
-        new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateTestConnectionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     runAndVerifyVersion(resolver, mockClient, TEST_INPUT_NO_VERSION, DEFAULT_VERSION);
   }
@@ -106,7 +118,8 @@ public class CreateTestConnectionRequestResolverTest {
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
     CreateTestConnectionRequestResolver resolver =
-        new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateTestConnectionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     runAndVerifyVersion(
         resolver,
@@ -123,7 +136,8 @@ public class CreateTestConnectionRequestResolverTest {
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
 
     CreateTestConnectionRequestResolver resolver =
-        new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateTestConnectionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     runAndVerifyVersion(
         resolver,
@@ -175,7 +189,8 @@ public class CreateTestConnectionRequestResolverTest {
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
     CreateTestConnectionRequestResolver resolver =
-        new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateTestConnectionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockDenyContext();
@@ -234,10 +249,11 @@ public class CreateTestConnectionRequestResolverTest {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
     IngestionConfiguration ingestionConfiguration = new IngestionConfiguration();
     ingestionConfiguration.setDefaultCliVersion(DEFAULT_VERSION);
-    // No matrix configured — the explicit version must still produce a SOURCE_CONFIG_OVERRIDE
-    // stamp.
+    // Matrix backend disabled (NoOp source, no server version) — the explicit version must still
+    // produce a SOURCE_CONFIG_OVERRIDE stamp.
     CreateTestConnectionRequestResolver resolver =
-        new CreateTestConnectionRequestResolver(mockClient, ingestionConfiguration);
+        new CreateTestConnectionRequestResolver(
+            mockClient, ingestionConfiguration, disabledMatrixService());
 
     ExecutionRequestInput captured =
         runAndCaptureResolution(resolver, mockClient, TEST_INPUT_WITH_VERSION);
@@ -245,7 +261,7 @@ public class CreateTestConnectionRequestResolverTest {
     assertEquals(captured.getArgs().get("version"), EXPLICIT_VERSION);
     com.linkedin.execution.CliVersionAudit stamp = captured.getCliVersionAudit();
     assertEquals(stamp.getSource(), com.linkedin.execution.CliVersionSource.SOURCE_CONFIG_OVERRIDE);
-    // No matrix service wired → no serverVersion to stamp.
+    // The disabled matrix service reports no server version, so none is stamped.
     assertFalse(stamp.hasServerVersion());
   }
 

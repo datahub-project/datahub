@@ -598,7 +598,8 @@ public class GmsGraphQLEngine {
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
-    this.ingestionCliVersionMatrixService = args.ingestionCliVersionMatrixService;
+    this.ingestionCliVersionMatrixService =
+        Objects.requireNonNull(args.ingestionCliVersionMatrixService);
     this.authenticationConfiguration = Objects.requireNonNull(args.authenticationConfiguration);
     this.authorizationConfiguration = Objects.requireNonNull(args.authorizationConfiguration);
     this.visualConfiguration = args.visualConfiguration;
