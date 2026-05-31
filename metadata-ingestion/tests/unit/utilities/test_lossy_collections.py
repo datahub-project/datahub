@@ -283,3 +283,40 @@ def test_lossylist_getitem_with_structured_log_entries():
     assert all(isinstance(item, StructuredLogEntry) for item in slice_result)
     assert slice_result[0].title == "Error 1"
     assert slice_result[1].title == "Error 2"
+
+
+def test_lossylist_contains_unwraps_items():
+    """`x in lossy_list` should match unwrapped items.
+
+    Regression test: items are stored internally as (index, item) tuples for
+    reservoir sampling, so without a custom __contains__ the inherited
+    list.__contains__ would only match against those tuples and `item in
+    lossy_list` would always be False — silently breaking membership tests
+    in every caller of report.filtered et al.
+    """
+    lossy_list: LossyList[str] = LossyList(max_elements=10)
+    lossy_list.append("alpha")
+    lossy_list.append("beta")
+    lossy_list.append("gamma")
+
+    assert "alpha" in lossy_list
+    assert "beta" in lossy_list
+    assert "gamma" in lossy_list
+    assert "delta" not in lossy_list
+
+    # Tuple form should NOT match (the internal representation must not leak).
+    assert (0, "alpha") not in lossy_list
+
+
+def test_lossylist_contains_with_reservoir_sampling():
+    """__contains__ still works after reservoir sampling kicks in."""
+    lossy_list: LossyList[str] = LossyList(max_elements=5)
+    for i in range(20):
+        lossy_list.append(f"item_{i}")
+
+    assert lossy_list.sampled is True
+    # Every survivor should be findable via membership test.
+    for survivor in list(lossy_list):
+        assert survivor in lossy_list
+
+    assert "definitely_not_there" not in lossy_list
