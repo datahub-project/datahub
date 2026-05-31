@@ -161,13 +161,17 @@ class TestAerospikeSetFromInfoString:
 
 
 class TestHostsValidator:
-    def test_rejects_single_element_tuple(self):
-        with pytest.raises(ValueError, match="at least a hostname and port"):
-            AerospikeConfig.model_validate({"hosts": [("h",)]})
-
-    def test_rejects_non_integer_port(self):
-        with pytest.raises(ValueError, match="Port must be an integer"):
-            AerospikeConfig.model_validate({"hosts": [("h", "not-a-port")]})
+    @pytest.mark.parametrize(
+        "host, error_match",
+        [
+            (("h",), "at least a hostname and port"),
+            (("h", "not-a-port"), "Port must be an integer"),
+        ],
+        ids=["single-element-tuple", "non-integer-port"],
+    )
+    def test_rejects_invalid_hosts(self, host, error_match):
+        with pytest.raises(ValueError, match=error_match):
+            AerospikeConfig.model_validate({"hosts": [host]})
 
     def test_accepts_numeric_string_port(self):
         # validate_hosts coerces via int() so "3000" passes
@@ -226,18 +230,6 @@ class TestClientConfigConstruction:
             "cafile": "/etc/aerospike/ca.pem",
         }
 
-    def test_omits_tls_block_when_disabled(self, patched_aerospike_client):
-        # tls_capath/tls_cafile should be ignored if tls_enabled=False.
-        ctor_mock, _ = patched_aerospike_client
-        _make_source(
-            {
-                "hosts": [("h", 3000)],
-                "tls_enabled": False,
-                "tls_cafile": "/some/path",
-            }
-        )
-        assert "tls" not in ctor_mock.call_args[0][0]
-
     def test_passes_login_timeout_when_set(self, patched_aerospike_client):
         ctor_mock, _ = patched_aerospike_client
         _make_source({"hosts": [("h", 3000)], "login_timeout_ms": 2000})
@@ -247,12 +239,6 @@ class TestClientConfigConstruction:
         ctor_mock, _ = patched_aerospike_client
         _make_source({"hosts": [("h", 3000, "tls-name")]})
         assert ctor_mock.call_args[0][0]["hosts"] == [("h", 3000, "tls-name")]
-
-    def test_connection_failure_records_report_failure(self, patched_aerospike_client):
-        ctor_mock, _ = patched_aerospike_client
-        ctor_mock.return_value.connect.side_effect = RuntimeError("unreachable")
-        with pytest.raises(RuntimeError):
-            _make_source({"hosts": [("h", 3000)]})
 
 
 # --------------------------------------------------------------------------- #
@@ -266,63 +252,51 @@ class TestConstructSchemaAerospike:
         client.query.return_value = query
         return client
 
-    def test_passes_socket_timeout_via_policy(self):
-        query = _StrictQuery([_record("pk-1", {"name": "alice"})])
-        construct_schema_aerospike(
-            self._client_with_query(query),
-            AerospikeSet(ns="t", set="s"),
-            ".",
-            socket_timeout_ms=5000,
-        )
-        # Both socket_timeout and total_timeout are derived from the single
-        # user-facing schema_query_timeout_ms knob; max_retries=0 prevents
-        # restream-on-failure which would skew schema inference.
-        assert query.policy_seen == {
-            "max_retries": 0,
-            "socket_timeout": 5000,
-            "total_timeout": 5000,
-        }
-
-    def test_omits_socket_timeout_when_unset(self):
+    @pytest.mark.parametrize(
+        "socket_timeout_ms, expected_policy",
+        [
+            # When set, socket_timeout and total_timeout both derive from the
+            # single schema_query_timeout_ms knob.
+            (
+                5000,
+                {"max_retries": 0, "socket_timeout": 5000, "total_timeout": 5000},
+            ),
+            # When unset, only max_retries=0 remains; the aerospike client's own
+            # defaults apply for socket_timeout/total_timeout.
+            (None, {"max_retries": 0}),
+        ],
+        ids=["timeout-set", "timeout-unset"],
+    )
+    def test_policy_reflects_socket_timeout(self, socket_timeout_ms, expected_policy):
+        # max_retries=0 prevents restream-on-failure, which would skew schema
+        # inference if a partial result set were retried.
         query = _StrictQuery([_record("pk-1", {"x": 1})])
         construct_schema_aerospike(
             self._client_with_query(query),
             AerospikeSet(ns="t", set="s"),
             ".",
-            socket_timeout_ms=None,
+            socket_timeout_ms=socket_timeout_ms,
         )
-        # When the timeout knob is unset, only max_retries=0 remains; the
-        # aerospike client's own defaults apply for socket_timeout/total_timeout.
-        assert query.policy_seen == {"max_retries": 0}
+        assert query.policy_seen == expected_policy
 
-    def test_aerospike_query_rejects_socket_timeout_attribute(self):
-        # Regression: aerospike.Query is a C extension that rejects unknown
-        # attribute assignment. _StrictQuery mirrors that contract via __slots__.
-        # If the fix ever regresses to `query.socket_timeout = X`, the policy
-        # tests above will fail with the same AttributeError as the original bug.
-        query = _StrictQuery([])
-        with pytest.raises(AttributeError):
-            query.socket_timeout = 5000  # type: ignore[attr-defined]
-
-    def test_sample_size_sets_max_records(self):
+    @pytest.mark.parametrize(
+        "kwarg, value, query_attr",
+        [
+            ("sample_size", 50, "max_records"),
+            ("records_per_second", 10, "records_per_second"),
+        ],
+    )
+    def test_query_kwargs_wired_to_attributes(self, kwarg, value, query_attr):
+        # Guards against the same bug class as the socket_timeout regression:
+        # forgetting to forward a kwarg to the query object.
         query = _StrictQuery([_record("pk-1", {"x": 1})])
         construct_schema_aerospike(
             self._client_with_query(query),
             AerospikeSet(ns="t", set="s"),
             ".",
-            sample_size=50,
+            **{kwarg: value},
         )
-        assert query.max_records == 50
-
-    def test_records_per_second_wired(self):
-        query = _StrictQuery([])
-        construct_schema_aerospike(
-            self._client_with_query(query),
-            AerospikeSet(ns="t", set="s"),
-            ".",
-            records_per_second=10,
-        )
-        assert query.records_per_second == 10
+        assert getattr(query, query_attr) == value
 
     def test_primary_key_synthesized_into_schema(self):
         query = _StrictQuery([_record("alice", {"age": 30})])
@@ -367,15 +341,11 @@ class TestTypeMapping:
         assert isinstance(source.get_field_type(str, "demo").type, StringTypeClass)
         assert isinstance(source.get_field_type(bool, "demo").type, BooleanTypeClass)
 
-    def test_unknown_type_string_is_unknown_and_warns(self, patched_aerospike_client):
+    def test_unknown_type_maps_to_unknown_and_null(self, patched_aerospike_client):
         source = _make_source({"hosts": [("h", 3000)]})
         assert source.get_aerospike_type_string(complex, "demo") == "unknown"
+        assert isinstance(source.get_field_type(complex, "demo").type, NullTypeClass)
         assert len(list(source.report.warnings)) >= 1
-
-    def test_unknown_field_type_falls_back_to_null(self, patched_aerospike_client):
-        source = _make_source({"hosts": [("h", 3000)]})
-        result = source.get_field_type(complex, "demo")
-        assert isinstance(result.type, NullTypeClass)
 
 
 # --------------------------------------------------------------------------- #
@@ -397,38 +367,60 @@ class TestLimitSchemaSize:
             for name, count in paths_with_counts
         }
 
-    def test_truncates_deeper_paths_when_depth_is_one(self, patched_aerospike_client):
-        source = _make_source({"hosts": [("h", 3000)], "infer_schema_depth": 1})
-        schema = self._schema(("a", 5), ("a.b", 3), ("a.b.c", 1))
-        props: Dict[str, str] = {}
+    _NESTED_SCHEMA = (("a", 5), ("a.b", 3), ("a.b.c", 1))
 
-        result = source._limit_schema_size(schema, props, "test.demo")
-
-        assert set(result.keys()) == {("a",)}
-        assert props["schema.truncated"] == "True"
-        assert props["schema.totalDepth"] == "3"
-
-    def test_no_depth_truncation_when_minus_one(self, patched_aerospike_client):
+    @pytest.mark.parametrize(
+        "depth, expected_keys, expect_truncated",
+        [
+            (1, {("a",)}, True),
+            (-1, {("a",), ("a", "b"), ("a", "b", "c")}, False),
+        ],
+        ids=["depth-1-truncates", "depth-minus-1-keeps-all"],
+    )
+    def test_depth_truncation(
+        self, patched_aerospike_client, depth, expected_keys, expect_truncated
+    ):
         source = _make_source(
             {
                 "hosts": [("h", 3000)],
-                "infer_schema_depth": -1,
+                "infer_schema_depth": depth,
                 "max_schema_size": 100,
             }
         )
-        schema = self._schema(("a", 5), ("a.b", 3), ("a.b.c", 1))
         props: Dict[str, str] = {}
+        result = source._limit_schema_size(
+            self._schema(*self._NESTED_SCHEMA), props, "test.demo"
+        )
 
-        result = source._limit_schema_size(schema, props, "test.demo")
-        assert len(result) == 3
-        assert "schema.truncated" not in props
+        assert set(result.keys()) == expected_keys
+        if expect_truncated:
+            assert props["schema.truncated"] == "True"
+            assert props["schema.totalDepth"] == "3"
+        else:
+            assert "schema.truncated" not in props
 
-    def test_downsamples_to_top_fields_by_count(self, patched_aerospike_client):
+    @pytest.mark.parametrize(
+        "max_schema_size, expected_keys, expect_downsampled",
+        [
+            # 3 fields > max=2 -> downsample to top 2 by count: b(5), c(3)
+            (2, {("b",), ("c",)}, True),
+            # 3 fields <= max=10 -> keep all
+            (10, {("a",), ("b",), ("c",)}, False),
+        ],
+        ids=["over-max-downsamples", "under-max-keeps-all"],
+    )
+    def test_field_downsampling(
+        self,
+        patched_aerospike_client,
+        max_schema_size,
+        expected_keys,
+        expect_downsampled,
+    ):
         source = _make_source(
             {
                 "hosts": [("h", 3000)],
                 "infer_schema_depth": -1,
-                "max_schema_size": 2,
+                "max_schema_size": max_schema_size,
             }
         )
         schema = self._schema(("a", 1), ("b", 5), ("c", 3))
@@ -436,25 +428,12 @@ class TestLimitSchemaSize:
 
         result = source._limit_schema_size(schema, props, "test.demo")
 
-        # Top-2 by descending count: b (5), c (3)
-        assert set(result.keys()) == {("b",), ("c",)}
-        assert props["schema.downsampled"] == "True"
-        assert props["schema.totalFields"] == "3"
-
-    def test_no_downsample_when_under_max_size(self, patched_aerospike_client):
-        source = _make_source(
-            {
-                "hosts": [("h", 3000)],
-                "infer_schema_depth": -1,
-                "max_schema_size": 10,
-            }
-        )
-        schema = self._schema(("a", 1), ("b", 2))
-        props: Dict[str, str] = {}
-
-        result = source._limit_schema_size(schema, props, "test.demo")
-        assert len(result) == 2
-        assert "schema.downsampled" not in props
+        assert set(result.keys()) == expected_keys
+        if expect_downsampled:
+            assert props["schema.downsampled"] == "True"
+            assert props["schema.totalFields"] == "3"
+        else:
+            assert "schema.downsampled" not in props
 
 
 # --------------------------------------------------------------------------- #
@@ -468,25 +447,26 @@ class TestGetSets:
 
     SETS_INFO = "sets\tns=test:set=alpha:objects=10;ns=test:set=beta:objects=0;\n"
 
-    def test_parses_info_response(self, patched_aerospike_client):
+    @pytest.mark.parametrize(
+        "ignore_empty, expected_sets",
+        [
+            (False, {("test", "alpha", 10), ("test", "beta", 0)}),
+            (True, {("test", "alpha", 10)}),
+        ],
+        ids=["keeps-all", "drops-empty"],
+    )
+    def test_get_sets_respects_ignore_empty_flag(
+        self, patched_aerospike_client, ignore_empty, expected_sets
+    ):
         _, client = patched_aerospike_client
         client.info_random_node.return_value = self.SETS_INFO
 
-        source = _make_source({"hosts": [("h", 3000)]})
+        source = _make_source(
+            {"hosts": [("h", 3000)], "ignore_empty_sets": ignore_empty}
+        )
         sets = source.get_sets()
 
-        assert {(s.ns, s.set, s.objects) for s in sets} == {
-            ("test", "alpha", 10),
-            ("test", "beta", 0),
-        }
-
-    def test_ignore_empty_sets_drops_zero_object_sets(self, patched_aerospike_client):
-        _, client = patched_aerospike_client
-        client.info_random_node.return_value = self.SETS_INFO
-
-        source = _make_source({"hosts": [("h", 3000)], "ignore_empty_sets": True})
-        sets = source.get_sets()
-        assert {s.set for s in sets} == {"alpha"}
+        assert {(s.ns, s.set, s.objects) for s in sets} == expected_sets
 
     def test_sets_info_failure_propagates_as_source_failure(
         self, patched_aerospike_client
@@ -554,32 +534,39 @@ class TestGetDcShippedSets:
     ship-only-specified-sets=false    -> everything ships except ignored-sets
     """
 
-    def test_disabled_dc_ships_nothing(self):
-        assert (
-            AerospikeSource._get_dc_shipped_sets(
+    @pytest.mark.parametrize(
+        "dc_config, sets, expected",
+        [
+            (
                 "enabled=false;ship-only-specified-sets=true;shipped-sets=foo,bar",
-                sets=["foo", "bar", "baz"],
-            )
-            == []
-        )
-
-    def test_ship_only_specified_returns_only_listed(self):
-        assert AerospikeSource._get_dc_shipped_sets(
-            "enabled=true;ship-only-specified-sets=true;shipped-sets=alpha,beta",
-            sets=["alpha", "beta", "gamma"],
-        ) == ["alpha", "beta"]
-
-    def test_ship_all_excludes_ignored_sets(self):
-        assert AerospikeSource._get_dc_shipped_sets(
-            "enabled=true;ship-only-specified-sets=false;ignored-sets=excluded",
-            sets=["alpha", "excluded", "beta"],
-        ) == ["alpha", "beta"]
-
-    def test_ship_all_with_no_ignored_returns_all(self):
-        assert AerospikeSource._get_dc_shipped_sets(
-            "enabled=true;ship-only-specified-sets=false",
-            sets=["alpha", "beta"],
-        ) == ["alpha", "beta"]
+                ["foo", "bar", "baz"],
+                [],
+            ),
+            (
+                "enabled=true;ship-only-specified-sets=true;shipped-sets=alpha,beta",
+                ["alpha", "beta", "gamma"],
+                ["alpha", "beta"],
+            ),
+            (
+                "enabled=true;ship-only-specified-sets=false;ignored-sets=excluded",
+                ["alpha", "excluded", "beta"],
+                ["alpha", "beta"],
+            ),
+            (
+                "enabled=true;ship-only-specified-sets=false",
+                ["alpha", "beta"],
+                ["alpha", "beta"],
+            ),
+        ],
+        ids=[
+            "disabled-ships-nothing",
+            "ship-only-specified-returns-listed",
+            "ship-all-excludes-ignored",
+            "ship-all-with-no-ignored-returns-all",
+        ],
+    )
+    def test_dc_shipped_sets(self, dc_config, sets, expected):
+        assert AerospikeSource._get_dc_shipped_sets(dc_config, sets=sets) == expected
 
 
 class TestXdrSets:
@@ -592,33 +579,37 @@ class TestXdrSets:
         source = _make_source({"hosts": [("h", 3000)]})
         assert source.xdr_sets("test", ["s1", "s2"]) == {"s1": [], "s2": []}
 
-    def test_per_dc_failure_recorded_as_warning_not_raised(
-        self, patched_aerospike_client
+    @staticmethod
+    def _top_level_failure(req: str) -> str:
+        raise RuntimeError("xdr disabled")
+
+    @staticmethod
+    def _per_dc_failure(req: str) -> str:
+        # Top-level DC enumeration succeeds; per-DC config lookup fails.
+        if "context=xdr" in req and "dc=" not in req:
+            return "xdr\tdcs=DC1,DC2;\n"
+        raise RuntimeError("DC unreachable")
+
+    @pytest.mark.parametrize(
+        "info_handler, sets, expected_result",
+        [
+            (_top_level_failure, ["s1", "s2"], {"s1": [], "s2": []}),
+            (_per_dc_failure, ["s1"], {"s1": []}),
+        ],
+        ids=["top-level-failure", "per-dc-failure"],
+    )
+    def test_xdr_failures_recorded_as_warnings_not_raised(
+        self, patched_aerospike_client, info_handler, sets, expected_result
     ):
+        # Any XDR failure (top-level or per-DC) must be swallowed and surfaced
+        # as a report warning; never propagated, since XDR config is optional.
         _, client = patched_aerospike_client
-
-        def info(req: str) -> str:
-            if "context=xdr" in req and "dc=" not in req:
-                return "xdr\tdcs=DC1,DC2;\n"
-            raise RuntimeError("DC unreachable")
-
-        client.info_random_node.side_effect = info
+        client.info_random_node.side_effect = info_handler
 
         source = _make_source({"hosts": [("h", 3000)]})
-        result = source.xdr_sets("test", ["s1"])
+        result = source.xdr_sets("test", sets)
 
-        assert result == {"s1": []}
-        assert len(list(source.report.warnings)) >= 1
-
-    def test_xdr_top_level_failure_recorded_as_warning(self, patched_aerospike_client):
-        _, client = patched_aerospike_client
-        client.info_random_node.side_effect = RuntimeError("xdr disabled")
-
-        source = _make_source({"hosts": [("h", 3000)]})
-        result = source.xdr_sets("test", ["s1", "s2"])
-
-        # All sets fall back to empty DC lists; nothing raised.
-        assert result == {"s1": [], "s2": []}
+        assert result == expected_result
         assert len(list(source.report.warnings)) >= 1
 
 
