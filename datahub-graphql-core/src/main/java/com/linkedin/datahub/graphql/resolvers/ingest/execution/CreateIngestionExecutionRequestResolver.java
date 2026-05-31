@@ -133,19 +133,13 @@ public class CreateIngestionExecutionRequestResolver
               recipe = injectRunId(recipe, executionRequestUrn.toString());
               recipe = IngestionUtils.injectPipelineName(recipe, ingestionSourceUrn.toString());
               arguments.put(RECIPE_ARG_NAME, recipe);
-              // Per-source version may be null, empty, or whitespace-only — bootstrap YAML
-              // templating renders `version: "{{ config.version }}"` as 3 spaces when the source
-              // has no pin, and Mustache treats missing keys as empty rather than failing. The
-              // helper normalizes all three to "unset" so resolution falls through to the matrix
-              // / application default; without that, the blank would forward to the executor and
-              // silently pin to its bundled CLI.
-              final String explicitVersion =
-                  ingestionSourceInfo.getConfig().hasVersion()
-                      ? ingestionSourceInfo.getConfig().getVersion()
-                      : null;
+              // getVersion() returns null for an unset optional field, so no hasVersion() guard is
+              // needed. The helper normalizes null / empty / whitespace-only versions (bootstrap
+              // YAML can render `version: "{{ config.version }}"` as 3 spaces) to "unset", falling
+              // through to the matrix / application default instead of pinning the bundled CLI.
               final IngestionCliVersionResolutionHelper.Result resolution =
                   IngestionCliVersionResolutionHelper.resolve(
-                      explicitVersion,
+                      ingestionSourceInfo.getConfig().getVersion(),
                       ingestionSourceInfo.getType(),
                       _versionMatrixService,
                       _ingestionConfiguration.getDefaultCliVersion());
