@@ -60,6 +60,8 @@ Requirements:
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
 
+- **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
+
 ## v1.6.0
 
 Requirements:
