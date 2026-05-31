@@ -23,13 +23,7 @@ class DremioDatasetType(StrEnum):
 
 
 class DremioJobState(StrEnum):
-    """Dremio async job terminal and in-progress states.
-
-    Consumed in the next slice (#17652 / A2) by the chunked-aggregation
-    query loop. Lives here because that loop is invoked by the same
-    DremioAPIOperations subclass that already imports DremioEntityContainerType
-    from this module.
-    """
+    """Dremio async job terminal and in-progress states."""
 
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -45,12 +39,7 @@ class DremioOwnerType(StrEnum):
 
 
 class DremioContainerResponse(BaseModel):
-    """Flexible Dremio container response that can parse various API response formats.
-
-    Consumed in the next slice (#17652 / A2) by the iterator-based catalog
-    walk that replaces the dict-of-dicts container payloads. Defined here
-    so it sits alongside the rest of the typed Dremio API response models.
-    """
+    """Flexible Dremio container response that can parse various API response formats."""
 
     id: Optional[str] = None
     name: str = Field(alias="name")
@@ -61,8 +50,9 @@ class DremioContainerResponse(BaseModel):
     database_name: Optional[str] = Field(default=None)
     tag: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None, alias="createdAt")
-    # Stamped by the recursive catalog walk in A2 so a folder inherits its
-    # root container's subtype for browse-path prefixing.
+    # Stamped by the recursive catalog walk in DremioAPIOperations so a
+    # folder inherits its root container's subtype for browse-path
+    # prefixing.
     root_container_type: Optional[str] = None
 
     class Config:

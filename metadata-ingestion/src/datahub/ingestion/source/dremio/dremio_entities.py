@@ -319,8 +319,8 @@ class DremioSpace(DremioContainer):
 
 class DremioFolder(DremioContainer):
     subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
-    # Populated by the recursive catalog walk added in #17652 / A2; used
-    # by DremioAspects._create_browse_paths_containers to pick the right
+    # Stamped by the recursive catalog walk in DremioAPIOperations so
+    # DremioAspects._create_browse_paths_containers can pick the right
     # top-level prefix ("Spaces" vs "Sources").
     root_container_type: Optional[str] = None
 
@@ -335,8 +335,7 @@ class DremioCatalog:
 
     def get_datasets(self) -> Iterator[DremioDataset]:
         """Get all Dremio datasets (tables and views) as an iterator."""
-        containers = self.get_containers()
-        for dataset_details in self.api.get_all_tables_and_columns(containers):
+        for dataset_details in self.api.get_all_tables_and_columns():
             dremio_dataset = DremioDataset(
                 dataset_details=dataset_details,
                 api_operations=self.api,
@@ -347,37 +346,33 @@ class DremioCatalog:
     def get_containers(self) -> Iterator[DremioContainer]:
         """Get all containers (sources, spaces, folders) as an iterator."""
         for container in self.api.get_all_containers():
-            container_type = container.get("container_type")
+            container_type = container.container_type
             if container_type == DremioEntityContainerType.SOURCE:
                 yield DremioSourceContainer(
-                    container_name=container.get("name"),
-                    location_id=container.get("id"),
-                    path=container.get("path") or [],
+                    container_name=container.name,
+                    location_id=container.id,
+                    path=container.path or [],
                     api_operations=self.api,
-                    dremio_source_type=container.get("source_type") or "",
-                    root_path=container.get("root_path"),
-                    database_name=container.get("database_name"),
+                    dremio_source_type=container.source_type or "",
+                    root_path=container.root_path,
+                    database_name=container.database_name,
                 )
             elif container_type == DremioEntityContainerType.SPACE:
                 yield DremioSpace(
-                    container_name=container.get("name"),
-                    location_id=container.get("id"),
-                    path=container.get("path") or [],
+                    container_name=container.name,
+                    location_id=container.id,
+                    path=container.path or [],
                     api_operations=self.api,
                 )
             elif container_type == DremioEntityContainerType.FOLDER:
                 folder = DremioFolder(
-                    container_name=container.get("name"),
-                    location_id=container.get("id"),
-                    path=container.get("path") or [],
+                    container_name=container.name,
+                    location_id=container.id,
+                    path=container.path or [],
                     api_operations=self.api,
                 )
-                # The producer that fills "root_container_type" is added
-                # in #17652 / A2 — until then this is a no-op. Plumbing
-                # lives here so A2 only has to touch the producer side.
-                root_container_type = container.get("root_container_type")
-                if root_container_type is not None:
-                    folder.root_container_type = root_container_type
+                if container.root_container_type is not None:
+                    folder.root_container_type = container.root_container_type
                 yield folder
 
     def get_sources(self) -> Iterator[DremioSourceContainer]:

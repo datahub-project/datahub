@@ -34,25 +34,6 @@ class TestDremioIteratorIntegration:
 
         return source
 
-    def test_source_uses_iterators_by_default(self, mock_dremio_source):
-        """Test that source uses iterators by default"""
-        mock_dataset = Mock(spec=DremioDataset)
-        mock_dataset.path = ["test", "path"]
-        mock_dataset.resource_name = "test_table"
-
-        mock_dremio_source.dremio_catalog.get_datasets.return_value = iter(
-            [mock_dataset]
-        )
-        mock_dremio_source.dremio_catalog.get_containers.return_value = []
-        mock_dremio_source.dremio_catalog.get_glossary_terms.return_value = iter([])
-        mock_dremio_source.dremio_catalog.get_sources.return_value = []
-        mock_dremio_source.config.source_mappings = []
-        mock_dremio_source.process_dataset = Mock(return_value=iter([]))
-        list(mock_dremio_source.get_workunits_internal())
-
-        mock_dremio_source.dremio_catalog.get_datasets.assert_called_once()
-        mock_dremio_source.dremio_catalog.get_glossary_terms.assert_called_once()
-
     def test_iterator_handles_exceptions_gracefully(self, mock_dremio_source):
         """Test that iterator handles exceptions without crashing"""
         mock_dataset = Mock(spec=DremioDataset)

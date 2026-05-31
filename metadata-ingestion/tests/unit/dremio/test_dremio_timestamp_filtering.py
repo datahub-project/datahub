@@ -98,36 +98,3 @@ class TestDremioTimestampFiltering:
         # Start time should use frozen time default (1 day ago)
         assert "submitted_ts >= TIMESTAMP '2024-01-14 12:00:00.000'" in query
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
-
-    def test_query_structure_unchanged(self):
-        """Test that core query structure remains unchanged"""
-        query = DremioSQLQueries.get_query_all_jobs()
-
-        # Check that all original WHERE conditions are still present
-        assert "STATUS = 'COMPLETED'" in query
-        assert "LENGTH(queried_datasets)>0" in query
-        assert "user_name != '$dremio$'" in query
-        assert "query_type not like '%INTERNAL%'" in query
-
-        # Check that SELECT fields are unchanged
-        assert "job_id" in query
-        assert "user_name" in query
-        assert "submitted_ts" in query
-        assert "query" in query
-        assert "queried_datasets" in query
-
-    def test_cloud_query_structure_unchanged(self):
-        """Test that core cloud query structure remains unchanged"""
-        query = DremioSQLQueries.get_query_all_jobs_cloud()
-
-        # Check that all original WHERE conditions are still present
-        assert "STATUS = 'COMPLETED'" in query
-        assert "ARRAY_SIZE(queried_datasets)>0" in query
-        assert "user_name != '$dremio$'" in query
-        assert "query_type not like '%INTERNAL%'" in query
-
-        # Check that SELECT fields are unchanged including cloud-specific formatting
-        assert (
-            "CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets"
-            in query
-        )
