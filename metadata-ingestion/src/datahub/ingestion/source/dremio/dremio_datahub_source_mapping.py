@@ -1,12 +1,22 @@
-from typing import Optional
+from typing import TYPE_CHECKING, Dict, Optional, Set
+
+if TYPE_CHECKING:
+    from datahub.ingestion.source.dremio.dremio_config import (
+        DremioSourceTypeOverride,
+    )
 
 
 class DremioToDataHubSourceTypeMapping:
-    """
-    Dremio source type to the Datahub source type mapping.
+    """Dremio source type to DataHub platform mapping.
+
+    The `lookup_*` instance methods honor per-recipe overrides registered via
+    `DremioSourceConfig.source_type_mappings`; the `get_*` `@staticmethod`s
+    expose the built-in mapping only and are kept for callers that don't have
+    a config in hand. Overrides live on the instance and never mutate the
+    class-level mapping.
     """
 
-    SOURCE_TYPE_MAPPING = {
+    SOURCE_TYPE_MAPPING: Dict[str, str] = {
         # Dremio source types -> DataHub platform names.
         # Source type strings come from Dremio's Catalog API (the `type`
         # field on a source object). See
@@ -50,7 +60,7 @@ class DremioToDataHubSourceTypeMapping:
         "VERTICA": "vertica",
     }
 
-    DATABASE_SOURCE_TYPES = {
+    DATABASE_SOURCE_TYPES: Set[str] = {
         "AMAZONELASTIC",
         "AWSGLUE",
         "AZURE_STORAGE",
@@ -77,7 +87,7 @@ class DremioToDataHubSourceTypeMapping:
         "VERTICA",
     }
 
-    FILE_OBJECT_STORAGE_TYPES = {
+    FILE_OBJECT_STORAGE_TYPES: Set[str] = {
         "ADL",
         # AZURE_STORAGE is also listed in DATABASE_SOURCE_TYPES above.
         # get_category checks DATABASE_SOURCE_TYPES first, so AZURE_STORAGE
@@ -92,61 +102,48 @@ class DremioToDataHubSourceTypeMapping:
         "S3",
     }
 
+    def __init__(
+        self,
+        extra_mappings: Optional[Dict[str, "DremioSourceTypeOverride"]] = None,
+    ) -> None:
+        self._platform_overrides: Dict[str, str] = {}
+        self._database_overrides: Set[str] = set()
+        self._file_overrides: Set[str] = set()
+        for source_type, override in (extra_mappings or {}).items():
+            key = source_type.upper()
+            self._platform_overrides[key] = override.platform
+            if override.category == "database":
+                self._database_overrides.add(key)
+            elif override.category == "file_object_storage":
+                self._file_overrides.add(key)
+
     @staticmethod
     def get_datahub_platform(dremio_source_type: str) -> str:
-        """
-        Return the DataHub source type.
-        """
+        """Built-in mapping lookup. Prefer `lookup_datahub_platform` to honor recipe overrides."""
         return DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING.get(
             dremio_source_type.upper(), dremio_source_type.lower()
         )
 
     @staticmethod
     def get_category(source_type: str) -> str:
-        """
-        Define whether the source uses dot notation (DB) or slash notation (Object storage).
-        """
-        if (
-            source_type.upper()
-            in DremioToDataHubSourceTypeMapping.DATABASE_SOURCE_TYPES
-        ):
+        """Built-in category lookup. Prefer `lookup_category` to honor recipe overrides."""
+        key = source_type.upper()
+        if key in DremioToDataHubSourceTypeMapping.DATABASE_SOURCE_TYPES:
             return "database"
-        if (
-            source_type.upper()
-            in DremioToDataHubSourceTypeMapping.FILE_OBJECT_STORAGE_TYPES
-        ):
+        if key in DremioToDataHubSourceTypeMapping.FILE_OBJECT_STORAGE_TYPES:
             return "file_object_storage"
         return "unknown"
 
-    @staticmethod
-    def add_mapping(
-        dremio_source_type: str,
-        datahub_source_type: str,
-        category: Optional[str] = None,
-    ) -> None:
-        """
-        Add a new source type if not in the map (e.g., Dremio ARP).
+    def lookup_datahub_platform(self, dremio_source_type: str) -> str:
+        key = dremio_source_type.upper()
+        if key in self._platform_overrides:
+            return self._platform_overrides[key]
+        return self.SOURCE_TYPE_MAPPING.get(key, dremio_source_type.lower())
 
-        `category` controls categorization for `get_category` / URN dispatch:
-        - "file_object_storage": registers as slash-notation file storage.
-        - any other truthy value (e.g. "database"): registers as dot-notation
-          database storage.
-        - None (default): only `SOURCE_TYPE_MAPPING` is updated; `get_category`
-          will return "unknown" for this type, which means URN building falls
-          back to its generic path. Pass an explicit `category` if you want
-          container-aware URN dispatch for this source.
-        """
-        dremio_source_type = dremio_source_type.upper()
-        DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING[dremio_source_type] = (
-            datahub_source_type
-        )
-
-        if category:
-            if category.lower() == "file_object_storage":
-                DremioToDataHubSourceTypeMapping.FILE_OBJECT_STORAGE_TYPES.add(
-                    dremio_source_type
-                )
-            else:
-                DremioToDataHubSourceTypeMapping.DATABASE_SOURCE_TYPES.add(
-                    dremio_source_type
-                )
+    def lookup_category(self, source_type: str) -> str:
+        key = source_type.upper()
+        if key in self._database_overrides or key in self.DATABASE_SOURCE_TYPES:
+            return "database"
+        if key in self._file_overrides or key in self.FILE_OBJECT_STORAGE_TYPES:
+            return "file_object_storage"
+        return "unknown"

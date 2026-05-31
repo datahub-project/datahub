@@ -62,6 +62,10 @@ Requirements:
 
 - **(Ingestion / Dremio)** Added DataHub platform mappings for several Dremio source types that previously fell through to a lowercased default: `BIGQUERY → bigquery`, `RESTCATALOG → iceberg` (Apache Polaris OSS, Nessie with Iceberg REST, AWS Glue Iceberg REST, S3 Tables, Confluent Tableflow, Microsoft OneLake), `SAPHANA → hana`, `SNOWFLAKEOPENCATALOG → iceberg` (Snowflake's hosted Polaris), and `UNITY → databricks` (Databricks Unity Catalog). Existing Dremio recipes that previously produced lineage URNs like `urn:li:dataPlatform:restcatalog` will now produce `urn:li:dataPlatform:iceberg` (etc.); update any URN-based lineage / dashboards that depend on the old values.
 
+- **(Ingestion / Dremio)** The `domain` recipe field now actually emits a `Domains` aspect for every Dremio container and dataset. Previously, the config field was documented and plumbed through to the aspect builder, but the aspect was never yielded, so the setting silently did nothing. Recipes that already set `domain` will now start attaching the configured domain to ingested entities — verify the domain URN/name is what you intend before upgrading.
+
+- **(Ingestion / Dremio)** New `source_type_mappings` recipe field lets you teach the connector how to translate Dremio source `type` strings that aren't in the built-in mapping (e.g. ARP plugins, newly released Dremio source types). Each entry declares the target DataHub `platform` and an optional `category` (`database` or `file_object_storage`). Example: `source_type_mappings: {MYORG_KAFKA: {platform: kafka, category: database}}`. Overrides are scoped to the recipe — they do not leak into other Dremio source instances in the same pipeline. This replaces the never-wired `DremioToDataHubSourceTypeMapping.add_mapping` mutator method, which has been removed.
+
 ## v1.6.0
 
 Requirements:

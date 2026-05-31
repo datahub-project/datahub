@@ -54,7 +54,9 @@ class DremioAPIOperations:
     def __init__(
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
-        self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping()
+        self.dremio_to_datahub_source_mapper = DremioToDataHubSourceTypeMapping(
+            extra_mappings=connection_args.source_type_mappings,
+        )
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers

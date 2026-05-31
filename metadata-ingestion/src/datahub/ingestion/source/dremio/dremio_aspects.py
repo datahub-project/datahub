@@ -233,6 +233,14 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
+
         # Status
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
@@ -320,6 +328,14 @@ class DremioAspects:
             logger.warning(
                 f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
             )
+
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
 
         # Status
         status = StatusClass(removed=False)

@@ -209,6 +209,7 @@ class DremioSource(StatefulIngestionSourceBase):
 
         # Initialize API operations
         dremio_api = DremioAPIOperations(self.config, self.report)
+        self.source_type_mapper = dremio_api.dremio_to_datahub_source_mapper
 
         # Initialize catalog
         self.dremio_catalog = DremioCatalog(dremio_api)
@@ -262,7 +263,11 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
-        source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
+        source_map = build_dremio_source_map(
+            dremio_sources,
+            source_mappings_config,
+            source_type_mapper=self.source_type_mapper,
+        )
         logger.info(f"Full source map: {source_map}")
 
         self._validate_source_mappings(source_map)
@@ -707,6 +712,7 @@ class DremioSource(StatefulIngestionSourceBase):
 def build_dremio_source_map(
     dremio_sources: Iterable[DremioSourceContainer],
     source_mappings_config: List[DremioSourceMapping],
+    source_type_mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
 ) -> Dict[str, DremioSourceMapEntry]:
     """
     Builds a source mapping dictionary to support external lineage generation across
@@ -728,15 +734,15 @@ def build_dremio_source_map(
         creating cross-platform lineage.
 
     """
+    mapper = source_type_mapper or DremioToDataHubSourceTypeMapping()
+
     source_map = {}
     for source in dremio_sources:
         current_source_name = source.container_name
 
         source_type = source.dremio_source_type.lower()
-        source_category = DremioToDataHubSourceTypeMapping.get_category(source_type)
-        datahub_platform = DremioToDataHubSourceTypeMapping.get_datahub_platform(
-            source_type
-        )
+        source_category = mapper.lookup_category(source_type)
+        datahub_platform = mapper.lookup_datahub_platform(source_type)
         root_path = source.root_path.lower() if source.root_path else ""
         database_name = source.database_name.lower() if source.database_name else ""
         source_present = False
