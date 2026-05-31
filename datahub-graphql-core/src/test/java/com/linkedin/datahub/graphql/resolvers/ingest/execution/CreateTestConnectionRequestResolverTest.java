@@ -31,7 +31,6 @@ public class CreateTestConnectionRequestResolverTest {
       "{\"source\":{\"type\":\"snowflake\",\"config\":{\"account_id\":\"abc123\"}}}";
   private static final String RECIPE_WITHOUT_TYPE =
       "{\"source\":{\"config\":{\"account_id\":\"abc123\"}}}";
-  private static final String MALFORMED_RECIPE = "{not valid json";
 
   private static final CreateTestConnectionRequestInput TEST_INPUT_WITH_VERSION =
       new CreateTestConnectionRequestInput(SNOWFLAKE_RECIPE, EXPLICIT_VERSION);
@@ -199,16 +198,6 @@ public class CreateTestConnectionRequestResolverTest {
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
     Mockito.verify(mockClient, Mockito.times(0)).ingestProposal(any(), Mockito.any(), anyBoolean());
-  }
-
-  @Test
-  public void testExtractSourceType() {
-    assertEquals(
-        CreateTestConnectionRequestResolver.extractSourceType(SNOWFLAKE_RECIPE), "snowflake");
-    assertNull(CreateTestConnectionRequestResolver.extractSourceType(RECIPE_WITHOUT_TYPE));
-    assertNull(CreateTestConnectionRequestResolver.extractSourceType(MALFORMED_RECIPE));
-    assertNull(CreateTestConnectionRequestResolver.extractSourceType(""));
-    assertNull(CreateTestConnectionRequestResolver.extractSourceType(null));
   }
 
   /**

@@ -4,9 +4,6 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -62,11 +59,6 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
   private static final String RECIPE_ARG_NAME = "recipe";
   private static final String VERSION_ARG_NAME = "version";
   private static final String DEFAULT_EXECUTOR_ID = "default";
-  private static final String SOURCE_FIELD = "source";
-  private static final String TYPE_FIELD = "type";
-
-  /** Reused for the small recipe-JSON peek done by {@link #extractSourceType(String)}. */
-  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final EntityClient _entityClient;
   private final IngestionConfiguration _ingestionConfiguration;
@@ -122,7 +114,9 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
             // helper normalizes all three to "unset" so resolution falls through to the matrix /
             // application default; without that normalization the blank would forward verbatim to
             // the executor and silently pin to its bundled CLI.
-            final String connectorType = extractSourceType(input.getRecipe());
+            final String connectorType =
+                IngestionUtils.extractSourceType(
+                    context.getOperationContext().getObjectMapper(), input.getRecipe());
             final IngestionCliVersionResolutionHelper.Result resolution =
                 IngestionCliVersionResolutionHelper.resolve(
                     input.getVersion(),
@@ -158,26 +152,5 @@ public class CreateTestConnectionRequestResolver implements DataFetcher<Completa
         },
         this.getClass().getSimpleName(),
         "get");
-  }
-
-  /**
-   * Best-effort extraction of {@code source.type} from a recipe JSON document. Returns {@code null}
-   * for any malformed input — the resolver falls back to {@code defaultCliVersion} in that case
-   * rather than failing the request, since a malformed recipe will surface a clearer error
-   * downstream when the executor parses it.
-   */
-  static String extractSourceType(final String recipeJson) {
-    if (recipeJson == null || recipeJson.isEmpty()) {
-      return null;
-    }
-    try {
-      // path() returns a missing node when a segment is absent, so the chained lookup handles
-      // missing source / missing type uniformly without explicit has() checks.
-      JsonNode type = MAPPER.readTree(recipeJson).path(SOURCE_FIELD).path(TYPE_FIELD);
-      return type.isTextual() && !type.asText().isEmpty() ? type.asText() : null;
-    } catch (JsonProcessingException e) {
-      log.debug("Could not extract source.type from recipe for version-matrix lookup", e);
-      return null;
-    }
   }
 }
