@@ -88,6 +88,17 @@ public class HttpUrlIngestionCliVersionMatrixSource implements IngestionCliVersi
    *   <li>{@code acryl-1.6.0+acryl.20251031} — internal build with local version identifier
    * </ul>
    *
+   * <p>Also accepts the special non-PyPI version sentinels the ingestion executor recognizes —
+   * these are not PEP 440 / PyPI versions and must <em>not</em> be rejected. This list is not
+   * exhaustive; the permissive character class is intentional so future sentinels keep working
+   * without a code change here. Known examples:
+   *
+   * <ul>
+   *   <li>{@code bundled} — run the CLI bundled in the executor image, skipping the pip install
+   *   <li>{@code no-acryl-datahub} — opt out of installing acryl-datahub (the recipe pulls it in
+   *       transitively)
+   * </ul>
+   *
    * <p>Rejects: whitespace, embedded JSON like {@code {"version":"…"}}, HTML fragments, URLs,
    * anything containing characters outside the allowed set.
    */
