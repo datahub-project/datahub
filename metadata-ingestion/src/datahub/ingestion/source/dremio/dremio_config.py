@@ -15,9 +15,14 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
@@ -125,6 +130,9 @@ class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
     BaseTimeWindowConfig,
+    StatefulLineageConfigMixin,
+    StatefulProfilingConfigMixin,
+    IncrementalPropertiesConfigMixin,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
@@ -181,6 +189,20 @@ class DremioSourceConfig(
     include_query_lineage: bool = Field(
         default=False,
         description="Whether to include query-based lineage information.",
+    )
+
+    incremental_lineage: bool = Field(
+        default=True,
+        description="When enabled, lineage aspects are emitted as PATCH operations rather than full "
+        "overwrites. This preserves any lineage edges that were manually added in DataHub "
+        "between runs. Disable if you want each run to fully replace lineage.",
+    )
+
+    enable_stateful_time_window: bool = Field(
+        default=False,
+        description="Enable stateful time window tracking for query lineage/usage extraction. "
+        "When enabled, subsequent runs will skip time windows already fully processed, "
+        "avoiding redundant API calls. Requires stateful_ingestion to be configured.",
     )
 
     ingest_owner: bool = Field(

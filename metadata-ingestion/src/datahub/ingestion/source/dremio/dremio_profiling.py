@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -11,7 +11,11 @@ from datahub.ingestion.source.dremio.dremio_api import (
 )
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_entities import DremioDataset
+from datahub.ingestion.source.dremio.dremio_models import (
+    DremioProfilingResult,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -32,13 +36,13 @@ class DremioProfiler:
         config: DremioSourceConfig,
         report: DremioSourceReport,
         api_operations: DremioAPIOperations,
+        state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
         self.api_operations = api_operations
         self.config = config
         self.report = report
-        self.QUERY_TIMEOUT = (
-            config.profiling.query_timeout
-        )  # 5 minutes timeout for each query
+        self.state_handler = state_handler
+        self.QUERY_TIMEOUT = config.profiling.query_timeout
 
     def get_workunits(
         self, dataset: DremioDataset, dataset_urn: str
@@ -65,6 +69,30 @@ class DremioProfiler:
             )
             return
 
+        # Stateful profiling skip: Dremio has no table-level modification timestamps,
+        # so profile_if_updated_since_days is compared against when DataHub last
+        # profiled the table rather than when the table was last modified.
+        if (
+            self.state_handler is not None
+            and self.config.profiling.profile_if_updated_since_days is not None
+        ):
+            last_profiled_ms = self.state_handler.get_last_profiled(dataset_urn)
+            if last_profiled_ms is not None:
+                days_elapsed = (time.time() * 1000 - last_profiled_ms) / (
+                    1000 * 3600 * 24
+                )
+                if days_elapsed < self.config.profiling.profile_if_updated_since_days:
+                    logger.info(
+                        f"Skipping profiling of {full_table_name}: profiled "
+                        f"{days_elapsed:.2f}d ago, threshold is "
+                        f"{self.config.profiling.profile_if_updated_since_days}d"
+                    )
+                    self.report.profiling_skipped_not_updated[full_table_name] += 1
+                    # Carry the existing timestamp forward so the next run also
+                    # has an accurate "last profiled" reference.
+                    self.state_handler.add_to_state(dataset_urn, last_profiled_ms)
+                    return
+
         with PerfTimer() as timer:
             profile_data = self.profile_table(full_table_name, columns)
             profile_aspect = self.populate_profile_aspect(profile_data)
@@ -79,6 +107,9 @@ class DremioProfiler:
                 entityUrn=dataset_urn, aspect=profile_aspect
             )
             yield mcp.as_workunit()
+
+            if self.state_handler:
+                self.state_handler.add_to_state(dataset_urn, round(time.time() * 1000))
 
     def populate_profile_aspect(self, profile_data: Dict) -> DatasetProfileClass:
         field_profiles = [
@@ -173,7 +204,6 @@ class DremioProfiler:
                     logger.warning(
                         f"Error building metrics for column {column_name}: {str(e)}"
                     )
-                    # Skip this column and continue with others
 
         if not metrics:
             raise ValueError("No valid metrics could be generated")
@@ -247,31 +277,32 @@ class DremioProfiler:
         self, results: List[Dict], columns: List[Tuple[str, str]]
     ) -> Dict:
         profile: Dict[str, Any] = {"column_stats": {}}
-        result = results[0] if results else {}  # We expect only one row of results
-
-        profile["row_count"] = int(result.get("row_count", 0))
-
-        profile["column_count"] = int(result.get("column_count", 0))
+        result_dict = results[0] if results else {}
+        profiling_result = DremioProfilingResult.model_validate(result_dict)
+        profile["row_count"] = profiling_result.row_count
+        profile["column_count"] = profiling_result.column_count
 
         for column_name, data_type in columns:
             safe_column_name = re.sub(r"\W|^(?=\d)", "_", column_name)
+            col_stats = profiling_result.get_column_stats(safe_column_name)
             column_stats: Dict[str, Any] = {}
+
             if self.config.profiling.include_field_distinct_count:
-                null_distinct = result.get(f"{safe_column_name}_distinct_count", 0)
-                null_distinct = int(null_distinct) if null_distinct is not None else 0
-                column_stats["distinct_count"] = null_distinct
+                column_stats["distinct_count"] = (
+                    int(col_stats.distinct_count)
+                    if col_stats.distinct_count is not None
+                    else 0
+                )
 
             if self.config.profiling.include_field_null_count:
-                null_count_value = result.get(f"{safe_column_name}_null_count", 0)
-                null_count = (
-                    int(null_count_value) if null_count_value is not None else 0
+                column_stats["null_count"] = (
+                    int(col_stats.null_count) if col_stats.null_count is not None else 0
                 )
-                column_stats["null_count"] = null_count
 
             if self.config.profiling.include_field_min_value:
-                column_stats["min"] = result.get(f"{safe_column_name}_min")
+                column_stats["min"] = col_stats.min
             if self.config.profiling.include_field_max_value:
-                column_stats["max"] = result.get(f"{safe_column_name}_max")
+                column_stats["max"] = col_stats.max
 
             if data_type.lower() in [
                 "int",
@@ -282,16 +313,13 @@ class DremioProfiler:
                 "decimal",
             ]:
                 if self.config.profiling.include_field_mean_value:
-                    column_stats["mean"] = result.get(f"{safe_column_name}_mean")
+                    column_stats["mean"] = col_stats.mean
                 if self.config.profiling.include_field_stddev_value:
-                    column_stats["stdev"] = result.get(f"{safe_column_name}_stdev")
+                    column_stats["stdev"] = col_stats.stdev
                 if self.config.profiling.include_field_median_value:
-                    column_stats["median"] = result.get(f"{safe_column_name}_median")
+                    column_stats["median"] = col_stats.median
                 if self.config.profiling.include_field_quantiles:
-                    column_stats["quantiles"] = [
-                        result.get(f"{safe_column_name}_25th_percentile"),
-                        result.get(f"{safe_column_name}_75th_percentile"),
-                    ]
+                    column_stats["quantiles"] = col_stats.quantiles
 
             profile["column_stats"][column_name] = column_stats
 
