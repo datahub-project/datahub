@@ -92,9 +92,7 @@ def test_static_lookups_unaffected_by_overrides():
         DremioToDataHubSourceTypeMapping.get_datahub_platform("MYORG_THING")
         == "myorg_thing"
     )
-    assert (
-        DremioToDataHubSourceTypeMapping.get_category("MYORG_THING") == "unknown"
-    )
+    assert DremioToDataHubSourceTypeMapping.get_category("MYORG_THING") == "unknown"
 
 
 def test_file_object_storage_category_override():

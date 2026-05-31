@@ -63,9 +63,7 @@ class TestCreateDomainAspect:
         assert _make_aspects(domain=None).create_domain_aspect() is None
 
     def test_passes_through_full_urn(self):
-        aspect = _make_aspects(
-            domain="urn:li:domain:marketing"
-        ).create_domain_aspect()
+        aspect = _make_aspects(domain="urn:li:domain:marketing").create_domain_aspect()
         assert isinstance(aspect, DomainsClass)
         assert aspect.domains == ["urn:li:domain:marketing"]
 
@@ -91,9 +89,7 @@ def _collect_domain_aspects(workunits):
     "domain,expected_count",
     [(None, 0), ("urn:li:domain:eng", 1)],
 )
-def test_populate_container_mcp_emits_domain_when_configured(
-    domain, expected_count
-):
+def test_populate_container_mcp_emits_domain_when_configured(domain, expected_count):
     aspects = _make_aspects(domain=domain)
     container = _make_container()
     workunits = list(aspects.populate_container_mcp("urn:li:container:c1", container))
@@ -107,13 +103,13 @@ def test_populate_container_mcp_emits_domain_when_configured(
     "domain,expected_count",
     [(None, 0), ("urn:li:domain:eng", 1)],
 )
-def test_populate_dataset_mcp_emits_domain_when_configured(
-    domain, expected_count
-):
+def test_populate_dataset_mcp_emits_domain_when_configured(domain, expected_count):
     aspects = _make_aspects(domain=domain)
     dataset = _make_dataset()
     workunits = list(
-        aspects.populate_dataset_mcp("urn:li:dataset:(urn:li:dataPlatform:dremio,db.t,PROD)", dataset)
+        aspects.populate_dataset_mcp(
+            "urn:li:dataset:(urn:li:dataPlatform:dremio,db.t,PROD)", dataset
+        )
     )
     domain_aspects = _collect_domain_aspects(workunits)
     assert len(domain_aspects) == expected_count
