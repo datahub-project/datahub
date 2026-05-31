@@ -451,3 +451,73 @@ END;"""
         "END" in statements and "LOOP" in statements
     )
     assert "RETURN" in statements
+
+
+def test_split_insert_select_with_case_expression():
+    """
+    Regression test: INSERT...SELECT containing a CASE expression should not be
+    split at the END keyword closing the CASE block, regardless of case.
+    The END keyword comparison must be case-insensitive.
+    """
+    test_sql = """\
+delete from raw.eventhub.events_datamill_all_regions
+where date = '2026-03-31';
+
+insert into raw.eventhub.events_datamill_all_regions
+select
+    date_part as date,
+    case
+        when person is not null
+        then initiator_id
+    end as user_id,
+    user_or_anonymous_id
+from raw.eventhub.events_datamill_eu
+where date_part = '2026-03-31'"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    assert len(statements) == 2
+    assert statements[0].startswith("delete from")
+    assert statements[1].startswith("insert into")
+    assert "end as user_id" in statements[1]
+    assert "from raw.eventhub.events_datamill_eu" in statements[1]
+
+
+def test_split_snowflake_materialize_native_table():
+    """
+    Regression test for customer bug: Snowflake SQLExecuteQueryOperator task with
+    a CASE expression inside an INSERT...SELECT was causing DataHub to hang due to
+    incorrect statement splitting at the END keyword closing the CASE block.
+    """
+    test_sql = """\
+create table if not exists my_schema.my_table cluster by (date, event) (
+    date date,
+    event varchar
+);
+
+delete from my_schema.my_table
+where date = '2026-03-31'
+    and dc_id = 'eu';
+
+insert into my_schema.my_table
+select
+    date_part as date,
+    event as event,
+    case
+        when person is not null
+        then initiator_id
+    end as user_id,
+    user_or_anonymous_id as user_or_anonymous_id,
+    is_valid as is_valid,
+    'eu' as dc_id
+from my_schema.my_source_table
+where date_part = '2026-03-31'
+    and greatest(skip_validation, is_valid)
+order by date, event"""
+
+    statements = [statement.strip() for statement in split_statements(test_sql)]
+    assert len(statements) == 3
+    assert statements[0].startswith("create table if not exists")
+    assert statements[1].startswith("delete from")
+    assert statements[2].startswith("insert into")
+    assert "end as user_id" in statements[2]
+    assert "from my_schema.my_source_table" in statements[2]

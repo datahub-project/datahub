@@ -1,3 +1,4 @@
+import { Text } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 
@@ -10,9 +11,7 @@ import { SimpleSelect } from '@src/alchemy-components';
 
 import { Document } from '@types';
 
-const TypeSelectWrapper = styled.div`
-    overflow: hidden;
-`;
+const TypeSelectWrapper = styled.div``;
 
 const NONE_VALUE = '';
 
@@ -64,9 +63,8 @@ export default function DocumentTypeProperty(props: PropertyComponentProps) {
 
     const renderValue = () => {
         if (!canEditType) {
-            // Show read-only value
             const displayValue = optimisticType === NONE_VALUE ? 'None' : optimisticType;
-            return <span>{displayValue}</span>;
+            return <Text>{displayValue}</Text>;
         }
 
         // If the actual type is not in the options, add it to the options

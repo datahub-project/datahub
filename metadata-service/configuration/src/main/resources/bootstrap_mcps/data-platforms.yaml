@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:aerospike
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: aerospike
+    displayName: Aerospike
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/aerospike.png"
 - entityUrn: urn:li:dataPlatform:azure-data-factory
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -269,6 +279,16 @@
     displayName: MariaDB
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/mariadblogo.svg"
+- entityUrn: urn:li:dataPlatform:matillion
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: matillion
+    displayName: Matillion
+    type: OTHERS
+    logoUrl: "assets/platforms/matillionlogo.png"
 - entityUrn: urn:li:dataPlatform:OpenApi
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -349,6 +369,16 @@
     displayName: Tableau
     type: OTHERS
     logoUrl: "assets/platforms/tableaulogo.svg"
+- entityUrn: urn:li:dataPlatform:thoughtspot
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: thoughtspot
+    displayName: ThoughtSpot
+    type: OTHERS
+    logoUrl: "assets/platforms/thoughtspotlogo.svg"
 - entityUrn: urn:li:dataPlatform:teradata
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -747,6 +777,16 @@
     displayName: DynamoDB
     type: KEY_VALUE_STORE
     logoUrl: "assets/platforms/dynamodblogo.png"
+- entityUrn: urn:li:dataPlatform:dlt
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dlt
+    displayName: dlt
+    type: OTHERS
+    logoUrl: "assets/platforms/dltlogo.svg"
 - entityUrn: urn:li:dataPlatform:fivetran
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -887,6 +927,16 @@
     displayName: Control-M
     type: OTHERS
     logoUrl: "assets/platforms/controlmlogo.png"
+- entityUrn: urn:li:dataPlatform:timescaledb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: timescaledb
+    displayName: TimescaleDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/timescaledblogo.png"
 - entityUrn: urn:li:dataPlatform:abinitio
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -937,6 +987,16 @@
     displayName: Streamlit
     type: OTHERS
     logoUrl: "assets/platforms/streamlitlogo.png"
+- entityUrn: urn:li:dataPlatform:omni
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: omni
+    displayName: Omni
+    type: OTHERS
+    logoUrl: "assets/platforms/omnilogo.svg"
 - entityUrn: urn:li:dataPlatform:notion
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -986,3 +1046,13 @@
     name: datahub
     displayName: DataHub
     type: OTHERS
+- entityUrn: urn:li:dataPlatform:airbyte
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: airbyte
+    displayName: Airbyte
+    type: OTHERS
+    logoUrl: "assets/platforms/airbytelogo.png"

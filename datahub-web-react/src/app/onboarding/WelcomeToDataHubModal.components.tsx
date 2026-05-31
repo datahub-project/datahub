@@ -1,8 +1,9 @@
+import { Heading, Text } from '@components';
 import { Spin } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
+import { typography } from '@components/theme';
 
 /**
  * Container for individual carousel slides with centered content
@@ -14,6 +15,24 @@ export const SlideContainer = styled.div`
     min-height: 470px;
 `;
 
+const SlideTitleWrapper = styled.div`
+    margin: 0 0 4px;
+`;
+
+export const SlideTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <SlideTitleWrapper>
+        <Heading type="h2" size="2xl" weight="bold">
+            {children}
+        </Heading>
+    </SlideTitleWrapper>
+);
+
+export const SlideDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <Text type="p" size="lg" color="textSecondary">
+        {children}
+    </Text>
+);
+
 /**
  * Container for video elements with centered alignment
  */
@@ -24,9 +43,6 @@ export const VideoContainer = styled.div`
     padding-top: 16px;
 `;
 
-/**
- * Styled loading container base
- */
 const LoadingContainerBase = styled.div<{ width: string }>`
     width: ${(props) => props.width};
     height: 350px; /* Match video aspect ratio for 620px width */
@@ -34,40 +50,30 @@ const LoadingContainerBase = styled.div<{ width: string }>`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: ${colors.gray[1500]};
-    border: 2px dashed ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 2px dashed ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    font-size: 16px;
-    color: ${colors.gray[1700]};
-    font-weight: 500;
     margin: 0 auto;
     gap: 16px;
 `;
 
-/**
- * Loading state container with Spin component
- * @param width - CSS width value for the container
- * @param children - Optional loading text
- */
 export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({
     width,
     children = 'Loading video...',
 }) => (
     <LoadingContainerBase width={width}>
         <Spin size="large" />
-        {children}
+        <Text size="lg" weight="medium" color="textSecondary">
+            {children}
+        </Text>
     </LoadingContainerBase>
 );
 
-/**
- * Styled anchor for DataHub Docs link
- */
 export const StyledDocsLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     text-align: center;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 650;
+    font-size: ${typography.fontSizes.md};
+    font-weight: ${typography.fontWeights.semiBold};
     line-height: normal;
     letter-spacing: -0.07px;
     text-decoration: none;
@@ -76,7 +82,7 @@ export const StyledDocsLink = styled.a`
     padding: 10px 12px;
 
     &:hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 

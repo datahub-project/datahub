@@ -34,14 +34,14 @@ const LoadingText = styled.div`
 
 const StyledLoading = styled(LoadingOutlined)`
     font-size: 32px;
-    color: ${(props) => props.theme.styles['primary-color']};
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 export default function StatsSidebarView({
     properties: { expandedField, fieldProfile, profiles, fetchDataWithLookbackWindow, profilesDataLoading },
 }: StatsProps) {
     const [viewType, setViewType] = useState(StatsViewType.LATEST);
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(LOOKBACK_WINDOWS.QUARTER);
 
     /**
      * Handles the change of the lookback window in the UI.

@@ -2,9 +2,9 @@ import { Tooltip } from '@components';
 import EditIcon from '@mui/icons-material/Edit';
 import { Button, Typography } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { AssertionStatusSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylTypes';
 import {
     getContractSummaryIcon,
@@ -22,7 +22,7 @@ const SummaryHeader = styled.div`
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid ${ANTD_GRAY[4.5]};
+    border-bottom: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const SummaryContainer = styled.div``;
@@ -54,13 +54,13 @@ const CreateButton = styled(Button)`
     align-items: center;
     gap: 0.3rem;
     margin-right: 12px;
-    border-color: ${(props) => props.theme.styles['primary-color']};
-    color: ${(props) => props.theme.styles['primary-color']};
+    border-color: ${(props) => props.theme.colors.borderBrand};
+    color: ${(props) => props.theme.colors.textBrand};
     letter-spacing: 2px;
     &&:hover {
-        color: white;
-        background-color: ${(props) => props.theme.styles['primary-color']};
-        border-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
+        border-color: ${(props) => props.theme.colors.borderBrand};
     }
 `;
 
@@ -85,7 +85,9 @@ export const DataContractSummary = ({
     editDisabled,
     editDisabledMessage,
 }: Props) => {
-    const summaryIcon = getContractSummaryIcon(state, summary);
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
+    const summaryIcon = getContractSummaryIcon(state, summary, theme.colors);
     const summaryTitle = getContractSummaryTitle(state, summary);
     const summaryMessage = getContractSummaryMessage(state, summary);
     return (
@@ -103,7 +105,7 @@ export const DataContractSummary = ({
                 <Tooltip title={editDisabled ? editDisabledMessage : null}>
                     <CreateButton disabled={editDisabled} onClick={showContractBuilder}>
                         <EditIconStyle />
-                        EDIT
+                        {tc('edit')}
                     </CreateButton>
                 </Tooltip>
             </Actions>

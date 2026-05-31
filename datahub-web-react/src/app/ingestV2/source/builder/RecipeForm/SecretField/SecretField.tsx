@@ -3,7 +3,6 @@ import { AutoComplete, Divider, Form } from 'antd';
 import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
 import CreateSecretButton from '@app/ingestV2/source/builder/RecipeForm/SecretField/CreateSecretButton';
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
@@ -41,7 +40,7 @@ export const StyledFormItem = styled(Form.Item)<{
         .ant-form-item-label {
             &:after {
                 content: 'Secret Field';
-                color: ${ANTD_GRAY[7]};
+                color: ${props.theme.colors.textTertiary};
                 font-style: italic;
                 font-weight: 100;
                 margin-left: 5px;

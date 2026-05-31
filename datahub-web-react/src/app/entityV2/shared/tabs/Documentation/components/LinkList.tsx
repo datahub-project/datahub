@@ -1,16 +1,16 @@
 import { DeleteOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { Pencil } from '@phosphor-icons/react/dist/csr/Pencil';
 import { Button, List, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
+import styled, { useTheme } from 'styled-components';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
 import { EditLinkModal } from '@app/entityV2/shared/components/links/EditLinkModal';
 import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -49,6 +49,7 @@ export const LinkList = () => {
     const [editingMetadata, setEditingMetadata] = useState<InstitutionalMemoryMetadata>();
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
+    const theme = useTheme();
     const links = entityData?.institutionalMemory?.elements || [];
 
     const { handleDeleteLink } = useLinkUtils(editingMetadata);
@@ -80,7 +81,7 @@ export const LinkList = () => {
                                         shape="circle"
                                         data-testid="edit-link-button"
                                     >
-                                        <Pencil size={16} color={colors.gray[500]} />
+                                        <Pencil size={16} color={theme.colors.icon} />
                                     </Button>
                                     <Button
                                         onClick={() => handleDeleteLink(link)}
@@ -97,7 +98,7 @@ export const LinkList = () => {
                             <List.Item.Meta
                                 title={
                                     <Typography.Title level={5}>
-                                        <a href={link.url} target="_blank" rel="noreferrer">
+                                        <a href={safeUrl(link.url)} target="_blank" rel="noreferrer">
                                             <ListOffsetIcon>
                                                 <LinkIcon url={link.url} />
                                             </ListOffsetIcon>

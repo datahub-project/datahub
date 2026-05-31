@@ -27,6 +27,8 @@ interface AcrylAssertionListFiltersProps {
     handleFilterChange: (filter: any) => void;
 }
 
+const ASSERTION_ENTITY_TYPE = 'assertion';
+
 const SearchFilterContainer = styled.div`
     display: flex;
     gap: 12px;
@@ -44,7 +46,7 @@ const StyledFilterContainer = styled.div`
         height: 36px !important;
         font-size: 14px !important;
         border-radius: 8px !important;
-        color: #5f6685;
+        color: ${(props) => props.theme.colors.textSecondary};
     }
 `;
 
@@ -118,7 +120,7 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.searchMatchesCount || 0}
                     numRows={filteredAssertions.totalCount || 0}
-                    entityTypeName="assertion"
+                    entityTypeName={ASSERTION_ENTITY_TYPE}
                 />
 
                 {/* ************Render Filter Component ************************* */}

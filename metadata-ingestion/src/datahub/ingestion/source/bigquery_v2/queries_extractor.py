@@ -1,9 +1,10 @@
 import functools
 import logging
 import pathlib
+import re
 import tempfile
 from datetime import datetime, timedelta, timezone
-from typing import Collection, Dict, Iterable, List, Optional, TypedDict
+from typing import Collection, Dict, Iterable, List, Optional, Set, TypedDict
 
 from google.cloud.bigquery import Client
 from pydantic import Field, PositiveInt
@@ -22,7 +23,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit import (
     BigqueryTableIdentifier,
     BigQueryTableRef,
 )
-from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryBaseConfig
+from datahub.ingestion.source.bigquery_v2.bigquery_config import (
+    DEFAULT_REGION_QUALIFIERS,
+    BigQueryBaseConfig,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_report import (
     BigQueryQueriesExtractorReport,
 )
@@ -125,9 +129,17 @@ class BigQueryQueriesExtractorConfig(BigQueryBaseConfig):
     include_operations: bool = True
 
     region_qualifiers: List[str] = Field(
-        default=["region-us", "region-eu"],
+        default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
+    )
+
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
 
 
@@ -155,6 +167,7 @@ class BigQueryQueriesExtractor(Closeable):
         graph: Optional[DataHubGraph] = None,
         schema_resolver: Optional[SchemaResolver] = None,
         discovered_tables: Optional[Collection[str]] = None,
+        discovered_locations: Optional[Collection[str]] = None,
     ):
         self.connection = connection
 
@@ -172,6 +185,13 @@ class BigQueryQueriesExtractor(Closeable):
             )
             if discovered_tables
             else None
+        )
+        self.effective_region_qualifiers = _resolve_region_qualifiers(
+            configured=self.config.region_qualifiers,
+            region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
+            discovered_locations=discovered_locations,
+            report=self.report,
+            structured_report=structured_report,
         )
 
         self.structured_report = structured_report
@@ -398,14 +418,42 @@ class BigQueryQueriesExtractor(Closeable):
         return queries_deduped
 
     def fetch_query_log(self, project: BigqueryProject) -> Iterable[ObservedQuery]:
-        # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
-        regions = self.config.region_qualifiers
+        # See https://cloud.google.com/bigquery/docs/locations#supported_locations
+        regions = self.effective_region_qualifiers
 
+        rows_per_region: Dict[str, int] = {region: 0 for region in regions}
+        errored_regions: Set[str] = set()
         for region in regions:
-            with self.structured_report.report_exc(
-                f"Error fetching query log from BQ Project {project.id} for {region}"
-            ):
-                yield from self.fetch_region_query_log(project, region)
+            try:
+                for entry in self.fetch_region_query_log(project, region):
+                    rows_per_region[region] += 1
+                    yield entry
+            except Exception as exc:
+                errored_regions.add(region)
+                self.structured_report.failure(
+                    title="BigQuery query log fetch failed",
+                    message="Error fetching query log from BQ project for region",
+                    context=f"project={project.id} region={region}",
+                    exc=exc,
+                )
+
+        for region, count in rows_per_region.items():
+            self.report.num_queries_by_region[region] += count
+
+        if _all_scanned_regions_empty(rows_per_region, errored_regions):
+            self.structured_report.warning(
+                title="BigQuery query log empty for all scanned regions",
+                message=(
+                    "No rows returned from INFORMATION_SCHEMA.JOBS in any of the "
+                    "scanned regions. If the project's datasets live in a region "
+                    "outside this list, usage/lineage/queries extraction will be "
+                    "silently empty. Either set `region_qualifiers` explicitly to "
+                    "the regions where this project's data resides, or set "
+                    "`region_qualifiers_auto_discovery: true` to detect regions "
+                    "automatically from dataset locations."
+                ),
+                context=f"project={project.id} regions_scanned={regions}",
+            )
 
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
@@ -486,6 +534,185 @@ class BigQueryQueriesExtractor(Closeable):
 
     def close(self) -> None:
         self.aggregator.close()
+
+
+_REGION_BODY_RE = re.compile(r"^[a-z0-9]([a-z0-9-]*[a-z0-9])?$")
+# Cross-cloud BigLake locations are not valid INFORMATION_SCHEMA qualifiers: https://cloud.google.com/bigquery/docs/locations#cross-cloud-locations
+_BIGLAKE_LOCATION_PREFIXES = ("aws-", "azure-")
+
+
+def _normalize_location_to_region_qualifier(location: str) -> Optional[str]:
+    """
+    Map a BigQuery dataset location to its INFORMATION_SCHEMA region qualifier,
+    returning None for anything that isn't a valid qualifier body.
+
+    Examples:
+        "US"            -> "region-us"
+        "EU"            -> "region-eu"
+        "europe-west1"  -> "region-europe-west1"
+        "region-us"     -> "region-us"   (already a qualifier — idempotent)
+        ""              -> None
+        "US/foo"        -> None          (rejected — would build a bad SQL identifier)
+    """
+    if not location:
+        return None
+    normalized = location.strip().lower()
+    if not normalized:
+        return None
+    body = (
+        normalized[len("region-") :] if normalized.startswith("region-") else normalized
+    )
+    if body.startswith(_BIGLAKE_LOCATION_PREFIXES):
+        return None
+    if not _REGION_BODY_RE.match(body):
+        return None
+    return normalized if normalized.startswith("region-") else f"region-{body}"
+
+
+def _resolve_region_qualifiers(
+    configured: List[str],
+    region_qualifiers_auto_discovery: bool,
+    discovered_locations: Optional[Collection[str]],
+    report: BigQueryQueriesExtractorReport,
+    structured_report: SourceReport,
+) -> List[str]:
+    """
+    Build the effective list of INFORMATION_SCHEMA region qualifiers.
+
+    When region_qualifiers_auto_discovery=True (opt-in; defaults to False), any
+    regions found in dataset locations are merged into the effective list.
+    When False, the configured list is used as-is (after normalization).
+
+    Side effects:
+      - Records the configured/auto-discovered/used breakdown on the report.
+      - Emits structured failure if any configured value is unparseable.
+      - Emits structured failure if the effective list ends up empty.
+      - Emits structured info when discovery was enabled but found no new regions.
+      - Emits structured info when discovery is disabled and uncovered regions exist.
+    """
+    seen: Set[str] = set()
+    ordered: List[str] = []
+    configured_normalized: List[str] = []
+    rejected_configured: List[str] = []
+    for region in configured:
+        normalized = _normalize_location_to_region_qualifier(region)
+        if normalized is None:
+            rejected_configured.append(region)
+            continue
+        if normalized not in seen:
+            seen.add(normalized)
+            ordered.append(normalized)
+            configured_normalized.append(normalized)
+
+    if rejected_configured:
+        structured_report.failure(
+            title="Invalid BigQuery region_qualifiers entry",
+            message=(
+                "One or more `region_qualifiers` values could not be parsed "
+                "as INFORMATION_SCHEMA region qualifiers and were skipped. "
+                "Expected forms like `region-us`, `region-europe-west1`, or "
+                "raw locations like `US` / `europe-west1`."
+            ),
+            context=f"rejected={rejected_configured}",
+        )
+
+    discovered_normalized: List[str] = []
+    for location in discovered_locations or []:
+        normalized = _normalize_location_to_region_qualifier(location)
+        if normalized:
+            discovered_normalized.append(normalized)
+        elif location and location.strip():
+            # dataset.location is well-defined; track unexpected values rather
+            # than silently dropping them and re-introducing a silent failure.
+            report.discovered_locations_unparseable.append(location)
+    discovered_normalized.sort()
+
+    auto_added: List[str] = []
+    if region_qualifiers_auto_discovery:
+        for normalized in discovered_normalized:
+            if normalized not in seen:
+                seen.add(normalized)
+                ordered.append(normalized)
+                auto_added.append(normalized)
+        if auto_added:
+            logger.info(
+                "Auto-extended region_qualifiers with %s based on discovered "
+                "dataset locations (configured: %s)",
+                auto_added,
+                configured_normalized,
+            )
+        elif discovered_locations is not None and not discovered_normalized:
+            # `None` means discovery wasn't attempted (e.g. standalone
+            # BigQueryQueriesSource); `[]` or all-unparseable means it ran
+            # but yielded nothing actionable — only that case warrants the
+            # breadcrumb.
+            structured_report.info(
+                title="BigQuery region auto-detection skipped",
+                message=(
+                    "No usable dataset locations were available from schema "
+                    "discovery, so region_qualifiers was not extended. "
+                    "If your project's data lives outside the configured "
+                    "regions, set `region_qualifiers` explicitly to avoid "
+                    "missing usage/lineage."
+                ),
+            )
+    else:
+        # Discovery disabled: surface uncovered regions so the operator can
+        # decide whether to add them to region_qualifiers.
+        uncovered = sorted({r for r in discovered_normalized if r not in seen})
+        if uncovered:
+            structured_report.info(
+                title="BigQuery regions discovered outside region_qualifiers",
+                message=(
+                    "Schema discovery found datasets in BigQuery regions that "
+                    "are not in your configured `region_qualifiers`. These "
+                    "regions are NOT being scanned. Add them to "
+                    "`region_qualifiers` if you want their usage/lineage "
+                    "extracted."
+                ),
+                context=f"uncovered_regions={uncovered}",
+            )
+
+    if not ordered:
+        if rejected_configured:
+            empty_cause = "all configured `region_qualifiers` entries were unparseable"
+        elif not configured:
+            empty_cause = "`region_qualifiers` is empty"
+        else:
+            empty_cause = "no valid qualifiers remain after parsing"
+        structured_report.failure(
+            title="BigQuery region_qualifiers resolved to empty list",
+            message=(
+                f"INFORMATION_SCHEMA.JOBS will not be scanned at all and "
+                f"usage/lineage/queries extraction will produce no rows: "
+                f"{empty_cause}. Set `region_qualifiers` to at least one "
+                f"valid qualifier (e.g. `region-us`, `region-europe-west1`)."
+            ),
+            context=f"configured={list(configured)} rejected={rejected_configured}",
+        )
+
+    report.region_qualifiers_configured = configured_normalized
+    report.region_qualifiers_auto_discovered = auto_added
+    report.region_qualifiers_used = ordered
+    return ordered
+
+
+def _all_scanned_regions_empty(
+    rows_per_region: Dict[str, int],
+    errored_regions: Set[str],
+) -> bool:
+    """
+    Return True if at least one region completed without error AND every
+    such successfully-scanned region returned zero rows. Regions that errored
+    are excluded from the gate so the "empty regions" warning isn't fired
+    misleadingly when the real failure is captured elsewhere in the report.
+    """
+    successful_counts = [
+        count
+        for region, count in rows_per_region.items()
+        if region not in errored_regions
+    ]
+    return bool(successful_counts) and sum(successful_counts) == 0
 
 
 def _is_allow_all_pattern(allow_usernames: List[str]) -> bool:

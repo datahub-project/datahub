@@ -8,14 +8,14 @@ import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { formatTimestamp } from '@app/sharedV2/time/utils';
 import { Popover } from '@src/alchemy-components';
 
-import { Document, EntityType } from '@types';
+import { Document, DocumentSourceType, EntityType } from '@types';
 
 const DateWithTooltip = styled.span`
     cursor: help;
     &:hover {
         text-decoration: underline;
         text-decoration-style: dotted;
-        text-decoration-color: #d9d9d9;
+        text-decoration-color: ${(props) => props.theme.colors.border};
     }
 `;
 
@@ -27,7 +27,14 @@ export default function CreatedProperty(props: PropertyComponentProps) {
 
     if (entityType === EntityType.Document) {
         const document = entityData as Document;
-        createdTimestamp = document?.info?.created?.time;
+        const created = document?.info?.created?.time;
+        const lastModified = document?.info?.lastModified?.time;
+        // For external documents, only show created if it predates lastModified.
+        // If created >= lastModified the connector likely defaulted to ingestion time.
+        const isExternal = document?.info?.source?.sourceType === DocumentSourceType.External;
+        if (!isExternal || (created && lastModified && created < lastModified)) {
+            createdTimestamp = created;
+        }
     } else {
         createdTimestamp = entityData?.properties?.createdOn?.time;
     }
@@ -36,7 +43,7 @@ export default function CreatedProperty(props: PropertyComponentProps) {
         return (
             <Popover content={formatTimestamp(timestamp, 'll LTS')} placement="top">
                 <DateWithTooltip>
-                    <Text color="gray">{formatTimestamp(timestamp, 'll')}</Text>
+                    <Text>{formatTimestamp(timestamp, 'll')}</Text>
                 </DateWithTooltip>
             </Popover>
         );

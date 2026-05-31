@@ -1,4 +1,4 @@
-import { Icon, Text, Tooltip, colors } from '@components';
+import { Icon, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React from 'react';
@@ -10,6 +10,7 @@ import { LinkIcon } from '@app/entityV2/shared/components/links/LinkIcon';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { useLinkPermission } from '@app/entityV2/summary/links/useLinkPermission';
 import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { safeUrl } from '@app/shared/urlUtils';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { InstitutionalMemoryMetadata } from '@types';
@@ -18,7 +19,7 @@ const LinkContainer = styled.div`
     display: flex;
     width: 100%;
     border-radius: 8px;
-    background-color: ${colors.gray[1500]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     justify-content: space-between;
     padding: 8px 4px;
 `;
@@ -60,7 +61,7 @@ export default function LinkItem({ link, setSelectedLink, setShowConfirmDelete, 
     const label = link.description || link.label;
 
     return (
-        <a href={link.url} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
+        <a href={safeUrl(link.url)} target="_blank" rel="noreferrer" data-testid={`${link.url}-${label}`}>
             <LinkContainer>
                 <LeftSection>
                     <LinkIcon url={link.url} />

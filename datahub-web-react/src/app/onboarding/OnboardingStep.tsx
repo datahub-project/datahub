@@ -11,4 +11,6 @@ export type OnboardingStep = {
     selector?: string;
     style?: any;
     isActionStep?: boolean; // hide this step until some action is taken to display it
+    tabName?: string; // name of the tab to select for this step (for entity tabs)
+    action?: (node: HTMLElement) => void; // function called when the step is shown (reactour v1)
 };

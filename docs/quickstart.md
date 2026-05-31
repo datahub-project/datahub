@@ -32,6 +32,20 @@ Tested & confirmed config: 2 CPUs, 8GB RAM, 2GB Swap area, and 12GB disk space.
 ## Install the DataHub CLI
 
 <Tabs>
+<TabItem value="brew" label="Homebrew">
+
+```bash
+brew install datahub-project/tap/datahub
+datahub version
+```
+
+Homebrew manages an isolated Python environment for `datahub`, so there's no venv to activate. The formula installs the **core CLI only** — to add ingestion connectors, install them into the brew-managed environment:
+
+```bash
+"$(brew --prefix datahub)/libexec/bin/pip" install 'acryl-datahub[snowflake,bigquery]'
+```
+
+</TabItem>
 <TabItem value="pip" label="pip">
 
 ```bash
@@ -74,8 +88,8 @@ Starting CLI version 1.5 has changed how the signing key for generationg tokens 
 
 Quickstart resolves the values in the following order:
 
-1. If the envrionment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT` defined, their values are used.
-2. If the file `~/.datahub/quickstart/.local-secrets.env` exists and the variables mentioned above are defined in it thier values are used.
+1. If the environment variables `DATAHUB_TOKEN_SERVICE_SIGNING_KEY` and `DATAHUB_TOKEN_SERVICE_SALT` defined, their values are used.
+2. If the file `~/.datahub/quickstart/.local-secrets.env` exists and the variables mentioned above are defined in it their values are used.
 3. If both of the above are not available, new random values are generated and used. The values are written to the file mentioned above and used in subsequent invocations.
 
 It is recommended that users provide their own stable values for the environment values before running quickstart.
@@ -113,7 +127,7 @@ Starting up DataHub...
  ✔ Container datahub-datahub-actions-quickstart-1  Started                                                                                             42.1s
 
 ✔ DataHub is now running
-Ingest some demo data using `datahub docker ingest-sample-data`,
+Load sample data: run `datahub init` then `datahub datapack load showcase-ecommerce`,
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
@@ -140,7 +154,7 @@ Required steps to upgrade:
 
 ### DataHub Authentication Changes in default signing key
 
-From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously if the user does not provide thier own keys.
+From version 1.5 DataHub quickstart now generates a random signing key and salt for use when generating and validating authentication tokens instead of a hardcoded default key used previously if the user does not provide their own keys.
 
 ⚠️ For users upgrading from previous versions of the cli, due to the change in the signing key, existing PAT tokens will be invalidated.
 :::
@@ -157,20 +171,19 @@ password: datahub
 
 To change the default credentials, please refer to [Change the default user datahub in quickstart](authentication/changing-default-credentials.md#quickstart).
 
-### Ingest Sample Data
+### Load Sample Data
 
-To ingest the sample metadata, run the following CLI command from your terminal
+First, configure the CLI to talk to your local DataHub instance:
 
 ```bash
-datahub docker ingest-sample-data
+datahub init --username datahub --password datahub
 ```
 
-:::note Token Authentication
+Then load the **showcase-ecommerce** data pack — a rich set of ~1,050 entities across Snowflake, Looker, PowerBI, Tableau, dbt, and Spark with lineage, governance, glossary terms, domains, data products, and structured properties:
 
-If you've enabled [Metadata Service Authentication](authentication/introducing-metadata-service-authentication.md), you'll need to provide a Personal Access Token
-using the `--token <token>` parameter in the command.
-
-:::
+```bash
+datahub datapack load showcase-ecommerce
+```
 
 That's it! Now feel free to play around with DataHub!
 
@@ -209,11 +222,13 @@ datahub docker quickstart --version v1.2.0
 ```
 
 You can see the releases available on the [github releases](https://github.com/datahub-project/datahub/releases) page
-You can also specify `head` as the version to get the latest development version on the master branch.
+You can also specify `head` or `quickstart` as the version to get the latest coordinated development images from `master` (compose from `master`, images tagged `quickstart`). For a specific commit build, use `sha-<short_sha>` (registry-only, not a git tag).
+
+If you pass an unrecognized `--version` that is not a release tag (for example a typo), the CLI prompts before falling back to the default quickstart configuration. Omitting `--version` uses the default without prompting. Release-like tags (`v1.2.0`) and `sha-*` tags are used as-is without prompting. For scripts, pass `--accept-version-default` to accept the suggested configuration without an interactive prompt.
 
 ### Customize installation
 
-If you would like to customize the DataHub installation further, please download the [docker-compose.yaml](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose-without-neo4j-m1.quickstart.yml) used by the cli tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
+If you would like to customize the DataHub installation further, please download the [docker-compose file](https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml) used by the CLI tool, modify it as necessary and deploy DataHub by passing the downloaded docker-compose file:
 
 ```bash
 datahub docker quickstart --quickstart-compose-file <path to compose file>

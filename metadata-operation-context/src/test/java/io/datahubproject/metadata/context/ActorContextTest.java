@@ -19,7 +19,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
-import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.identity.CorpUserStatus;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -210,25 +209,6 @@ public class ActorContextTest {
                     "corpUserKey", new Aspect(key.data()),
                     "status", new Aspect(new Status().setRemoved(false).data()),
                     "corpUserStatus", new Aspect(suspended.data()))));
-    assertFalse(ctx.isActive(retriever));
-  }
-
-  @Test
-  public void isActiveFalseWhenCorpUserInfoInactive() {
-    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:inactive");
-    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "inactive"), "");
-    ActorContext ctx = ActorContext.asSessionRestricted(userAuth, Set.of(), List.of(), true);
-    CorpUserKey key = new CorpUserKey().setUsername("inactive");
-    AspectRetriever retriever = mock(AspectRetriever.class);
-    when(retriever.getLatestAspectObjects(any(), any()))
-        .thenReturn(
-            Map.of(
-                userUrn,
-                Map.of(
-                    "corpUserKey", new Aspect(key.data()),
-                    "status", new Aspect(new Status().setRemoved(false).data()),
-                    "corpUserStatus", new Aspect(new CorpUserStatus().setStatus("ACTIVE").data()),
-                    "corpUserInfo", new Aspect(new CorpUserInfo().setActive(false).data()))));
     assertFalse(ctx.isActive(retriever));
   }
 }

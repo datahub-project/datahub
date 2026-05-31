@@ -89,26 +89,28 @@ _Enterprise-grade metadata platform enabling discovery, governance, and observab
 
 ---
 
-### 🤖 **NEW: Connect AI Agents to DataHub via Model Context Protocol (MCP)**
+### 📊 **NEW: Open Source Analytics Agent**
 
 <p align="center">
-  <a href="https://youtu.be/aVWJsw7RJ8c?t=568">
-    <img width="600" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/demos/mcp-demo.gif" alt="DataHub MCP Demo - Query metadata with AI agents" />
+  <a href="https://youtu.be/qqFUewpnGYg?si=0F51_nIKpl3f1ryC&t=3215">
+    <img width="600" src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/analytics-agent/screenshot-chat.png" alt="Analytics Agent answering a data question with a chart" />
   </a>
   <br/>
-  <i>▶️ Click to watch full demo on YouTube</i>
+  <i>Ask data questions in plain English — get SQL, results, and charts back</i>
 </p>
 
-Connect your AI coding assistants (Cursor, Claude Desktop, Cline) directly to DataHub.
-Query metadata with natural language: _"What datasets contain PII?"_ or _"Show me lineage for this table"_
+Open-source agent grounded in your DataHub catalog. Apache 2.0. Bring your own LLM.
 
-**Quick setup:**
+**Quick start:**
 
 ```bash
-npx -y @acryldata/mcp-server-datahub init
+git clone https://github.com/datahub-project/analytics-agent.git
+cd analytics-agent && bash quickstart.sh
 ```
 
-[Learn more →](https://github.com/acryldata/mcp-server-datahub)
+[Read the announcement →](https://datahub.com/blog/datahub-analytics-agent/) · [Docs →](https://docs.datahub.com/docs/features/feature-guides/analytics-agent) · [Repo →](https://github.com/datahub-project/analytics-agent)
+
+> **Using AI coding assistants?** Connect Cursor, Claude Desktop, or Cline directly to DataHub via the [Model Context Protocol](https://github.com/acryldata/mcp-server-datahub): `npx -y @acryldata/mcp-server-datahub init`
 
 ---
 
@@ -190,11 +192,16 @@ Yes. DataHub was originally built at LinkedIn to manage metadata at scale across
 <summary><b>How do I install the DataHub metadata platform?</b></summary>
 
 ```bash
+# macOS / Linux (simplest)
+brew install datahub-project/tap/datahub
+
+# Or via pip (any platform)
 pip install acryl-datahub
+
 datahub docker quickstart
 ```
 
-See the [Quick Start](#-quick-start-60-seconds) section below for full instructions. The PyPI package is [`acryl-datahub`](https://pypi.org/project/acryl-datahub/).
+See the [Quick Start](#-quick-start-60-seconds) section below for full instructions. The PyPI package is [`acryl-datahub`](https://pypi.org/project/acryl-datahub/); the Homebrew tap is [`datahub-project/homebrew-tap`](https://github.com/datahub-project/homebrew-tap).
 
 </details>
 
@@ -240,25 +247,33 @@ No installation required. Explore a fully-loaded DataHub instance with sample da
 
 **🌐 [Launch Live Demo: demo.datahub.com](https://demo.datahub.com)**
 
-### Option 2: Run Locally with Python (Recommended)
+### Option 2: Run Locally (Recommended)
 
-Get DataHub running on your machine in under 2 minutes:
+Get DataHub running on your machine in under 2 minutes.
+
+**Prerequisites:** Docker Desktop with 8GB+ RAM allocated.
+
+Install the DataHub CLI using either Homebrew (macOS / Linux) or pip:
 
 ```bash
-# Prerequisites: Docker Desktop with 8GB+ RAM allocated
+# Homebrew (macOS / Linux)
+brew install datahub-project/tap/datahub
 
-# Upgrade pip and install DataHub CLI
+# Or pip (any platform)
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
+```
 
-# Launch DataHub locally via Docker
+Then launch DataHub locally via Docker:
+
+```bash
 datahub docker quickstart
 
 # Access DataHub at http://localhost:9002
 # Default credentials: datahub / datahub
 ```
 
-**Note:** You can also use `uv` or other Python package managers instead of pip.
+**Note:** For pip, you can also use `uv` or other Python package managers.
 
 **What's included:**
 
@@ -275,8 +290,11 @@ Best for advanced users who want to modify the core codebase or run directly fro
 git clone https://github.com/datahub-project/datahub.git
 cd datahub
 
-# Start all services with docker-compose
-./docker/quickstart.sh
+# One-time setup (Python CLI + dev tooling)
+scripts/dev/datahub-dev.sh setup
+
+# Start DataHub (Gradle profiles under docker/profiles)
+scripts/dev/datahub-dev.sh start
 
 # Access DataHub at http://localhost:9002
 # Default credentials: datahub / datahub

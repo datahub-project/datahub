@@ -2,8 +2,8 @@ import LaunchIcon from '@mui/icons-material/Launch';
 import React from 'react';
 import styled from 'styled-components';
 
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { Popover } from '@src/alchemy-components';
+import { safeUrl } from '@src/app/shared/urlUtils';
 import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
 
 const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
@@ -14,8 +14,8 @@ const Link = styled.a<{ $isEntityPageHeader?: boolean }>`
     border-radius: 4px;
     padding: ${(props) => (props.$isEntityPageHeader ? '6px' : '4px 6px')};
 
-    background: ${REDESIGN_COLORS.LIGHT_TEXT_DARK_BACKGROUND};
-    color: ${(props) => props.theme.styles['primary-color']};
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    color: ${(props) => props.theme.colors.textBrand};
 
     max-width: 215px;
     width: fit-content;
@@ -52,7 +52,7 @@ export default function ExternalLink({ href, label, onClick, className, isEntity
     return (
         <Popover content={isHorizontallyTruncated ? <PopoverWrapper>{label}</PopoverWrapper> : undefined}>
             <Link
-                href={href}
+                href={safeUrl(href)}
                 target="_blank"
                 onClick={onClick}
                 className={className}

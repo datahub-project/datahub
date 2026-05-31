@@ -4,7 +4,7 @@ import styled from 'styled-components';
 import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import StatsHeader from '@app/entityV2/shared/tabs/Dataset/Stats/StatsHeader';
 import HistoricalStats from '@app/entityV2/shared/tabs/Dataset/Stats/historical/HistoricalStats';
-import { LOOKBACK_WINDOWS } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
+import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import ColumnStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/ColumnStats';
 import TableStats from '@app/entityV2/shared/tabs/Dataset/Stats/snapshot/TableStats';
 import { ViewType } from '@app/entityV2/shared/tabs/Dataset/Stats/viewType';
@@ -21,7 +21,7 @@ export default function StatsTab() {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const [viewType, setViewType] = useState(ViewType.LATEST);
-    const [lookbackWindow, setLookbackWindow] = useState(LOOKBACK_WINDOWS.QUARTER);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(LOOKBACK_WINDOWS.QUARTER);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },

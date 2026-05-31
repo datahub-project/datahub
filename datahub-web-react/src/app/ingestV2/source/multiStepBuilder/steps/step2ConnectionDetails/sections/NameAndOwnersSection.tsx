@@ -1,7 +1,7 @@
 import { Input, spacing } from '@components';
 import { Form } from 'antd';
 import useFormInstance from 'antd/lib/form/hooks/useFormInstance';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -42,14 +42,32 @@ export function NameAndOwnersSection({
     const me = useUserContext();
 
     const form = useFormInstance<FormData>();
+    const [hasInitializedOwners, setHasInitializedOwners] = useState(false);
 
     const existingOwners = useMemo(() => source?.ownership?.owners || [], [source]);
-    const defaultActors = useMemo(() => {
+    const initialOwners = useMemo(() => {
         if (!isEditing && me.user) {
             return [me.user];
         }
         return existingOwners.map((owner) => owner.owner);
     }, [existingOwners, isEditing, me.user]);
+
+    useEffect(() => {
+        if (hasInitializedOwners) return;
+        if (ownerUrns?.length) {
+            setHasInitializedOwners(true);
+            return;
+        }
+        if (!isEditing && me.loaded) {
+            updateOwners?.(initialOwners);
+            setHasInitializedOwners(true);
+            return;
+        }
+        if (isEditing && source) {
+            updateOwners?.(initialOwners);
+            setHasInitializedOwners(true);
+        }
+    }, [hasInitializedOwners, initialOwners, isEditing, me.loaded, ownerUrns?.length, source, updateOwners]);
 
     const onValuesChange = useCallback(
         (values: FormData) => {
@@ -57,6 +75,8 @@ export function NameAndOwnersSection({
         },
         [updateSourceName],
     );
+
+    const areOwnersReady = hasInitializedOwners || !!ownerUrns?.length;
 
     return (
         <Form form={form} layout="vertical" onValuesChange={(_, values) => onValuesChange(values)}>
@@ -75,7 +95,8 @@ export function NameAndOwnersSection({
                     label="Add Owners"
                     ownerUrns={ownerUrns}
                     updateOwners={updateOwners}
-                    defaultActors={defaultActors}
+                    isDisabled={!areOwnersReady}
+                    isLoading={!areOwnersReady}
                 />
             </Container>
         </Form>

@@ -1,5 +1,6 @@
 ---
 title: "Deploying with Kubernetes"
+description: "Deploy DataHub on Kubernetes using the official Helm charts, including configuration for production-grade cluster setups."
 ---
 
 # Deploying DataHub with Kubernetes

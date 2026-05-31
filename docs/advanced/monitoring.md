@@ -1,3 +1,7 @@
+---
+description: "Monitor DataHub services with Prometheus, OpenTelemetry, and JMX metrics for production observability and alerting."
+---
+
 # Monitoring DataHub
 
 ## Overview
@@ -1127,19 +1131,22 @@ You can add in the above docker-compose using the `-f <<path-to-compose-file>>` 
 For instance,
 
 ```shell
-docker-compose \
-  -f quickstart/docker-compose.quickstart.yml \
-  -f monitoring/docker-compose.monitoring.yml \
+docker compose --project-directory docker/profiles --profile quickstart \
+  -f docker/monitoring/docker-compose.monitoring.yml \
   pull && \
-docker-compose -p datahub \
-  -f quickstart/docker-compose.quickstart.yml \
-  -f monitoring/docker-compose.monitoring.yml \
+docker compose --project-directory docker/profiles --profile quickstart -p datahub \
+  -f docker/monitoring/docker-compose.monitoring.yml \
   up
 ```
 
-We set up quickstart.sh, dev.sh, and dev-without-neo4j.sh to add the above docker-compose when MONITORING=true. For
-instance `MONITORING=true ./docker/quickstart.sh` will add the correct env variables to start collecting traces and
-metrics, and also deploy Jaeger, Prometheus, and Grafana. We will soon support this as a flag during quickstart.
+For local development with debug images, use the `debug` profile instead of `quickstart`:
+
+```shell
+docker compose --project-directory docker/profiles --profile debug \
+  -f docker/monitoring/docker-compose.monitoring.yml up
+```
+
+Or start the base stack with `./gradlew quickstartDebug` and add monitoring compose files as needed.
 
 ## Health check endpoint
 

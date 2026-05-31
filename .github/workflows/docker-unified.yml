@@ -7,6 +7,11 @@ on:
         required: false
         default: "quickstart-consumers"
         type: string
+      playwright_shard_count:
+        description: "Number of parallel shards for Playwright E2E tests"
+        required: false
+        default: "5"
+        type: string
   push:
     branches:
       - master
@@ -21,6 +26,7 @@ on:
       - "!.github/scripts/send_failed_tests_to_posthog.py"
       - "!.github/scripts/docker_helpers.sh"
       - "!.github/actions/ci-optimization"
+      - "!.github/actions/restore-dependency-caches"
       - "!.github/scripts/check_python_package.py"
       - "!.github/scripts/parse_failed_cypress_tests.py"
       - "!.github/scripts/parse_failed_pytest_tests.py"
@@ -40,10 +46,11 @@ env:
   PROFILE_NAME: "${{ github.event.inputs.profileName || 'quickstart-consumers' }}"
 
   DOCKER_CACHE: "DEPOT"
-  DEPOT_PROJECT_ID: "s0gr1cr3jd"
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
   HAS_DEPOT_LABEL: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'depot') }}
   IS_FORK: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
   DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+  PLAYWRIGHT_SHARD_COUNT: "5"
 
 permissions:
   contents: read
@@ -90,6 +97,12 @@ jobs:
       uv_cache_key_prefix: ${{ steps.uv-cache-key.outputs.uv_cache_key_prefix }}
       yarn_cache_key: ${{ steps.yarn-cache-key.outputs.yarn_cache_key }}
       yarn_cache_key_prefix: ${{ steps.yarn-cache-key.outputs.yarn_cache_key_prefix }}
+      playwright_yarn_cache_key: ${{ steps.playwright-yarn-cache-key.outputs.playwright_yarn_cache_key }}
+      playwright_yarn_cache_key_prefix: ${{ steps.playwright-yarn-cache-key.outputs.playwright_yarn_cache_key_prefix }}
+      playwright_matrix: ${{ steps.set-playwright-matrix.outputs.matrix }}
+      playwright_change: ${{ steps.ci-optimize.outputs.playwright-change == 'true' }}
+      smoke_build_task: ${{ steps.smoke-profile.outputs.smoke_build_task }}
+      smoke_profile_name: ${{ steps.smoke-profile.outputs.smoke_profile_name }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
@@ -144,6 +157,30 @@ jobs:
         run: |
           echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
           echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve smoke test profile from PR label
+        id: smoke-profile
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          PR_LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          CONFIG_KEY=$(echo "$PR_LABELS" | jq -r '[.[] | select(startswith("smoke:"))] | first // empty' | sed 's/^smoke://')
+          if [[ -z "$CONFIG_KEY" ]]; then
+            echo "No smoke: label found, using defaults"
+            exit 0
+          fi
+          echo "Found smoke label config key: $CONFIG_KEY"
+          PROFILE_NAME=$(./gradlew :docker:resolveQuickstartProfile -PconfigKey="$CONFIG_KEY" -q 2>&1 | tail -1)
+          if [[ -z "$PROFILE_NAME" ]]; then
+            echo "::error::Failed to resolve profile for config key: $CONFIG_KEY"
+            exit 1
+          fi
+          echo "Resolved compose profile: $PROFILE_NAME"
+          {
+            echo "smoke_build_task=:docker:buildImages${CONFIG_KEY}"
+            echo "smoke_profile_name=${PROFILE_NAME}"
+          } >> "$GITHUB_OUTPUT"
+
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
 
@@ -196,54 +233,68 @@ jobs:
           echo "yarn_cache_key=docker-unified-${{ runner.os }}-yarn-${{ hashFiles('./smoke-test/tests/cypress/yarn.lock', './datahub-web-react/yarn.lock') }}" >> "$GITHUB_OUTPUT"
           echo "yarn_cache_key_prefix=docker-unified-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
 
+      - name: Compute Playwright Yarn Cache Key
+        id: playwright-yarn-cache-key
+        run: |
+          echo "playwright_yarn_cache_key=docker-unified-playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}" >> "$GITHUB_OUTPUT"
+          echo "playwright_yarn_cache_key_prefix=docker-unified-playwright-${{ runner.os }}-yarn-" >> "$GITHUB_OUTPUT"
+
+      - name: Build Playwright shard matrix
+        id: set-playwright-matrix
+        # Old condition (ran on any backend/frontend/playwright change or publish, including all PRs):
+        # if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
+        #
+        # Temporary - New condition mirrors smoke-test rules (backend-change|playwright-change|publish for non-PRs),
+        # but restricts PRs to playwright-change only to avoid running the full E2E suite on every code PR.
+        if: ${{ (github.event_name == 'pull_request' && steps.ci-optimize.outputs.playwright-change == 'true') || (github.event_name != 'pull_request' && (steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true')) }}
+        run: |
+          shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
+          matrix=''
+          for i in $(seq 1 "$shard_count"); do
+            if [[ -n "$matrix" ]]; then
+              matrix="$matrix,"
+            fi
+            matrix="${matrix}{\"shard\":\"$i\",\"shard_count\":\"$shard_count\"}"
+          done
+          echo "matrix={\"include\":[$matrix]}" >> "$GITHUB_OUTPUT"
+          {
+            echo "## Playwright Test Matrix"
+            echo ""
+            echo "| Strategy | Total Shards |"
+            echo "|----------|--------------|"
+            echo "| playwright | $shard_count |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   base_build:
     name: Build all images
     runs-on: ${{ needs.setup.outputs.build_runner_type }}
     needs: setup
+    timeout-minutes: 60
     if: ${{ needs.setup.outputs.use_depot_cache == 'true' }} # On fork, smoke test job does the build since depot cache is not available
     outputs:
       build_id: ${{ steps.capture-build-id.outputs.build_id }}
       matrix: ${{ steps.capture-build-id.outputs.matrix }}
     steps:
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
-          java-version: 17
+          java-version: 21
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: ./.github/actions/restore-dependency-caches
         with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.gradle/wrapper
-            ~/.gradle/caches/modules-2
-            ~/.gradle/caches/jars-*
-            ~/.gradle/caches/transforms-*
-          key: gradle-plugins-cache
-          restore-keys: |
-            gradle-plugins-cache
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+          restore_gradle: true
 
       - name: Set up Depot CLI
         if: ${{ env.DOCKER_CACHE == 'DEPOT' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
-
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
 
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
@@ -251,7 +302,7 @@ jobs:
           cache: "pip"
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -259,23 +310,22 @@ jobs:
 
       - name: Build all Images (For Smoke tests)
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
-        # If not publishing, just a subset of images required for smoke tests is sufficient.
-        # Use buildImagesAll for workflow_dispatch, otherwise buildImagesQuickStartDebugConsumers
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # if triggered via workflow_dispatch, this can run other quickstart variants, so lets build all images to allow that.
-            # we still dont need matrixed builds since this is for smoke test only.
             BUILD_TASK=":docker:buildImagesAll"
+          elif [[ -n "${{ needs.setup.outputs.smoke_build_task }}" ]]; then
+            BUILD_TASK="${{ needs.setup.outputs.smoke_build_task }}"
           else
             BUILD_TASK=":docker:buildImagesQuickstart"
           fi
+          echo "Using build task: $BUILD_TASK"
           ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
       - name: Build all Images (Publish)
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        # since this is for publishing, we will build all images, not just those for smoke tests. But will publish only if tests pass for publish (head images, releases).
-        # for pr-publish, publish images without waiting for tests to pass.
+        # Push immutable tags (sha-*, pr*, release v*) to the registry during the coordinated depot bake.
+        # The floating quickstart tag is applied only after smoke tests pass (see publish_images).
         run: |
-          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.short_sha }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=${{ needs.setup.outputs.pr-publish }}
+          ./gradlew :docker:buildImagesAll -PmatrixBuild=true  -Ptag=${{ needs.setup.outputs.tag }} -PshaTag=${{ needs.setup.outputs.unique_tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }} -PdockerPush=true
       - name: Capture build Id
         id: capture-build-id
         run: |
@@ -287,27 +337,27 @@ jobs:
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
@@ -316,49 +366,6 @@ jobs:
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
-
-  scan_images:
-    permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
-    name: Scan images for vulnerabilities
-    runs-on: depot-ubuntu-24.04
-    needs: [setup, base_build]
-    if: ${{ false }}
-    strategy:
-      fail-fast: false
-      matrix: ${{ fromJson(needs.base_build.outputs.matrix) }}
-    steps:
-      - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - id: download_image
-        name: Download images from depot
-        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
-        run: |
-          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "${{ matrix.target}}"
-          docker images
-          echo "docker_image=$(docker images --format '{{.Repository}}:{{.Tag}}'  | grep "${{ needs.setup.outputs.tag }}" )" >> "$GITHUB_OUTPUT"
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # v0.35.0
-        env:
-          TRIVY_OFFLINE_SCAN: true
-          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
-          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
-        with:
-          image-ref: ${{ steps.download_image.outputs.docker_image }}
-          format: "template"
-          template: "@/contrib/sarif.tpl"
-          output: "trivy-results.sarif"
-          severity: "CRITICAL,HIGH"
-          ignore-unfixed: true
-          vuln-type: "os,library"
-          trivy-config: "./trivy.yaml"
-      - name: Upload Trivy scan results to GitHub Security tab
-        uses: github/codeql-action/upload-sarif@38697555549f1db7851b81482ff19f1fa5c4fedc # v4
-        with:
-          sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
@@ -428,24 +435,22 @@ jobs:
       MIXPANEL_API_SECRET: ${{ secrets.MIXPANEL_API_SECRET }}
       MIXPANEL_PROJECT_ID: ${{ secrets.MIXPANEL_PROJECT_ID }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/uv
-          key: ${{ needs.setup.outputs.uv_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.uv_cache_key_prefix }}
-
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: |
-            ~/.cache/yarn
-          key: ${{ needs.setup.outputs.yarn_cache_key }}
-          restore-keys: |
-            ${{ needs.setup.outputs.yarn_cache_key_prefix }}
-
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - uses: ./.github/actions/restore-dependency-caches
+        with:
+          uv_cache_key: ${{ needs.setup.outputs.uv_cache_key }}
+          uv_cache_key_prefix: ${{ needs.setup.outputs.uv_cache_key_prefix }}
+          yarn_cache_key: ${{ needs.setup.outputs.yarn_cache_key }}
+          yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
       - name: Set up Depot CLI
@@ -616,11 +621,11 @@ jobs:
           echo "Skipping this batch to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -635,9 +640,12 @@ jobs:
           docker system df -v
 
       - name: build images
+        timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -662,8 +670,9 @@ jobs:
           DATAHUB_ACTIONS_IMAGE: ${{ env.DATAHUB_ACTIONS_IMAGE }}
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
         run: |
-          # Quickstart uses PROFILE_NAME env if defined to start the profile specified. Defaults to quickstart-consumers
+          echo "Using compose profile: $PROFILE_NAME"
           ./smoke-test/run-quickstart.sh
 
       - name: Disk Check
@@ -734,7 +743,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() && (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -754,7 +763,7 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -773,7 +782,7 @@ jobs:
         # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
         # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
         # required so upload-artifact picks up that dot-prefixed directory.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always() && matrix.test_strategy == 'cypress'
         with:
           name: cypress-mochawesome-json-${{ matrix.batch }}
@@ -781,7 +790,7 @@ jobs:
           include-hidden-files: true
           retention-days: 1
       - name: Upload screenshots
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -833,12 +842,13 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
@@ -846,7 +856,7 @@ jobs:
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
@@ -859,7 +869,7 @@ jobs:
     needs: [smoke_test]
     if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download all Cypress mochawesome JSON artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -897,17 +907,232 @@ jobs:
             echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
           fi
       - name: Upload unified Cypress HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: cypress-html-report
           path: cypress-html-report/
           retention-days: 5
 
+  playwright_test:
+    name: Playwright E2E Tests (Shard ${{ matrix.shard }}/${{ matrix.shard_count }})
+    runs-on: ${{ needs.setup.outputs.test_runner_type }}
+    needs: [setup, base_build]
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
+    steps:
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.cache/yarn
+          key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
+          restore-keys: ${{ needs.setup.outputs.playwright_yarn_cache_key_prefix }}
+
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "zulu"
+          java-version: 21
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - name: Set up Depot CLI
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
+        with:
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+
+      - name: Build images (fork — no depot cache)
+        timeout-minutes: 60
+        if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
+        run: |
+          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          docker images
+        env:
+          DOCKER_CACHE: GITHUB
+
+      - name: Pull images from depot
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
+        run: |
+          depot pull --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}"
+          docker images
+
+      - name: Run quickstart
+        env:
+          DATAHUB_TELEMETRY_ENABLED: false
+          DATAHUB_VERSION: ${{ needs.setup.outputs.tag }}
+          SKIP_INSTALL_DEV: "true"
+          ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
+          ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
+        run: ./smoke-test/run-quickstart.sh
+
+      - name: Disable ES Disk Threshold
+        run: |
+          curl -XPUT "http://localhost:9200/_cluster/settings" \
+            -H 'Content-Type: application/json' -d'{
+              "persistent": {
+                "cluster": {
+                  "routing": {
+                    "allocation.disk.threshold_enabled": false
+                  }
+                }
+              }
+            }'
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: |
+          yarn install --frozen-lockfile
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: e2e-test/ui/playwright
+        env:
+          BASE_URL: "http://localhost:9002"
+          PLAYWRIGHT_REUSE_SERVER: "1"
+        run: |
+          npx playwright test \
+            --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
+
+      - name: Upload Playwright blob report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: playwright-blob-report-${{ matrix.shard }}
+          path: e2e-test/ui/playwright/blob-report/
+          retention-days: 1
+
+      - name: Upload Playwright JUnit results
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: always()
+        with:
+          name: playwright-junit-${{ matrix.shard }}
+          path: e2e-test/ui/playwright/test-results/junit.xml
+          retention-days: 5
+
+      - name: Store logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          TEST_STRATEGY="-playwright-${{ matrix.shard }}"
+          source .github/scripts/docker_logs.sh
+
+      - name: Upload Docker logs on failure
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: docker-logs-playwright-${{ matrix.shard }}
+          path: "docker_logs/*.log"
+          retention-days: 5
+
+      - name: Upload Playwright traces and screenshots on failure
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        if: failure()
+        with:
+          name: playwright-traces-${{ matrix.shard }}
+          path: e2e-test/ui/playwright/test-results/
+          retention-days: 5
+
+      - name: Report test results
+        if: "!cancelled()"
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: "Test Results (playwright) shard-${{ matrix.shard }}"
+          test-results-paths: |
+            **/e2e-test/ui/playwright/test-results/junit.xml
+          junit-file-globs: |
+            **/e2e-test/ui/playwright/test-results/junit.xml
+
+      - name: Upload test results to Codecov
+        if: "!cancelled()"
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
+          override_branch: ${{ github.head_ref || github.ref_name }}
+
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
+        with:
+          path: ~/.cache/yarn
+          key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
+
+  playwright_report:
+    name: Merge Playwright HTML report
+    runs-on: ubuntu-latest
+    needs: [setup, playwright_test]
+    if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+        with:
+          path: ~/.cache/yarn
+          key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
+          restore-keys: ${{ needs.setup.outputs.playwright_yarn_cache_key_prefix }}
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: yarn install --frozen-lockfile
+
+      - name: Download all Playwright blob reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: playwright-blob-report-*
+          path: playwright-blob-reports
+
+      - name: Merge blob reports into unified HTML report
+        run: |
+          # download-artifact v4+ places each artifact in its own subfolder under
+          # playwright-blob-reports/. Flatten all .zip files into a single dir so
+          # `playwright merge-reports` can find them.
+          mkdir -p playwright-blobs-flat
+          # Playwright blob filenames include the shard index, so cp overwrites are safe.
+          find playwright-blob-reports -name "*.zip" -exec cp {} playwright-blobs-flat/ \;
+          if compgen -G "playwright-blobs-flat/*.zip" > /dev/null 2>&1; then
+            ./e2e-test/ui/playwright/node_modules/.bin/playwright merge-reports --reporter html ./playwright-blobs-flat
+          else
+            echo "No blob reports found — all shards may have been skipped or crashed"
+            exit 1
+          fi
+
+      - name: Upload merged Playwright HTML report
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: playwright-html-report
+          path: playwright-report/
+          retention-days: 5
+
   publish_images:
-    name: Push images after tests pass
+    name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs: [setup, smoke_test, base_build]
-    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' }}
+    if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
@@ -915,15 +1140,15 @@ jobs:
           # Check the overall result of the matrix job
           # Matrix jobs can have mixed results, so we check for any failures
           if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
-            echo "Smoke tests failed, skipping image pushing"
+            echo "Smoke tests failed, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
           elif [[ "${{ needs.smoke_test.result }}" == "cancelled" ]]; then
-            echo "Smoke tests were cancelled, skipping image pushing"
+            echo "Smoke tests were cancelled, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
           else
-            echo "Smoke tests completed successfully, proceeding with image pushing"
+            echo "Smoke tests completed successfully, proceeding with quickstart tag update"
             echo "tests_passed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -932,28 +1157,45 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
+      - name: Check out the repo
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          checkout-head-only: true
+
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
 
-      - name: Push images from depot builder
+      - name: Set up Docker Buildx
+        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Tag images with quickstart (coordinated floating tag)
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
-          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -c '.target | to_entries | map({target: .key, tags: .value.tags[]})'| jq -c '.[]' | while IFS= read -r line; do
-            TARGET=$(echo "$line" | jq -r '.target')
-            TAG=$(echo "$line" | jq -r '.tags')
-
-            depot push --project "${{ env.DEPOT_PROJECT_ID }}" "${{ needs.base_build.outputs.build_id }}" --target "$TARGET" --tag "$TAG"
+          source .github/scripts/docker_helpers.sh
+          # :sha-* images were pushed during the coordinated depot bake; add :quickstart here only.
+          depot bake -f "${{ github.workspace }}/build/bake-spec-allImages.json" --print | jq -cr '.target[].tags[]' | while IFS= read -r image; do
+            if [[ -z "$image" ]]; then
+              continue
+            fi
+            if [[ "$image" != *":${SHA_TAG}" && "$image" != *":${SHA_TAG}-"* ]]; then
+              continue
+            fi
+            quickstartImage="${image/${SHA_TAG}/${QUICKSTART_TAG}}"
+            echo "Tagging $image as $quickstartImage"
+            docker buildx imagetools create -t "$quickstartImage" "$image"
           done
 
   deploy_datahub_head:
@@ -961,7 +1203,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [setup, smoke_test, publish_images]
     steps:
-      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+      - uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}
@@ -971,4 +1213,4 @@ jobs:
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           sqs-url: ${{ secrets.DATAHUB_HEAD_SYNC_QUEUE }}
-          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}" }}'
+          message: '{ "command": "git-sync", "args" : {"repoName": "${{ needs.setup.outputs.repository_name }}", "repoOrg": "${{ github.repository_owner }}", "repoBranch": "${{ needs.setup.outputs.branch_name }}", "repoShaShort": "${{ needs.setup.outputs.short_sha }}", "repoShaTag": "${{ needs.setup.outputs.tag }}" }}'

@@ -1,5 +1,6 @@
 import { Tooltip } from '@components';
 import React, { useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
@@ -18,8 +19,8 @@ const TabTitle = styled.span`
 
 const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     display: flex;
-    background-color: ${(props) => (props.selected && '#f1f3fd') || 'none'};
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : 'none')};
+    background-color: ${(props) => (props.selected && props.theme.colors.bgSurface) || 'none'};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : 'none')};
     align-items: center;
     justify-content: center;
     cursor: ${(props) => (props.disabled ? 'not-allowed' : 'pointer')};
@@ -27,7 +28,7 @@ const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     padding: 0px 4px 0px 4px;
     font-size: 14px;
     height: 36px;
-    color: ${(props) => (props.disabled && '#00000040') || 'none'};
+    color: ${(props) => (props.disabled && props.theme.colors.textDisabled) || 'none'};
 `;
 const TabToolbar = styled.div`
     display: flex;
@@ -50,6 +51,7 @@ const DEFAULT_TAB = TabPaths.SUMMARY;
  * Acryl-specific component used for rendering the Entity Validations Tab.
  */
 export const AcrylValidationsTab = () => {
+    const { t } = useTranslation('entity.profile.validations');
     const history = useHistory();
     const { pathname } = useLocation();
     const { entityData } = useEntityData();
@@ -74,7 +76,7 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
-                    <TabTitle>Summary</TabTitle>
+                    <TabTitle>{t('tabs.summary')}</TabTitle>
                 </>
             ),
             path: TabPaths.SUMMARY,
@@ -85,7 +87,7 @@ export const AcrylValidationsTab = () => {
         {
             title: (
                 <>
-                    <TabTitle>Assertions</TabTitle>
+                    <TabTitle>{t('tabs.assertions')}</TabTitle>
                 </>
             ),
             path: TabPaths.ASSERTIONS,
@@ -100,7 +102,7 @@ export const AcrylValidationsTab = () => {
         tabs.push({
             title: (
                 <>
-                    <TabTitle>Data Contract</TabTitle>
+                    <TabTitle>{t('tabs.dataContract')}</TabTitle>
                 </>
             ),
             path: TabPaths.DATA_CONTRACT,
@@ -108,10 +110,9 @@ export const AcrylValidationsTab = () => {
             disabled: isRenderingSiblings,
             tip: isRenderingSiblings ? (
                 <>
-                    You cannot view a data contract for a group of assets. <br />
+                    {t('summary.groupAssetsTooltip')} <br />
                     <br />
-                    To view the data contract for a specific asset in this group, navigate to them using the{' '}
-                    <b>Composed Of</b> sidebar section on the right.
+                    <Trans t={t} i18nKey="summary.navigateViaSection" components={{ bold: <b /> }} />
                 </>
             ) : null,
             id: 'data-contract',

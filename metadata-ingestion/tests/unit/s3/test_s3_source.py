@@ -1,16 +1,23 @@
 import logging
 from datetime import datetime, timezone
 from typing import List, Tuple
-from unittest.mock import Mock, call, patch
+from unittest.mock import MagicMock, Mock, call, patch
 
+import boto3
 import pytest
+import time_machine
 from boto3.session import Session
-from freezegun import freeze_time
+from botocore.stub import Stubber
 from moto import mock_aws
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
+from datahub.ingestion.source.aws.s3_boto_utils import (
+    LIST_OBJECTS_PAGE_SIZE,
+    list_objects_recursive,
+)
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.s3.source import (
@@ -306,9 +313,9 @@ def test_get_folder_info_returns_latest_file_in_each_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv")
         bucket.put_object(Key="my-folder/dir2/0001.csv")
 
@@ -372,9 +379,9 @@ def test_get_folder_info_returns_expected_folder(s3_resource):
 
     bucket = s3_resource.Bucket("my-bucket")
     bucket.create()
-    with freeze_time("2025-01-01 01:00:00"):
+    with time_machine.travel("2025-01-01 01:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0001.csv")
-    with freeze_time("2025-01-01 02:00:00"):
+    with time_machine.travel("2025-01-01 02:00:00", tick=False):
         bucket.put_object(Key="my-folder/dir1/0002.csv", Body=" " * 150)
 
     # act
@@ -662,3 +669,94 @@ class TestResolveTemplatedFolders:
         # assert
         expected = ["s3://my-bucket/data/", "s3://my-bucket-1/data/"]
         assert result == expected
+
+
+def test_list_objects_recursive_paginates_large_hive_partitioned_directory(
+    s3_client,
+):
+    s3_client.create_bucket(Bucket="test-bucket")
+
+    # 2500 forces 3 pages (1000+1000+500), exercising multiple pagination steps rather than just the boundary.
+    prefix = "clickstream/EVENTS/partition_date=2023-03-11/"
+    for i in range(2500):
+        s3_client.put_object(
+            Bucket="test-bucket", Key=f"{prefix}part-{i:05d}.parquet", Body=b"x"
+        )
+
+    aws_config = AwsConnectionConfig(
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+        aws_region="us-east-1",
+    )
+
+    results = list(list_objects_recursive("test-bucket", prefix, aws_config))
+
+    assert len(results) == 2500
+    assert all(obj.bucket_name == "test-bucket" for obj in results)
+    assert all(obj.key.startswith(prefix) for obj in results)
+    assert all(obj.size == 1 for obj in results)
+
+
+def test_list_objects_recursive_paginates_with_continuation_token(s3_client):
+    # Regression guard: only list_objects_v2 responses are stubbed — reverting to v1 yields 0 results or raises StubResponseError.
+    prefix = "data/partition_date=2023-03-11/"
+    ts = datetime(2023, 3, 11, tzinfo=timezone.utc)
+    token = "opaque-continuation-token"
+
+    def _obj(i: int) -> dict:
+        return {
+            "Key": f"{prefix}part-{i:05d}.parquet",
+            "LastModified": ts,
+            "ETag": '"abc"',
+            "Size": 1,
+            "StorageClass": "STANDARD",
+        }
+
+    stubbed_client = boto3.client(
+        "s3",
+        region_name="us-east-1",
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+    mock_config = MagicMock()
+    mock_config.get_s3_client.return_value = stubbed_client
+
+    with Stubber(stubbed_client) as stubber:
+        stubber.add_response(
+            "list_objects_v2",
+            {
+                "IsTruncated": True,
+                "Contents": [_obj(i) for i in range(LIST_OBJECTS_PAGE_SIZE)],
+                "Name": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+                "NextContinuationToken": token,
+            },
+            {"Bucket": "bucket", "Prefix": prefix, "MaxKeys": LIST_OBJECTS_PAGE_SIZE},
+        )
+        stubber.add_response(
+            "list_objects_v2",
+            {
+                "IsTruncated": False,
+                "Contents": [
+                    _obj(i)
+                    for i in range(LIST_OBJECTS_PAGE_SIZE, LIST_OBJECTS_PAGE_SIZE + 500)
+                ],
+                "Name": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+            },
+            {
+                "Bucket": "bucket",
+                "Prefix": prefix,
+                "MaxKeys": LIST_OBJECTS_PAGE_SIZE,
+                "ContinuationToken": token,
+            },
+        )
+
+        results = list(list_objects_recursive("bucket", prefix, mock_config))
+
+    assert len(results) == LIST_OBJECTS_PAGE_SIZE + 500
+    assert all(obj.bucket_name == "bucket" for obj in results)
+    assert all(obj.key.startswith(prefix) for obj in results)
+    assert all(obj.size == 1 for obj in results)

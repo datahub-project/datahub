@@ -5,25 +5,22 @@ import styled from 'styled-components/macro';
 const StyledButton = styled(Button)`
     width: 100%;
     text-align: center;
-    background-color: ${(props) => props.theme.styles['primary-color']};
-    color: white;
+    background-color: ${(props) => props.theme.colors.buttonFillBrand};
+    color: ${(props) => props.theme.colors.textOnFillBrand};
     border-radius: 0;
 `;
 
 const DropdownMenu = styled.div`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08),
-        0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     overflow: hidden;
     min-width: 200px;
 
     .ant-dropdown-menu-title-content {
-        background-color: white;
+        background-color: ${(props) => props.theme.colors.bg};
         &:hover {
-            background-color: white;
+            background-color: ${(props) => props.theme.colors.bg};
         }
     }
 `;

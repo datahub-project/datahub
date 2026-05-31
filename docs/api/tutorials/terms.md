@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for applying Glossary Terms to DataHub Datasets and columns via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

@@ -1,19 +1,16 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
 import { SearchOutlined } from '@ant-design/icons';
-import { colors } from '@components';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Input } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-// eslint-disable-next-line no-restricted-imports -- TODO: migrate to semantic tokens
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
 const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?: string; $fullWidth?: boolean }>`
     ${(props) => !props.$isShowNavBarRedesign && 'max-width: 330px;'}
     background-color: ${(props) =>
-        props.$isShowNavBarRedesign ? 'white' : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK_SEARCH};
+        props.$isShowNavBarRedesign ? props.theme.colors.bg : props.theme.colors.bgSurfaceDarker};
     border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '7px')};
 
     ${(props) => !props.$isShowNavBarRedesign && 'border: unset;'}
@@ -25,38 +22,38 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
         ${props.$fullWidth && 'width: 100%;'}
         height: 40px;
         border: 1px solid;
-        border-color: ${colors.gray[100]};
-        box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
+        border-color: ${props.theme.colors.border};
+        box-shadow: ${props.theme.colors.shadowXs};
 
         &&:hover {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }
 
         &.ant-input-affix-wrapper-focused {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.theme.colors.borderBrand};
         }
         
         & .ant-input::placeholder {
-            color: ${colors.gray[1800]};
+            color: ${props.theme.colors.textPlaceholder};
         }
 
         & .ant-input-prefix {
             margin-right: 8px;
             svg {
-                color: ${colors.gray[1800]}
+                color: ${props.theme.colors.icon}
             }
         }
     `}
 
     & .ant-input {
         background-color: transparent;
-        ${(props) => !props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
+        ${(props) => !props.$isShowNavBarRedesign && `color: ${props.theme.colors.textTertiary};`}
         ${(props) => props.$isShowNavBarRedesign && 'font-size: 14px;'}
     }
 `;
 
 const SearchOutlinedStyle = styled(SearchOutlined)`
-    color: ${ANTD_GRAY[5]};
+    color: ${(props) => props.theme.colors.icon};
 `;
 
 const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boolean }>`
@@ -67,7 +64,8 @@ const Wrapper = styled.div<{ $isShowNavBarRedesign?: boolean; $fullWidth?: boole
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.VIEW_PURPLE)};
+            color: ${(props) =>
+                props.$isShowNavBarRedesign ? props.theme.colors.textSecondary : props.theme.colors.iconBrand};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
@@ -84,6 +82,7 @@ interface Props {
 }
 
 export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth, fullWidth }: Props) {
+    const { t } = useTranslation('entity.views');
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
@@ -91,7 +90,11 @@ export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth
             <div className="search-manage-container">
                 <StyledInput
                     className="style-input-container"
-                    placeholder={isShowNavBarRedesign ? 'Search views...' : 'Search'}
+                    placeholder={
+                        isShowNavBarRedesign
+                            ? t('viewSelect.searchPlaceholder')
+                            : t('viewSelect.searchPlaceholderLegacy')
+                    }
                     onChange={onChangeSearch}
                     allowClear
                     prefix={isShowNavBarRedesign ? <MagnifyingGlass size={20} /> : <SearchOutlinedStyle />}
@@ -101,7 +104,7 @@ export default function SearchBar({ onClickManageViews, onChangeSearch, minWidth
                     $minWidth={minWidth}
                 />
                 <div className="manage" onClick={() => onClickManageViews()} role="none">
-                    Manage all
+                    {t('viewSelect.manageAll')}
                 </div>
             </div>
         </Wrapper>

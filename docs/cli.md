@@ -1,4 +1,5 @@
 ---
+description: "Install and use the DataHub CLI to ingest metadata, manage entities, run quickstart deployments, and perform common operations."
 # Display to h4 headings
 # toc_min_heading_level: 2
 toc_max_heading_level: 4
@@ -9,6 +10,27 @@ toc_max_heading_level: 4
 DataHub comes with a friendly cli called `datahub` that allows you to perform a lot of common operations using just the command line. [DataHub](https://datahub.com) maintains the [pypi package](https://pypi.org/project/acryl-datahub/) for `datahub`.
 
 ## Installation
+
+### Using Homebrew (macOS / Linux)
+
+The simplest way to install the DataHub CLI on macOS or Linux:
+
+```shell
+brew install datahub-project/tap/datahub
+datahub version
+datahub init
+# authenticate your datahub CLI with your datahub instance
+```
+
+Homebrew manages an isolated Python environment for `datahub`, so there's no venv to activate and no PATH conflicts with system Python. To upgrade later, run `brew upgrade datahub`.
+
+**Note:** The Homebrew formula installs the **core CLI only**. To add ingestion connectors (Snowflake, BigQuery, Looker, etc.), install them into the brew-managed environment:
+
+```shell
+"$(brew --prefix datahub)/libexec/bin/pip" install 'acryl-datahub[snowflake,bigquery]'
+```
+
+The full list of available connector extras is shown in the [Installing Plugins](#installing-plugins) section below.
 
 ### Using pip
 
@@ -510,13 +532,13 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
 - `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
-- `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
-- `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
+- `DATAHUB_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with the particular version of docker images (`quickstart`, a release `v*`, or a commit pin `sha-<short_sha>`).
+- `ACTIONS_VERSION` (default `quickstart`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
 - `DATAHUB_RECORDING_PASSWORD` - Password for encrypting/decrypting recording archives. Used by `--record` and `--replay` commands.
 - `INGESTION_ARTIFACT_DIR` - Directory to save recordings when S3 upload is disabled. If not set, recordings are saved to a temp directory.
-- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` (default `10`) - Maximum number of failure entries to include in the ingestion report. Increase to capture more failure samples when debugging.
-- `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` (default `10`) - Maximum number of warning entries to include in the ingestion report. Increase to capture more warning samples when debugging.
+- `DATAHUB_REPORT_FAILURE_SAMPLE_SIZE` / `DATAHUB_REPORT_WARNING_SAMPLE_SIZE` / `DATAHUB_REPORT_INFO_SAMPLE_SIZE` (default `10`) - How many failure/warning/info entries to retain and show in the **final** report. Recipe flags: `report_failure_sample_size`, `report_warning_sample_size`, `report_info_sample_size`.
+- `DATAHUB_PROGRESS_REPORT_MAX_FAILURES` / `DATAHUB_PROGRESS_REPORT_MAX_WARNINGS` / `DATAHUB_PROGRESS_REPORT_MAX_INFOS` (default `10`) - How many entries to display in the **interim** 60-second progress reports. The final report is unaffected. Recipe flags: `progress_report_max_failures`, `progress_report_max_warnings`, `progress_report_max_infos`.
 - `DATAHUB_CALLER` (default: auto-detected) - Override the caller label sent in the User-Agent header to GMS. The CLI auto-detects common callers (e.g. coding agents, CI systems), but you can set this explicitly for custom tools or to distinguish environments (e.g. `airflow-prod-etl`).
 
 ```shell

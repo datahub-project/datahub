@@ -42,6 +42,9 @@ query getMe {
                     }
                     dismissedAnnouncementUrns
                 }
+                locale {
+                    language
+                }
             }
         }
         platformPrivileges {
@@ -62,6 +65,7 @@ query getMe {
             createDomains
             createTags
             manageGlobalViews
+            manageGlobalSettings
             manageOwnershipTypes
             manageGlobalAnnouncements
             createBusinessAttributes
