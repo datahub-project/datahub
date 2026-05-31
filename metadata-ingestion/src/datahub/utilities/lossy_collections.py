@@ -83,13 +83,9 @@ class LossyList(List[T], Generic[T]):
         yield from [elem[1] for elem in sorted(super().__iter__())]  # type: ignore
 
     def __contains__(self, item: object) -> bool:
-        """Membership test against unwrapped items.
-
-        Internally items are stored as (index, item) tuples for reservoir
-        sampling, so the inherited list.__contains__ would only match against
-        those tuples. Iterate via __iter__ (which unwraps) so callers can use
-        natural `x in lossy_list` semantics.
-        """
+        # Items are stored as (index, item) tuples for reservoir sampling, so
+        # the inherited list.__contains__ would only match against the tuples.
+        # Reuse __iter__ which unwraps, so callers get natural `x in list` semantics.
         return any(elem == item for elem in self.__iter__())
 
     def __repr__(self) -> str:
