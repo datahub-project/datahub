@@ -132,15 +132,18 @@ class TestExtractAllQueriesDispatch:
         report = DremioSourceReport()
         api = DremioAPIOperations(config, report)
         api.session = mock_session
-        api.start_time = None
-        api.end_time = None
+        api.start_time = None  # type: ignore[assignment]
+        api.end_time = None  # type: ignore[assignment]
         return api
 
     def _captured_query(self, dremio_api):
         sent: list = []
-        dremio_api.execute_query_iter = Mock(
-            side_effect=lambda query: sent.append(query) or iter([])
-        )
+
+        def _capture(query):
+            sent.append(query)
+            return iter([])
+
+        dremio_api.execute_query_iter = Mock(side_effect=_capture)
         list(dremio_api.extract_all_queries())
         return sent[-1]
 
