@@ -282,10 +282,8 @@ class DremioAspects:
             yield mcp.as_workunit()
 
         if dataset.dataset_type == DremioDatasetType.VIEW:
-            # In practice dataset_type==VIEW implies sql_definition is set
-            # (see DremioDataset.__init__), but _create_view_properties is
-            # typed Optional[...] and the invariant is non-local, so guard
-            # before wrapping in an MCP.
+            # _create_view_properties returns None when sql_definition is empty;
+            # don't wrap that into an MCP.
             view_definition = self._create_view_properties(dataset)
             if view_definition:
                 mcp = MetadataChangeProposalWrapper(

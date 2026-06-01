@@ -260,9 +260,8 @@ class DremioDataset:
 
 
 class DremioContainer:
-    # No default — subclasses must declare their subtype so a new
-    # container class can't silently inherit DREMIO_FOLDER and emit
-    # the wrong SubType aspect.
+    # Declared without a default so subclasses can't silently inherit
+    # the wrong subtype.
     subclass: ClassVar[DatasetContainerSubTypes]
     container_name: str
     location_id: Optional[str]

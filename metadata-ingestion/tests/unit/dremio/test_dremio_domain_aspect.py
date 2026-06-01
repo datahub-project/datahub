@@ -35,9 +35,7 @@ def _fake_registry(mapping):
 
 
 def _make_container(name="src1", path=None):
-    # Use a concrete subclass (DremioSpace) so container.subclass resolves;
-    # the base DremioContainer now declares `subclass` without a default
-    # so subclasses must opt in to a subtype.
+    # Concrete subclass: DremioContainer.subclass has no default.
     api_ops = MagicMock()
     api_ops.get_description_for_resource.return_value = None
     return DremioSpace(
