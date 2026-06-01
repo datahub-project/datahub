@@ -210,7 +210,9 @@ class DremioDataset:
         self.resource_id = self._dataset_response.resource_id
         self.resource_name = self._dataset_response.table_name
         self.path = self._dataset_response.path
-        self.location_id = self._dataset_response.location_id
+        # Community-edition views can omit LOCATION_ID; the legacy dict
+        # path silently defaulted to "" here, so preserve that.
+        self.location_id = self._dataset_response.location_id or ""
         self.columns = self._dataset_response.columns
         self.sql_definition = self._dataset_response.view_definition
 
@@ -317,6 +319,9 @@ class DremioSpace(DremioContainer):
 
 class DremioFolder(DremioContainer):
     subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
+    # Populated by the recursive catalog walk added in #17652 / A2; used
+    # by DremioAspects._create_browse_paths_containers to pick the right
+    # top-level prefix ("Spaces" vs "Sources").
     root_container_type: Optional[str] = None
 
 
@@ -367,6 +372,9 @@ class DremioCatalog:
                     path=container.get("path") or [],
                     api_operations=self.api,
                 )
+                # The producer that fills "root_container_type" is added
+                # in #17652 / A2 — until then this is a no-op. Plumbing
+                # lives here so A2 only has to touch the producer side.
                 root_container_type = container.get("root_container_type")
                 if root_container_type is not None:
                     folder.root_container_type = root_container_type

@@ -23,7 +23,13 @@ class DremioDatasetType(StrEnum):
 
 
 class DremioJobState(StrEnum):
-    """Dremio async job terminal and in-progress states."""
+    """Dremio async job terminal and in-progress states.
+
+    Consumed in the next slice (#17652 / A2) by the chunked-aggregation
+    query loop. Lives here because that loop is invoked by the same
+    DremioAPIOperations subclass that already imports DremioEntityContainerType
+    from this module.
+    """
 
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -39,7 +45,12 @@ class DremioOwnerType(StrEnum):
 
 
 class DremioContainerResponse(BaseModel):
-    """Flexible Dremio container response that can parse various API response formats."""
+    """Flexible Dremio container response that can parse various API response formats.
+
+    Consumed in the next slice (#17652 / A2) by the iterator-based catalog
+    walk that replaces the dict-of-dicts container payloads. Defined here
+    so it sits alongside the rest of the typed Dremio API response models.
+    """
 
     id: Optional[str] = None
     name: str = Field(alias="name")
@@ -50,9 +61,9 @@ class DremioContainerResponse(BaseModel):
     database_name: Optional[str] = Field(default=None)
     tag: Optional[str] = Field(default=None)
     created_at: Optional[str] = Field(default=None, alias="createdAt")
-    root_container_type: Optional[str] = (
-        None  # Track the root container type for folders
-    )
+    # Stamped by the recursive catalog walk in A2 so a folder inherits its
+    # root container's subtype for browse-path prefixing.
+    root_container_type: Optional[str] = None
 
     class Config:
         # Allow extra fields from API without failing
@@ -73,17 +84,24 @@ class DremioContainerResponse(BaseModel):
     def extract_name_from_path_if_missing(
         cls, values: Dict[str, Union[str, List[str], None]]
     ) -> Dict[str, Union[str, List[str], None]]:
-        """Extract name from path if name is not directly provided."""
-        if isinstance(values, dict):
-            # If name is missing, try to extract from path
-            if not values.get("name"):
-                path = values.get("path", [])
-                if isinstance(path, list) and path:
-                    values["name"] = path[-1]  # Last element is usually the name
-                elif isinstance(path, str):
-                    values["name"] = path
-                else:
-                    values["name"] = "unknown"
+        """Backfill `name` from the last path segment when the API omits it.
+
+        Catalog walks fetch folder/space subtrees by id and surface the entry
+        only via `path`; the `name` key is absent on those payloads.
+        Raises if neither name nor a usable path is present — silently
+        emitting an "unknown" entity would corrupt URNs downstream.
+        """
+        if isinstance(values, dict) and not values.get("name"):
+            path = values.get("path", [])
+            if isinstance(path, list) and path:
+                values["name"] = path[-1]
+            elif isinstance(path, str) and path:
+                values["name"] = path
+            else:
+                raise ValueError(
+                    "DremioContainerResponse requires `name` or a non-empty `path`; "
+                    f"got name={values.get('name')!r}, path={path!r}"
+                )
         return values
 
 
@@ -129,7 +147,10 @@ class DremioDatasetResponse(BaseModel):
     resource_id: str = Field(alias="RESOURCE_ID")
     table_name: str = Field(alias="TABLE_NAME")
     table_schema: str = Field(alias="TABLE_SCHEMA")
-    location_id: str = Field(alias="LOCATION_ID")
+    # Community edition leaves LOCATION_ID null for some views; the
+    # legacy code path defaulted to "" so preserve that contract via
+    # Optional rather than 500-ing inside pydantic.
+    location_id: Optional[str] = Field(default=None, alias="LOCATION_ID")
     columns: List[DremioDatasetColumn] = Field(default_factory=list, alias="COLUMNS")
     view_definition: Optional[str] = Field(default=None, alias="VIEW_DEFINITION")
     owner: Optional[str] = Field(default=None, alias="OWNER")
@@ -172,7 +193,11 @@ class DremioDatasetResponse(BaseModel):
 
 
 class DremioColumnStats(BaseModel):
-    """Column-specific statistics with dot notation access."""
+    """Column-specific statistics with dot notation access.
+
+    Consumed in #17653 / A3 by the per-dataset profiler. Kept alongside
+    DremioProfilingResult (its only caller) so both land together.
+    """
 
     distinct_count: Optional[int] = None
     null_count: Optional[int] = None
@@ -197,7 +222,11 @@ class DremioColumnStats(BaseModel):
 
 
 class DremioProfilingResult(BaseModel):
-    """Flexible Dremio profiling result that can parse various API response formats."""
+    """Flexible Dremio profiling result that can parse various API response formats.
+
+    Consumed in #17653 / A3 by DremioProfiler when wiring the typed
+    profiling response into DataHub's DatasetProfileClass.
+    """
 
     row_count: int = Field(default=0, alias="row_count")
     column_count: int = Field(default=0, alias="column_count")

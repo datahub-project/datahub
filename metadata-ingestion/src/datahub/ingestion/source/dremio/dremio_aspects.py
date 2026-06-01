@@ -347,12 +347,16 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
-        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE.value:
+        if entity.subclass == DatasetContainerSubTypes.DREMIO_SPACE:
             paths.append(BrowsePathEntryClass(id="Spaces"))
-        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE.value:
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
             paths.append(BrowsePathEntryClass(id="Sources"))
-        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER.value:
-            # For folders, use the root container type to determine prefix
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
+            # TODO(#17652 / A2): root_container_type is populated by the
+            # recursive catalog walk added in the next slice. Until A2
+            # lands this falls through with no prefix, which is still an
+            # improvement over master (master emitted no folder browse
+            # paths at all — see updating-datahub.md).
             root_type = getattr(entity, "root_container_type", None)
             if root_type == DremioEntityContainerType.SPACE:
                 paths.append(BrowsePathEntryClass(id="Spaces"))
@@ -405,7 +409,7 @@ class DremioAspects:
                         * 1000
                     )
                 )
-            except (ValueError, AttributeError):
+            except ValueError:
                 logger.debug(
                     f"Could not parse created timestamp for dataset {dataset.resource_name}: {dataset.created!r}"
                 )
