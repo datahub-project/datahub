@@ -2133,7 +2133,17 @@ ORDER by DataBaseName, TableName;
             def process_single_view(
                 view_name: str,
             ) -> List[Union[MetadataWorkUnit, Any]]:
-                """Process a single view with its own database connection."""
+                """Process a single view with its own database connection.
+
+                CONTRACT: must never re-raise exceptions. All errors must be
+                handled internally — calling ``self.report.increment_view_error``
+                and ``self._warn_view_error`` — then returning ``[]``.  The
+                outer ``_loop_views_with_connection_pool`` caller reads the
+                future's result via ``fut.result()`` and calls
+                ``self.report.increment_view_error`` again if that raises,
+                so re-raising here would cause double-counting of
+                ``num_view_processing_failures`` and ``view_*_errors``.
+                """
                 results: List[Union[MetadataWorkUnit, Any]] = []
 
                 # Detailed timing measurements for bottleneck analysis
