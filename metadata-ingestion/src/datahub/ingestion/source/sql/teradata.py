@@ -2313,7 +2313,8 @@ ORDER by DataBaseName, TableName;
                                 self.report.num_view_processing_timeouts += 1
                                 self.report.stalled_views[f"{schema}.{name}"] = elapsed
                                 self.report.warning(
-                                    "View processing timed out",
+                                    title="View processing timed out",
+                                    message="A view did not complete within the per-view timeout — consider increasing view_processing_timeout_seconds.",
                                     context=(
                                         f"{schema}.{name} did not complete within "
                                         f"{per_view_timeout}s (ran for "

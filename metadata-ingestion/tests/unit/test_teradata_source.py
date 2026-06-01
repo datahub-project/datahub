@@ -4650,6 +4650,24 @@ class TestViewProcessingErrorCounters:
         assert source.report.view_permission_errors == 0
         assert source.report.view_unknown_errors == 0
 
+    @pytest.mark.parametrize(
+        "exc, expected_fragment",
+        [
+            (PoolTimeoutError("pool exhausted"), "timed out"),
+            (OperationalError("permission denied", None, None), "Permission denied"),
+            (DatabaseError("syntax error", None, None), "SQL parse error"),
+            (RuntimeError("exploded"), "Unexpected error"),
+        ],
+        ids=["timeout", "permission", "parse", "unknown"],
+    )
+    def test_warn_view_error_emits_correct_category_message(
+        self, exc, expected_fragment
+    ):
+        source = _create_source_patched({"max_workers": 1})
+        self._run_single_threaded(source, exc)
+        assert len(source.report.warnings) == 1
+        assert expected_fragment in source.report.warnings[0].message
+
 
 # ---------------------------------------------------------------------------
 # Helpers for _fetch_lineage_entries_chunked tests
@@ -4831,6 +4849,7 @@ class TestLineageQueryTimingReport:
         warning_msg = slow_warnings[0].message
         assert "query_1 (current_only)" in warning_msg
         assert "threshold" in warning_msg
+        assert source.report.warnings[0].title == "Slow lineage query detected"
 
     def test_slow_query_warning_includes_sql_snippet(self, caplog):
         """The warning message contains a prefix of the SQL text."""
@@ -4998,3 +5017,7 @@ class TestHungViewAbandonPath:
         assert source.report.num_view_processing_timeouts == 1
         assert source.report.view_timeout_errors == 1
         assert source.report.num_view_processing_failures == 1
+        assert any(
+            any("stuck_view" in ctx for ctx in w.context)
+            for w in source.report.warnings
+        )
