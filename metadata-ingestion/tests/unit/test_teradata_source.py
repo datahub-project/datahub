@@ -538,7 +538,7 @@ class TestTeradataSource:
                 queries = source._make_lineage_queries()
 
             assert len(queries) > 0
-            query = queries[0]
+            query, _ = queries[0]
             assert "TIMESTAMP" in query
             assert "None" not in query
 
@@ -945,10 +945,11 @@ class TestLineageQuerySeparation:
             queries = source._make_lineage_queries()
 
             assert len(queries) == 1
-            assert '"DBC".QryLogV' in queries[0]
-            assert "PDCRDATA.DBQLSqlTbl_Hst" not in queries[0]
-            assert "2024-01-01" in queries[0]
-            assert "2024-01-02" in queries[0]
+            query_sql, _ = queries[0]
+            assert '"DBC".QryLogV' in query_sql
+            assert "PDCRDATA.DBQLSqlTbl_Hst" not in query_sql
+            assert "2024-01-01" in query_sql
+            assert "2024-01-02" in query_sql
 
     def test_make_lineage_queries_with_historical_available(self):
         """Test that UNION query is returned when historical lineage is enabled and table exists."""
@@ -980,7 +981,8 @@ class TestLineageQuerySeparation:
             assert len(queries) == 1
 
             # Single UNION query should contain both historical and current data
-            union_query = queries[0]
+            union_query, union_kind = queries[0]
+            assert union_kind == "historical_union"
             assert '"DBC".QryLogV' in union_query
             assert '"PDCRINFO".DBQLSqlTbl_Hst' in union_query
             assert "UNION" in union_query
@@ -1018,8 +1020,9 @@ class TestLineageQuerySeparation:
                 queries = source._make_lineage_queries()
 
             assert len(queries) == 1
-            assert '"DBC".QryLogV' in queries[0]
-            assert '"PDCRDATA".DBQLSqlTbl_Hst' not in queries[0]
+            query_sql, _ = queries[0]
+            assert '"DBC".QryLogV' in query_sql
+            assert '"PDCRDATA".DBQLSqlTbl_Hst' not in query_sql
 
     def test_make_lineage_queries_with_database_filter(self):
         """Test that database filters are correctly applied to UNION query."""
@@ -1052,7 +1055,8 @@ class TestLineageQuerySeparation:
             assert len(queries) == 1
 
             # UNION query should have case-insensitive database filters for both parts
-            union_query = queries[0]
+            union_query, union_kind = queries[0]
+            assert union_kind == "historical_union"
             assert (
                 "l.DefaultDatabase (NOT CASESPECIFIC) in ('test_db1' (NOT CASESPECIFIC),'test_db2' (NOT CASESPECIFIC))"
                 in union_query
@@ -1084,7 +1088,9 @@ class TestLineageQuerySeparation:
 
             # Mock the query generation to return 2 queries
             with patch.object(
-                source, "_make_lineage_queries", return_value=["query1", "query2"]
+                source,
+                "_make_lineage_queries",
+                return_value=[("query1", "current_only"), ("query2", "current_only")],
             ):
                 # Mock database execution for both queries
                 mock_result1 = MagicMock()
@@ -1144,7 +1150,11 @@ class TestLineageQuerySeparation:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             # Mock the query generation to return 1 query
-            with patch.object(source, "_make_lineage_queries", return_value=["query1"]):
+            with patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[("query1", "current_only")],
+            ):
                 mock_result = MagicMock()
                 mock_result.fetchmany.side_effect = [
                     [MagicMock(query_text="SELECT 1")],  # First batch
@@ -1194,7 +1204,11 @@ class TestLineageQuerySeparation:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            with patch.object(source, "_make_lineage_queries", return_value=["query1"]):
+            with patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[("query1", "current_only")],
+            ):
                 # Create mock entries
                 mock_entries = [MagicMock(query_text=f"SELECT {i}") for i in range(7)]
 
@@ -1321,7 +1335,9 @@ class TestLineageQuerySeparation:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             with patch.object(
-                source, "_make_lineage_queries", return_value=["query1", "query2"]
+                source,
+                "_make_lineage_queries",
+                return_value=[("query1", "current_only"), ("query2", "current_only")],
             ):
                 mock_result = MagicMock()
 
@@ -1398,7 +1414,8 @@ class TestQueryConstruction:
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
             queries = source._make_lineage_queries()
-            current_query = queries[0]
+            current_query, current_kind = queries[0]
+            assert current_kind == "current_only"
 
             # Verify current query structure
             assert 'FROM "DBC".QryLogV as l' in current_query
@@ -1434,7 +1451,8 @@ class TestQueryConstruction:
                 source, "_check_historical_table_exists", return_value=True
             ):
                 queries = source._make_lineage_queries()
-                union_query = queries[0]
+                union_query, union_kind = queries[0]
+                assert union_kind == "historical_union"
 
                 # Verify UNION query contains historical data structure
                 assert 'FROM "PDCRINFO".DBQLSqlTbl_Hst as h' in union_query
@@ -2520,7 +2538,7 @@ class TestLineageQueryScoping:
         with patch.object(source, "_check_historical_table_exists", return_value=False):
             queries = source._make_lineage_queries()
 
-        query = queries[0]
+        query, _ = queries[0]
         assert "sales_db" in query
         assert "hr_db" in query
         assert "'All'" not in query
@@ -2538,7 +2556,7 @@ class TestLineageQueryScoping:
         with patch.object(source, "_check_historical_table_exists", return_value=False):
             queries = source._make_lineage_queries()
 
-        query = queries[0]
+        query, _ = queries[0]
         assert "explicit_db" in query
         assert "other_db" not in query
 
@@ -2556,7 +2574,7 @@ class TestLineageQueryScoping:
             queries = source._make_lineage_queries()
 
         assert len(queries) == 1
-        assert "DefaultDatabase in" not in queries[0]
+        assert "DefaultDatabase in" not in queries[0][0]
 
 
 class TestConfigurableTimeouts:
@@ -4242,26 +4260,30 @@ class TestErrorCategorizationReport:
                     )
 
     def test_view_error_counters_are_thread_safe(self) -> None:
-        """All four view error counters remain consistent under thread contention."""
+        """increment_view_error is thread-safe: concurrent calls produce no lost updates."""
         report = TeradataReport()
-        n_threads, m_per_thread = 8, 250
+        n_threads, m_per_thread = (
+            8,
+            256,
+        )  # m_per_thread must be divisible by len(categories)
+        # Rotate through all four categories so every counter is exercised.
+        categories = ["timeout", "parse", "permission", "unknown"]
 
         def worker(_: int) -> None:
-            for _ in range(m_per_thread):
-                with report.atomic():
-                    report.view_timeout_errors += 1
-                    report.view_parse_errors += 1
-                    report.view_permission_errors += 1
-                    report.view_unknown_errors += 1
+            for i in range(m_per_thread):
+                report.increment_view_error(categories[i % len(categories)])
 
         with ThreadPoolExecutor(max_workers=n_threads) as ex:
             list(ex.map(worker, range(n_threads)))
 
-        expected = n_threads * m_per_thread
-        assert report.view_timeout_errors == expected
-        assert report.view_parse_errors == expected
-        assert report.view_permission_errors == expected
-        assert report.view_unknown_errors == expected
+        total = n_threads * m_per_thread
+        assert report.num_view_processing_failures == total
+        # Each category gets exactly 1/4 of the total increments.
+        per_category = total // len(categories)
+        assert report.view_timeout_errors == per_category
+        assert report.view_parse_errors == per_category
+        assert report.view_permission_errors == per_category
+        assert report.view_unknown_errors == per_category
 
 
 # ---------------------------------------------------------------------------
@@ -4404,47 +4426,39 @@ class TestViewProcessingErrorCounters:
                 )
             )
 
-    def test_single_threaded_timeout_increments_timeout_counter(self):
+    @pytest.mark.parametrize(
+        "exc, expected_counter",
+        [
+            (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
+            (
+                OperationalError("permission denied for table foo", None, None),
+                "view_permission_errors",
+            ),
+            (
+                DatabaseError("syntax error in SQL statement", None, None),
+                "view_parse_errors",
+            ),
+            (RuntimeError("unexpected crash"), "view_unknown_errors"),
+        ],
+        ids=["timeout", "permission", "parse", "unknown"],
+    )
+    def test_single_threaded_error_increments_correct_counter(
+        self, exc: BaseException, expected_counter: str
+    ):
+        all_counters = [
+            "view_timeout_errors",
+            "view_parse_errors",
+            "view_permission_errors",
+            "view_unknown_errors",
+        ]
         source = _create_source_patched({"max_workers": 1})
-        self._run_single_threaded(source, PoolTimeoutError("pool exhausted"))
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_timeout_errors == 1
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_permission_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_single_threaded_permission_increments_permission_counter(self):
-        source = _create_source_patched({"max_workers": 1})
-        exc = OperationalError("permission denied for table foo", None, None)
         self._run_single_threaded(source, exc)
 
         assert source.report.num_view_processing_failures == 1
-        assert source.report.view_permission_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_single_threaded_parse_increments_parse_counter(self):
-        source = _create_source_patched({"max_workers": 1})
-        exc = DatabaseError("syntax error in SQL statement", None, None)
-        self._run_single_threaded(source, exc)
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_parse_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_permission_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_single_threaded_unknown_increments_unknown_counter(self):
-        source = _create_source_patched({"max_workers": 1})
-        self._run_single_threaded(source, RuntimeError("unexpected crash"))
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_unknown_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_permission_errors == 0
+        assert getattr(source.report, expected_counter) == 1
+        for counter in all_counters:
+            if counter != expected_counter:
+                assert getattr(source.report, counter) == 0
 
     def test_single_threaded_multiple_views_accumulate_counters(self):
         """Two views failing with different errors produce independent sub-counts."""
@@ -4542,51 +4556,42 @@ class TestViewProcessingErrorCounters:
                 )
             )
 
-    def test_multi_threaded_timeout_increments_timeout_counter(self):
+    @pytest.mark.parametrize(
+        "exc, expected_counter",
+        [
+            (PoolTimeoutError("pool exhausted"), "view_timeout_errors"),
+            (
+                DatabaseError("[Error 3523] user has no SELECT access", None, None),
+                "view_permission_errors",
+            ),
+            (
+                DatabaseError(
+                    "[Error 3706] Syntax error in view definition", None, None
+                ),
+                "view_parse_errors",
+            ),
+            (ValueError("schema mismatch"), "view_unknown_errors"),
+        ],
+        ids=["timeout", "permission", "parse", "unknown"],
+    )
+    def test_multi_threaded_error_increments_correct_counter(
+        self, exc: BaseException, expected_counter: str
+    ):
+        all_counters = [
+            "view_timeout_errors",
+            "view_parse_errors",
+            "view_permission_errors",
+            "view_unknown_errors",
+        ]
         source = _create_source_patched({"max_workers": 2})
         source._effective_max_workers = 2
-        self._run_multi_threaded(source, PoolTimeoutError("pool exhausted"))
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_timeout_errors == 1
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_permission_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_multi_threaded_permission_increments_permission_counter(self):
-        source = _create_source_patched({"max_workers": 2})
-        source._effective_max_workers = 2
-        exc = DatabaseError("[Error 3523] user has no SELECT access", None, None)
         self._run_multi_threaded(source, exc)
 
         assert source.report.num_view_processing_failures == 1
-        assert source.report.view_permission_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_multi_threaded_parse_increments_parse_counter(self):
-        source = _create_source_patched({"max_workers": 2})
-        source._effective_max_workers = 2
-        exc = DatabaseError("[Error 3706] Syntax error in view definition", None, None)
-        self._run_multi_threaded(source, exc)
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_parse_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_permission_errors == 0
-        assert source.report.view_unknown_errors == 0
-
-    def test_multi_threaded_unknown_increments_unknown_counter(self):
-        source = _create_source_patched({"max_workers": 2})
-        source._effective_max_workers = 2
-        self._run_multi_threaded(source, ValueError("schema mismatch"))
-
-        assert source.report.num_view_processing_failures == 1
-        assert source.report.view_unknown_errors == 1
-        assert source.report.view_timeout_errors == 0
-        assert source.report.view_parse_errors == 0
-        assert source.report.view_permission_errors == 0
+        assert getattr(source.report, expected_counter) == 1
+        for counter in all_counters:
+            if counter != expected_counter:
+                assert getattr(source.report, counter) == 0
 
     def test_multi_threaded_successful_view_does_not_increment_failures(self):
         source = _create_source_patched({"max_workers": 2})
@@ -4646,6 +4651,7 @@ def _patch_lineage_fetch(
     source: TeradataSource,
     rows: list,
     query_sql: str = "SELECT 1",
+    query_kind: str = "current_only",
     sleep_seconds: float = 0.0,
 ) -> Iterator[None]:
     """Context manager that patches the minimal set of methods so that
@@ -4653,6 +4659,8 @@ def _patch_lineage_fetch(
 
     *sleep_seconds* lets tests simulate a slow query by injecting a
     time.sleep() call inside the patched _execute_with_cursor_fallback.
+    *query_kind* is forwarded as the label in the (sql, kind) tuple returned
+    by the mocked _make_lineage_queries, matching the real API contract.
     """
     mock_conn = _make_mock_conn()
     result_mock = MagicMock()
@@ -4672,7 +4680,9 @@ def _patch_lineage_fetch(
         patch.object(
             source, "_execute_with_cursor_fallback", side_effect=_fake_execute
         ),
-        patch.object(source, "_make_lineage_queries", return_value=[query_sql]),
+        patch.object(
+            source, "_make_lineage_queries", return_value=[(query_sql, query_kind)]
+        ),
     ]
     with ExitStack() as stack:
         for p in patches:
@@ -4698,23 +4708,27 @@ class TestLineageQueryTimingReport:
         assert elapsed >= 0.0
 
     def test_label_is_current_only_when_no_pdcrinfo(self):
-        """A query that does not reference PDCRINFO gets the 'current_only' label."""
+        """A current-only query gets the 'current_only' label from the query constructor."""
         source = _make_lineage_source()
         current_sql = "SELECT * FROM DBC.QryLogV WHERE ts > '2024-01-01'"
 
-        with _patch_lineage_fetch(source, rows=[], query_sql=current_sql):
+        with _patch_lineage_fetch(
+            source, rows=[], query_sql=current_sql, query_kind="current_only"
+        ):
             list(source._fetch_lineage_entries_chunked())
 
         assert "query_1 (current_only)" in source.report.lineage_query_timings
 
     def test_label_is_historical_union_when_pdcrinfo_present(self):
-        """A query referencing PDCRINFO gets the 'historical_union' label."""
+        """A historical-union query gets the 'historical_union' label from the query constructor."""
         source = _make_lineage_source()
         union_sql = (
-            "SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst UNION SELECT * FROM DBC.QryLogV"
+            "SELECT * FROM DBC.QryLogV UNION SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst"
         )
 
-        with _patch_lineage_fetch(source, rows=[], query_sql=union_sql):
+        with _patch_lineage_fetch(
+            source, rows=[], query_sql=union_sql, query_kind="historical_union"
+        ):
             list(source._fetch_lineage_entries_chunked())
 
         assert "query_1 (historical_union)" in source.report.lineage_query_timings
@@ -4740,8 +4754,8 @@ class TestLineageQueryTimingReport:
                 source,
                 "_make_lineage_queries",
                 return_value=[
-                    "SELECT * FROM DBC.QryLogV",
-                    "SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst",
+                    ("SELECT * FROM DBC.QryLogV", "current_only"),
+                    ("SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst", "historical_union"),
                 ],
             ),
         ):

@@ -1347,10 +1347,11 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
         default=60.0,
         ge=0.0,
         description=(
-            "When a single lineage query (execute + full result fetch) takes longer than "
-            "this many seconds, emit a warning that includes the query label, the elapsed "
-            "time, and the first 500 characters of the SQL text so slow queries can be "
-            "identified and tuned. Set to 0 to disable. Default is 60 seconds."
+            "When the total database time for a single lineage query (execute call plus "
+            "all fetchmany calls, excluding downstream processing time) exceeds this many "
+            "seconds, emit a warning with the query label, elapsed DB time, and the first "
+            "500 characters of the SQL text so slow queries can be identified and tuned. "
+            "Set to 0 to disable. Default is 60 seconds."
         ),
     )
 
@@ -2743,12 +2744,7 @@ ORDER by DataBaseName, TableName;
                 total_count_all_queries = 0
                 slow_threshold = self.config.lineage_slow_query_log_seconds
 
-                for query_index, query in enumerate(queries, 1):
-                    # Derive a human-readable label so the report and logs can
-                    # identify which query is slow without printing the full SQL.
-                    query_kind = (
-                        "historical_union" if "PDCRINFO" in query else "current_only"
-                    )
+                for query_index, (query, query_kind) in enumerate(queries, 1):
                     query_label = f"query_{query_index} ({query_kind})"
 
                     logger.info(
@@ -2759,10 +2755,17 @@ ORDER by DataBaseName, TableName;
                     )
                     _mark_phase("executing_query", query_index)
 
-                    query_start = time.time()
+                    # Track only the time spent inside the database driver: the
+                    # execute call and every fetchmany call.  We deliberately do
+                    # NOT include the time the generator is suspended inside
+                    # `yield from batch`, because that is dominated by downstream
+                    # sqlglot parsing and aggregation — pipeline latency, not DB
+                    # latency.  Accumulating per-operation avoids that skew.
+                    query_db_elapsed = 0.0
 
-                    # Use helper method to try server-side cursor with fallback
+                    _t = time.time()
                     result = self._execute_with_cursor_fallback(conn, query)
+                    query_db_elapsed += time.time() - _t
                     _mark_phase("awaiting_first_batch", query_index)
 
                     # Stream results in batches to avoid memory issues
@@ -2778,7 +2781,9 @@ ORDER by DataBaseName, TableName;
                         # propagates to the outer except block.  The stall-detection
                         # watchdog above covers the complementary failure mode where
                         # fetchmany() hangs rather than raises.
+                        _t = time.time()
                         batch = self._retry_fetchmany(result, batch_size)
+                        query_db_elapsed += time.time() - _t
                         if not batch:
                             break
 
@@ -2792,15 +2797,16 @@ ORDER by DataBaseName, TableName;
                         )
                         yield from batch
 
-                    query_elapsed = time.time() - query_start
-                    self.report.record_lineage_query_timing(query_label, query_elapsed)
+                    self.report.record_lineage_query_timing(
+                        query_label, query_db_elapsed
+                    )
 
                     logger.info(
                         f"Completed lineage {query_label}: {query_total_count} entries "
-                        f"in {batch_count} batches ({query_elapsed:.1f}s)"
+                        f"in {batch_count} batches ({query_db_elapsed:.1f}s DB time)"
                     )
 
-                    if slow_threshold > 0 and query_elapsed > slow_threshold:
+                    if slow_threshold > 0 and query_db_elapsed > slow_threshold:
                         self.report.increment_lineage_slow_query()
                         # `query` is a connector-generated DBC.QryLogV SQL string
                         # assembled entirely from config values (time range, database
@@ -2811,7 +2817,7 @@ ORDER by DataBaseName, TableName;
                             sql_snippet += " …"
                         logger.warning(
                             f"Slow lineage query detected: {query_label} took "
-                            f"{query_elapsed:.1f}s (threshold: {slow_threshold}s). "
+                            f"{query_db_elapsed:.1f}s DB time (threshold: {slow_threshold}s). "
                             f"SQL (first 500 chars): {sql_snippet}"
                         )
 
@@ -2895,7 +2901,7 @@ ORDER by DataBaseName, TableName;
         finally:
             engine.dispose()
 
-    def _make_lineage_queries(self) -> List[str]:
+    def _make_lineage_queries(self) -> List[Tuple[str, str]]:
         if self.config.databases:
             scoped_databases = self.config.databases
         elif self._tables_cache:
@@ -2923,7 +2929,7 @@ ORDER by DataBaseName, TableName;
             else ""
         )
 
-        queries = []
+        queries: List[Tuple[str, str]] = []
 
         # Check if historical lineage is configured and available
         if (
@@ -2946,7 +2952,7 @@ ORDER by DataBaseName, TableName;
                 databases_filter=databases_filter,
                 databases_filter_history=databases_filter_history,
             )
-            queries.append(union_query)
+            queries.append((union_query, "historical_union"))
         else:
             if self.config.include_historical_lineage:
                 logger.warning(
@@ -2959,7 +2965,7 @@ ORDER by DataBaseName, TableName;
                 end_time=self.config.end_time,
                 databases_filter=databases_filter,
             )
-            queries.append(current_query)
+            queries.append((current_query, "current_only"))
 
         return queries
 
