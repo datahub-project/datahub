@@ -2803,7 +2803,6 @@ ORDER by DataBaseName, TableName;
                 )
 
                 total_count_all_queries = 0
-                slow_threshold = self.config.lineage_slow_query_log_seconds
 
                 for query_index, lineage_query in enumerate(queries, 1):
                     query_label = f"query_{query_index} ({lineage_query.label})"
@@ -2874,12 +2873,16 @@ ORDER by DataBaseName, TableName;
                             query_label, query_db_elapsed
                         )
 
-                        if slow_threshold > 0 and query_db_elapsed > slow_threshold:
+                        if (
+                            self.config.lineage_slow_query_log_seconds > 0
+                            and query_db_elapsed
+                            > self.config.lineage_slow_query_log_seconds
+                        ):
                             self.report.increment_lineage_slow_query()
                             self.report.warning(
                                 title="Slow lineage query detected",
                                 message="A lineage query exceeded the slow-query threshold. Consider tuning the query or increasing lineage_slow_query_log_seconds.",
-                                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {slow_threshold}s)",
+                                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s)",
                             )
                             # lineage_query.sql is a connector-generated DBC.QryLogV SQL
                             # string assembled entirely from config values (time range,
@@ -2890,7 +2893,7 @@ ORDER by DataBaseName, TableName;
                                 sql_snippet += " …"
                             logger.warning(
                                 f"Slow lineage query detected: {query_label} took "
-                                f"{query_db_elapsed:.1f}s DB time (threshold: {slow_threshold}s). "
+                                f"{query_db_elapsed:.1f}s DB time (threshold: {self.config.lineage_slow_query_log_seconds}s). "
                                 f"SQL (first 500 chars): {sql_snippet}"
                             )
 

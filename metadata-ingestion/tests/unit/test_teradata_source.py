@@ -2218,6 +2218,10 @@ class TestNewConfigDefaults:
                 }
             )
 
+    def test_lineage_slow_query_log_seconds_default(self) -> None:
+        config = TeradataConfig.model_validate(_base_config())
+        assert config.lineage_slow_query_log_seconds == 60.0
+
 
 class TestIncrementalColumnExtraction:
     """#1 — skip column extraction for tables unchanged since the watermark."""
