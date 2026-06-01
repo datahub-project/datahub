@@ -5,6 +5,7 @@ import type enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import type enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
 import type enEntityProfileAccess from '@src/i18n/locales/en/entity.profile.access.json';
 import type enEntityProfileDocumentation from '@src/i18n/locales/en/entity.profile.documentation.json';
+import type enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.incident.json';
 import type enEntityProfileQueries from '@src/i18n/locales/en/entity.profile.queries.json';
 import type enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.json';
 import type enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
@@ -31,6 +32,7 @@ declare module 'i18next' {
             'entity.identity': typeof enEntityIdentity;
             'entity.ownership': typeof enEntityOwnership;
             'entity.profile.documentation': typeof enEntityProfileDocumentation;
+            'entity.profile.incident': typeof enEntityProfileIncident;
             'entity.profile.validations': typeof enEntityProfileValidations;
             'entity.profile.access': typeof enEntityProfileAccess;
             'entity.profile.queries': typeof enEntityProfileQueries;
