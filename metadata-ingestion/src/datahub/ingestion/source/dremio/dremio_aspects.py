@@ -1,6 +1,5 @@
 import logging
 import time
-import uuid
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -8,7 +7,6 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
@@ -59,9 +57,9 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
-namespace = uuid.NAMESPACE_DNS
 
 
 class DremioContainerKey(ContainerKey):
@@ -143,12 +141,14 @@ class DremioAspects:
         env: str,
         ingest_owner: bool,
         domain: Optional[str] = None,
+        domain_registry: Optional[DomainRegistry] = None,
         platform_instance: Optional[str] = None,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
         self.domain = domain
+        self.domain_registry = domain_registry
         self.ui_url = ui_url
         self.ingest_owner = ingest_owner
 
@@ -174,17 +174,23 @@ class DremioAspects:
         return container_key.as_urn()
 
     def create_domain_aspect(self) -> Optional[_Aspect]:
-        if self.domain:
-            if self.domain.startswith("urn:li:domain:"):
-                return DomainsClass(domains=[self.domain])
-            return DomainsClass(
-                domains=[
-                    make_domain_urn(
-                        str(uuid.uuid5(namespace, self.domain)),
-                    )
-                ]
+        if not self.domain:
+            return None
+        if self.domain.startswith("urn:li:domain:"):
+            return DomainsClass(domains=[self.domain])
+        # Bare names go through DomainRegistry (same as Snowflake/BigQuery).
+        # Without a graph we can't resolve safely — warn and skip rather
+        # than emit a synthetic URN that won't match anything.
+        if self.domain_registry is None:
+            logger.warning(
+                "domain=%r is a bare name but no DataHub graph is configured "
+                "to resolve it. Either configure datahub_api / sink with a "
+                "graph, or set domain to a full urn:li:domain:<id>. Skipping "
+                "domain aspect.",
+                self.domain,
             )
-        return None
+            return None
+        return DomainsClass(domains=[self.domain_registry.get_domain_urn(self.domain)])
 
     def populate_container_mcp(
         self, container_urn: str, container: DremioContainer

@@ -71,6 +71,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -209,15 +210,24 @@ class DremioSource(StatefulIngestionSourceBase):
 
         # Initialize API operations
         dremio_api = DremioAPIOperations(self.config, self.report)
-        self.source_type_mapper = dremio_api.dremio_to_datahub_source_mapper
+        self.source_type_mapper = dremio_api.source_type_mapper
 
         # Initialize catalog
         self.dremio_catalog = DremioCatalog(dremio_api)
+
+        # Only build a DomainRegistry for bare names — full URNs don't
+        # need graph resolution and shouldn't pay for it.
+        self.domain_registry: Optional[DomainRegistry] = None
+        if self.config.domain and not self.config.domain.startswith("urn:li:domain:"):
+            self.domain_registry = DomainRegistry(
+                cached_domains=[self.config.domain], graph=self.ctx.graph
+            )
 
         # Initialize aspects
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
+            domain_registry=self.domain_registry,
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,

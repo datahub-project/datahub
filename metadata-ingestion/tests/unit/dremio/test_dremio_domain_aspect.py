@@ -2,6 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioContainer,
@@ -9,16 +10,25 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioDatasetType,
 )
 from datahub.metadata.schema_classes import DomainsClass
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 
-def _make_aspects(domain=None):
+def _make_aspects(domain=None, domain_registry=None):
     return DremioAspects(
         platform="dremio",
         ui_url="http://dremio.example.com",
         env="PROD",
         ingest_owner=False,
         domain=domain,
+        domain_registry=domain_registry,
     )
+
+
+def _fake_registry(mapping):
+    """Build a DomainRegistry pre-populated with mapping without hitting the graph."""
+    registry = DomainRegistry.__new__(DomainRegistry)
+    registry.domain_registry = dict(mapping)
+    return registry
 
 
 def _make_container(name="src1", path=None):
@@ -63,26 +73,39 @@ class TestCreateDomainAspect:
         assert _make_aspects(domain=None).create_domain_aspect() is None
 
     def test_passes_through_full_urn(self):
+        # Full URNs bypass the registry entirely — no graph required.
         aspect = _make_aspects(domain="urn:li:domain:marketing").create_domain_aspect()
         assert isinstance(aspect, DomainsClass)
         assert aspect.domains == ["urn:li:domain:marketing"]
 
-    def test_hashes_bare_name_to_stable_urn(self):
-        # Stability matters: consecutive ingest runs must address the
-        # same domain URN, otherwise recipes leak orphan domains.
-        aspect_a = _make_aspects(domain="marketing").create_domain_aspect()
-        aspect_b = _make_aspects(domain="marketing").create_domain_aspect()
-        assert aspect_a is not None and aspect_b is not None
-        assert aspect_a.domains == aspect_b.domains
-        assert aspect_a.domains[0].startswith("urn:li:domain:")
+    def test_bare_name_resolved_via_domain_registry(self):
+        # Bare name -> real provisioned URN via the registry lookup.
+        registry = _fake_registry({"marketing": "urn:li:domain:abc-123"})
+        aspect = _make_aspects(
+            domain="marketing", domain_registry=registry
+        ).create_domain_aspect()
+        assert isinstance(aspect, DomainsClass)
+        assert aspect.domains == ["urn:li:domain:abc-123"]
+
+    def test_bare_name_without_registry_warns_and_skips(self, caplog):
+        # Offline / no-graph runs: refuse to fabricate a URN; warn instead.
+        with caplog.at_level("WARNING"):
+            aspect = _make_aspects(
+                domain="marketing", domain_registry=None
+            ).create_domain_aspect()
+        assert aspect is None
+        assert any("bare name" in rec.message for rec in caplog.records)
 
 
 def _collect_domain_aspects(workunits):
-    return [
-        wu.metadata.aspect
-        for wu in workunits
-        if isinstance(wu.metadata.aspect, DomainsClass)
-    ]
+    # Narrow to MCPW before touching .aspect — MCE workunits don't have it.
+    aspects = []
+    for wu in workunits:
+        if not isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            continue
+        if isinstance(wu.metadata.aspect, DomainsClass):
+            aspects.append(wu.metadata.aspect)
+    return aspects
 
 
 @pytest.mark.parametrize(

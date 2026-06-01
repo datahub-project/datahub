@@ -27,6 +27,13 @@ source:
       - platform: s3
         source_name: samples
 
+    #Optional - register Dremio source types not yet in the built-in map
+    #(e.g. Dremio ARP connectors). Scoped to this recipe.
+    #source_type_mappings:
+    #  MYNEWCONNECTOR:        # Dremio source type (case-insensitive)
+    #    platform: myplatform # DataHub platform name to emit
+    #    category: database   # optional: "database" or "file_object_storage"
+
     #Optional
     schema_pattern:
       allow:
