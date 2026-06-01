@@ -1,3 +1,4 @@
+from typing import Any, Iterator, List
 from unittest.mock import Mock
 
 import pytest
@@ -80,10 +81,13 @@ class TestDremioIteratorIntegration:
         mock_dremio_source.config.source_mappings = []
         mock_dremio_source.process_dataset = Mock(return_value=iter([]))
 
-        processed = []
-        mock_dremio_source.process_glossary_term = Mock(
-            side_effect=lambda gt: processed.append(gt.glossary_term) or iter([])
-        )
+        processed: List[str] = []
+
+        def _record(gt: Any) -> Iterator[Any]:
+            processed.append(gt.glossary_term)
+            return iter([])
+
+        mock_dremio_source.process_glossary_term = Mock(side_effect=_record)
 
         list(mock_dremio_source.get_workunits_internal())
 
