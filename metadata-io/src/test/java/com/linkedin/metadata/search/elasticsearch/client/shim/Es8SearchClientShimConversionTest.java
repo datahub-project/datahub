@@ -5,10 +5,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
@@ -25,6 +27,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.common.xcontent.LoggingDeprecationHandler;
 import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
+import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.suggest.Suggest;
@@ -351,6 +354,34 @@ public class Es8SearchClientShimConversionTest {
                 json)) {
       return SearchResponse.fromXContent(parser);
     }
+  }
+
+  /** convertQuery rewrites legacy range bounds before sending to Elasticsearch 8. */
+  @Test
+  public void testConvertQueryNormalizesLegacyRangeBounds() throws Exception {
+    Method normalizeQueryJsonMethod =
+        Es8SearchClientShim.class.getDeclaredMethod("normalizeQueryJson", String.class);
+    normalizeQueryJsonMethod.setAccessible(true);
+
+    String legacy = QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L).toString();
+    String normalized = (String) normalizeQueryJsonMethod.invoke(shim, legacy);
+
+    assertFalse(normalized.contains("\"from\""));
+    assertFalse(normalized.contains("\"to\""));
+    assertTrue(normalized.contains("\"gte\":100"));
+    assertTrue(normalized.contains("\"lt\":200"));
+
+    Query result = invokeConvertQuery(QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L));
+    assertNotNull(result);
+  }
+
+  /** Helper method to invoke the private convertQuery method via reflection. */
+  private Query invokeConvertQuery(QueryBuilder queryBuilder) throws Exception {
+    Method convertQueryMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertQuery", org.opensearch.index.query.QueryBuilder.class);
+    convertQueryMethod.setAccessible(true);
+    return (Query) convertQueryMethod.invoke(shim, queryBuilder);
   }
 
   /** Helper method to invoke the private convertSuggestion method via reflection. */

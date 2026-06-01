@@ -228,6 +228,13 @@ class ModeConfig(
         description="Regex patterns for mode spaces to filter in ingestion (Spaces named as 'Personal' are filtered by default.) Specify regex to only match the space name. e.g. to only ingest space named analytics, use the regex 'analytics'",
     )
 
+    report_pattern: AllowDenyPattern = Field(
+        default_factory=AllowDenyPattern.allow_all,
+        description="Regex patterns for Mode reports to filter in ingestion. "
+        "Matched against the report name. "
+        "e.g. to exclude a report named 'slow_report', use deny=['slow_report'].",
+    )
+
     owner_username_instead_of_email: bool = Field(
         default=True, description="Use username for owner URN instead of Email"
     )
@@ -303,6 +310,7 @@ def _is_http_404(error: Exception) -> bool:
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
+    filtered_reports: LossyList[str] = dataclasses.field(default_factory=LossyList)
     num_sql_parsed: int = 0
     num_sql_parser_failures: int = 0
     num_sql_parser_success: int = 0
@@ -344,6 +352,10 @@ class ModeSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped_space(self, ent_name: str) -> None:
         with self._lock:
             self.filtered_spaces.append(ent_name)
+
+    def report_dropped_report(self, ent_name: str) -> None:
+        with self._lock:
+            self.filtered_reports.append(ent_name)
 
     def report_warning(self, *args: Any, **kwargs: Any) -> None:
         with self._lock:
@@ -2035,6 +2047,11 @@ class ModeSource(StatefulIngestionSourceBase):
         report_args: List[Tuple[str, dict]] = []
         for report_page in self._get_reports(space_token):
             for report in report_page:
+                report_name = report.get("name") or report.get("token", "unknown")
+                if not self.config.report_pattern.allowed(report_name):
+                    self.report.report_dropped_report(report_name)
+                    logger.debug(f"Skipping report {report_name} due to report_pattern")
+                    continue
                 report_args.append((space_token, report))
 
         dataset_args: List[Tuple[str, dict]] = []

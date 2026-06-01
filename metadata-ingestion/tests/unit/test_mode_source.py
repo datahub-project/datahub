@@ -734,3 +734,54 @@ class TestChartFetchGating:
         source = _make_source()
         assert self._drive(source, explorations_count=5, chart_count=0) == 0
         assert source.report.chart_api_calls_skipped == 1
+
+
+# ──────────────────────────────────────────────────────────────────────
+# report_pattern filtering
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestReportPattern:
+    def _make_source_with_config(self, **kwargs: object) -> ModeSource:
+        config = ModeConfig(
+            token="test",
+            password="test",
+            workspace="test_workspace",
+            **kwargs,
+        )
+        with (
+            patch("datahub.ingestion.source.mode.requests.Session"),
+            patch.object(ModeSource, "_get_request_json", return_value={}),
+        ):
+            ctx = MagicMock()
+            ctx.graph = None
+            ctx.pipeline_name = "test"
+            ctx.run_id = "test-run"
+            ctx.pipeline_config = None
+            source = ModeSource(ctx, config)
+        return source
+
+    def test_report_pattern_deny_excludes_report(self):
+        """Reports matching the deny pattern should be excluded and tracked."""
+
+        source = self._make_source_with_config(
+            report_pattern=AllowDenyPattern(deny=["^slow_report$"])
+        )
+
+        reports = [
+            {"token": "tok1", "name": "slow_report"},
+            {"token": "tok2", "name": "fast_report"},
+        ]
+
+        with (
+            patch.object(
+                source, "_get_reports", return_value=iter([[reports[0]], [reports[1]]])
+            ),
+            patch.object(source, "_get_datasets", return_value=iter([])),
+            patch.object(source, "construct_space_container", return_value=iter([])),
+        ):
+            report_args, _, _ = source._collect_space_work_items("space1", "MySpace")
+
+        assert len(report_args) == 1
+        assert report_args[0][1]["token"] == "tok2"
+        assert "slow_report" in list(source.report.filtered_reports)

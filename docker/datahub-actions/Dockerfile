@@ -290,6 +290,7 @@ USER 0
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
@@ -362,6 +363,7 @@ USER 0
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
@@ -427,6 +429,7 @@ USER 0
 
 COPY --chown=datahub:datahub ./datahub-actions /datahub-actions
 COPY --chown=datahub:datahub ./docker/datahub-actions/config /etc/datahub/actions/system/conf
+COPY --chown=datahub:datahub ./docker/datahub-actions/config-postgres-pgqueue /etc/datahub/actions/system/conf-postgres-pgqueue
 
 USER datahub
 
