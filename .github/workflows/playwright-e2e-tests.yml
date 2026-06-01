@@ -323,6 +323,7 @@ jobs:
 
           aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
             --cache-control "no-cache, no-store, must-revalidate" \
+            --sse AES256 \
             --delete
 
           REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
