@@ -1,6 +1,14 @@
 import pytest
 
-from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog, DremioQuery
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.dremio.dremio_entities import (
+    DremioCatalog,
+    DremioContainer,
+    DremioFolder,
+    DremioQuery,
+    DremioSourceContainer,
+    DremioSpace,
+)
 
 VALID_TS = "2024-01-15 10:30:00.000"
 
@@ -44,6 +52,26 @@ class TestDremioQueryClassification:
         # DML list is iterated before DDL, so "CREATE" (DML) matches before "CREATE VIEW" (DDL).
         q = self._make_query("CREATE VIEW v AS SELECT 1")
         assert q.query_subtype == "CREATE"
+
+    @pytest.mark.parametrize(
+        "sql, expected_subtype",
+        [
+            # _get_query_subtype only walks SELECT + DML + DDL; the
+            # DATA_MANIPULATION bucket master removed was never iterated.
+            # Pin that the single-word DML entries are still the first hit.
+            ("INSERT INTO foo SELECT * FROM bar", "INSERT"),
+            (
+                "MERGE INTO target USING src ON src.id = target.id WHEN MATCHED THEN UPDATE SET x = 1",
+                "MERGE",
+            ),
+            ("CREATE TABLE foo AS SELECT 1", "CREATE"),
+        ],
+    )
+    def test_subtype_for_data_manipulation_unchanged_after_bucket_removal(
+        self, sql, expected_subtype
+    ):
+        q = self._make_query(sql)
+        assert q.query_subtype == expected_subtype
 
     def test_subtype_for_with_cte(self):
         q = self._make_query("WITH cte AS (SELECT 1) SELECT * FROM cte")
@@ -99,3 +127,26 @@ class TestDremioCatalogIsValidQuery:
         catalog = DremioCatalog.__new__(DremioCatalog)
         query = {**self.VALID_QUERY, "query": ""}
         assert catalog.is_valid_query(query) is False
+
+
+class TestDremioContainerSubclassDeclaration:
+    """DremioContainer.subclass is declared without a default so a new
+    subclass that forgets to set it can't silently inherit DREMIO_FOLDER."""
+
+    def test_known_subclasses_declare_subtype(self):
+        assert DremioSourceContainer.subclass == DatasetContainerSubTypes.DREMIO_SOURCE
+        assert DremioSpace.subclass == DatasetContainerSubTypes.DREMIO_SPACE
+        assert DremioFolder.subclass == DatasetContainerSubTypes.DREMIO_FOLDER
+
+    def test_base_class_has_no_subclass_default(self):
+        # If a subclass forgets to set subclass, instance.subclass raises
+        # AttributeError rather than silently returning DREMIO_FOLDER.
+        with pytest.raises(AttributeError):
+            DremioContainer.subclass  # noqa: B018
+
+    def test_undeclared_subclass_raises_on_attribute_access(self):
+        class UndeclaredContainer(DremioContainer):
+            pass
+
+        with pytest.raises(AttributeError):
+            UndeclaredContainer.subclass  # noqa: B018

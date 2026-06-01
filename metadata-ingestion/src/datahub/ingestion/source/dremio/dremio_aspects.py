@@ -1,6 +1,5 @@
 import logging
 import time
-import uuid
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -8,7 +7,6 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
@@ -63,9 +61,9 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
-namespace = uuid.NAMESPACE_DNS
 
 
 class DremioContainerKey(ContainerKey):
@@ -140,12 +138,14 @@ class DremioAspects:
         env: str,
         ingest_owner: bool,
         domain: Optional[str] = None,
+        domain_registry: Optional[DomainRegistry] = None,
         platform_instance: Optional[str] = None,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
         self.domain = domain
+        self.domain_registry = domain_registry
         self.ui_url = ui_url
         self.ingest_owner = ingest_owner
 
@@ -171,17 +171,15 @@ class DremioAspects:
         return container_key.as_urn()
 
     def create_domain_aspect(self) -> Optional[_Aspect]:
-        if self.domain:
-            if self.domain.startswith("urn:li:domain:"):
-                return DomainsClass(domains=[self.domain])
-            return DomainsClass(
-                domains=[
-                    make_domain_urn(
-                        str(uuid.uuid5(namespace, self.domain)),
-                    )
-                ]
-            )
-        return None
+        if not self.domain:
+            return None
+        if self.domain.startswith("urn:li:domain:"):
+            return DomainsClass(domains=[self.domain])
+        # DremioSource builds the registry up-front, and DomainRegistry
+        # raises ValueError on bare names with no graph, so by here
+        # domain_registry is guaranteed non-None.
+        assert self.domain_registry is not None
+        return DomainsClass(domains=[self.domain_registry.get_domain_urn(self.domain)])
 
     def populate_container_mcp(
         self, container_urn: str, container: DremioContainer
@@ -194,13 +192,17 @@ class DremioAspects:
         )
         yield mcp.as_workunit()
 
-        browse_paths_v2 = self._create_browse_paths_containers(container)
-        if browse_paths_v2:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=container_urn,
-                aspect=browse_paths_v2,
-            )
-            yield mcp.as_workunit()
+        # Only top-level containers emit BrowsePathsV2 directly; folders
+        # rely on auto_browse_path_v2 to inherit the root prefix from
+        # their Container parent chain.
+        if not container.path:
+            browse_paths_v2 = self._create_browse_paths_containers(container)
+            if browse_paths_v2:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=container_urn,
+                    aspect=browse_paths_v2,
+                )
+                yield mcp.as_workunit()
 
         container_class = self._create_container_class(container)
         if container_class:
@@ -224,6 +226,14 @@ class DremioAspects:
             aspect=subtypes,
         )
         yield mcp.as_workunit()
+
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
 
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
@@ -273,12 +283,15 @@ class DremioAspects:
             yield mcp.as_workunit()
 
         if dataset.dataset_type == DremioDatasetType.VIEW:
+            # _create_view_properties returns None when sql_definition is empty;
+            # don't wrap that into an MCP.
             view_definition = self._create_view_properties(dataset)
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_definition,
-            )
-            yield mcp.as_workunit()
+            if view_definition:
+                mcp = MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=view_definition,
+                )
+                yield mcp.as_workunit()
 
         if dataset.glossary_terms:
             glossary_terms = self._create_glossary_terms(dataset)
@@ -302,6 +315,14 @@ class DremioAspects:
             logger.warning(
                 f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
             )
+
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
 
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
@@ -352,9 +373,9 @@ class DremioAspects:
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
             paths.append(BrowsePathEntryClass(id="Sources"))
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
-            # Folders inherit their root container's subtype so the browse
-            # path picks the right top-level prefix — set during the
-            # recursive catalog walk in DremioAPIOperations.
+            # root_container_type is stamped by the catalog walk in
+            # DremioAPIOperations; it routes folders to the right top-level
+            # prefix.
             root_type = getattr(entity, "root_container_type", None)
             if root_type == DremioEntityContainerType.SPACE:
                 paths.append(BrowsePathEntryClass(id="Spaces"))
@@ -362,10 +383,8 @@ class DremioAspects:
                 paths.append(BrowsePathEntryClass(id="Sources"))
 
         if entity.path:
-            for i, _path_element in enumerate(entity.path):
-                # Build the full path up to this element
-                partial_path = entity.path[: i + 1]
-                container_urn = self.get_container_urn(path=partial_path)
+            for i in range(len(entity.path)):
+                container_urn = self.get_container_urn(path=entity.path[: i + 1])
                 paths.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
 
         if paths:

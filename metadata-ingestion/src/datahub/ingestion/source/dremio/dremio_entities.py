@@ -2,7 +2,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 
 from sqlglot import parse_one
 
@@ -210,8 +210,8 @@ class DremioDataset:
         self.resource_id = self._dataset_response.resource_id
         self.resource_name = self._dataset_response.table_name
         self.path = self._dataset_response.path
-        # Community-edition views can omit LOCATION_ID; the legacy dict
-        # path silently defaulted to "" here, so preserve that.
+        # Community-edition views can omit LOCATION_ID — preserve the
+        # legacy "" default rather than carrying None forward.
         self.location_id = self._dataset_response.location_id or ""
         self.columns = self._dataset_response.columns
         self.sql_definition = self._dataset_response.view_definition
@@ -260,7 +260,9 @@ class DremioDataset:
 
 
 class DremioContainer:
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
+    # Declared without a default so subclasses can't silently inherit
+    # the wrong subtype.
+    subclass: ClassVar[DatasetContainerSubTypes]
     container_name: str
     location_id: Optional[str]
     path: List[str]
@@ -287,7 +289,9 @@ class DremioContainer:
 
 
 class DremioSourceContainer(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_SOURCE
+    subclass: ClassVar[DatasetContainerSubTypes] = (
+        DatasetContainerSubTypes.DREMIO_SOURCE
+    )
     dremio_source_type: str
     root_path: Optional[str]
     database_name: Optional[str]
@@ -314,13 +318,15 @@ class DremioSourceContainer(DremioContainer):
 
 
 class DremioSpace(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_SPACE
+    subclass: ClassVar[DatasetContainerSubTypes] = DatasetContainerSubTypes.DREMIO_SPACE
 
 
 class DremioFolder(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
+    subclass: ClassVar[DatasetContainerSubTypes] = (
+        DatasetContainerSubTypes.DREMIO_FOLDER
+    )
     # Stamped by the recursive catalog walk in DremioAPIOperations so
-    # DremioAspects._create_browse_paths_containers can pick the right
+    # DremioAspects._create_browse_paths_containers picks the right
     # top-level prefix ("Spaces" vs "Sources").
     root_container_type: Optional[str] = None
 
