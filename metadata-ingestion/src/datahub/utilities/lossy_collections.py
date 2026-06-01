@@ -85,8 +85,9 @@ class LossyList(List[T], Generic[T]):
     def __contains__(self, item: object) -> bool:
         # Items are stored as (index, item) tuples for reservoir sampling, so
         # the inherited list.__contains__ would only match against the tuples.
-        # Reuse __iter__ which unwraps, so callers get natural `x in list` semantics.
-        return any(elem == item for elem in self.__iter__())
+        # Iterating `self` goes through our __iter__ which unwraps, giving
+        # callers natural `x in list` semantics.
+        return any(elem == item for elem in self)
 
     def __repr__(self) -> str:
         return repr(self.as_obj())
