@@ -6,12 +6,14 @@ class DremioToDataHubSourceTypeMapping:
     Dremio source type to the Datahub source type mapping.
     """
 
+    # Keys are the `type` field returned by Dremio's Catalog API
+    # (https://docs.dremio.com/current/reference/api/catalog/source/).
     SOURCE_TYPE_MAPPING = {
-        # Dremio source types
         "ADL": "abfs",
         "AMAZONELASTIC": "elasticsearch",
         "AWSGLUE": "glue",
         "AZURE_STORAGE": "abfs",
+        "BIGQUERY": "bigquery",
         "DB2": "db2",
         "DREMIOTODREMIO": "dremio",
         "ELASTIC": "elasticsearch",
@@ -27,10 +29,17 @@ class DremioToDataHubSourceTypeMapping:
         "ORACLE": "oracle",
         "POSTGRES": "postgres",
         "REDSHIFT": "redshift",
+        # Polaris OSS, Nessie+REST, Glue Iceberg REST, S3 Tables,
+        # Tableflow, OneLake — all surface as Iceberg tables.
+        "RESTCATALOG": "iceberg",
         "S3": "s3",
+        "SAPHANA": "hana",
         "SNOWFLAKE": "snowflake",
+        # Snowflake Open Catalog (managed Polaris) serves Iceberg, not Snowflake tables.
+        "SNOWFLAKEOPENCATALOG": "iceberg",
         "SYNAPSE": "mssql",
         "TERADATA": "teradata",
+        "UNITY": "databricks",
         "VERTICA": "vertica",
     }
 
@@ -38,6 +47,7 @@ class DremioToDataHubSourceTypeMapping:
         "AMAZONELASTIC",
         "AWSGLUE",
         "AZURE_STORAGE",
+        "BIGQUERY",
         "DB2",
         "DREMIOTODREMIO",
         "ELASTIC",
@@ -50,14 +60,21 @@ class DremioToDataHubSourceTypeMapping:
         "ORACLE",
         "POSTGRES",
         "REDSHIFT",
+        "RESTCATALOG",
+        "SAPHANA",
         "SNOWFLAKE",
+        "SNOWFLAKEOPENCATALOG",
         "SYNAPSE",
         "TERADATA",
+        "UNITY",
         "VERTICA",
     }
 
     FILE_OBJECT_STORAGE_TYPES = {
         "ADL",
+        # AZURE_STORAGE also lives in DATABASE_SOURCE_TYPES. get_category
+        # picks "database" first (matching the dot-notation path users
+        # actually hit); membership here keeps "is object storage?" honest.
         "AZURE_STORAGE",
         "GCS",
         "HDFS",
@@ -97,9 +114,10 @@ class DremioToDataHubSourceTypeMapping:
         datahub_source_type: str,
         category: Optional[str] = None,
     ) -> None:
-        """
-        Add a new source type if not in the map (e.g., Dremio ARP).
-        """
+        """Register a Dremio source type (e.g. an ARP). Pass `category` =
+        "database" or "file_object_storage" to control URN dispatch; with
+        `category=None` the platform name resolves but `get_category`
+        returns "unknown", so URN building falls back to the generic path."""
         dremio_source_type = dremio_source_type.upper()
         DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING[dremio_source_type] = (
             datahub_source_type
