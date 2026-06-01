@@ -6,7 +6,7 @@ from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
-from threading import current_thread
+from threading import Event, Thread, current_thread
 from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
@@ -4818,7 +4818,15 @@ class TestLineageQueryTimingReport:
 
         assert source.report.lineage_slow_queries_detected == 1
 
-        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        # The direct logger.warning() (which carries the SQL snippet) uses the
+        # teradata logger; report.warning() uses a different logger, so we
+        # filter by name to count exactly the SQL-bearing record.
+        slow_warnings = [
+            r
+            for r in caplog.records
+            if "Slow lineage query" in r.message
+            and r.name == "datahub.ingestion.source.sql.teradata"
+        ]
         assert len(slow_warnings) == 1
         warning_msg = slow_warnings[0].message
         assert "query_1 (current_only)" in warning_msg
@@ -4839,7 +4847,12 @@ class TestLineageQueryTimingReport:
         ):
             list(source._fetch_lineage_entries_chunked())
 
-        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        slow_warnings = [
+            r
+            for r in caplog.records
+            if "Slow lineage query" in r.message
+            and r.name == "datahub.ingestion.source.sql.teradata"
+        ]
         assert len(slow_warnings) == 1
         assert "distinctive_marker" in slow_warnings[0].message
 
@@ -4858,7 +4871,12 @@ class TestLineageQueryTimingReport:
         ):
             list(source._fetch_lineage_entries_chunked())
 
-        slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
+        slow_warnings = [
+            r
+            for r in caplog.records
+            if "Slow lineage query" in r.message
+            and r.name == "datahub.ingestion.source.sql.teradata"
+        ]
         assert len(slow_warnings) == 1
         assert "…" in slow_warnings[0].message
 
@@ -4877,3 +4895,106 @@ class TestLineageQueryTimingReport:
         slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
         assert len(slow_warnings) == 0
         assert source.report.lineage_slow_queries_detected == 0
+
+    def test_timing_recorded_on_execute_failure(self):
+        """record_lineage_query_timing fires in the finally block even when
+        _execute_with_cursor_fallback raises — a deliberate contract that
+        prevents a refactor from silently moving the call inside the try block
+        (which would drop timing for failed queries entirely)."""
+        source = _make_lineage_source()
+        mock_conn = _make_mock_conn()
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(
+                source,
+                "_execute_with_cursor_fallback",
+                side_effect=DatabaseError("simulated DB failure", None, None),
+            ),
+            patch.object(
+                source,
+                "_make_lineage_queries",
+                return_value=[LineageQuery(sql="SELECT 1", label="current_only")],
+            ),
+            pytest.raises(DatabaseError),
+        ):
+            list(source._fetch_lineage_entries_chunked())
+
+        # The timing entry must exist regardless of query failure.
+        assert "query_1 (current_only)" in source.report.lineage_query_timings
+
+
+class TestHungViewAbandonPath:
+    """The fut.cancel() abandon path keeps num_view_processing_timeouts and
+    view_timeout_errors consistent so operators cannot see one counter change
+    without the other."""
+
+    def test_hung_view_increments_timeout_counters_consistently(self):
+        """When a view worker exceeds view_processing_timeout_seconds the
+        connector abandons it: num_view_processing_timeouts,
+        view_timeout_errors, and num_view_processing_failures must all be
+        incremented exactly once so the counters tell a consistent story."""
+        block = Event()
+
+        def _blocking_process_view(**kwargs):
+            # Simulates a worker stuck in a long-running DB call.  The safety
+            # timeout prevents the test from hanging if something goes wrong.
+            block.wait(timeout=10)
+            return iter([])
+
+        source = _create_source_patched(
+            {
+                "max_workers": 2,
+                # 1-second heartbeat → wait_step = 1s; the stall check fires
+                # after two loop iterations (~2s), which exceeds the 1-second
+                # per-view timeout.
+                "view_processing_timeout_seconds": 1,
+                "view_processing_heartbeat_seconds": 1,
+            }
+        )
+        source._effective_max_workers = 2
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+        mock_engine = MagicMock()
+
+        def _run() -> None:
+            with (
+                patch.object(
+                    source, "_get_or_create_pooled_engine", return_value=mock_engine
+                ),
+                patch.object(
+                    source,
+                    "_retry_connect",
+                    side_effect=_mock_retry_connect(mock_conn),
+                ),
+                patch.object(source, "_retry_execute"),
+                patch(
+                    "datahub.ingestion.source.sql.teradata.inspect",
+                    return_value=mock_inspector,
+                ),
+                patch.object(
+                    source, "_process_view", side_effect=_blocking_process_view
+                ),
+            ):
+                list(
+                    source._loop_views_with_connection_pool(
+                        ["stuck_view"], "testdb", source.config
+                    )
+                )
+
+        t = Thread(target=_run, daemon=True)
+        t.start()
+        # Two loop iterations of 1s each elapse before the stall check
+        # triggers; add a buffer so the counters are committed before we read.
+        time.sleep(2.5)
+        # Unblock the worker thread so executor.shutdown(wait=True) can finish.
+        block.set()
+        t.join(timeout=5.0)
+        assert not t.is_alive(), "view-processing thread did not terminate"
+
+        assert source.report.num_view_processing_timeouts == 1
+        assert source.report.view_timeout_errors == 1
+        assert source.report.num_view_processing_failures == 1

@@ -1816,7 +1816,7 @@ ORDER by DataBaseName, TableName;
                             "Check network connectivity, authentication, and "
                             "database permissions."
                         ),
-                        context=f"attempt={attempt + 1}, error={exc}",
+                        context=f"attempt={attempt + 1}",
                         exc=exc,
                     )
                     raise
@@ -2865,6 +2865,11 @@ ORDER by DataBaseName, TableName;
 
                         if slow_threshold > 0 and query_db_elapsed > slow_threshold:
                             self.report.increment_lineage_slow_query()
+                            self.report.warning(
+                                title="Slow lineage query detected",
+                                message="A lineage query exceeded the slow-query threshold. Consider tuning the query or increasing lineage_slow_query_log_seconds.",
+                                context=f"{query_label}: {query_db_elapsed:.1f}s DB time (threshold: {slow_threshold}s)",
+                            )
                             # lineage_query.sql is a connector-generated DBC.QryLogV SQL
                             # string assembled entirely from config values (time range,
                             # database names, cursor type). It contains no user-supplied
