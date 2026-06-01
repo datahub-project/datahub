@@ -2,6 +2,7 @@ import logging
 import re
 import time
 from collections import defaultdict
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, contextmanager
 from datetime import datetime, timezone
@@ -4280,7 +4281,7 @@ def _make_mock_conn() -> MagicMock:
     return conn
 
 
-def _mock_retry_connect(conn: MagicMock):
+def _mock_retry_connect(conn: MagicMock) -> Any:
     """Return a no-op context manager that yields *conn*."""
 
     @contextmanager
@@ -4651,7 +4652,7 @@ def _patch_lineage_fetch(
     rows: list,
     query_sql: str = "SELECT 1",
     sleep_seconds: float = 0.0,
-):
+) -> Iterator[None]:
     """Context manager that patches the minimal set of methods so that
     _fetch_lineage_entries_chunked returns *rows* without hitting a real DB.
 
