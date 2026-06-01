@@ -1794,11 +1794,11 @@ ORDER by DataBaseName, TableName;
                         if attempt == 0
                         else "Schema discovery failed after retries",
                         message=(
-                            f"Could not list schemas after {attempt + 1} attempt(s). "
+                            "Could not list schemas. "
                             "Check network connectivity, authentication, and "
                             "database permissions."
                         ),
-                        context=str(exc),
+                        context=f"attempt={attempt + 1}, error={exc}",
                         exc=exc,
                     )
                     raise
@@ -2268,15 +2268,12 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            with self.report.atomic():
-                                self.report.warning(
-                                    "Error in thread processing view",
-                                    context=f"{schema}.{view_name}",
-                                    exc=e,
-                                )
-                                self.report.increment_view_error(
-                                    _categorize_view_error(e)
-                                )
+                            self.report.warning(
+                                "Error in thread processing view",
+                                context=f"{schema}.{view_name}",
+                                exc=e,
+                            )
+                            self.report.increment_view_error(_categorize_view_error(e))
                         completed_count += 1
 
                     # Abandon any view that has exceeded the per-view timeout.

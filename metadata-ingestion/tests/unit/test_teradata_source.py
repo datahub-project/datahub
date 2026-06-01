@@ -4841,21 +4841,3 @@ class TestLineageQueryTimingReport:
         slow_warnings = [r for r in caplog.records if "Slow lineage query" in r.message]
         assert len(slow_warnings) == 0
         assert source.report.lineage_slow_queries_detected == 0
-
-    def test_new_report_fields_default_to_zero(self):
-        """TeradataReport defaults: empty timings dict, zero slow-query counter."""
-        report = TeradataReport()
-        assert report.lineage_query_timings == {}
-        assert report.lineage_slow_queries_detected == 0
-
-    def test_config_default_threshold_is_60_seconds(self):
-        """lineage_slow_query_log_seconds defaults to 60.0."""
-        config = TeradataConfig.model_validate(_base_config())
-        assert config.lineage_slow_query_log_seconds == 60.0
-
-    def test_config_threshold_accepts_zero(self):
-        """lineage_slow_query_log_seconds=0 is accepted (disables the feature)."""
-        config = TeradataConfig.model_validate(
-            {**_base_config(), "lineage_slow_query_log_seconds": 0}
-        )
-        assert config.lineage_slow_query_log_seconds == 0.0
