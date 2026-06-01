@@ -178,16 +178,10 @@ class DremioAspects:
             return None
         if self.domain.startswith("urn:li:domain:"):
             return DomainsClass(domains=[self.domain])
-        # Bare names resolve via DomainRegistry (Snowflake/BigQuery pattern).
-        # Without a graph, fabricating a URN would never match anything.
-        if self.domain_registry is None:
-            logger.warning(
-                "domain=%r is a bare name but no DataHub graph is configured "
-                "to resolve it. Set domain to a full urn:li:domain:<id> or "
-                "configure datahub_api. Skipping domain aspect.",
-                self.domain,
-            )
-            return None
+        # DremioSource builds the registry up-front, and DomainRegistry
+        # raises ValueError on bare names with no graph, so by here
+        # domain_registry is guaranteed non-None.
+        assert self.domain_registry is not None
         return DomainsClass(domains=[self.domain_registry.get_domain_urn(self.domain)])
 
     def populate_container_mcp(

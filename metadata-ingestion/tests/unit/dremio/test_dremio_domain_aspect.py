@@ -84,14 +84,12 @@ class TestCreateDomainAspect:
         assert isinstance(aspect, DomainsClass)
         assert aspect.domains == ["urn:li:domain:abc-123"]
 
-    def test_bare_name_without_registry_warns_and_skips(self, caplog):
-        # Without a graph we cannot resolve; refuse to fabricate a URN.
-        with caplog.at_level("WARNING"):
-            aspect = _make_aspects(
-                domain="marketing", domain_registry=None
-            ).create_domain_aspect()
-        assert aspect is None
-        assert any("bare name" in rec.message for rec in caplog.records)
+    def test_bare_name_without_registry_in_production_path_is_impossible(self):
+        # The bare-name + no-graph case is gated at DomainRegistry.__init__
+        # in DremioSource — verify the registry layer raises clearly so
+        # the assertion in create_domain_aspect can never fire in prod.
+        with pytest.raises(ValueError, match="server-side resolution"):
+            DomainRegistry(cached_domains=["marketing"], graph=None)
 
 
 def _collect_domain_aspects(workunits):
