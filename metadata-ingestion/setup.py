@@ -783,12 +783,12 @@ plugins: Dict[str, Set[str]] = {
     "snowflake-summary": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowflake-queries": snowflake_common | sql_common | usage_common | sqlglot_lib,
     "snowplow": snowplow,
-    # Capped at <0.233 because sqlmesh 0.233 bumped to sqlglot~=30.2.1 and
-    # 0.234 to sqlglot~=30.4.2, both incompatible with our pinned sqlglot==30.0.3.
-    # A coordinated sqlglot bump is needed to relax this; DataHub's own
-    # sqlglot monkey-patches (see sqlglot_lib comment) would need to be
-    # rewritten for the newer sqlglot first.
-    "sqlmesh": {"sqlmesh>=0.100.0,<0.233"},
+    # Floor at 0.235.2: each sqlmesh release pins a narrow sqlglot range, and
+    # 0.235.2 is the first to require sqlglot~=30.8.0, matching our pinned
+    # sqlglot[c]==30.8.0 (see sqlglot_lib comment). Earlier sqlmesh versions
+    # need sqlglot 30.0.x-30.4.x and cannot coexist with our pin. Cap at <0.236
+    # until the next sqlmesh sqlglot bump is vetted against our monkey-patches.
+    "sqlmesh": {"sqlmesh>=0.235.2,<0.236"},
     "sqlalchemy": sql_common,
     "sql-queries": usage_common
     | sqlglot_lib
