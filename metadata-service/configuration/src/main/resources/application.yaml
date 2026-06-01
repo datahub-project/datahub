@@ -1077,8 +1077,6 @@ systemUpdate:
       includeSoftDeleted: ${SYSTEM_UPDATE_ENTITY_CONSISTENCY_INCLUDE_SOFT_DELETED:false}  # Include soft-deleted entities (default: false)
   ingestEntityTypes:
     enabled: ${SYSTEM_UPDATE_INGEST_ENTITY_TYPES_ENABLED:true}
-  removeClientIdAspect:
-    enabled: ${SYSTEM_UPDATE_REMOVE_CLIENT_ID_ASPECT_ENABLED:true}
   restoreDbtSiblingsIndices:
     enabled: ${SYSTEM_UPDATE_RESTORE_DBT_SIBLINGS_INDICES_ENABLED:true}
   kubernetesScaleDown:
