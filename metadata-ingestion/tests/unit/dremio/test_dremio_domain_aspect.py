@@ -8,9 +8,9 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     DremioToDataHubSourceTypeMapping,
 )
 from datahub.ingestion.source.dremio.dremio_entities import (
-    DremioContainer,
     DremioDataset,
     DremioDatasetType,
+    DremioSpace,
 )
 from datahub.metadata.schema_classes import DomainsClass
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -35,9 +35,10 @@ def _fake_registry(mapping):
 
 
 def _make_container(name="src1", path=None):
+    # Concrete subclass: DremioContainer.subclass has no default.
     api_ops = MagicMock()
     api_ops.get_description_for_resource.return_value = None
-    return DremioContainer(
+    return DremioSpace(
         container_name=name,
         location_id="loc-1",
         path=path or [],
