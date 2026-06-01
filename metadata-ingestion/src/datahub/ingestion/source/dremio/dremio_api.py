@@ -805,7 +805,13 @@ class DremioAPIOperations:
                 "Detected ARRAY<VARCHAR> queried_datasets column "
                 "(Dremio Software 26.1.0+); using array-aware jobs query."
             )
-        except DremioAPIException as exc:
+        except Exception as exc:
+            # Catch broadly: execute_query_iter can raise DremioAPIException
+            # (SQL-level type-mismatch on legacy VARCHAR), RuntimeError (job
+            # FAILED/CANCELED), or network/transport errors. The probe's only
+            # job is "any failure -> assume legacy"; the real jobs query will
+            # raise a meaningful error later if the underlying problem isn't
+            # the schema version.
             self._queried_datasets_is_array = False
             logger.info(
                 f"queried_datasets probe failed; assuming legacy VARCHAR column "

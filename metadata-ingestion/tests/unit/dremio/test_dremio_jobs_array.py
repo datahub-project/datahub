@@ -92,6 +92,16 @@ class TestSupportsArrayQueriedDatasetsProbe:
         )
         assert dremio_api._supports_array_queried_datasets() is False
 
+    def test_probe_falls_back_on_non_dremio_exception(self, dremio_api):
+        # execute_query_iter also raises RuntimeError for FAILED/CANCELED jobs
+        # and may surface transport errors; any failure must fall back to the
+        # legacy form so ingestion continues.
+        dremio_api.edition = DremioEdition.ENTERPRISE
+        dremio_api.execute_query_iter = Mock(
+            side_effect=RuntimeError("Query failed: planner exception")
+        )
+        assert dremio_api._supports_array_queried_datasets() is False
+
     def test_probe_is_cached_after_success(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE
         mock = Mock(return_value=iter([{"sz": 0}]))
