@@ -41,7 +41,7 @@ public class UrnExtractionUtilsTest {
         result.toString(), "urn:li:dataset:(urn:li:dataPlatform:test,test_dataset,PROD)");
   }
 
-  @Test(expectedExceptions = RuntimeException.class)
+  @Test(expectedExceptions = InvalidSearchHitException.class)
   public void testExtractUrnFromSearchHit_NullUrn() {
     // Given
     Map<String, Object> sourceMap = new HashMap<>();
@@ -52,7 +52,7 @@ public class UrnExtractionUtilsTest {
     UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
   }
 
-  @Test(expectedExceptions = RuntimeException.class)
+  @Test(expectedExceptions = InvalidSearchHitException.class)
   public void testExtractUrnFromSearchHit_InvalidUrn() {
     // Given
     Map<String, Object> sourceMap = new HashMap<>();

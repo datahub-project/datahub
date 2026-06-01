@@ -28,7 +28,7 @@ public class UrnExtractionUtils {
    *
    * @param hit The search hit containing the document
    * @return The extracted URN
-   * @throws RuntimeException if the URN field is null or invalid
+   * @throws InvalidSearchHitException if the URN field is null or invalid
    */
   @Nonnull
   public static Urn extractUrnFromSearchHit(@Nonnull SearchHit hit) {
@@ -41,7 +41,7 @@ public class UrnExtractionUtils {
           hit.getIndex(),
           hit.getId(),
           sourceMap);
-      throw new RuntimeException(
+      throw new InvalidSearchHitException(
           "Search document contains null URN. Index: " + hit.getIndex() + ", ID: " + hit.getId());
     }
 
@@ -55,7 +55,7 @@ public class UrnExtractionUtils {
           urnValue,
           sourceMap,
           e);
-      throw new RuntimeException("Invalid urn in search document " + e);
+      throw new InvalidSearchHitException("Invalid urn in search document " + urnValue, e);
     }
   }
 

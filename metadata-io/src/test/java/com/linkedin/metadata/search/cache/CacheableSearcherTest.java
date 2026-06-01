@@ -231,4 +231,53 @@ public class CacheableSearcherTest {
         .setPageSize(queryPagination.getSize())
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
   }
+
+  @Test
+  public void testCacheableSearcherDoesNotTruncateWhenHitsAreSkipped() {
+    // Regression test (follow-up to #13181): SearchRequestHandler drops hits with invalid/missing
+    // URNs, so a batch can return fewer entities than the batch size while more results remain.
+    // The searcher must keep paging in that case rather than treating the short batch as the end.
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
+    int batchSize = 10;
+    CacheableSearcher<Integer> skippedHitSearcher =
+        new CacheableSearcher<>(
+            cacheManager.getCache("skippedHitSearcher"),
+            batchSize,
+            qs -> {
+              // Batch 0 [0,10): a full ES page of 10 hits, but one was dropped as invalid -> 9.
+              // Batch 1 [10,20): 5 more valid entities.
+              // Batch 2 [20,..): end of results -> empty.
+              if (qs.getFrom() == 0) {
+                return searchResultWithUrns(qs, getUrns(0, 9));
+              } else if (qs.getFrom() == 10) {
+                return searchResultWithUrns(qs, getUrns(10, 15));
+              }
+              return searchResultWithUrns(qs, List.of());
+            },
+            CacheableSearcher.QueryPagination::getFrom,
+            true);
+
+    SearchResult result = skippedHitSearcher.getSearchResults(opContext, 0, 100);
+
+    // Before the fix the loop stopped after batch 0 (9 < batchSize) and returned only 9 entities,
+    // silently dropping the 5 results in batch 1.
+    assertEquals(result.getEntities().size(), 14);
+    assertEquals(
+        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+        Streams.concat(getUrns(0, 9).stream(), getUrns(10, 15).stream())
+            .collect(Collectors.toList()));
+  }
+
+  private SearchResult searchResultWithUrns(
+      CacheableSearcher.QueryPagination queryPagination, List<Urn> urns) {
+    List<SearchEntity> entities =
+        urns.stream().map(urn -> new SearchEntity().setEntity(urn)).collect(Collectors.toList());
+    return new SearchResult()
+        .setEntities(new SearchEntityArray(entities))
+        .setNumEntities(15)
+        .setFrom(queryPagination.getFrom())
+        .setPageSize(queryPagination.getSize())
+        .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
+  }
 }

@@ -55,7 +55,14 @@ public class CacheableSearcher<K> {
           do {
             batchedResult = getBatch(opContext, batchId);
             int currentBatchSize = batchedResult.getEntities().size();
-            // If the number of results in this batch is 0, no need to continue
+            // An empty batch means we've reached the end of the results.
+            //
+            // NOTE: we must NOT stop just because currentBatchSize < batchSize. Hits with
+            // invalid/missing URNs are dropped before reaching this point (see
+            // SearchRequestHandler#getResultSafely), so a batch can legitimately yield fewer
+            // entities than batchSize while more results remain in subsequent batches. Treating a
+            // short batch as the last one would silently truncate the result set. We instead rely
+            // on an empty batch to detect the end, at the cost of at most one extra empty fetch.
             if (currentBatchSize == 0) {
               break;
             }
@@ -65,11 +72,6 @@ public class CacheableSearcher<K> {
                   Math.min(currentBatchSize, startInBatch + size - resultEntities.size());
               resultEntities.addAll(batchedResult.getEntities().subList(startInBatch, endInBatch));
               foundStart = true;
-            }
-            // If current batch is smaller than the requested batch size, the next batch will return
-            // empty.
-            if (currentBatchSize < batchSize) {
-              break;
             }
             resultsSoFar += currentBatchSize;
             batchId++;

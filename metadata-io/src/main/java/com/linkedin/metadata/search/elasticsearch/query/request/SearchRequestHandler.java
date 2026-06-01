@@ -36,6 +36,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.features.Features;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.InvalidSearchHitException;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -458,17 +459,11 @@ public class SearchRequestHandler extends BaseRequestHandler {
     List<SearchEntity> results = new ArrayList<>(searchHits.length);
     for (SearchHit hit : searchHits) {
       // Build base SearchEntity — skip hits with missing/invalid URN rather than crashing
-      SearchEntity entity;
-      try {
-        entity = getResult(hit);
-      } catch (Exception e) {
-        log.warn(
-            "Skipping scroll hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
-            hit.getIndex(),
-            hit.getId(),
-            e.getMessage());
+      Optional<SearchEntity> maybeEntity = getResultSafely(opContext, hit);
+      if (maybeEntity.isEmpty()) {
         continue;
       }
+      SearchEntity entity = maybeEntity.get();
       // Compute per-hit scrollId using this hit's sort values
       Object[] sort = hit.getSortValues();
       String perHitScrollId =
@@ -617,6 +612,34 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   /**
+   * Builds a {@link SearchEntity} for a hit, returning empty (and skipping the hit) only when its
+   * URN is missing or invalid — e.g. documents created by older bootstrap code (see issue #13181).
+   *
+   * <p>Any other failure is left to propagate: silently swallowing it would mask real bugs and
+   * could drop valid results without surfacing the cause. The narrow {@link
+   * InvalidSearchHitException} catch ensures only the known, recoverable data-quality condition is
+   * tolerated.
+   */
+  private Optional<SearchEntity> getResultSafely(
+      @Nonnull OperationContext opContext, @Nonnull SearchHit hit) {
+    try {
+      return Optional.of(getResult(hit));
+    } catch (InvalidSearchHitException e) {
+      log.warn(
+          "Skipping search hit with invalid or missing URN. Index: {}, ID: {}",
+          hit.getIndex(),
+          hit.getId(),
+          e);
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              metricUtils ->
+                  metricUtils.increment(SearchRequestHandler.class, "skippedInvalidSearchHit", 1));
+      return Optional.empty();
+    }
+  }
+
+  /**
    * Gets list of entities returned in the search response, skipping any hits with missing or
    * invalid URN fields (e.g. documents created by older bootstrap code) instead of crashing the
    * entire search operation.
@@ -629,19 +652,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nonnull OperationContext opContext, @Nonnull SearchResponse searchResponse) {
     List<SearchEntity> results =
         Arrays.stream(searchResponse.getHits().getHits())
-            .flatMap(
-                hit -> {
-                  try {
-                    return Stream.of(getResult(hit));
-                  } catch (Exception e) {
-                    log.warn(
-                        "Skipping search hit with invalid or missing URN. Index: {}, ID: {}. Error: {}",
-                        hit.getIndex(),
-                        hit.getId(),
-                        e.getMessage());
-                    return Stream.empty();
-                  }
-                })
+            .flatMap(hit -> getResultSafely(opContext, hit).stream())
             .collect(Collectors.toList());
     return ESAccessControlUtil.restrictSearchResult(opContext, results);
   }
