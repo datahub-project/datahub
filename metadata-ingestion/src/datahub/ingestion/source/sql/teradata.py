@@ -1351,6 +1351,9 @@ class TeradataConfig(BaseTeradataConfig, BaseTimeWindowConfig):
             "all fetchmany calls, excluding downstream processing time) exceeds this many "
             "seconds, emit a warning with the query label, elapsed DB time, and the first "
             "500 characters of the SQL text so slow queries can be identified and tuned. "
+            "Note: when the driver retries a failed fetchmany call, the retry backoff "
+            "sleep time is included in the measurement, so the threshold should be set "
+            "well above the expected base query time. "
             "Set to 0 to disable. Default is 60 seconds."
         ),
     )
@@ -2282,6 +2285,10 @@ ORDER by DataBaseName, TableName;
                                 context=f"{schema}.{view_name}",
                                 exc=e,
                             )
+                            # This path handles Future.result() timeout or
+                            # CancelledError from per_view_timeout expiry. DB
+                            # errors are caught inside _process_view and re-raised
+                            # as the Future's exception, so they also arrive here.
                             self.report.increment_view_error(_categorize_view_error(e))
                         completed_count += 1
 

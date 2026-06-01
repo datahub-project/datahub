@@ -4140,81 +4140,85 @@ class TestExecuteWithCursorFallback:
 class TestCategorizeViewError:
     """Unit tests for _categorize_view_error."""
 
-    def test_pool_timeout_error_is_timeout(self) -> None:
-        assert _categorize_view_error(PoolTimeoutError("pool exhausted")) == "timeout"
-
-    def test_python_timeout_error_is_timeout(self) -> None:
-        assert _categorize_view_error(TimeoutError("timed out")) == "timeout"
-
-    def test_operational_error_with_timeout_message_is_timeout(self) -> None:
-        exc = OperationalError("request timed out", None, None)
-        assert _categorize_view_error(exc) == "timeout"
-
-    def test_database_error_with_io_timeout_is_timeout(self) -> None:
-        exc = DatabaseError("i/o timeout during query", None, None)
-        assert _categorize_view_error(exc) == "timeout"
-
-    def test_permission_denied_substring_is_permission(self) -> None:
-        exc = OperationalError("permission denied for table foo", None, None)
-        assert _categorize_view_error(exc) == "permission"
-
-    def test_access_denied_substring_is_permission(self) -> None:
-        exc = DatabaseError("access denied to database bar", None, None)
-        assert _categorize_view_error(exc) == "permission"
-
-    def test_no_access_substring_is_permission(self) -> None:
-        exc = DatabaseError("no access to object", None, None)
-        assert _categorize_view_error(exc) == "permission"
-
-    def test_teradata_permission_error_code_3523_is_permission(self) -> None:
-        exc = DatabaseError("[Error 3523] user does not have SELECT access", None, None)
-        assert _categorize_view_error(exc) == "permission"
-
-    def test_teradata_auth_error_code_8017_is_permission(self) -> None:
-        exc = OperationalError("[Error 8017] The UserId is invalid.", None, None)
-        assert _categorize_view_error(exc) == "permission"
-
-    def test_syntax_error_substring_is_parse(self) -> None:
-        exc = DatabaseError("syntax error in SQL statement", None, None)
-        assert _categorize_view_error(exc) == "parse"
-
-    def test_parse_error_substring_is_parse(self) -> None:
-        exc = DatabaseError("parse error near token SELECT", None, None)
-        assert _categorize_view_error(exc) == "parse"
-
-    def test_teradata_parse_error_code_3706_is_parse(self) -> None:
-        exc = DatabaseError("[Error 3706] Syntax error: expected name.", None, None)
-        assert _categorize_view_error(exc) == "parse"
-
-    def test_teradata_parse_error_code_3707_is_parse(self) -> None:
-        exc = DatabaseError(
-            "[Error 3707] Syntax error, expected something between 'x' and 'y'.",
-            None,
-            None,
-        )
-        assert _categorize_view_error(exc) == "parse"
-
-    def test_generic_exception_is_unknown(self) -> None:
-        assert _categorize_view_error(RuntimeError("something exploded")) == "unknown"
-
-    def test_value_error_is_unknown(self) -> None:
-        assert _categorize_view_error(ValueError("bad value")) == "unknown"
-
-    def test_timeout_takes_precedence_over_permission_keywords(self) -> None:
-        """An error that mentions both 'timed out' and 'permission' is a timeout."""
-        exc = OperationalError(
-            "request timed out — permission check failed", None, None
-        )
-        assert _categorize_view_error(exc) == "timeout"
-
-    def test_not_supported_error_is_parse(self) -> None:
-        """NotSupportedError raised for unsupported Teradata dialect features is
-        classified as 'parse', not 'unknown', because it indicates invalid SQL
-        rather than a transient or access-related failure."""
-        exc = NotSupportedError(
-            "Feature not supported by this Teradata driver", None, None
-        )
-        assert _categorize_view_error(exc) == "parse"
+    @pytest.mark.parametrize(
+        "exc, expected",
+        [
+            # --- timeout ---
+            (PoolTimeoutError("pool exhausted"), "timeout"),
+            (TimeoutError("timed out"), "timeout"),
+            (OperationalError("request timed out", None, None), "timeout"),
+            (DatabaseError("i/o timeout during query", None, None), "timeout"),
+            # timeout wins even when permission keywords also appear
+            (
+                OperationalError(
+                    "request timed out — permission check failed", None, None
+                ),
+                "timeout",
+            ),
+            # --- permission ---
+            (
+                OperationalError("permission denied for table foo", None, None),
+                "permission",
+            ),
+            (DatabaseError("access denied to database bar", None, None), "permission"),
+            (DatabaseError("no access to object", None, None), "permission"),
+            (
+                DatabaseError(
+                    "[Error 3523] user does not have SELECT access", None, None
+                ),
+                "permission",
+            ),
+            (
+                OperationalError("[Error 8017] The UserId is invalid.", None, None),
+                "permission",
+            ),
+            # --- parse ---
+            (DatabaseError("syntax error in SQL statement", None, None), "parse"),
+            (DatabaseError("parse error near token SELECT", None, None), "parse"),
+            (
+                DatabaseError("[Error 3706] Syntax error: expected name.", None, None),
+                "parse",
+            ),
+            (
+                DatabaseError(
+                    "[Error 3707] Syntax error, expected something between 'x' and 'y'.",
+                    None,
+                    None,
+                ),
+                "parse",
+            ),
+            (
+                NotSupportedError(
+                    "Feature not supported by this Teradata driver", None, None
+                ),
+                "parse",
+            ),
+            # --- unknown ---
+            (RuntimeError("something exploded"), "unknown"),
+            (ValueError("bad value"), "unknown"),
+        ],
+        ids=[
+            "pool_timeout",
+            "python_timeout",
+            "timeout_message",
+            "io_timeout",
+            "timeout_beats_permission",
+            "permission_denied",
+            "access_denied",
+            "no_access",
+            "error_3523",
+            "error_8017",
+            "syntax_error",
+            "parse_error",
+            "error_3706",
+            "error_3707",
+            "not_supported",
+            "generic_exception",
+            "value_error",
+        ],
+    )
+    def test_categorize(self, exc: BaseException, expected: str) -> None:
+        assert _categorize_view_error(exc) == expected
 
 
 class TestErrorCategorizationReport:
