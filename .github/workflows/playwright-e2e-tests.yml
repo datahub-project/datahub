@@ -287,7 +287,7 @@ jobs:
         if: always()
         continue-on-error: true
         with:
-          role-to-assume: ${{ github.repository == 'datahub-project/datahub' && secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN || secrets.PLAYWRIGHT_REPORTS_FORK_ROLE_ARN }}
+          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
@@ -295,7 +295,6 @@ jobs:
         if: always()
         continue-on-error: true
         env:
-          GH_REPOSITORY: ${{ github.repository }}
           GH_WORKFLOW: ${{ github.workflow }}
           GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
           GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
@@ -308,11 +307,7 @@ jobs:
             exit 0
           fi
 
-          if [[ "$GH_REPOSITORY" == "datahub-project/datahub" ]]; then
-            BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
-          else
-            BUCKET="datahub-fork-ci-build-artifacts.dev.dh-int.zone"
-          fi
+          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
 
           WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
             | tr '[:upper:]' '[:lower:]' \
