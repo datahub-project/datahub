@@ -33,6 +33,17 @@ public class UrnExtractionUtils {
   @Nonnull
   public static Urn extractUrnFromSearchHit(@Nonnull SearchHit hit) {
     Map<String, Object> sourceMap = hit.getSourceAsMap();
+    if (sourceMap == null) {
+      // No _source on the hit (e.g. _source disabled or not fetched). Treat as a skippable
+      // invalid hit rather than dereferencing null and crashing the whole search.
+      log.error(
+          "Found search document with no source. Document details: index={}, id={}",
+          hit.getIndex(),
+          hit.getId());
+      throw new InvalidSearchHitException(
+          "Search document has no source. Index: " + hit.getIndex() + ", ID: " + hit.getId());
+    }
+
     Object urnValue = sourceMap.get("urn");
 
     if (urnValue == null) {

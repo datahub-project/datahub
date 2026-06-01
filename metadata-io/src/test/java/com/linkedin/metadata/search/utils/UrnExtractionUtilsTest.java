@@ -63,6 +63,15 @@ public class UrnExtractionUtilsTest {
     UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
   }
 
+  @Test(expectedExceptions = InvalidSearchHitException.class)
+  public void testExtractUrnFromSearchHit_NullSourceMap() {
+    // A hit with no _source (e.g. _source disabled or not fetched) must surface as a skippable
+    // InvalidSearchHitException, not a raw NullPointerException that crashes the search.
+    when(mockSearchHit.getSourceAsMap()).thenReturn(null);
+
+    UrnExtractionUtils.extractUrnFromSearchHit(mockSearchHit);
+  }
+
   @Test
   public void testExtractUrnFromNestedFieldSafely_ValidUrn() {
     // Given
