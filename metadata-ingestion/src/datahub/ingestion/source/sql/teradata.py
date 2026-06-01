@@ -2802,6 +2802,10 @@ ORDER by DataBaseName, TableName;
 
                     if slow_threshold > 0 and query_elapsed > slow_threshold:
                         self.report.increment_lineage_slow_query()
+                        # `query` is a connector-generated DBC.QryLogV SQL string
+                        # assembled entirely from config values (time range, database
+                        # names, cursor type). It contains no user-supplied text and
+                        # no PII, so logging a snippet here is safe.
                         sql_snippet = query[:500].replace("\n", " ")
                         if len(query) > 500:
                             sql_snippet += " …"
