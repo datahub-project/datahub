@@ -719,7 +719,11 @@ class DremioSource(StatefulIngestionSourceBase):
                     merge_lineage=True,
                 )
             elif not downstream_allowed:
-                # Per-upstream drops are already counted in the loop above.
+                # One increment per query whose downstream is filtered.
+                # Per-upstream drops were already counted in the loop above;
+                # this is intentionally not multiplied by the upstream count
+                # — see lineage_dropped_filtered's docstring for the "lineage
+                # references, not edges" semantics.
                 self.report.lineage_dropped_filtered += 1
 
         # Always register the observed query; usage stats aren't gated here.

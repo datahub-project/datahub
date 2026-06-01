@@ -26,9 +26,15 @@ class DremioSourceReport(
     containers_scanned: int = 0
     containers_filtered: int = 0
 
-    # Lineage edges (view parents + query upstreams/downstreams) dropped
-    # by schema_pattern / dataset_pattern. Distinguishes filtered output
-    # from "no lineage in source".
+    # Count of *lineage references* (not edges) dropped by
+    # schema_pattern / dataset_pattern. Increments once per filtered
+    # view-parent, once per filtered query upstream, once per query whose
+    # downstream is filtered (regardless of how many upstreams that
+    # implicitly drops), and once per URN the SqlParsingAggregator
+    # rediscovers during SQL parsing. A single dropped edge can therefore
+    # contribute multiple increments (e.g. when both sides of an edge are
+    # filtered); use it as a "is the filter biting?" signal, not an exact
+    # edge count.
     lineage_dropped_filtered: int = 0
 
     api_calls_total: int = 0
