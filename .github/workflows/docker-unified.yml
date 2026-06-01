@@ -1367,7 +1367,7 @@ jobs:
         if: always()
         continue-on-error: true
         with:
-          role-to-assume: ${{ github.repository == 'datahub-project/datahub' && 'arn:aws:iam::863541928889:role/github-actions-playwright-reports-oss' || 'arn:aws:iam::863541928889:role/github-actions-playwright-reports-fork' }}
+          role-to-assume: ${{ github.repository == 'datahub-project/datahub' && secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN || secrets.PLAYWRIGHT_REPORTS_FORK_ROLE_ARN }}
           aws-region: us-west-2
 
       - name: Publish Playwright report to S3
