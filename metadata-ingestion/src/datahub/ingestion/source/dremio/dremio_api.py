@@ -806,12 +806,10 @@ class DremioAPIOperations:
                 "(Dremio Software 26.1.0+); using array-aware jobs query."
             )
         except Exception as exc:
-            # Catch broadly: execute_query_iter can raise DremioAPIException
-            # (SQL-level type-mismatch on legacy VARCHAR), RuntimeError (job
-            # FAILED/CANCELED), or network/transport errors. The probe's only
-            # job is "any failure -> assume legacy"; the real jobs query will
-            # raise a meaningful error later if the underlying problem isn't
-            # the schema version.
+            # Probe contract: any failure -> assume legacy. Catch broadly
+            # because execute_query_iter raises DremioAPIException, RuntimeError
+            # (job FAILED/CANCELED), or transport errors. Real problems still
+            # surface later from the actual jobs query.
             self._queried_datasets_is_array = False
             logger.info(
                 f"queried_datasets probe failed; assuming legacy VARCHAR column "
