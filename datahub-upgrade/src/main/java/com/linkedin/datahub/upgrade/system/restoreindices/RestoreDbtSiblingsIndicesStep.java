@@ -4,7 +4,6 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
@@ -75,36 +74,26 @@ public class RestoreDbtSiblingsIndicesStep implements UpgradeStep {
   }
 
   @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
   public boolean skip(final UpgradeContext context) {
     if (!_enabled) {
       log.info("RestoreDbtSiblingsIndices is disabled. Skipping.");
       return true;
     }
-    try {
-      EntityResponse response =
-          _entityService.getEntityV2(
-              context.opContext(),
-              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-              SIBLING_UPGRADE_URN,
-              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
-      if (response != null
-          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
-        DataMap dataMap =
-            response
-                .getAspects()
-                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
-                .getValue()
-                .data();
-        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
-        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
-          log.info("RestoreDbtSiblingsIndices has run before with this version. Skipping");
-          return true;
-        }
-      }
-    } catch (Exception e) {
-      log.warn("Error checking RestoreDbtSiblingsIndices skip condition", e);
+    boolean previouslyRun =
+        _entityService.exists(
+            context.opContext(),
+            SIBLING_UPGRADE_URN,
+            Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME,
+            true);
+    if (previouslyRun) {
+      log.info("RestoreDbtSiblingsIndices has run before. Skipping.");
     }
-    return false;
+    return previouslyRun;
   }
 
   @Override

@@ -26,7 +26,6 @@ import org.springframework.context.ConfigurableApplicationContext;
  *   <li><strong>RestoreIndices</strong> - Restores search indices from backup or rebuilds them from
  *       database
  *   <li><strong>RestoreBackup</strong> - Restores DataHub data from backup files
- *   <li><strong>RemoveUnknownAspects</strong> - Cleans up unknown or invalid aspect data
  *   <li><strong>SystemUpdate</strong> - Performs comprehensive system updates including blocking
  *       and non-blocking operations
  *   <li><strong>SystemUpdateBlocking</strong> - Executes blocking system updates that require

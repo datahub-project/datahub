@@ -1,8 +1,8 @@
 package com.linkedin.datahub.upgrade.system.restoreindices;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -18,10 +18,6 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
-import com.linkedin.entity.Aspect;
-import com.linkedin.entity.EntityResponse;
-import com.linkedin.entity.EnvelopedAspect;
-import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
@@ -31,10 +27,8 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Collections;
 import java.util.List;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -62,32 +56,28 @@ public class RestoreDbtSiblingsIndicesStepTest {
   }
 
   @Test
+  public void testIsOptional() {
+    RestoreDbtSiblingsIndicesStep step =
+        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
+    assertTrue(step.isOptional());
+  }
+
+  @Test
   public void testSkipsWhenDisabled() {
     RestoreDbtSiblingsIndicesStep step =
         new RestoreDbtSiblingsIndicesStep(mockEntityService, false, 0);
     assertTrue(step.skip(mockUpgradeContext));
-    verify(mockEntityService, never()).getEntityV2(any(), anyString(), any(Urn.class), anySet());
+    verify(mockEntityService, never()).exists(any(), any(Urn.class), anyString(), anyBoolean());
   }
 
   @Test
-  public void testSkipsWhenAlreadyRun() throws Exception {
-    // Build a real DataHubUpgradeRequest with version "0" and wrap it in a real EntityResponse.
-    // This exercises the step's deserialization and version-check logic with actual data.
-    DataHubUpgradeRequest upgradeRequest = new DataHubUpgradeRequest().setVersion("0");
-    Aspect mockAspectValue = mock(Aspect.class);
-    when(mockAspectValue.data()).thenReturn(upgradeRequest.data());
-    EnvelopedAspect envelopedAspect = mock(EnvelopedAspect.class);
-    when(envelopedAspect.getValue()).thenReturn(mockAspectValue);
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, envelopedAspect);
-    EntityResponse response = new EntityResponse().setAspects(aspectMap);
-
-    when(mockEntityService.getEntityV2(
+  public void testSkipsWhenAlreadyRun() {
+    when(mockEntityService.exists(
             eq(mockOpContext),
-            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
             eq(SIBLING_UPGRADE_URN),
-            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
-        .thenReturn(response);
+            eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME),
+            eq(true)))
+        .thenReturn(true);
 
     RestoreDbtSiblingsIndicesStep step =
         new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
@@ -95,50 +85,14 @@ public class RestoreDbtSiblingsIndicesStepTest {
   }
 
   @Test
-  public void testDoesNotSkipWhenResponseHasDifferentVersion() throws Exception {
-    // Version "1" means a prior run used a different version — must re-run for version "0".
-    DataHubUpgradeRequest upgradeRequest = new DataHubUpgradeRequest().setVersion("1");
-    Aspect mockAspectValue = mock(Aspect.class);
-    when(mockAspectValue.data()).thenReturn(upgradeRequest.data());
-    EnvelopedAspect envelopedAspect = mock(EnvelopedAspect.class);
-    when(envelopedAspect.getValue()).thenReturn(mockAspectValue);
-    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
-    aspectMap.put(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, envelopedAspect);
-    EntityResponse response = new EntityResponse().setAspects(aspectMap);
-
-    when(mockEntityService.getEntityV2(
+  public void testDoesNotSkipWhenNotPreviouslyRun() {
+    when(mockEntityService.exists(
             eq(mockOpContext),
-            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
             eq(SIBLING_UPGRADE_URN),
-            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
-        .thenReturn(response);
+            eq(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME),
+            eq(true)))
+        .thenReturn(false);
 
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
-    assertFalse(step.skip(mockUpgradeContext));
-  }
-
-  @Test
-  public void testDoesNotSkipWhenEntityResponseNull() throws Exception {
-    when(mockEntityService.getEntityV2(
-            eq(mockOpContext),
-            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
-            eq(SIBLING_UPGRADE_URN),
-            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
-        .thenReturn(null);
-    RestoreDbtSiblingsIndicesStep step =
-        new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
-    assertFalse(step.skip(mockUpgradeContext));
-  }
-
-  @Test
-  public void testDoesNotSkipWhenExceptionInSkipCheck() throws Exception {
-    when(mockEntityService.getEntityV2(
-            eq(mockOpContext),
-            eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME),
-            eq(SIBLING_UPGRADE_URN),
-            eq(Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME))))
-        .thenThrow(new RuntimeException("connection error"));
     RestoreDbtSiblingsIndicesStep step =
         new RestoreDbtSiblingsIndicesStep(mockEntityService, true, 0);
     assertFalse(step.skip(mockUpgradeContext));
@@ -164,7 +118,6 @@ public class RestoreDbtSiblingsIndicesStepTest {
 
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
 
-    // Verify request and result upgrade aspects are written to the correct URN in order
     ArgumentCaptor<MetadataChangeProposal> proposalCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
     verify(mockEntityService, times(2))
