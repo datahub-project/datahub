@@ -135,18 +135,10 @@ class DremioSourceConfig(
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
-    # Note: ``StatefulLineageConfigMixin`` / ``StatefulProfilingConfigMixin``
-    # are intentionally NOT inherited. They expose
-    # ``enable_stateful_lineage_ingestion`` and ``enable_stateful_profiling``
-    # — both consumed by Snowflake/BigQuery/Redshift/Dataplex/Snaplogic but
-    # never read by the Dremio source. Their default-True post validators
-    # would emit a warning on every Dremio run that doesn't explicitly
-    # enable ``stateful_ingestion`` (i.e. the common case) for fields that
-    # don't gate anything. Dremio uses ``enable_stateful_time_window`` +
-    # ``RedundantQueriesRunSkipHandler`` for lineage/usage skipping and
-    # ``profile_if_updated_since_days`` + ``RedundantProfilingRunSkipHandler``
-    # for profile-skip; both are wired through ``stateful_ingestion``
-    # directly without needing the mixin fields.
+    # StatefulLineageConfigMixin / StatefulProfilingConfigMixin are
+    # intentionally not inherited — their fields are unused on Dremio
+    # (we use enable_stateful_time_window and profile_if_updated_since_days)
+    # and their validators would emit warnings for dead config.
 
     domain: Optional[str] = Field(
         default=None,
@@ -227,10 +219,9 @@ class DremioSourceConfig(
     def _warn_if_stateful_time_window_without_stateful_ingestion(
         self,
     ) -> "DremioSourceConfig":
-        # The run-skip handler is only installed when stateful_ingestion is
-        # enabled. Surface a warning when the user has asked for time-window
-        # skipping but left stateful_ingestion off — otherwise the flag
-        # would no-op invisibly and they'd see no run-to-run skipping.
+        # Warn when the user opts into time-window skipping but hasn't
+        # enabled stateful_ingestion (the run-skip handler is only
+        # installed in that case, so the flag would otherwise no-op).
         if self.enable_stateful_time_window and (
             self.stateful_ingestion is None or not self.stateful_ingestion.enabled
         ):

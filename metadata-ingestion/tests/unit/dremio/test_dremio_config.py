@@ -123,14 +123,8 @@ class TestStatefulTimeWindowValidator:
     def test_no_stateful_lineage_or_profiling_mixin_warnings_on_default_run(
         self, caplog
     ):
-        # Regression: DremioSourceConfig used to inherit
-        # StatefulLineageConfigMixin + StatefulProfilingConfigMixin from the
-        # state base, whose post validators emit a warning when
-        # stateful_ingestion isn't enabled (the common Dremio default).
-        # Neither enable_stateful_lineage_ingestion nor
-        # enable_stateful_profiling is read anywhere in the Dremio source
-        # — the mixins were dead, so the warnings were pure noise. Pin
-        # that the default-config Dremio run produces no such warnings.
+        # Regression: dead StatefulLineageConfigMixin / StatefulProfilingConfigMixin
+        # inheritance used to noise every default Dremio run with two warnings.
         caplog.set_level(logging.WARNING)
         DremioSourceConfig(**self._base_kwargs())
         offending = [
@@ -139,17 +133,12 @@ class TestStatefulTimeWindowValidator:
             if "enable_stateful_lineage_ingestion" in rec.getMessage()
             or "enable_stateful_profiling" in rec.getMessage()
         ]
-        assert offending == [], (
-            "Default Dremio config should not surface stateful-lineage / "
-            "stateful-profiling mixin warnings; they relate to fields the "
-            f"Dremio source never reads. Got: {offending}"
-        )
+        assert offending == [], offending
 
 
 class TestIncrementalLineageWiring:
-    """Behavioural pins for ``incremental_lineage`` — verifies the flag
-    actually re-routes upstream-lineage workunits through the framework's
-    PATCH converter rather than just sitting in the config."""
+    """``incremental_lineage`` actually flips workunit emission between
+    full-overwrite (UPSERT) and PATCH — not just a config bool."""
 
     def _base_kwargs(self) -> dict:
         return {
@@ -193,10 +182,9 @@ class TestIncrementalLineageWiring:
     def _run_through_dremio_pipeline(
         self, source: DremioSource, workunit: "MetadataWorkUnit"
     ) -> list:
-        # Drop the framework's stale-entity-removal handler — it requires
-        # a real graph + stateful_ingestion + checkpointing wiring that
-        # this unit test doesn't set up. Compose only the lineage /
-        # property handlers we're actually asserting on.
+        # Skip the stale-entity-removal handler (needs graph +
+        # checkpointing wiring this test doesn't set up); just compose
+        # the lineage / property handlers we're asserting on.
         from functools import partial
 
         from datahub.ingestion.api.incremental_lineage_helper import (
@@ -216,11 +204,8 @@ class TestIncrementalLineageWiring:
         return list(stream)
 
     def test_default_emits_upsert_full_overwrite(self, mock_ctx, patch_session):
-        # With incremental_lineage=False (default) the workunit passes
-        # through unchanged: an MCPW UpstreamLineageClass with the
-        # framework's UPSERT change type.
         config = DremioSourceConfig(**self._base_kwargs())
-        assert config.incremental_lineage is False  # sanity-pin the default
+        assert config.incremental_lineage is False
 
         source = DremioSource(config, mock_ctx)
         downstream = make_dataset_urn("dremio", "space.schema.t1")
@@ -236,10 +221,8 @@ class TestIncrementalLineageWiring:
         assert mcp.changeType == ChangeTypeClass.UPSERT
 
     def test_flag_enabled_converts_to_patch(self, mock_ctx, patch_session):
-        # With incremental_lineage=True the framework converts the
-        # workunit into a PATCH-mode aspect MCP. We don't re-test the
-        # framework's patch shape (that's covered by
-        # tests/unit/api/source_helpers/test_incremental_lineage_helper);
+        # auto_incremental_lineage shape is covered by
+        # tests/unit/api/source_helpers/test_incremental_lineage_helper;
         # we just pin that Dremio's wiring routes through it.
         config = DremioSourceConfig(**self._base_kwargs(), incremental_lineage=True)
         source = DremioSource(config, mock_ctx)
