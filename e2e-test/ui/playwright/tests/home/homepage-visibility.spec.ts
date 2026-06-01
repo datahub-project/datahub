@@ -10,6 +10,7 @@ test.describe('Homepage Basic Visibility', () => {
     await homePage.waitForPageLoad();
   });
 
+  // Verify core homepage elements are rendered after navigation
   test('page title is visible on homepage', async () => {
     const isVisible = await homePage.isPageTitleVisible();
     expect(isVisible).toBe(true);
