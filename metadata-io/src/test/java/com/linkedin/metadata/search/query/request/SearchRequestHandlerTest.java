@@ -1582,6 +1582,44 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertEquals(result.getNumEntities().intValue(), 2);
   }
 
+  @Test
+  public void testExtractResultHandlesNullHighlightsAndMatchedQueries() {
+    // A valid hit with no highlights and no named-query match (the search engine returns null for
+    // both) must still be returned — not crash the search now that getResultSafely only catches
+    // InvalidSearchHitException.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            ImmutableMap.of(
+                "urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)"));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(null);
+    when(hit.getMatchedQueries()).thenReturn(null);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 1);
+    assertEquals(
+        result.getEntities().get(0).getEntity().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)");
+  }
+
   private SearchHit mockHitWithUrn(String urn) {
     SearchHit hit = mock(SearchHit.class);
     when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", urn));

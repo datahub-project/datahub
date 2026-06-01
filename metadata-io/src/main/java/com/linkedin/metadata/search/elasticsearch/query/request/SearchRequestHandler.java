@@ -511,7 +511,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
 
   @Nonnull
   private List<MatchedField> extractMatchedFields(@Nonnull SearchHit hit) {
+    // getHighlightFields() and getMatchedQueries() can be null for a valid hit (no highlight / no
+    // named-query match). Default them to empty: now that getResultSafely only catches
+    // InvalidSearchHitException, an unguarded NPE here would fail the whole search instead of
+    // skipping a single bad hit.
     Map<String, HighlightField> highlightedFields = hit.getHighlightFields();
+    if (highlightedFields == null) {
+      highlightedFields = Map.of();
+    }
     // Keep track of unique field values that matched for a given field name
     Map<String, Set<String>> highlightedFieldNamesAndValues = new HashMap<>();
     for (Map.Entry<String, HighlightField> entry : highlightedFields.entrySet()) {
@@ -528,7 +535,9 @@ public class SearchRequestHandler extends BaseRequestHandler {
       }
     }
     // fallback matched query, non-analyzed field
-    for (String queryName : hit.getMatchedQueries()) {
+    String[] matchedQueries =
+        hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
+    for (String queryName : matchedQueries) {
       if (!highlightedFieldNamesAndValues.containsKey(queryName)) {
         if (hit.getFields().containsKey(queryName)) {
           for (Object fieldValue : hit.getFields().get(queryName).getValues()) {
