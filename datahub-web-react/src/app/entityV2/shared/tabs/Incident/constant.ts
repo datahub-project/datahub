@@ -237,7 +237,7 @@ export const INCIDENT_OPTION_LABEL_MAPPING = {
         fieldName: 'status',
     },
     state: {
-        key: 'state',
+        key: 'status',
         get label() {
             return i18next.t('common.labels:status');
         },
