@@ -55,7 +55,7 @@
         "displayName": "Snowflake",
         "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Snowflake.",
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/snowflake/overview",
-        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        authentication_type: KEY_PAIR_AUTHENTICATOR\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Data Warehouse",
         "isPopular": true
     },
@@ -98,6 +98,15 @@
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:thoughtspot",
+        "name": "thoughtspot",
+        "displayName": "ThoughtSpot",
+        "description": "Import Liveboards, Answers, Visualizations, Worksheets, Tags, and column-level lineage from ThoughtSpot.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/thoughtspot/",
+        "recipe": "source:\n    type: thoughtspot\n    config:\n        connection:\n            base_url: \"https://your-cluster.thoughtspot.cloud\"\n            # Trusted authentication (recommended for production).\n            # Add credentials in the Secrets tab and reference them by name.\n            auth:\n                type: trusted\n                username: \"${THOUGHTSPOT_USERNAME}\"\n                secret_key: \"${THOUGHTSPOT_SECRET_KEY}\"\n            # (Optional) Scope to a specific org in multi-org tenants.\n            # org_identifier: \"production\"\n        include_ownership: true\n        # Per-entity view counts via metadata_search include_stats (same counter\n        # as the TS UI \"Views\" column).\n        include_usage_stats: false\n        stateful_ingestion:\n            enabled: true\n            remove_stale_metadata: true",
+        "category": "BI & Analytics"
     },
     {
         "urn": "urn:li:dataPlatform:powerbi",
@@ -150,6 +159,26 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:timescaledb",
+        "name": "timescaledb",
+        "displayName": "TimescaleDB",
+        "description": "Import Tables, Views, Hypertables, Continuous Aggregates, and Background Jobs from TimescaleDB.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/timescaledb/",
+        "recipe": "source: \n    type: timescaledb\n    config:\n        # Coordinates\n        host_port: # Your TimescaleDB host and port, e.g. timescaledb:5432\n        database: # Your TimescaleDB Database, e.g. tsdb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your TimescaleDB username, e.g. datahub_user\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # (Optional) Emit TimescaleDB background jobs as DataJob entities\n        # include_background_jobs: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:airbyte",
+        "name": "airbyte",
+        "displayName": "Airbyte",
+        "description": "Import Connections, Sources, Destinations, and lineage from Airbyte (OSS and Cloud).",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/airbyte",
+        "recipe": "source:\n  type: airbyte\n  config:\n    deployment_type: oss\n    host_port: http://localhost:8000\n    username: airbyte\n    password: password\n\n    extract_column_level_lineage: true\n    include_statuses: true\n    incremental_lineage: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:kafka",
         "name": "kafka",
         "displayName": "Kafka",
@@ -158,6 +187,16 @@
         "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false",
         "category": "ETL / ELT",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:matillion",
+        "name": "matillion-dpc",
+        "displayName": "Matillion",
+        "description": "Import Pipelines, Streaming Pipelines, Projects, Environments, and lineage from Matillion Data Productivity Cloud.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/matillion-dpc",
+        "recipe": "source:\n  type: matillion-dpc\n  config:\n    api_config:\n      client_id: \"${MATILLION_CLIENT_ID}\"\n      client_secret: \"${MATILLION_CLIENT_SECRET}\"\n      region: \"EU1\"  # EU1 or US1\n\n    env: \"PROD\"\n    extract_projects_to_containers: true\n    parse_sql_for_lineage: true\n    stateful_ingestion:\n      enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:flink",

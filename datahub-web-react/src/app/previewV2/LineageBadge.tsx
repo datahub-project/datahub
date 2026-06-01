@@ -14,11 +14,12 @@ import LineageStatusIcon from '@images/lineage-status.svg?react';
 
 const Icon = styled(LineageStatusIcon)<{ highlighted?: boolean }>`
     display: flex;
-    color: ${({ highlighted, theme }) => (highlighted ? theme.colors.textBrand : theme.colors.iconDisabled)};
+    color: ${({ highlighted, theme }) => (highlighted ? theme.colors.iconBrand : theme.colors.iconDisabled)};
     font-size: 16px;
 
     :hover {
-        ${({ highlighted, theme }) => highlighted && `color: ${theme.colors.hyperlinks};`}
+        ${({ highlighted, theme }) => highlighted && `color: ${theme.colors.iconSelected};`}
+    }
 `;
 
 const PopoverContent = styled.div`

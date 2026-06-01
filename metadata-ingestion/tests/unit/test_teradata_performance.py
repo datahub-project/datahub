@@ -5,8 +5,11 @@ These tests focus on performance optimizations, memory management,
 and efficiency improvements in the Teradata source.
 """
 
+from collections import defaultdict
 from datetime import datetime
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.teradata import (
@@ -17,6 +20,14 @@ from datahub.ingestion.source.sql.teradata import (
     get_schema_foreign_keys,
     get_schema_pk_constraints,
 )
+
+
+@pytest.fixture(autouse=True)
+def isolate_teradata_caches(monkeypatch):
+    """Reset TeradataSource class-level caches before each test to prevent
+    cross-test state leakage."""
+    monkeypatch.setattr(TeradataSource, "_tables_cache", defaultdict(list))
+    monkeypatch.setattr(TeradataSource, "_table_creator_cache", {})
 
 
 def _base_config():
@@ -246,9 +257,7 @@ class TestMemoryOptimizations:
 
                 mock_connection = MagicMock()
                 mock_engine = MagicMock()
-                mock_engine.connect.return_value.__enter__.return_value = (
-                    mock_connection
-                )
+                mock_engine.connect.return_value = mock_connection
 
                 with (
                     patch.object(
@@ -407,8 +416,12 @@ class TestPerformanceReporting:
             ]
 
             with patch.object(source, "get_metadata_engine") as mock_get_engine:
+                mock_conn = MagicMock()
+                mock_result = MagicMock()
+                mock_result.fetchmany.side_effect = [mock_entries, []]
+                mock_conn.execute.return_value = mock_result
                 mock_engine = MagicMock()
-                mock_engine.execute.return_value = mock_entries
+                mock_engine.connect.return_value = mock_conn
                 mock_get_engine.return_value = mock_engine
 
                 source.cache_tables_and_views()
@@ -458,10 +471,11 @@ class TestThreadSafetyOptimizations:
             ):
                 source = TeradataSource(config, PipelineContext(run_id="test"))
 
-            # Verify report lock exists
-            assert hasattr(source, "_report_lock")
-            # Check that it's a lock object by checking its type name
-            assert source._report_lock.__class__.__name__ == "lock"
+            # Verify the public atomic() context manager is available and
+            # backed by a real lock (not a MagicMock).
+            assert hasattr(source.report, "atomic")
+            assert hasattr(source.report, "_lock")
+            assert source.report._lock.__class__.__name__ == "lock"
 
     def test_pooled_engine_lock_usage(self):
         """Test that pooled engine creation uses locks."""
@@ -557,7 +571,14 @@ class TestQueryOptimizations:
 
         query = source._build_tables_and_views_query()
 
-        assert "AND DataBaseName IN ('DB_A','DB_B','DB_C')" in query
+        # (NOT CASESPECIFIC) on both sides keeps the IN-list matching even on
+        # installations whose session default is CASESPECIFIC.
+        assert (
+            "AND DataBaseName (NOT CASESPECIFIC) IN ("
+            "'DB_A' (NOT CASESPECIFIC),"
+            "'DB_B' (NOT CASESPECIFIC),"
+            "'DB_C' (NOT CASESPECIFIC))"
+        ) in query
         # System database exclusion still present
         assert "NOT IN" in query
 

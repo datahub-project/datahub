@@ -534,11 +534,20 @@ class LookMLSource(StatefulIngestionSourceBase):
                 assert self.source_config.git_info
                 # we don't have a base_folder, so we need to clone the repo and process it locally
                 start_time = datetime.now()
-                checkout_dir = self.source_config.git_info.clone(
-                    tmp_path=tmp_dir,
-                )
-                self.reporter.git_clone_latency = datetime.now() - start_time
-                self.source_config.base_folder = checkout_dir.resolve()
+                try:
+                    checkout_dir = self.source_config.git_info.clone(
+                        tmp_path=tmp_dir,
+                    )
+                    self.reporter.git_clone_latency = datetime.now() - start_time
+                    self.source_config.base_folder = checkout_dir.resolve()
+                except Exception as e:
+                    self.reporter.failure(
+                        title="Failed to clone LookML repository",
+                        message="Unable to clone the git repository.",
+                        context=self.source_config.git_info.repo,
+                        exc=e,
+                    )
+                    return
 
             self.base_projects_folder[BASE_PROJECT_NAME] = (
                 self.source_config.base_folder

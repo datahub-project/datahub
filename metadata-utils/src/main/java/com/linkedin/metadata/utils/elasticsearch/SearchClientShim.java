@@ -76,7 +76,7 @@ import org.opensearch.index.reindex.UpdateByQueryRequest;
  * allows DataHub to support ES 7.17 (with API compatibility), ES 8.x, ES 9.x and OpenSearch 2.x.,
  * through a common interface.
  */
-public interface SearchClientShim<T> extends Closeable {
+public interface SearchClientShim<T> extends Closeable, IndexSettingsComparison {
 
   /** Enum representing the different search engine types supported by the shim */
   enum SearchEngineType {
@@ -291,6 +291,16 @@ public interface SearchClientShim<T> extends Closeable {
   // Metadata and introspection
   @Nonnull
   SearchEngineType getEngineType();
+
+  /**
+   * Returns the base config for the {@code search_as_you_type} partial-ngram subfield.
+   *
+   * <p>ES7 and OpenSearch 2.x persist {@code doc_values: false} on round-trip, while ES8+ silently
+   * strips it. Each shim implementation supplies the variant that matches its engine, keeping
+   * engine-version knowledge inside the shim layer.
+   */
+  @Nonnull
+  Map<String, String> partialNgramConfig();
 
   @Nonnull
   String getEngineVersion() throws IOException;

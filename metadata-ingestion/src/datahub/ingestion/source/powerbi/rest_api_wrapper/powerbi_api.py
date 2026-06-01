@@ -22,10 +22,13 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Measure,
     PowerBIDataset,
     Report,
+    ReportType,
     Table,
     User,
     Workspace,
+    new_powerbi_dashboards,
     new_powerbi_dataset,
+    new_powerbi_reports,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_resolver import (
     AdminAPIResolver,
@@ -202,42 +205,182 @@ class PowerBiAPI:
     def get_report_users(self, workspace_id: str, report_id: str) -> List[User]:
         return self._get_entity_users(workspace_id, Constant.REPORTS, report_id)
 
+    def _resolve_paginated_report_lineage(
+        self, report: Report, workspace: Workspace
+    ) -> None:
+        """Resolve lineage for an RDL paginated report.
+
+        Paginated reports don't carry a datasetId in the scan response, so we
+        fall back to /reports/{id}/datasources to discover either an embedded
+        external datasource or a binding to a shared Power BI dataset.
+        """
+        context = (
+            f"workspace={workspace.name}, "
+            f"report_name={report.name}, report_id={report.id}"
+        )
+        if self.__config.admin_apis_only:
+            # /reports/{id}/datasources has no admin-API variant, so paginated
+            # report lineage cannot be fetched in this mode.
+            self.reporter.info(
+                title="Paginated Report Lineage Unavailable",
+                message=(
+                    "Paginated report lineage requires the regular "
+                    "/reports/{id}/datasources API, which is unavailable in "
+                    "admin_apis_only mode. Disable admin_apis_only or grant "
+                    "Report.Read.All to the service principal to enable it."
+                ),
+                context=context,
+            )
+            return
+        try:
+            report.datasources = self._get_resolver().get_report_datasources(
+                workspace=workspace, report_id=report.id
+            )
+        except Exception:
+            self.log_http_error(
+                message=(
+                    f"Unable to fetch datasources for paginated report "
+                    f"{report.name}({report.id}) in workspace {workspace.name}"
+                )
+            )
+            self.reporter.warning(
+                title="Paginated Report Datasources Fetch Failed",
+                message=(
+                    "Unable to fetch /datasources for a paginated report; "
+                    "upstream lineage will be empty. See connector logs for "
+                    "the HTTP error."
+                ),
+                context=context,
+            )
+            return
+
+        bound_dataset_id = next(
+            (
+                ds.powerbi_dataset_id
+                for ds in report.datasources
+                if ds.powerbi_dataset_id is not None
+            ),
+            None,
+        )
+        if bound_dataset_id is not None:
+            # RDL report bound to a shared semantic model: reuse the same
+            # dataset->report lineage as a regular report.
+            report.dataset_id = bound_dataset_id
+            report.dataset = self.dataset_registry.get(bound_dataset_id)
+            if report.dataset is None:
+                self.reporter.info(
+                    title="Missing Lineage For Paginated Report",
+                    message=(
+                        "Paginated report is bound to a Power BI dataset that "
+                        "was not found in any scanned workspace (likely a "
+                        "cross-workspace reference filtered by "
+                        "workspace_id_pattern); lineage will be missing."
+                    ),
+                    context=f"{context}, dataset_id={bound_dataset_id}",
+                )
+        elif not report.datasources:
+            # Succeeded with no rows: the report genuinely has no datasources
+            # (admin_apis_only is handled earlier).
+            self.reporter.info(
+                title="Missing Lineage For Paginated Report",
+                message=(
+                    "Paginated report has no shared dataset and the "
+                    "/datasources endpoint returned no rows; upstream lineage "
+                    "will be empty."
+                ),
+                context=context,
+            )
+
     def get_reports(self, workspace: Workspace) -> Dict[str, Report]:
         """
         Fetch the report from PowerBi for the given Workspace
         """
         reports: Dict[str, Report] = {}
-        try:
-            reports = {
-                report.id: report
-                for report in self._get_resolver().get_reports(workspace)
-            }
-            # Fill Report dataset
-            for report in reports.values():
-                if report.dataset_id:
-                    report.dataset = self.dataset_registry.get(report.dataset_id)
-                    if report.dataset is None:
-                        self.reporter.info(
-                            title="Missing Lineage For Report",
-                            message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
-                            context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
-                        )
-        except Exception:
-            self.log_http_error(
-                message=f"Unable to fetch reports for workspace {workspace.name}"
+        if workspace.scan_result:
+            # Pre-filter None and App duplicates so the count-diff below reflects only
+            # malformed entries (missing id/name/reportType), not duplicates.
+            # new_powerbi_reports applies the same filters internally for safety when called
+            # from non-scan paths (data_resolver.get_reports) that don't pre-filter.
+            raw_reports = [
+                r
+                for r in workspace.scan_result.get(Constant.REPORTS, [])
+                if r is not None and Constant.APP_ID not in r
+            ]
+            reports_list = new_powerbi_reports(workspace, raw_reports)
+            if len(reports_list) < len(raw_reports):
+                self.reporter.warning(
+                    title="Skipped Reports",
+                    message=f"Skipped {len(raw_reports) - len(reports_list)} report(s) with missing required fields (id, name, or reportType). Check logs for details.",
+                    context=f"workspace={workspace.name}",
+                )
+            reports = {r.id: r for r in reports_list}
+            # Warn when ownership is requested but scan result has no user data for any report.
+            # Covers both missing key (None) and present-but-empty list ([]).
+            if (
+                self.__config.extract_ownership
+                and reports_list
+                and not any(r.users for r in reports_list)
+                and not any(raw.get(Constant.USERS) for raw in raw_reports)
+            ):
+                self.reporter.info(
+                    title="Report Users Not in Scan Result",
+                    message=(
+                        "No user data found in scan result for any report. "
+                        "If ownership is expected, ensure the scan job is configured "
+                        "with getArtifactUsers=True."
+                    ),
+                    context=f"workspace={workspace.name}",
+                )
+        else:
+            self.reporter.info(
+                title="Report Scan Fallback Active",
+                message="Workspace scan returned no data; falling back to per-workspace reports endpoint.",
+                context=f"workspace={workspace.name}",
             )
-
-        def fill_ownership() -> None:
-            if self.__config.extract_ownership is False:
-                logger.info(
-                    "Skipping user retrieval for report as extract_ownership is set to false"
+            try:
+                reports = {
+                    report.id: report
+                    for report in self._get_resolver().get_reports(workspace)
+                }
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch reports for workspace {workspace.name}"
                 )
-                return
-
+                self.reporter.warning(
+                    title="Reports Fetch Failed",
+                    message="Unable to fetch reports for workspace; reports will be empty.",
+                    context=f"workspace={workspace.name}",
+                )
             for report in reports.values():
-                report.users = self.get_report_users(
-                    workspace_id=workspace.id, report_id=report.id
+                # _get_entity_users (called by get_report_users) already handles and swallows
+                # HTTP/network exceptions internally, so no outer try/except is needed here.
+                report.users = self.get_report_users(workspace.id, report.id)
+
+        for report in reports.values():
+            try:
+                report.pages = self._get_resolver().get_pages_by_report(
+                    workspace=workspace, report_id=report.id
                 )
+            except Exception:
+                self.log_http_error(
+                    message=f"Unable to fetch pages for report {report.name}({report.id}) in workspace {workspace.name}"
+                )
+                self.reporter.warning(
+                    title="Report Pages Not Fetched",
+                    message="Report pages could not be fetched; the report will appear in DataHub without chart children.",
+                    context=f"workspace={workspace.name}, report_name={report.name}, report_id={report.id}",
+                )
+                report.pages = []
+            if report.dataset_id:
+                report.dataset = self.dataset_registry.get(report.dataset_id)
+                if report.dataset is None:
+                    self.reporter.info(
+                        title="Missing Lineage For Report",
+                        message="A cross-workspace reference that failed to be resolved. Please ensure that no global workspace is being filtered out due to the workspace_id_pattern.",
+                        context=f"report-name: {report.name} and dataset-id: {report.dataset_id}",
+                    )
+            elif report.type is ReportType.PaginatedReport:
+                self._resolve_paginated_report_lineage(report, workspace)
 
         def fill_tags() -> None:
             if self.__config.extract_endorsements_to_tags is False:
@@ -249,7 +392,6 @@ class PowerBiAPI:
             for report in reports.values():
                 report.tags = workspace.report_endorsements.get(report.id, [])
 
-        fill_ownership()
         fill_tags()
         return reports
 
@@ -762,15 +904,72 @@ class PowerBiAPI:
 
     def fill_regular_metadata_detail(self, workspace: Workspace) -> None:
         def fill_dashboards() -> None:
-            workspace.dashboards = {
-                dashboard.id: dashboard
-                for dashboard in self._get_resolver().get_dashboards(workspace)
-            }
+            if workspace.scan_result:
+                # Pre-filter None and App duplicates here so the count-diff below
+                # reflects only malformed entries (missing id/displayName), not duplicates.
+                # new_powerbi_dashboards applies the same filters internally for safety
+                # when called from non-scan paths that don't pre-filter.
+                raw_dashboards = [
+                    r
+                    for r in workspace.scan_result.get(Constant.DASHBOARDS, [])
+                    if r is not None and Constant.APP_ID not in r
+                ]
+                dashboards_list = new_powerbi_dashboards(workspace, raw_dashboards)
+                if len(dashboards_list) < len(raw_dashboards):
+                    self.__reporter.warning(
+                        title="Skipped Dashboards",
+                        message=f"Skipped {len(raw_dashboards) - len(dashboards_list)} dashboard(s) with missing required fields (id or displayName). Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                # Warn when ownership is requested but scan result has no user data for any
+                # dashboard. Checks for both missing key (None) and present-but-empty list ([]).
+                if (
+                    self.__config.extract_ownership
+                    and dashboards_list
+                    and not any(d.users for d in dashboards_list)
+                    and not any(r.get(Constant.USERS) for r in raw_dashboards)
+                ):
+                    self.__reporter.info(
+                        title="Dashboard Users Not in Scan Result",
+                        message=(
+                            "No user data found in scan result for any dashboard. "
+                            "If ownership is expected, ensure the scan job is configured "
+                            "with getArtifactUsers=True."
+                        ),
+                        context=f"workspace={workspace.name}",
+                    )
+                # Surface tile skips caused by missing id fields in the scan result.
+                total_raw_tiles = sum(
+                    len([t for t in r.get(Constant.TILES) or [] if t is not None])
+                    for r in raw_dashboards
+                    if r.get(Constant.ID) in {d.id for d in dashboards_list}
+                )
+                total_built_tiles = sum(len(d.tiles) for d in dashboards_list)
+                if total_built_tiles < total_raw_tiles:
+                    self.__reporter.warning(
+                        title="Skipped Tiles",
+                        message=f"Skipped {total_raw_tiles - total_built_tiles} tile(s) with missing id field in scan result. Check logs for details.",
+                        context=f"workspace={workspace.name}",
+                    )
+                workspace.dashboards = {d.id: d for d in dashboards_list}
+            else:
+                self.__reporter.info(
+                    title="Dashboard Scan Fallback Active",
+                    message="Workspace scan returned no data; falling back to per-dashboard get_dashboards/get_tiles/get_dashboard_users calls.",
+                    context=f"workspace={workspace.name}",
+                )
+                workspace.dashboards = {
+                    dashboard.id: dashboard
+                    for dashboard in self._get_resolver().get_dashboards(workspace)
+                }
+                for dashboard in workspace.dashboards.values():
+                    dashboard.tiles = self._get_resolver().get_tiles(
+                        workspace, dashboard=dashboard
+                    )
+                    dashboard.users = self.get_dashboard_users(dashboard)
+
             # set tiles of Dashboard
             for dashboard in workspace.dashboards.values():
-                dashboard.tiles = self._get_resolver().get_tiles(
-                    workspace, dashboard=dashboard
-                )
                 # set the dataset and the report for tiles
                 for tile in dashboard.tiles:
                     # In Power BI, dashboards, reports, and datasets are tightly scoped to the workspace they belong to.

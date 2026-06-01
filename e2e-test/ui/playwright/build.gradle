@@ -1,0 +1,36 @@
+apply plugin: 'com.github.node-gradle.node'
+
+node {
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    download = false
+  } else {
+    download = true
+  }
+
+  version = '22.12.0'
+  yarnVersion = '1.22.22'
+  distBaseUrl = gradle.ext['datahub.dependencies.node.distBaseUrl']
+
+  workDir = file("${project.projectDir}/.gradle/nodejs")
+  yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
+  nodeProjectDir = file("${project.projectDir}")
+}
+
+task yarnInstall(type: YarnTask) {
+  args = ['install', '--network-timeout', '300000']
+}
+
+task lintFix(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['run', 'lint:fix']
+}
+
+task prettierWrite(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['run', 'format']
+}
+
+clean {
+  delete 'node_modules'
+  delete 'playwright-report'
+  delete 'test-results'
+  delete '.gradle'
+}

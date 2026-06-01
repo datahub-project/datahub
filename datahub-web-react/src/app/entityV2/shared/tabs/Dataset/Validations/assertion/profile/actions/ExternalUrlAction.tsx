@@ -1,5 +1,6 @@
 import { LaunchOutlined } from '@mui/icons-material';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
     const platformName =
         assertion?.platform?.properties?.displayName || assertion?.platform?.name || 'external platform';
     const externalUrl =
@@ -48,11 +50,11 @@ export const ExternalUrlAction = ({ assertion, isExpandedView = false }: Props) 
     return (
         <ActionItem
             key="external-url"
-            tip={`View in ${platformName}.`}
+            tip={t('action.viewInPlatform', { platformName })}
             onClick={handleRedirect}
             icon={<StyledLaunchOutlined />}
             isExpandedView={isExpandedView}
-            actionName="View External platform"
+            actionName={t('action.viewExternalPlatform')}
         />
     );
 };

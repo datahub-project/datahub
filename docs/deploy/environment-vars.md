@@ -885,25 +885,26 @@ The following environment variables are used in the codebase but may not be expl
 
 ### Hooks Configuration
 
-| Environment Variable                             | Default       | Description                                          | Components        |
-| ------------------------------------------------ | ------------- | ---------------------------------------------------- | ----------------- |
-| `ENABLE_SIBLING_HOOK`                            | `true`        | Enable automatic sibling associations                | GMS, MAE Consumer |
-| `SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX`            | ``            | Siblings hook consumer group suffix                  | GMS, MAE Consumer |
-| `ENABLE_UPDATE_INDICES_HOOK`                     | `true`        | Enable update indices hook                           | GMS, MAE Consumer |
-| `UPDATE_INDICES_CONSUMER_GROUP_SUFFIX`           | ``            | Update indices consumer group suffix                 | GMS, MAE Consumer |
-| `ENABLE_INGESTION_SCHEDULER_HOOK`                | `true`        | Enable ingestion scheduling                          | GMS, MAE Consumer |
-| `INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX` | ``            | Ingestion scheduler hook consumer group suffix       | GMS, MAE Consumer |
-| `ENABLE_INCIDENTS_HOOK`                          | `true`        | Enable incidents hook                                | GMS, MAE Consumer |
-| `MAX_INCIDENT_HISTORY`                           | `100`         | Maximum incident history                             | GMS, MAE Consumer |
-| `INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX`           | ``            | Incidents hook consumer group suffix                 | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_HOOK`              | `true`        | Enable structured properties mappings                | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_WRITE`             | `true`        | Enable writing structured property values            | GMS, MAE Consumer |
-| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`     | `false`       | Enable structured property mappings in system update | GMS, MAE Consumer |
-| `ENABLE_ENTITY_CHANGE_EVENTS_HOOK`               | `true`        | Enable entity change events hook                     | GMS, MAE Consumer |
-| `ECE_CONSUMER_GROUP_SUFFIX`                      | ``            | Entity change events consumer group suffix           | GMS, MAE Consumer |
-| `ECE_ENTITY_EXCLUSIONS`                          | `schemaField` | Entities to exclude from ECE hook                    | GMS, MAE Consumer |
-| `FORMS_HOOK_ENABLED`                             | `true`        | Enable forms hook                                    | GMS, MAE Consumer |
-| `FORMS_HOOK_CONSUMER_GROUP_SUFFIX`               | ``            | Forms hook consumer group suffix                     | GMS, MAE Consumer |
+| Environment Variable                                              | Default       | Description                                                                                                                                                                                                               | Components        |
+| ----------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `ENABLE_SIBLING_HOOK`                                             | `true`        | Enable automatic sibling associations                                                                                                                                                                                     | GMS, MAE Consumer |
+| `SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX`                             | ``            | Siblings hook consumer group suffix                                                                                                                                                                                       | GMS, MAE Consumer |
+| `ENABLE_UPDATE_INDICES_HOOK`                                      | `true`        | Enable update indices hook                                                                                                                                                                                                | GMS, MAE Consumer |
+| `UPDATE_INDICES_CONSUMER_GROUP_SUFFIX`                            | ``            | Update indices consumer group suffix                                                                                                                                                                                      | GMS, MAE Consumer |
+| `ENABLE_INGESTION_SCHEDULER_HOOK`                                 | `true`        | Enable ingestion scheduling                                                                                                                                                                                               | GMS, MAE Consumer |
+| `INGESTION_SCHEDULER_HOOK_CONSUMER_GROUP_SUFFIX`                  | ``            | Ingestion scheduler hook consumer group suffix                                                                                                                                                                            | GMS, MAE Consumer |
+| `ENABLE_INCIDENTS_HOOK`                                           | `true`        | Enable incidents hook                                                                                                                                                                                                     | GMS, MAE Consumer |
+| `MAX_INCIDENT_HISTORY`                                            | `100`         | Maximum incident history                                                                                                                                                                                                  | GMS, MAE Consumer |
+| `INCIDENTS_HOOK_CONSUMER_GROUP_SUFFIX`                            | ``            | Incidents hook consumer group suffix                                                                                                                                                                                      | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_HOOK`                               | `true`        | Enable structured properties mappings                                                                                                                                                                                     | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_WRITE`                              | `true`        | Enable writing structured property values                                                                                                                                                                                 | GMS, MAE Consumer |
+| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`                      | `false`       | Enable structured property mappings in system update                                                                                                                                                                      | GMS, MAE Consumer |
+| `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING` | `true`        | On write, drop structured property assignments whose definition is missing; fail if none remain (see [Structured Properties tutorial](../api/tutorials/structured-properties.md#orphaned-assignments-and-write-behavior)) | GMS               |
+| `ENABLE_ENTITY_CHANGE_EVENTS_HOOK`                                | `true`        | Enable entity change events hook                                                                                                                                                                                          | GMS, MAE Consumer |
+| `ECE_CONSUMER_GROUP_SUFFIX`                                       | ``            | Entity change events consumer group suffix                                                                                                                                                                                | GMS, MAE Consumer |
+| `ECE_ENTITY_EXCLUSIONS`                                           | `schemaField` | Entities to exclude from ECE hook                                                                                                                                                                                         | GMS, MAE Consumer |
+| `FORMS_HOOK_ENABLED`                                              | `true`        | Enable forms hook                                                                                                                                                                                                         | GMS, MAE Consumer |
+| `FORMS_HOOK_CONSUMER_GROUP_SUFFIX`                                | ``            | Forms hook consumer group suffix                                                                                                                                                                                          | GMS, MAE Consumer |
 
 ### Search and API Configuration
 
@@ -1014,6 +1015,24 @@ The following environment variables are used in the codebase but may not be expl
 | `MCP_TIMESERIES_INITIAL_INTERVAL_MS`          | `100`      | Timeseries initial interval                    | GMS, MCE Consumer |
 | `MCP_TIMESERIES_MULTIPLIER`                   | `10`       | Timeseries multiplier                          | GMS, MCE Consumer |
 | `MCP_TIMESERIES_MAX_INTERVAL_MS`              | `30000`    | Timeseries max interval                        | GMS, MCE Consumer |
+
+### MCL Timeseries Write Throttle
+
+Controls how frequently timeseries aspect MCL events update the entity search index and/or
+timeseries index in Elasticsearch. When enabled, repeated writes for the same (URN, aspect) pair
+are dropped if they arrive within the configured refresh period. This reduces ES write pressure
+for high-rate timeseries producers (e.g. usage statistics, dataset profiles) at the cost of
+slightly stale search-index values. The in-memory cache TTL is automatically aligned with the
+refresh period.
+
+| Environment Variable                               | Default | Description                                                                                                    | Components        |
+| -------------------------------------------------- | ------- | -------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `MCL_TIMESERIES_THROTTLE_ENTITY_INDEX_ENABLED`     | `false` | Suppress entity search index updates from timeseries aspects                                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_TIMESERIES_INDEX_ENABLED` | `false` | Suppress timeseries index writes                                                                               | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_OBSERVE_ENABLED`          | `false` | Log-only mode: logs what would be throttled without suppressing writes (shadow mode)                           | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_SECONDS`          | `3600`  | Default minimum seconds between writes per (URN, aspect); also the cache TTL                                   | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_REFRESH_OVERRIDES`        | `{}`    | JSON per-entity, per-aspect refresh overrides, e.g. `{"dataset": {"operation": 300, "datasetProfile": 86400}}` | GMS, MAE Consumer |
+| `MCL_TIMESERIES_THROTTLE_MAX_URNS`                 | `10000` | Maximum URNs tracked in the throttle cache before eviction                                                     | GMS, MAE Consumer |
 
 ### Events API Configuration
 

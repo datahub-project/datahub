@@ -39,10 +39,40 @@ PLUGIN_ADDITIONAL_EXTRAS: Dict[str, List[str]] = {
     "file": ["s3"],
 }
 
+# Ingestion source aliases (alias -> canonical pip extra). Keep in sync with
+# source_registry.py pairs that share the same setup.py / pyproject optional deps.
+PLUGIN_SOURCE_ALIASES: Dict[str, str] = {
+    "databricks": "unity-catalog",
+    "presto-on-hive": "hive-metastore",
+}
+
+
+def canonical_plugin(plugin: str) -> str:
+    """Resolve alias plugin names to the canonical pip extra / source key."""
+    return PLUGIN_SOURCE_ALIASES.get(plugin, plugin)
+
+
+def alias_cluster(plugin: str) -> frozenset[str]:
+    """All ingestion type names that share one bundled venv install."""
+    canonical = canonical_plugin(plugin)
+    names = {canonical, plugin}
+    for alias, canon in PLUGIN_SOURCE_ALIASES.items():
+        if canon == canonical:
+            names.add(alias)
+    return frozenset(names)
+
+
+def bundled_venv_symlink_names(group_plan: BundledVenvGroupPlan) -> Tuple[str, ...]:
+    """Every ``{name}-bundled`` path that must exist for this install plan."""
+    names: Set[str] = set()
+    for plugin in group_plan.members:
+        names.update(alias_cluster(plugin))
+    return tuple(sorted(f"{name}-bundled" for name in names))
+
 
 def _default_plugin_extras_for_plugin(plugin: str, slim_mode: bool) -> List[str]:
     """OSS default: standard ingestion extras per plugin (no vendor-specific branches)."""
-    plugin_extra = plugin
+    plugin_extra = canonical_plugin(plugin)
     if slim_mode and plugin in PLUGINS_WITH_SLIM_VARIANT:
         plugin_extra = f"{plugin}-slim"
 
@@ -203,6 +233,18 @@ def build_group_plans(
     if len(plugin_set) != len(plugins):
         dupes = [p for p in plugins if plugins.count(p) > 1]
         raise ValueError(f"BUNDLED_VENV_PLUGINS contains duplicates: {set(dupes)}")
+
+    canonical_seen: Dict[str, str] = {}
+    for plugin in plugins:
+        canonical = canonical_plugin(plugin)
+        prior = canonical_seen.get(canonical)
+        if prior is not None and prior != plugin:
+            cluster = sorted(alias_cluster(plugin))
+            raise ValueError(
+                f"BUNDLED_VENV_PLUGINS lists aliases {prior!r} and {plugin!r}; "
+                f"include only one of {cluster}"
+            )
+        canonical_seen[canonical] = plugin
 
     assigned: Set[str] = set()
     plans: List[BundledVenvGroupPlan] = []

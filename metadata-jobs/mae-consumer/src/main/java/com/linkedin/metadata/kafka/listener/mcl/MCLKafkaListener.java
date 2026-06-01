@@ -23,6 +23,7 @@ import java.util.Optional;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.slf4j.MDC;
 
 @Slf4j
@@ -30,6 +31,13 @@ public class MCLKafkaListener
     extends AbstractKafkaListener<MetadataChangeLog, MetadataChangeLogHook, GenericRecord> {
 
   private static final String WILDCARD = "*";
+
+  @Override
+  public void consumeBatch(@Nonnull List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
+    for (ConsumerRecord<String, GenericRecord> record : consumerRecords) {
+      consume(record);
+    }
+  }
 
   @Override
   @Nonnull

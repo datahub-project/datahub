@@ -22,8 +22,14 @@ from datahub.ingestion.source.powerbi.config import (
 )
 from datahub.ingestion.source.powerbi.powerbi import PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    PowerBIDataset,
+    Tile,
     Workspace,
+    new_powerbi_dashboards,
     new_powerbi_dataset,
+    new_powerbi_reports,
+    new_powerbi_tiles,
+    new_powerbi_user,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 
@@ -445,10 +451,7 @@ def _make_source(
 
 
 def test_get_workunits_internal_skips_scan_excluded_workspaces_in_phase_2():
-    """When fill_metadata_from_scan_result reports that some workspaces were
-    excluded by the scan API, those workspaces must NOT receive
-    fill_regular_metadata_detail calls (the redundant API calls this PR
-    eliminates)."""
+    """Scan-excluded workspaces must skip Phase 2 metadata fetch."""
     ws_a = _make_workspace("WS-A", name="kept")
     ws_b = _make_workspace("WS-B", name="excluded")
     ws_c = _make_workspace("WS-C", name="kept-too")
@@ -932,3 +935,862 @@ def test_get_workspace_datasets_builds_from_scan_result_without_extra_http():
     # webUrl is imputed from workspace.webUrl since scan results omit it
     assert dataset.webUrl == "https://app.powerbi.com/groups/WS-5/datasets/DS-5/details"
     mocked_params.assert_called_once_with(workspace_id="WS-5", dataset_id="DS-5")
+
+
+# ---------------------------------------------------------------------------
+# new_powerbi_reports factory
+# ---------------------------------------------------------------------------
+
+
+def _raw_report(
+    report_id: str,
+    name: str = "rpt",
+    report_type: str = "PowerBIReport",
+    **extra: Any,
+) -> Dict[str, Any]:
+    return {
+        Constant.ID: report_id,
+        Constant.NAME: name,
+        Constant.REPORT_TYPE: report_type,
+        **extra,
+    }
+
+
+def test_new_powerbi_reports_skips_app_duplicate_entries():
+    """App-published reports come back twice; only the original (no appId) must reach the result."""
+    workspace = _make_workspace("WS-R1")
+    raw_instances = [
+        _raw_report("R-1"),
+        {**_raw_report("R-1"), Constant.APP_ID: "APP-1"},
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+
+    assert len(reports) == 1
+    assert reports[0].id == "R-1"
+
+
+def test_new_powerbi_reports_skips_entries_with_missing_required_fields():
+    """Entries missing id/name/reportType are skipped, not fatal to the workspace."""
+    workspace = _make_workspace("WS-R2")
+    raw_instances = [
+        _raw_report("R-valid"),
+        {Constant.NAME: "no-id", Constant.REPORT_TYPE: "PowerBIReport"},
+        {Constant.ID: "no-name", Constant.REPORT_TYPE: "PowerBIReport"},
+        {Constant.ID: "no-type", Constant.NAME: "no-type"},
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+
+    assert len(reports) == 1
+    assert reports[0].id == "R-valid"
+
+
+def test_new_powerbi_reports_skips_unknown_report_type():
+    """Unknown reportType is skipped, not raised (forward-compat with new PowerBI types)."""
+    workspace = _make_workspace("WS-R3")
+    raw_instances = [
+        _raw_report("R-known"),
+        _raw_report("R-future", report_type="MobileReport"),
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+
+    assert len(reports) == 1
+    assert reports[0].id == "R-known"
+
+
+def test_new_powerbi_reports_uses_rdlreports_url_for_paginated_report():
+    """PaginatedReport must use /rdlreports/{id}; other report types use /reports/{id}."""
+    workspace = _make_workspace("WS-R4")
+    raw_instances = [
+        _raw_report("R-pag", report_type="PaginatedReport"),
+        _raw_report("R-reg", report_type="PowerBIReport"),
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+    by_id = {r.id: r for r in reports}
+
+    assert (
+        by_id["R-pag"].webUrl == "https://app.powerbi.com/groups/WS-R4/rdlreports/R-pag"
+    )
+    assert by_id["R-reg"].webUrl == "https://app.powerbi.com/groups/WS-R4/reports/R-reg"
+
+
+def test_new_powerbi_reports_description_null_coerces_to_empty_string():
+    """description=null and missing description must both coerce to '' (Report.description: str)."""
+    workspace = _make_workspace("WS-R5")
+    raw_instances = [
+        {**_raw_report("R-null-desc"), Constant.DESCRIPTION: None},
+        _raw_report("R-miss-desc"),
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+    by_id = {r.id: r for r in reports}
+
+    assert by_id["R-null-desc"].description == "", (
+        "explicit description=null must coerce to '' to satisfy Report.description: str"
+    )
+    assert by_id["R-miss-desc"].description == ""
+
+
+# ---------------------------------------------------------------------------
+# new_powerbi_user factory
+# ---------------------------------------------------------------------------
+
+
+def test_new_powerbi_user_returns_none_for_missing_required_fields():
+    """Missing required fields yields None; a single bad user must not abort the report."""
+    valid: Dict[str, Any] = {
+        Constant.IDENTIFIER: "U-1",
+        Constant.DISPLAY_NAME: "Alice",
+        Constant.GRAPH_ID: "G-1",
+        Constant.PRINCIPAL_TYPE: "User",
+    }
+
+    assert new_powerbi_user(valid) is not None
+
+    for required_key in (
+        Constant.IDENTIFIER,
+        Constant.DISPLAY_NAME,
+        Constant.GRAPH_ID,
+        Constant.PRINCIPAL_TYPE,
+    ):
+        assert new_powerbi_user({**valid, required_key: None}) is None, (
+            f"missing {required_key!r} must return None"
+        )
+        assert (
+            new_powerbi_user({k: v for k, v in valid.items() if k != required_key})
+            is None
+        ), f"absent {required_key!r} must return None"
+
+
+def test_new_powerbi_user_accepts_app_principal_without_email():
+    """Service principals (principalType=App) have no emailAddress; the factory must yield User(emailAddress=None)."""
+    raw_app = {
+        Constant.IDENTIFIER: "SP-1",
+        Constant.DISPLAY_NAME: "MyServicePrincipal",
+        Constant.GRAPH_ID: "G-SP-1",
+        Constant.PRINCIPAL_TYPE: "App",
+    }
+
+    user = new_powerbi_user(raw_app)
+
+    assert user is not None
+    assert user.principalType == "App"
+    assert user.emailAddress is None
+
+
+def test_new_powerbi_reports_weburl_none_when_workspace_url_missing():
+    """Personal/legacy workspace + no raw webUrl: report.webUrl is None, not 'None/reports/...'."""
+    workspace = Workspace(
+        id="PG-1",
+        name="personal",
+        type="PersonalGroup",
+        webUrl=None,
+        datasets={},
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+    raw_instances = [_raw_report("R-1")]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+
+    assert reports[0].webUrl is None
+
+
+def test_new_powerbi_reports_uses_raw_weburl_from_scan_entry():
+    """Explicit webUrl in the scan entry passes through verbatim; no imputation, no /details suffix."""
+    workspace = _make_workspace("WS-R7")
+    raw_instances = [
+        _raw_report(
+            "R-direct",
+            **{
+                Constant.WEB_URL: "https://app.powerbi.com/groups/WS-R7/reports/R-direct"
+            },
+        )
+    ]
+
+    reports = new_powerbi_reports(workspace, raw_instances)
+
+    assert reports[0].webUrl == "https://app.powerbi.com/groups/WS-R7/reports/R-direct"
+
+
+def test_new_powerbi_reports_embed_url_optional():
+    """Report.embedUrl is Optional[str]: scan entry value passes through; absent → None."""
+    workspace = _make_workspace("WS-R8")
+    raw_instances = [
+        _raw_report(
+            "R-with-embed",
+            **{
+                Constant.EMBED_URL: "https://app.powerbi.com/reportEmbed?reportId=R-with-embed"
+            },
+        ),
+        _raw_report("R-no-embed"),
+    ]
+
+    by_id = {r.id: r for r in new_powerbi_reports(workspace, raw_instances)}
+
+    assert (
+        by_id["R-with-embed"].embedUrl
+        == "https://app.powerbi.com/reportEmbed?reportId=R-with-embed"
+    )
+    assert by_id["R-no-embed"].embedUrl is None
+
+
+def test_new_powerbi_reports_populates_users():
+    """Users from the scan result are always populated by new_powerbi_reports."""
+    workspace = _make_workspace("WS-R6")
+    raw_user: Dict[str, Any] = {
+        Constant.IDENTIFIER: "U-1",
+        Constant.DISPLAY_NAME: "Alice",
+        Constant.GRAPH_ID: "G-1",
+        Constant.PRINCIPAL_TYPE: "User",
+    }
+    raw = {**_raw_report("R-1"), Constant.USERS: [raw_user]}
+
+    reports = new_powerbi_reports(workspace, [raw])
+    assert len(reports[0].users) == 1
+
+
+# ---------------------------------------------------------------------------
+# PowerBiAPI.get_reports
+# ---------------------------------------------------------------------------
+
+
+def _make_workspace_with_scan_reports(
+    ws_id: str = "WS-RPT",
+    raw_reports: Optional[List[Dict[str, Any]]] = None,
+    report_endorsements: Optional[Dict[str, List[str]]] = None,
+) -> Workspace:
+    workspace = _make_workspace(ws_id)
+    workspace.scan_result = {Constant.REPORTS: raw_reports or []}
+    if report_endorsements is not None:
+        workspace.report_endorsements = report_endorsements
+    return workspace
+
+
+def _make_dataset(dataset_id: str, name: str = "ds") -> PowerBIDataset:
+    return PowerBIDataset(
+        id=dataset_id,
+        name=name,
+        description="",
+        webUrl=None,
+        workspace_id="WS-RPT",
+        workspace_name="ws",
+        parameters={},
+        tables=[],
+        tags=[],
+    )
+
+
+def test_get_reports_from_scan_result_skips_resolver_get_reports():
+    """A populated scan_result builds reports in-memory; the resolver's reports/users endpoints are not called."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports") as get_reports_mock,
+        mock.patch.object(api, "get_report_users") as get_users_mock,
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert set(reports) == {"R-1"}
+    get_reports_mock.assert_not_called()
+    get_users_mock.assert_not_called()
+
+
+def test_get_reports_pages_fetch_failure_warns_and_keeps_report():
+    """Pages-fetch failure emits 'Report Pages Not Fetched' warning; the report stays with pages=[]."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(
+        resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    warnings = list(api.reporter.warnings)
+    assert any(w.title == "Report Pages Not Fetched" for w in warnings)
+
+
+def test_get_reports_resolves_dataset_via_registry():
+    """dataset_id present in registry: report.dataset is wired, no 'Missing Lineage' info."""
+    api = _make_api()
+    dataset = _make_dataset("DS-1")
+    api.dataset_registry["DS-1"] = dataset
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+                Constant.DATASET_ID: "DS-1",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].dataset is dataset
+    infos = list(api.reporter.infos)
+    assert not any(i.title == "Missing Lineage For Report" for i in infos)
+
+
+def test_get_reports_missing_dataset_in_registry_emits_info():
+    """dataset_id set but absent from registry emits 'Missing Lineage For Report' info."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+                Constant.DATASET_ID: "DS-MISSING",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].dataset is None
+    infos = list(api.reporter.infos)
+    assert any(i.title == "Missing Lineage For Report" for i in infos)
+
+
+def test_get_reports_falls_back_to_resolver_when_no_scan_result():
+    """Empty scan_result + extract_ownership=True must populate users via get_report_users and emit a 'Report Scan Fallback Active' info entry."""
+    api = _make_api(extract_ownership=True)
+    workspace = _make_workspace("WS-NO-SCAN")  # scan_result={} by default
+
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]) as users_mock,
+        mock.patch.object(resolver, "get_pages_by_report", return_value=[]),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert set(reports) == {"R-1"}
+    users_mock.assert_called_once_with("WS-NO-SCAN", "R-1")
+    assert any(i.title == "Report Scan Fallback Active" for i in api.reporter.infos)
+
+
+def test_get_reports_pages_fetch_failure_on_fallback_warns_and_keeps_report():
+    """Pages-fetch failure on the fallback path must emit a 'Report Pages Not Fetched' warning and leave the report in the result with pages=[]."""
+    api = _make_api(extract_ownership=True)
+    workspace = _make_workspace("WS-NO-SCAN")
+
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            }
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]),
+        mock.patch.object(
+            resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+        ),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    assert any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
+
+
+def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
+    """Resolver get_reports exception must be swallowed and surface a 'Reports Fetch Failed' warning."""
+    api = _make_api()
+    workspace = _make_workspace("WS-NO-SCAN")
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_reports", side_effect=RuntimeError("boom")):
+        reports = api.get_reports(workspace)
+
+    assert reports == {}
+    assert any(w.title == "Reports Fetch Failed" for w in api.reporter.warnings)
+
+
+def test_get_reports_populates_tags_from_workspace_endorsements():
+    """extract_endorsements_to_tags=True: tags filled from workspace.report_endorsements. False: tags stay empty."""
+    api_on = _make_api(extract_endorsements_to_tags=True)
+    api_off = _make_api(extract_endorsements_to_tags=False)
+    raw = [
+        {
+            Constant.ID: "R-1",
+            Constant.NAME: "rpt",
+            Constant.REPORT_TYPE: "PowerBIReport",
+        }
+    ]
+    endorsements = {"R-1": ["Certified"]}
+
+    for api, expected in [(api_on, ["Certified"]), (api_off, [])]:
+        workspace = _make_workspace_with_scan_reports(
+            raw_reports=raw,
+            report_endorsements=endorsements,
+        )
+        resolver = api._get_resolver()
+        with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+            reports = api.get_reports(workspace)
+        assert reports["R-1"].tags == expected
+
+
+# ---------------------------------------------------------------------------
+# new_powerbi_dashboards factory
+# ---------------------------------------------------------------------------
+
+
+def _raw_dashboard(
+    dashboard_id: str = "D-1",
+    display_name: str = "dash",
+    *,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {
+        Constant.ID: dashboard_id,
+        Constant.DISPLAY_NAME: display_name,
+    }
+    if extra:
+        out.update(extra)
+    return out
+
+
+def _raw_tile(
+    tile_id: str = "T-1",
+    *,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    out: Dict[str, Any] = {Constant.ID: tile_id}
+    if extra:
+        out.update(extra)
+    return out
+
+
+def test_new_powerbi_dashboards_builds_dashboards_with_nested_tiles_and_users():
+    """A scan-result payload must yield a fully populated Dashboard (tiles + users); regression silently drops chart children or ownership."""
+    workspace = _make_workspace("WS-D1")
+    raw_user: Dict[str, Any] = {
+        Constant.IDENTIFIER: "U-1",
+        Constant.DISPLAY_NAME: "Alice",
+        Constant.GRAPH_ID: "G-1",
+        Constant.PRINCIPAL_TYPE: "User",
+    }
+    raw_instances = [
+        _raw_dashboard(
+            "D-1",
+            "dash-one",
+            extra={
+                Constant.DESCRIPTION: "dash desc",
+                Constant.EMBED_URL: "https://embed/D-1",
+                Constant.IS_READ_ONLY: True,
+                Constant.TILES: [
+                    _raw_tile("T-1", extra={Constant.REPORT_ID: "R-1"}),
+                    _raw_tile("T-2", extra={Constant.DATASET_ID: "DS-1"}),
+                ],
+                Constant.USERS: [raw_user],
+            },
+        ),
+    ]
+
+    dashboards = new_powerbi_dashboards(workspace, raw_instances)
+
+    assert len(dashboards) == 1
+    dash = dashboards[0]
+    assert dash.id == "D-1"
+    assert dash.displayName == "dash-one"
+    assert dash.description == "dash desc"
+    assert dash.embedUrl == "https://embed/D-1"
+    assert dash.isReadOnly is True
+    assert {t.id for t in dash.tiles} == {"T-1", "T-2"}
+    assert [u.id for u in dash.users] == ["U-1"]
+
+
+def test_new_powerbi_dashboards_skips_entries_with_missing_required_fields():
+    """Partial rows in the scan response must skip, not abort the workspace."""
+    workspace = _make_workspace("WS-D2")
+    raw_instances = [
+        _raw_dashboard("D-valid"),
+        {Constant.DISPLAY_NAME: "no-id"},
+        {Constant.ID: "no-name"},
+    ]
+
+    dashboards = new_powerbi_dashboards(workspace, raw_instances)
+
+    assert [d.id for d in dashboards] == ["D-valid"]
+
+
+def test_new_powerbi_dashboards_filters_app_duplicate_entries():
+    """App-published dashboards return both an original and an appId-tagged duplicate from the scan; only the original (no appId) must reach the result."""
+    workspace = _make_workspace("WS-D3")
+    raw_instances = [
+        _raw_dashboard("D-1"),
+        {**_raw_dashboard("D-1"), Constant.APP_ID: "APP-1"},
+    ]
+
+    dashboards = new_powerbi_dashboards(workspace, raw_instances)
+
+    assert len(dashboards) == 1
+
+
+def test_new_powerbi_dashboards_imputes_web_url_from_workspace_when_missing():
+    """webUrl: raw → workspace.webUrl + /dashboards/{id} → None for PersonalGroup. Otherwise dead UI links like "None/dashboards/..." leak through."""
+    ws_with_url = _make_workspace("WS-D4")
+    ws_without_url = Workspace(
+        id="PG-1",
+        name="personal",
+        type="PersonalGroup",
+        webUrl=None,
+        datasets={},
+        dashboards={},
+        reports={},
+        report_endorsements={},
+        dashboard_endorsements={},
+        scan_result={},
+        independent_datasets={},
+        app=None,
+    )
+
+    raw_with_url = _raw_dashboard(
+        "D-raw", extra={Constant.WEB_URL: "https://example/raw-D"}
+    )
+    raw_imputed = _raw_dashboard("D-imp")
+
+    by_id_with = {
+        d.id: d
+        for d in new_powerbi_dashboards(ws_with_url, [raw_with_url, raw_imputed])
+    }
+    by_id_without = {
+        d.id: d for d in new_powerbi_dashboards(ws_without_url, [raw_imputed])
+    }
+
+    assert by_id_with["D-raw"].webUrl == "https://example/raw-D"
+    assert (
+        by_id_with["D-imp"].webUrl
+        == "https://app.powerbi.com/groups/WS-D4/dashboards/D-imp"
+    )
+    assert by_id_without["D-imp"].webUrl is None
+
+
+# ---------------------------------------------------------------------------
+# new_powerbi_tiles factory
+# ---------------------------------------------------------------------------
+
+
+def test_new_powerbi_tiles_skips_entries_with_missing_id():
+    """A tile without id has no valid URN target — drop it."""
+    raw_tiles = [
+        _raw_tile("T-1"),
+        {Constant.TITLE: "no-id-tile"},
+        _raw_tile("T-2"),
+    ]
+
+    tiles = new_powerbi_tiles(raw_tiles)
+
+    assert [t.id for t in tiles] == ["T-1", "T-2"]
+
+
+def test_new_powerbi_tiles_created_from_prefers_report_then_dataset_then_visualization():
+    """createdFrom priority Report > Dataset > Visualization; tiles in the wild carry both report_id and dataset_id, Report wins. Regression mis-attributes chart lineage."""
+    raw_tiles = [
+        _raw_tile(
+            "T-both", extra={Constant.REPORT_ID: "R-1", Constant.DATASET_ID: "DS-1"}
+        ),
+        _raw_tile("T-rep", extra={Constant.REPORT_ID: "R-1"}),
+        _raw_tile("T-ds", extra={Constant.DATASET_ID: "DS-1"}),
+        _raw_tile("T-viz"),
+    ]
+
+    by_id = {t.id: t for t in new_powerbi_tiles(raw_tiles)}
+
+    assert by_id["T-both"].createdFrom is Tile.CreatedFrom.REPORT
+    assert by_id["T-rep"].createdFrom is Tile.CreatedFrom.REPORT
+    assert by_id["T-ds"].createdFrom is Tile.CreatedFrom.DATASET
+    assert by_id["T-viz"].createdFrom is Tile.CreatedFrom.VISUALIZATION
+
+
+# ---------------------------------------------------------------------------
+# new_powerbi_user — additional production scenarios
+# ---------------------------------------------------------------------------
+
+
+def test_new_powerbi_user_returns_none_for_empty_dict():
+    """Empty {} entries in the scan users array must short-circuit before required-field access."""
+    assert new_powerbi_user({}) is None
+
+
+# ---------------------------------------------------------------------------
+# PowerBiAPI.get_reports — scan-path warnings/infos
+# ---------------------------------------------------------------------------
+
+
+def test_get_reports_emits_skipped_reports_warning_when_scan_has_malformed_entries():
+    """Malformed scan reports must surface a 'Skipped Reports' warning; silent data loss otherwise only appears in raw logs."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-good",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            },
+            {Constant.NAME: "no-id", Constant.REPORT_TYPE: "PowerBIReport"},
+            {Constant.ID: "no-type", Constant.NAME: "x"},
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        api.get_reports(workspace)
+
+    skipped = [w for w in api.reporter.warnings if w.title == "Skipped Reports"]
+    assert skipped
+
+
+@pytest.mark.parametrize(
+    "scan_user_value",
+    [
+        pytest.param(None, id="users-key-missing"),
+        pytest.param([], id="users-key-present-but-empty"),
+    ],
+)
+def test_get_reports_emits_users_not_in_scan_info_when_ownership_requested_but_scan_users_empty(
+    scan_user_value: Optional[List[Dict[str, Any]]],
+) -> None:
+    """extract_ownership=True + no users in scan must emit 'Report Users Not in Scan Result' so operators can correlate with getArtifactUsers=False."""
+    api = _make_api(extract_ownership=True)
+    raw: Dict[str, Any] = {
+        Constant.ID: "R-1",
+        Constant.NAME: "rpt",
+        Constant.REPORT_TYPE: "PowerBIReport",
+    }
+    if scan_user_value is not None:
+        raw[Constant.USERS] = scan_user_value
+    workspace = _make_workspace_with_scan_reports(raw_reports=[raw])
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        api.get_reports(workspace)
+
+    infos = [
+        i for i in api.reporter.infos if i.title == "Report Users Not in Scan Result"
+    ]
+    assert infos, "expected info entry when ownership is on but scan has no users"
+
+
+def test_get_reports_does_not_emit_users_not_in_scan_info_when_ownership_disabled():
+    """With extract_ownership=False, missing scan users is the expected state — the info must be gated off to avoid reporter noise."""
+    api = _make_api(extract_ownership=False)
+    workspace = _make_workspace_with_scan_reports(
+        raw_reports=[
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            },
+        ],
+    )
+    resolver = api._get_resolver()
+    with mock.patch.object(resolver, "get_pages_by_report", return_value=[]):
+        api.get_reports(workspace)
+
+    infos = [
+        i for i in api.reporter.infos if i.title == "Report Users Not in Scan Result"
+    ]
+    assert not infos
+
+
+# ---------------------------------------------------------------------------
+# PowerBiAPI.fill_regular_metadata_detail — scan-path dashboards
+# ---------------------------------------------------------------------------
+
+
+def _make_workspace_with_scan_dashboards(
+    ws_id: str = "WS-DSH",
+    raw_dashboards: Optional[List[Dict[str, Any]]] = None,
+    dashboard_endorsements: Optional[Dict[str, List[str]]] = None,
+) -> Workspace:
+    workspace = _make_workspace(ws_id)
+    workspace.scan_result = {Constant.DASHBOARDS: raw_dashboards or []}
+    if dashboard_endorsements is not None:
+        workspace.dashboard_endorsements = dashboard_endorsements
+    return workspace
+
+
+def test_fill_dashboards_from_scan_result_skips_resolver_dashboard_user_and_tile_calls():
+    """A workspace scan_result must build dashboards/tiles/users without resolver calls; regression re-introduces per-dashboard API load."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_dashboards(
+        raw_dashboards=[
+            _raw_dashboard(
+                "D-1",
+                extra={
+                    Constant.TILES: [_raw_tile("T-1")],
+                    Constant.USERS: [
+                        {
+                            Constant.IDENTIFIER: "U-1",
+                            Constant.DISPLAY_NAME: "Alice",
+                            Constant.GRAPH_ID: "G-1",
+                            Constant.PRINCIPAL_TYPE: "User",
+                        }
+                    ],
+                },
+            )
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_dashboards") as get_dashboards_mock,
+        mock.patch.object(resolver, "get_tiles") as get_tiles_mock,
+        mock.patch.object(api, "get_dashboard_users") as get_users_mock,
+        mock.patch.object(api, "get_reports", return_value={}),
+    ):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    assert set(workspace.dashboards) == {"D-1"}
+    dashboard = workspace.dashboards["D-1"]
+    assert [t.id for t in dashboard.tiles] == ["T-1"]
+    assert [u.id for u in dashboard.users] == ["U-1"]
+    get_dashboards_mock.assert_not_called()
+    get_tiles_mock.assert_not_called()
+    get_users_mock.assert_not_called()
+
+
+def test_fill_dashboards_emits_skipped_dashboards_warning_for_malformed_scan_entries():
+    """Scan entries with missing id/displayName must surface a 'Skipped Dashboards' warning rather than drop silently."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_dashboards(
+        raw_dashboards=[
+            _raw_dashboard("D-good"),
+            {Constant.DISPLAY_NAME: "no-id"},
+        ],
+    )
+    with mock.patch.object(api, "get_reports", return_value={}):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    assert any(w.title == "Skipped Dashboards" for w in api.reporter.warnings), (
+        "missing-id dashboard must trigger a 'Skipped Dashboards' warning"
+    )
+
+
+def test_fill_dashboards_emits_skipped_tiles_warning_for_tiles_with_missing_id():
+    """Tile entries without id must surface a 'Skipped Tiles' warning; otherwise missing chart children look like a silent quality drop."""
+    api = _make_api()
+    workspace = _make_workspace_with_scan_dashboards(
+        raw_dashboards=[
+            _raw_dashboard(
+                "D-1",
+                extra={
+                    Constant.TILES: [
+                        _raw_tile("T-good"),
+                        {Constant.TITLE: "tile-without-id"},
+                    ]
+                },
+            )
+        ],
+    )
+    with mock.patch.object(api, "get_reports", return_value={}):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    assert any(w.title == "Skipped Tiles" for w in api.reporter.warnings)
+    assert [t.id for t in workspace.dashboards["D-1"].tiles] == ["T-good"]
+
+
+def test_fill_dashboards_emits_dashboard_users_not_in_scan_info_when_ownership_requested():
+    """extract_ownership=True + no users in scan dashboards must emit 'Dashboard Users Not in Scan Result' so operators can fix getArtifactUsers."""
+    api = _make_api(extract_ownership=True)
+    workspace = _make_workspace_with_scan_dashboards(
+        raw_dashboards=[_raw_dashboard("D-1")],
+    )
+    with mock.patch.object(api, "get_reports", return_value={}):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    assert any(
+        i.title == "Dashboard Users Not in Scan Result" for i in api.reporter.infos
+    )
+
+
+def test_fill_dashboards_wires_tile_dataset_via_registry_and_report_via_workspace():
+    """Tile lineage: tile.dataset via cross-workspace registry, tile.report via workspace.reports; misses emit distinct infos — the operator diagnosis path."""
+    api = _make_api()
+    dataset = _make_dataset("DS-1")
+    api.dataset_registry["DS-1"] = dataset
+
+    raw_report_in_ws = {
+        Constant.ID: "R-1",
+        Constant.NAME: "rpt",
+        Constant.REPORT_TYPE: "PowerBIReport",
+    }
+    workspace = _make_workspace_with_scan_dashboards(
+        raw_dashboards=[
+            _raw_dashboard(
+                "D-1",
+                extra={
+                    Constant.TILES: [
+                        _raw_tile("T-with-ds", extra={Constant.DATASET_ID: "DS-1"}),
+                        _raw_tile(
+                            "T-missing-ds", extra={Constant.DATASET_ID: "DS-MISS"}
+                        ),
+                        _raw_tile("T-with-rep", extra={Constant.REPORT_ID: "R-1"}),
+                        _raw_tile(
+                            "T-missing-rep", extra={Constant.REPORT_ID: "R-MISS"}
+                        ),
+                    ]
+                },
+            )
+        ],
+    )
+    workspace.reports = {
+        r.id: r for r in new_powerbi_reports(workspace, [raw_report_in_ws])
+    }
+
+    with mock.patch.object(api, "get_reports", return_value=workspace.reports):
+        api.fill_regular_metadata_detail(workspace=workspace)
+
+    tiles_by_id = {t.id: t for t in workspace.dashboards["D-1"].tiles}
+    assert tiles_by_id["T-with-ds"].dataset is dataset
+    assert tiles_by_id["T-missing-ds"].dataset is None
+    assert tiles_by_id["T-with-rep"].report is workspace.reports["R-1"]
+    assert tiles_by_id["T-missing-rep"].report is None
+
+    info_titles = [i.title for i in api.reporter.infos]
+    assert "Missing Dataset Lineage For Tile" in info_titles
+    assert "Missing Report Lineage For Tile" in info_titles
