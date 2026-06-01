@@ -302,7 +302,7 @@ public class StandardPluginConfigurationTest extends AbstractTestNGSpringContext
     assertEquals(mutator.getConfig().getClassName(), OwnershipOwnerTypes.class.getName());
     assertEquals(
         mutator.getConfig().getSupportedOperations(),
-        List.of("CREATE", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
+        List.of("CREATE", "CREATE_ENTITY", "UPSERT", "UPDATE", "RESTATE", "PATCH"));
   }
 
   @Test

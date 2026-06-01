@@ -9,6 +9,8 @@ import { TEST_DATA, TOAST_MESSAGES, TIMEOUTS } from './constants';
  * Tests for applying structured properties to dataset schema fields
  */
 
+test.use({ featureName: 'structured-properties' });
+
 test.describe('Schema Field Structured Properties', () => {
   let structuredPropertiesPage: StructuredPropertiesPage;
   let datasetPage: DatasetPage;

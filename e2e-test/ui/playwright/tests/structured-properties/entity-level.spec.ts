@@ -9,6 +9,8 @@ import { withRandomSuffix } from '../../utils/random';
  * Tests for creating, editing, deleting, and applying structured properties to entities
  */
 
+test.use({ featureName: 'structured-properties' });
+
 test.describe('Entity-level Structured Properties', () => {
   let structuredPropertiesPage: StructuredPropertiesPage;
   let datasetPage: DatasetPage;

@@ -45,16 +45,15 @@ export class StructuredPropertiesPage extends BasePage {
   // ── Modal elements ───────────────────────────────────────────────────────
 
   readonly confirmButton: Locator;
-  readonly dropdownMenu: Locator;
-  readonly drawer: Locator;
+  readonly managementDrawer: Locator;
+  readonly fieldDrawer: Locator;
   readonly pageBody: Locator;
 
-  // ── Selectors for table and dropdowns ────────────────────────────────
+  // ── Dropdown and menu elements ────────────────────────────────────────────
 
-  private readonly dropdownMenuSelector = '.ant-dropdown-menu';
-  private readonly tableRowSelector = 'tr';
-  private readonly menuItemSelector = 'li[role="menuitem"]';
-  private readonly bodySelector = 'body';
+  readonly menuItem: Locator;
+
+  // ── Selectors for table and dropdowns ────────────────────────────────
 
   private readonly graphqlHelper: GraphQLHelper;
 
@@ -69,7 +68,7 @@ export class StructuredPropertiesPage extends BasePage {
     this.pageTitle = page.getByRole('heading', { level: 1 });
 
     // Form elements in drawer
-    this.nameInputField = page.getByTestId('structured-props-input-name').locator('input');
+    this.nameInputField = page.getByTestId('structured-props-input-name').getByRole('textbox');
     this.descriptionInputField = page.getByTestId('structured-props-input-description');
     this.typeSelector = page.getByTestId('structured-props-select-input-type');
     this.appliesToSelector = page.getByTestId('structured-props-select-input-applies-to');
@@ -89,9 +88,12 @@ export class StructuredPropertiesPage extends BasePage {
 
     // Modal elements
     this.confirmButton = page.getByTestId('modal-confirm-button');
-    this.dropdownMenu = page.locator(this.dropdownMenuSelector);
-    this.drawer = page.getByRole('dialog');
-    this.pageBody = page.locator(this.bodySelector);
+    this.managementDrawer = page.getByTestId('structured-props-drawer-content');
+    this.fieldDrawer = page.getByTestId('schema-field-drawer-content');
+    this.pageBody = page.getByRole('document');
+
+    // Dropdown and menu elements
+    this.menuItem = page.getByRole('menuitem');
   }
 
   // ── Navigation ───────────────────────────────────────────────────────────
@@ -124,17 +126,16 @@ export class StructuredPropertiesPage extends BasePage {
   // ── Dynamic locator helpers ──────────────────────────────────────────────
 
   private getAppliesToOption(entityUrn: string): Locator {
-    return this.appliesToOptionsList.locator(`[data-testid*="${entityUrn}"]`);
-  }
-
-  private getPropertiesTable(): Locator {
-    // Returns entity properties table on entity page, management table on management page
-    return this.entityPageTable.or(this.managementPageTable);
+    return this.appliesToOptionsList.getByTestId(new RegExp(entityUrn));
   }
 
   private findPropertyRow(propertyName: string): Locator {
-    // Find property row in the appropriate table (works on both entity and management pages)
-    return this.getPropertiesTable().locator(this.tableRowSelector).filter({ hasText: propertyName });
+    return this.entityPageTable.getByRole('row').filter({ hasText: propertyName });
+  }
+
+  private findPropertyRowInManagement(propertyName: string): Locator {
+    // Find property row in management table (for management page operations)
+    return this.managementPageTable.getByRole('row').filter({ hasText: propertyName });
   }
 
   private getPropertyMoreIconFromRow(row: Locator): Locator {
@@ -146,23 +147,20 @@ export class StructuredPropertiesPage extends BasePage {
   }
 
   private getDropdownSearchInput(): Locator {
-    return this.addPropertyDropdown.locator('input[type="text"]');
+    return this.addPropertyDropdown.getByRole('textbox');
   }
 
   private getPropertyOptionInDropdown(propertyName: string): Locator {
-    return this.addPropertyDropdown.locator(this.menuItemSelector).filter({ hasText: propertyName });
+    return this.addPropertyDropdown.getByRole('menuitem').filter({ hasText: propertyName });
   }
 
   private getActionMenuItem(action: string): Locator {
-    return this.page.getByText(action, { exact: true });
+    return this.menuItem.filter({ hasText: action });
   }
 
-  private getFieldPropertyRow(propertyName: string): Locator {
-    return this.drawer.locator(this.tableRowSelector).filter({ hasText: propertyName });
-  }
-
-  private getFirstTableCell(row: Locator): Locator {
-    return row.locator('td').first();
+  private getPropertyNameCell(row: Locator, propertyName: string): Locator {
+    // Gets the property name cell by filtering cells in the row by text content
+    return row.getByRole('cell').filter({ hasText: propertyName });
   }
 
   // ── Create structured property ───────────────────────────────────────────
@@ -208,14 +206,13 @@ export class StructuredPropertiesPage extends BasePage {
   async deleteStructuredProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('deleteStructuredProperty', { prop });
 
-    // Find the property row and open its action menu (works on both entity and management pages)
-    const propRow = this.findPropertyRow(prop.name);
+    // Find the property row and open its action menu (management page)
+    const propRow = this.findPropertyRowInManagement(prop.name);
     const moreIcon = this.getPropertyMoreIconFromRow(propRow);
     await moreIcon.click();
 
     // Click Delete from the dropdown menu
-    await this.dropdownMenu.waitFor({ state: 'visible' });
-    await this.page.getByText('Delete', { exact: true }).click();
+    await this.getActionMenuItem('Delete').click();
 
     // Confirm the deletion
     await this.confirmButton.click();
@@ -230,16 +227,16 @@ export class StructuredPropertiesPage extends BasePage {
   ): Promise<void> {
     this.logger?.step('updateStructuredProperty', { oldName, updates });
 
-    // Find and open the property for editing (works on both entity and management pages)
-    const propRow = this.findPropertyRow(oldName);
+    // Find and open the property for editing (management page)
+    const propRow = this.findPropertyRowInManagement(oldName);
     // Wait for the property row to appear and be visible in the table
     await propRow.waitFor({ state: 'visible' });
     // Click on the property name cell to open the drawer
-    const propNameCell = this.getFirstTableCell(propRow);
+    const propNameCell = this.getPropertyNameCell(propRow, oldName);
     await propNameCell.click();
 
     // Wait for the drawer to appear
-    await this.drawer.waitFor({ state: 'visible' });
+    await this.managementDrawer.waitFor({ state: 'visible' });
     await this.nameInputField.waitFor({ state: 'visible' });
 
     // Update name if provided
@@ -273,13 +270,13 @@ export class StructuredPropertiesPage extends BasePage {
   async hideProperty(prop: { name: string }): Promise<void> {
     this.logger?.step('hideProperty', { prop });
 
-    // Find property row (works on both entity page and management page)
-    const propRow = this.findPropertyRow(prop.name);
-    const propCell = this.getFirstTableCell(propRow);
+    // Find property row (management page)
+    const propRow = this.findPropertyRowInManagement(prop.name);
+    const propCell = this.getPropertyNameCell(propRow, prop.name);
     await propCell.click();
 
     // Wait for the drawer to appear
-    await this.drawer.waitFor({ state: 'visible' });
+    await this.managementDrawer.waitFor({ state: 'visible' });
     // Wait for the form to be fully loaded
     await this.createUpdateButton.waitFor({ state: 'visible' });
 
@@ -298,9 +295,9 @@ export class StructuredPropertiesPage extends BasePage {
   async enableShowInColumnsTable(prop: { name: string }): Promise<void> {
     this.logger?.step('enableShowInColumnsTable', { prop });
 
-    // Find and click property in table (works on both entity and management pages)
-    const propRow = this.findPropertyRow(prop.name);
-    const propCell = this.getFirstTableCell(propRow);
+    // Find and click property in table (management page)
+    const propRow = this.findPropertyRowInManagement(prop.name);
+    const propCell = this.getPropertyNameCell(propRow, prop.name);
     await propCell.click();
 
     // Wait for the form to be fully loaded
@@ -362,15 +359,11 @@ export class StructuredPropertiesPage extends BasePage {
     await row.waitFor({ state: 'hidden' });
   }
 
-  getPropertyMoreIcon(row: Locator): Locator {
-    return this.getEntityPropertyMoreIcon(row);
-  }
-
   async clickPropertyMoreIcon(propertyName: string): Promise<void> {
     this.logger?.step('clickPropertyMoreIcon', { propertyName });
     const row = this.findPropertyRow(propertyName);
     await row.waitFor({ state: 'visible' });
-    const moreIcon = this.getPropertyMoreIcon(row);
+    const moreIcon = this.getEntityPropertyMoreIcon(row);
     await moreIcon.click();
   }
 
@@ -418,8 +411,7 @@ export class StructuredPropertiesPage extends BasePage {
 
   async waitForDropdownVisible(): Promise<void> {
     this.logger?.step('waitForDropdownVisible');
-    // Wait for the dropdown menu to become visible
-    await this.dropdownMenu.waitFor({ state: 'visible' });
+    await this.menuItem.waitFor({ state: 'visible' });
   }
 
   // ── Field-level property operations ─────────────────────────────────────
@@ -461,26 +453,26 @@ export class StructuredPropertiesPage extends BasePage {
   async clickFieldPropertyAction(propertyName: string, action: 'Edit' | 'Remove'): Promise<void> {
     this.logger?.step('clickFieldPropertyAction', { propertyName, action });
     // Find the property row and open its action menu
-    const row = this.getFieldPropertyRow(propertyName);
+    const row = this.fieldDrawer.getByRole('row').filter({ hasText: propertyName });
     await row.waitFor({ state: 'visible' });
     const moreIcon = this.getEntityPropertyMoreIcon(row);
     await moreIcon.waitFor({ state: 'visible' });
     await moreIcon.click();
 
     // Click the action from the dropdown menu
-    await this.dropdownMenu.waitFor({ state: 'visible' });
     const actionItem = this.getActionMenuItem(action);
+    await actionItem.waitFor({ state: 'visible' });
     await actionItem.click();
   }
 
   async expectDrawerContains(text: string): Promise<void> {
     this.logger?.step('expectDrawerContains', { text });
-    await expect(this.drawer).toContainText(text);
+    await expect(this.fieldDrawer).toContainText(text);
   }
 
   async expectDrawerNotContains(text: string): Promise<void> {
     this.logger?.step('expectDrawerNotContains', { text });
-    await expect(this.drawer).not.toContainText(text);
+    await expect(this.fieldDrawer).not.toContainText(text);
   }
 
   async confirmModalAction(): Promise<void> {

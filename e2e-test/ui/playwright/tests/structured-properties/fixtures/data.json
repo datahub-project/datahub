@@ -1,6 +1,5 @@
 [
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropAddDataset,PROD)",
@@ -21,7 +20,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropRemoveDataset,PROD)",
@@ -42,7 +40,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropEditDataset,PROD)",
@@ -63,7 +60,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropHiddenDataset,PROD)",
@@ -84,7 +80,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldAddDataset,PROD)",
@@ -113,9 +108,6 @@
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:datahub"
               },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
               "hash": "",
               "platformSchema": {
                 "com.linkedin.pegasus2avro.schema.KafkaSchema": {
@@ -125,7 +117,6 @@
               "fields": [
                 {
                   "fieldPath": "schemaFieldAddField",
-                  "jsonPath": null,
                   "nullable": false,
                   "description": "Test field for schema field add structured property test",
                   "type": {
@@ -144,7 +135,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldUpdateDataset,PROD)",
@@ -173,9 +163,6 @@
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:datahub"
               },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
               "hash": "",
               "platformSchema": {
                 "com.linkedin.pegasus2avro.schema.KafkaSchema": {
@@ -185,7 +172,6 @@
               "fields": [
                 {
                   "fieldPath": "schemaFieldUpdateField",
-                  "jsonPath": null,
                   "nullable": false,
                   "description": "Test field for schema field update structured property test",
                   "type": {
@@ -204,7 +190,6 @@
     }
   },
   {
-    "auditHeader": null,
     "proposedSnapshot": {
       "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
         "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldRemoveDataset,PROD)",
@@ -233,9 +218,6 @@
                 "time": 1581407189000,
                 "actor": "urn:li:corpuser:datahub"
               },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
               "hash": "",
               "platformSchema": {
                 "com.linkedin.pegasus2avro.schema.KafkaSchema": {
@@ -245,7 +227,6 @@
               "fields": [
                 {
                   "fieldPath": "schemaFieldRemoveField",
-                  "jsonPath": null,
                   "nullable": false,
                   "description": "Test field for schema field remove structured property test",
                   "type": {
