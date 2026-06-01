@@ -738,19 +738,15 @@ class DremioSource(StatefulIngestionSourceBase):
                     merge_lineage=True,
                 )
             elif not downstream_allowed:
-                # Count the dropped downstream itself. The asymmetric case
-                # (downstream allowed but all upstreams filtered) is already
-                # accounted for per-edge in the queried_datasets loop above,
-                # so we don't double-count it here.
+                # Counts the dropped downstream itself; per-edge upstream drops
+                # are already counted above, so this isn't double-counting.
                 self.report.lineage_dropped_filtered += 1
 
-        # Always register the observed query for usage stats. Any upstream/
-        # downstream URN the SQL parser re-discovers from the query text is
-        # gated at three points inside SqlParsingAggregator before any aspect
-        # is emitted: the per-downstream `is_allowed_table` check, the
-        # per-upstream check in the usage path, and the whole-query "involves
-        # any allowed table" check. So passing the raw query through here
-        # cannot leak lineage or usage aspects for filtered datasets.
+        # Always register the observed query: usage stats aren't gated here.
+        # Any filtered upstream the SQL parser re-discovers is blocked at
+        # emission by SqlParsingAggregator's three is_allowed_table gates —
+        # per-downstream lineage, per-upstream usage, and the per-query
+        # "involves any allowed table" check — so no aspects leak through.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
