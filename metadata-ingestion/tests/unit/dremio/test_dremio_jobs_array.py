@@ -18,30 +18,24 @@ from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 
 
 class TestQueriedDatasetsArrayQuery:
-    """Pure SQL-string assertions for the new array-aware EE/CE jobs query."""
-
     def test_array_query_uses_array_size_predicate(self):
+        # 26.1.0+ array column — LENGTH() no longer applies.
         query = DremioSQLQueries.get_query_all_jobs_array()
-        # Legacy form used LENGTH(queried_datasets); 26.1.0+ exposes the
-        # column as ARRAY<VARCHAR>, so the WHERE clause must use ARRAY_SIZE.
         assert "ARRAY_SIZE(queried_datasets)>0" in query
         assert "LENGTH(queried_datasets)" not in query
 
     def test_array_query_wraps_array_as_bracket_string(self):
+        # Keeps DremioQuery._get_queried_datasets's "[ds1,ds2]" parser stable.
         query = DremioSQLQueries.get_query_all_jobs_array()
-        # DremioQuery._get_queried_datasets parses the SELECTED value as
-        # "[ds1,ds2]" — keep the output stable across schema versions.
         assert "CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']')" in query
 
     def test_array_query_targets_jobs_recent_not_history(self):
-        # The cloud query targets sys.project.history.jobs (different
-        # surface). EE/CE 26.1.0+ keeps sys.jobs_recent.
+        # EE/CE 26.1.0+ stays on sys.jobs_recent (cloud uses history.jobs).
         query = DremioSQLQueries.get_query_all_jobs_array()
         assert "SYS.JOBS_RECENT" in query
         assert "sys.project.history.jobs" not in query
 
     def test_legacy_query_unchanged(self):
-        # Don't regress the legacy path — pre-26.1.0 Dremio still needs it.
         query = DremioSQLQueries.get_query_all_jobs()
         assert "LENGTH(queried_datasets)>0" in query
         assert "ARRAY_SIZE(queried_datasets)" not in query
@@ -70,9 +64,7 @@ class TestSupportsArrayQueriedDatasetsProbe:
 
     def test_cloud_skips_probe_and_returns_true(self, dremio_api):
         dremio_api.edition = DremioEdition.CLOUD
-        # If we accidentally probed against Cloud (which uses a different
-        # jobs table entirely), the call would raise — assert we never get
-        # there.
+        # Probe would target the wrong table on Cloud — must not run.
         dremio_api.execute_query_iter = Mock(
             side_effect=AssertionError("Cloud must not run the EE/CE probe")
         )
@@ -93,8 +85,7 @@ class TestSupportsArrayQueriedDatasetsProbe:
         assert dremio_api._supports_array_queried_datasets() is False
 
     def test_probe_falls_back_on_non_dremio_exception(self, dremio_api):
-        # Covers RuntimeError (FAILED/CANCELED) and transport errors that
-        # execute_query_iter can raise alongside DremioAPIException.
+        # RuntimeError (FAILED/CANCELED) and transport errors must also fall back.
         dremio_api.edition = DremioEdition.ENTERPRISE
         dremio_api.execute_query_iter = Mock(
             side_effect=RuntimeError("Query failed: planner exception")
@@ -163,7 +154,6 @@ class TestExtractAllQueriesDispatch:
 
     def test_enterprise_array_uses_new_query(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE
-        # Probe returns True (array schema).
         dremio_api._queried_datasets_is_array = True
         query = self._captured_query(dremio_api)
         assert "SYS.JOBS_RECENT" in query
@@ -172,7 +162,6 @@ class TestExtractAllQueriesDispatch:
 
     def test_enterprise_legacy_uses_legacy_query(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE
-        # Probe returns False (legacy VARCHAR schema).
         dremio_api._queried_datasets_is_array = False
         query = self._captured_query(dremio_api)
         assert "SYS.JOBS_RECENT" in query

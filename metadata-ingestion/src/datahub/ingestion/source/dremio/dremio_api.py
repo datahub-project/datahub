@@ -74,7 +74,7 @@ class DremioAPIOperations:
 
         self.authenticate(connection_args)
         self.edition = self.get_dremio_edition()
-        # Lazily probed on first use; see _supports_array_queried_datasets.
+        # Lazily probed on first call to _supports_array_queried_datasets.
         self._queried_datasets_is_array: Optional[bool] = None
 
     def get_dremio_edition(self):
@@ -776,18 +776,10 @@ class DremioAPIOperations:
         return parents_list
 
     def _supports_array_queried_datasets(self) -> bool:
-        """
-        Detect whether sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>
-        (Dremio Software 26.1.0+) vs VARCHAR (pre-26.1.0).
-
-        Probes once with a minimal LIMIT 1 query that calls ARRAY_SIZE on the
-        column. ARRAY_SIZE only resolves against array-typed columns, so a
-        successful execution implies the array schema; any execution failure
-        falls back to the legacy VARCHAR query form. The result is cached on
-        the instance so the probe runs at most once per ingestion.
-
-        Cloud always uses the array schema and skips the probe.
-        """
+        """Detect whether sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>
+        (Dremio Software 26.1.0+) vs VARCHAR. Probes once with ARRAY_SIZE —
+        the function only resolves on array columns, so success → array,
+        any failure → legacy form. Cloud is always array."""
         if self._queried_datasets_is_array is not None:
             return self._queried_datasets_is_array
 
@@ -806,15 +798,14 @@ class DremioAPIOperations:
                 "(Dremio Software 26.1.0+); using array-aware jobs query."
             )
         except Exception as exc:
-            # Probe contract: any failure -> assume legacy. Catch broadly
-            # because execute_query_iter raises DremioAPIException, RuntimeError
-            # (job FAILED/CANCELED), or transport errors. Real problems still
-            # surface later from the actual jobs query.
+            # Catch broadly: execute_query_iter can raise DremioAPIException,
+            # RuntimeError (FAILED/CANCELED job), or transport errors — any
+            # of which means we don't have the array column type. Real
+            # problems surface later from the actual jobs query.
             self._queried_datasets_is_array = False
             logger.info(
-                f"queried_datasets probe failed; assuming legacy VARCHAR column "
-                f"(pre-26.1.0 Dremio Software). Falling back to legacy jobs "
-                f"query. Probe error: {exc}"
+                f"queried_datasets probe failed; assuming legacy VARCHAR. "
+                f"Probe error: {exc}"
             )
 
         return self._queried_datasets_is_array

@@ -298,20 +298,9 @@ class DremioSQLQueries:
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
     ) -> str:
-        """
-        Get query for all jobs on Dremio Software 26.1.0+ where
-        sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>.
-
-        The legacy `get_query_all_jobs` form uses LENGTH()/raw selection and
-        breaks at runtime once Dremio Software 26.1.0 changes the column type
-        from VARCHAR to ARRAY<VARCHAR>. We wrap the array as a bracket-string
-        so the downstream parser (DremioQuery._get_queried_datasets) keeps
-        working unchanged.
-
-        Args:
-            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 1 day ago)
-            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
-        """
+        """All-jobs query for Dremio Software 26.1.0+ (queried_datasets is
+        ARRAY<VARCHAR>). Renders the array as a bracket-string so the
+        existing DremioQuery._get_queried_datasets parser keeps working."""
         if start_timestamp_millis is None:
             start_timestamp_millis = (
                 DremioSQLQueries._get_default_start_timestamp_millis()
