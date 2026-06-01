@@ -317,8 +317,17 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Datasets
+            # Process Datasets. When profiling is enabled we'd otherwise
+            # run the global catalog query twice — once here for emission
+            # and once in the profiling block below. Materialise into a
+            # list on the first pass so profiling can reuse it.
+            profiling_enabled = self.config.is_profiling_enabled()
+            datasets_for_profiling: Optional[List[DremioDataset]] = (
+                [] if profiling_enabled else None
+            )
             for dataset_info in self.dremio_catalog.get_datasets():
+                if datasets_for_profiling is not None:
+                    datasets_for_profiling.append(dataset_info)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -352,16 +361,15 @@ class DremioSource(StatefulIngestionSourceBase):
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling
-            if self.config.is_profiling_enabled():
+            # Profiling. Reuse the dataset list captured in the emission
+            # loop above so we don't re-run the global catalog query.
+            if profiling_enabled and datasets_for_profiling is not None:
                 with (
                     self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
-                    # Collect datasets for profiling
-                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
                         for dataset in datasets_for_profiling

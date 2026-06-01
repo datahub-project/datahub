@@ -98,3 +98,41 @@ class TestDremioTimestampFiltering:
         # Start time should use frozen time default (1 day ago)
         assert "submitted_ts >= TIMESTAMP '2024-01-14 12:00:00.000'" in query
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
+
+    def test_query_structure_unchanged(self):
+        """Pin the WHERE-clause invariants that protect lineage correctness.
+
+        These constraints were dropped twice by accident during refactors;
+        keep them assertable so future query edits trip the test instead of
+        silently changing which jobs feed into lineage extraction.
+        """
+        query = DremioSQLQueries.get_query_all_jobs()
+
+        assert "STATUS = 'COMPLETED'" in query
+        assert "LENGTH(queried_datasets)>0" in query
+        assert "user_name != '$dremio$'" in query
+        assert "query_type not like '%INTERNAL%'" in query
+
+        for field in (
+            "job_id",
+            "user_name",
+            "submitted_ts",
+            "query",
+            "queried_datasets",
+        ):
+            assert field in query, f"SELECT clause missing {field!r}"
+
+    def test_cloud_query_structure_unchanged(self):
+        """Same WHERE-clause invariants as on-prem, plus the cloud-specific
+        ARRAY-to-string CONCAT projection used to keep `queried_datasets`
+        readable on Dremio 26.1.0+ (see PR #17647)."""
+        query = DremioSQLQueries.get_query_all_jobs_cloud()
+
+        assert "STATUS = 'COMPLETED'" in query
+        assert "ARRAY_SIZE(queried_datasets)>0" in query
+        assert "user_name != '$dremio$'" in query
+        assert "query_type not like '%INTERNAL%'" in query
+        assert (
+            "CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets"
+            in query
+        )

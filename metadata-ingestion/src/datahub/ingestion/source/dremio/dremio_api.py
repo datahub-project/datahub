@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -178,6 +178,10 @@ class DremioAPIOperations:
         # Cache for read-only /catalog/{id} responses — the same IDs are fetched
         # multiple times during catalog traversal (container walk + dataset fetch).
         self._catalog_cache: Dict[str, Any] = {}
+        # By-path catalog lookups for the Community edition path. Keyed by
+        # (schema, dataset) — the underlying `/catalog/by-path/...` endpoint
+        # isn't part of the id-keyed catalog cache.
+        self._dataset_id_cache: Dict[Tuple[str, str], Optional[str]] = {}
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
             self.base_url = self._get_cloud_base_url(
@@ -313,8 +317,10 @@ class DremioAPIOperations:
             logger.debug("Configured Dremio cloud API session to use PAT")
             return
 
-        # On-prem Dremio authentication (PAT or Basic Auth)
-        for _ in range(1, self._retry_count + 1):
+        # On-prem Dremio authentication (PAT or Basic Auth). Retry only
+        # transient errors (network, HTTP 5xx) — bad credentials and
+        # missing config burn retries with no possibility of recovery.
+        for attempt in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
                     self.session.headers.update(
@@ -354,9 +360,13 @@ class DremioAPIOperations:
                     else:
                         self.report.failure("Failed to authenticate", login_url)
                         raise DremioAPIException("Failed to authenticate with Dremio")
+            except (AssertionError, DremioAPIException):
+                # Credential / config errors: fail fast instead of looping.
+                raise
             except Exception as e:
                 self.report.failure("Failed to authenticate", str(e))
-                sleep(1)  # Optional: exponential backoff
+                if attempt < self._retry_count:
+                    sleep(1)
 
         self.report.failure(
             "Credentials cannot be refreshed. Please check your username and password."
@@ -426,7 +436,16 @@ class DremioAPIOperations:
         wait = 1.0
         while True:
             status = self.get_job_status(job_id)
-            state = status["jobState"]
+            # Partial JSON, rate-limit HTML, or transient proxy errors
+            # can land here without "jobState". Treat as still-running so
+            # the wall-clock timeout below remains the safety net rather
+            # than a KeyError aborting mid-query.
+            state = status.get("jobState")
+            if state is None:
+                logger.warning(
+                    f"Dremio job {job_id} status response missing 'jobState'; "
+                    f"keys present: {list(status.keys())}"
+                )
             if state == DremioJobState.COMPLETED:
                 return
             elif state == DremioJobState.FAILED:
@@ -446,7 +465,16 @@ class DremioAPIOperations:
             wait = min(wait * 1.5, 10.0)
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
-        """Execute SQL query with timeout and error handling"""
+        """Execute SQL query with a wall-clock timeout covering BOTH the
+        poll and fetch phases.
+
+        Master previously wrapped poll+fetch in a ThreadPoolExecutor with
+        `future.result(timeout=timeout)`. After splitting `_wait_for_job`
+        out for adaptive polling, the fetch loop was left unbounded —
+        a query returning a giant result set could fetch for hours past
+        the configured timeout. We thread a deadline through both phases
+        instead.
+        """
         try:
             with PerfTimer() as timer:
                 logger.info(f"Executing query: {query}")
@@ -459,11 +487,12 @@ class DremioAPIOperations:
                     raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
                 job_id = response["id"]
+                deadline = time() + timeout
                 try:
                     self._wait_for_job(job_id, timeout)
                 except RuntimeError as e:
-                    raise DremioAPIException() from e
-                result = self._fetch_all_results(job_id)
+                    raise DremioAPIException(str(e)) from e
+                result = self._fetch_all_results(job_id, deadline=deadline)
                 logger.info(
                     f"Query executed in {timer.elapsed_seconds()} seconds with {len(result)} results"
                 )
@@ -472,48 +501,34 @@ class DremioAPIOperations:
         except requests.RequestException as e:
             raise DremioAPIException("Error executing query") from e
 
-    def _fetch_all_results(self, job_id: str) -> List[Dict]:
-        """Fetch all results for a completed job"""
-        limit = 500
-        offset = 0
-        rows = []
+    def _fetch_all_results(
+        self, job_id: str, deadline: Optional[float] = None
+    ) -> List[Dict]:
+        """Fetch all results for a completed job (eager materialisation)."""
+        # Delegate to the streaming iterator so the deadline-check and
+        # error-handling logic only lives in one place.
+        return list(self._fetch_results_iter(job_id, deadline=deadline))
 
-        while True:
-            result = self.get_job_result(job_id, offset, limit)
+    def _fetch_results_iter(
+        self, job_id: str, deadline: Optional[float] = None
+    ) -> Iterator[Dict]:
+        """Fetch job results as a streaming iterator to reduce peak memory usage.
 
-            if "rows" not in result:
-                logger.warning(
-                    f"API response for job {job_id} missing 'rows' key. "
-                    f"Response keys: {list(result.keys())}"
-                )
-                if "errorMessage" in result:
-                    raise DremioAPIException(f"Query error: {result['errorMessage']}")
-                elif "message" in result:
-                    logger.warning(
-                        f"Query warning for job {job_id}: {result['message']}"
-                    )
-                break
-
-            result_rows = result["rows"]
-            if not result_rows:
-                break
-
-            rows.extend(result_rows)
-            actual = len(result_rows)
-            offset += actual
-            if actual < limit:
-                break
-
-        logger.info(f"Fetched {len(rows)} total rows for job {job_id}")
-        return rows
-
-    def _fetch_results_iter(self, job_id: str) -> Iterator[Dict]:
-        """Fetch job results as a streaming iterator to reduce peak memory usage."""
+        When `deadline` is provided we re-check the wall clock before each
+        page request so a query returning a very large result set can't
+        run past `execute_query(... timeout=N)`.
+        """
         limit = 500
         offset = 0
         total = 0
 
         while True:
+            if deadline is not None and time() > deadline:
+                self.cancel_query(job_id)
+                raise DremioAPIException(
+                    f"Query result fetch timed out for job {job_id}"
+                )
+
             result = self.get_job_result(job_id, offset, limit)
 
             if "rows" not in result:
@@ -560,14 +575,15 @@ class DremioAPIOperations:
                     raise DremioAPIException(f"SQL Error: {response['errorMessage']}")
 
                 job_id = response["id"]
+                deadline = time() + timeout
                 try:
                     self._wait_for_job(job_id, timeout)
                 except RuntimeError as e:
-                    raise DremioAPIException() from e
+                    raise DremioAPIException(str(e)) from e
                 logger.info(
                     f"Query job completed in {timer.elapsed_seconds()} seconds, starting streaming"
                 )
-                return self._fetch_results_iter(job_id)
+                return self._fetch_results_iter(job_id, deadline=deadline)
 
         except requests.RequestException as e:
             raise DremioAPIException("Error executing streaming query") from e
@@ -594,7 +610,20 @@ class DremioAPIOperations:
         )
 
     def get_dataset_id(self, schema: str, dataset: str) -> Optional[str]:
-        """Retrieve the dataset ID based on schema and dataset name."""
+        """Retrieve the dataset ID based on schema and dataset name.
+
+        Memoised per (schema, dataset) for the lifetime of this API
+        instance. The `/catalog/by-path/...` endpoint is path-keyed and
+        not part of the immutable-by-id catalog cache, so without this
+        Community-edition ingestion does an O(tables * path_depth)
+        walk per ingestion (`RESOURCE_ID` and `LOCATION_ID` both call
+        this for every table — the second one always with the same
+        `(schema, "")` key per schema).
+        """
+        cache_key = (schema, dataset)
+        if cache_key in self._dataset_id_cache:
+            return self._dataset_id_cache[cache_key]
+
         schema_split = schema.split(".")
         schema_str = ""
         last_val = 0
@@ -617,6 +646,7 @@ class DremioAPIOperations:
         if not dataset_id:
             logger.error(f"Dataset ID not found for {schema}.{dataset}")
 
+        self._dataset_id_cache[cache_key] = dataset_id
         return dataset_id
 
     def community_get_formatted_tables(
@@ -764,10 +794,39 @@ class DremioAPIOperations:
         """
         Execute the global dataset query in LIMIT/OFFSET chunks and yield tables.
 
-        Chunking guards against Dremio OOM on result sets too large to materialise at once.
+        Chunking guards against Dremio OOM on result sets too large to
+        materialise at once. The query is ORDER BY TABLE_SCHEMA, TABLE_NAME,
+        ORDINAL_POSITION, so rows for the same table are contiguous within
+        a chunk — but a wide table can still straddle a chunk boundary, so
+        the EE/Cloud aggregator holds the in-flight (last seen) table across
+        chunks and flushes only when it sees a different table path. The
+        final table is emitted after the chunk loop exits.
         """
         chunk_size = self._chunk_size
         offset = 0
+
+        column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
+        table_metadata: Dict[str, Dict] = {}
+        last_table_path: Optional[str] = None
+
+        def _build_emit(path: str) -> Dict:
+            info = table_metadata.pop(path)
+            columns = sorted(
+                column_dictionary.pop(path, []),
+                key=lambda col: col.get("ordinal_position", 0),
+            )
+            return {
+                "TABLE_NAME": info.get("TABLE_NAME"),
+                "TABLE_SCHEMA": info.get("TABLE_SCHEMA"),
+                "COLUMNS": columns,
+                "VIEW_DEFINITION": info.get("VIEW_DEFINITION"),
+                "RESOURCE_ID": info.get("RESOURCE_ID"),
+                "LOCATION_ID": info.get("LOCATION_ID"),
+                "OWNER": info.get("OWNER"),
+                "OWNER_TYPE": info.get("OWNER_TYPE"),
+                "CREATED": info.get("CREATED"),
+                "FORMAT_TYPE": info.get("FORMAT_TYPE"),
+            }
 
         while True:
             limit_clause = f"LIMIT {chunk_size} OFFSET {offset}"
@@ -789,12 +848,11 @@ class DremioAPIOperations:
                     break
 
                 if self.edition == DremioEdition.COMMUNITY:
+                    # Community path is per-chunk: community_get_formatted_tables
+                    # already returns fully-formed tables, no cross-chunk merge.
                     for table in self.community_get_formatted_tables(chunk_results):
                         yield table
                 else:
-                    column_dictionary: Dict[str, List[Dict]] = defaultdict(list)
-                    table_metadata: Dict[str, Dict] = {}
-
                     for record in chunk_results:
                         if not record.get("COLUMN_NAME"):
                             continue
@@ -802,6 +860,17 @@ class DremioAPIOperations:
                         table_full_path = record.get("FULL_TABLE_PATH")
                         if not table_full_path:
                             continue
+
+                        # Flush the previous table the moment we move on to a
+                        # new one — that's the only point at which we know
+                        # we've collected all of its columns (ORDER BY
+                        # guarantees contiguity within a table).
+                        if (
+                            last_table_path is not None
+                            and last_table_path != table_full_path
+                            and last_table_path in table_metadata
+                        ):
+                            yield _build_emit(last_table_path)
 
                         raw_ordinal = record.get("ORDINAL_POSITION")
                         try:
@@ -834,23 +903,7 @@ class DremioAPIOperations:
                                 "FORMAT_TYPE": record.get("FORMAT_TYPE"),
                             }
 
-                    for table_path, table_info in table_metadata.items():
-                        columns = sorted(
-                            column_dictionary[table_path],
-                            key=lambda col: col.get("ordinal_position", 0),
-                        )
-                        yield {
-                            "TABLE_NAME": table_info.get("TABLE_NAME"),
-                            "TABLE_SCHEMA": table_info.get("TABLE_SCHEMA"),
-                            "COLUMNS": columns,
-                            "VIEW_DEFINITION": table_info.get("VIEW_DEFINITION"),
-                            "RESOURCE_ID": table_info.get("RESOURCE_ID"),
-                            "LOCATION_ID": table_info.get("LOCATION_ID"),
-                            "OWNER": table_info.get("OWNER"),
-                            "OWNER_TYPE": table_info.get("OWNER_TYPE"),
-                            "CREATED": table_info.get("CREATED"),
-                            "FORMAT_TYPE": table_info.get("FORMAT_TYPE"),
-                        }
+                        last_table_path = table_full_path
 
                 if len(chunk_results) < chunk_size:
                     break
@@ -867,6 +920,11 @@ class DremioAPIOperations:
                         context="global_dataset_fetch",
                     )
                 break
+
+        # Flush the last in-flight table (EE/Cloud only — Community emits
+        # per-chunk so the dictionaries are empty here).
+        if last_table_path is not None and last_table_path in table_metadata:
+            yield _build_emit(last_table_path)
 
     def validate_schema_format(self, schema):
         if "." in schema:
@@ -994,7 +1052,7 @@ class DremioAPIOperations:
             )
             return tags.get("tags")
         except Exception as exc:
-            logging.info(
+            logger.info(
                 "Resource ID {} has no tags: {}".format(
                     resource_id,
                     exc,
@@ -1013,7 +1071,7 @@ class DremioAPIOperations:
             )
             return tags.get("text")
         except Exception as exc:
-            logging.info(
+            logger.info(
                 "Resource ID {} has no wiki entry: {}".format(
                     resource_id,
                     exc,
@@ -1082,12 +1140,9 @@ class DremioAPIOperations:
 
                 if space_name:
                     if self.filter.should_include_container([], space_name):
-                        # Map HOME to SPACE for subtype (both are treated as spaces in DataHub)
-                        mapped_container_type = (
-                            DremioEntityContainerType.SPACE
-                            if container_type == DremioEntityContainerType.HOME.value
-                            else DremioEntityContainerType.SPACE
-                        )
+                        # Both SPACE and HOME containers are surfaced as
+                        # DataHub "spaces" — we don't model HOME separately.
+                        mapped_container_type = DremioEntityContainerType.SPACE
 
                         container_data = {
                             **source,  # Original source data
@@ -1203,7 +1258,7 @@ class DremioAPIOperations:
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
-                logging.info(
+                logger.info(
                     "Location {} contains no tables or views. Skipping...".format(
                         location_id
                     )

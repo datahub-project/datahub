@@ -174,6 +174,62 @@ class TestDremioChunking:
         # Global queries must not contain a LOCATE container filter.
         assert "LOCATE" not in query_arg
 
+    def test_get_all_tables_global_chunked_straddling_table(self, dremio_api):
+        """Pin Blocker #1: a wide table whose columns straddle a chunk
+        boundary must surface once with ALL its columns, not split into
+        two partial emissions or duplicated. Order: TABLE_SCHEMA,
+        TABLE_NAME, ORDINAL_POSITION (matches the SQL ORDER BY).
+        """
+        dremio_api.edition = DremioEdition.ENTERPRISE
+        dremio_api.allow_schema_pattern = [".*"]
+        dremio_api.deny_schema_pattern = []
+        dremio_api._chunk_size = 2  # force straddling
+
+        def _row(table: str, ordinal: int, col: str) -> Dict:
+            return {
+                "COLUMN_NAME": col,
+                "FULL_TABLE_PATH": f"source.{table}",
+                "TABLE_NAME": table,
+                "TABLE_SCHEMA": "source",
+                "ORDINAL_POSITION": ordinal,
+                "IS_NULLABLE": "YES",
+                "DATA_TYPE": "VARCHAR",
+                "COLUMN_SIZE": 255,
+                "RESOURCE_ID": f"res-{table}",
+                "LOCATION_ID": f"loc-{table}",
+                "VIEW_DEFINITION": None,
+                "OWNER": None,
+                "OWNER_TYPE": None,
+                "CREATED": None,
+                "FORMAT_TYPE": None,
+            }
+
+        # table1 has 3 columns; chunk_size=2 forces it to straddle two
+        # chunks. table2 sits in the third chunk to prove the final-flush
+        # path also surfaces correctly.
+        chunk1 = [_row("table1", 1, "a"), _row("table1", 2, "b")]
+        chunk2 = [_row("table1", 3, "c"), _row("table2", 1, "x")]
+        chunk3: List[Dict] = []
+
+        dremio_api.execute_query_iter = Mock(
+            side_effect=[iter(chunk1), iter(chunk2), iter(chunk3)]
+        )
+
+        tables = list(
+            dremio_api._get_all_tables_global_chunked(
+                DremioSQLQueries.QUERY_DATASETS_EE_GLOBAL,
+                "",
+                "",
+            )
+        )
+
+        names_to_cols = {
+            t["TABLE_NAME"]: [c["name"] for c in t["COLUMNS"]] for t in tables
+        }
+        assert names_to_cols == {"table1": ["a", "b", "c"], "table2": ["x"]}
+        # No table emitted twice.
+        assert [t["TABLE_NAME"] for t in tables] == ["table1", "table2"]
+
     def test_get_all_tables_global_chunked_oom_error(self, dremio_api):
         dremio_api.edition = DremioEdition.ENTERPRISE
         dremio_api.allow_schema_pattern = [".*"]
