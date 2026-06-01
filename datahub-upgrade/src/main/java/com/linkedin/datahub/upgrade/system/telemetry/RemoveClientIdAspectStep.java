@@ -41,10 +41,6 @@ public class RemoveClientIdAspectStep implements UpgradeStep {
       log.info("RemoveClientIdAspect is disabled. Skipping.");
       return true;
     }
-    boolean skip = _entityService.exists(context.opContext(), REMOVE_UNKNOWN_ASPECTS_URN, true);
-    if (skip) {
-      log.info("Unknown aspects have been removed. Skipping...");
-    }
     return skip;
   }
 
@@ -58,12 +54,8 @@ public class RemoveClientIdAspectStep implements UpgradeStep {
             INVALID_TELEMETRY_ASPECT_NAME,
             new HashMap<>(),
             true);
-        BootstrapStep.setUpgradeResult(
-            context.opContext(), REMOVE_UNKNOWN_ASPECTS_URN, _entityService);
-        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {
         log.warn("Error when running the RemoveUnknownAspects Bootstrap Step", e);
-        _entityService.deleteUrn(context.opContext(), REMOVE_UNKNOWN_ASPECTS_URN);
       }
       return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
     };
