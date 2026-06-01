@@ -277,7 +277,7 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.max_workers = config.max_workers
 
-        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
+        # Custom resolver handles the "dremio." infix injected after platform_instance.
         self.dremio_schema_resolver = DremioSchemaResolver(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance,
@@ -303,7 +303,6 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
-        # Wire profiling state handler for incremental profiling support
         profiling_handler: Optional[ProfilingHandler] = None
         if config.stateful_ingestion and config.stateful_ingestion.enabled:
             profiling_handler = ProfilingHandler(
@@ -503,8 +502,8 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
-        # Filter out Dremio Reflections (internal acceleration structures in _accelerator_ schema)
-        # These are Dremio's internal metadata and should not appear in the DataHub catalog
+        # Drop Dremio Reflections — _accelerator_ holds internal acceleration
+        # structures that should never surface in the DataHub catalog.
         if dataset_info.path and dataset_info.path[0] == "_accelerator_":
             self.report.report_dropped(f"Skipping Dremio reflection: {dataset_name}")
             return
@@ -661,10 +660,6 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         Process query lineage information.
         """
-        # Determine the effective time window for this extraction run.
-        # When stateful time-window tracking is enabled, suggest_run_time_window()
-        # advances start_time to the previous run's end_time so we never
-        # re-process job history that was already ingested.
         effective_start = self.config.start_time
         effective_end = self.config.end_time
         redundant_handler: Optional[RedundantQueriesRunSkipHandler] = None

@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 from unittest.mock import Mock
 
 import pytest
@@ -6,6 +7,10 @@ from pydantic import ValidationError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.dremio.dremio_config import (
     DremioConnectionConfig,
@@ -185,15 +190,6 @@ class TestIncrementalLineageWiring:
         # Skip the stale-entity-removal handler (needs graph +
         # checkpointing wiring this test doesn't set up); just compose
         # the lineage / property handlers we're asserting on.
-        from functools import partial
-
-        from datahub.ingestion.api.incremental_lineage_helper import (
-            auto_incremental_lineage,
-        )
-        from datahub.ingestion.api.incremental_properties_helper import (
-            auto_incremental_properties,
-        )
-
         stream = iter([workunit])
         stream = partial(auto_incremental_lineage, source.config.incremental_lineage)(
             stream
