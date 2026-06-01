@@ -999,7 +999,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Per-query execution timing for lineage fetch.
     # Value: total elapsed seconds covering
     # both the execute step and the complete result fetch.
-    lineage_query_timings: TopKDict[str, float] = field(default_factory=dict)
+    lineage_query_timings: TopKDict[str, float] = field(default_factory=TopKDict)
 
     # Number of lineage queries whose total execution time exceeded
     # config.lineage_slow_query_log_seconds.
@@ -1068,6 +1068,14 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
                 self.view_permission_errors += 1
             else:
                 self.view_unknown_errors += 1
+
+    def record_lineage_query_timing(self, label: str, elapsed_seconds: float) -> None:
+        with self._lock:
+            self.lineage_query_timings[label] = elapsed_seconds
+
+    def increment_lineage_slow_query(self) -> None:
+        with self._lock:
+            self.lineage_slow_queries_detected += 1
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -2785,7 +2793,7 @@ ORDER by DataBaseName, TableName;
                         yield from batch
 
                     query_elapsed = time.time() - query_start
-                    self.report.lineage_query_timings[query_label] = query_elapsed
+                    self.report.record_lineage_query_timing(query_label, query_elapsed)
 
                     logger.info(
                         f"Completed lineage {query_label}: {query_total_count} entries "
@@ -2793,7 +2801,7 @@ ORDER by DataBaseName, TableName;
                     )
 
                     if slow_threshold > 0 and query_elapsed > slow_threshold:
-                        self.report.lineage_slow_queries_detected += 1
+                        self.report.increment_lineage_slow_query()
                         sql_snippet = query[:500].replace("\n", " ")
                         if len(query) > 500:
                             sql_snippet += " …"

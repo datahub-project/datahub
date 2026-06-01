@@ -4222,7 +4222,7 @@ class TestErrorCategorizationReport:
         assert report.schema_discovery_failures == n_threads * m_per_thread
 
     def test_view_error_counters_are_exclusive(self) -> None:
-        """Each category increments exactly its own counter, leaving others at zero."""
+        """increment_view_error routes each category to exactly its own counter."""
         categories = {
             "timeout": "view_timeout_errors",
             "parse": "view_parse_errors",
@@ -4231,17 +4231,10 @@ class TestErrorCategorizationReport:
         }
         for category, field_name in categories.items():
             report = TeradataReport()
-            with report.atomic():
-                if category == "timeout":
-                    report.view_timeout_errors += 1
-                elif category == "parse":
-                    report.view_parse_errors += 1
-                elif category == "permission":
-                    report.view_permission_errors += 1
-                else:
-                    report.view_unknown_errors += 1
+            report.increment_view_error(category)
 
             assert getattr(report, field_name) == 1
+            assert report.num_view_processing_failures == 1
             for other_field in categories.values():
                 if other_field != field_name:
                     assert getattr(report, other_field) == 0, (
