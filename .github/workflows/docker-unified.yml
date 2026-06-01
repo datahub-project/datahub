@@ -241,12 +241,7 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        # Old condition (ran on any backend/frontend/playwright change or publish, including all PRs):
-        # if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
-        #
-        # Temporary - New condition mirrors smoke-test rules (backend-change|playwright-change|publish for non-PRs),
-        # but restricts PRs to playwright-change only to avoid running the full E2E suite on every code PR.
-        if: ${{ (github.event_name == 'pull_request' && steps.ci-optimize.outputs.playwright-change == 'true') || (github.event_name != 'pull_request' && (steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true')) }}
+        if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
@@ -1131,13 +1126,13 @@ jobs:
   publish_images:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
-    needs: [setup, smoke_test, base_build]
+    needs: [setup, smoke_test, playwright_test, base_build]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
         run: |
-          # Check the overall result of the matrix job
+          # Check the overall result of the matrix jobs
           # Matrix jobs can have mixed results, so we check for any failures
           if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
             echo "Smoke tests failed, skipping quickstart tag update"
@@ -1147,8 +1142,16 @@ jobs:
             echo "Smoke tests were cancelled, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
+          elif [[ "${{ needs.playwright_test.result }}" == "failure" ]]; then
+            echo "Playwright tests failed, skipping quickstart tag update"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          elif [[ "${{ needs.playwright_test.result }}" == "cancelled" ]]; then
+            echo "Playwright tests were cancelled, skipping quickstart tag update"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
           else
-            echo "Smoke tests completed successfully, proceeding with quickstart tag update"
+            echo "All tests completed successfully, proceeding with quickstart tag update"
             echo "tests_passed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -1201,7 +1204,7 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test, publish_images]
+    needs: [setup, smoke_test, playwright_test, publish_images]
     steps:
       - uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
