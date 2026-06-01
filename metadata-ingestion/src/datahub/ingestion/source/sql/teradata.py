@@ -331,7 +331,11 @@ def _categorize_view_error(exc: BaseException) -> str:
         return "permission"
 
     # SQL parse / syntax error.
-    if _PARSE_ERROR_CODE_RE.search(raw) or any(k in msg for k in _PARSE_ERROR_KEYWORDS):
+    if (
+        _PARSE_ERROR_CODE_RE.search(raw)
+        or any(k in msg for k in _PARSE_ERROR_KEYWORDS)
+        or isinstance(exc, NotSupportedError)
+    ):
         return "parse"
 
     return "unknown"
@@ -995,7 +999,7 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Per-query execution timing for lineage fetch.
     # Value: total elapsed seconds covering
     # both the execute step and the complete result fetch.
-    lineage_query_timings: Dict[str, float] = field(default_factory=dict)
+    lineage_query_timings: TopKDict[str, float] = field(default_factory=dict)
 
     # Number of lineage queries whose total execution time exceeded
     # config.lineage_slow_query_log_seconds.
@@ -1007,16 +1011,8 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Retry statistics
     num_db_retries: int = 0
 
-    # Per-phase error breakdown — allows customers to self-diagnose failures
-    # without having to inspect log files.  Each counter covers a distinct root
-    # cause so that a support request can immediately point to the right area.
-    #
-    #   schema_discovery_failures — fatal errors in _get_schema_names_with_retry
-    #       (network, auth, or permission problems during the schema-list phase).
-    #   view_timeout_errors       — view worker hit a pool/I-O/query timeout.
-    #   view_parse_errors         — view SQL contains a syntax / parse error.
-    #   view_permission_errors    — auth or access-denied failure for the view.
-    #   view_unknown_errors       — any other failure in view processing.
+    # Per-phase error breakdown for self-service diagnostics; categories align
+    # with _categorize_view_error() so support can pinpoint root cause quickly.
     schema_discovery_failures: int = 0
     view_timeout_errors: int = 0
     view_parse_errors: int = 0
@@ -1060,6 +1056,18 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def add_column_extraction_duration(self, seconds: float) -> None:
         with self._lock:
             self.column_extraction_duration_seconds += seconds
+
+    def increment_view_error(self, category: str) -> None:
+        with self._lock:
+            self.num_view_processing_failures += 1
+            if category == "timeout":
+                self.view_timeout_errors += 1
+            elif category == "parse":
+                self.view_parse_errors += 1
+            elif category == "permission":
+                self.view_permission_errors += 1
+            else:
+                self.view_unknown_errors += 1
 
 
 class BaseTeradataConfig(TwoTierSQLAlchemyConfig):
@@ -2190,29 +2198,19 @@ ORDER by DataBaseName, TableName;
                         )
 
                 except Exception as e:
-                    # Classify before entering the lock so the atomic block stays
-                    # cheap (no string scanning while holding the shared lock).
                     _error_category = _categorize_view_error(e)
-                    with self.report.atomic():
-                        self.report.num_view_processing_failures += 1
-                        if _error_category == "timeout":
-                            self.report.view_timeout_errors += 1
-                        elif _error_category == "parse":
-                            self.report.view_parse_errors += 1
-                        elif _error_category == "permission":
-                            self.report.view_permission_errors += 1
-                        else:
-                            self.report.view_unknown_errors += 1
-                        full_traceback = traceback.format_exc()
-                        logger.error(
-                            f"Failed to process view {schema}.{view_name}: {str(e)}"
-                        )
-                        logger.error(f"Full traceback: {full_traceback}")
-                        self.report.warning(
-                            f"Error processing view {schema}.{view_name}",
-                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
-                            exc=e,
-                        )
+                    full_traceback = traceback.format_exc()
+                    self.report.increment_view_error(_error_category)
+                    logger.error(
+                        f"Failed to process view {schema}.{view_name}: {str(e)}"
+                    )
+                    logger.error(f"Full traceback: {full_traceback}")
+
+                    self.report.warning(
+                        "Error processing view",
+                        context=f"View: {schema}.{view_name}, Error: {str(e)}",
+                        exc=e,
+                    )
 
                 return results
 
@@ -2275,6 +2273,9 @@ ORDER by DataBaseName, TableName;
                                     "Error in thread processing view",
                                     context=f"{schema}.{view_name}",
                                     exc=e,
+                                )
+                                self.report.increment_view_error(
+                                    _categorize_view_error(e)
                                 )
                         completed_count += 1
 
@@ -2401,21 +2402,13 @@ ORDER by DataBaseName, TableName;
                     except Exception as e:
                         _error_category = _categorize_view_error(e)
                         full_traceback = traceback.format_exc()
+                        self.report.increment_view_error(_error_category)
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
                         )
                         logger.error(f"Full traceback: {full_traceback}")
-                        self.report.num_view_processing_failures += 1
-                        if _error_category == "timeout":
-                            self.report.view_timeout_errors += 1
-                        elif _error_category == "parse":
-                            self.report.view_parse_errors += 1
-                        elif _error_category == "permission":
-                            self.report.view_permission_errors += 1
-                        else:
-                            self.report.view_unknown_errors += 1
                         self.report.warning(
-                            f"Error processing view {schema}.{view_name}",
+                            "Error processing view",
                             context=f"View: {schema}.{view_name}, Error: {str(e)}",
                             exc=e,
                         )
@@ -2804,8 +2797,6 @@ ORDER by DataBaseName, TableName;
 
                     if slow_threshold > 0 and query_elapsed > slow_threshold:
                         self.report.lineage_slow_queries_detected += 1
-                        # Truncate SQL to 500 chars to keep the log line readable
-                        # while still providing enough context to identify the query.
                         sql_snippet = query[:500].replace("\n", " ")
                         if len(query) > 500:
                             sql_snippet += " …"

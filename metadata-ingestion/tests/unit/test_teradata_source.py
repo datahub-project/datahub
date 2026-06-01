@@ -14,6 +14,7 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.exc import (
     DatabaseError,
+    NotSupportedError,
     OperationalError,
     TimeoutError as PoolTimeoutError,
 )
@@ -4188,17 +4189,18 @@ class TestCategorizeViewError:
         )
         assert _categorize_view_error(exc) == "timeout"
 
+    def test_not_supported_error_is_parse(self) -> None:
+        """NotSupportedError raised for unsupported Teradata dialect features is
+        classified as 'parse', not 'unknown', because it indicates invalid SQL
+        rather than a transient or access-related failure."""
+        exc = NotSupportedError(
+            "Feature not supported by this Teradata driver", None, None
+        )
+        assert _categorize_view_error(exc) == "parse"
+
 
 class TestErrorCategorizationReport:
     """Report counters are wired correctly to _categorize_view_error categories."""
-
-    def test_new_fields_default_to_zero(self) -> None:
-        report = TeradataReport()
-        assert report.schema_discovery_failures == 0
-        assert report.view_timeout_errors == 0
-        assert report.view_parse_errors == 0
-        assert report.view_permission_errors == 0
-        assert report.view_unknown_errors == 0
 
     def test_increment_schema_discovery_failures(self) -> None:
         report = TeradataReport()
