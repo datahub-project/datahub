@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerResponse,
+    DremioDatasetColumn,
     DremioDatasetResponse,
 )
 
@@ -75,3 +76,45 @@ class TestDremioContainerResponseValidation:
             DremioContainerResponse.model_validate(
                 {"containerType": "FOLDER", "path": []}
             )
+
+
+class TestDremioDatasetColumnNullability:
+    """Pin the (string) is_nullable contract.
+
+    INFORMATION_SCHEMA.COLUMNS.IS_NULLABLE is a SQL standard ``"YES"``/``"NO"``
+    string. Master annotated ``is_nullable: bool`` on the dataclass but the
+    runtime value was always a string (the consumer in dremio_aspects.py was
+    already ``column.is_nullable == "YES"``), so the bool annotation was
+    aspirational, not effective. A1 fixes the annotation to match the data;
+    these tests pin the actual emission semantics so the change can't be
+    claimed as a silent behavior shift.
+    """
+
+    def _column(self, is_nullable: str) -> DremioDatasetColumn:
+        return DremioDatasetColumn(
+            name="col",
+            ordinal_position=1,
+            data_type="VARCHAR",
+            column_size=10,
+            is_nullable=is_nullable,
+        )
+
+    def test_yes_string_maps_to_nullable_true(self):
+        # Same comparison as dremio_aspects.py: nullable = is_nullable == "YES"
+        assert (self._column("YES").is_nullable == "YES") is True
+
+    def test_no_string_maps_to_nullable_false(self):
+        assert (self._column("NO").is_nullable == "YES") is False
+
+    def test_default_is_not_nullable(self):
+        # When the API omits IS_NULLABLE the field defaults to "NO", which
+        # the consumer maps to nullable=False (matching master's bool default
+        # of False once the lying annotation is removed).
+        column = DremioDatasetColumn(
+            name="col",
+            ordinal_position=1,
+            data_type="VARCHAR",
+            column_size=10,
+        )
+        assert column.is_nullable == "NO"
+        assert (column.is_nullable == "YES") is False

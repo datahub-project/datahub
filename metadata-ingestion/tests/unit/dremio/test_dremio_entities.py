@@ -45,6 +45,30 @@ class TestDremioQueryClassification:
         q = self._make_query("CREATE VIEW v AS SELECT 1")
         assert q.query_subtype == "CREATE"
 
+    @pytest.mark.parametrize(
+        "sql, expected_subtype",
+        [
+            # Master had a DATA_MANIPULATION bucket containing
+            # ["INSERT INTO", "MERGE INTO", "CREATE TABLE"] that was *never*
+            # iterated by _get_query_subtype (which only walks SELECT + DML +
+            # DDL). The single-word DML entries below have always been the
+            # first hit; the bucket was dead code in master too. Pin the
+            # actual subtype assignment so removing the unused bucket can't
+            # be claimed as a silent behavior change.
+            ("INSERT INTO foo SELECT * FROM bar", "INSERT"),
+            (
+                "MERGE INTO target USING src ON src.id = target.id WHEN MATCHED THEN UPDATE SET x = 1",
+                "MERGE",
+            ),
+            ("CREATE TABLE foo AS SELECT 1", "CREATE"),
+        ],
+    )
+    def test_subtype_for_data_manipulation_unchanged_after_bucket_removal(
+        self, sql, expected_subtype
+    ):
+        q = self._make_query(sql)
+        assert q.query_subtype == expected_subtype
+
     def test_subtype_for_with_cte(self):
         q = self._make_query("WITH cte AS (SELECT 1) SELECT * FROM cte")
         assert q.query_subtype == "WITH"
