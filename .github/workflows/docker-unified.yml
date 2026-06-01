@@ -1369,6 +1369,63 @@ jobs:
           path: playwright-report/
           retention-days: 5
 
+      - name: Configure AWS credentials for S3 report upload
+        uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        if: always()
+        continue-on-error: true
+        with:
+          role-to-assume: ${{ secrets.PLAYWRIGHT_REPORTS_OSS_ROLE_ARN }}
+          aws-region: us-west-2
+
+      - name: Publish Playwright report to S3
+        id: publish-s3-report
+        if: always()
+        continue-on-error: true
+        env:
+          GH_WORKFLOW: ${{ github.workflow }}
+          GH_REPOSITORY_OWNER: ${{ github.repository_owner }}
+          GH_EVENT_REPOSITORY_NAME: ${{ github.event.repository.name }}
+          GH_EVENT_NAME: ${{ github.event_name }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          if [[ ! -d playwright-report ]] || [[ -z "$(ls -A playwright-report 2>/dev/null)" ]]; then
+            echo "No playwright-report directory — skipping S3 upload"
+            exit 0
+          fi
+
+          BUCKET="datahub-oss-ci-build-artifacts.dev.dh-int.zone"
+
+          WORKFLOW_NAME=$(echo "$GH_WORKFLOW" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9]/-/g' \
+            | sed -E 's/-+/-/g' \
+            | sed 's/^-//;s/-$//')
+          S3_PATH="${GH_REPOSITORY_OWNER}/${GH_EVENT_REPOSITORY_NAME}/workflows/${GH_EVENT_NAME}/${GH_RUN_ID}_${GH_RUN_ATTEMPT}/${WORKFLOW_NAME}/playwright-report"
+
+          aws s3 sync playwright-report/ "s3://${BUCKET}/${S3_PATH}/" \
+            --cache-control "no-cache, no-store, must-revalidate" \
+            --sse AES256 \
+            --delete
+
+          REPORT_URL="https://${BUCKET}/${S3_PATH}/index.html"
+          echo "report_url=${REPORT_URL}" >> "$GITHUB_OUTPUT"
+          echo "Published Playwright report to: ${REPORT_URL}"
+
+      - name: Add report link to GitHub Summary
+        if: ${{ always() && steps.publish-s3-report.outputs.report_url != '' }}
+        run: |
+          {
+            echo "## Playwright HTML Report"
+            echo ""
+            echo "| Resource | Link |"
+            echo "|----------|------|"
+            echo "| HTML Report (incl. Traces) | ${{ steps.publish-s3-report.outputs.report_url }} |"
+            echo ""
+            echo "> [!NOTE]"
+            echo "> Accessible from the DataHub VPN only."
+          } >> "$GITHUB_STEP_SUMMARY"
+
   publish_images:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
