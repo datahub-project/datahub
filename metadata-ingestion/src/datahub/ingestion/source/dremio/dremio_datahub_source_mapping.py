@@ -79,6 +79,12 @@ class DremioToDataHubSourceTypeMapping:
 
     FILE_OBJECT_STORAGE_TYPES = {
         "ADL",
+        # AZURE_STORAGE is also listed in DATABASE_SOURCE_TYPES above.
+        # get_category checks DATABASE_SOURCE_TYPES first, so AZURE_STORAGE
+        # always resolves to "database" — which is the dot-notation path
+        # users hit in practice with Dremio's Azure Storage source
+        # (container/database/table). It's kept in this set so any future
+        # call site that asks "is this object storage?" still says yes.
         "AZURE_STORAGE",
         "GCS",
         "HDFS",
@@ -120,6 +126,15 @@ class DremioToDataHubSourceTypeMapping:
     ) -> None:
         """
         Add a new source type if not in the map (e.g., Dremio ARP).
+
+        `category` controls categorization for `get_category` / URN dispatch:
+        - "file_object_storage": registers as slash-notation file storage.
+        - any other truthy value (e.g. "database"): registers as dot-notation
+          database storage.
+        - None (default): only `SOURCE_TYPE_MAPPING` is updated; `get_category`
+          will return "unknown" for this type, which means URN building falls
+          back to its generic path. Pass an explicit `category` if you want
+          container-aware URN dispatch for this source.
         """
         dremio_source_type = dremio_source_type.upper()
         DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING[dremio_source_type] = (
