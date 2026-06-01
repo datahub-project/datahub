@@ -124,13 +124,7 @@ class TestDremioAPIPagination:
         dremio_api.get_job_status = Mock(return_value={"jobState": "RUNNING"})
         dremio_api.cancel_query = Mock()
 
-        # Mock time.time to simulate timeout - need to patch where it's imported.
-        # execute_query_iter now stamps a deadline before invoking _wait_for_job
-        # (so the fetch phase shares the same wall-clock budget), so the
-        # call sequence is:
-        #   1) deadline = time() + timeout   -> 0
-        #   2) _wait_for_job start = time()  -> 0
-        #   3) check time() - start > timeout -> 3700 (triggers timeout)
+        # time() calls: deadline stamp, _wait_for_job start, timeout check.
         mock_time_values = [0, 0, 3700]
 
         with (
@@ -150,34 +144,23 @@ class TestDremioAPIPagination:
         dremio_api.cancel_query.assert_called_once_with("job-123")
 
     def test_get_dataset_id_memoised(self, dremio_api):
-        """Pin Minor #12: identical (schema, dataset) keys reuse the
-        resolved id. Community-edition `RESOURCE_ID`/`LOCATION_ID`
-        lookups hit the same `(schema, "")` key once per schema, not
-        once per table.
-        """
+        # Community edition resolves RESOURCE_ID + LOCATION_ID per-table
+        # via the same (schema, "") key — without memoisation that's N+1.
         dremio_api.get = Mock(return_value={"id": "id-abc"})
 
-        first = dremio_api.get_dataset_id("source.subschema", "")
-        second = dremio_api.get_dataset_id("source.subschema", "")
+        assert dremio_api.get_dataset_id("source.subschema", "") == "id-abc"
+        assert dremio_api.get_dataset_id("source.subschema", "") == "id-abc"
+        cached_calls = dremio_api.get.call_count
 
-        assert first == "id-abc"
-        assert second == "id-abc"
-        first_call_count = dremio_api.get.call_count
-        # Second call should be a cache hit — no extra HTTP traffic.
-        assert dremio_api.get.call_count == first_call_count
-
-        # Different dataset key forces a fresh resolution.
         dremio_api.get_dataset_id("source.subschema", "another_table")
-        assert dremio_api.get.call_count > first_call_count
+        assert dremio_api.get.call_count > cached_calls
 
     def test_wait_for_job_tolerates_missing_state_field(self, dremio_api):
-        """Pin Major #6: a partial JSON or rate-limit HTML response that
-        omits 'jobState' must not abort the polling loop with a KeyError —
-        the wall-clock timeout is the safety net. Two malformed responses
-        followed by COMPLETED should return normally."""
+        # Malformed status payloads (rate-limit HTML, partial JSON) must
+        # not raise KeyError — wall-clock timeout is the safety net.
         dremio_api.get_job_status = Mock(
             side_effect=[
-                {},  # missing jobState entirely (treated as still-running)
+                {},
                 {"unexpected": "shape"},
                 {"jobState": "COMPLETED"},
             ]
