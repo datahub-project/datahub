@@ -380,8 +380,23 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Datasets
+            # Single pass over datasets: buffer for profiling, harvest
+            # glossary terms inline. Both follow-up passes would otherwise
+            # re-run the global catalog query. Dedup by string because
+            # DremioGlossaryTerm has no __eq__/__hash__.
+            profiling_enabled = self.config.is_profiling_enabled()
+            datasets_for_profiling: Optional[List[DremioDataset]] = (
+                [] if profiling_enabled else None
+            )
+            glossary_terms_seen: Set[str] = set()
+            glossary_terms_collected: List[DremioGlossaryTerm] = []
             for dataset_info in self.dremio_catalog.get_datasets():
+                if datasets_for_profiling is not None:
+                    datasets_for_profiling.append(dataset_info)
+                for glossary_term in dataset_info.glossary_terms:
+                    if glossary_term.glossary_term not in glossary_terms_seen:
+                        glossary_terms_seen.add(glossary_term.glossary_term)
+                        glossary_terms_collected.append(glossary_term)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -395,8 +410,7 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Glossary Terms using streaming
-            for glossary_term in self.dremio_catalog.get_glossary_terms():
+            for glossary_term in glossary_terms_collected:
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -415,16 +429,13 @@ class DremioSource(StatefulIngestionSourceBase):
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling
-            if self.config.is_profiling_enabled():
+            if profiling_enabled and datasets_for_profiling is not None:
                 with (
                     self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
-                    # Collect datasets for profiling
-                    datasets_for_profiling = list(self.dremio_catalog.get_datasets())
                     future_to_dataset = {
                         executor.submit(self.generate_profiles, dataset): dataset
                         for dataset in datasets_for_profiling

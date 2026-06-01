@@ -16,9 +16,6 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StatefulStaleMetadataRemovalConfig,
-)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
@@ -96,8 +93,8 @@ class DremioConnectionConfig(ConfigModel):
     @field_validator("password", mode="after")
     @classmethod
     def validate_password(
-        cls, value: Optional[str], info: ValidationInfo
-    ) -> Optional[str]:
+        cls, value: Optional[TransparentSecretStr], info: ValidationInfo
+    ) -> Optional[TransparentSecretStr]:
         if info.data.get("authentication_method") == "PAT" and not value:
             raise ValueError(
                 "Password (Personal Access Token) is required when using PAT authentication",
@@ -146,6 +143,17 @@ class DremioSourceConfig(
         description="Domain for all source objects.",
     )
 
+    include_system_tables: bool = Field(
+        default=True,
+        description="Whether to include system tables and schemas (INFORMATION_SCHEMA, SYS) in ingestion. ",
+    )
+
+    # Backward compatibility: usage config parameter (hidden from docs)
+    usage: HiddenFromDocs[BaseUsageConfig] = Field(
+        default=BaseUsageConfig(),
+        description="Usage extraction configuration. For backward compatibility, this provides the same fields as the flattened time window config.",
+    )
+
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
         default=None,
         description="Mappings from Dremio sources to DataHub platforms and datasets.",
@@ -162,7 +170,6 @@ class DremioSourceConfig(
         ),
     )
 
-    # Entity Filters
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas to filter",
@@ -173,14 +180,6 @@ class DremioSourceConfig(
         description="Regex patterns for tables and views to filter in ingestion. Specify regex to match the entire table name in dremio.schema.table format. e.g. to match all tables starting with customer in Customer database and public schema, use the regex 'dremio.public.customer.*'",
     )
 
-    usage: BaseUsageConfig = Field(
-        description="The usage config to use when generating usage statistics",
-        default=BaseUsageConfig(),
-    )
-
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    # Profiling
     profile_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to profile",
@@ -195,7 +194,6 @@ class DremioSourceConfig(
             self.profiling.operation_config
         )
 
-    # Advanced Configs
     max_workers: int = Field(
         default=5 * (os.cpu_count() or 4),
         description="Number of worker threads to use for parallel processing",

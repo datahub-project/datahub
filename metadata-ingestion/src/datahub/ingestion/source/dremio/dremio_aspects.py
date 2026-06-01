@@ -22,6 +22,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioGlossaryTerm,
 )
 from datahub.ingestion.source.dremio.dremio_models import (
+    DremioEntityContainerType,
     DremioOwnerType,
 )
 from datahub.metadata.schema_classes import (
@@ -371,6 +372,21 @@ class DremioAspects:
             paths.append(BrowsePathEntryClass(id="Spaces"))
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
             paths.append(BrowsePathEntryClass(id="Sources"))
+        elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
+            # root_container_type is stamped by the catalog walk in
+            # DremioAPIOperations; it routes folders to the right top-level
+            # prefix.
+            root_type = getattr(entity, "root_container_type", None)
+            if root_type == DremioEntityContainerType.SPACE:
+                paths.append(BrowsePathEntryClass(id="Spaces"))
+            elif root_type == DremioEntityContainerType.SOURCE:
+                paths.append(BrowsePathEntryClass(id="Sources"))
+
+        if entity.path:
+            for i in range(len(entity.path)):
+                container_urn = self.get_container_urn(path=entity.path[: i + 1])
+                paths.append(BrowsePathEntryClass(id=container_urn, urn=container_urn))
+
         if paths:
             return BrowsePathsV2Class(path=paths)
         return None
