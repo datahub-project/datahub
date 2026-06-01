@@ -471,7 +471,7 @@ export const ServiceAccountTable = ({
                 </FiltersHeader>
             </ServiceAccountContainer>
 
-            <TableContainer>
+            <TableContainer data-testid="service-accounts-table-container">
                 {serviceAccounts.length > 0 ? (
                     <>
                         <Table columns={columns} data={serviceAccounts} isLoading={loading} isScrollable />

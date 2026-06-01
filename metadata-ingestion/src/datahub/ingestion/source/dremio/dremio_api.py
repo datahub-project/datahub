@@ -76,6 +76,8 @@ class DremioAPIOperations:
 
         self.authenticate(connection_args)
         self.edition = self.get_dremio_edition()
+        # Lazily probed on first call to _supports_array_queried_datasets.
+        self._queried_datasets_is_array: Optional[bool] = None
 
     def get_dremio_edition(self):
         if self.is_dremio_cloud:
@@ -775,6 +777,41 @@ class DremioAPIOperations:
 
         return parents_list
 
+    def _supports_array_queried_datasets(self) -> bool:
+        """Detect whether sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>
+        (Dremio Software 26.1.0+) vs VARCHAR. Probes once with ARRAY_SIZE —
+        the function only resolves on array columns, so success → array,
+        any failure → legacy form. Cloud is always array."""
+        if self._queried_datasets_is_array is not None:
+            return self._queried_datasets_is_array
+
+        if self.edition == DremioEdition.CLOUD:
+            self._queried_datasets_is_array = True
+            return True
+
+        probe_query = (
+            "SELECT ARRAY_SIZE(queried_datasets) AS sz FROM SYS.JOBS_RECENT LIMIT 1"
+        )
+        try:
+            list(self.execute_query_iter(query=probe_query))
+            self._queried_datasets_is_array = True
+            logger.info(
+                "Detected ARRAY<VARCHAR> queried_datasets column "
+                "(Dremio Software 26.1.0+); using array-aware jobs query."
+            )
+        except Exception as exc:
+            # Catch broadly: execute_query_iter can raise DremioAPIException,
+            # RuntimeError (FAILED/CANCELED job), or transport errors — any
+            # of which means we don't have the array column type. Real
+            # problems surface later from the actual jobs query.
+            self._queried_datasets_is_array = False
+            logger.info(
+                f"queried_datasets probe failed; assuming legacy VARCHAR. "
+                f"Probe error: {exc}"
+            )
+
+        return self._queried_datasets_is_array
+
     def extract_all_queries(self) -> Iterator[Dict[str, Any]]:
         """
         Memory-efficient streaming version for extracting query results.
@@ -790,6 +827,11 @@ class DremioAPIOperations:
 
         if self.edition == DremioEdition.CLOUD:
             jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
+        elif self._supports_array_queried_datasets():
+            jobs_query = DremioSQLQueries.get_query_all_jobs_array(
                 start_timestamp_millis=start_timestamp_str,
                 end_timestamp_millis=end_timestamp_str,
             )
