@@ -526,18 +526,22 @@ class TestDataplexEntriesProcessorDesign:
         processor._track_entry_for_lineage("us", dataset_entry)
         assert len(processor.entry_data) == 1
         tracked = processor.entry_data[0]
-        assert tracked.datahub_dataset_name == "p.ds.table1"
+        assert "p.ds.table1" in tracked.datahub_urn
+        assert tracked.datahub_entity_type == "Dataset"
         assert tracked.datahub_platform == "bigquery"
         assert tracked.dataplex_entry_fqn == "bigquery:p.ds.table1"
 
-        non_dataset_entry = Mock(spec=dataplex_v1.Entry)
-        non_dataset_entry.name = "projects/p/locations/us/entryGroups/g/entries/e2"
-        non_dataset_entry.entry_type = (
+        # Container entries (like bigquery-dataset) are tracked for glossary term associations
+        container_entry = Mock(spec=dataplex_v1.Entry)
+        container_entry.name = "projects/p/locations/us/entryGroups/g/entries/e2"
+        container_entry.entry_type = (
             "projects/123/locations/global/entryTypes/bigquery-dataset"
         )
-        non_dataset_entry.fully_qualified_name = "bigquery:p.ds"
-        processor._track_entry_for_lineage("us", non_dataset_entry)
-        assert len(processor.entry_data) == 1
+        container_entry.fully_qualified_name = "bigquery:p.ds"
+        processor._track_entry_for_lineage("us", container_entry)
+        assert len(processor.entry_data) == 2  # Tracks both Dataset and Container
+        tracked_container = processor.entry_data[1]
+        assert tracked_container.datahub_entity_type == "Container"
 
 
 class TestDataplexParallelEntries:

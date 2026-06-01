@@ -342,8 +342,8 @@ def test_get_workunits_internal_yields_from_lineage_extractor() -> None:
             dataplex_entry_fqn="bigquery:project-1.ds.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
     ]
     source.report = Mock()
@@ -387,8 +387,8 @@ def test_get_workunits_internal_uses_configured_project_location_cross_product()
             dataplex_entry_fqn="bigquery:project-1.ds.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
     ]
     source.report = Mock()
@@ -432,8 +432,8 @@ def test_get_workunits_internal_reports_lineage_failure_on_exception() -> None:
             dataplex_entry_fqn="bigquery:project-1.ds.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         )
     ]
     source.report = Mock()
@@ -467,8 +467,8 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
             dataplex_entry_fqn="bigquery:project-1.ds.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project-1.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
         EntryDataTuple(
             dataplex_entry_short_name="entry-2",
@@ -477,8 +477,8 @@ def test_get_workunits_internal_unions_entries_across_projects_for_lineage() -> 
             dataplex_entry_fqn="bigquery:project-2.ds.table",
             dataplex_entry_type_short_name="bigquery-table",
             datahub_platform="bigquery",
-            datahub_dataset_name="project-2.ds.table",
-            datahub_dataset_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
+            datahub_entity_type="Dataset",
+            datahub_urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,test-placeholder,PROD)",
         ),
     ]
     source.report = Mock()

@@ -222,6 +222,21 @@ source:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+#### Entity Type Support
+
+**Lineage Extraction:**
+
+Lineage is currently extracted only for Dataplex entries that map to DataHub **Dataset** entities (e.g., BigQuery tables). Lineage is not available for entries that map to Container entities (e.g., BigQuery datasets, GCS buckets) or other entity types.
+
+**Glossary Term Associations:**
+
+Glossary terms can be associated with Dataplex entries that map to either:
+
+- DataHub **Dataset** entities (e.g., BigQuery tables)
+- DataHub **Container** entities (e.g., BigQuery datasets, GCS buckets)
+
+Terms cannot be associated with entries that map to other entity types.
+
 ### Troubleshooting
 
 #### Expected Knowledge Catalog (Dataplex) sync latency

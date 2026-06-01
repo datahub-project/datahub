@@ -29,6 +29,7 @@ from datahub.ingestion.source.dataplex.dataplex_ids import (
     DATAPLEX_ENTRY_TYPE_MAPPINGS,
     DataplexEntryTypeMapping,
     build_container_key_from_fqn,
+    build_container_urn_from_fqn,
     build_parent_container_key,
     build_project_schema_key_from_fqn,
     extract_datahub_dataset_name_from_fqn,
@@ -382,7 +383,12 @@ class DataplexEntriesProcessor:
     def _track_entry_for_lineage(
         self, dataplex_location: str, entry: dataplex_v1.Entry
     ) -> None:
-        """Register a dataset entry for lineage extraction.
+        """Register a dataset or container entry for lineage extraction and term associations.
+
+        Tracks both Dataset entities (e.g., BigQuery tables) and Container entities
+        (e.g., BigQuery datasets) to support glossary term associations which may be
+        linked to either entity type. In the future, additional entity types may be
+        added as needed.
 
         Safe to call from parallel worker threads — delegates to
         ``ctx.append_entry`` which is thread-safe.
@@ -394,19 +400,41 @@ class DataplexEntriesProcessor:
         if short_name is None:
             self.source_report.warning(
                 title="Invalid Dataplex entry type format",
-                message="Failed to extract short entry type from Dataplex entry_type. Skipping lineage tracking.",
+                message="Failed to extract short entry type from Dataplex entry_type. Skipping entry tracking.",
                 context=f"entry_type={entry.entry_type}, entry_name={entry.name}, entry_payload={entry}",
             )
             return
         mapping = DATAPLEX_ENTRY_TYPE_MAPPINGS.get(short_name)
-        if mapping is None or mapping.datahub_entity_type != "Dataset":
+        # Track Dataset and Container entities for lineage and term associations.
+        # Container entities (e.g., BigQuery datasets) may have glossary terms attached to them.
+        if mapping is None or mapping.datahub_entity_type not in (
+            "Dataset",
+            "Container",
+        ):
             return
 
-        dataset_name = extract_datahub_dataset_name_from_fqn(
-            entry_type_or_short_name=short_name,
-            fully_qualified_name=entry.fully_qualified_name,
-        )
-        if dataset_name is None:
+        # Extract URN based on entity type
+        entity_urn: Optional[str] = None
+
+        if mapping.datahub_entity_type == "Dataset":
+            dataset_name = extract_datahub_dataset_name_from_fqn(
+                entry_type_or_short_name=short_name,
+                fully_qualified_name=entry.fully_qualified_name,
+            )
+            if dataset_name:
+                entity_urn = make_dataset_urn_with_platform_instance(
+                    platform=mapping.datahub_platform,
+                    name=dataset_name,
+                    platform_instance=None,
+                    env=self.config.env,
+                )
+        elif mapping.datahub_entity_type == "Container":
+            entity_urn = build_container_urn_from_fqn(
+                entry_type_or_short_name=short_name,
+                fully_qualified_name=entry.fully_qualified_name,
+            )
+
+        if entity_urn is None:
             return
 
         entry_data_tuple = EntryDataTuple(
@@ -416,13 +444,8 @@ class DataplexEntriesProcessor:
             dataplex_entry_fqn=entry.fully_qualified_name,
             dataplex_entry_type_short_name=short_name,
             datahub_platform=mapping.datahub_platform,
-            datahub_dataset_name=dataset_name,
-            datahub_dataset_urn=make_dataset_urn_with_platform_instance(
-                platform=mapping.datahub_platform,
-                name=dataset_name,
-                platform_instance=None,
-                env=self.config.env,
-            ),
+            datahub_entity_type=mapping.datahub_entity_type,
+            datahub_urn=entity_urn,
         )
         self._ctx.append_entry(entry_data_tuple)
 

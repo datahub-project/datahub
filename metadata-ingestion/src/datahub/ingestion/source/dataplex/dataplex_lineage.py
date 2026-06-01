@@ -25,7 +25,6 @@ if TYPE_CHECKING:
 
 from google.cloud.datacatalog_lineage import EntityReference, SearchLinksRequest
 
-import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
@@ -358,7 +357,7 @@ class DataplexLineageExtractor:
                         context=(
                             f"parent={parent}, "
                             f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                            f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                            f"datahub_urn={entry.datahub_urn}, "
                             f"entry_type={entry.dataplex_entry_type_short_name}"
                         ),
                         exc=parent_error,
@@ -409,7 +408,7 @@ class DataplexLineageExtractor:
                 "Failed to get lineage for entry after retries. Continuing with other entries.",
                 context=(
                     f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                    f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                    f"datahub_urn={entry.datahub_urn}, "
                     f"entry_type={entry.dataplex_entry_type_short_name}"
                 ),
                 exc=e,
@@ -540,12 +539,12 @@ class DataplexLineageExtractor:
                 )
                 lineage_edges.add(edge)
                 self.report.report_lineage_edge_added(
-                    downstream_dataset_id=entry.datahub_dataset_name,
+                    downstream_dataset_id=entry.datahub_urn,
                     upstream_dataset_urn=upstream_dataset_urn,
                 )
                 logger.debug(
                     "  Added lineage edge: %s <- %s",
-                    entry.datahub_dataset_name,
+                    entry.datahub_urn,
                     upstream_dataset_urn,
                 )
             else:
@@ -558,7 +557,7 @@ class DataplexLineageExtractor:
                     title="Dataplex upstream lineage parse failed",
                     context=(
                         f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                        f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                        f"datahub_urn={entry.datahub_urn}, "
                         f"entry_type={entry.dataplex_entry_type_short_name}, "
                         f"upstream_fqn={upstream_fqn}"
                     ),
@@ -628,6 +627,11 @@ class DataplexLineageExtractor:
         Returns a list (empty or singleton) of ``MetadataWorkUnit`` objects so
         the result can be collected by the calling thread without a generator.
         """
+        # Only process Dataset entities for lineage - Container entities (datasets, databases)
+        # don't have lineage relationships.
+        if entry.datahub_entity_type != "Dataset":
+            return []
+
         lineage_data = self.get_lineage_for_entry(
             entry,
             active_lineage_project_location_pairs=active_lineage_project_location_pairs,
@@ -636,15 +640,9 @@ class DataplexLineageExtractor:
         if not lineage_edges:
             return []
 
-        dataset_id = entry.datahub_dataset_name
-        dataset_urn = builder.make_dataset_urn_with_platform_instance(
-            platform=entry.datahub_platform,
-            name=dataset_id,
-            platform_instance=None,
-            env=self.config.env,
-        )
-        upstream_lineage = self._to_upstream_lineage(dataset_id, lineage_edges)
-        return list(self._gen_lineage(dataset_id, dataset_urn, upstream_lineage))
+        dataset_urn = entry.datahub_urn
+        upstream_lineage = self._to_upstream_lineage(dataset_urn, lineage_edges)
+        return list(self._gen_lineage(dataset_urn, dataset_urn, upstream_lineage))
 
     def get_lineage_workunits(
         self,
@@ -704,7 +702,7 @@ class DataplexLineageExtractor:
                             "Failed to generate lineage for entry in parallel worker.",
                             context=(
                                 f"dataplex_entry_name={entry.dataplex_entry_name}, "
-                                f"datahub_dataset_name={entry.datahub_dataset_name}, "
+                                f"datahub_urn={entry.datahub_urn}, "
                                 "stage=parallel_gen_lineage"
                             ),
                             exc=exc,

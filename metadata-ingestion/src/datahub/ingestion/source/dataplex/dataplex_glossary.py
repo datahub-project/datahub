@@ -416,7 +416,7 @@ class DataplexGlossaryProcessor:
         its last-processed term.
         """
         entry_name_to_urn: Dict[str, str] = {
-            e.dataplex_entry_name: e.datahub_dataset_urn for e in self._ctx.entry_data
+            e.dataplex_entry_name: e.datahub_urn for e in self._ctx.entry_data
         }
 
         logger.info(
