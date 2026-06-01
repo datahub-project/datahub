@@ -1,12 +1,5 @@
-"""
-Tests for `DremioToDataHubSourceTypeMapping`.
-
-These cover the table-driven mapping/category behavior that downstream
-URN construction depends on. The intent is to lock in canonical Dremio
-source-type strings (as documented in Dremio's Catalog API reference)
-against their DataHub platform names — so adding a new entry can't
-silently break categorization (database vs. file_object_storage).
-"""
+"""Pin canonical Dremio source-type strings against DataHub platform names
+and categories that URN construction depends on."""
 
 import pytest
 
@@ -19,8 +12,6 @@ from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
     "dremio_type,expected_platform",
     [
         ("BIGQUERY", "bigquery"),
-        # Covers Polaris OSS, Nessie+REST, AWS Glue Iceberg REST, S3 Tables,
-        # Confluent Tableflow, Microsoft OneLake.
         ("RESTCATALOG", "iceberg"),
         ("SAPHANA", "hana"),
         ("SNOWFLAKEOPENCATALOG", "iceberg"),
@@ -41,14 +32,11 @@ def test_new_source_types_map_to_expected_platforms(
     ["BIGQUERY", "RESTCATALOG", "SAPHANA", "SNOWFLAKEOPENCATALOG", "UNITY"],
 )
 def test_new_source_types_categorized_as_database(dremio_type: str) -> None:
-    # These all use dot-notation database/schema/table paths in Dremio,
-    # not slash-notation file paths.
+    # Dot-notation path sources, not slash-notation file paths.
     assert DremioToDataHubSourceTypeMapping.get_category(dremio_type) == "database"
 
 
 def test_case_insensitive_lookup() -> None:
-    # Dremio returns SOURCE TYPES uppercase, but recipes / user input may
-    # not. Already covered by the implementation but worth pinning.
     assert (
         DremioToDataHubSourceTypeMapping.get_datahub_platform("restcatalog")
         == "iceberg"
@@ -57,8 +45,7 @@ def test_case_insensitive_lookup() -> None:
 
 
 def test_unknown_source_type_falls_back_to_lowercase_name() -> None:
-    # Behavior contract: unknown types pass through as the lowercased
-    # Dremio name with an unknown category — used by ARP / custom sources.
+    # ARP / custom sources rely on this lowercase+unknown fallback.
     assert (
         DremioToDataHubSourceTypeMapping.get_datahub_platform("FUTURE_SOURCE")
         == "future_source"
@@ -67,16 +54,13 @@ def test_unknown_source_type_falls_back_to_lowercase_name() -> None:
 
 
 def test_azure_storage_resolves_to_database_despite_dual_membership() -> None:
-    # AZURE_STORAGE is intentionally in both DATABASE_SOURCE_TYPES and
-    # FILE_OBJECT_STORAGE_TYPES; the check order in get_category makes
-    # "database" win. Pin that so accidental reordering trips the test.
+    # AZURE_STORAGE is in both sets; "database" wins via get_category check order.
     assert DremioToDataHubSourceTypeMapping.get_category("AZURE_STORAGE") == "database"
 
 
 @pytest.fixture
 def restore_mapping_state():
-    # add_mapping mutates class-level state; snapshot and restore so tests
-    # don't leak into each other.
+    # add_mapping mutates class state — snapshot/restore to isolate tests.
     snapshot_map = dict(DremioToDataHubSourceTypeMapping.SOURCE_TYPE_MAPPING)
     snapshot_db = set(DremioToDataHubSourceTypeMapping.DATABASE_SOURCE_TYPES)
     snapshot_fs = set(DremioToDataHubSourceTypeMapping.FILE_OBJECT_STORAGE_TYPES)
@@ -107,9 +91,7 @@ class TestAddMapping:
         )
 
     def test_none_category_leaves_type_uncategorized(self, restore_mapping_state):
-        # Documented surprise: without an explicit category the new mapping
-        # works for get_datahub_platform but not get_category. Callers that
-        # need container-aware URN dispatch must pass an explicit category.
+        # category=None: platform resolves, get_category returns "unknown".
         DremioToDataHubSourceTypeMapping.add_mapping("MYARP", "myarp")
         assert DremioToDataHubSourceTypeMapping.get_datahub_platform("MYARP") == "myarp"
         assert DremioToDataHubSourceTypeMapping.get_category("MYARP") == "unknown"
