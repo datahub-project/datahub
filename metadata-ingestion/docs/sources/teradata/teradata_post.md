@@ -54,6 +54,7 @@ lineage_slow_query_log_seconds: 120 # warn if any lineage query takes longer tha
 ```
 
 The default is `60` seconds. Set to `0` to disable slow-query warnings entirely. Each slow query is also counted in `report.lineage_slow_queries_detected`, and per-query DB timings are available in `report.lineage_query_timings` for post-run analysis.
+Note: if the driver retries a failed fetchmany call, the retry backoff sleep time is included in the DB time measurement — set the threshold well above the expected base query time.
 
 **SQL parse cache size**
 

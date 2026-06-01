@@ -25,6 +25,7 @@ from datahub.ingestion.api.workunit import (
     MetadataWorkUnit,
 )
 from datahub.ingestion.source.sql.teradata import (
+    LineageQuery,
     TeradataConfig,
     TeradataReport,
     TeradataSource,
@@ -1090,7 +1091,10 @@ class TestLineageQuerySeparation:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=[("query1", "current_only"), ("query2", "current_only")],
+                return_value=[
+                    LineageQuery(sql="query1", label="current_only"),
+                    LineageQuery(sql="query2", label="current_only"),
+                ],
             ):
                 # Mock database execution for both queries
                 mock_result1 = MagicMock()
@@ -1153,7 +1157,7 @@ class TestLineageQuerySeparation:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=[("query1", "current_only")],
+                return_value=[LineageQuery(sql="query1", label="current_only")],
             ):
                 mock_result = MagicMock()
                 mock_result.fetchmany.side_effect = [
@@ -1207,7 +1211,7 @@ class TestLineageQuerySeparation:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=[("query1", "current_only")],
+                return_value=[LineageQuery(sql="query1", label="current_only")],
             ):
                 # Create mock entries
                 mock_entries = [MagicMock(query_text=f"SELECT {i}") for i in range(7)]
@@ -1337,7 +1341,10 @@ class TestLineageQuerySeparation:
             with patch.object(
                 source,
                 "_make_lineage_queries",
-                return_value=[("query1", "current_only"), ("query2", "current_only")],
+                return_value=[
+                    LineageQuery(sql="query1", label="current_only"),
+                    LineageQuery(sql="query2", label="current_only"),
+                ],
             ):
                 mock_result = MagicMock()
 
@@ -4196,6 +4203,16 @@ class TestCategorizeViewError:
             # --- unknown ---
             (RuntimeError("something exploded"), "unknown"),
             (ValueError("bad value"), "unknown"),
+            # Three additional paths exercised by production code:
+            # standalone "timeout" keyword (no "timed out" substring)
+            (DatabaseError("query execution timeout", None, None), "timeout"),
+            # error code 3003 (logon failed)
+            (DatabaseError("[Error 3003] Logon failed.", None, None), "permission"),
+            # "authentication failed" keyword
+            (
+                OperationalError("authentication failed for user foo", None, None),
+                "permission",
+            ),
         ],
         ids=[
             "pool_timeout",
@@ -4215,6 +4232,9 @@ class TestCategorizeViewError:
             "not_supported",
             "generic_exception",
             "value_error",
+            "timeout_keyword",
+            "error_3003",
+            "authentication_failed",
         ],
     )
     def test_categorize(self, exc: BaseException, expected: str) -> None:
@@ -4685,7 +4705,9 @@ def _patch_lineage_fetch(
             source, "_execute_with_cursor_fallback", side_effect=_fake_execute
         ),
         patch.object(
-            source, "_make_lineage_queries", return_value=[(query_sql, query_kind)]
+            source,
+            "_make_lineage_queries",
+            return_value=[LineageQuery(sql=query_sql, label=query_kind)],
         ),
     ]
     with ExitStack() as stack:
@@ -4758,8 +4780,11 @@ class TestLineageQueryTimingReport:
                 source,
                 "_make_lineage_queries",
                 return_value=[
-                    ("SELECT * FROM DBC.QryLogV", "current_only"),
-                    ("SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst", "historical_union"),
+                    LineageQuery(sql="SELECT * FROM DBC.QryLogV", label="current_only"),
+                    LineageQuery(
+                        sql="SELECT * FROM PDCRINFO.DBQLSqlTbl_Hst",
+                        label="historical_union",
+                    ),
                 ],
             ),
         ):
