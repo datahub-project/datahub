@@ -45,7 +45,7 @@ Requirements:
 ### Breaking Changes
 
 - #17536: **(prefect-plugin)** The `datahub-prefect` package now requires **Prefect 3.x** (`>=3.0.0,<4.0.0`); Prefect 2.x is no longer supported. The Prefect entry point group also changed from `prefect.block` to `prefect.collections` to match Prefect 3's plugin discovery. **Action:** Upgrade Prefect to 3.x and re-register the DataHub block (`DatahubEmitter`) before upgrading the plugin.
-- 
+
 - **(Ingestion / PowerBI Report Server)** The `chart_pattern` config field has been removed from the `powerbi-report-server` source. If your recipe sets `chart_pattern`, ingestion will log a deprecation warning. **Migration:** remove `chart_pattern` from your recipe — chart-level filtering is not yet implemented for this connector.
 
 - **(Docker / local development)** Removed legacy root-level Docker Compose files (`docker/docker-compose*.yml`), shell scripts (`docker/quickstart.sh`, `docker/dev*.sh`, `docker/nuke.sh`), and old generated quickstart bundles under `docker/quickstart/` (except `docker-compose.quickstart-profile.yml`). **Migration:** use `datahub docker quickstart` for CLI installs; use `./gradlew quickstartDebug` or `scripts/dev/datahub-dev.sh start` for contributors; use `datahub docker nuke`, `./gradlew quickstartDebugNuke`, or `scripts/dev/datahub-dev.sh nuke` for teardown; customize installs from `docker/quickstart/docker-compose.quickstart-profile.yml` or profiles in `docker/profiles/`.
