@@ -25,4 +25,23 @@ module.exports = (on, config) => {
 
   // eslint-disable-next-line global-require
   require("cypress-timestamps/plugin")(on);
+
+  // Prevent renderer OOM crashes in CI: avoid /dev/shm exhaustion (64 MB limit
+  // on GH Actions runners) and raise the V8 heap limit.
+  // Note: --single-process is intentionally omitted — it is unstable in Chrome
+  // and causes hangs rather than recoverable crashes.
+  // Log args to confirm flags are actually reaching the browser process in CI.
+  on("before:browser:launch", (browser, launchOptions) => {
+    if (browser.name === "chrome" || browser.name === "electron") {
+      launchOptions.args.push("--disable-dev-shm-usage");
+      launchOptions.args.push("--disable-gpu");
+      launchOptions.args.push("--no-sandbox");
+      launchOptions.args.push("--disable-features=VizDisplayCompositor");
+      launchOptions.args.push("--js-flags=--max-old-space-size=8192");
+    }
+    console.log(
+      `[before:browser:launch] browser=${browser.name} args=${JSON.stringify(launchOptions.args)}`,
+    );
+    return launchOptions;
+  });
 };
