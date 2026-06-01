@@ -241,12 +241,7 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        # Old condition (ran on any backend/frontend/playwright change or publish, including all PRs):
-        # if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
-        #
-        # Temporary - New condition mirrors smoke-test rules (backend-change|playwright-change|publish for non-PRs),
-        # but restricts PRs to playwright-change only to avoid running the full E2E suite on every code PR.
-        if: ${{ (github.event_name == 'pull_request' && steps.ci-optimize.outputs.playwright-change == 'true') || (github.event_name != 'pull_request' && (steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true')) }}
+        if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
@@ -302,7 +297,7 @@ jobs:
           cache: "pip"
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -337,27 +332,27 @@ jobs:
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
             ${{ github.workspace }}/build/build-metadata.json
             ${{ github.workspace }}/build/bake-spec-allImages.json
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
             ~/.cache/yarn
           key: ${{ needs.setup.outputs.yarn_cache_key }}
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' }}
         with:
           path: |
@@ -446,7 +441,7 @@ jobs:
           yarn_cache_key_prefix: ${{ needs.setup.outputs.yarn_cache_key_prefix }}
 
       - name: Set up JDK 21
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 #v5
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
         with:
           distribution: "zulu"
           java-version: 21
@@ -621,11 +616,11 @@ jobs:
           echo "Skipping this batch to optimize CI time (Docker images, quickstart, and tests)"
           exit 0
 
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -743,7 +738,7 @@ jobs:
 
       - name: Upload Java SDK V2 coverage to Codecov
         if: ${{ always() && (needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.java_client_change == 'true') && matrix.batch == '0' }}
-        uses: codecov/codecov-action@1af58845a975a7985b0beb0cbe6fbbb71a41dbad # v5
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/metadata-integration/java/datahub-client/
@@ -763,7 +758,7 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -782,7 +777,7 @@ jobs:
         # cypress-mochawesome-reporter writes one JSON per spec to .jsons/ (a hidden subdir)
         # via the Cypress after:spec hook — survives Electron crashes. include-hidden-files is
         # required so upload-artifact picks up that dot-prefixed directory.
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always() && matrix.test_strategy == 'cypress'
         with:
           name: cypress-mochawesome-json-${{ matrix.batch }}
@@ -790,7 +785,7 @@ jobs:
           include-hidden-files: true
           retention-days: 1
       - name: Upload screenshots
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
@@ -842,12 +837,13 @@ jobs:
           rm -rf "$TEMP_DIR"
       - name: Upload test results to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         # The cache does not need to be saved by all the parallel workers. The cache contents is not dependent on tests.
         with:
@@ -855,7 +851,7 @@ jobs:
             ~/.cache/uv
           key: ${{ needs.setup.outputs.uv_cache_key }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master'  && matrix.batch == '0' }}
         with:
           path: |
@@ -868,7 +864,7 @@ jobs:
     needs: [smoke_test]
     if: ${{ !cancelled() && needs.smoke_test.result != 'skipped' }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download all Cypress mochawesome JSON artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -906,7 +902,7 @@ jobs:
             echo "No mochawesome JSON files found – all Cypress batches may have been skipped or crashed before any spec completed"
           fi
       - name: Upload unified Cypress HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: cypress-html-report
           path: cypress-html-report/
@@ -922,7 +918,7 @@ jobs:
       matrix: ${{ fromJson(needs.setup.outputs.playwright_matrix || '{"include":[]}') }}
     if: ${{ always() && !failure() && !cancelled() && needs.setup.outputs.playwright_matrix != '' && needs.setup.outputs.playwright_matrix != '{"include":[]}' }}
     steps:
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
@@ -955,7 +951,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -1014,7 +1010,7 @@ jobs:
             --shard=${{ matrix.shard }}/${{ matrix.shard_count }}
 
       - name: Upload Playwright blob report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: playwright-blob-report-${{ matrix.shard }}
@@ -1022,7 +1018,7 @@ jobs:
           retention-days: 1
 
       - name: Upload Playwright JUnit results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: playwright-junit-${{ matrix.shard }}
@@ -1037,7 +1033,7 @@ jobs:
           source .github/scripts/docker_logs.sh
 
       - name: Upload Docker logs on failure
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: docker-logs-playwright-${{ matrix.shard }}
@@ -1045,7 +1041,7 @@ jobs:
           retention-days: 5
 
       - name: Upload Playwright traces and screenshots on failure
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: failure()
         with:
           name: playwright-traces-${{ matrix.shard }}
@@ -1064,12 +1060,13 @@ jobs:
 
       - name: Upload test results to Codecov
         if: "!cancelled()"
-        uses: codecov/test-results-action@0fa95f0e1eeaafde2c782583b36b28ad0d8c77d3 # v1
+        uses: codecov/codecov-action@75cd11691c0faa626561e295848008c8a7dddffe # v5.5.4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
 
-      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/save@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         if: ${{ github.ref == 'refs/heads/master' && matrix.shard == '1' }}
         with:
           path: ~/.cache/yarn
@@ -1081,14 +1078,14 @@ jobs:
     needs: [setup, playwright_test]
     if: ${{ !cancelled() && needs.playwright_test.result != 'skipped' }}
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
 
-      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: ~/.cache/yarn
           key: ${{ needs.setup.outputs.playwright_yarn_cache_key }}
@@ -1120,7 +1117,7 @@ jobs:
           fi
 
       - name: Upload merged Playwright HTML report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: playwright-html-report
           path: playwright-report/
@@ -1129,13 +1126,13 @@ jobs:
   publish_images:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
-    needs: [setup, smoke_test, base_build]
+    needs: [setup, smoke_test, playwright_test, base_build]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Check if tests have passed
         id: tests_passed
         run: |
-          # Check the overall result of the matrix job
+          # Check the overall result of the matrix jobs
           # Matrix jobs can have mixed results, so we check for any failures
           if [[ "${{ needs.smoke_test.result }}" == "failure" ]]; then
             echo "Smoke tests failed, skipping quickstart tag update"
@@ -1145,8 +1142,16 @@ jobs:
             echo "Smoke tests were cancelled, skipping quickstart tag update"
             echo "tests_passed=false" >> "$GITHUB_OUTPUT"
             exit 1
+          elif [[ "${{ needs.playwright_test.result }}" == "failure" ]]; then
+            echo "Playwright tests failed, skipping quickstart tag update"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          elif [[ "${{ needs.playwright_test.result }}" == "cancelled" ]]; then
+            echo "Playwright tests were cancelled, skipping quickstart tag update"
+            echo "tests_passed=false" >> "$GITHUB_OUTPUT"
+            exit 1
           else
-            echo "Smoke tests completed successfully, proceeding with quickstart tag update"
+            echo "All tests completed successfully, proceeding with quickstart tag update"
             echo "tests_passed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -1155,7 +1160,7 @@ jobs:
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -1169,7 +1174,7 @@ jobs:
 
       - name: Download build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
@@ -1199,9 +1204,9 @@ jobs:
   deploy_datahub_head:
     name: Deploy to Datahub HEAD
     runs-on: ubuntu-latest
-    needs: [setup, smoke_test, publish_images]
+    needs: [setup, smoke_test, playwright_test, publish_images]
     steps:
-      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+      - uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0
         if: ${{ needs.setup.outputs.publish != 'false' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}
         with:
           aws-access-key-id: ${{ secrets.AWS_SQS_ACCESS_KEY_ID }}

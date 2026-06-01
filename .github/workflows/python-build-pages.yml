@@ -36,7 +36,7 @@ jobs:
       pull-requests: read
       deployments: write
     outputs:
-      pypi_index_url: ${{ steps.cloudflare.outputs.url }}
+      pypi_index_url: ${{ steps.cloudflare.outputs.deployment-url }}
       pypi_index_simple_url: ${{ steps.set-pypi-url.outputs.pypi_index_simple_url }}
     steps:
       - name: Set up JDK 21
@@ -44,13 +44,13 @@ jobs:
         with:
           distribution: "zulu"
           java-version: 21
-      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: "3.10"
           cache: "pip"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+      - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
         with:
           path: |
             ~/.cache/uv
@@ -63,30 +63,29 @@ jobs:
           DATAHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Publish
         id: cloudflare
-        uses: cloudflare/pages-action@f0a1cd58cd66095dee69bfa18fa5efd1dde93bca # v1
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
-          directory: site
           gitHubToken: ${{ github.token }}
+          command: pages deploy site --project-name=${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
 
       - name: Set PyPI index URL output
         id: set-pypi-url
         run: |
-          PYPI_URL="${{ steps.cloudflare.outputs.url }}/simple"
+          PYPI_URL="${{ steps.cloudflare.outputs.deployment-url }}/simple"
           echo "pypi_index_simple_url=$PYPI_URL" >> "$GITHUB_OUTPUT"
           echo "PyPI index URL: $PYPI_URL"
 
           # Save to artifact for consumption by docker-unified.yml
           mkdir -p /tmp/pypi-config
           echo "$PYPI_URL" > /tmp/pypi-config/pypi-index-url.txt
-          echo "Base URL: ${{ steps.cloudflare.outputs.url }}" > /tmp/pypi-config/deployment-info.txt
+          echo "Base URL: ${{ steps.cloudflare.outputs.deployment-url }}" > /tmp/pypi-config/deployment-info.txt
           echo "Simple URL: $PYPI_URL" >> /tmp/pypi-config/deployment-info.txt
 
       - name: Upload PyPI config artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
           name: pypi-config
           path: /tmp/pypi-config/

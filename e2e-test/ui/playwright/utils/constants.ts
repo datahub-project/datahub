@@ -16,6 +16,15 @@ export const POLL_INTERVAL = 500;
 export const UI_SYNC_DELAY = 200;
 export const TABLE_LOAD_DELAY = 500;
 
+// Playwright test timeouts
+export const TIMEOUTS = {
+  LONG: 15000, // Initial page loads, element appearance
+  MEDIUM: 10000, // Standard element visibility
+  SHORT: 5000, // Quick interactions, menu closes
+  BETWEEN_OPS: 500, // Wait between sequential operations
+  QUICK: 300, // Brief pause for rendering
+} as const;
+
 // TEST_CREDENTIALS removed — use data/users.ts (users) as the
 // single source of truth for user credentials.
 
