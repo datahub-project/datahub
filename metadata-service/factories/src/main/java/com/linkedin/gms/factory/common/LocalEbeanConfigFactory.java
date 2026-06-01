@@ -131,6 +131,7 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
+    EbeanPoolDefaults.applyDefaultTransactionIsolation(dataSourceConfig);
 
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {

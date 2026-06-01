@@ -210,8 +210,8 @@ class DremioDataset:
         self.resource_id = self._dataset_response.resource_id
         self.resource_name = self._dataset_response.table_name
         self.path = self._dataset_response.path
-        # Community-edition views can omit LOCATION_ID; the legacy dict
-        # path silently defaulted to "" here, so preserve that.
+        # Community-edition views can omit LOCATION_ID — preserve the
+        # legacy "" default rather than carrying None forward.
         self.location_id = self._dataset_response.location_id or ""
         self.columns = self._dataset_response.columns
         self.sql_definition = self._dataset_response.view_definition

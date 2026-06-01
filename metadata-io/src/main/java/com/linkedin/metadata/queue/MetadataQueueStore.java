@@ -174,4 +174,13 @@ public interface MetadataQueueStore {
   default ConsumerOffsetResetReport resetConsumerOffsets(@Nonnull ConsumerOffsetResetSpec spec) {
     throw new UnsupportedOperationException("resetConsumerOffsets is not supported by this store");
   }
+
+  /**
+   * Runs topic message retention (age / row and byte caps / aggressive purge). Implementations must
+   * preserve the per-partition sequence anchor row ({@code MAX(enqueue_seq)}) so allocation stays
+   * monotonic.
+   */
+  default void applyRetention() {
+    throw new UnsupportedOperationException("applyRetention is not supported by this store");
+  }
 }
