@@ -279,9 +279,14 @@ public class ExternalEventsService {
    */
   private ExternalEvents convertToExternalEvents(
       final List<GenericRecord> messages, final String newOffsetId, long count) {
+    return buildExternalEvents(messages, newOffsetId, count);
+  }
+
+  public static ExternalEvents buildExternalEvents(
+      final List<GenericRecord> messages, final String newOffsetId, long count) {
 
     ExternalEvents externalEvents = new ExternalEvents();
-    externalEvents.setOffsetId(newOffsetId); // New encoded offset ID
+    externalEvents.setOffsetId(newOffsetId);
     externalEvents.setCount(count);
 
     List<ExternalEvent> externalEventList =
@@ -289,7 +294,7 @@ public class ExternalEventsService {
             .map(
                 message -> {
                   ExternalEvent externalEvent = new ExternalEvent();
-                  externalEvent.setContentType("application/json"); // Assuming JSON content type
+                  externalEvent.setContentType("application/json");
                   try {
                     externalEvent.setValue(convertGenericRecordToJson(message));
                   } catch (IOException e) {

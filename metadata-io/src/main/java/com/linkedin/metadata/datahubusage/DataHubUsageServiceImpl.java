@@ -1,12 +1,7 @@
-package com.linkedin.metadata.dataHubUsage;
+package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 
-import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
-import com.linkedin.metadata.datahubusage.DataHubUsageService;
-import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
-import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
-import com.linkedin.metadata.datahubusage.InternalUsageEventResult;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LoginSource;
 import com.linkedin.metadata.datahubusage.event.UsageEventResult;

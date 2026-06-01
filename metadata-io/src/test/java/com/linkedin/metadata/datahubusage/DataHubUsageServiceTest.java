@@ -1,4 +1,4 @@
-package com.linkedin.metadata.dataHubUsage;
+package com.linkedin.metadata.datahubusage;
 
 import static com.linkedin.metadata.Constants.DATAHUB_USAGE_EVENT_INDEX;
 import static org.junit.Assert.assertEquals;
@@ -7,10 +7,6 @@ import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-import com.linkedin.metadata.datahubusage.DataHubUsageEventConstants;
-import com.linkedin.metadata.datahubusage.DataHubUsageEventType;
-import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchRequest;
-import com.linkedin.metadata.datahubusage.ExternalAuditEventsSearchResponse;
 import com.linkedin.metadata.datahubusage.event.EventSource;
 import com.linkedin.metadata.datahubusage.event.LogInEvent;
 import com.linkedin.metadata.datahubusage.event.LoginSource;

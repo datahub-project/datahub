@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafk
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
@@ -27,7 +28,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
+// All beans here read Kafka admin/consumer state for message tracing. They cannot be created when
+// the messaging transport is not Kafka (e.g. pgqueue), since AdminClient construction requires a
+// valid bootstrap.servers and the topics don't exist on non-Kafka transports.
 @Configuration
+@KafkaMessagingEnabled
 public class KafkaTraceReaderFactory {
   private static final Properties TRACE_CONSUMER_PROPERTIES = new Properties();
 
