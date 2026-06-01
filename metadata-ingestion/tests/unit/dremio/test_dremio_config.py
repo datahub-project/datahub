@@ -65,13 +65,6 @@ class TestDremioConfigValidators:
 
 
 class TestStatefulTimeWindowValidator:
-    """`enable_stateful_time_window` is a no-op without stateful_ingestion.
-
-    Without surfacing the misconfiguration the user gets zero feedback —
-    no error, no warning, just the same query history re-ingested on every
-    run. The validator must log a clear warning in that case.
-    """
-
     def _base_kwargs(self) -> dict:
         return {
             "hostname": "localhost",

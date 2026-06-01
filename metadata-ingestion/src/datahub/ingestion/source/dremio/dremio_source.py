@@ -333,13 +333,9 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Datasets. When profiling is enabled we'd otherwise
-            # run the global catalog query twice — once here for emission
-            # and once in the profiling block below. Project each dataset
-            # down to a slim ProfileTarget tuple (URN + quoted name + columns)
-            # on the first pass so we keep the catalog-walk-elimination win
-            # without holding a full DremioDataset per row in memory — that
-            # matters for 10k+ dataset catalogs.
+            # Project to slim ProfileTarget tuples on the way past so the
+            # profiling pass below doesn't re-run the global catalog query
+            # and doesn't pin full DremioDataset objects for 10k+ catalogs.
             profiling_enabled = self.config.is_profiling_enabled()
             profile_targets: Optional[List[ProfileTarget]] = (
                 [] if profiling_enabled else None
@@ -357,9 +353,7 @@ class DremioSource(StatefulIngestionSourceBase):
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
                     )
-                    # Skip profiling for failed emissions — the dataset is
-                    # already counted as a failure and we don't want to
-                    # surface a second failure for the same URN.
+                    # Don't queue a profile for an emission that already failed.
                     continue
                 if profile_targets is not None and dataset_info.columns:
                     profile_targets.append(
@@ -385,9 +379,6 @@ class DremioSource(StatefulIngestionSourceBase):
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling. Reuse the slim ProfileTarget list captured in the
-            # emission loop above so we don't re-run the global catalog
-            # query and don't pin the full DremioDataset objects.
             if profiling_enabled and profile_targets is not None:
                 with (
                     self.report.new_stage(PROFILING),

@@ -26,26 +26,17 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 
+# Slim projection of a DremioDataset for buffering across the emission →
+# profiling boundary. Holding full DremioDataset objects for 10k+ catalogs
+# adds real memory pressure for state the profiler never reads.
 class ProfileTarget(NamedTuple):
-    """Minimal payload the profiler needs for a single dataset.
-
-    A full `DremioDataset` carries view definition, parents, tags, descriptions,
-    and other ingestion-time state we don't need once we get to the profiling
-    pass. For very large catalogs (10k–100k datasets) buffering the full
-    objects across the emission → profiling boundary becomes a real memory
-    cost, so we project down to this 4-field tuple immediately after a dataset
-    is emitted.
-    """
-
     dataset_urn: str
-    # Already-quoted '"schema"."subschema"."table"' SQL identifier.
-    full_table_name: str
+    full_table_name: str  # already-quoted '"a"."b"."c"' identifier
     resource_name: str
     columns: List[Tuple[str, str]]
 
 
 def build_profile_target(dataset: DremioDataset, dataset_urn: str) -> ProfileTarget:
-    """Project a heavy DremioDataset into a slim ProfileTarget."""
     full_table_name = (
         '"' + '"."'.join(dataset.path) + '"."' + dataset.resource_name + '"'
     )
@@ -361,11 +352,8 @@ class DremioProfiler:
 
     def _combine_profile_results(self, profile_results: List[Dict]) -> Dict:
         combined_profile: Dict[str, Any] = {}
-        # Each chunk re-queries the SAME table for COUNT(*), so every chunk
-        # reports the same row_count. Summing here multiplied the value by
-        # the number of column chunks for tables wider than
-        # MAX_COLUMNS_PER_QUERY (800). Take the max so a single profile
-        # result and a multi-chunk profile both round-trip the same value.
+        # Every chunk re-queries COUNT(*) on the same table, so summing
+        # multiplied the row count by the chunk count for >800-column tables.
         combined_profile["row_count"] = max(
             (profile.get("row_count", 0) or 0 for profile in profile_results),
             default=0,

@@ -18,7 +18,6 @@ def _target(
     columns: Optional[List[Tuple[str, str]]] = None,
     urn: str = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)",
 ) -> ProfileTarget:
-    """Build a ProfileTarget for tests without going through DremioDataset."""
     cols = columns if columns is not None else [("col1", "integer")]
     return ProfileTarget(
         dataset_urn=urn,
@@ -28,13 +27,11 @@ def _target(
     )
 
 
-# Fixed reference time used by all skip-threshold tests so the deltas don't
-# drift with wall-clock time on slow CI runners.
+# Anchor for time-machine so skip-threshold offsets are stable on slow CI.
 _FROZEN_NOW = datetime(2024, 1, 10, 12, 0, 0, tzinfo=timezone.utc)
 
 
 def _epoch_ms_offset(seconds: float) -> int:
-    """Return _FROZEN_NOW - seconds, expressed as epoch milliseconds."""
     return round((_FROZEN_NOW.timestamp() - seconds) * 1000)
 
 
@@ -154,12 +151,8 @@ class TestCombineProfileResults:
         )
         assert "col1" in result["column_stats"]
         assert "col801" in result["column_stats"]
-        # column_count sums chunk sizes — total columns across the table.
         assert result["column_count"] == 850
-        # row_count must NOT scale with chunk count: each chunk re-queries the
-        # same table for COUNT(*), so they all report the same value. Combining
-        # via max keeps the table-level count stable for tables wider than
-        # MAX_COLUMNS_PER_QUERY.
+        # row_count must not scale with chunk count — each chunk reruns COUNT(*).
         assert result["row_count"] == 100
 
 
@@ -316,8 +309,6 @@ class TestProfilingStateHandler:
 
 
 class TestBuildProfileTarget:
-    """Cover the slim-projection path used to keep memory low at scale."""
-
     def test_projects_path_resource_name_columns(self):
         dataset = Mock()
         dataset.resource_name = "tbl"
@@ -340,6 +331,5 @@ class TestBuildProfileTarget:
         assert target.resource_name == "tbl"
         assert target.full_table_name == '"src"."schema"."tbl"'
         assert target.columns == [("a", "integer"), ("b", "varchar")]
-        # NamedTuple is immutable — confirm we don't retain a reference to the
-        # heavy DremioDataset object via attribute lookup.
+        # No back-reference to the heavy DremioDataset.
         assert not hasattr(target, "_dataset_response")

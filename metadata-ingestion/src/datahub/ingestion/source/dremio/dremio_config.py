@@ -218,15 +218,8 @@ class DremioSourceConfig(
     def _warn_if_stateful_time_window_without_stateful_ingestion(
         self,
     ) -> "DremioSourceConfig":
-        """Surface a clear log line instead of silently no-op'ing.
-
-        `enable_stateful_time_window` only takes effect when
-        `stateful_ingestion.enabled = true`; without that, the run-skip
-        handler is never installed and the flag does nothing. Recipes
-        that set the flag without realising they also need
-        `stateful_ingestion` would otherwise see no behaviour change at
-        all, no error, no warning — pure footgun.
-        """
+        # The run-skip handler is only installed when stateful_ingestion is
+        # enabled; otherwise this flag silently no-ops.
         if self.enable_stateful_time_window and (
             self.stateful_ingestion is None or not self.stateful_ingestion.enabled
         ):

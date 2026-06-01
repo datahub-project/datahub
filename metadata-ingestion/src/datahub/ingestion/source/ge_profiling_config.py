@@ -144,10 +144,10 @@ class GEProfilingConfig(GEProfilingBaseConfig):
         default=None,
         description="Profile table only if it has been updated since these many number of days. "
         "If set to `null`, no constraint of last modified time for tables to profile. "
-        "Supported in `Snowflake`, `BigQuery`, and `Dremio`. Note: Snowflake and BigQuery compare "
-        "against the actual table modification time. Dremio has no table-level modification "
-        "timestamp, so this field is compared against the timestamp DataHub last profiled the "
-        "table (i.e. it controls profiling frequency rather than detecting upstream change).",
+        "Supported in `Snowflake`, `BigQuery`, and `Dremio`. "
+        "Note: for Dremio this compares against DataHub's last-profiled timestamp "
+        "(Dremio exposes no table modification time), so it controls profile frequency "
+        "rather than reacting to upstream change.",
     )
 
     profile_table_size_limit: Annotated[
