@@ -409,17 +409,6 @@ def mock_run_context(mock_run_logger):
         yield (task_run_ctx, flow_run_ctx)
 
 
-async def mock_task_run(*args, **kwargs):
-    task_run_id = str(kwargs["task_run_id"])
-    if task_run_id == "fa14a52b-d271-4c41-99cb-6b42ca7c070b":
-        return TaskRun.model_validate(mock_extract_task_run_json)
-    elif task_run_id == "dd15ee83-5d28-4bf1-804f-f84eab9f9fb7":
-        return TaskRun.model_validate(mock_transform_task_run_json)
-    elif task_run_id == "f19f83ea-316f-4781-8cbe-1d5d8719afc3":
-        return TaskRun.model_validate(mock_load_task_run_json)
-    return None
-
-
 async def mock_read_task_runs(*args, **kwargs):
     assert "flow_run_filter" in kwargs
     assert isinstance(kwargs["flow_run_filter"], FlowRunFilter)
@@ -456,11 +445,19 @@ async def mock_read_workspaces(*args, **kwargs):
 
 
 @pytest.fixture(scope="module")
+def fast_sleep():
+    async def _no_sleep(_seconds: float) -> None:
+        return None
+
+    with patch("prefect_datahub.datahub_emitter.asyncio.sleep", side_effect=_no_sleep):
+        yield
+
+
+@pytest.fixture(scope="module")
 def mock_prefect_client():
     prefect_client_mock = MagicMock()
     prefect_client_mock.read_flow.side_effect = mock_flow
     prefect_client_mock.read_flow_run.side_effect = mock_flow_run
-    prefect_client_mock.read_task_run.side_effect = mock_task_run
     prefect_client_mock.read_task_runs.side_effect = mock_read_task_runs
     prefect_client_mock._client.get.side_effect = mock_flow_run_graph
     with patch("prefect_datahub.datahub_emitter.orchestration") as mock_client:
@@ -549,7 +546,11 @@ def test_add_task(mock_emit, mock_run_context):
 
 @patch("prefect_datahub.datahub_emitter.DatahubRestEmitter", autospec=True)
 def test_emit_flow(
-    mock_emit, mock_run_context, mock_prefect_client, mock_prefect_cloud_client
+    mock_emit,
+    mock_run_context,
+    mock_prefect_client,
+    mock_prefect_cloud_client,
+    fast_sleep,
 ):
     mock_emitter = Mock()
     mock_emit.return_value = mock_emitter
@@ -859,4 +860,22 @@ def test_emit_flow(
     assert (
         mock_emitter.method_calls[51][1][0].entityUrn
         == "urn:li:dataProcessInstance:bfa255d4d1fba52d23a52c9de4f6d0a6"
+    )
+
+    # Verify upstream lineage wiring: extract has no upstreams, transform depends on
+    # extract, load depends on transform. Graph fixture defines this chain explicitly.
+    extract_io = mock_emitter.method_calls[19][1][0]
+    assert extract_io.aspectName == "dataJobInputOutput"
+    assert not extract_io.aspect.inputDatajobs  # extract has no upstream jobs
+
+    load_io = mock_emitter.method_calls[31][1][0]
+    assert load_io.aspectName == "dataJobInputOutput"
+    assert f"urn:li:dataJob:({expected_dataflow_urn},__main__.transform)" in (
+        load_io.aspect.inputDatajobs or []
+    )
+
+    transform_io = mock_emitter.method_calls[43][1][0]
+    assert transform_io.aspectName == "dataJobInputOutput"
+    assert f"urn:li:dataJob:({expected_dataflow_urn},__main__.extract)" in (
+        transform_io.aspect.inputDatajobs or []
     )
