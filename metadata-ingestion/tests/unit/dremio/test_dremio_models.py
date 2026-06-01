@@ -79,16 +79,10 @@ class TestDremioContainerResponseValidation:
 
 
 class TestDremioDatasetColumnNullability:
-    """Pin the (string) is_nullable contract.
-
-    INFORMATION_SCHEMA.COLUMNS.IS_NULLABLE is a SQL standard ``"YES"``/``"NO"``
-    string. Master annotated ``is_nullable: bool`` on the dataclass but the
-    runtime value was always a string (the consumer in dremio_aspects.py was
-    already ``column.is_nullable == "YES"``), so the bool annotation was
-    aspirational, not effective. A1 fixes the annotation to match the data;
-    these tests pin the actual emission semantics so the change can't be
-    claimed as a silent behavior shift.
-    """
+    """``is_nullable`` is the SQL-standard "YES"/"NO" string from
+    INFORMATION_SCHEMA.COLUMNS — the consumer in dremio_aspects.py already
+    compared ``== "YES"``. These tests pin that contract so the annotation
+    fix (bool -> str) doesn't get read as a behavior change."""
 
     def _column(self, is_nullable: str) -> DremioDatasetColumn:
         return DremioDatasetColumn(
@@ -100,16 +94,12 @@ class TestDremioDatasetColumnNullability:
         )
 
     def test_yes_string_maps_to_nullable_true(self):
-        # Same comparison as dremio_aspects.py: nullable = is_nullable == "YES"
         assert (self._column("YES").is_nullable == "YES") is True
 
     def test_no_string_maps_to_nullable_false(self):
         assert (self._column("NO").is_nullable == "YES") is False
 
     def test_default_is_not_nullable(self):
-        # When the API omits IS_NULLABLE the field defaults to "NO", which
-        # the consumer maps to nullable=False (matching master's bool default
-        # of False once the lying annotation is removed).
         column = DremioDatasetColumn(
             name="col",
             ordinal_position=1,

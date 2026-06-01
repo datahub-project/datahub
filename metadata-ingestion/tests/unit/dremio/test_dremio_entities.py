@@ -48,13 +48,9 @@ class TestDremioQueryClassification:
     @pytest.mark.parametrize(
         "sql, expected_subtype",
         [
-            # Master had a DATA_MANIPULATION bucket containing
-            # ["INSERT INTO", "MERGE INTO", "CREATE TABLE"] that was *never*
-            # iterated by _get_query_subtype (which only walks SELECT + DML +
-            # DDL). The single-word DML entries below have always been the
-            # first hit; the bucket was dead code in master too. Pin the
-            # actual subtype assignment so removing the unused bucket can't
-            # be claimed as a silent behavior change.
+            # _get_query_subtype only walks SELECT + DML + DDL; the
+            # DATA_MANIPULATION bucket master removed was never iterated.
+            # Pin that the single-word DML entries are still the first hit.
             ("INSERT INTO foo SELECT * FROM bar", "INSERT"),
             (
                 "MERGE INTO target USING src ON src.id = target.id WHEN MATCHED THEN UPDATE SET x = 1",
