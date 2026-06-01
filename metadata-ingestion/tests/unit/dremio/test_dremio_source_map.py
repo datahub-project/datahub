@@ -147,8 +147,7 @@ def test_build_source_map_same_platform_multiple_sources():
 
 
 def test_build_source_map_honors_recipe_overrides_end_to_end():
-    """Recipe overrides drive both `platform` and `dremio_source_category`
-    on the source_map entry — pinning the full mapper -> source_map path."""
+    # Recipe override -> mapper -> source_map: pin end-to-end propagation.
     overrides = {
         "MYNEWCONNECTOR": DremioSourceTypeOverride(
             platform="myplatform", category="database"
@@ -205,8 +204,7 @@ def test_build_source_map_honors_recipe_overrides_end_to_end():
 
 
 def test_build_source_map_default_mapper_marks_unknown_arp_types():
-    """Negative control: without an override, an unknown Dremio type
-    falls through to category='unknown' / lowercased platform."""
+    # Negative control: unknown type falls through with category='unknown'.
     sources: List[DremioSourceContainer] = [
         DremioSourceContainer(
             container_name="custom_db",

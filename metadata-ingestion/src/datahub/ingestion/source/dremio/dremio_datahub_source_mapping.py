@@ -7,21 +7,13 @@ if TYPE_CHECKING:
 
 
 class DremioToDataHubSourceTypeMapping:
-    """Dremio source type to DataHub platform mapping.
+    """Dremio source type to DataHub platform mapping. The `lookup_*` instance
+    methods honor per-recipe overrides from `DremioSourceConfig.source_type_mappings`;
+    the `get_*` staticmethods expose the built-in mapping only."""
 
-    The `lookup_*` instance methods honor per-recipe overrides registered via
-    `DremioSourceConfig.source_type_mappings`; the `get_*` `@staticmethod`s
-    expose the built-in mapping only and are kept for callers that don't have
-    a config in hand. Overrides live on the instance and never mutate the
-    class-level mapping.
-    """
-
+    # Keys are the `type` field returned by Dremio's Catalog API
+    # (https://docs.dremio.com/current/reference/api/catalog/source/).
     SOURCE_TYPE_MAPPING: Dict[str, str] = {
-        # Dremio source types -> DataHub platform names.
-        # Source type strings come from Dremio's Catalog API (the `type`
-        # field on a source object). See
-        # https://docs.dremio.com/current/reference/api/catalog/source/ and
-        # https://docs.dremio.com/dremio-cloud/api/catalog/source/.
         "ADL": "abfs",
         "AMAZONELASTIC": "elasticsearch",
         "AWSGLUE": "glue",
@@ -42,20 +34,16 @@ class DremioToDataHubSourceTypeMapping:
         "ORACLE": "oracle",
         "POSTGRES": "postgres",
         "REDSHIFT": "redshift",
-        # Iceberg REST Catalog source: covers Apache Polaris OSS, Nessie
-        # with Iceberg REST, AWS Glue Iceberg REST, S3 Tables, Confluent
-        # Tableflow, and Microsoft OneLake (all served as Iceberg tables).
+        # Polaris OSS, Nessie+REST, Glue Iceberg REST, S3 Tables,
+        # Tableflow, OneLake — all surface as Iceberg tables.
         "RESTCATALOG": "iceberg",
         "S3": "s3",
         "SAPHANA": "hana",
         "SNOWFLAKE": "snowflake",
-        # Snowflake Open Catalog (managed Polaris): also serves Iceberg
-        # tables, so map to the iceberg platform rather than snowflake to
-        # match how the data is physically materialised.
+        # Snowflake Open Catalog (managed Polaris) serves Iceberg, not Snowflake tables.
         "SNOWFLAKEOPENCATALOG": "iceberg",
         "SYNAPSE": "mssql",
         "TERADATA": "teradata",
-        # Databricks Unity Catalog source.
         "UNITY": "databricks",
         "VERTICA": "vertica",
     }
@@ -89,12 +77,9 @@ class DremioToDataHubSourceTypeMapping:
 
     FILE_OBJECT_STORAGE_TYPES: Set[str] = {
         "ADL",
-        # AZURE_STORAGE is also listed in DATABASE_SOURCE_TYPES above.
-        # get_category checks DATABASE_SOURCE_TYPES first, so AZURE_STORAGE
-        # always resolves to "database" — which is the dot-notation path
-        # users hit in practice with Dremio's Azure Storage source
-        # (container/database/table). It's kept in this set so any future
-        # call site that asks "is this object storage?" still says yes.
+        # AZURE_STORAGE also lives in DATABASE_SOURCE_TYPES. get_category
+        # picks "database" first (matching the dot-notation path users
+        # actually hit); membership here keeps "is object storage?" honest.
         "AZURE_STORAGE",
         "GCS",
         "HDFS",

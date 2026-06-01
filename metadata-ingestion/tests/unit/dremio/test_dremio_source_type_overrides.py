@@ -64,9 +64,7 @@ def test_override_without_category_falls_back_to_unknown():
 
 
 def test_overrides_do_not_leak_across_instances():
-    # Regression guard: the predecessor `add_mapping` mutated class-level
-    # state, so overrides registered for one DremioSource leaked into
-    # every other instance in the same pipeline.
+    # The predecessor add_mapping mutated class state; pin instance isolation.
     mapper_a = DremioToDataHubSourceTypeMapping(
         extra_mappings={
             "MYORG_THING": DremioSourceTypeOverride(

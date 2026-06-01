@@ -215,8 +215,7 @@ class DremioSource(StatefulIngestionSourceBase):
         # Initialize catalog
         self.dremio_catalog = DremioCatalog(dremio_api)
 
-        # Only build a DomainRegistry for bare names — full URNs don't
-        # need graph resolution and shouldn't pay for it.
+        # Full URNs don't need graph resolution — only build a registry for bare names.
         self.domain_registry: Optional[DomainRegistry] = None
         if self.config.domain and not self.config.domain.startswith("urn:li:domain:"):
             self.domain_registry = DomainRegistry(

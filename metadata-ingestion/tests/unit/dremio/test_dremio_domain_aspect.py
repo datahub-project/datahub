@@ -25,7 +25,7 @@ def _make_aspects(domain=None, domain_registry=None):
 
 
 def _fake_registry(mapping):
-    """Build a DomainRegistry pre-populated with mapping without hitting the graph."""
+    # Skip __init__ so we don't pay a graph round-trip in tests.
     registry = DomainRegistry.__new__(DomainRegistry)
     registry.domain_registry = dict(mapping)
     return registry
@@ -46,9 +46,8 @@ def _make_dataset():
     api_ops = MagicMock()
     api_ops.get_description_for_resource.return_value = None
     api_ops.get_tags_for_resource.return_value = []
-    # Bypass __init__ — it expects a fully shaped dataset_details dict
-    # from the live API. Set only the attributes touched by the aspect
-    # builders under test.
+    # Bypass __init__: it expects a full live-API payload. Only stub the
+    # attributes touched by the aspect builders under test.
     dataset = DremioDataset.__new__(DremioDataset)
     dataset.resource_id = "ds-1"
     dataset.resource_name = "table1"
@@ -73,13 +72,11 @@ class TestCreateDomainAspect:
         assert _make_aspects(domain=None).create_domain_aspect() is None
 
     def test_passes_through_full_urn(self):
-        # Full URNs bypass the registry entirely — no graph required.
         aspect = _make_aspects(domain="urn:li:domain:marketing").create_domain_aspect()
         assert isinstance(aspect, DomainsClass)
         assert aspect.domains == ["urn:li:domain:marketing"]
 
     def test_bare_name_resolved_via_domain_registry(self):
-        # Bare name -> real provisioned URN via the registry lookup.
         registry = _fake_registry({"marketing": "urn:li:domain:abc-123"})
         aspect = _make_aspects(
             domain="marketing", domain_registry=registry
@@ -88,7 +85,7 @@ class TestCreateDomainAspect:
         assert aspect.domains == ["urn:li:domain:abc-123"]
 
     def test_bare_name_without_registry_warns_and_skips(self, caplog):
-        # Offline / no-graph runs: refuse to fabricate a URN; warn instead.
+        # Without a graph we cannot resolve; refuse to fabricate a URN.
         with caplog.at_level("WARNING"):
             aspect = _make_aspects(
                 domain="marketing", domain_registry=None
@@ -98,7 +95,7 @@ class TestCreateDomainAspect:
 
 
 def _collect_domain_aspects(workunits):
-    # Narrow to MCPW before touching .aspect — MCE workunits don't have it.
+    # MCE workunits expose no .aspect — narrow to MCPW before access.
     aspects = []
     for wu in workunits:
         if not isinstance(wu.metadata, MetadataChangeProposalWrapper):
@@ -141,10 +138,9 @@ def test_populate_dataset_mcp_emits_domain_when_configured(domain, expected_coun
 
 
 def test_add_mapping_removed():
-    # Regression guard: `add_mapping` mutated class-level state and was
-    # replaced by the per-instance `source_type_mappings` config field
-    # (see test_dremio_source_type_overrides.py). If it reappears, route
-    # users to the config field instead.
+    # Regression guard: add_mapping mutated class state; replaced by the
+    # per-instance source_type_mappings config field. If reintroduced,
+    # route callers to the config instead.
     from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
         DremioToDataHubSourceTypeMapping,
     )
