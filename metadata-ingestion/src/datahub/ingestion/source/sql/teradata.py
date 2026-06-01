@@ -262,6 +262,80 @@ _RETRYABLE_ERROR_CODE_RE: re.Pattern = re.compile(
     r"\[Error (?:2631|2639|3111|3120|3598|3897|3603)\]"
 )
 
+# Teradata error codes that indicate a SQL syntax / parse failure.
+#   3706 — Syntax error: <detail>.
+#   3707 — Syntax error, expected something between <X> and <Y>.
+#
+# Source: Teradata Database Messages, doc B035-1096.
+_PARSE_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:3706|3707)\]")
+
+# Substrings that identify SQL parse / syntax failures in cases where the
+# driver omits the numeric error code.
+_PARSE_ERROR_KEYWORDS: Tuple[str, ...] = (
+    "syntax error",
+    "parse error",
+    "invalid sql",
+)
+
+# Teradata error codes that specifically represent permission / access-denied
+# failures (subset of _PERMANENT_ERROR_CODE_RE used only for categorisation).
+#   3523 — <user> does not have <access type> access to <db>.<table>.
+#   3524 — <user> does not have <access type> access to database <db>.
+#   8017 — The UserId, Password or Account is invalid (auth failure).
+#   3003 — Logon failed / Invalid password (auth failure).
+_PERMISSION_ERROR_CODE_RE: re.Pattern = re.compile(r"\[Error (?:3523|3524|8017|3003)\]")
+
+# Substrings from _PERMANENT_ERROR_SUBSTRINGS that specifically indicate a
+# permission / authentication denial (used for categorisation only).
+_PERMISSION_ERROR_KEYWORDS: Tuple[str, ...] = (
+    "permission denied",
+    "access denied",
+    "no access",
+    "authentication failed",
+    "logon failed",
+    "invalid logon",
+    "invalid user",
+)
+
+
+def _categorize_view_error(exc: BaseException) -> str:
+    """Classify a view-processing exception for report error-breakdown counters.
+
+    Returns one of the following string literals:
+        ``"timeout"``    — pool exhaustion, I/O timeout, or query timeout.
+        ``"permission"`` — auth failure or missing access privilege.
+        ``"parse"``      — SQL syntax / parse error.
+        ``"unknown"``    — none of the above.
+
+    Classification uses the same signals as :func:`_should_retry` /
+    :func:`_should_retry_connect` so the categories align with the existing
+    retry logic.  Timeout is checked first because a timed-out query can also
+    carry an OperationalError wrapper that might otherwise match permission or
+    parse keywords.
+    """
+    # Timeout: SQLAlchemy pool exhaustion, Python built-in, or Future timeout.
+    if isinstance(exc, (PoolTimeoutError, TimeoutError)):
+        return "timeout"
+
+    raw = str(exc)
+    msg = raw.lower()
+
+    # Timeout by message when the exception type is a generic DB error.
+    if any(k in msg for k in ("timed out", "i/o timeout", "timeout")):
+        return "timeout"
+
+    # Permission / auth denial.
+    if _PERMISSION_ERROR_CODE_RE.search(raw) or any(
+        k in msg for k in _PERMISSION_ERROR_KEYWORDS
+    ):
+        return "permission"
+
+    # SQL parse / syntax error.
+    if _PARSE_ERROR_CODE_RE.search(raw) or any(k in msg for k in _PARSE_ERROR_KEYWORDS):
+        return "parse"
+
+    return "unknown"
+
 
 def _jittered_backoff(attempt: int, initial_backoff_seconds: float) -> float:
     """Return a full-jitter exponential backoff duration for *attempt* (0-based).
@@ -924,6 +998,22 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     # Retry statistics
     num_db_retries: int = 0
 
+    # Per-phase error breakdown — allows customers to self-diagnose failures
+    # without having to inspect log files.  Each counter covers a distinct root
+    # cause so that a support request can immediately point to the right area.
+    #
+    #   schema_discovery_failures — fatal errors in _get_schema_names_with_retry
+    #       (network, auth, or permission problems during the schema-list phase).
+    #   view_timeout_errors       — view worker hit a pool/I-O/query timeout.
+    #   view_parse_errors         — view SQL contains a syntax / parse error.
+    #   view_permission_errors    — auth or access-denied failure for the view.
+    #   view_unknown_errors       — any other failure in view processing.
+    schema_discovery_failures: int = 0
+    view_timeout_errors: int = 0
+    view_parse_errors: int = 0
+    view_permission_errors: int = 0
+    view_unknown_errors: int = 0
+
     # Single internal lock — not serialised, not compared.  Protects all report
     # fields that are mutated from ThreadPoolExecutor worker threads.
     _lock: Lock = field(default_factory=Lock, init=False, repr=False, compare=False)
@@ -937,6 +1027,10 @@ class TeradataReport(SQLSourceReport, BaseTimeWindowReport):
     def increment_db_retries(self) -> None:
         with self._lock:
             self.num_db_retries += 1
+
+    def increment_schema_discovery_failures(self) -> None:
+        with self._lock:
+            self.schema_discovery_failures += 1
 
     def increment_pool_timeout_retries(self) -> None:
         with self._lock:
@@ -1666,6 +1760,7 @@ ORDER by DataBaseName, TableName;
                     return inspect(conn).get_schema_names()
             except Exception as exc:
                 if not _should_retry_connect(exc) or attempt == max_attempts - 1:
+                    self.report.increment_schema_discovery_failures()
                     self.report.failure(
                         title="Schema discovery failed"
                         if attempt == 0
@@ -2075,8 +2170,19 @@ ORDER by DataBaseName, TableName;
                         )
 
                 except Exception as e:
+                    # Classify before entering the lock so the atomic block stays
+                    # cheap (no string scanning while holding the shared lock).
+                    _error_category = _categorize_view_error(e)
                     with self.report.atomic():
                         self.report.num_view_processing_failures += 1
+                        if _error_category == "timeout":
+                            self.report.view_timeout_errors += 1
+                        elif _error_category == "parse":
+                            self.report.view_parse_errors += 1
+                        elif _error_category == "permission":
+                            self.report.view_permission_errors += 1
+                        else:
+                            self.report.view_unknown_errors += 1
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
@@ -2273,11 +2379,21 @@ ORDER by DataBaseName, TableName;
                         )
 
                     except Exception as e:
+                        _error_category = _categorize_view_error(e)
                         full_traceback = traceback.format_exc()
                         logger.error(
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
                         )
                         logger.error(f"Full traceback: {full_traceback}")
+                        self.report.num_view_processing_failures += 1
+                        if _error_category == "timeout":
+                            self.report.view_timeout_errors += 1
+                        elif _error_category == "parse":
+                            self.report.view_parse_errors += 1
+                        elif _error_category == "permission":
+                            self.report.view_permission_errors += 1
+                        else:
+                            self.report.view_unknown_errors += 1
                         self.report.warning(
                             f"Error processing view {schema}.{view_name}",
                             context=f"View: {schema}.{view_name}, Error: {str(e)}",

@@ -2,6 +2,7 @@ import logging
 import re
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from threading import current_thread
 from typing import Any, Dict, List, Optional
@@ -25,6 +26,7 @@ from datahub.ingestion.source.sql.teradata import (
     TeradataReport,
     TeradataSource,
     TeradataTable,
+    _categorize_view_error,
     _engine_connect_with_retry,
     _execute_with_retry,
     _fetchmany_with_retry,
@@ -4108,3 +4110,512 @@ class TestExecuteWithCursorFallback:
 
         conn.execution_options.assert_not_called()
         assert result is expected
+
+
+class TestCategorizeViewError:
+    """Unit tests for _categorize_view_error."""
+
+    def test_pool_timeout_error_is_timeout(self) -> None:
+        assert _categorize_view_error(PoolTimeoutError("pool exhausted")) == "timeout"
+
+    def test_python_timeout_error_is_timeout(self) -> None:
+        assert _categorize_view_error(TimeoutError("timed out")) == "timeout"
+
+    def test_operational_error_with_timeout_message_is_timeout(self) -> None:
+        exc = OperationalError("request timed out", None, None)
+        assert _categorize_view_error(exc) == "timeout"
+
+    def test_database_error_with_io_timeout_is_timeout(self) -> None:
+        exc = DatabaseError("i/o timeout during query", None, None)
+        assert _categorize_view_error(exc) == "timeout"
+
+    def test_permission_denied_substring_is_permission(self) -> None:
+        exc = OperationalError("permission denied for table foo", None, None)
+        assert _categorize_view_error(exc) == "permission"
+
+    def test_access_denied_substring_is_permission(self) -> None:
+        exc = DatabaseError("access denied to database bar", None, None)
+        assert _categorize_view_error(exc) == "permission"
+
+    def test_no_access_substring_is_permission(self) -> None:
+        exc = DatabaseError("no access to object", None, None)
+        assert _categorize_view_error(exc) == "permission"
+
+    def test_teradata_permission_error_code_3523_is_permission(self) -> None:
+        exc = DatabaseError("[Error 3523] user does not have SELECT access", None, None)
+        assert _categorize_view_error(exc) == "permission"
+
+    def test_teradata_auth_error_code_8017_is_permission(self) -> None:
+        exc = OperationalError("[Error 8017] The UserId is invalid.", None, None)
+        assert _categorize_view_error(exc) == "permission"
+
+    def test_syntax_error_substring_is_parse(self) -> None:
+        exc = DatabaseError("syntax error in SQL statement", None, None)
+        assert _categorize_view_error(exc) == "parse"
+
+    def test_parse_error_substring_is_parse(self) -> None:
+        exc = DatabaseError("parse error near token SELECT", None, None)
+        assert _categorize_view_error(exc) == "parse"
+
+    def test_teradata_parse_error_code_3706_is_parse(self) -> None:
+        exc = DatabaseError("[Error 3706] Syntax error: expected name.", None, None)
+        assert _categorize_view_error(exc) == "parse"
+
+    def test_teradata_parse_error_code_3707_is_parse(self) -> None:
+        exc = DatabaseError(
+            "[Error 3707] Syntax error, expected something between 'x' and 'y'.",
+            None,
+            None,
+        )
+        assert _categorize_view_error(exc) == "parse"
+
+    def test_generic_exception_is_unknown(self) -> None:
+        assert _categorize_view_error(RuntimeError("something exploded")) == "unknown"
+
+    def test_value_error_is_unknown(self) -> None:
+        assert _categorize_view_error(ValueError("bad value")) == "unknown"
+
+    def test_timeout_takes_precedence_over_permission_keywords(self) -> None:
+        """An error that mentions both 'timed out' and 'permission' is a timeout."""
+        exc = OperationalError(
+            "request timed out — permission check failed", None, None
+        )
+        assert _categorize_view_error(exc) == "timeout"
+
+
+class TestErrorCategorizationReport:
+    """Report counters are wired correctly to _categorize_view_error categories."""
+
+    def test_new_fields_default_to_zero(self) -> None:
+        report = TeradataReport()
+        assert report.schema_discovery_failures == 0
+        assert report.view_timeout_errors == 0
+        assert report.view_parse_errors == 0
+        assert report.view_permission_errors == 0
+        assert report.view_unknown_errors == 0
+
+    def test_increment_schema_discovery_failures(self) -> None:
+        report = TeradataReport()
+        report.increment_schema_discovery_failures()
+        report.increment_schema_discovery_failures()
+        assert report.schema_discovery_failures == 2
+
+    def test_schema_discovery_failures_is_thread_safe(self) -> None:
+        report = TeradataReport()
+        n_threads, m_per_thread = 8, 500
+
+        def worker(_: int) -> None:
+            for _ in range(m_per_thread):
+                report.increment_schema_discovery_failures()
+
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(worker, range(n_threads)))
+
+        assert report.schema_discovery_failures == n_threads * m_per_thread
+
+    def test_view_error_counters_are_exclusive(self) -> None:
+        """Each category increments exactly its own counter, leaving others at zero."""
+        categories = {
+            "timeout": "view_timeout_errors",
+            "parse": "view_parse_errors",
+            "permission": "view_permission_errors",
+            "unknown": "view_unknown_errors",
+        }
+        for category, field_name in categories.items():
+            report = TeradataReport()
+            with report.atomic():
+                if category == "timeout":
+                    report.view_timeout_errors += 1
+                elif category == "parse":
+                    report.view_parse_errors += 1
+                elif category == "permission":
+                    report.view_permission_errors += 1
+                else:
+                    report.view_unknown_errors += 1
+
+            assert getattr(report, field_name) == 1
+            for other_field in categories.values():
+                if other_field != field_name:
+                    assert getattr(report, other_field) == 0, (
+                        f"Expected {other_field}==0 when category='{category}'"
+                    )
+
+    def test_view_error_counters_are_thread_safe(self) -> None:
+        """All four view error counters remain consistent under thread contention."""
+        report = TeradataReport()
+        n_threads, m_per_thread = 8, 250
+
+        def worker(_: int) -> None:
+            for _ in range(m_per_thread):
+                with report.atomic():
+                    report.view_timeout_errors += 1
+                    report.view_parse_errors += 1
+                    report.view_permission_errors += 1
+                    report.view_unknown_errors += 1
+
+        with ThreadPoolExecutor(max_workers=n_threads) as ex:
+            list(ex.map(worker, range(n_threads)))
+
+        expected = n_threads * m_per_thread
+        assert report.view_timeout_errors == expected
+        assert report.view_parse_errors == expected
+        assert report.view_permission_errors == expected
+        assert report.view_unknown_errors == expected
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by the end-to-end view / schema-discovery counter tests
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_conn() -> MagicMock:
+    """A minimal SQLAlchemy-compatible connection mock."""
+    conn = MagicMock()
+    conn.execute.return_value = MagicMock()
+    return conn
+
+
+def _mock_retry_connect(conn: MagicMock):
+    """Return a no-op context manager that yields *conn*."""
+
+    @contextmanager
+    def _cm(*_args, **_kwargs):
+        yield conn
+
+    return _cm
+
+
+def _make_mock_inspector(schema: str) -> MagicMock:
+    """Inspector mock with the _datahub_database attribute pre-set."""
+    inspector = MagicMock()
+    inspector._datahub_database = schema
+    return inspector
+
+
+class TestSchemaDiscoveryFailureCounter:
+    """schema_discovery_failures is incremented exactly when _get_schema_names_with_retry fails."""
+
+    def test_non_retryable_error_increments_counter(self):
+        """A permanent (non-retryable) error increments schema_discovery_failures once."""
+        source = _create_source_patched()
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = Exception("permission denied")
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(Exception, match="permission denied"),
+        ):
+            source._get_schema_names_with_retry(mock_engine)
+
+        assert source.report.schema_discovery_failures == 1
+
+    def test_all_retries_exhausted_increments_counter_once(self):
+        """Even when every attempt fails transiently, the counter only goes up by 1."""
+        source = _create_source_patched({"retry_max_attempts": 3})
+        transient = OperationalError("connect timed out", None, None)
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [transient, transient, transient]
+
+        with (
+            patch("time.sleep"),
+            pytest.raises(type(transient)),
+        ):
+            source._get_schema_names_with_retry(mock_engine)
+
+        assert source.report.schema_discovery_failures == 1
+
+    def test_successful_discovery_does_not_increment_counter(self):
+        """A successful schema discovery call leaves schema_discovery_failures at zero."""
+        source = _create_source_patched()
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1"]
+        mock_engine = MagicMock()
+        mock_engine.connect.return_value = good_conn
+
+        with patch(
+            "datahub.ingestion.source.sql.teradata.inspect",
+            return_value=good_inspector,
+        ):
+            result = source._get_schema_names_with_retry(mock_engine)
+
+        assert result == ["db1"]
+        assert source.report.schema_discovery_failures == 0
+
+    def test_transient_then_success_does_not_increment_counter(self):
+        """A retry that eventually succeeds must not increment schema_discovery_failures."""
+        source = _create_source_patched()
+        good_conn = MagicMock()
+        good_inspector = MagicMock()
+        good_inspector.get_schema_names.return_value = ["db1"]
+        transient = OperationalError("connect timed out", None, None)
+        mock_engine = MagicMock()
+        mock_engine.connect.side_effect = [transient, good_conn]
+
+        with (
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=good_inspector,
+            ),
+            patch("time.sleep"),
+        ):
+            result = source._get_schema_names_with_retry(mock_engine)
+
+        assert result == ["db1"]
+        assert source.report.schema_discovery_failures == 0
+
+
+class TestViewProcessingErrorCounters:
+    """num_view_processing_failures and per-category counters are updated correctly.
+
+    Both the single-threaded path (_process_views_single_threaded, max_workers=1)
+    and the multi-threaded path (_loop_views_with_connection_pool, max_workers>1)
+    use _categorize_view_error to route failures to the right sub-counter.
+    """
+
+    # ------------------------------------------------------------------
+    # Single-threaded path (_process_views_single_threaded)
+    # ------------------------------------------------------------------
+
+    def _run_single_threaded(
+        self, source: "TeradataSource", view_exc: BaseException
+    ) -> None:
+        """Drive _process_views_single_threaded with one view that raises *view_exc*."""
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch.object(source, "_process_view", side_effect=view_exc),
+        ):
+            # Consume the generator so the exception handler fires.
+            list(
+                source._process_views_single_threaded(
+                    ["view_a"], "testdb", source.config
+                )
+            )
+
+    def test_single_threaded_timeout_increments_timeout_counter(self):
+        source = _create_source_patched({"max_workers": 1})
+        self._run_single_threaded(source, PoolTimeoutError("pool exhausted"))
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_timeout_errors == 1
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_single_threaded_permission_increments_permission_counter(self):
+        source = _create_source_patched({"max_workers": 1})
+        exc = OperationalError("permission denied for table foo", None, None)
+        self._run_single_threaded(source, exc)
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_permission_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_single_threaded_parse_increments_parse_counter(self):
+        source = _create_source_patched({"max_workers": 1})
+        exc = DatabaseError("syntax error in SQL statement", None, None)
+        self._run_single_threaded(source, exc)
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_parse_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_single_threaded_unknown_increments_unknown_counter(self):
+        source = _create_source_patched({"max_workers": 1})
+        self._run_single_threaded(source, RuntimeError("unexpected crash"))
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_unknown_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+
+    def test_single_threaded_multiple_views_accumulate_counters(self):
+        """Two views failing with different errors produce independent sub-counts."""
+        source = _create_source_patched({"max_workers": 1})
+        errors = [
+            OperationalError("permission denied", None, None),
+            DatabaseError("syntax error near token", None, None),
+        ]
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch.object(source, "_process_view", side_effect=errors),
+        ):
+            list(
+                source._process_views_single_threaded(
+                    ["view_a", "view_b"], "testdb", source.config
+                )
+            )
+
+        assert source.report.num_view_processing_failures == 2
+        assert source.report.view_permission_errors == 1
+        assert source.report.view_parse_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_single_threaded_successful_view_does_not_increment_failures(self):
+        """No counters change when all views are processed without error."""
+        source = _create_source_patched({"max_workers": 1})
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+
+        with (
+            patch.object(source, "get_metadata_engine", return_value=MagicMock()),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch.object(source, "_process_view", return_value=iter([])),
+        ):
+            list(
+                source._process_views_single_threaded(
+                    ["view_ok"], "testdb", source.config
+                )
+            )
+
+        assert source.report.num_view_processing_failures == 0
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    # ------------------------------------------------------------------
+    # Multi-threaded path (_loop_views_with_connection_pool, max_workers > 1)
+    # ------------------------------------------------------------------
+
+    def _run_multi_threaded(
+        self, source: "TeradataSource", view_exc: BaseException
+    ) -> None:
+        """Drive the multi-threaded path with one view that raises *view_exc*."""
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+        mock_engine = MagicMock()
+
+        with (
+            patch.object(
+                source, "_get_or_create_pooled_engine", return_value=mock_engine
+            ),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch.object(source, "_process_view", side_effect=view_exc),
+        ):
+            list(
+                source._loop_views_with_connection_pool(
+                    ["view_a"], "testdb", source.config
+                )
+            )
+
+    def test_multi_threaded_timeout_increments_timeout_counter(self):
+        source = _create_source_patched({"max_workers": 2})
+        source._effective_max_workers = 2
+        self._run_multi_threaded(source, PoolTimeoutError("pool exhausted"))
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_timeout_errors == 1
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_multi_threaded_permission_increments_permission_counter(self):
+        source = _create_source_patched({"max_workers": 2})
+        source._effective_max_workers = 2
+        exc = DatabaseError("[Error 3523] user has no SELECT access", None, None)
+        self._run_multi_threaded(source, exc)
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_permission_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_multi_threaded_parse_increments_parse_counter(self):
+        source = _create_source_patched({"max_workers": 2})
+        source._effective_max_workers = 2
+        exc = DatabaseError("[Error 3706] Syntax error in view definition", None, None)
+        self._run_multi_threaded(source, exc)
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_parse_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
+
+    def test_multi_threaded_unknown_increments_unknown_counter(self):
+        source = _create_source_patched({"max_workers": 2})
+        source._effective_max_workers = 2
+        self._run_multi_threaded(source, ValueError("schema mismatch"))
+
+        assert source.report.num_view_processing_failures == 1
+        assert source.report.view_unknown_errors == 1
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+
+    def test_multi_threaded_successful_view_does_not_increment_failures(self):
+        source = _create_source_patched({"max_workers": 2})
+        source._effective_max_workers = 2
+        mock_conn = _make_mock_conn()
+        mock_inspector = _make_mock_inspector("testdb")
+        mock_engine = MagicMock()
+
+        with (
+            patch.object(
+                source, "_get_or_create_pooled_engine", return_value=mock_engine
+            ),
+            patch.object(
+                source, "_retry_connect", side_effect=_mock_retry_connect(mock_conn)
+            ),
+            patch.object(source, "_retry_execute"),
+            patch(
+                "datahub.ingestion.source.sql.teradata.inspect",
+                return_value=mock_inspector,
+            ),
+            patch.object(source, "_process_view", return_value=iter([])),
+        ):
+            list(
+                source._loop_views_with_connection_pool(
+                    ["view_ok"], "testdb", source.config
+                )
+            )
+
+        assert source.report.num_view_processing_failures == 0
+        assert source.report.view_timeout_errors == 0
+        assert source.report.view_parse_errors == 0
+        assert source.report.view_permission_errors == 0
+        assert source.report.view_unknown_errors == 0
