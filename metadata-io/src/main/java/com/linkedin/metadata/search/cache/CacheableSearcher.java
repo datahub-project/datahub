@@ -55,14 +55,7 @@ public class CacheableSearcher<K> {
           do {
             batchedResult = getBatch(opContext, batchId);
             int currentBatchSize = batchedResult.getEntities().size();
-            // An empty batch means we've reached the end of the results.
-            //
-            // NOTE: we must NOT stop just because currentBatchSize < batchSize. Hits with
-            // invalid/missing URNs are dropped before reaching this point (see
-            // SearchRequestHandler#getResultSafely), so a batch can legitimately yield fewer
-            // entities than batchSize while more results remain in subsequent batches. Treating a
-            // short batch as the last one would silently truncate the result set. We instead rely
-            // on an empty batch to detect the end, at the cost of at most one extra empty fetch.
+            // If the number of results in this batch is 0, no need to continue
             if (currentBatchSize == 0) {
               break;
             }
@@ -72,6 +65,19 @@ public class CacheableSearcher<K> {
                   Math.min(currentBatchSize, startInBatch + size - resultEntities.size());
               resultEntities.addAll(batchedResult.getEntities().subList(startInBatch, endInBatch));
               foundStart = true;
+            }
+            // Stop once the search engine has no more matching documents beyond this batch.
+            //
+            // We compare the raw hit positions scanned so far ((batchId + 1) * batchSize) against
+            // the total hit count, rather than checking (currentBatchSize < batchSize). Hits with
+            // invalid/missing URNs are dropped before reaching here (see
+            // SearchRequestHandler#getResultSafely), so a full page of batchSize raw hits can yield
+            // fewer than batchSize entities. Using the entity count to detect the last page would
+            // either silently truncate results when a hit is skipped, or force an unnecessary extra
+            // batch fetch. The total hit count is exact within the from/size pagination window
+            // (which the search engine caps at index.max_result_window).
+            if ((long) (batchId + 1) * batchSize >= batchedResult.getNumEntities()) {
+              break;
             }
             resultsSoFar += currentBatchSize;
             batchId++;

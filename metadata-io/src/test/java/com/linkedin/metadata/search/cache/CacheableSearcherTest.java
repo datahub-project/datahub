@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.SearchResultMetadata;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.mockito.Mockito;
@@ -240,20 +241,21 @@ public class CacheableSearcherTest {
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     int batchSize = 10;
+    // 15 total hits across two batches; one hit in batch 0 is dropped as invalid -> 14 entities.
+    int totalHits = 15;
     CacheableSearcher<Integer> skippedHitSearcher =
         new CacheableSearcher<>(
             cacheManager.getCache("skippedHitSearcher"),
             batchSize,
             qs -> {
-              // Batch 0 [0,10): a full ES page of 10 hits, but one was dropped as invalid -> 9.
+              // Batch 0 [0,10): a full page of 10 raw hits, but one was dropped as invalid -> 9.
               // Batch 1 [10,20): 5 more valid entities.
-              // Batch 2 [20,..): end of results -> empty.
               if (qs.getFrom() == 0) {
-                return searchResultWithUrns(qs, getUrns(0, 9));
+                return searchResultWithUrns(qs, getUrns(0, 9), totalHits);
               } else if (qs.getFrom() == 10) {
-                return searchResultWithUrns(qs, getUrns(10, 15));
+                return searchResultWithUrns(qs, getUrns(10, 15), totalHits);
               }
-              return searchResultWithUrns(qs, List.of());
+              return searchResultWithUrns(qs, List.of(), totalHits);
             },
             CacheableSearcher.QueryPagination::getFrom,
             true);
@@ -269,13 +271,39 @@ public class CacheableSearcherTest {
             .collect(Collectors.toList()));
   }
 
+  @Test
+  public void testCacheableSearcherDoesNotOverFetchWhenResultsSmallerThanWindow() {
+    // Regression guard: a result set smaller than the requested window must be served from a
+    // single batch fetch. Detecting the last page via the entity count would force an extra
+    // (empty) search call here, which broke the lineage single-call optimization.
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
+    AtomicInteger fetches = new AtomicInteger();
+    CacheableSearcher<Integer> searcher =
+        new CacheableSearcher<>(
+            mock(Cache.class),
+            10,
+            qs -> {
+              fetches.incrementAndGet();
+              return searchResultWithUrns(qs, getUrns(0, 3), 3);
+            },
+            CacheableSearcher.QueryPagination::getFrom,
+            false);
+
+    SearchResult result = searcher.getSearchResults(opContext, 0, 100);
+
+    assertEquals(result.getEntities().size(), 3);
+    assertEquals(
+        fetches.get(), 1, "result set smaller than the window must require only one batch fetch");
+  }
+
   private SearchResult searchResultWithUrns(
-      CacheableSearcher.QueryPagination queryPagination, List<Urn> urns) {
+      CacheableSearcher.QueryPagination queryPagination, List<Urn> urns, int numEntities) {
     List<SearchEntity> entities =
         urns.stream().map(urn -> new SearchEntity().setEntity(urn)).collect(Collectors.toList());
     return new SearchResult()
         .setEntities(new SearchEntityArray(entities))
-        .setNumEntities(15)
+        .setNumEntities(numEntities)
         .setFrom(queryPagination.getFrom())
         .setPageSize(queryPagination.getSize())
         .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()));
