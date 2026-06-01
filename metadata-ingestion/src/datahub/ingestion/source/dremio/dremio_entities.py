@@ -2,7 +2,7 @@ import logging
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, ClassVar, Dict, Iterator, List, Optional
 
 from sqlglot import parse_one
 
@@ -260,7 +260,10 @@ class DremioDataset:
 
 
 class DremioContainer:
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
+    # No default — subclasses must declare their subtype so a new
+    # container class can't silently inherit DREMIO_FOLDER and emit
+    # the wrong SubType aspect.
+    subclass: ClassVar[DatasetContainerSubTypes]
     container_name: str
     location_id: Optional[str]
     path: List[str]
@@ -287,7 +290,9 @@ class DremioContainer:
 
 
 class DremioSourceContainer(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_SOURCE
+    subclass: ClassVar[DatasetContainerSubTypes] = (
+        DatasetContainerSubTypes.DREMIO_SOURCE
+    )
     dremio_source_type: str
     root_path: Optional[str]
     database_name: Optional[str]
@@ -314,11 +319,13 @@ class DremioSourceContainer(DremioContainer):
 
 
 class DremioSpace(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_SPACE
+    subclass: ClassVar[DatasetContainerSubTypes] = DatasetContainerSubTypes.DREMIO_SPACE
 
 
 class DremioFolder(DremioContainer):
-    subclass: DatasetContainerSubTypes = DatasetContainerSubTypes.DREMIO_FOLDER
+    subclass: ClassVar[DatasetContainerSubTypes] = (
+        DatasetContainerSubTypes.DREMIO_FOLDER
+    )
     # Set by the catalog walk in #17652 / A2; drives the folder browse-path
     # prefix ("Spaces" vs "Sources").
     root_container_type: Optional[str] = None

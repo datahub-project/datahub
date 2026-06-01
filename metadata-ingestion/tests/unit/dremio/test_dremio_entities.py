@@ -1,6 +1,14 @@
 import pytest
 
-from datahub.ingestion.source.dremio.dremio_entities import DremioCatalog, DremioQuery
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
+from datahub.ingestion.source.dremio.dremio_entities import (
+    DremioCatalog,
+    DremioContainer,
+    DremioFolder,
+    DremioQuery,
+    DremioSourceContainer,
+    DremioSpace,
+)
 
 VALID_TS = "2024-01-15 10:30:00.000"
 
@@ -119,3 +127,26 @@ class TestDremioCatalogIsValidQuery:
         catalog = DremioCatalog.__new__(DremioCatalog)
         query = {**self.VALID_QUERY, "query": ""}
         assert catalog.is_valid_query(query) is False
+
+
+class TestDremioContainerSubclassDeclaration:
+    """DremioContainer.subclass is declared without a default so a new
+    subclass that forgets to set it can't silently inherit DREMIO_FOLDER."""
+
+    def test_known_subclasses_declare_subtype(self):
+        assert DremioSourceContainer.subclass == DatasetContainerSubTypes.DREMIO_SOURCE
+        assert DremioSpace.subclass == DatasetContainerSubTypes.DREMIO_SPACE
+        assert DremioFolder.subclass == DatasetContainerSubTypes.DREMIO_FOLDER
+
+    def test_base_class_has_no_subclass_default(self):
+        # If a subclass forgets to set subclass, instance.subclass raises
+        # AttributeError rather than silently returning DREMIO_FOLDER.
+        with pytest.raises(AttributeError):
+            DremioContainer.subclass  # noqa: B018
+
+    def test_undeclared_subclass_raises_on_attribute_access(self):
+        class UndeclaredContainer(DremioContainer):
+            pass
+
+        with pytest.raises(AttributeError):
+            UndeclaredContainer.subclass  # noqa: B018

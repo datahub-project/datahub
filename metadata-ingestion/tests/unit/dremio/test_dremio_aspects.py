@@ -190,3 +190,24 @@ class TestDremioAspectsDatasetProperties:
         dataset = _make_dataset(path=["db", "schema"], resource_name="orders")
         props = aspects._create_dataset_properties(dataset)
         assert props.qualifiedName == "db.schema.orders"
+
+
+class TestDremioAspectsViewProperties:
+    """_create_view_properties is Optional[...]; the caller in
+    populate_dataset_mcp must not wrap a None into an MCP."""
+
+    def test_view_with_sql_definition_returns_view_properties(self):
+        aspects = _make_aspects()
+        dataset = _make_dataset(dataset_type=DremioDatasetType.VIEW)
+        dataset.sql_definition = "SELECT 1"
+        view_props = aspects._create_view_properties(dataset)
+        assert view_props is not None
+        assert view_props.viewLogic == "SELECT 1"
+        assert view_props.viewLanguage == "SQL"
+        assert view_props.materialized is False
+
+    def test_view_without_sql_definition_returns_none(self):
+        aspects = _make_aspects()
+        dataset = _make_dataset(dataset_type=DremioDatasetType.VIEW)
+        dataset.sql_definition = ""
+        assert aspects._create_view_properties(dataset) is None
