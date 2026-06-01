@@ -19,6 +19,7 @@ dependencies {
     annotationProcessor externalDependency.lombok
 
     testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
     testImplementation externalDependency.springBootTest
     testImplementation externalDependency.jacksonDataFormatYaml
 }
