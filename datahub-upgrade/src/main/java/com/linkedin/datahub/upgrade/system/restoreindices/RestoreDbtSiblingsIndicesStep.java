@@ -1,4 +1,4 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.restoreindices;
 
 import static com.linkedin.metadata.Constants.*;
 
@@ -6,12 +6,15 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.models.AspectSpec;
@@ -21,6 +24,7 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
@@ -31,113 +35,139 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
-public class RestoreDbtSiblingsIndices implements BootstrapStep {
+public class RestoreDbtSiblingsIndicesStep implements UpgradeStep {
+
   private static final String VERSION = "0";
   private static final String UPGRADE_ID = "restore-dbt-siblings-indices";
   private static final Urn SIBLING_UPGRADE_URN =
       EntityKeyUtils.convertEntityKeyToUrn(
           new DataHubUpgradeKey().setId(UPGRADE_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   private static final Integer BATCH_SIZE = 1000;
-  private static final Integer SLEEP_SECONDS = 120;
+  static final Integer SLEEP_SECONDS = 120;
 
   private final EntityService<?> _entityService;
+  private final boolean _enabled;
+  private final int _sleepSeconds;
 
-  @Override
-  public String name() {
-    return this.getClass().getSimpleName();
+  public RestoreDbtSiblingsIndicesStep(
+      @Nonnull final EntityService<?> entityService, final boolean enabled) {
+    this(entityService, enabled, SLEEP_SECONDS);
   }
 
-  @Nonnull
-  @Override
-  public ExecutionMode getExecutionMode() {
-    return ExecutionMode.ASYNC;
+  // Package-private constructor used in tests to avoid the deployment-wait sleep
+  RestoreDbtSiblingsIndicesStep(
+      @Nonnull final EntityService<?> entityService,
+      final boolean enabled,
+      final int sleepSeconds) {
+    _entityService = entityService;
+    _enabled = enabled;
+    _sleepSeconds = sleepSeconds;
   }
 
   @Override
-  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
-    log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
-    log.info(String.format("Waiting %s seconds..", SLEEP_SECONDS));
+  public String id() {
+    return UPGRADE_ID;
+  }
 
-    EntityResponse response =
-        _entityService.getEntityV2(
-            systemOperationContext,
-            Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
-            SIBLING_UPGRADE_URN,
-            Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
-    if (response != null
-        && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
-      DataMap dataMap =
-          response
-              .getAspects()
-              .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
-              .getValue()
-              .data();
-      DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
-      if (request.hasVersion() && request.getVersion().equals(VERSION)) {
-        log.info("RestoreDbtSiblingsIndices has run before with this version. Skipping");
-        return;
-      }
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    if (!_enabled) {
+      log.info("RestoreDbtSiblingsIndices is disabled. Skipping.");
+      return true;
     }
-
-    // Sleep to ensure deployment process finishes.
-    Thread.sleep(SLEEP_SECONDS * 1000);
-
-    log.info("Bootstrapping sibling aspects");
-
     try {
-      final int rowCount =
-          _entityService.listUrns(systemOperationContext, DATASET_ENTITY_NAME, 0, 10).getTotal();
-
-      log.info("Found {} dataset entities to attempt to bootstrap", rowCount);
-
-      final AspectSpec datasetAspectSpec =
-          systemOperationContext
-              .getEntityRegistry()
-              .getEntitySpec(Constants.DATASET_ENTITY_NAME)
-              .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
-      final AuditStamp auditStamp =
-          new AuditStamp()
-              .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
-              .setTime(System.currentTimeMillis());
-
-      final DataHubUpgradeRequest upgradeRequest =
-          new DataHubUpgradeRequest()
-              .setTimestampMs(System.currentTimeMillis())
-              .setVersion(VERSION);
-      ingestUpgradeAspect(
-          systemOperationContext,
-          Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
-          upgradeRequest,
-          auditStamp);
-
-      int indexedCount = 0;
-      while (indexedCount < rowCount) {
-        getAndRestoreUpstreamLineageIndices(
-            systemOperationContext, indexedCount, auditStamp, datasetAspectSpec);
-        indexedCount += BATCH_SIZE;
+      EntityResponse response =
+          _entityService.getEntityV2(
+              context.opContext(),
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              SIBLING_UPGRADE_URN,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
+        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
+        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
+          log.info("RestoreDbtSiblingsIndices has run before with this version. Skipping");
+          return true;
+        }
       }
-
-      final DataHubUpgradeResult upgradeResult =
-          new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
-      ingestUpgradeAspect(
-          systemOperationContext,
-          Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME,
-          upgradeResult,
-          auditStamp);
-
-      log.info("Successfully restored sibling aspects");
     } catch (Exception e) {
-      log.error("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
-      _entityService.deleteUrn(systemOperationContext, SIBLING_UPGRADE_URN);
-      throw new RuntimeException(
-          "Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
+      log.warn("Error checking RestoreDbtSiblingsIndices skip condition", e);
     }
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      log.info("Attempting to run RestoreDbtSiblingsIndices upgrade..");
+      log.info(String.format("Waiting %s seconds..", _sleepSeconds));
+
+      try {
+        // Sleep to ensure deployment process finishes.
+        Thread.sleep(_sleepSeconds * 1000L);
+
+        log.info("Bootstrapping sibling aspects");
+
+        final int rowCount =
+            _entityService.listUrns(context.opContext(), DATASET_ENTITY_NAME, 0, 10).getTotal();
+
+        log.info("Found {} dataset entities to attempt to bootstrap", rowCount);
+
+        final AspectSpec datasetAspectSpec =
+            context
+                .opContext()
+                .getEntityRegistry()
+                .getEntitySpec(Constants.DATASET_ENTITY_NAME)
+                .getAspectSpec(Constants.UPSTREAM_LINEAGE_ASPECT_NAME);
+        final AuditStamp auditStamp =
+            new AuditStamp()
+                .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+                .setTime(System.currentTimeMillis());
+
+        final DataHubUpgradeRequest upgradeRequest =
+            new DataHubUpgradeRequest()
+                .setTimestampMs(System.currentTimeMillis())
+                .setVersion(VERSION);
+        ingestUpgradeAspect(
+            context.opContext(),
+            Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME,
+            upgradeRequest,
+            auditStamp);
+
+        int indexedCount = 0;
+        while (indexedCount < rowCount) {
+          getAndRestoreUpstreamLineageIndices(
+              context.opContext(), indexedCount, auditStamp, datasetAspectSpec);
+          indexedCount += BATCH_SIZE;
+        }
+
+        final DataHubUpgradeResult upgradeResult =
+            new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
+        ingestUpgradeAspect(
+            context.opContext(),
+            Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME,
+            upgradeResult,
+            auditStamp);
+
+        log.info("Successfully restored sibling aspects");
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Error when running the RestoreDbtSiblingsIndices Bootstrap Step", e);
+        _entityService.deleteUrn(context.opContext(), SIBLING_UPGRADE_URN);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
   }
 
   private void getAndRestoreUpstreamLineageIndices(

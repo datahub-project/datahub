@@ -12,9 +12,11 @@ import com.linkedin.datahub.upgrade.system.ingestion.IngestEntityTypes;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaNonBlockingSetup;
 import com.linkedin.datahub.upgrade.system.migrations.MigrateAspects;
 import com.linkedin.datahub.upgrade.system.policyfields.BackfillPolicyFields;
+import com.linkedin.datahub.upgrade.system.restoreindices.RestoreDbtSiblingsIndices;
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
+import com.linkedin.datahub.upgrade.system.telemetry.RemoveClientIdAspect;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
@@ -239,5 +241,19 @@ public class NonBlockingConfigs {
         batchSize,
         delayMs,
         limit);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade removeClientIdAspect(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.removeClientIdAspect.enabled}") final boolean enabled) {
+    return new RemoveClientIdAspect(entityService, enabled);
+  }
+
+  @Bean
+  public NonBlockingSystemUpgrade restoreDbtSiblingsIndices(
+      @Qualifier("entityService") final EntityService<?> entityService,
+      @Value("${systemUpdate.restoreDbtSiblingsIndices.enabled}") final boolean enabled) {
+    return new RestoreDbtSiblingsIndices(entityService, enabled);
   }
 }

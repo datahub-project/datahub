@@ -14,9 +14,7 @@ import com.linkedin.metadata.boot.steps.IngestDataPlatformInstancesStep;
 import com.linkedin.metadata.boot.steps.IngestDefaultGlobalSettingsStep;
 import com.linkedin.metadata.boot.steps.IngestPoliciesStep;
 import com.linkedin.metadata.boot.steps.MigrateHomePageLinksStep;
-import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
-import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
@@ -95,10 +93,6 @@ public class BootstrapManagerFactory {
         new RestoreGlossaryIndices(_entityService, _entitySearchService, _entityRegistry);
     final IndexDataPlatformsStep indexDataPlatformsStep =
         new IndexDataPlatformsStep(_entityService, _entitySearchService);
-    final RestoreDbtSiblingsIndices restoreDbtSiblingsIndices =
-        new RestoreDbtSiblingsIndices(_entityService);
-    final RemoveClientIdAspectStep removeClientIdAspectStep =
-        new RemoveClientIdAspectStep(_entityService);
     final RestoreColumnLineageIndices restoreColumnLineageIndices =
         new RestoreColumnLineageIndices(_entityService);
     final IngestDefaultGlobalSettingsStep ingestSettingsStep =
@@ -117,8 +111,6 @@ public class BootstrapManagerFactory {
                 ingestDataPlatformInstancesStep,
                 ingestSettingsStep,
                 restoreGlossaryIndicesStep,
-                removeClientIdAspectStep,
-                restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
                 restoreFormInfoIndicesStep));
