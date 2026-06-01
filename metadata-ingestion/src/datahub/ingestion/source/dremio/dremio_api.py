@@ -424,18 +424,22 @@ class DremioAPIOperations:
         """Send a POST request to the Dremio API."""
         return self._request("POST", url, data=data)
 
-    def _wait_for_job(self, job_id: str, timeout: int) -> None:
+    def _wait_for_job(self, job_id: str, deadline: float) -> None:
         """Poll until a Dremio job reaches a terminal state.
+
+        ``deadline`` is an absolute wall-clock instant (``time.time()``
+        epoch seconds) that is shared with the downstream fetch phase, so
+        the poll + fetch pair honours a single end-to-end budget rather
+        than two independent timers that could effectively stack.
 
         Uses adaptive backoff (1 s → 10 s) so fast queries aren't penalised
         by a fixed sleep and slow queries don't hammer the status endpoint.
         """
-        start = time()
         wait = 1.0
         while True:
             status = self.get_job_status(job_id)
             # Tolerate malformed responses (rate-limit HTML, partial JSON,
-            # transient proxy errors) — the wall-clock timeout below is the
+            # transient proxy errors) — the wall-clock deadline below is the
             # safety net, not a KeyError mid-query.
             state = status.get("jobState")
             if state is None:
@@ -452,10 +456,10 @@ class DremioAPIOperations:
             elif state == DremioJobState.CANCELED:
                 raise RuntimeError("Query was canceled")
 
-            if time() - start > timeout:
+            if time() >= deadline:
                 self.cancel_query(job_id)
                 raise DremioAPIException(
-                    f"Query execution timed out after {timeout} seconds"
+                    "Query execution timed out at the shared poll/fetch deadline"
                 )
 
             sleep(wait)
@@ -477,7 +481,7 @@ class DremioAPIOperations:
                 job_id = response["id"]
                 deadline = time() + timeout
                 try:
-                    self._wait_for_job(job_id, timeout)
+                    self._wait_for_job(job_id, deadline=deadline)
                 except RuntimeError as e:
                     raise DremioAPIException(str(e)) from e
                 result = self._fetch_all_results(job_id, deadline=deadline)
@@ -560,7 +564,7 @@ class DremioAPIOperations:
                 job_id = response["id"]
                 deadline = time() + timeout
                 try:
-                    self._wait_for_job(job_id, timeout)
+                    self._wait_for_job(job_id, deadline=deadline)
                 except RuntimeError as e:
                     raise DremioAPIException(str(e)) from e
                 logger.info(

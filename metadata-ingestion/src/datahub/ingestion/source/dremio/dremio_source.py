@@ -1,7 +1,7 @@
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -317,15 +317,26 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Buffer datasets on the way past so profiling doesn't re-run
-            # the global catalog query.
+            # Buffer datasets for profiling AND collect unique glossary terms
+            # in the same pass. Both the profiling pass and the legacy
+            # get_glossary_terms() iterator would otherwise re-run the global
+            # catalog query (each dataset already carries its tags via
+            # __init__'s get_tags_for_resource call). Dedup by glossary-term
+            # string — the model has no __eq__/__hash__, so set-of-objects
+            # would dedup by identity and yield each tag once per dataset.
             profiling_enabled = self.config.is_profiling_enabled()
             datasets_for_profiling: Optional[List[DremioDataset]] = (
                 [] if profiling_enabled else None
             )
+            glossary_terms_seen: Set[str] = set()
+            glossary_terms_collected: List[DremioGlossaryTerm] = []
             for dataset_info in self.dremio_catalog.get_datasets():
                 if datasets_for_profiling is not None:
                     datasets_for_profiling.append(dataset_info)
+                for glossary_term in dataset_info.glossary_terms:
+                    if glossary_term.glossary_term not in glossary_terms_seen:
+                        glossary_terms_seen.add(glossary_term.glossary_term)
+                        glossary_terms_collected.append(glossary_term)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -339,8 +350,7 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Process Glossary Terms using streaming
-            for glossary_term in self.dremio_catalog.get_glossary_terms():
+            for glossary_term in glossary_terms_collected:
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:

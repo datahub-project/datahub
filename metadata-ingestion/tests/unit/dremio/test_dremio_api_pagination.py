@@ -1,3 +1,4 @@
+from time import time
 from unittest.mock import Mock, patch
 
 import pytest
@@ -124,8 +125,11 @@ class TestDremioAPIPagination:
         dremio_api.get_job_status = Mock(return_value={"jobState": "RUNNING"})
         dremio_api.cancel_query = Mock()
 
-        # time() calls: deadline stamp, _wait_for_job start, timeout check.
-        mock_time_values = [0, 0, 3700]
+        # time() calls: deadline stamp, then poll loop's deadline check.
+        # The poll uses the shared absolute deadline directly (no separate
+        # start-time bookkeeping), so the second time() returns "past
+        # deadline" and the loop bails.
+        mock_time_values = [0, 3700]
 
         with (
             patch(
@@ -135,7 +139,7 @@ class TestDremioAPIPagination:
             patch("datahub.ingestion.source.dremio.dremio_api.sleep"),
             pytest.raises(
                 DremioAPIException,
-                match="Query execution timed out after 3600 seconds",
+                match="Query execution timed out at the shared poll/fetch deadline",
             ),
         ):
             result_iterator = dremio_api.execute_query_iter("SELECT * FROM test")
@@ -157,7 +161,7 @@ class TestDremioAPIPagination:
 
     def test_wait_for_job_tolerates_missing_state_field(self, dremio_api):
         # Malformed status payloads (rate-limit HTML, partial JSON) must
-        # not raise KeyError — wall-clock timeout is the safety net.
+        # not raise KeyError — wall-clock deadline is the safety net.
         dremio_api.get_job_status = Mock(
             side_effect=[
                 {},
@@ -167,7 +171,7 @@ class TestDremioAPIPagination:
         )
 
         with patch("datahub.ingestion.source.dremio.dremio_api.sleep"):
-            dremio_api._wait_for_job("job-xyz", timeout=10)
+            dremio_api._wait_for_job("job-xyz", deadline=time() + 10)
 
         assert dremio_api.get_job_status.call_count == 3
 
