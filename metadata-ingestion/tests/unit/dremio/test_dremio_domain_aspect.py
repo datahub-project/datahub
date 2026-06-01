@@ -4,6 +4,9 @@ import pytest
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.dremio.dremio_aspects import DremioAspects
+from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
+    DremioToDataHubSourceTypeMapping,
+)
 from datahub.ingestion.source.dremio.dremio_entities import (
     DremioContainer,
     DremioDataset,
@@ -139,8 +142,4 @@ def test_add_mapping_removed():
     # Regression guard: add_mapping mutated class state; replaced by the
     # per-instance source_type_mappings config field. If reintroduced,
     # route callers to the config instead.
-    from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
-        DremioToDataHubSourceTypeMapping,
-    )
-
     assert not hasattr(DremioToDataHubSourceTypeMapping, "add_mapping")
