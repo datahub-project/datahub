@@ -29,7 +29,7 @@ class DremioSourceReport(
     # Distinguishes "no lineage in source" from "lineage filtered out by
     # schema_pattern / dataset_pattern" — counts view parents and query
     # upstreams/downstreams that were skipped.
-    num_lineage_dropped_filtered: int = 0
+    lineage_dropped_filtered: int = 0
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(

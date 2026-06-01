@@ -21,7 +21,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 from datahub.ingestion.source.dremio.dremio_source import (
     DREMIO_DATABASE_NAME,
     DremioSource,
-    _passes_dremio_filters,
+    passes_dremio_filters,
 )
 
 
@@ -32,7 +32,7 @@ class TestPassesDremioFilters:
     def test_in_catalog_short_circuits_all_other_gates(self):
         # Even with restrictive patterns, a discovered name passes — the
         # catalog walk is the source of truth.
-        assert _passes_dremio_filters(
+        assert passes_dremio_filters(
             name="myspace.folder.table1",
             catalog_dataset_names={"myspace.folder.table1"},
             dataset_pattern=AllowDenyPattern(allow=["nothing_matches"]),
@@ -41,7 +41,7 @@ class TestPassesDremioFilters:
 
     def test_strips_dremio_prefix_before_matching(self):
         # Aggregator may hand us names with the "dremio." prefix in place.
-        assert _passes_dremio_filters(
+        assert passes_dremio_filters(
             name=f"{DREMIO_DATABASE_NAME}.myspace.folder.table1",
             catalog_dataset_names={"myspace.folder.table1"},
             dataset_pattern=AllowDenyPattern.allow_all(),
@@ -49,7 +49,7 @@ class TestPassesDremioFilters:
         )
 
     def test_accelerator_reflection_rejected(self):
-        assert not _passes_dremio_filters(
+        assert not passes_dremio_filters(
             name="_accelerator_.reflection_id.something",
             catalog_dataset_names=set(),
             dataset_pattern=AllowDenyPattern.allow_all(),
@@ -57,7 +57,7 @@ class TestPassesDremioFilters:
         )
 
     def test_dataset_pattern_deny_blocks_emission(self):
-        assert not _passes_dremio_filters(
+        assert not passes_dremio_filters(
             name="myspace.folder.temp_table",
             catalog_dataset_names=set(),
             dataset_pattern=AllowDenyPattern(allow=[".*"], deny=[".*temp.*"]),
@@ -66,7 +66,7 @@ class TestPassesDremioFilters:
 
     def test_schema_pattern_deny_blocks_emission(self):
         # The container portion is the path minus the dataset name.
-        assert not _passes_dremio_filters(
+        assert not passes_dremio_filters(
             name="other_space.folder.table",
             catalog_dataset_names=set(),
             dataset_pattern=AllowDenyPattern.allow_all(),
@@ -74,7 +74,7 @@ class TestPassesDremioFilters:
         )
 
     def test_schema_pattern_allow_admits_emission(self):
-        assert _passes_dremio_filters(
+        assert passes_dremio_filters(
             name="myspace.folder.table",
             catalog_dataset_names=set(),
             dataset_pattern=AllowDenyPattern.allow_all(),
@@ -84,7 +84,7 @@ class TestPassesDremioFilters:
     def test_single_segment_name_skips_schema_check(self):
         # A bare table name has no container portion — schema_pattern can't
         # apply. dataset_pattern still applies.
-        assert _passes_dremio_filters(
+        assert passes_dremio_filters(
             name="standalone",
             catalog_dataset_names=set(),
             dataset_pattern=AllowDenyPattern.allow_all(),
@@ -138,18 +138,20 @@ class TestDremioSourceLineageFilter:
         assert source._is_allowed_table("myspace.folder.allowed_table")
 
     def test_is_allowed_table_rejects_filtered_schema(self, source):
-        before = source.report.num_lineage_dropped_filtered
+        before = source.report.lineage_dropped_filtered
         assert not source._is_allowed_table("other_space.folder.x")
-        assert source.report.num_lineage_dropped_filtered == before + 1
+        assert source.report.lineage_dropped_filtered == before + 1
 
     def test_is_allowed_table_rejects_dataset_pattern_deny(self, source):
         # Container passes, but the dataset matches the deny rule.
-        before = source.report.num_lineage_dropped_filtered
+        before = source.report.lineage_dropped_filtered
         assert not source._is_allowed_table("myspace.folder.staging_temp_data")
-        assert source.report.num_lineage_dropped_filtered == before + 1
+        assert source.report.lineage_dropped_filtered == before + 1
 
     def test_is_allowed_table_rejects_reflection(self, source):
+        before = source.report.lineage_dropped_filtered
         assert not source._is_allowed_table("_accelerator_.reflection_id.some_view")
+        assert source.report.lineage_dropped_filtered == before + 1
 
     def test_process_query_drops_filtered_upstream(self, source):
         query = Mock(spec=DremioQuery)
@@ -166,7 +168,7 @@ class TestDremioSourceLineageFilter:
         query.username = "u"
         query.submitted_ts = datetime(2024, 1, 1, 12, 0, 0)
 
-        before_dropped = source.report.num_lineage_dropped_filtered
+        before_dropped = source.report.lineage_dropped_filtered
         source.process_query(query)
 
         # add_known_query_lineage is called once with only the allowed upstream.
@@ -181,7 +183,7 @@ class TestDremioSourceLineageFilter:
         source.sql_parsing_aggregator.add_observed_query.assert_called_once()
 
         # One upstream was dropped.
-        assert source.report.num_lineage_dropped_filtered == before_dropped + 1
+        assert source.report.lineage_dropped_filtered == before_dropped + 1
 
     def test_process_query_skips_known_lineage_when_downstream_filtered(self, source):
         query = Mock(spec=DremioQuery)
@@ -212,7 +214,7 @@ class TestDremioSourceLineageFilter:
             "myspace.folder.staging_temp_data",  # blocked by dataset_pattern deny
         ]
 
-        before_dropped = source.report.num_lineage_dropped_filtered
+        before_dropped = source.report.lineage_dropped_filtered
         workunits = list(source.generate_view_lineage(dataset_urn, parents))
 
         assert len(workunits) == 1
@@ -224,7 +226,7 @@ class TestDremioSourceLineageFilter:
         assert source.sql_parsing_aggregator.add_known_lineage_mapping.call_count == 1
 
         # Two upstreams were dropped (one schema, one dataset deny).
-        assert source.report.num_lineage_dropped_filtered == before_dropped + 2
+        assert source.report.lineage_dropped_filtered == before_dropped + 2
 
     def test_generate_view_lineage_emits_nothing_when_all_parents_filtered(
         self, source

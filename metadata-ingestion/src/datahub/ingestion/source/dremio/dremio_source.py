@@ -79,7 +79,7 @@ logger = logging.getLogger(__name__)
 DREMIO_DATABASE_NAME = "dremio"
 
 
-def _passes_dremio_filters(
+def passes_dremio_filters(
     name: str,
     catalog_dataset_names: Set[str],
     dataset_pattern: AllowDenyPattern,
@@ -303,14 +303,14 @@ class DremioSource(StatefulIngestionSourceBase):
     def _is_allowed_table(self, name: str) -> bool:
         # SqlParsingAggregator callback: keep lineage/usage/operations in sync
         # with the catalog walk's filters so SQL-discovered URNs can't bypass them.
-        allowed = _passes_dremio_filters(
+        allowed = passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
             dataset_pattern=self.config.dataset_pattern,
             schema_pattern=self.config.schema_pattern,
         )
         if not allowed:
-            self.report.num_lineage_dropped_filtered += 1
+            self.report.lineage_dropped_filtered += 1
         return allowed
 
     @classmethod
@@ -589,13 +589,13 @@ class DremioSource(StatefulIngestionSourceBase):
         upstream_urns: List[str] = []
         for upstream_table in parents:
             upstream_name = upstream_table.lower()
-            if not _passes_dremio_filters(
+            if not passes_dremio_filters(
                 name=upstream_name,
                 catalog_dataset_names=self.catalog_dataset_names,
                 dataset_pattern=self.config.dataset_pattern,
                 schema_pattern=self.config.schema_pattern,
             ):
-                self.report.num_lineage_dropped_filtered += 1
+                self.report.lineage_dropped_filtered += 1
                 continue
             upstream_urns.append(
                 make_dataset_urn_with_platform_instance(
@@ -695,7 +695,7 @@ class DremioSource(StatefulIngestionSourceBase):
             # is_allowed_table callback is a second line of defense for URNs
             # discovered inside add_observed_query's SQL parsing.
             downstream_name = query.affected_dataset.lower()
-            downstream_allowed = _passes_dremio_filters(
+            downstream_allowed = passes_dremio_filters(
                 name=downstream_name,
                 catalog_dataset_names=self.catalog_dataset_names,
                 dataset_pattern=self.config.dataset_pattern,
@@ -705,13 +705,13 @@ class DremioSource(StatefulIngestionSourceBase):
             upstream_urns: List[str] = []
             for ds in query.queried_datasets:
                 ds_lower = ds.lower()
-                if not _passes_dremio_filters(
+                if not passes_dremio_filters(
                     name=ds_lower,
                     catalog_dataset_names=self.catalog_dataset_names,
                     dataset_pattern=self.config.dataset_pattern,
                     schema_pattern=self.config.schema_pattern,
                 ):
-                    self.report.num_lineage_dropped_filtered += 1
+                    self.report.lineage_dropped_filtered += 1
                     continue
                 upstream_urns.append(
                     make_dataset_urn_with_platform_instance(
@@ -738,11 +738,19 @@ class DremioSource(StatefulIngestionSourceBase):
                     merge_lineage=True,
                 )
             elif not downstream_allowed:
-                self.report.num_lineage_dropped_filtered += 1
+                # Count the dropped downstream itself. The asymmetric case
+                # (downstream allowed but all upstreams filtered) is already
+                # accounted for per-edge in the queried_datasets loop above,
+                # so we don't double-count it here.
+                self.report.lineage_dropped_filtered += 1
 
-        # Always register the observed query for usage stats. The aggregator's
-        # is_allowed_table callback drops references to filtered datasets at
-        # emission time, so this is safe.
+        # Always register the observed query for usage stats. Any upstream/
+        # downstream URN the SQL parser re-discovers from the query text is
+        # gated at three points inside SqlParsingAggregator before any aspect
+        # is emitted: the per-downstream `is_allowed_table` check, the
+        # per-upstream check in the usage path, and the whole-query "involves
+        # any allowed table" check. So passing the raw query through here
+        # cannot leak lineage or usage aspects for filtered datasets.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
