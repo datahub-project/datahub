@@ -1,6 +1,10 @@
 src/app/domain/**/*.{ts,tsx}
 src/app/domainV2/**/*.{ts,tsx}
 src/app/entityV2/ownership/ManageOwnership.tsx
+src/app/entityV2/shared/tabs/Embed/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Entity/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/ML/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Properties/**/*.{ts,tsx}
 src/app/entityV2/ownership/OwnershipBuilderModal.tsx
 src/app/entityV2/ownership/OwnershipList.tsx
 src/app/entityV2/ownership/table/ActionsColumn.tsx

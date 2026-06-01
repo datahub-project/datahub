@@ -308,6 +308,7 @@ module.exports = {
                                   words: {
                                       exclude: [
                                           '^_blank$',
+                                          '^noopener noreferrer$',
                                           '^\\*$',
                                           '^-$',
                                           '^[A-Z0-9_]+$',

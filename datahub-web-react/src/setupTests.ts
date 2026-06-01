@@ -17,6 +17,7 @@ import enEntityProfileIncident from '@src/i18n/locales/en/entity.profile.inciden
 import enEntityProfileQueries from '@src/i18n/locales/en/entity.profile.queries.json';
 import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.json';
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
+import enEntityProfileTabs from '@src/i18n/locales/en/entity.profile.tabs.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
@@ -49,6 +50,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.documentation',
         'entity.ownership',
         'entity.profile.incident',
+        'entity.profile.tabs',
         'entity.profile.validations',
         'entity.profile.access',
         'entity.profile.queries',
@@ -81,6 +83,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.documentation': enEntityProfileDocumentation,
             'entity.ownership': enEntityOwnership,
             'entity.profile.incident': enEntityProfileIncident,
+            'entity.profile.tabs': enEntityProfileTabs,
             'entity.profile.validations': enEntityProfileValidations,
             'entity.profile.access': enEntityProfileAccess,
             'entity.profile.queries': enEntityProfileQueries,
