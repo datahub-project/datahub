@@ -2,8 +2,9 @@ import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Set
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
@@ -84,11 +85,46 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     ObservedQuery,
     SqlParsingAggregator,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
 
 # Dremio uses 'dremio' as the default database name in all SQL contexts
 DREMIO_DATABASE_NAME = "dremio"
+
+
+def passes_dremio_filters(
+    name: str,
+    catalog_dataset_names: Set[str],
+    dataset_pattern: AllowDenyPattern,
+    schema_pattern: AllowDenyPattern,
+) -> bool:
+    """Apply the catalog walk's filters to a name discovered via query/view
+    lineage so SQL-derived URNs can't produce ghost datasets the operator
+    excluded via schema_pattern / dataset_pattern."""
+    # Pattern matching is done against the post-`dremio.` form.
+    if name.startswith(f"{DREMIO_DATABASE_NAME}."):
+        name = name[len(DREMIO_DATABASE_NAME) + 1 :]
+
+    if name in catalog_dataset_names:
+        return True
+
+    path_parts = name.split(".")
+    # Dremio reflections under _accelerator_ are internal, never user-facing.
+    if path_parts and path_parts[0] == "_accelerator_":
+        return False
+
+    if not dataset_pattern.allowed(name):
+        return False
+
+    # Schema gate uses `.allowed` directly: should_include_container has
+    # report side-effects we don't want at lineage-emission time.
+    if len(path_parts) > 1:
+        container_path = ".".join(path_parts[:-1])
+        if not schema_pattern.allowed(container_path):
+            return False
+
+    return True
 
 
 class DremioSchemaResolver(SchemaResolver):
@@ -220,10 +256,20 @@ class DremioSource(StatefulIngestionSourceBase):
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
         api = DremioAPIOperations(self.config, self.report)
+        self.source_type_mapper = api.source_type_mapper
         self.dremio_catalog = DremioCatalog(api)
+
+        # Full URNs don't need graph resolution — only build a registry for bare names.
+        self.domain_registry: Optional[DomainRegistry] = None
+        if self.config.domain and not self.config.domain.startswith("urn:li:domain:"):
+            self.domain_registry = DomainRegistry(
+                cached_domains=[self.config.domain], graph=self.ctx.graph
+            )
+
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
+            domain_registry=self.domain_registry,
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
@@ -239,6 +285,10 @@ class DremioSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
+        # Populated during the catalog walk; read by the aggregator's
+        # is_allowed_table callback, so must exist before construction.
+        self.catalog_dataset_names: Set[str] = set()
+
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.get_platform()),
             platform_instance=self.config.platform_instance,
@@ -248,6 +298,8 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
+            # Gate SQL-discovered URNs through the catalog-walk filters.
+            is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
@@ -262,8 +314,16 @@ class DremioSource(StatefulIngestionSourceBase):
             )
         self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
-        # Track catalog dataset names for query lineage validation
-        self.catalog_dataset_names: set[str] = set()
+    def _is_allowed_table(self, name: str) -> bool:
+        allowed = passes_dremio_filters(
+            name=name,
+            catalog_dataset_names=self.catalog_dataset_names,
+            dataset_pattern=self.config.dataset_pattern,
+            schema_pattern=self.config.schema_pattern,
+        )
+        if not allowed:
+            self.report.lineage_dropped_filtered += 1
+        return allowed
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
@@ -277,7 +337,11 @@ class DremioSource(StatefulIngestionSourceBase):
         dremio_sources = list(self.dremio_catalog.get_sources())
         source_mappings_config = self.config.source_mappings or []
 
-        source_map = build_dremio_source_map(dremio_sources, source_mappings_config)
+        source_map = build_dremio_source_map(
+            dremio_sources,
+            source_mappings_config,
+            source_type_mapper=self.source_type_mapper,
+        )
         logger.info(f"Full source map: {source_map}")
 
         self._validate_source_mappings(source_map)
@@ -333,14 +397,23 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Project to slim ProfileTarget tuples on the way past so the
-            # profiling pass below doesn't re-run the global catalog query
-            # and doesn't pin full DremioDataset objects for 10k+ catalogs.
+            # Single pass over the catalog: project to slim ProfileTarget
+            # tuples and harvest glossary terms inline. Both follow-up passes
+            # would otherwise re-run the global catalog query, and pinning
+            # full DremioDataset objects for 10k+ catalogs is expensive.
+            # Dedup glossary terms by string because DremioGlossaryTerm has
+            # no __eq__/__hash__.
             profiling_enabled = self.config.is_profiling_enabled()
             profile_targets: Optional[List[ProfileTarget]] = (
                 [] if profiling_enabled else None
             )
+            glossary_terms_seen: Set[str] = set()
+            glossary_terms_collected: List[DremioGlossaryTerm] = []
             for dataset_info in self.dremio_catalog.get_datasets():
+                for glossary_term in dataset_info.glossary_terms:
+                    if glossary_term.glossary_term not in glossary_terms_seen:
+                        glossary_terms_seen.add(glossary_term.glossary_term)
+                        glossary_terms_collected.append(glossary_term)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -362,7 +435,7 @@ class DremioSource(StatefulIngestionSourceBase):
                         )
                     )
 
-            for glossary_term in self.dremio_catalog.get_glossary_terms():
+            for glossary_term in glossary_terms_collected:
                 try:
                     yield from self.process_glossary_term(glossary_term)
                 except Exception as exc:
@@ -536,18 +609,30 @@ class DremioSource(StatefulIngestionSourceBase):
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate lineage information for views.
-        """
-        upstream_urns = [
-            make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{upstream_table.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
+        """Generate lineage for views, dropping parents excluded by the
+        catalog walk's filters so we don't emit ghost upstream datasets."""
+        upstream_urns: List[str] = []
+        for upstream_table in parents:
+            upstream_name = upstream_table.lower()
+            if not passes_dremio_filters(
+                name=upstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            ):
+                self.report.lineage_dropped_filtered += 1
+                continue
+            upstream_urns.append(
+                make_dataset_urn_with_platform_instance(
+                    platform=make_data_platform_urn(self.get_platform()),
+                    name=f"{DREMIO_DATABASE_NAME}.{upstream_name}",
+                    env=self.config.env,
+                    platform_instance=self.config.platform_instance,
+                )
             )
-            for upstream_table in parents
-        ]
+
+        if not upstream_urns:
+            return
 
         lineage = UpstreamLineage(
             upstreams=[
@@ -678,32 +763,63 @@ class DremioSource(StatefulIngestionSourceBase):
             # Validate query dataset format matches catalog format
             self._validate_query_lineage_format(query)
 
-            upstream_urns = [
-                make_dataset_urn_with_platform_instance(
+            # Pre-filter explicit upstreams/downstream; is_allowed_table
+            # is the second line of defence for URNs the SQL parser
+            # rediscovers inside add_observed_query.
+            downstream_name = query.affected_dataset.lower()
+            downstream_allowed = passes_dremio_filters(
+                name=downstream_name,
+                catalog_dataset_names=self.catalog_dataset_names,
+                dataset_pattern=self.config.dataset_pattern,
+                schema_pattern=self.config.schema_pattern,
+            )
+
+            upstream_urns: List[str] = []
+            for ds in query.queried_datasets:
+                ds_lower = ds.lower()
+                if not passes_dremio_filters(
+                    name=ds_lower,
+                    catalog_dataset_names=self.catalog_dataset_names,
+                    dataset_pattern=self.config.dataset_pattern,
+                    schema_pattern=self.config.schema_pattern,
+                ):
+                    self.report.lineage_dropped_filtered += 1
+                    continue
+                upstream_urns.append(
+                    make_dataset_urn_with_platform_instance(
+                        platform=make_data_platform_urn(self.get_platform()),
+                        name=f"{DREMIO_DATABASE_NAME}.{ds_lower}",
+                        env=self.config.env,
+                        platform_instance=self.config.platform_instance,
+                    )
+                )
+
+            if downstream_allowed and upstream_urns:
+                downstream_urn = make_dataset_urn_with_platform_instance(
                     platform=make_data_platform_urn(self.get_platform()),
-                    name=f"{DREMIO_DATABASE_NAME}.{ds.lower()}",
+                    name=f"{DREMIO_DATABASE_NAME}.{downstream_name}",
                     env=self.config.env,
                     platform_instance=self.config.platform_instance,
                 )
-                for ds in query.queried_datasets
-            ]
+                self.sql_parsing_aggregator.add_known_query_lineage(
+                    KnownQueryLineageInfo(
+                        query_text=query.query,
+                        upstreams=upstream_urns,
+                        downstream=downstream_urn,
+                    ),
+                    merge_lineage=True,
+                )
+            elif not downstream_allowed:
+                # One increment per query whose downstream is filtered.
+                # Per-upstream drops were already counted in the loop above;
+                # this is intentionally not multiplied by the upstream count
+                # — see lineage_dropped_filtered's docstring for the "lineage
+                # references, not edges" semantics.
+                self.report.lineage_dropped_filtered += 1
 
-            downstream_urn = make_dataset_urn_with_platform_instance(
-                platform=make_data_platform_urn(self.get_platform()),
-                name=f"{DREMIO_DATABASE_NAME}.{query.affected_dataset.lower()}",
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-
-            self.sql_parsing_aggregator.add_known_query_lineage(
-                KnownQueryLineageInfo(
-                    query_text=query.query,
-                    upstreams=upstream_urns,
-                    downstream=downstream_urn,
-                ),
-                merge_lineage=True,
-            )
-
+        # Always register the observed query; usage stats aren't gated here.
+        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
+        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
@@ -772,6 +888,7 @@ class DremioSource(StatefulIngestionSourceBase):
 def build_dremio_source_map(
     dremio_sources: Iterable[DremioSourceContainer],
     source_mappings_config: List[DremioSourceMapping],
+    source_type_mapper: Optional[DremioToDataHubSourceTypeMapping] = None,
 ) -> Dict[str, DremioSourceMapEntry]:
     """
     Builds a source mapping dictionary to support external lineage generation across
@@ -793,15 +910,15 @@ def build_dremio_source_map(
         creating cross-platform lineage.
 
     """
+    mapper = source_type_mapper or DremioToDataHubSourceTypeMapping()
+
     source_map = {}
     for source in dremio_sources:
         current_source_name = source.container_name
 
         source_type = source.dremio_source_type.lower()
-        source_category = DremioToDataHubSourceTypeMapping.get_category(source_type)
-        datahub_platform = DremioToDataHubSourceTypeMapping.get_datahub_platform(
-            source_type
-        )
+        source_category = mapper.lookup_category(source_type)
+        datahub_platform = mapper.lookup_datahub_platform(source_type)
         root_path = source.root_path.lower() if source.root_path else ""
         database_name = source.database_name.lower() if source.database_name else ""
         source_present = False

@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerResponse,
+    DremioDatasetColumn,
     DremioDatasetResponse,
 )
 
@@ -75,3 +76,35 @@ class TestDremioContainerResponseValidation:
             DremioContainerResponse.model_validate(
                 {"containerType": "FOLDER", "path": []}
             )
+
+
+class TestDremioDatasetColumnNullability:
+    """``is_nullable`` is the SQL-standard "YES"/"NO" string from
+    INFORMATION_SCHEMA.COLUMNS — the consumer in dremio_aspects.py already
+    compared ``== "YES"``. These tests pin that contract so the annotation
+    fix (bool -> str) doesn't get read as a behavior change."""
+
+    def _column(self, is_nullable: str) -> DremioDatasetColumn:
+        return DremioDatasetColumn(
+            name="col",
+            ordinal_position=1,
+            data_type="VARCHAR",
+            column_size=10,
+            is_nullable=is_nullable,
+        )
+
+    def test_yes_string_maps_to_nullable_true(self):
+        assert (self._column("YES").is_nullable == "YES") is True
+
+    def test_no_string_maps_to_nullable_false(self):
+        assert (self._column("NO").is_nullable == "YES") is False
+
+    def test_default_is_not_nullable(self):
+        column = DremioDatasetColumn(
+            name="col",
+            ordinal_position=1,
+            data_type="VARCHAR",
+            column_size=10,
+        )
+        assert column.is_nullable == "NO"
+        assert (column.is_nullable == "YES") is False

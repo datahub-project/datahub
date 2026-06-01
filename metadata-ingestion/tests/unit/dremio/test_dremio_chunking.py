@@ -175,15 +175,12 @@ class TestDremioChunking:
         assert "LOCATE" not in query_arg
 
     def test_get_all_tables_global_chunked_straddling_table(self, dremio_api):
-        """Pin Blocker #1: a wide table whose columns straddle a chunk
-        boundary must surface once with ALL its columns, not split into
-        two partial emissions or duplicated. Order: TABLE_SCHEMA,
-        TABLE_NAME, ORDINAL_POSITION (matches the SQL ORDER BY).
-        """
+        # A wide table whose columns cross a chunk boundary must surface
+        # once with all columns, not split or duplicated.
         dremio_api.edition = DremioEdition.ENTERPRISE
         dremio_api.allow_schema_pattern = [".*"]
         dremio_api.deny_schema_pattern = []
-        dremio_api._chunk_size = 2  # force straddling
+        dremio_api._chunk_size = 2
 
         def _row(table: str, ordinal: int, col: str) -> Dict:
             return {
@@ -204,9 +201,8 @@ class TestDremioChunking:
                 "FORMAT_TYPE": None,
             }
 
-        # table1 has 3 columns; chunk_size=2 forces it to straddle two
-        # chunks. table2 sits in the third chunk to prove the final-flush
-        # path also surfaces correctly.
+        # chunk1+chunk2 split table1's columns; chunk3 is empty so table2
+        # exercises the final flush after the loop exits.
         chunk1 = [_row("table1", 1, "a"), _row("table1", 2, "b")]
         chunk2 = [_row("table1", 3, "c"), _row("table2", 1, "x")]
         chunk3: List[Dict] = []

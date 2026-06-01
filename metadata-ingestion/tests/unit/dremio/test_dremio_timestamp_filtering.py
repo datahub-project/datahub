@@ -100,12 +100,8 @@ class TestDremioTimestampFiltering:
         assert f"submitted_ts <= TIMESTAMP '{end_time}'" in query
 
     def test_query_structure_unchanged(self):
-        """Pin the WHERE-clause invariants that protect lineage correctness.
-
-        These constraints were dropped twice by accident during refactors;
-        keep them assertable so future query edits trip the test instead of
-        silently changing which jobs feed into lineage extraction.
-        """
+        # Pin the WHERE invariants that gate which jobs feed lineage —
+        # silently dropping them changes lineage output without a test failure.
         query = DremioSQLQueries.get_query_all_jobs()
 
         assert "STATUS = 'COMPLETED'" in query
@@ -123,9 +119,8 @@ class TestDremioTimestampFiltering:
             assert field in query, f"SELECT clause missing {field!r}"
 
     def test_cloud_query_structure_unchanged(self):
-        """Same WHERE-clause invariants as on-prem, plus the cloud-specific
-        ARRAY-to-string CONCAT projection used to keep `queried_datasets`
-        readable on Dremio 26.1.0+ (see PR #17647)."""
+        # On-prem invariants plus the Dremio 26.1.0+ ARRAY → string CONCAT
+        # projection for `queried_datasets` (see PR #17647).
         query = DremioSQLQueries.get_query_all_jobs_cloud()
 
         assert "STATUS = 'COMPLETED'" in query

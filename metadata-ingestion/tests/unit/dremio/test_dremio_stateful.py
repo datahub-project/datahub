@@ -78,6 +78,7 @@ class TestTimeWindowOverride:
             real_api.start_time = datetime(2024, 1, 1, tzinfo=timezone.utc)
             real_api.end_time = datetime(2024, 1, 7, tzinfo=timezone.utc)
             real_api.edition = DremioEdition.COMMUNITY
+            real_api._queried_datasets_is_array = False
 
             override_start = datetime(2024, 1, 5, tzinfo=timezone.utc)
             list(real_api.extract_all_queries(start_time=override_start))
@@ -98,8 +99,9 @@ class TestTimeWindowOverride:
             real_api.start_time = datetime(2024, 3, 1, tzinfo=timezone.utc)
             real_api.end_time = datetime(2024, 3, 7, tzinfo=timezone.utc)
             real_api.edition = DremioEdition.COMMUNITY
+            real_api._queried_datasets_is_array = False
 
-            list(real_api.extract_all_queries())  # no override
+            list(real_api.extract_all_queries())
 
             assert mock_chunked.called
             sql_arg = mock_chunked.call_args[0][0]

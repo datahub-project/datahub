@@ -82,6 +82,11 @@ class LossyList(List[T], Generic[T]):
     def __iter__(self) -> Iterator[T]:
         yield from [elem[1] for elem in sorted(super().__iter__())]  # type: ignore
 
+    def __contains__(self, item: object) -> bool:
+        # list.__contains__ would compare against the (index, item) tuples
+        # used for reservoir sampling; iterate self to unwrap via __iter__.
+        return any(elem == item for elem in self)
+
     def __repr__(self) -> str:
         return repr(self.as_obj())
 

@@ -18,6 +18,9 @@ from urllib3.exceptions import InsecureRequestWarning
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.request_helper import make_curl_command
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
+from datahub.ingestion.source.dremio.dremio_datahub_source_mapping import (
+    DremioToDataHubSourceTypeMapping,
+)
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioContainerResponse,
     DremioEntityContainerType,
@@ -167,6 +170,9 @@ class DremioAPIOperations:
         self, connection_args: "DremioSourceConfig", report: "DremioSourceReport"
     ) -> None:
         self.filter = DremioFilter(connection_args, report)
+        self.source_type_mapper = DremioToDataHubSourceTypeMapping(
+            extra_mappings=connection_args.source_type_mappings,
+        )
         self.allow_schema_pattern: List[str] = connection_args.schema_pattern.allow
         self.deny_schema_pattern: List[str] = connection_args.schema_pattern.deny
         self._max_workers: int = connection_args.max_workers
@@ -175,12 +181,11 @@ class DremioAPIOperations:
         self.end_time = connection_args.end_time
         self.report = report
         self._chunk_size = 1000  # Sensible default to prevent OOM
-        # Cache for read-only /catalog/{id} responses — the same IDs are fetched
-        # multiple times during catalog traversal (container walk + dataset fetch).
+        # /catalog/{id} responses are id-keyed and immutable for a run, so
+        # we reuse them across container walk + dataset fetch.
         self._catalog_cache: Dict[str, Any] = {}
-        # By-path catalog lookups for the Community edition path. Keyed by
-        # (schema, dataset) — the underlying `/catalog/by-path/...` endpoint
-        # isn't part of the id-keyed catalog cache.
+        # Path-keyed Community Edition lookups (`/catalog/by-path/...`) live
+        # outside the id-keyed cache, so memoise them separately.
         self._dataset_id_cache: Dict[Tuple[str, str], Optional[str]] = {}
         self.session = requests.Session()
         if connection_args.is_dremio_cloud:
@@ -194,6 +199,8 @@ class DremioAPIOperations:
 
         self.authenticate(connection_args)
         self.edition = self.get_dremio_edition()
+        # Lazily probed on first call to _supports_array_queried_datasets.
+        self._queried_datasets_is_array: Optional[bool] = None
 
     def get_dremio_edition(self):
         if self.is_dremio_cloud:
@@ -317,9 +324,8 @@ class DremioAPIOperations:
             logger.debug("Configured Dremio cloud API session to use PAT")
             return
 
-        # On-prem Dremio authentication (PAT or Basic Auth). Retry only
-        # transient errors (network, HTTP 5xx) — bad credentials and
-        # missing config burn retries with no possibility of recovery.
+        # On-prem auth (PAT or Basic). Only retry transient errors —
+        # bad credentials/config aren't going to recover.
         for attempt in range(1, self._retry_count + 1):
             try:
                 if connection_args.authentication_method == "PAT":
@@ -426,20 +432,21 @@ class DremioAPIOperations:
         """Send a POST request to the Dremio API."""
         return self._request("POST", url, data=data)
 
-    def _wait_for_job(self, job_id: str, timeout: int) -> None:
+    def _wait_for_job(self, job_id: str, deadline: float) -> None:
         """Poll until a Dremio job reaches a terminal state.
+
+        ``deadline`` is an absolute ``time.time()`` instant shared with
+        the fetch phase so poll + fetch share one end-to-end budget.
 
         Uses adaptive backoff (1 s → 10 s) so fast queries aren't penalised
         by a fixed sleep and slow queries don't hammer the status endpoint.
         """
-        start = time()
         wait = 1.0
         while True:
             status = self.get_job_status(job_id)
-            # Partial JSON, rate-limit HTML, or transient proxy errors
-            # can land here without "jobState". Treat as still-running so
-            # the wall-clock timeout below remains the safety net rather
-            # than a KeyError aborting mid-query.
+            # Tolerate malformed responses (rate-limit HTML, partial JSON,
+            # transient proxy errors) — the wall-clock deadline below is the
+            # safety net, not a KeyError mid-query.
             state = status.get("jobState")
             if state is None:
                 logger.warning(
@@ -455,26 +462,17 @@ class DremioAPIOperations:
             elif state == DremioJobState.CANCELED:
                 raise RuntimeError("Query was canceled")
 
-            if time() - start > timeout:
+            if time() >= deadline:
                 self.cancel_query(job_id)
                 raise DremioAPIException(
-                    f"Query execution timed out after {timeout} seconds"
+                    "Query execution timed out at the shared poll/fetch deadline"
                 )
 
             sleep(wait)
             wait = min(wait * 1.5, 10.0)
 
     def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
-        """Execute SQL query with a wall-clock timeout covering BOTH the
-        poll and fetch phases.
-
-        Master previously wrapped poll+fetch in a ThreadPoolExecutor with
-        `future.result(timeout=timeout)`. After splitting `_wait_for_job`
-        out for adaptive polling, the fetch loop was left unbounded —
-        a query returning a giant result set could fetch for hours past
-        the configured timeout. We thread a deadline through both phases
-        instead.
-        """
+        """Execute a SQL query. `timeout` covers both poll and fetch phases."""
         try:
             with PerfTimer() as timer:
                 logger.info(f"Executing query: {query}")
@@ -489,7 +487,7 @@ class DremioAPIOperations:
                 job_id = response["id"]
                 deadline = time() + timeout
                 try:
-                    self._wait_for_job(job_id, timeout)
+                    self._wait_for_job(job_id, deadline=deadline)
                 except RuntimeError as e:
                     raise DremioAPIException(str(e)) from e
                 result = self._fetch_all_results(job_id, deadline=deadline)
@@ -504,20 +502,15 @@ class DremioAPIOperations:
     def _fetch_all_results(
         self, job_id: str, deadline: Optional[float] = None
     ) -> List[Dict]:
-        """Fetch all results for a completed job (eager materialisation)."""
-        # Delegate to the streaming iterator so the deadline-check and
-        # error-handling logic only lives in one place.
+        # Eager wrapper around the streaming iterator so deadline / error
+        # handling live in one place.
         return list(self._fetch_results_iter(job_id, deadline=deadline))
 
     def _fetch_results_iter(
         self, job_id: str, deadline: Optional[float] = None
     ) -> Iterator[Dict]:
-        """Fetch job results as a streaming iterator to reduce peak memory usage.
-
-        When `deadline` is provided we re-check the wall clock before each
-        page request so a query returning a very large result set can't
-        run past `execute_query(... timeout=N)`.
-        """
+        """Stream job result pages. `deadline` (wall-clock epoch seconds) is
+        checked before each page request to enforce the caller's timeout."""
         limit = 500
         offset = 0
         total = 0
@@ -577,7 +570,7 @@ class DremioAPIOperations:
                 job_id = response["id"]
                 deadline = time() + timeout
                 try:
-                    self._wait_for_job(job_id, timeout)
+                    self._wait_for_job(job_id, deadline=deadline)
                 except RuntimeError as e:
                     raise DremioAPIException(str(e)) from e
                 logger.info(
@@ -610,16 +603,9 @@ class DremioAPIOperations:
         )
 
     def get_dataset_id(self, schema: str, dataset: str) -> Optional[str]:
-        """Retrieve the dataset ID based on schema and dataset name.
-
-        Memoised per (schema, dataset) for the lifetime of this API
-        instance. The `/catalog/by-path/...` endpoint is path-keyed and
-        not part of the immutable-by-id catalog cache, so without this
-        Community-edition ingestion does an O(tables * path_depth)
-        walk per ingestion (`RESOURCE_ID` and `LOCATION_ID` both call
-        this for every table — the second one always with the same
-        `(schema, "")` key per schema).
-        """
+        """Resolve the catalog id for `schema.dataset`. Memoised because
+        Community Edition uses path-keyed lookups that bypass the id-keyed
+        catalog cache (RESOURCE_ID + LOCATION_ID both call here per table)."""
         cache_key = (schema, dataset)
         if cache_key in self._dataset_id_cache:
             return self._dataset_id_cache[cache_key]
@@ -791,16 +777,13 @@ class DremioAPIOperations:
         schema_condition: str,
         deny_schema_condition: str,
     ) -> Iterator[Dict]:
-        """
-        Execute the global dataset query in LIMIT/OFFSET chunks and yield tables.
+        """Yield tables from the global dataset query in LIMIT/OFFSET chunks.
 
-        Chunking guards against Dremio OOM on result sets too large to
-        materialise at once. The query is ORDER BY TABLE_SCHEMA, TABLE_NAME,
-        ORDINAL_POSITION, so rows for the same table are contiguous within
-        a chunk — but a wide table can still straddle a chunk boundary, so
-        the EE/Cloud aggregator holds the in-flight (last seen) table across
-        chunks and flushes only when it sees a different table path. The
-        final table is emitted after the chunk loop exits.
+        Chunking guards against Dremio OOM on huge result sets. The query
+        is ordered by (schema, name, ordinal), so EE/Cloud accumulates the
+        in-flight table across chunks and flushes on path change — the
+        final table is flushed after the loop. Community uses
+        `community_get_formatted_tables`, which is per-chunk complete.
         """
         chunk_size = self._chunk_size
         offset = 0
@@ -848,8 +831,6 @@ class DremioAPIOperations:
                     break
 
                 if self.edition == DremioEdition.COMMUNITY:
-                    # Community path is per-chunk: community_get_formatted_tables
-                    # already returns fully-formed tables, no cross-chunk merge.
                     for table in self.community_get_formatted_tables(chunk_results):
                         yield table
                 else:
@@ -861,10 +842,9 @@ class DremioAPIOperations:
                         if not table_full_path:
                             continue
 
-                        # Flush the previous table the moment we move on to a
-                        # new one — that's the only point at which we know
-                        # we've collected all of its columns (ORDER BY
-                        # guarantees contiguity within a table).
+                        # Flush on table-path change — that's the first
+                        # point we know we've seen every column for the
+                        # previous table (rows are ORDER BY contiguous).
                         if (
                             last_table_path is not None
                             and last_table_path != table_full_path
@@ -921,8 +901,7 @@ class DremioAPIOperations:
                     )
                 break
 
-        # Flush the last in-flight table (EE/Cloud only — Community emits
-        # per-chunk so the dictionaries are empty here).
+        # Final flush for the EE/Cloud path (Community already emitted).
         if last_table_path is not None and last_table_path in table_metadata:
             yield _build_emit(last_table_path)
 
@@ -962,6 +941,40 @@ class DremioAPIOperations:
 
         return parents_list
 
+    def _supports_array_queried_datasets(self) -> bool:
+        """Detect whether sys.jobs_recent.queried_datasets is ARRAY<VARCHAR>
+        (Dremio Software 26.1.0+) vs VARCHAR. Probes once with ARRAY_SIZE —
+        the function only resolves on array columns, so success → array,
+        any failure → legacy form. Cloud is always array."""
+        if self._queried_datasets_is_array is not None:
+            return self._queried_datasets_is_array
+
+        if self.edition == DremioEdition.CLOUD:
+            self._queried_datasets_is_array = True
+            return True
+
+        probe_query = (
+            "SELECT ARRAY_SIZE(queried_datasets) AS sz FROM SYS.JOBS_RECENT LIMIT 1"
+        )
+        try:
+            list(self.execute_query_iter(query=probe_query))
+            self._queried_datasets_is_array = True
+            logger.info(
+                "Detected ARRAY<VARCHAR> queried_datasets column "
+                "(Dremio Software 26.1.0+); using array-aware jobs query."
+            )
+        except Exception as exc:
+            # execute_query_iter can raise DremioAPIException, RuntimeError, or
+            # transport errors — any failure means we don't have the array
+            # column type. Real problems surface later from the actual jobs query.
+            self._queried_datasets_is_array = False
+            logger.info(
+                f"queried_datasets probe failed; assuming legacy VARCHAR. "
+                f"Probe error: {exc}"
+            )
+
+        return self._queried_datasets_is_array
+
     def extract_all_queries(
         self,
         start_time: Optional[datetime] = None,
@@ -990,6 +1003,11 @@ class DremioAPIOperations:
 
         if self.edition == DremioEdition.CLOUD:
             jobs_query = DremioSQLQueries.get_query_all_jobs_cloud(
+                start_timestamp_millis=start_timestamp_str,
+                end_timestamp_millis=end_timestamp_str,
+            )
+        elif self._supports_array_queried_datasets():
+            jobs_query = DremioSQLQueries.get_query_all_jobs_array(
                 start_timestamp_millis=start_timestamp_str,
                 end_timestamp_millis=end_timestamp_str,
             )
@@ -1140,8 +1158,7 @@ class DremioAPIOperations:
 
                 if space_name:
                     if self.filter.should_include_container([], space_name):
-                        # Both SPACE and HOME containers are surfaced as
-                        # DataHub "spaces" — we don't model HOME separately.
+                        # HOME is modelled as a SPACE in DataHub.
                         mapped_container_type = DremioEntityContainerType.SPACE
 
                         container_data = {

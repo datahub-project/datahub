@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List, Literal, Optional
+from typing import Dict, List, Literal, Optional
 
 import certifi
 from pydantic import Field, ValidationInfo, field_validator, model_validator
@@ -127,6 +127,16 @@ class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigMod
     )
 
 
+class DremioSourceTypeOverride(ConfigModel):
+    platform: str = Field(
+        description="DataHub platform name to emit for this Dremio source type (e.g. `kafka`, `iceberg`, `snowflake`).",
+    )
+    category: Optional[Literal["database", "file_object_storage"]] = Field(
+        default=None,
+        description="Whether the Dremio source uses dot-notation database/schema paths (`database`) or slash-notation file paths (`file_object_storage`). Defaults to `unknown`.",
+    )
+
+
 class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
@@ -159,6 +169,17 @@ class DremioSourceConfig(
     source_mappings: Optional[List[DremioSourceMapping]] = Field(
         default=None,
         description="Mappings from Dremio sources to DataHub platforms and datasets.",
+    )
+
+    source_type_mappings: Dict[str, "DremioSourceTypeOverride"] = Field(
+        default_factory=dict,
+        description=(
+            "Register additional Dremio source-type strings on top of the built-in mapping, "
+            "for Dremio ARP connectors or source types not yet known to DataHub. "
+            "Keys are the Dremio `type` field (case-insensitive); values declare the DataHub "
+            "platform and optional category. "
+            'Example: `{"MYORG_KAFKA": {"platform": "kafka", "category": "database"}}`.'
+        ),
     )
 
     schema_pattern: AllowDenyPattern = Field(
