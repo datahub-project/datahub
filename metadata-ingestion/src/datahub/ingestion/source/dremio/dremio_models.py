@@ -23,13 +23,7 @@ class DremioDatasetType(StrEnum):
 
 
 class DremioJobState(StrEnum):
-    """Dremio async job terminal and in-progress states.
-
-    Consumed in the next slice (#17652 / A2) by the chunked-aggregation
-    query loop. Lives here because that loop is invoked by the same
-    DremioAPIOperations subclass that already imports DremioEntityContainerType
-    from this module.
-    """
+    """Dremio async job states. Consumer lands in #17652 / A2."""
 
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
@@ -45,12 +39,7 @@ class DremioOwnerType(StrEnum):
 
 
 class DremioContainerResponse(BaseModel):
-    """Flexible Dremio container response that can parse various API response formats.
-
-    Consumed in the next slice (#17652 / A2) by the iterator-based catalog
-    walk that replaces the dict-of-dicts container payloads. Defined here
-    so it sits alongside the rest of the typed Dremio API response models.
-    """
+    """Typed Dremio container payload. Consumer lands in #17652 / A2."""
 
     id: Optional[str] = None
     name: str = Field(alias="name")
@@ -84,13 +73,9 @@ class DremioContainerResponse(BaseModel):
     def extract_name_from_path_if_missing(
         cls, values: Dict[str, Union[str, List[str], None]]
     ) -> Dict[str, Union[str, List[str], None]]:
-        """Backfill `name` from the last path segment when the API omits it.
-
-        Catalog walks fetch folder/space subtrees by id and surface the entry
-        only via `path`; the `name` key is absent on those payloads.
-        Raises if neither name nor a usable path is present — silently
-        emitting an "unknown" entity would corrupt URNs downstream.
-        """
+        # Catalog-walk payloads expose the entry via `path` only; backfill
+        # `name` from the last segment. Raise rather than fall back to a
+        # placeholder — an "unknown" entity would corrupt URNs downstream.
         if isinstance(values, dict) and not values.get("name"):
             path = values.get("path", [])
             if isinstance(path, list) and path:
@@ -147,9 +132,8 @@ class DremioDatasetResponse(BaseModel):
     resource_id: str = Field(alias="RESOURCE_ID")
     table_name: str = Field(alias="TABLE_NAME")
     table_schema: str = Field(alias="TABLE_SCHEMA")
-    # Community edition leaves LOCATION_ID null for some views; the
-    # legacy code path defaulted to "" so preserve that contract via
-    # Optional rather than 500-ing inside pydantic.
+    # Community edition can return null LOCATION_ID for views; preserve
+    # the legacy "" default downstream rather than rejecting in pydantic.
     location_id: Optional[str] = Field(default=None, alias="LOCATION_ID")
     columns: List[DremioDatasetColumn] = Field(default_factory=list, alias="COLUMNS")
     view_definition: Optional[str] = Field(default=None, alias="VIEW_DEFINITION")
@@ -193,11 +177,7 @@ class DremioDatasetResponse(BaseModel):
 
 
 class DremioColumnStats(BaseModel):
-    """Column-specific statistics with dot notation access.
-
-    Consumed in #17653 / A3 by the per-dataset profiler. Kept alongside
-    DremioProfilingResult (its only caller) so both land together.
-    """
+    """Per-column profile statistics. Consumer lands in #17653 / A3."""
 
     distinct_count: Optional[int] = None
     null_count: Optional[int] = None
@@ -222,11 +202,7 @@ class DremioColumnStats(BaseModel):
 
 
 class DremioProfilingResult(BaseModel):
-    """Flexible Dremio profiling result that can parse various API response formats.
-
-    Consumed in #17653 / A3 by DremioProfiler when wiring the typed
-    profiling response into DataHub's DatasetProfileClass.
-    """
+    """Typed Dremio profiling response. Consumer lands in #17653 / A3."""
 
     row_count: int = Field(default=0, alias="row_count")
     column_count: int = Field(default=0, alias="column_count")

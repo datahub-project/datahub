@@ -352,11 +352,8 @@ class DremioAspects:
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_SOURCE:
             paths.append(BrowsePathEntryClass(id="Sources"))
         elif entity.subclass == DatasetContainerSubTypes.DREMIO_FOLDER:
-            # TODO(#17652 / A2): root_container_type is populated by the
-            # recursive catalog walk added in the next slice. Until A2
-            # lands this falls through with no prefix, which is still an
-            # improvement over master (master emitted no folder browse
-            # paths at all — see updating-datahub.md).
+            # root_container_type is populated by the catalog walk added
+            # in #17652 / A2; until then the prefix branch is dormant.
             root_type = getattr(entity, "root_container_type", None)
             if root_type == DremioEntityContainerType.SPACE:
                 paths.append(BrowsePathEntryClass(id="Spaces"))
