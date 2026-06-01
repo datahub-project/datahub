@@ -49,7 +49,11 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioSourceContainer,
 )
 from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
+from datahub.ingestion.source.dremio.dremio_profiling import (
+    DremioProfiler,
+    ProfileTarget,
+    build_profile_target,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
@@ -331,15 +335,16 @@ class DremioSource(StatefulIngestionSourceBase):
 
             # Process Datasets. When profiling is enabled we'd otherwise
             # run the global catalog query twice — once here for emission
-            # and once in the profiling block below. Materialise into a
-            # list on the first pass so profiling can reuse it.
+            # and once in the profiling block below. Project each dataset
+            # down to a slim ProfileTarget tuple (URN + quoted name + columns)
+            # on the first pass so we keep the catalog-walk-elimination win
+            # without holding a full DremioDataset per row in memory — that
+            # matters for 10k+ dataset catalogs.
             profiling_enabled = self.config.is_profiling_enabled()
-            datasets_for_profiling: Optional[List[DremioDataset]] = (
+            profile_targets: Optional[List[ProfileTarget]] = (
                 [] if profiling_enabled else None
             )
             for dataset_info in self.dremio_catalog.get_datasets():
-                if datasets_for_profiling is not None:
-                    datasets_for_profiling.append(dataset_info)
                 try:
                     yield from self.process_dataset(dataset_info)
                     logger.info(
@@ -351,6 +356,16 @@ class DremioSource(StatefulIngestionSourceBase):
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
+                    )
+                    # Skip profiling for failed emissions — the dataset is
+                    # already counted as a failure and we don't want to
+                    # surface a second failure for the same URN.
+                    continue
+                if profile_targets is not None and dataset_info.columns:
+                    profile_targets.append(
+                        build_profile_target(
+                            dataset_info, self._make_dataset_urn(dataset_info)
+                        )
                     )
 
             for glossary_term in self.dremio_catalog.get_glossary_terms():
@@ -370,31 +385,32 @@ class DremioSource(StatefulIngestionSourceBase):
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            # Profiling. Reuse the dataset list captured in the emission
-            # loop above so we don't re-run the global catalog query.
-            if profiling_enabled and datasets_for_profiling is not None:
+            # Profiling. Reuse the slim ProfileTarget list captured in the
+            # emission loop above so we don't re-run the global catalog
+            # query and don't pin the full DremioDataset objects.
+            if profiling_enabled and profile_targets is not None:
                 with (
                     self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
-                    future_to_dataset = {
-                        executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets_for_profiling
+                    future_to_target = {
+                        executor.submit(self.generate_profiles, target): target
+                        for target in profile_targets
                     }
 
-                    for future in as_completed(future_to_dataset):
-                        dataset_info = future_to_dataset[future]
+                    for future in as_completed(future_to_target):
+                        target = future_to_target[future]
                         try:
                             yield from future.result()
                         except Exception as exc:
                             self.report.profiling_skipped_other[
-                                dataset_info.resource_name
+                                target.resource_name
                             ] += 1
                             self.report.report_failure(
                                 message="Failed to profile dataset",
-                                context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                                context=target.full_table_name,
                                 exc=exc,
                             )
 
@@ -513,18 +529,18 @@ class DremioSource(StatefulIngestionSourceBase):
 
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
-    def generate_profiles(
-        self, dataset_info: DremioDataset
-    ) -> Iterable[MetadataWorkUnit]:
+    def _make_dataset_urn(self, dataset_info: DremioDataset) -> str:
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
             name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+
+    def generate_profiles(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
+        yield from self.profiler.get_workunits(target)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]

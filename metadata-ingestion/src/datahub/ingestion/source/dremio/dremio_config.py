@@ -1,8 +1,9 @@
+import logging
 import os
 from typing import List, Literal, Optional
 
 import certifi
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -26,6 +27,8 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+logger = logging.getLogger(__name__)
 
 
 class DremioConnectionConfig(ConfigModel):
@@ -192,10 +195,11 @@ class DremioSourceConfig(
     )
 
     incremental_lineage: bool = Field(
-        default=True,
+        default=False,
         description="When enabled, lineage aspects are emitted as PATCH operations rather than full "
         "overwrites. This preserves any lineage edges that were manually added in DataHub "
-        "between runs. Disable if you want each run to fully replace lineage.",
+        "between runs. Disable if you want each run to fully replace lineage. "
+        "PATCH emission requires a GMS that supports patch aspects.",
     )
 
     enable_stateful_time_window: bool = Field(
@@ -209,3 +213,28 @@ class DremioSourceConfig(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
+
+    @model_validator(mode="after")
+    def _warn_if_stateful_time_window_without_stateful_ingestion(
+        self,
+    ) -> "DremioSourceConfig":
+        """Surface a clear log line instead of silently no-op'ing.
+
+        `enable_stateful_time_window` only takes effect when
+        `stateful_ingestion.enabled = true`; without that, the run-skip
+        handler is never installed and the flag does nothing. Recipes
+        that set the flag without realising they also need
+        `stateful_ingestion` would otherwise see no behaviour change at
+        all, no error, no warning — pure footgun.
+        """
+        if self.enable_stateful_time_window and (
+            self.stateful_ingestion is None or not self.stateful_ingestion.enabled
+        ):
+            logger.warning(
+                "`enable_stateful_time_window: true` has no effect because "
+                "`stateful_ingestion.enabled` is not set. Add a "
+                "`stateful_ingestion:` block with `enabled: true` (and a "
+                "configured `pipeline_name`) to activate run-to-run "
+                "time-window skipping."
+            )
+        return self

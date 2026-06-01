@@ -37,8 +37,10 @@ that teams re-document in DataHub.
 incremental_properties: true
 ```
 
-`incremental_lineage: true` (the default) emits lineage as PATCH operations, so manually-curated
-lineage edges added in the DataHub UI are not removed on the next run.
+Set `incremental_lineage: true` to emit lineage as PATCH operations, so manually-curated
+lineage edges added in the DataHub UI are not removed on the next run. Defaults to `false`
+(full-overwrite) for consistency with the standard `IncrementalLineageConfigMixin` used by other
+connectors; PATCH emission requires a GMS that supports patch aspects.
 
 ### Limitations
 

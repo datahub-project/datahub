@@ -29,8 +29,8 @@ source:
 
     # Emit lineage as PATCH rather than full-replace, preserving any
     # lineage edges added manually in the DataHub UI between runs.
-    # Defaults to true; disable only if you want each run to fully replace lineage.
-    incremental_lineage: true
+    # Defaults to false; set true if your GMS supports patch aspects.
+    incremental_lineage: false
 
     # --- Incremental properties ---
 

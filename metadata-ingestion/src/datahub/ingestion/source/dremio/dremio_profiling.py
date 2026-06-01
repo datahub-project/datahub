@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, NamedTuple, Optional, Tuple
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -26,6 +26,38 @@ from datahub.utilities.perf_timer import PerfTimer
 logger = logging.getLogger(__name__)
 
 
+class ProfileTarget(NamedTuple):
+    """Minimal payload the profiler needs for a single dataset.
+
+    A full `DremioDataset` carries view definition, parents, tags, descriptions,
+    and other ingestion-time state we don't need once we get to the profiling
+    pass. For very large catalogs (10k–100k datasets) buffering the full
+    objects across the emission → profiling boundary becomes a real memory
+    cost, so we project down to this 4-field tuple immediately after a dataset
+    is emitted.
+    """
+
+    dataset_urn: str
+    # Already-quoted '"schema"."subschema"."table"' SQL identifier.
+    full_table_name: str
+    resource_name: str
+    columns: List[Tuple[str, str]]
+
+
+def build_profile_target(dataset: DremioDataset, dataset_urn: str) -> ProfileTarget:
+    """Project a heavy DremioDataset into a slim ProfileTarget."""
+    full_table_name = (
+        '"' + '"."'.join(dataset.path) + '"."' + dataset.resource_name + '"'
+    )
+    columns = [(col.name, col.data_type) for col in dataset.columns]
+    return ProfileTarget(
+        dataset_urn=dataset_urn,
+        full_table_name=full_table_name,
+        resource_name=dataset.resource_name,
+        columns=columns,
+    )
+
+
 class DremioProfiler:
     config: DremioSourceConfig
     report: DremioSourceReport
@@ -44,22 +76,18 @@ class DremioProfiler:
         self.state_handler = state_handler
         self.QUERY_TIMEOUT = config.profiling.query_timeout
 
-    def get_workunits(
-        self, dataset: DremioDataset, dataset_urn: str
-    ) -> Iterable[MetadataWorkUnit]:
-        if not dataset.columns:
+    def get_workunits(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
+        if not target.columns:
             self.report.warning(
                 message="Skipping profiling as no columns found for table",
-                context=f"{dataset.resource_name}",
+                context=f"{target.resource_name}",
             )
-            self.report.profiling_skipped_other[dataset.resource_name] += 1
+            self.report.profiling_skipped_other[target.resource_name] += 1
             return
 
-        full_table_name = (
-            '"' + '"."'.join(dataset.path) + '"."' + dataset.resource_name + '"'
-        )
-
-        columns = [(col.name, col.data_type) for col in dataset.columns]
+        full_table_name = target.full_table_name
+        columns = target.columns
+        dataset_urn = target.dataset_urn
 
         if not self.config.profile_pattern.allowed(full_table_name):
             self.report.profiling_skipped_table_profile_pattern[full_table_name] += 1
@@ -102,7 +130,7 @@ class DremioProfiler:
         )
 
         if profile_aspect:
-            self.report.report_entity_profiled(dataset.resource_name)
+            self.report.report_entity_profiled(target.resource_name)
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=profile_aspect
             )
@@ -332,9 +360,15 @@ class DremioProfiler:
         return profile
 
     def _combine_profile_results(self, profile_results: List[Dict]) -> Dict:
-        combined_profile = {}
-        combined_profile["row_count"] = sum(
-            profile.get("row_count", 0) for profile in profile_results
+        combined_profile: Dict[str, Any] = {}
+        # Each chunk re-queries the SAME table for COUNT(*), so every chunk
+        # reports the same row_count. Summing here multiplied the value by
+        # the number of column chunks for tables wider than
+        # MAX_COLUMNS_PER_QUERY (800). Take the max so a single profile
+        # result and a multi-chunk profile both round-trip the same value.
+        combined_profile["row_count"] = max(
+            (profile.get("row_count", 0) or 0 for profile in profile_results),
+            default=0,
         )
         combined_profile["column_count"] = sum(
             profile.get("column_count", 0) for profile in profile_results

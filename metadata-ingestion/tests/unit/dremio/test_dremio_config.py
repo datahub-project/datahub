@@ -62,3 +62,64 @@ class TestDremioConfigValidators:
             password="supersecret",
         )
         assert "supersecret" not in repr(config.password)
+
+
+class TestStatefulTimeWindowValidator:
+    """`enable_stateful_time_window` is a no-op without stateful_ingestion.
+
+    Without surfacing the misconfiguration the user gets zero feedback —
+    no error, no warning, just the same query history re-ingested on every
+    run. The validator must log a clear warning in that case.
+    """
+
+    def _base_kwargs(self) -> dict:
+        return {
+            "hostname": "localhost",
+            "tls": False,
+            "authentication_method": "PAT",
+            "password": "token",
+        }
+
+    def test_warns_when_time_window_enabled_without_stateful(self, caplog):
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        DremioSourceConfig(
+            **self._base_kwargs(),
+            enable_stateful_time_window=True,
+        )
+        assert any(
+            "enable_stateful_time_window" in rec.getMessage()
+            and "stateful_ingestion" in rec.getMessage()
+            for rec in caplog.records
+        ), "expected a warning about the no-op configuration"
+
+    def test_no_warning_when_time_window_disabled(self, caplog):
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        DremioSourceConfig(
+            **self._base_kwargs(),
+            enable_stateful_time_window=False,
+        )
+        assert not any(
+            "enable_stateful_time_window" in rec.getMessage() for rec in caplog.records
+        )
+
+    def test_no_warning_when_stateful_ingestion_enabled(self, caplog):
+        import logging
+
+        caplog.set_level(logging.WARNING)
+        DremioSourceConfig(
+            **self._base_kwargs(),
+            enable_stateful_time_window=True,
+            stateful_ingestion={"enabled": True},
+        )
+        assert not any(
+            "enable_stateful_time_window" in rec.getMessage() for rec in caplog.records
+        )
+
+    def test_incremental_lineage_default_is_false(self):
+        """Match the IncrementalLineageConfigMixin baseline used by other connectors."""
+        config = DremioSourceConfig(**self._base_kwargs())
+        assert config.incremental_lineage is False

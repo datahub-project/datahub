@@ -1,10 +1,41 @@
-import time
-from typing import Tuple
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
 from unittest.mock import MagicMock, Mock
 
+import time_machine
+
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
+from datahub.ingestion.source.dremio.dremio_profiling import (
+    DremioProfiler,
+    ProfileTarget,
+    build_profile_target,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+
+
+def _target(
+    name: str = "tbl",
+    columns: Optional[List[Tuple[str, str]]] = None,
+    urn: str = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)",
+) -> ProfileTarget:
+    """Build a ProfileTarget for tests without going through DremioDataset."""
+    cols = columns if columns is not None else [("col1", "integer")]
+    return ProfileTarget(
+        dataset_urn=urn,
+        full_table_name='"src"."schema"."' + name + '"',
+        resource_name=name,
+        columns=cols,
+    )
+
+
+# Fixed reference time used by all skip-threshold tests so the deltas don't
+# drift with wall-clock time on slow CI runners.
+_FROZEN_NOW = datetime(2024, 1, 10, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _epoch_ms_offset(seconds: float) -> int:
+    """Return _FROZEN_NOW - seconds, expressed as epoch milliseconds."""
+    return round((_FROZEN_NOW.timestamp() - seconds) * 1000)
 
 
 def make_profiler(**profiling_kwargs):
@@ -123,12 +154,13 @@ class TestCombineProfileResults:
         )
         assert "col1" in result["column_stats"]
         assert "col801" in result["column_stats"]
-        # column_count correctly sums chunk sizes to give total column count
+        # column_count sums chunk sizes — total columns across the table.
         assert result["column_count"] == 850
-        # NOTE: row_count is incorrectly doubled here — each chunk re-queries the same
-        # table so it returns the same COUNT(*), but _combine_profile_results sums them.
-        # This is a known limitation: only affects tables with >800 columns.
-        assert result["row_count"] == 200
+        # row_count must NOT scale with chunk count: each chunk re-queries the
+        # same table for COUNT(*), so they all report the same value. Combining
+        # via max keeps the table-level count stable for tables wider than
+        # MAX_COLUMNS_PER_QUERY.
+        assert result["row_count"] == 100
 
 
 class TestProfilingStateHandler:
@@ -154,29 +186,16 @@ class TestProfilingStateHandler:
         )
         return profiler, api, state_handler
 
-    def _make_dataset(self, name="tbl", columns=None):
-        dataset = Mock()
-        dataset.resource_name = name
-        if columns is not None:
-            dataset.columns = columns
-        else:
-            col = Mock()
-            col.name = "col1"
-            col.data_type = "integer"
-            dataset.columns = [col]
-        dataset.path = ["src", "schema"]
-        return dataset
-
     def test_add_to_state_called_after_successful_profile(self):
         profiler, api_mock, state_mock = self._make_profiler_with_state_handler()
-        dataset = self._make_dataset()
         dataset_urn = (
             "urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.src.schema.tbl,PROD)"
         )
+        target = _target(urn=dataset_urn)
 
         api_mock.execute_query.return_value = [{"row_count": 10, "column_count": 1}]
 
-        workunits = list(profiler.get_workunits(dataset, dataset_urn))
+        workunits = list(profiler.get_workunits(target))
 
         assert len(workunits) == 1
         state_mock.add_to_state.assert_called_once()
@@ -199,26 +218,16 @@ class TestProfilingStateHandler:
             api_operations=api_mock,
             state_handler=None,
         )
-        dataset = self._make_dataset()
         api_mock.execute_query.return_value = [{"row_count": 5, "column_count": 1}]
 
-        workunits = list(
-            profiler.get_workunits(
-                dataset, "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
-            )
-        )
+        workunits = list(profiler.get_workunits(_target()))
         assert len(workunits) == 1
 
     def test_add_to_state_not_called_when_no_columns(self):
         """No profile is emitted for empty-column tables, so state should not be updated."""
         profiler, _api_mock, state_mock = self._make_profiler_with_state_handler()
-        dataset = self._make_dataset(columns=[])
 
-        workunits = list(
-            profiler.get_workunits(
-                dataset, "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
-            )
-        )
+        workunits = list(profiler.get_workunits(_target(columns=[])))
 
         assert workunits == []
         state_mock.add_to_state.assert_not_called()
@@ -249,61 +258,88 @@ class TestProfilingStateHandler:
         )
         return profiler, api, state_handler
 
+    @time_machine.travel(_FROZEN_NOW, tick=False)
     def test_profiling_skipped_when_profiled_within_threshold(self):
         """When last_profiled is within profile_if_updated_since_days, skip it."""
         profiler, _api_mock, state_mock = self._make_profiler_with_updated_since(1.0)
-        dataset = self._make_dataset()
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
+        target = _target()
 
         # Profiled 1 hour ago → within 1-day threshold
-        last_profiled_ms = round((time.time() - 3600) * 1000)
+        last_profiled_ms = _epoch_ms_offset(3600)
         state_mock.get_last_profiled.return_value = last_profiled_ms
 
-        workunits = list(profiler.get_workunits(dataset, dataset_urn))
+        workunits = list(profiler.get_workunits(target))
 
         assert workunits == []
         # State must be carried forward so the next run retains the original timestamp
-        state_mock.add_to_state.assert_called_once_with(dataset_urn, last_profiled_ms)
+        state_mock.add_to_state.assert_called_once_with(
+            target.dataset_urn, last_profiled_ms
+        )
 
+    @time_machine.travel(_FROZEN_NOW, tick=False)
     def test_profiling_proceeds_when_past_threshold(self):
         """When last_profiled is older than profile_if_updated_since_days, profile normally."""
         profiler, api_mock, state_mock = self._make_profiler_with_updated_since(1.0)
-        dataset = self._make_dataset()
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
 
         # Profiled 30 hours ago → outside 1-day threshold
-        last_profiled_ms = round((time.time() - 30 * 3600) * 1000)
+        last_profiled_ms = _epoch_ms_offset(30 * 3600)
         state_mock.get_last_profiled.return_value = last_profiled_ms
         api_mock.execute_query.return_value = [{"row_count": 10, "column_count": 1}]
 
-        workunits = list(profiler.get_workunits(dataset, dataset_urn))
+        workunits = list(profiler.get_workunits(_target()))
 
         assert len(workunits) == 1
 
     def test_profiling_proceeds_when_never_profiled_before(self):
         """When no previous profile timestamp exists, always profile regardless of threshold."""
         profiler, api_mock, state_mock = self._make_profiler_with_updated_since(1.0)
-        dataset = self._make_dataset()
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
 
         state_mock.get_last_profiled.return_value = None
         api_mock.execute_query.return_value = [{"row_count": 5, "column_count": 1}]
 
-        workunits = list(profiler.get_workunits(dataset, dataset_urn))
+        workunits = list(profiler.get_workunits(_target()))
 
         assert len(workunits) == 1
 
+    @time_machine.travel(_FROZEN_NOW, tick=False)
     def test_profiling_always_runs_when_threshold_not_configured(self):
         """Without profile_if_updated_since_days, profiling always runs (default behaviour)."""
         profiler, api_mock, state_mock = self._make_profiler_with_state_handler()
 
-        dataset = self._make_dataset()
-        dataset_urn = "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
-
         # Simulate profiled very recently (5 minutes ago)
-        state_mock.get_last_profiled.return_value = round((time.time() - 300) * 1000)
+        state_mock.get_last_profiled.return_value = _epoch_ms_offset(300)
         api_mock.execute_query.return_value = [{"row_count": 5, "column_count": 1}]
 
-        workunits = list(profiler.get_workunits(dataset, dataset_urn))
+        workunits = list(profiler.get_workunits(_target()))
 
         assert len(workunits) == 1
+
+
+class TestBuildProfileTarget:
+    """Cover the slim-projection path used to keep memory low at scale."""
+
+    def test_projects_path_resource_name_columns(self):
+        dataset = Mock()
+        dataset.resource_name = "tbl"
+        dataset.path = ["src", "schema"]
+        col_a = Mock()
+        col_a.name = "a"
+        col_a.data_type = "integer"
+        col_b = Mock()
+        col_b.name = "b"
+        col_b.data_type = "varchar"
+        dataset.columns = [col_a, col_b]
+
+        target = build_profile_target(
+            dataset, "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
+        )
+
+        assert target.dataset_urn == (
+            "urn:li:dataset:(urn:li:dataPlatform:dremio,x,PROD)"
+        )
+        assert target.resource_name == "tbl"
+        assert target.full_table_name == '"src"."schema"."tbl"'
+        assert target.columns == [("a", "integer"), ("b", "varchar")]
+        # NamedTuple is immutable — confirm we don't retain a reference to the
+        # heavy DremioDataset object via attribute lookup.
+        assert not hasattr(target, "_dataset_response")
