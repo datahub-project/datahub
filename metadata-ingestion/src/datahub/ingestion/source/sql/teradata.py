@@ -2223,13 +2223,7 @@ ORDER by DataBaseName, TableName;
                         f"Failed to process view {schema}.{view_name}: {str(e)}"
                     )
                     logger.error(f"Full traceback: {full_traceback}")
-
-                    self.report.warning(
-                        title="View processing error",
-                        message="Error processing view",
-                        context=f"View: {schema}.{view_name}, Error: {str(e)}",
-                        exc=e,
-                    )
+                    self._warn_view_error(schema, view_name, _error_category, e)
 
                 return results
 
@@ -2287,18 +2281,14 @@ ORDER by DataBaseName, TableName;
                             for result in results:
                                 yield result
                         except Exception as e:
-                            self.report.warning(
-                                title="View processing error",
-                                message="Error processing view",
-                                context=f"{schema}.{view_name}",
-                                exc=e,
-                            )
+                            _error_category = _categorize_view_error(e)
+                            self._warn_view_error(schema, view_name, _error_category, e)
                             # Belt-and-suspenders: fut is already complete (it came from
                             # done_set), but fut.result(timeout=1) can raise in exotic
                             # race conditions. DB errors are NOT re-raised here —
                             # process_single_view catches them internally and reports via
                             # increment_view_error before returning [].
-                            self.report.increment_view_error(_categorize_view_error(e))
+                            self.report.increment_view_error(_error_category)
                         completed_count += 1
 
                     # Abandon any view that has exceeded the per-view timeout.
@@ -2377,6 +2367,45 @@ ORDER by DataBaseName, TableName;
             # Don't dispose the reusable engine here - it will be cleaned up in close()
             pass
 
+    def _warn_view_error(
+        self, schema: str, view_name: str, error_category: str, exc: BaseException
+    ) -> None:
+        """Emit a categorised report warning for a view-processing failure.
+
+        The ``message`` text is chosen based on ``error_category`` so operators
+        see actionable guidance without having to read the full exception context.
+        All strings are compile-time literals to satisfy the ``LiteralString``
+        constraint of ``report.warning()``.
+        """
+        if error_category == "timeout":
+            self.report.warning(
+                title="View processing error",
+                message="View processing timed out — consider increasing view_processing_timeout_seconds or optimizing the view SQL.",
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
+        elif error_category == "permission":
+            self.report.warning(
+                title="View processing error",
+                message="Permission denied processing view — check database access rights for the ingestion user.",
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
+        elif error_category == "parse":
+            self.report.warning(
+                title="View processing error",
+                message="SQL parse error in view definition — check the view SQL for syntax issues.",
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
+        else:
+            self.report.warning(
+                title="View processing error",
+                message="Unexpected error processing view — check the logs for the full traceback.",
+                context=f"{schema}.{view_name}",
+                exc=exc,
+            )
+
     def _process_views_single_threaded(
         self, view_names: List[str], schema: str, sql_config: SQLCommonConfig
     ) -> Iterable[Union[MetadataWorkUnit, Any]]:
@@ -2433,12 +2462,7 @@ ORDER by DataBaseName, TableName;
                             f"Failed to process view {schema}.{view_name}: {str(e)}"
                         )
                         logger.error(f"Full traceback: {full_traceback}")
-                        self.report.warning(
-                            title="View processing error",
-                            message="Error processing view",
-                            context=f"View: {schema}.{view_name}, Error: {str(e)}",
-                            exc=e,
-                        )
+                        self._warn_view_error(schema, view_name, _error_category, e)
 
         finally:
             engine.dispose()
@@ -2737,6 +2761,11 @@ ORDER by DataBaseName, TableName;
                         f"executing on the server. Investigate "
                         f"DBC.SessionInfoV / network keepalive if this persists."
                     )
+                    self.report.warning(
+                        title="Lineage fetch stall detected",
+                        message="Teradata cursor may be blocked or the query is still executing on the server. Investigate DBC.SessionInfoV or network keepalive settings.",
+                        context=f"phase={phase}, query_index={query_index}, stalled_for={elapsed:.0f}s",
+                    )
 
         watchdog_thread: Optional[Thread] = None
         if stall_seconds > 0:
@@ -2862,7 +2891,7 @@ ORDER by DataBaseName, TableName;
                     "Lineage data for this run will be incomplete. "
                     "Check Teradata connectivity and DBC.QryLogV access."
                 ),
-                context=str(e),
+                context=f"time_range={self.config.start_time}–{self.config.end_time}",
                 exc=e,
             )
             raise
