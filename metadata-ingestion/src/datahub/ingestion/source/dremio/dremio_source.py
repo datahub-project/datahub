@@ -85,35 +85,26 @@ def passes_dremio_filters(
     dataset_pattern: AllowDenyPattern,
     schema_pattern: AllowDenyPattern,
 ) -> bool:
-    """Return True if a Dremio dataset name passes the same gates as the catalog walk.
-
-    Used by both the SqlParsingAggregator's `is_allowed_table` callback and the
-    direct view-lineage emission path so that URNs discovered through query
-    history or view-parent references can't bypass `schema_pattern` /
-    `dataset_pattern` and produce ghost datasets with no parent container.
-
-    `name` may arrive with or without the `dremio.` platform prefix; the
-    catalog walk matches patterns against the post-prefix form, so we
-    normalize before checking.
-    """
+    """Apply the catalog walk's filters to a name discovered via query/view
+    lineage so SQL-derived URNs can't produce ghost datasets the operator
+    excluded via schema_pattern / dataset_pattern."""
+    # Pattern matching is done against the post-`dremio.` form.
     if name.startswith(f"{DREMIO_DATABASE_NAME}."):
         name = name[len(DREMIO_DATABASE_NAME) + 1 :]
 
-    # Anything the catalog walk already accepted is by definition allowed.
     if name in catalog_dataset_names:
         return True
 
     path_parts = name.split(".")
-    # Dremio reflections live under _accelerator_ and are never user-facing.
+    # Dremio reflections under _accelerator_ are internal, never user-facing.
     if path_parts and path_parts[0] == "_accelerator_":
         return False
 
     if not dataset_pattern.allowed(name):
         return False
 
-    # Container portion of the path must also pass schema_pattern. Use
-    # AllowDenyPattern.allowed directly (not should_include_container, which
-    # has report side-effects we don't want at lineage emission time).
+    # Schema gate uses `.allowed` directly: should_include_container has
+    # report side-effects we don't want at lineage-emission time.
     if len(path_parts) > 1:
         container_path = ".".join(path_parts[:-1])
         if not schema_pattern.allowed(container_path):
@@ -276,9 +267,8 @@ class DremioSource(StatefulIngestionSourceBase):
             graph=self.ctx.graph,
         )
 
-        # Track catalog dataset names for query lineage validation
-        # (must be initialized before the aggregator, whose is_allowed_table
-        # callback reads this set).
+        # Populated during the catalog walk; read by the aggregator's
+        # is_allowed_table callback, so must exist before construction.
         self.catalog_dataset_names: Set[str] = set()
 
         self.sql_parsing_aggregator = SqlParsingAggregator(
@@ -290,9 +280,7 @@ class DremioSource(StatefulIngestionSourceBase):
             generate_usage_statistics=True,
             generate_operations=True,
             usage_config=self.config.usage,
-            # Gate lineage / usage / operations emission by the same filters
-            # that the catalog walk applies, so query-discovered URNs can't
-            # leak past schema_pattern / dataset_pattern.
+            # Gate SQL-discovered URNs through the catalog-walk filters.
             is_allowed_table=self._is_allowed_table,
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
@@ -301,8 +289,6 @@ class DremioSource(StatefulIngestionSourceBase):
         self.profiler = DremioProfiler(config, self.report, dremio_api)
 
     def _is_allowed_table(self, name: str) -> bool:
-        # SqlParsingAggregator callback: keep lineage/usage/operations in sync
-        # with the catalog walk's filters so SQL-discovered URNs can't bypass them.
         allowed = passes_dremio_filters(
             name=name,
             catalog_dataset_names=self.catalog_dataset_names,
@@ -579,13 +565,8 @@ class DremioSource(StatefulIngestionSourceBase):
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        Generate lineage information for views.
-
-        Pre-filters parent references against the same catalog filters used by
-        the walk; bypassing them here would emit ghost upstream datasets that
-        the operator explicitly excluded via schema_pattern / dataset_pattern.
-        """
+        """Generate lineage for views, dropping parents excluded by the
+        catalog walk's filters so we don't emit ghost upstream datasets."""
         upstream_urns: List[str] = []
         for upstream_table in parents:
             upstream_name = upstream_table.lower()
@@ -691,9 +672,9 @@ class DremioSource(StatefulIngestionSourceBase):
             # Validate query dataset format matches catalog format
             self._validate_query_lineage_format(query)
 
-            # Pre-filter explicit query upstreams/downstream; the aggregator's
-            # is_allowed_table callback is a second line of defense for URNs
-            # discovered inside add_observed_query's SQL parsing.
+            # Pre-filter explicit upstreams/downstream; is_allowed_table
+            # is the second line of defence for URNs the SQL parser
+            # rediscovers inside add_observed_query.
             downstream_name = query.affected_dataset.lower()
             downstream_allowed = passes_dremio_filters(
                 name=downstream_name,
@@ -738,15 +719,12 @@ class DremioSource(StatefulIngestionSourceBase):
                     merge_lineage=True,
                 )
             elif not downstream_allowed:
-                # Counts the dropped downstream itself; per-edge upstream drops
-                # are already counted above, so this isn't double-counting.
+                # Per-upstream drops are already counted in the loop above.
                 self.report.lineage_dropped_filtered += 1
 
-        # Always register the observed query: usage stats aren't gated here.
-        # Any filtered upstream the SQL parser re-discovers is blocked at
-        # emission by SqlParsingAggregator's three is_allowed_table gates —
-        # per-downstream lineage, per-upstream usage, and the per-query
-        # "involves any allowed table" check — so no aspects leak through.
+        # Always register the observed query; usage stats aren't gated here.
+        # Aspects for filtered URNs that the SQL parser rediscovers are blocked
+        # by SqlParsingAggregator's is_allowed_table gate at emission time.
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,

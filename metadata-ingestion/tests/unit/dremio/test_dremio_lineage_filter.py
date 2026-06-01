@@ -1,11 +1,5 @@
-"""Tests for the lineage-emission filters that mirror the catalog walk.
-
-These guard the contract that query lineage and view-parent lineage must not
-emit URNs for datasets the operator excluded via schema_pattern,
-dataset_pattern, or the _accelerator_ reflection convention. Without these
-gates, lineage edges materialise ghost datasets with no container or browse
-path in DataHub.
-"""
+"""Pin the contract that query/view lineage cannot emit URNs the catalog
+walk would have dropped — otherwise lineage edges create ghost datasets."""
 
 from datetime import datetime
 from unittest.mock import Mock
@@ -26,12 +20,8 @@ from datahub.ingestion.source.dremio.dremio_source import (
 
 
 class TestPassesDremioFilters:
-    """Pure-logic checks on the shared filter helper used by both the
-    aggregator callback and the direct view-lineage emit path."""
-
     def test_in_catalog_short_circuits_all_other_gates(self):
-        # Even with restrictive patterns, a discovered name passes — the
-        # catalog walk is the source of truth.
+        # Catalog membership wins over restrictive patterns.
         assert passes_dremio_filters(
             name="myspace.folder.table1",
             catalog_dataset_names={"myspace.folder.table1"},
@@ -40,7 +30,7 @@ class TestPassesDremioFilters:
         )
 
     def test_strips_dremio_prefix_before_matching(self):
-        # Aggregator may hand us names with the "dremio." prefix in place.
+        # SqlParsingAggregator hands names through with the platform prefix.
         assert passes_dremio_filters(
             name=f"{DREMIO_DATABASE_NAME}.myspace.folder.table1",
             catalog_dataset_names={"myspace.folder.table1"},
@@ -65,7 +55,6 @@ class TestPassesDremioFilters:
         )
 
     def test_schema_pattern_deny_blocks_emission(self):
-        # The container portion is the path minus the dataset name.
         assert not passes_dremio_filters(
             name="other_space.folder.table",
             catalog_dataset_names=set(),
@@ -82,8 +71,7 @@ class TestPassesDremioFilters:
         )
 
     def test_single_segment_name_skips_schema_check(self):
-        # A bare table name has no container portion — schema_pattern can't
-        # apply. dataset_pattern still applies.
+        # No container segment → schema_pattern doesn't apply, dataset_pattern does.
         assert passes_dremio_filters(
             name="standalone",
             catalog_dataset_names=set(),
@@ -93,9 +81,6 @@ class TestPassesDremioFilters:
 
 
 class TestDremioSourceLineageFilter:
-    """Integration-style checks that the source wires the filter into both
-    process_query and generate_view_lineage."""
-
     @pytest.fixture
     def mock_config(self):
         return DremioSourceConfig(
@@ -123,14 +108,12 @@ class TestDremioSourceLineageFilter:
         src.dremio_catalog = Mock(spec=DremioCatalog)
         src.dremio_catalog.dremio_api = Mock()
 
-        # Pretend the catalog walk found these.
         src.catalog_dataset_names = {
             "myspace.folder.allowed_table",
             "myspace.folder.allowed_view",
         }
 
-        # Replace the aggregator with a spy so we can assert exactly what got
-        # added without standing up the real SQL parser.
+        # Spy aggregator — assert calls without the real SQL parser.
         src.sql_parsing_aggregator = Mock()
         return src
 
@@ -143,7 +126,7 @@ class TestDremioSourceLineageFilter:
         assert source.report.lineage_dropped_filtered == before + 1
 
     def test_is_allowed_table_rejects_dataset_pattern_deny(self, source):
-        # Container passes, but the dataset matches the deny rule.
+        # Container allowed, dataset name denied.
         before = source.report.lineage_dropped_filtered
         assert not source._is_allowed_table("myspace.folder.staging_temp_data")
         assert source.report.lineage_dropped_filtered == before + 1
@@ -171,18 +154,15 @@ class TestDremioSourceLineageFilter:
         before_dropped = source.report.lineage_dropped_filtered
         source.process_query(query)
 
-        # add_known_query_lineage is called once with only the allowed upstream.
         source.sql_parsing_aggregator.add_known_query_lineage.assert_called_once()
         info = source.sql_parsing_aggregator.add_known_query_lineage.call_args[0][0]
         assert len(info.upstreams) == 1
         assert "myspace.folder.allowed_table" in info.upstreams[0]
         assert "other_space.folder.filtered" not in info.upstreams[0]
 
-        # Observed query is registered regardless — usage is gated at the
-        # aggregator level via is_allowed_table.
+        # Observed query always registers; aggregator gates usage via is_allowed_table.
         source.sql_parsing_aggregator.add_observed_query.assert_called_once()
 
-        # One upstream was dropped.
         assert source.report.lineage_dropped_filtered == before_dropped + 1
 
     def test_process_query_skips_known_lineage_when_downstream_filtered(self, source):
@@ -198,9 +178,7 @@ class TestDremioSourceLineageFilter:
 
         source.process_query(query)
 
-        # Downstream is outside scope — no known-query-lineage edge.
         source.sql_parsing_aggregator.add_known_query_lineage.assert_not_called()
-        # Observed query still registered.
         source.sql_parsing_aggregator.add_observed_query.assert_called_once()
 
     def test_generate_view_lineage_filters_parents(self, source):
@@ -210,8 +188,8 @@ class TestDremioSourceLineageFilter:
         )
         parents = [
             "myspace.folder.allowed_table",
-            "other_space.folder.filtered",
-            "myspace.folder.staging_temp_data",  # blocked by dataset_pattern deny
+            "other_space.folder.filtered",  # blocked by schema_pattern
+            "myspace.folder.staging_temp_data",  # blocked by dataset_pattern
         ]
 
         before_dropped = source.report.lineage_dropped_filtered
@@ -222,10 +200,7 @@ class TestDremioSourceLineageFilter:
         assert len(upstreams) == 1
         assert "myspace.folder.allowed_table" in upstreams[0].dataset
 
-        # Aggregator only sees the allowed upstream.
         assert source.sql_parsing_aggregator.add_known_lineage_mapping.call_count == 1
-
-        # Two upstreams were dropped (one schema, one dataset deny).
         assert source.report.lineage_dropped_filtered == before_dropped + 2
 
     def test_generate_view_lineage_emits_nothing_when_all_parents_filtered(
