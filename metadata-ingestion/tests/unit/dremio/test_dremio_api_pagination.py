@@ -126,9 +126,6 @@ class TestDremioAPIPagination:
         dremio_api.cancel_query = Mock()
 
         # time() calls: deadline stamp, then poll loop's deadline check.
-        # The poll uses the shared absolute deadline directly (no separate
-        # start-time bookkeeping), so the second time() returns "past
-        # deadline" and the loop bails.
         mock_time_values = [0, 3700]
 
         with (

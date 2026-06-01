@@ -427,10 +427,8 @@ class DremioAPIOperations:
     def _wait_for_job(self, job_id: str, deadline: float) -> None:
         """Poll until a Dremio job reaches a terminal state.
 
-        ``deadline`` is an absolute wall-clock instant (``time.time()``
-        epoch seconds) that is shared with the downstream fetch phase, so
-        the poll + fetch pair honours a single end-to-end budget rather
-        than two independent timers that could effectively stack.
+        ``deadline`` is an absolute ``time.time()`` instant shared with
+        the fetch phase so poll + fetch share one end-to-end budget.
 
         Uses adaptive backoff (1 s → 10 s) so fast queries aren't penalised
         by a fixed sleep and slow queries don't hammer the status endpoint.

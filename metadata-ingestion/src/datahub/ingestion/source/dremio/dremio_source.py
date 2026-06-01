@@ -317,13 +317,10 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Buffer datasets for profiling AND collect unique glossary terms
-            # in the same pass. Both the profiling pass and the legacy
-            # get_glossary_terms() iterator would otherwise re-run the global
-            # catalog query (each dataset already carries its tags via
-            # __init__'s get_tags_for_resource call). Dedup by glossary-term
-            # string — the model has no __eq__/__hash__, so set-of-objects
-            # would dedup by identity and yield each tag once per dataset.
+            # Single pass over datasets: buffer for profiling, harvest
+            # glossary terms inline. Both follow-up passes would otherwise
+            # re-run the global catalog query. Dedup by string because
+            # DremioGlossaryTerm has no __eq__/__hash__.
             profiling_enabled = self.config.is_profiling_enabled()
             datasets_for_profiling: Optional[List[DremioDataset]] = (
                 [] if profiling_enabled else None

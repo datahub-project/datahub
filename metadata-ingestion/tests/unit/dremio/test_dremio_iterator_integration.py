@@ -59,13 +59,8 @@ class TestDremioIteratorIntegration:
         assert mock_dremio_source.report.num_datasets_failed > 0
 
     def test_glossary_terms_harvested_from_dataset_pass(self, mock_dremio_source):
-        # Regression: ``get_glossary_terms()`` used to be a separate iterator
-        # that called ``self.get_datasets()`` again — i.e. a third full
-        # catalog scan after the main dataset pass and (when enabled) the
-        # profiling pass. The dataset loop now harvests unique terms inline
-        # from ``dataset.glossary_terms`` (already populated in
-        # ``DremioDataset.__init__``), so ``get_glossary_terms`` must not be
-        # invoked from the workunit pipeline.
+        # Regression: catalog-level get_glossary_terms() used to re-run the
+        # global catalog query. Harvest happens inline now.
         term_a = DremioGlossaryTerm(glossary_term="finance")
         term_a_dup = DremioGlossaryTerm(glossary_term="finance")
         term_b = DremioGlossaryTerm(glossary_term="pii")
@@ -77,7 +72,7 @@ class TestDremioIteratorIntegration:
         ds2 = Mock(spec=DremioDataset)
         ds2.path = ["space", "schema"]
         ds2.resource_name = "t2"
-        ds2.glossary_terms = [term_a_dup]  # same string, different object
+        ds2.glossary_terms = [term_a_dup]
 
         mock_dremio_source.dremio_catalog.get_datasets.return_value = iter([ds1, ds2])
         mock_dremio_source.dremio_catalog.get_containers.return_value = []
@@ -92,7 +87,5 @@ class TestDremioIteratorIntegration:
 
         list(mock_dremio_source.get_workunits_internal())
 
-        # Catalog-level iterator must not be touched.
         mock_dremio_source.dremio_catalog.get_glossary_terms.assert_not_called()
-        # Per-dataset terms are deduped by string, not by object identity.
         assert sorted(processed) == ["finance", "pii"]
