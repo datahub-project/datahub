@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import Enum
 from itertools import product
 from time import sleep, time
-from typing import TYPE_CHECKING, Any, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 from urllib.parse import quote
 
 import requests
@@ -31,9 +31,6 @@ from datahub.ingestion.source.dremio.dremio_sql_queries import DremioSQLQueries
 from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
-
-if TYPE_CHECKING:
-    pass
 
 DREMIO_SYSTEM_TABLES_PATTERN = [
     r"^information_schema$",
@@ -419,6 +416,13 @@ class DremioAPIOperations:
         Responses for /catalog/{id} (no sub-path) are cached in memory because
         the catalog tree traversal and subsequent dataset fetch both walk the same
         nodes, producing 4-6 redundant round-trips per catalog entry.
+
+        The cache is best-effort under the get_all_containers ThreadPoolExecutor:
+        two threads can both miss the check-then-write and refetch the same URL.
+        That's tolerable here — Dremio's /catalog/{id} GET is idempotent, the
+        worst case is one extra HTTP round-trip per racing pair, and a single-
+        key dict access is atomic under the GIL so we won't corrupt the cache.
+        Adding a Lock would serialise all hot-path GETs and erase the win.
         """
         _cacheable = url.startswith("/catalog/") and url.count("/") == 2
         if _cacheable and url in self._catalog_cache:
@@ -1116,9 +1120,17 @@ class DremioAPIOperations:
                             url=f"/catalog/{source.get('id')}",
                         )
                         source_config = source_resp.get("config", {})
-                    except Exception:
-                        # Fall back to the basic source info if the details endpoint fails.
-                        pass
+                    except Exception as exc:
+                        # /catalog/{id} can fail for sources the auth user can't
+                        # see the config of (e.g. cross-tenant in Dremio Cloud).
+                        # We still want to emit the source as a container with
+                        # the basic info from /catalog; surface the failure so
+                        # users can spot it but don't abort the whole walk.
+                        logger.warning(
+                            f"Failed to fetch source detail for "
+                            f"{source.get('path', source.get('name', source.get('id')))}; "
+                            f"falling back to basic catalog info: {exc}"
+                        )
 
                 db = source_config.get(
                     "database", source_config.get("databaseName", "")
