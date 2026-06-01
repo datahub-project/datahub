@@ -8,10 +8,11 @@ interface Props {
     label: string;
     ownerUrns?: string[];
     updateOwners?: (owners: ActorEntity[]) => void;
-    defaultActors?: ActorEntity[];
+    isDisabled?: boolean;
+    isLoading?: boolean;
 }
 
-export function ActorsField({ label, ownerUrns, updateOwners, defaultActors }: Props) {
+export function ActorsField({ label, ownerUrns, updateOwners, isDisabled, isLoading }: Props) {
     const urns = useMemo(() => ownerUrns ?? [], [ownerUrns]);
     const onUpdate = useCallback((owners: ActorEntity[]) => updateOwners?.(owners), [updateOwners]);
 
@@ -21,7 +22,8 @@ export function ActorsField({ label, ownerUrns, updateOwners, defaultActors }: P
                 selectedActorUrns={urns}
                 onUpdate={onUpdate}
                 placeholder="Search for users or groups"
-                defaultActors={defaultActors}
+                isDisabled={isDisabled}
+                isLoading={isLoading}
             />
         </FieldWrapper>
     );

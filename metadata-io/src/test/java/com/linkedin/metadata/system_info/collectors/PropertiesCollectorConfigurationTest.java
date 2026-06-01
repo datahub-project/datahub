@@ -474,6 +474,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "datahub.s3.presignedDownloadUrlExpirationSeconds",
           "datahub.s3.assetPathPrefix",
           "datahub.readOnly",
+          // Messaging transport
+          "datahub.messaging.transport",
           // Feature flags
           "featureFlags.alwaysEmitChangeLog",
           "featureFlags.alternateMCPValidation",
@@ -849,6 +851,9 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "metadataChangeProposal.validation.extensions.enabled",
           "metadataChangeProposal.validation.ignoreUnknown",
           "metadataChangeProposal.validation.privilegeConstraints.enabled",
+          "metadataChangeProposal.validation.urlValidation.allowHttp",
+          "metadataChangeProposal.validation.urlValidation.enabled",
+          "metadataChangeProposal.validation.urlValidation.extraDenyHosts",
           "metadataTests.enabled",
           "platformAnalytics.enabled",
           "platformAnalytics.usageExport.aspectTypes",

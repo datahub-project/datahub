@@ -290,8 +290,11 @@ Best for advanced users who want to modify the core codebase or run directly fro
 git clone https://github.com/datahub-project/datahub.git
 cd datahub
 
-# Start all services with docker-compose
-./docker/quickstart.sh
+# One-time setup (Python CLI + dev tooling)
+scripts/dev/datahub-dev.sh setup
+
+# Start DataHub (Gradle profiles under docker/profiles)
+scripts/dev/datahub-dev.sh start
 
 # Access DataHub at http://localhost:9002
 # Default credentials: datahub / datahub

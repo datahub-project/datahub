@@ -1,5 +1,6 @@
 import { Checkbox, Loader, SearchBar, Text } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SelectedFilterValues } from '@app/entityV2/view/builder/SelectedFilterValues';
@@ -15,6 +16,8 @@ import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, FacetMetadata } from '@types';
+
+const ENTITY_ITEM_PADDING = '8px 0 8px 8px';
 
 const Container = styled.div`
     display: flex;
@@ -82,6 +85,7 @@ type Props = {
 };
 
 export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Props) {
+    const { t } = useTranslation('entity.views');
     const entityRegistry = useEntityRegistryV2();
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const { appliedFilters, updateFieldFilters } = useAppliedFilters();
@@ -179,28 +183,28 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
                     <AutoCompleteEntityItem
                         entity={entity}
                         customDetailsRenderer={customDetailsRenderer}
-                        padding="8px 0 8px 8px"
+                        padding={ENTITY_ITEM_PADDING}
                     />
                 </ResultItemWrapper>
             ));
         }
         return (
             <EmptyContainer>
-                <Text color="gray">No results found.</Text>
+                <Text color="gray">{t('selectAssets.noResults')}</Text>
             </EmptyContainer>
         );
-    }, [loading, entities, handleCheckboxChange, customDetailsRenderer]);
+    }, [loading, entities, handleCheckboxChange, customDetailsRenderer, t]);
 
     return (
         <Container>
             <LeftSection>
                 <SearchHeader color="gray" weight="bold">
-                    Search and Select Assets
+                    {t('selectAssets.searchHeader')}
                 </SearchHeader>
                 <SearchBar
                     value={searchQuery}
                     onChange={setSearchQuery}
-                    placeholder="Search datasets, dashboards, domains..."
+                    placeholder={t('selectAssets.searchPlaceholder')}
                 />
                 <AssetFilters
                     searchQuery={searchQuery}

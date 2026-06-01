@@ -29,19 +29,20 @@ export class DomainsPage extends BasePage {
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
-    this.newDomainButton = page.locator('[data-testid="domains-new-domain-button"]');
-    this.domainNameInput = page.locator('[data-testid="create-domain-name"] input');
-    this.domainIdInput = page.locator('[data-testid="create-domain-id"] input');
-    this.createDomainConfirmButton = page.locator('[data-testid="create-domain-button"]');
-    this.domainSearchInput = page.locator('[placeholder="Search domains..."]');
-    this.batchAddButton = page.locator('[data-testid="domain-batch-add"]');
+    this.newDomainButton = page.getByTestId('domains-new-domain-button');
+    this.domainNameInput = page.getByTestId('create-domain-name').getByRole('textbox');
+    this.domainIdInput = page.getByTestId('create-domain-id').getByRole('textbox');
+    this.createDomainConfirmButton = page.getByTestId('create-domain-button');
+    this.domainSearchInput = page.getByPlaceholder('Search domains...');
+    this.batchAddButton = page.getByTestId('domain-batch-add');
     // AntD modal content scopes the search so it doesn't match the page-level search bar
-    this.modalSearchInput = page.locator('.ant-modal-content').locator('[data-testid="search-input"]');
-    this.continueButton = page.locator('#continueButton');
+    this.modalSearchInput = page.getByRole('dialog').getByTestId('search-input');
+    this.continueButton = page.getByTestId('search-select-modal-continue-button');
+    // eslint-disable-next-line playwright/no-raw-locators -- sidebar-domain-section has no data-testid; compound CSS selector required
     this.sidebarRemoveIcon = page.locator('.sidebar-domain-section [data-testid="remove-icon"]');
-    this.modalConfirmButton = page.locator('[data-testid="modal-confirm-button"]');
-    this.entityMenuDeleteButton = page.locator('[data-testid="entity-menu-delete-button"]');
-    this.entityTitle = page.locator('[data-testid="entity-title"]');
+    this.modalConfirmButton = page.getByTestId('modal-confirm-button');
+    this.entityMenuDeleteButton = page.getByTestId('entity-menu-delete-button');
+    this.entityTitle = page.getByTestId('entity-title');
   }
 
   async navigate(): Promise<void> {
@@ -87,7 +88,7 @@ export class DomainsPage extends BasePage {
   async addEntitiesToDomain(searchQuery: string, entityUrn: string): Promise<void> {
     await this.batchAddButton.click();
     // entityUrn is dynamic — checkbox testid includes the full URN at runtime
-    const checkbox = this.page.locator(`[data-testid="checkbox-${entityUrn}"]`);
+    const checkbox = this.page.getByTestId(`checkbox-${entityUrn}`);
     // The modal's SearchBar searches by entity display name. DataHub indexes BigQuery tables
     // by their table name (last dotted segment), not the fully-qualified path, so strip to
     // the last segment for a reliable match.
