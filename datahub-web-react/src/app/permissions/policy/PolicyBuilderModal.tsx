@@ -203,12 +203,12 @@ export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, o
                     </PrevButtonContainer>
                     <NextButtonContainer>
                         {activeStepIndex < policySteps.length - 1 && activeStep.complete && (
-                            <Button id="nextButton" onClick={() => next()}>
+                            <Button id="nextButton" data-testid="next-button" onClick={() => next()}>
                                 {tc('next')}
                             </Button>
                         )}
                         {activeStepIndex === policySteps.length - 1 && activeStep.complete && (
-                            <Button id="saveButton" onClick={onSavePolicy}>
+                            <Button id="saveButton" data-testid="save-button" onClick={onSavePolicy}>
                                 {tc('save')}
                             </Button>
                         )}
