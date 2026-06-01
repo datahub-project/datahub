@@ -191,9 +191,6 @@ def test_emit_task_run_raises_when_state_unknown():
         }
     )
 
-    client = MagicMock()
-    client.read_task_run = AsyncMock(return_value=task_run)
-
     from datahub.api.entities.datajob import DataJob
     from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 
@@ -202,14 +199,12 @@ def test_emit_task_run_raises_when_state_unknown():
     )
     datajob = DataJob(id="k", flow_urn=flow_urn, name="k")
 
-    with patch("prefect_datahub.datahub_emitter.orchestration") as mock_orch:
-        mock_orch.get_client.return_value = client
-        with pytest.raises(Exception, match="State"):
-            emitter._emit_task_run(
-                datajob=datajob,
-                flow_run_name="fr",
-                task_run_id=task_run.id,
-            )
+    with pytest.raises(Exception, match="State"):
+        emitter._emit_task_run(
+            datajob=datajob,
+            flow_run_name="fr",
+            task_run=task_run,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -338,3 +333,82 @@ def test_emit_single_task_skips_orphan_upstream(emitter, debug_logger):
         )
 
     assert datajob.upstream_urns == []
+
+
+# ---------------------------------------------------------------------------
+# _stringify_property — bare date type (not datetime)
+# ---------------------------------------------------------------------------
+
+
+def test_stringify_property_date_uses_isoformat():
+    from datetime import date
+
+    from prefect_datahub.datahub_emitter import _stringify_property
+
+    d = date(2024, 6, 15)
+    assert _stringify_property(d) == "2024-06-15"
+
+
+# ---------------------------------------------------------------------------
+# Task absent from graph_node_map: should emit without upstreams, not skip
+# ---------------------------------------------------------------------------
+
+
+def test_emit_single_task_absent_from_graph_emits_without_upstreams(
+    emitter, debug_logger
+):
+    """When a task_run is not in graph_node_map (async persistence lag), the task
+    should still be emitted with empty upstreams rather than being silently dropped."""
+    from prefect.client.schemas import TaskRun
+
+    from datahub.api.entities.datajob import DataFlow, DataJob
+
+    task_id = "33333333-3333-3333-3333-333333333333"
+    task_run = TaskRun.model_validate(
+        {
+            "id": task_id,
+            "name": "task_a",
+            "flow_run_id": VALID_FLOW_RUN_ID,
+            "task_key": "mod.task_a",
+            "dynamic_key": "0",
+            "state_type": "COMPLETED",
+            "state_name": "Completed",
+            "run_count": 1,
+            "flow_run_run_count": 1,
+            "total_run_time": 0.1,
+            "estimated_run_time": 0.1,
+            "estimated_start_time_delta": 0.0,
+        }
+    )
+
+    dataflow = DataFlow(
+        orchestrator="prefect", id="etl", env="PROD", platform_instance=None
+    )
+    datajob = DataJob(id="mod.task_a", flow_urn=dataflow.urn, name="mod.task_a")
+
+    flow_run_ctx = MagicMock()
+    flow_run_ctx.flow_run = MagicMock()
+    flow_run_ctx.flow.name = "etl"
+
+    emit_task_run_calls = []
+
+    def capture_emit_task_run(**kwargs):
+        emit_task_run_calls.append(kwargs)
+
+    with (
+        patch.object(emitter, "_generate_datajob", return_value=datajob),
+        patch.object(emitter, "_emit_task_run", side_effect=capture_emit_task_run),
+    ):
+        emitter._emit_single_task(
+            task_run=task_run,
+            flow_run_ctx=flow_run_ctx,
+            dataflow=dataflow,
+            task_run_key_map={task_id: "mod.task_a"},
+            graph_node_map={},  # task absent from graph
+            workspace_name=None,
+        )
+
+    assert datajob.upstream_urns == []
+    assert len(emit_task_run_calls) == 1, (
+        "task must still be emitted even when absent from graph"
+    )

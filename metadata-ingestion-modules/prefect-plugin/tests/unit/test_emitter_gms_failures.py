@@ -101,8 +101,6 @@ def _run_flow(rest_emitter_factory, debug_logger):
     task_runs, graph_json = _build_two_task_chain()
     flow_obj = Flow.model_validate(_flow_dict())
     flow_run_obj = FlowRun.model_validate(_flow_run_dict())
-    task_run_by_id = {str(tr.id): tr for tr in task_runs}
-
     flow_run_ctx = SimpleNamespace(
         flow=SimpleNamespace(name="test_flow", description=None),
         flow_run=SimpleNamespace(
@@ -112,9 +110,6 @@ def _run_flow(rest_emitter_factory, debug_logger):
             start_time=flow_run_obj.start_time,
         ),
     )
-
-    async def fake_read_task_run(*a, **kw):
-        return task_run_by_id.get(str(kw["task_run_id"]))
 
     async def fake_read_task_runs(*a, **kw):
         offset = kw.get("offset", 0)
@@ -147,7 +142,6 @@ def _run_flow(rest_emitter_factory, debug_logger):
     prefect_client = MagicMock()
     prefect_client.read_flow.side_effect = fake_read_flow
     prefect_client.read_flow_run.side_effect = fake_read_flow_run
-    prefect_client.read_task_run.side_effect = fake_read_task_run
     prefect_client.read_task_runs.side_effect = fake_read_task_runs
     prefect_client._client.get.side_effect = fake_graph_get
 

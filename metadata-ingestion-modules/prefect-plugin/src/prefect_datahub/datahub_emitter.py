@@ -3,7 +3,7 @@
 import asyncio
 import traceback
 from datetime import date, datetime
-from typing import Any, ClassVar, Dict, List, Optional, cast
+from typing import Any, ClassVar, Dict, List, Optional
 from uuid import UUID
 
 from prefect import get_run_logger
@@ -16,7 +16,7 @@ from prefect.client.schemas.sorting import TaskRunSort
 from prefect.context import FlowRunContext, TaskRunContext
 from prefect.settings import PREFECT_API_URL
 from prefect.utilities.asyncutils import run_coro_as_sync
-from pydantic import SecretStr
+from pydantic import PrivateAttr, SecretStr
 
 import datahub.emitter.mce_builder as builder
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -81,6 +81,9 @@ COMPLETE = "Completed"
 FAILED = "Failed"
 CANCELLED = "Cancelled"
 
+# Prefect server hard-caps read_task_runs results per request.
+_TASK_RUN_PAGE_SIZE = 200
+
 
 def _stringify_property(value: Any) -> str:
     # Pendulum's __str__ uses a space separator instead of ISO 8601 'T';
@@ -101,14 +104,13 @@ class DatahubEmitter(Block):
     env: str = builder.DEFAULT_ENV
     platform_instance: Optional[str] = None
     token: Optional[SecretStr] = None
-    _datajobs_to_emit: Dict[str, Any] = {}
+    _datajobs_to_emit: Dict[str, DataJob] = PrivateAttr(default_factory=dict)
 
     def __init__(self, *args: Any, **kwargs: Any):
         """
         Initialize datahub rest emitter
         """
         super().__init__(*args, **kwargs)
-        # self._datajobs_to_emit: Dict[str, _Entity] = {}
 
         token = self.token.get_secret_value() if self.token is not None else None
         self.emitter = DatahubRestEmitter(
@@ -288,8 +290,6 @@ class DatahubEmitter(Block):
 
         async def get_flow(flow_id: UUID) -> Flow:
             client = orchestration.get_client()
-            if not hasattr(client, "read_flow"):
-                raise ValueError("Client does not support async read_flow method")
             return await client.read_flow(flow_id=flow_id)
 
         assert flow_run_ctx.flow
@@ -349,13 +349,12 @@ class DatahubEmitter(Block):
         flow_run_id: str,
         offset: int,
     ) -> List[TaskRun]:
-        # Prefect server hard-caps read_task_runs at 200 results/request.
         client = orchestration.get_client()
         flow_run_filter = FlowRunFilter(id=FlowRunFilterId(any_=[UUID(flow_run_id)]))
         return await client.read_task_runs(
             flow_run_filter=flow_run_filter,
             sort=TaskRunSort.ID_DESC,
-            limit=200,
+            limit=_TASK_RUN_PAGE_SIZE,
             offset=offset,
         )
 
@@ -369,9 +368,9 @@ class DatahubEmitter(Block):
             while True:
                 batch = await self._fetch_task_runs_page(flow_run_id, offset)
                 runs.extend(batch)
-                if len(batch) < 200:
+                if len(batch) < _TASK_RUN_PAGE_SIZE:
                     break
-                offset += 200
+                offset += _TASK_RUN_PAGE_SIZE
             # ID_DESC + offset paging can repeat a row when task_runs are being
             # persisted between page fetches (UUIDs aren't monotonic, so a new
             # row can land anywhere in the sort order). Dedup by id.
@@ -438,7 +437,9 @@ class DatahubEmitter(Block):
             }
 
             # graph_json can lag task_runs (async persistence); use only for upstream lookup.
-            graph_node_map: Dict[str, Dict] = {node[ID]: node for node in graph_json}
+            graph_node_map: Dict[str, Dict[str, Any]] = {
+                node[ID]: node for node in graph_json
+            }
 
             for task_run in task_runs:
                 try:
@@ -461,7 +462,7 @@ class DatahubEmitter(Block):
         flow_run_ctx: FlowRunContext,
         dataflow: DataFlow,
         task_run_key_map: Dict[str, str],
-        graph_node_map: Dict[str, Dict],
+        graph_node_map: Dict[str, Dict[str, Any]],
         workspace_name: Optional[str],
     ) -> None:
         task_key = task_run.task_key
@@ -473,7 +474,7 @@ class DatahubEmitter(Block):
 
         datajob: Optional[DataJob]
         if str(datajob_urn) in self._datajobs_to_emit:
-            datajob = cast(DataJob, self._datajobs_to_emit[str(datajob_urn)])
+            datajob = self._datajobs_to_emit[str(datajob_urn)]
         else:
             datajob = self._generate_datajob(
                 flow_run_ctx=flow_run_ctx, task_key=task_key
@@ -492,7 +493,7 @@ class DatahubEmitter(Block):
                     data_flow_urn=str(dataflow.urn),
                     job_id=upstream_key,
                 )
-                datajob.upstream_urns.extend([upstream_task_urn])
+                datajob.upstream_urns.append(upstream_task_urn)
 
         datajob.emit(self.emitter)
 
@@ -503,7 +504,7 @@ class DatahubEmitter(Block):
         self._emit_task_run(
             datajob=datajob,
             flow_run_name=flow_run_ctx.flow_run.name,
-            task_run_id=task_run.id,
+            task_run=task_run,
         )
 
     def _emit_flow_run(self, dataflow: DataFlow, flow_run_id: UUID) -> None:
@@ -520,8 +521,6 @@ class DatahubEmitter(Block):
 
         async def get_flow_run(flow_run_id: UUID) -> FlowRun:
             client = orchestration.get_client()
-            if not hasattr(client, "read_flow_run"):
-                raise ValueError("Client does not support async read_flow_run method")
             return await client.read_flow_run(flow_run_id=flow_run_id)
 
         flow_run: FlowRun = run_coro_as_sync(get_flow_run(flow_run_id))
@@ -564,7 +563,7 @@ class DatahubEmitter(Block):
             )
 
     def _emit_task_run(
-        self, datajob: DataJob, flow_run_name: str, task_run_id: UUID
+        self, datajob: DataJob, flow_run_name: str, task_run: TaskRun
     ) -> None:
         """
         Emit prefect task run to datahub rest. Prefect task run get mapped with datahub
@@ -575,19 +574,8 @@ class DatahubEmitter(Block):
             datajob (DataJob): The datahub datajob entity used to create \
                 data process instance.
             flow_run_name (str): The prefect current running flow run name.
-            task_run_id (str): The prefect task run id.
+            task_run (TaskRun): The prefect task run.
         """
-
-        async def get_task_run(task_run_id: UUID) -> TaskRun:
-            client = orchestration.get_client()
-            if not hasattr(client, "read_task_run"):
-                raise ValueError("Client does not support async read_task_run method")
-            return await client.read_task_run(task_run_id=task_run_id)
-
-        task_run: TaskRun = run_coro_as_sync(get_task_run(task_run_id))
-
-        assert task_run
-
         if self.platform_instance is not None:
             dpi_id = f"{self.platform_instance}.{flow_run_name}.{task_run.name}"
         else:
@@ -706,7 +694,7 @@ class DatahubEmitter(Block):
                     datajob.inlets.extend(self._entities_to_urn_list(inputs))
                 if outputs is not None:
                     datajob.outlets.extend(self._entities_to_urn_list(outputs))
-                self._datajobs_to_emit[str(datajob.urn)] = cast(_Entity, datajob)
+                self._datajobs_to_emit[str(datajob.urn)] = datajob
         except Exception:
             get_run_logger().debug(traceback.format_exc())
 

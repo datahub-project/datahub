@@ -185,3 +185,26 @@ def test_stable_late_stabilisation_does_not_warn(emitter, fast_sleep, mock_run_l
 
     assert len(result) == 5
     mock_run_logger.warning.assert_not_called()
+
+
+def test_stable_dedup_removes_cross_page_duplicates(emitter, fast_sleep):
+    """When offset paging returns a task_run ID already seen on a prior page
+    (possible if a row is inserted between page fetches), the dedup-by-id step
+    must collapse duplicates so each task run appears exactly once."""
+    page1 = _fake_task_runs(200, start=0)
+    # Simulate a race: page2 includes an ID already returned by page1
+    dup = _make_task_run(str(page1[5].id))
+    new = _make_task_run("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+    page2 = [dup, new]
+
+    async def side(_flow_run_id, offset):
+        return page1 if offset == 0 else page2
+
+    with patch.object(
+        emitter, "_fetch_task_runs_page", new=AsyncMock(side_effect=side)
+    ):
+        result = asyncio.run(emitter._fetch_all_task_runs_stable(VALID_FLOW_RUN_ID))
+
+    assert len(result) == 201  # 200 unique from page1 + 1 new (dup collapsed)
+    ids = [str(r.id) for r in result]
+    assert ids.count(str(page1[5].id)) == 1
