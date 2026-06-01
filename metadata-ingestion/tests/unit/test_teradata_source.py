@@ -4444,7 +4444,7 @@ class TestViewProcessingErrorCounters:
     )
     def test_single_threaded_error_increments_correct_counter(
         self, exc: BaseException, expected_counter: str
-    ):
+    ) -> None:
         all_counters = [
             "view_timeout_errors",
             "view_parse_errors",
@@ -4576,7 +4576,7 @@ class TestViewProcessingErrorCounters:
     )
     def test_multi_threaded_error_increments_correct_counter(
         self, exc: BaseException, expected_counter: str
-    ):
+    ) -> None:
         all_counters = [
             "view_timeout_errors",
             "view_parse_errors",
