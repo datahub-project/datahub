@@ -1200,7 +1200,9 @@ jobs:
         timeout-minutes: 60
         if: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
         run: |
-          ./gradlew :docker:buildImagesQuickstartDebugConsumers -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
+          BUILD_TASK="${{ needs.setup.outputs.smoke_build_task || ':docker:buildImagesQuickstartDebugConsumers' }}"
+          echo "Using build task: $BUILD_TASK"
+          ./gradlew $BUILD_TASK -Ptag=${{ needs.setup.outputs.tag }} -PpythonDockerVersion=${{ needs.setup.outputs.python_release_version }} -PdockerRegistry=${{ env.DOCKER_REGISTRY }}
           docker images
         env:
           DOCKER_CACHE: GITHUB
@@ -1218,7 +1220,12 @@ jobs:
           SKIP_INSTALL_DEV: "true"
           ACTIONS_EXTRA_PACKAGES: "acryl-datahub-actions[executor] acryl-datahub-actions"
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
-        run: ./smoke-test/run-quickstart.sh
+          # Must match smoke_test and base_build (e.g. smoke:quickstartPg → quickstart-postgres).
+          # Default quickstart-consumers requires mae/mce images that are not built for pg-only profiles.
+          PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
+        run: |
+          echo "Using compose profile: $PROFILE_NAME"
+          ./smoke-test/run-quickstart.sh
 
       - name: Disable ES Disk Threshold
         run: |

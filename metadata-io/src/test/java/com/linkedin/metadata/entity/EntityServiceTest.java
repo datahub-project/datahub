@@ -617,6 +617,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
+    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -684,6 +685,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
+    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
 
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
@@ -708,6 +710,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             EntityKeyUtils.convertUrnToEntityKey(
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
+    restateChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
@@ -779,6 +782,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     initialChangeLog.setAspect(genericAspect);
     initialChangeLog.setSystemMetadata(metadata1);
+    initialChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
 
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
@@ -800,6 +804,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setPreviousSystemMetadata(
         simulatePullFromDB(metadata1, SystemMetadata.class)
             .setLastRunId(null, SetMode.REMOVE_IF_NULL));
+    restateChangeLog.setHeaders(new StringMap(Map.of(MCL_HEADER_DATABASE_ASPECT_VERSION, "0")));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(

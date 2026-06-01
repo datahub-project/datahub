@@ -1,6 +1,6 @@
 package com.linkedin.gms.factory.system_telemetry;
 
-import static com.linkedin.metadata.utils.metrics.MetricUtils.KAFKA_MESSAGE_QUEUE_TIME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.MESSAGING_QUEUE_TIME;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
@@ -29,10 +29,10 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 @SpringBootTest
-public class KafkaMetricsConfigurationTest {
+public class MessagingQueueMetricsConfigurationTest {
 
   private ApplicationContextRunner contextRunner;
-  private KafkaMetricsConfiguration configuration;
+  private MessagingQueueMetricsConfiguration configuration;
 
   @Mock private ConfigurationProvider configurationProvider;
   @Mock private KafkaConfiguration kafkaConfiguration;
@@ -44,11 +44,11 @@ public class KafkaMetricsConfigurationTest {
   @BeforeMethod
   public void setUp() {
     mockitoCloseable = MockitoAnnotations.openMocks(this);
-    configuration = new KafkaMetricsConfiguration();
+    configuration = new MessagingQueueMetricsConfiguration();
 
     contextRunner =
         new ApplicationContextRunner()
-            .withUserConfiguration(KafkaMetricsConfiguration.class)
+            .withUserConfiguration(MessagingQueueMetricsConfiguration.class)
             .withBean(ConfigurationProvider.class, () -> configurationProvider);
 
     // Setup mock chain
@@ -85,7 +85,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -115,7 +115,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -124,7 +124,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Get the histogram snapshot
@@ -147,12 +147,12 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Test with SimpleMeterRegistry
     SimpleMeterRegistry simpleRegistry = new SimpleMeterRegistry();
     customizer.customize(simpleRegistry);
-    Timer simpleTimer = simpleRegistry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer simpleTimer = simpleRegistry.timer(MESSAGING_QUEUE_TIME);
     simpleTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(simpleTimer.count()).isEqualTo(1);
 
@@ -160,7 +160,7 @@ public class KafkaMetricsConfigurationTest {
     PrometheusMeterRegistry prometheusRegistry =
         new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
     customizer.customize(prometheusRegistry);
-    Timer prometheusTimer = prometheusRegistry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer prometheusTimer = prometheusRegistry.timer(MESSAGING_QUEUE_TIME);
     prometheusTimer.record(250, TimeUnit.MILLISECONDS);
     assertThat(prometheusTimer.count()).isEqualTo(1);
   }
@@ -174,7 +174,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry with its own default config
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -197,7 +197,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(50, TimeUnit.MILLISECONDS);
 
     // Verify our custom config overrides the defaults
@@ -215,7 +215,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -224,7 +224,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer and record various values
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(500, TimeUnit.MILLISECONDS);
     timer.record(5000, TimeUnit.MILLISECONDS);
     timer.record(50000, TimeUnit.MILLISECONDS);
@@ -244,7 +244,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -253,7 +253,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
 
     // Record values over time
     for (int i = 0; i < 100; i++) {
@@ -276,7 +276,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -285,7 +285,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -301,7 +301,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -310,7 +310,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create a timer with the specific name
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
 
     // Record values in milliseconds (common usage pattern)
     timer.record(50, TimeUnit.MILLISECONDS); // 50ms
@@ -341,7 +341,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -350,7 +350,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
 
     // Record values that test SLO boundaries
     timer.record(50, TimeUnit.MILLISECONDS); // Under first SLO (100ms)
@@ -371,7 +371,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -380,7 +380,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer and record various values
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(500, TimeUnit.MILLISECONDS); // 0.5 seconds
     timer.record(5, TimeUnit.SECONDS); // 5 seconds
     timer.record(50, TimeUnit.SECONDS); // 50 seconds
@@ -400,7 +400,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -409,7 +409,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
     timer.record(100, TimeUnit.MILLISECONDS);
 
     // Verify timer works correctly
@@ -425,7 +425,7 @@ public class KafkaMetricsConfigurationTest {
 
     // Create the customizer
     MeterRegistryCustomizer<MeterRegistry> customizer =
-        configuration.kafkaMetricsCustomizer(configurationProvider);
+        configuration.messagingQueueMetricsCustomizer(configurationProvider);
 
     // Create a test registry
     SimpleMeterRegistry registry = new SimpleMeterRegistry();
@@ -434,7 +434,7 @@ public class KafkaMetricsConfigurationTest {
     customizer.customize(registry);
 
     // Create the Kafka timer
-    Timer timer = registry.timer(KAFKA_MESSAGE_QUEUE_TIME);
+    Timer timer = registry.timer(MESSAGING_QUEUE_TIME);
 
     // Record values around the fractional SLO boundaries
     timer.record(25, TimeUnit.MILLISECONDS); // Under 50ms

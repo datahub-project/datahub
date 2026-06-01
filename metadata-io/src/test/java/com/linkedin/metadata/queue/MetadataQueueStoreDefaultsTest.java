@@ -88,5 +88,6 @@ public class MetadataQueueStoreDefaultsTest {
         () ->
             store.resetConsumerOffsets(
                 ConsumerOffsetResetSpec.builder().consumerGroup("g").topicName("t").build()));
+    expectThrows(UnsupportedOperationException.class, () -> store.applyRetention());
   }
 }

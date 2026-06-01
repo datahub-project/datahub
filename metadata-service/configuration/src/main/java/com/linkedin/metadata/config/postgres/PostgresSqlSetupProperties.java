@@ -61,6 +61,13 @@ public class PostgresSqlSetupProperties {
   private PgQueue pgQueue = new PgQueue();
   private PgCron pgCron = new PgCron();
 
+  /**
+   * Optional Kafka topic catalog for {@link #buildPgQueueOptions()} when {@link
+   * PgQueue#inheritKafkaTopics} is true. Set by Spring wiring ({@code ConfigurationProvider}) — not
+   * bound from {@code postgres.*} YAML.
+   */
+  @Nullable private KafkaConfiguration kafkaConfiguration;
+
   /** Disables all optional SqlSetup PostgreSQL extension steps (for tests or non-Spring use). */
   public static PostgresSqlSetupProperties disabled() {
     PostgresSqlSetupProperties p = new PostgresSqlSetupProperties();
@@ -117,7 +124,7 @@ public class PostgresSqlSetupProperties {
 
   /** Built queue options, or null when {@code postgres.pgQueue.enabled} is false. */
   public PgQueueSetupOptions buildPgQueueOptions() {
-    return buildPgQueueOptions(null);
+    return buildPgQueueOptions(kafkaConfiguration);
   }
 
   /**
@@ -693,6 +700,25 @@ public class PostgresSqlSetupProperties {
 
     private Retention retention = new Retention();
     private Maintenance maintenance = new Maintenance();
+    private ConsumerPoll consumerPoll;
+
+    @Getter
+    @Setter
+    public static class ConsumerPoll {
+      /** Sleep when a poll returns no messages (most pipelines). */
+      private Long emptyPollSleepMillis;
+
+      /**
+       * Shorter empty-poll sleep for MCL hook pollers; falls back to {@link #emptyPollSleepMillis}.
+       */
+      private Long mclEmptyPollSleepMillis;
+
+      /** Sleep when the logical topic is not registered in pgQueue. */
+      private Long missingTopicSleepMillis;
+
+      /** Sleep after an unexpected poll/processing error before retrying. */
+      private Long errorRecoverySleepMillis;
+    }
 
     @Getter
     @Setter
