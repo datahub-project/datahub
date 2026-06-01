@@ -1,6 +1,5 @@
 import logging
 import time
-import uuid
 from datetime import datetime
 from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
 
@@ -8,7 +7,6 @@ from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-    make_domain_urn,
     make_group_urn,
     make_user_urn,
 )
@@ -62,9 +60,9 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     ViewPropertiesClass,
 )
+from datahub.utilities.registries.domain_registry import DomainRegistry
 
 logger = logging.getLogger(__name__)
-namespace = uuid.NAMESPACE_DNS
 
 
 class DremioContainerKey(ContainerKey):
@@ -139,12 +137,14 @@ class DremioAspects:
         env: str,
         ingest_owner: bool,
         domain: Optional[str] = None,
+        domain_registry: Optional[DomainRegistry] = None,
         platform_instance: Optional[str] = None,
     ):
         self.platform = platform
         self.platform_instance = platform_instance
         self.env = env
         self.domain = domain
+        self.domain_registry = domain_registry
         self.ui_url = ui_url
         self.ingest_owner = ingest_owner
 
@@ -170,17 +170,15 @@ class DremioAspects:
         return container_key.as_urn()
 
     def create_domain_aspect(self) -> Optional[_Aspect]:
-        if self.domain:
-            if self.domain.startswith("urn:li:domain:"):
-                return DomainsClass(domains=[self.domain])
-            return DomainsClass(
-                domains=[
-                    make_domain_urn(
-                        str(uuid.uuid5(namespace, self.domain)),
-                    )
-                ]
-            )
-        return None
+        if not self.domain:
+            return None
+        if self.domain.startswith("urn:li:domain:"):
+            return DomainsClass(domains=[self.domain])
+        # DremioSource builds the registry up-front, and DomainRegistry
+        # raises ValueError on bare names with no graph, so by here
+        # domain_registry is guaranteed non-None.
+        assert self.domain_registry is not None
+        return DomainsClass(domains=[self.domain_registry.get_domain_urn(self.domain)])
 
     def populate_container_mcp(
         self, container_urn: str, container: DremioContainer
@@ -227,6 +225,14 @@ class DremioAspects:
             aspect=subtypes,
         )
         yield mcp.as_workunit()
+
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
 
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
@@ -310,6 +316,14 @@ class DremioAspects:
             logger.warning(
                 f"Dataset {dataset.path}.{dataset.resource_name} will have a null schema"
             )
+
+        domain_aspect = self.create_domain_aspect()
+        if domain_aspect:
+            mcp = MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=domain_aspect,
+            )
+            yield mcp.as_workunit()
 
         status = StatusClass(removed=False)
         mcp = MetadataChangeProposalWrapper(
