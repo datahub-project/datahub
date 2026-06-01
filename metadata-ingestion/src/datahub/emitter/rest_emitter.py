@@ -739,7 +739,12 @@ class DataHubRestEmitter(Closeable, Emitter):
                 "so this metadata will likely fail to be emitted."
             )
 
-        self._emit_generic(url, payload)
+        response = self._emit_generic(url, payload)
+        logger.debug(
+            "Sent MCE successfully urn=%s status=%d",
+            mce.proposedSnapshot.urn,
+            response.status_code,
+        )
 
     @overload
     @deprecated("Use emit_mode instead of async_flag")
@@ -772,6 +777,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         ensure_has_system_metadata(mcp)
 
         trace_data: Optional[TraceData] = None
+        response: Optional[requests.Response] = None
 
         if self._openapi_ingestion:
             request = self._to_openapi_request(mcp, emit_mode)
@@ -817,6 +823,15 @@ class DataHubRestEmitter(Closeable, Emitter):
                 )
                 if response
                 else None
+            )
+
+        if response is not None:
+            logger.debug(
+                "Sent MCP successfully urn=%s aspect=%s status=%d trace_id=%s",
+                mcp.entityUrn,
+                mcp.aspectName,
+                response.status_code,
+                trace_data.trace_id if trace_data else None,
             )
 
         if trace_data:
@@ -905,8 +920,13 @@ class DataHubRestEmitter(Closeable, Emitter):
                 current_chunk.add_item(serialized_item)
 
         trace_data: List[TraceData] = []
+        # Chunks are grouped by (method, url), so track a global index/total to
+        # keep chunk=i/total truthful across all groups.
+        total_chunks = sum(len(group) for group in batches.values())
+        chunk_index = 0
         for (method, url), chunks in batches.items():
             for chunk in chunks:
+                chunk_index += 1
                 response = self._emit_generic(
                     url, payload=_Chunk.join(chunk), method=method
                 )
@@ -916,6 +936,15 @@ class DataHubRestEmitter(Closeable, Emitter):
                     )
                     if response
                     else None
+                )
+                logger.debug(
+                    "Sent MCP batch successfully chunk=%d/%d method=%s items=%d status=%d trace_id=%s",
+                    chunk_index,
+                    total_chunks,
+                    method,
+                    len(chunk.items),
+                    response.status_code,
+                    data.trace_id if data else None,
                 )
                 if data is not None:
                     if _DATAHUB_EMITTER_TRACE:
@@ -987,7 +1016,7 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
 
         trace_data: List[TraceData] = []
-        for mcp_obj_chunk, mcp_chunk in chunks:
+        for chunk_index, (mcp_obj_chunk, mcp_chunk) in enumerate(chunks, start=1):
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
             # the size when chunking, and again for the actual request.
             payload_dict: dict = {
@@ -1004,7 +1033,24 @@ class DataHubRestEmitter(Closeable, Emitter):
                 if response
                 else None
             )
+            logger.debug(
+                "Sent MCP batch successfully chunk=%d/%d items=%d status=%d trace_id=%s",
+                chunk_index,
+                len(chunks),
+                len(mcp_chunk),
+                response.status_code,
+                data.trace_id if data else None,
+            )
             if data is not None:
+                if _DATAHUB_EMITTER_TRACE:
+                    try:
+                        logger.info(
+                            f"MCP batch trace_id={data.trace_id} "
+                            f"timestamp={data.extract_timestamp()} "
+                            f"urns={list(data.data.keys())}"
+                        )
+                    except Exception as e:
+                        logger.debug(f"Failed to log trace data: {e}")
                 trace_data.append(data)
 
         return trace_data
@@ -1018,7 +1064,13 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         snapshot = {"buckets": [usage_obj]}
         payload = json.dumps(snapshot)
-        self._emit_generic(url, payload)
+        response = self._emit_generic(url, payload)
+        logger.debug(
+            "Sent usage stats successfully resource=%s bucket=%s status=%d",
+            usageStats.resource,
+            usageStats.bucket,
+            response.status_code,
+        )
 
     def _emit_generic(
         self, url: str, payload: Union[str, Any], method: str = "POST"
@@ -1026,24 +1078,24 @@ class DataHubRestEmitter(Closeable, Emitter):
         if not isinstance(payload, str):
             payload = json.dumps(payload)
 
-        curl_command = make_curl_command(self._session, method, url, payload)
         payload_size = len(payload)
         if payload_size > INGEST_MAX_PAYLOAD_BYTES:
             # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
             logger.warning(
                 f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
             )
-        logger.debug(
-            "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
-            payload_size,
-            curl_command,
-        )
         try:
             method_func = getattr(self._session, method.lower())
             response = method_func(url, data=payload) if payload else method_func(url)
             response.raise_for_status()
             return response
         except HTTPError as e:
+            logger.debug(
+                "Failed to emit to DataHub GMS (status=%s, payload_size=%d bytes); curl equivalent:\n%s",
+                response.status_code,
+                payload_size,
+                make_curl_command(self._session, method, url, payload),
+            )
             try:
                 info: Dict = response.json()
 
@@ -1069,6 +1121,11 @@ class DataHubRestEmitter(Closeable, Emitter):
                     "Unable to emit metadata to DataHub GMS", {"message": str(e)}
                 ) from e
         except RequestException as e:
+            logger.debug(
+                "Failed to emit to DataHub GMS (no response received, payload_size=%d bytes); curl equivalent:\n%s",
+                payload_size,
+                make_curl_command(self._session, method, url, payload),
+            )
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
@@ -1097,6 +1154,11 @@ class DataHubRestEmitter(Closeable, Emitter):
             start_time = datetime.now()
 
             for trace in trace_data:
+                logger.debug(
+                    "awaiting async write trace_id=%s urns=%d",
+                    trace.trace_id,
+                    len(trace.data),
+                )
                 current_backoff = TRACE_INITIAL_BACKOFF
 
                 while trace.data:
