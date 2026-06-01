@@ -10,15 +10,19 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import co.elastic.clients.elasticsearch._helpers.bulk.BulkIngester;
+import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.bulk.BulkOperation;
 import co.elastic.clients.elasticsearch.core.search.FieldSuggester;
 import co.elastic.clients.elasticsearch.indices.update_aliases.Action;
+import co.elastic.clients.json.JsonpUtils;
+import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.Map;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.index.IndexRequest;
@@ -29,6 +33,8 @@ import org.opensearch.common.xcontent.XContentType;
 import org.opensearch.core.xcontent.XContentParser;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.AggregatorFactories;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.suggest.Suggest;
 import org.opensearch.search.suggest.SuggestBuilder;
@@ -373,6 +379,42 @@ public class Es8SearchClientShimConversionTest {
 
     Query result = invokeConvertQuery(QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L));
     assertNotNull(result);
+  }
+
+  /**
+   * AnalyticsService embeds date-range filters in filter aggregations; convertAggregations must
+   * normalize legacy range bounds the same way convertQuery does.
+   */
+  @Test
+  public void testConvertAggregationsNormalizesLegacyRangeBoundsInFilterAgg() throws Exception {
+    SearchSourceBuilder source = new SearchSourceBuilder();
+    source.aggregation(
+        AggregationBuilders.filter(
+            "filtered",
+            QueryBuilders.boolQuery()
+                .must(QueryBuilders.rangeQuery("timestamp").gte(100L).lt(200L))));
+
+    assertTrue(source.aggregations().toString().contains("\"from\""));
+
+    Method convertAggregationsMethod =
+        Es8SearchClientShim.class.getDeclaredMethod(
+            "convertAggregations", AggregatorFactories.Builder.class);
+    convertAggregationsMethod.setAccessible(true);
+
+    @SuppressWarnings("unchecked")
+    Map<String, Aggregation> aggregations =
+        (Map<String, Aggregation>) convertAggregationsMethod.invoke(shim, source.aggregations());
+
+    assertNotNull(aggregations);
+    assertTrue(aggregations.containsKey("filtered"));
+
+    ObjectMapper objectMapper = new ObjectMapper();
+    String serialized =
+        JsonpUtils.toJsonString(aggregations.get("filtered"), new JacksonJsonpMapper(objectMapper));
+    assertFalse(serialized.contains("\"from\""));
+    assertFalse(serialized.contains("\"to\""));
+    assertTrue(serialized.contains("\"gte\":100"));
+    assertTrue(serialized.contains("\"lt\":200"));
   }
 
   /** Helper method to invoke the private convertQuery method via reflection. */
