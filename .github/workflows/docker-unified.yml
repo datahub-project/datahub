@@ -115,6 +115,7 @@ jobs:
         env:
           GITHUB_REF_FALLBACK: ${{ github.event_name == 'release' && format('refs/tags/{0}', github.event.release.tag_name) || github.ref}}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           source .github/scripts/docker_helpers.sh
           {
@@ -362,6 +363,61 @@ jobs:
             ~/.gradle/caches/jars-*
             ~/.gradle/caches/transforms-*
           key: gradle-plugins-cache
+
+  comment_pr_images:
+    name: Comment PR image tags
+    runs-on: ubuntu-latest
+    needs: [setup, base_build]
+    if: ${{ github.event_name == 'pull_request' && needs.setup.outputs.pr-publish == 'true' }}
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Upsert PR image comment
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          PR_TAG: ${{ needs.setup.outputs.tag }}
+          SHORT_SHA: ${{ needs.setup.outputs.short_sha }}
+          REGISTRY: ${{ env.DOCKER_REGISTRY }}
+        with:
+          script: |
+            const marker = '<!-- pr-docker-images -->';
+            const { PR_TAG, SHORT_SHA, REGISTRY } = process.env;
+            const body = [
+              marker,
+              '## 🐳 Docker Images Published for Testing',
+              '',
+              `Images for this PR have been published to the [\`${REGISTRY}\`](https://hub.docker.com/u/${REGISTRY}) Docker Hub registry, tagged \`${PR_TAG}\`.`,
+              '',
+              'Run DataHub quickstart with these images:',
+              '',
+              '```bash',
+              `DATAHUB_VERSION=${PR_TAG} datahub docker quickstart`,
+              '```',
+              '',
+              'Or pull an individual image, e.g.:',
+              '',
+              '```bash',
+              `docker pull ${REGISTRY}/datahub-gms:${PR_TAG}`,
+              '```',
+              '',
+              `Pinned to commit \`${SHORT_SHA}\`.`,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+            });
+            const existing = comments.find(
+              (c) => c.user?.type === 'Bot' && c.body?.includes(marker),
+            );
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+            }
 
   smoke_test_matrix:
     runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
