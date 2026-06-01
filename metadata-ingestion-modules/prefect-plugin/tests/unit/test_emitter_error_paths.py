@@ -219,7 +219,8 @@ def test_add_task_swallows_missing_context(emitter, debug_logger):
     ):
         mflow.get.return_value = None
         mtask.get.return_value = None
-        emitter.add_task()  # must not raise; early-returns silently when context is absent
+        emitter.add_task()
+    debug_logger.debug.assert_called()
 
 
 # ---------------------------------------------------------------------------
@@ -230,7 +231,8 @@ def test_add_task_swallows_missing_context(emitter, debug_logger):
 def test_emit_flow_swallows_missing_context(emitter, debug_logger):
     with patch("prefect_datahub.datahub_emitter.FlowRunContext") as mflow:
         mflow.get.return_value = None
-        emitter.emit_flow()  # must not raise; early-returns silently when context is absent
+        emitter.emit_flow()
+    debug_logger.debug.assert_called()
 
 
 # ---------------------------------------------------------------------------

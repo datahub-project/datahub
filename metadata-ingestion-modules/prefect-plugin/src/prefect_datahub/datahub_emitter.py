@@ -225,8 +225,7 @@ class DatahubEmitter(Block):
         Returns:
             The datajob entity.
         """
-        if flow_run_ctx.flow is None:
-            return None
+        assert flow_run_ctx.flow
 
         dataflow_urn = DataFlowUrn.create_from_ids(
             orchestrator=ORCHESTRATOR,
@@ -293,14 +292,16 @@ class DatahubEmitter(Block):
             client = orchestration.get_client()
             return await client.read_flow(flow_id=flow_id)
 
-        if flow_run_ctx.flow is None or flow_run_ctx.flow_run is None:
-            return None
+        assert flow_run_ctx.flow
+        assert flow_run_ctx.flow_run
 
         try:
             flow: Flow = run_coro_as_sync(get_flow(flow_run_ctx.flow_run.flow_id))
         except Exception:
             get_run_logger().debug(traceback.format_exc())
             return None
+
+        assert flow
 
         dataflow = DataFlow(
             orchestrator=ORCHESTRATOR,
@@ -418,8 +419,7 @@ class DatahubEmitter(Block):
             workspace_name Optional(str): The prefect cloud workpace name.
         """
         try:
-            if flow_run_ctx.flow_run is None:
-                return
+            assert flow_run_ctx.flow_run
 
             graph_json = run_coro_as_sync(
                 self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
@@ -500,8 +500,7 @@ class DatahubEmitter(Block):
         if workspace_name is not None:
             self._emit_browsepath(str(datajob.urn), workspace_name)
 
-        if flow_run_ctx.flow_run is None:
-            return
+        assert flow_run_ctx.flow_run
         self._emit_task_run(
             datajob=datajob,
             flow_run_name=flow_run_ctx.flow_run.name,
@@ -525,6 +524,8 @@ class DatahubEmitter(Block):
             return await client.read_flow_run(flow_run_id=flow_run_id)
 
         flow_run: FlowRun = run_coro_as_sync(get_flow_run(flow_run_id))
+
+        assert flow_run
 
         if self.platform_instance is not None:
             dpi_id = f"{self.platform_instance}.{flow_run.name}"
@@ -681,8 +682,8 @@ class DatahubEmitter(Block):
             flow_run_ctx = FlowRunContext.get()
             task_run_ctx = TaskRunContext.get()
 
-            if flow_run_ctx is None or task_run_ctx is None:
-                return
+            assert flow_run_ctx
+            assert task_run_ctx
 
             datajob = self._generate_datajob(
                 flow_run_ctx=flow_run_ctx, task_run_ctx=task_run_ctx
@@ -724,8 +725,8 @@ class DatahubEmitter(Block):
         try:
             flow_run_ctx = FlowRunContext.get()
 
-            if flow_run_ctx is None or flow_run_ctx.flow_run is None:
-                return
+            assert flow_run_ctx
+            assert flow_run_ctx.flow_run
 
             workspace_name = self._get_workspace()
 
