@@ -1,6 +1,7 @@
 import { FileText } from '@phosphor-icons/react/dist/csr/FileText';
 import { List } from 'antd';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -67,6 +68,7 @@ interface RelatedDocumentItemProps {
 export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ document, onClick }) => {
     const theme = useTheme();
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.profile.documentation');
     const lastModified = document.info?.lastModified;
     const actor = lastModified?.actor;
 
@@ -86,28 +88,31 @@ export const RelatedDocumentItem: React.FC<RelatedDocumentItemProps> = ({ docume
                 </IconContainer>
                 <ContentContainer>
                     <TitleLink href="#" onClick={handleClick}>
-                        {document.info?.title || 'Untitled Document'}
+                        {document.info?.title || t('untitledDocument')}
                     </TitleLink>
                     {lastModified?.time && (
                         <Description>
-                            Edited {formatDateString(lastModified.time)}
-                            {actor && (
-                                <>
-                                    {' by '}
-                                    {(() => {
-                                        // New type where actor is a full Entity (CorpUser)
-                                        const actorEntity = actor;
-                                        return isActor(actorEntity) ? (
+                            {actor && isActor(actor) ? (
+                                <Trans
+                                    i18nKey="editedByUser"
+                                    ns="entity.profile.documentation"
+                                    values={{
+                                        date: formatDateString(lastModified.time),
+                                        name:
+                                            getActorDisplayName(actor) ||
+                                            entityRegistry.getDisplayName(actor.type, actor),
+                                    }}
+                                    components={{
+                                        link: (
                                             <Link
-                                                to={`${entityRegistry.getEntityUrl(actorEntity.type, actorEntity.urn)}`}
+                                                to={`${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                                                 onClick={(e) => e.stopPropagation()}
-                                            >
-                                                {getActorDisplayName(actorEntity) ||
-                                                    entityRegistry.getDisplayName(actorEntity.type, actorEntity)}
-                                            </Link>
-                                        ) : null;
-                                    })()}
-                                </>
+                                            />
+                                        ),
+                                    }}
+                                />
+                            ) : (
+                                formatDateString(lastModified.time)
                             )}
                         </Description>
                     )}
