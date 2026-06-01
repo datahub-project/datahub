@@ -1,5 +1,6 @@
 import logging
 from functools import partial
+from typing import Iterable, List
 from unittest.mock import Mock
 
 import pytest
@@ -186,11 +187,11 @@ class TestIncrementalLineageWiring:
 
     def _run_through_dremio_pipeline(
         self, source: DremioSource, workunit: "MetadataWorkUnit"
-    ) -> list:
+    ) -> List["MetadataWorkUnit"]:
         # Skip the stale-entity-removal handler (needs graph +
         # checkpointing wiring this test doesn't set up); just compose
         # the lineage / property handlers we're asserting on.
-        stream = iter([workunit])
+        stream: Iterable["MetadataWorkUnit"] = iter([workunit])
         stream = partial(auto_incremental_lineage, source.config.incremental_lineage)(
             stream
         )
