@@ -8,8 +8,13 @@ export function gmsUrl(baseUrl?: string): string {
 
 export const DEFAULT_TIMEOUT = 30000;
 export const NETWORK_IDLE_TIMEOUT = 10000;
+export const WAIT_TIMEOUT = 10000;
+export const SHORT_TIMEOUT = 5000;
+export const MODAL_TIMEOUT = 15000;
 export const ANIMATION_TIMEOUT = 500;
 export const POLL_INTERVAL = 500;
+export const UI_SYNC_DELAY = 200;
+export const TABLE_LOAD_DELAY = 500;
 
 // Playwright test timeouts
 export const TIMEOUTS = {

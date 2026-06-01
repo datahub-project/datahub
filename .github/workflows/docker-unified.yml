@@ -242,12 +242,7 @@ jobs:
 
       - name: Build Playwright shard matrix
         id: set-playwright-matrix
-        # Old condition (ran on any backend/frontend/playwright change or publish, including all PRs):
-        # if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
-        #
-        # Temporary - New condition mirrors smoke-test rules (backend-change|playwright-change|publish for non-PRs),
-        # but restricts PRs to playwright-change only to avoid running the full E2E suite on every code PR.
-        if: ${{ (github.event_name == 'pull_request' && steps.ci-optimize.outputs.playwright-change == 'true') || (github.event_name != 'pull_request' && (steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true')) }}
+        if: ${{ steps.publish.outputs.publish == 'true' || steps.ci-optimize.outputs.backend-change == 'true' || steps.ci-optimize.outputs.frontend-change == 'true' || steps.ci-optimize.outputs.playwright-change == 'true' }}
         run: |
           shard_count=$(( ${{ github.event.inputs.playwright_shard_count || env.PLAYWRIGHT_SHARD_COUNT }} ))
           matrix=''
@@ -1371,59 +1366,46 @@ jobs:
     name: Update quickstart tag after tests pass on master
     runs-on: ${{ needs.setup.outputs.test_runner_type_small || 'ubuntu-latest' }}
     needs:
-      [setup, base_build, java_integration_tests, pytest_tests, cypress_tests]
+      [
+        setup,
+        base_build,
+        java_integration_tests,
+        pytest_tests,
+        cypress_tests,
+        playwright_test,
+      ]
     if: ${{ always() && !failure() && !cancelled() && needs.setup.result != 'skipped' && github.ref == 'refs/heads/master' }}
     steps:
-      - name: Check if tests have passed
-        id: tests_passed
-        run: |
-          for result in \
-            "${{ needs.java_integration_tests.result }}" \
-            "${{ needs.pytest_tests.result }}" \
-            "${{ needs.cypress_tests.result }}"; do
-            if [[ "$result" == "failure" ]]; then
-              echo "A test job failed, skipping quickstart tag update"
-              echo "tests_passed=false" >> "$GITHUB_OUTPUT"
-              exit 1
-            elif [[ "$result" == "cancelled" ]]; then
-              echo "A test job was cancelled, skipping quickstart tag update"
-              echo "tests_passed=false" >> "$GITHUB_OUTPUT"
-              exit 1
-            fi
-          done
-          echo "All test jobs completed successfully, proceeding with quickstart tag update"
-          echo "tests_passed=true" >> "$GITHUB_OUTPUT"
-
       - name: Set up Depot CLI
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Login to DockerHub
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.docker-login == 'true' }}
+        if: ${{ needs.setup.outputs.docker-login == 'true' }}
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
 
       - name: Check out the repo
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
         with:
           checkout-head-only: true
 
       - name: Download build Metadata
-        if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+        if: ${{ needs.setup.outputs.publish == 'true' }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: ${{ github.workspace }}/build
 
       - name: Set up Docker Buildx
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Tag images with quickstart (coordinated floating tag)
-        if: ${{ steps.tests_passed.outputs.tests_passed == 'true' && needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
+        if: ${{ needs.setup.outputs.use_depot_cache == 'true' && needs.setup.outputs.publish == 'true' }}
         run: |
           set -euo pipefail
           source .github/scripts/docker_helpers.sh
@@ -1449,6 +1431,7 @@ jobs:
         java_integration_tests,
         pytest_tests,
         cypress_tests,
+        playwright_test,
         publish_images,
       ]
     if: ${{ needs.publish_images.result == 'success' && github.repository_owner == 'datahub-project' && needs.setup.outputs.repository_name == 'datahub' }}

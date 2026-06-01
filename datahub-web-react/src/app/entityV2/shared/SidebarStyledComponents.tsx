@@ -240,15 +240,15 @@ export const EditProfileButtonContainer = styled.div`
     right: 10px;
     z-index: 2;
     cursor: pointer;
-    display: none;
     &&& div {
-        border-color: ${(props) => props.theme.colors.textOnFillBrand};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        border-color: transparent;
         height: 18px;
         width: 18px;
         display: flex;
         align-items: center;
         &:hover {
-            border-color: ${(props) => props.theme.colors.borderBrand};
+            background: ${(props) => props.theme.colors.buttonFillBrand};
         }
     }
 `;
