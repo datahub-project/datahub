@@ -238,6 +238,9 @@ class TestDremioAPIPagination:
         dremio_api.edition = DremioEdition.ENTERPRISE
         dremio_api.start_time = None
         dremio_api.end_time = None
+        # Pin the queried_datasets schema so we skip the runtime probe and
+        # exercise a single SQL execution path.
+        dremio_api._queried_datasets_is_array = True
 
         # Mock streaming query execution
         mock_query_results = [
