@@ -21,12 +21,14 @@ import org.springframework.context.annotation.PropertySource;
 @ComponentScan(
     basePackages = {
       "com.linkedin.metadata.boot.kafka",
+      "com.linkedin.metadata.boot.pgqueue",
       "com.linkedin.gms.factory.auth",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",
       "com.linkedin.gms.factory.entityregistry",
       "com.linkedin.gms.factory.entityclient",
+      "com.linkedin.gms.factory.event",
       "com.linkedin.gms.factory.kafka",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
@@ -34,10 +36,12 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.restli.server",
       "com.linkedin.metadata.restli",
       "com.linkedin.metadata.kafka",
+      "com.linkedin.metadata.pgqueue",
       "com.linkedin.metadata.dao.producer",
       "com.linkedin.gms.factory.form",
       "com.linkedin.metadata.dao.producer",
       "io.datahubproject.metadata.jobs.common.health.kafka",
+      "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.plugins",
       "com.linkedin.gms.factory.system_telemetry"

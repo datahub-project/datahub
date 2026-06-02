@@ -114,7 +114,7 @@ export const Announcements = ({ setHasAnnouncements }: Props) => {
     }
 
     return (
-        <Card>
+        <Card data-testid="v2-home-page-announcements">
             <Header>
                 <Title>
                     <Icon /> {t('announcements.title')}

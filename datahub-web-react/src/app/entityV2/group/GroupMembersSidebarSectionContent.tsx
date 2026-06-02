@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useHistory } from 'react-router';
 import { useRouteMatch } from 'react-router-dom';
 
-import { AddGroupMembersModal } from '@app/entity/group/AddGroupMembersModal';
+import { AddGroupMembersModal } from '@app/entityV2/group/AddGroupMembersModal';
 import { GroupMemberLink } from '@app/entityV2/group/GroupMemberLink';
 import { TabType } from '@app/entityV2/group/types';
 import { ShowMoreButton, TagsSection } from '@app/entityV2/shared/SidebarStyledComponents';
@@ -68,7 +68,7 @@ export default function GroupMembersSidebarSectionContent({
             {showAddMemberModal && (
                 <AddGroupMembersModal
                     urn={urn}
-                    open={showAddMemberModal}
+                    visible={showAddMemberModal}
                     onSubmit={refetch}
                     onCloseModal={() => setShowAddMemberModal(false)}
                 />

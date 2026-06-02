@@ -14,7 +14,9 @@ public interface EventHook<E> {
    * @return suffix
    */
   @Nonnull
-  String getConsumerGroupSuffix();
+  default String getConsumerGroupSuffix() {
+    return "";
+  }
 
   /**
    * Return whether the hook is enabled or not. If not enabled, the below invoke method is not
