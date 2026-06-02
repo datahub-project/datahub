@@ -15,8 +15,7 @@
 import json
 
 
-# Class that stores running statistics for a single Actions Transformer.
-class TransformerStats:
+class FilterStats:
     exception_count: int
     processed_count: int
     filtered_count: int
