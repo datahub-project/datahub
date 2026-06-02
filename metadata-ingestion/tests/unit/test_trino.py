@@ -3,7 +3,11 @@ from unittest import mock
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.sql.sql_common import PipelineContext, SQLAlchemySource
-from datahub.ingestion.source.sql.trino import TrinoConfig, TrinoSource
+from datahub.ingestion.source.sql.trino import (
+    ConnectorDetail,
+    TrinoConfig,
+    TrinoSource,
+)
 from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
@@ -227,6 +231,112 @@ def test_trino_process_view_emits_connector_lineage_with_schema():
     assert upstream_lineage.fineGrainedLineages is not None
     assert len(upstream_lineage.fineGrainedLineages) == 1
     assert upstream_lineage.upstreams[0].dataset == source_urn
+
+
+def _make_source_with_connector_details(
+    catalog_to_connector_details: dict[str, ConnectorDetail],
+) -> TrinoSource:
+    config = TrinoConfig(
+        host_port="localhost:8080",
+        database="db",
+        username="test",
+        catalog_to_connector_details=catalog_to_connector_details,
+    )
+    return TrinoSource(
+        config=config, ctx=PipelineContext(run_id="test"), platform="trino"
+    )
+
+
+def test_get_source_dataset_urn_oracle_is_two_tier():
+    """Oracle maps to a two-tier (schema.table) native URN with no extra config."""
+    source = _make_source_with_connector_details({})
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="oracle",
+    ):
+        urn = source._get_source_dataset_urn(
+            "oracle_catalog.hr.employees", mock.Mock(), "hr", "employees"
+        )
+    assert urn == "urn:li:dataset:(urn:li:dataPlatform:oracle,hr.employees,PROD)"
+
+
+def test_get_source_dataset_urn_starrocks_is_three_tier():
+    """StarRocks is three-tier; connector_database supplies the catalog tier."""
+    source = _make_source_with_connector_details(
+        {"sr_catalog": ConnectorDetail(connector_database="default_catalog")}
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="starrocks",
+    ):
+        urn = source._get_source_dataset_urn(
+            "sr_catalog.web.clicks", mock.Mock(), "web", "clicks"
+        )
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:starrocks,default_catalog.web.clicks,PROD)"
+    )
+
+
+def test_get_source_dataset_urn_starrocks_without_connector_database_returns_none():
+    """Three-tier connector without connector_database cannot build a URN."""
+    source = _make_source_with_connector_details({})
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="starrocks",
+    ):
+        urn = source._get_source_dataset_urn(
+            "sr_catalog.web.clicks", mock.Mock(), "web", "clicks"
+        )
+    assert urn is None
+
+
+def test_get_source_dataset_urn_starrocks_via_mysql_connector_override():
+    """StarRocks is reached via Trino's mysql connector; connector_platform retargets it.
+
+    Trino reports connector_name="mysql", so connector_platform="starrocks" overrides
+    the platform lookup and connector_database supplies the three-tier catalog tier.
+    """
+    source = _make_source_with_connector_details(
+        {
+            "sr_catalog": ConnectorDetail(
+                connector_platform="starrocks",
+                connector_database="default_catalog",
+            )
+        }
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="mysql",
+    ):
+        urn = source._get_source_dataset_urn(
+            "sr_catalog.web.clicks", mock.Mock(), "web", "clicks"
+        )
+    assert (
+        urn
+        == "urn:li:dataset:(urn:li:dataPlatform:starrocks,default_catalog.web.clicks,PROD)"
+    )
+
+
+def test_get_source_dataset_urn_oracle_three_tier_when_connector_database_set():
+    """connector_database forces a three-tier URN even for a two-tier connector.
+
+    Covers Oracle ingested with add_database_name_to_urn=true, where the native URN
+    is database.schema.table.
+    """
+    source = _make_source_with_connector_details(
+        {"oracle_catalog": ConnectorDetail(connector_database="orclpdb1")}
+    )
+    with mock.patch(
+        "datahub.ingestion.source.sql.trino.get_catalog_connector_name",
+        return_value="oracle",
+    ):
+        urn = source._get_source_dataset_urn(
+            "oracle_catalog.hr.employees", mock.Mock(), "hr", "employees"
+        )
+    assert (
+        urn == "urn:li:dataset:(urn:li:dataPlatform:oracle,orclpdb1.hr.employees,PROD)"
+    )
 
 
 def test_trino_process_table_emits_lineage_without_cll_when_no_schema_emitted():
