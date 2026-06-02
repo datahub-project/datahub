@@ -197,7 +197,10 @@ def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
     import sys
     import types
 
-    from airflow.hooks.base import BaseHook as LegacyBaseHook
+    # airflow.hooks.base exposes BaseHook via a lazy shim mypy can't see on 3.1+.
+    from airflow.hooks.base import (
+        BaseHook as LegacyBaseHook,  # type: ignore[attr-defined]
+    )
 
     import datahub_airflow_plugin.hooks.datahub as hook_module
 
