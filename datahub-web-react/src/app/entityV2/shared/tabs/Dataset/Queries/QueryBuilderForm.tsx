@@ -36,6 +36,7 @@ type Props = {
 
 export default function QueryBuilderForm({ state, updateState }: Props) {
     const { t } = useTranslation('entity.profile.queries');
+    const { t: tc } = useTranslation('common.labels');
     const updateQuery = (query) => {
         updateState({
             ...state,
@@ -87,7 +88,7 @@ export default function QueryBuilderForm({ state, updateState }: Props) {
                     placeholder={t('queryBuilderModal.titlePlaceholder')}
                 />
             </Form.Item>
-            <Form.Item label={<Typography.Text strong>{t('queryBuilderModal.formLabelDescription')}</Typography.Text>}>
+            <Form.Item label={<Typography.Text strong>{tc('description')}</Typography.Text>}>
                 <StyledEditor
                     data-testid="query-builder-description-input"
                     doNotFocus
