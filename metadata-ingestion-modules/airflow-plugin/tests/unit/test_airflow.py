@@ -198,9 +198,8 @@ def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
     import types
 
     # airflow.hooks.base exposes BaseHook via a lazy shim mypy can't see on 3.1+.
-    from airflow.hooks.base import (
-        BaseHook as LegacyBaseHook,  # type: ignore[attr-defined]
-    )
+    # Keep this on one line so the inline ignore lands on the line mypy flags.
+    from airflow.hooks.base import BaseHook  # type: ignore[attr-defined]
 
     import datahub_airflow_plugin.hooks.datahub as hook_module
 
@@ -210,8 +209,8 @@ def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
     monkeypatch.setitem(sys.modules, "airflow.sdk", stub_sdk)
     try:
         importlib.reload(hook_module)
-        assert hook_module.BaseHook is LegacyBaseHook
-        assert issubclass(hook_module.DatahubRestHook, LegacyBaseHook)
+        assert hook_module.BaseHook is BaseHook
+        assert issubclass(hook_module.DatahubRestHook, BaseHook)
     finally:
         # Restore the real (3.1+) import surface for the rest of the suite.
         monkeypatch.undo()
