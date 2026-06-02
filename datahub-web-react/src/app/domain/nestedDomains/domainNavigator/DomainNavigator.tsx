@@ -1,11 +1,10 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 
 import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
 import useListDomains from '@app/domain/useListDomains';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 
 import { Domain } from '@types';
 
@@ -24,6 +23,7 @@ interface Props {
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
     const { t } = useTranslation('governance.domain');
+    const theme = useTheme();
     const { sortedDomains, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
@@ -34,7 +34,7 @@ export default function DomainNavigator({ domainUrnToHide, selectDomainOverride,
                 <Empty
                     description={t('navigator.empty')}
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    style={{ color: ANTD_GRAY[7] }}
+                    style={{ color: theme.colors.textSecondary }}
                 />
             )}
             {!noDomainsFound &&
