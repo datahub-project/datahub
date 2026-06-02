@@ -1,5 +1,6 @@
 # Dockerfile for running Airflow plugin tests via tox.
-# Tox installs Airflow 3.1, the matching constraints file, and provider packages.
+# The selected tox env (py311-airflow30/31/32, default py311-airflow31) installs
+# its Airflow line, the matching constraints file, and provider packages.
 #
 # Usage:
 #   docker build -f Dockerfile.test -t airflow-plugin-test .

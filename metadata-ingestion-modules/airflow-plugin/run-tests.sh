@@ -3,8 +3,8 @@
 # Usage: ./run-tests.sh [tox-env] [-- pytest-args]
 #
 # Examples:
-#   ./run-tests.sh                                          # Run all tests (only `py311-airflow31` is supported)
-#   ./run-tests.sh py311-airflow31 -- -k snowflake -v       # Run specific tests
+#   ./run-tests.sh                                          # Run all tests (defaults to py311-airflow31)
+#   ./run-tests.sh py311-airflow30 -- -k snowflake -v       # Run on a specific env (py311-airflow30/31/32)
 #   ./run-tests.sh py311-airflow31 -- --update-golden-files # Update golden files
 
 set -euo pipefail

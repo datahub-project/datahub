@@ -338,7 +338,7 @@ cd metadata-ingestion-modules/airflow-plugin
 # Run all tests.
 tox
 
-# Run a specific environment (only `py311-airflow31` is supported).
+# Run a specific environment (py311-airflow30, py311-airflow31, py311-airflow32).
 # Defined in the `tox.ini` file.
 tox -e py311-airflow31
 

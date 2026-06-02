@@ -5,10 +5,11 @@ golden files.
 
 ## Overview
 
-The Docker environment runs `tox -e py311-airflow31` (the only supported tox
-env — Airflow 2.x and 3.0.x are not supported). Tox installs
-`apache-airflow~=3.1.0` plus the Airflow 3.1.0 constraints file and provider
-packages.
+The Docker environment runs `tox -e py311-airflow31` by default. Three tox envs
+are supported — `py311-airflow30`, `py311-airflow31`, and `py311-airflow32`
+(Airflow 2.x is no longer supported) — and you can select one as the first
+argument (see examples below). Each env installs the matching `apache-airflow~=3.x`
+line plus its constraints file and provider packages.
 
 Three entry points, in increasing order of control:
 

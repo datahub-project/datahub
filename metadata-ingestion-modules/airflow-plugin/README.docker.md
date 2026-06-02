@@ -1,7 +1,8 @@
 # Docker Test Environment
 
-Docker-based test environment for the Airflow plugin. The only supported tox
-env is `py311-airflow31` (Airflow 2.x and 3.0.x are no longer supported).
+Docker-based test environment for the Airflow plugin. The supported tox envs are
+`py311-airflow30`, `py311-airflow31`, and `py311-airflow32` (Airflow 2.x is no
+longer supported); the default is `py311-airflow31`.
 
 ## Files
 
@@ -46,8 +47,10 @@ to the container immediately.
 
 ### Tox-based dependency management
 
-The image runs tests via `tox -e py311-airflow31`, which installs
-`apache-airflow~=3.1.0` and the providers/constraint file pinned in `tox.ini`.
+The image defaults to `tox -e py311-airflow31`, but you can pass any supported
+env (`py311-airflow30` / `py311-airflow31` / `py311-airflow32`) as the first
+argument. Each env installs the matching `apache-airflow~=3.x` line and the
+providers/constraint file pinned in `tox.ini`.
 
 ## When to use Docker
 
