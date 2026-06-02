@@ -1,5 +1,6 @@
 import { Alert, Empty } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DomainNode from '@app/domain/nestedDomains/domainNavigator/DomainNode';
@@ -22,15 +23,16 @@ interface Props {
 }
 
 export default function DomainNavigator({ domainUrnToHide, selectDomainOverride, displayDomainColoredIcon }: Props) {
+    const { t } = useTranslation('governance.domain');
     const { sortedDomains, error } = useListDomains({});
     const noDomainsFound: boolean = !sortedDomains || sortedDomains.length === 0;
 
     return (
         <NavigatorWrapper>
-            {error && <Alert message="Loading Domains failed." showIcon type="error" />}
+            {error && <Alert message={t('navigator.loadError')} showIcon type="error" />}
             {noDomainsFound && (
                 <Empty
-                    description="No Domains Found"
+                    description={t('navigator.empty')}
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     style={{ color: ANTD_GRAY[7] }}
                 />
