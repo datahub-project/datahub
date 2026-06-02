@@ -251,23 +251,12 @@ def save_connector_registry(registry: ConnectorRegistry, output_dir: str) -> Non
     required=False,
     help="Generate registry for specific source only",
 )
-@click.option(
-    "--packages",
-    type=str,
-    required=False,
-    help="Comma-separated list of packages to include (e.g. 'datahub'). "
-    "Plugins from other packages are excluded. Defaults to all packages.",
-)
 def generate_connector_registry_cli(
-    output_dir: str,
-    source: Optional[str] = None,
-    packages: Optional[str] = None,
+    output_dir: str, source: Optional[str] = None
 ) -> None:
     """Generate a comprehensive connector registry for all ingestion sources."""
 
     logger.info("Starting connector registry generation...")
-
-    allowed_packages = {p.strip() for p in packages.split(",")} if packages else None
 
     if source:
         if source not in source_registry.mapping:
@@ -278,18 +267,6 @@ def generate_connector_registry_cli(
 
     try:
         registry = generate_connector_registry()
-
-        if allowed_packages is not None:
-            filtered = {
-                name: details
-                for name, details in registry.plugin_details.items()
-                if get_package_name(details.get("classname", "")) in allowed_packages
-            }
-            registry = ConnectorRegistry(plugin_details=filtered)
-            logger.info(
-                f"Filtered to packages {allowed_packages}: {len(registry.plugin_details)} plugins"
-            )
-
         save_connector_registry(registry, output_dir)
 
         # Show package breakdown
