@@ -186,7 +186,7 @@ class StructuredLogs(Report):
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
-            context_list: LossyList[str] = LossyList()
+            context_list: LossyList[str] = LossyList(max_elements=entries.max_elements)
             if context is not None:
                 context_list.append(context)
             entries[log_key] = StructuredLogEntry(

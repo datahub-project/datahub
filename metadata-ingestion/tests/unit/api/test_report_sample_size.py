@@ -31,3 +31,28 @@ class TestReportSampleSizeFromEnvVars:
         assert (
             report._structured_logs._entries[StructuredLogLevel.WARN].max_elements == 75
         )
+
+    def test_context_list_respects_sample_size(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that the per-entry context LossyList respects the sample size env var.
+
+        When multiple datasets share the same error message they are grouped into one
+        StructuredLogEntry. The context list within that entry must honour
+        DATAHUB_REPORT_FAILURE_SAMPLE_SIZE so all affected datasets are visible.
+        """
+        monkeypatch.setenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "50")
+
+        report = SourceReport()
+        # Log the same error message 30 times with different context values.
+        for i in range(30):
+            report.report_failure(message="Error processing table", context=f"table_{i}")
+
+        failures = report._structured_logs._entries[StructuredLogLevel.ERROR]
+        entry = next(iter(failures.values()))
+        assert entry.context.max_elements == 50, (
+            "context LossyList max_elements should match DATAHUB_REPORT_FAILURE_SAMPLE_SIZE"
+        )
+        assert list(entry.context) == [f"table_{i}" for i in range(30)], (
+            "all 30 context items should be retained (30 < max_elements=50, no sampling)"
+        )
