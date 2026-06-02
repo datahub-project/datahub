@@ -1,9 +1,32 @@
+import os
 import warnings
 
 import pytest
 
 from tests.zdu.framework.runner import ZDUReport
 from tests.zdu.framework.scenario_loader import ZDUTestScenario
+
+# The tests in this module depend on the ``zdu_report`` session fixture,
+# which runs the FULL ZDU end-to-end pipeline (builds OLD+NEW Docker
+# images, nukes + redeploys the Compose stack, runs the upgrade job).
+# That is far too heavy + destructive to run inside the regular
+# `pytest tests/` smoke-test batches, which would collect this file by
+# default and wipe the shared smoke-test stack.
+#
+# The dedicated daily workflow (.github/workflows/zdu-e2e-daily.yml)
+# drives the E2E via the CLI entry point (`python -m tests.zdu`), NOT
+# pytest, so it does not need this module at all. Gate the whole module
+# behind ZDU_E2E_ENABLED so it only runs when explicitly opted in.
+# The fast, side-effect-free unit tests under tests/zdu/framework/ are
+# unaffected — they don't import this module or the zdu_report fixture.
+pytestmark = pytest.mark.skipif(
+    os.environ.get("ZDU_E2E_ENABLED") not in ("1", "true", "True", "yes"),
+    reason=(
+        "ZDU end-to-end pipeline is destructive (nukes the Compose stack). "
+        "Set ZDU_E2E_ENABLED=1 to run; the daily zdu-e2e workflow uses the "
+        "CLI entry point instead of pytest."
+    ),
+)
 
 # ── Infrastructure phase tests ───────────────────────────────────────────────
 
