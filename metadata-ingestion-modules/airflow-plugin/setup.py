@@ -29,8 +29,9 @@ base_requirements = {
     # We support both Airflow 2.x and 3.x with full backward compatibility.
     "apache-airflow>=2.5.0,<4.0.0",
     # Note: OpenLineage dependencies are version-specific and provided via extras:
-    # - airflow2: for Airflow 2.x (uses standalone openlineage-airflow package)
-    # - airflow3: for Airflow 3.x (uses native apache-airflow-providers-openlineage)
+    # - airflow2:  Airflow 2.5–2.6 (standalone openlineage-airflow package)
+    # - airflow27: Airflow 2.7–2.x (native apache-airflow-providers-openlineage) [recommended]
+    # - airflow3:  Airflow 3.x      (native apache-airflow-providers-openlineage)
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -43,13 +44,20 @@ plugins: Dict[str, Set[str]] = {
     "datahub-file": {
         f"acryl-datahub[sync-file-emitter]{_self_pin}",
     },
-    # airflow2: For Airflow 2.x, use standalone openlineage-airflow package
+    # airflow2: For Airflow 2.5–2.6 (uses standalone openlineage-airflow package).
+    # Deprecated for Airflow 2.7+; use the [airflow27] extra instead.
     "airflow2": {
         "openlineage-airflow>=1.2.0",
     },
-    # airflow3: For Airflow 3.x, use native OpenLineage provider
+    # airflow27: For Airflow 2.7–2.x (uses the native OpenLineage provider).
+    # Airflow 2.7 introduced apache-airflow-providers-openlineage as the recommended
+    # package; the old openlineage-airflow package emits deprecation warnings on 2.7+.
+    "airflow27": {
+        "apache-airflow-providers-openlineage>=1.7.0",
+    },
+    # airflow3: For Airflow 3.x (uses native OpenLineage provider).
     "airflow3": {
-        "apache-airflow-providers-openlineage>=1.0.0",
+        "apache-airflow-providers-openlineage>=1.7.0",
     },
 }
 
