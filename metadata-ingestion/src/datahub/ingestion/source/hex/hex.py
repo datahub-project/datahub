@@ -7,7 +7,6 @@ import yaml
 from typing_extensions import assert_never
 
 from datahub.emitter.mce_builder import make_ts_millis
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -51,7 +50,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.schema_classes import StatusClass
 
 logger = logging.getLogger(__name__)
 
@@ -416,79 +414,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
     def get_report(self) -> HexReport:
         return self.report
 
-    def _migrate_legacy_component_dashboards(
-        self,
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Soft-delete legacy Dashboard entities (subtype 'Component') emitted by
-        the previous connector version; Components are now Chart entities.
-
-        Runs independently of the stale-entity removal handler. Requires
-        ctx.graph; skipped silently if unavailable.
-        """
-        if not self.ctx.graph:
-            return
-
-        QUERY = """
-        query DetectLegacyHexComponents($start: Int!, $count: Int!) {
-            search(input: {
-                type: DASHBOARD
-                query: "*"
-                filters: [
-                    {field: "platform", value: "urn:li:dataPlatform:hex"}
-                    {field: "typeNames", value: "Component"}
-                ]
-                start: $start
-                count: $count
-            }) {
-                total
-                searchResults { entity { urn } }
-            }
-        }
-        """
-        page_size = 200
-        start = 0
-        legacy_urns: List[str] = []
-
-        try:
-            while True:
-                result = self.ctx.graph.execute_graphql(
-                    QUERY, variables={"start": start, "count": page_size}
-                )
-                page = result.get("search", {})
-                total = page.get("total", 0)
-                for item in page.get("searchResults", []):
-                    urn = item.get("entity", {}).get("urn")
-                    if urn:
-                        legacy_urns.append(urn)
-                start += page_size
-                if start >= total:
-                    break
-        except Exception as e:
-            logger.warning(
-                "Failed to query for legacy Dashboard-typed components: %s. "
-                "Skipping migration.",
-                e,
-            )
-            return
-
-        if not legacy_urns:
-            return
-
-        logger.info(
-            "Found %d legacy Dashboard-typed Component entities from a previous "
-            "connector version. Soft-deleting.",
-            len(legacy_urns),
-        )
-        for urn in legacy_urns:
-            yield MetadataWorkUnit(
-                id=f"migrate-remove-{urn}",
-                mcp=MetadataChangeProposalWrapper(
-                    entityUrn=urn,
-                    aspect=StatusClass(removed=True),
-                ),
-            )
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Prefer the explicit config value so users can avoid granting the
         # 'Users → Read access' scope just for external-URL building.
@@ -496,10 +421,6 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
             self.source_config.workspace_id or self.hex_api.fetch_workspace_id()
         )
         self.mapper.workspace_id = self.workspace_id
-
-        if self.source_config.migrate_legacy_components:
-            with self.report.new_stage("Migrate legacy Component entities"):
-                yield from self._migrate_legacy_component_dashboards()
 
         # Resolve connection IDs to HexConnection records once. After this
         # point, no further type→platform translation happens anywhere

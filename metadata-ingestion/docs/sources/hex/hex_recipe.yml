@@ -59,12 +59,6 @@ source:
     # soft-deleted on the next run.
     # max_projects: 50
 
-    # (Optional) One-time cleanup of legacy Dashboard-typed Components from connector
-    # versions before Components became Charts. Off by default. Only needed if you ran
-    # an older version without stateful ingestion; with stateful_ingestion enabled the
-    # stale-entity removal handler deletes them automatically.
-    # migrate_legacy_components: true
-
     # Enable stale-entity removal (projects deleted in Hex are soft-deleted in DataHub).
     stateful_ingestion:
       enabled: true

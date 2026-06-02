@@ -99,13 +99,6 @@ class HexSourceConfig(
         default=True,
         description="Include Hex Components in the ingestion",
     )
-    migrate_legacy_components: bool = Field(
-        default=False,
-        description="Soft-delete legacy Dashboard-typed Component entities left over from "
-        "connector versions before Components became Charts. Only needed if you ran an older "
-        "version without stateful ingestion; with stateful ingestion enabled the stale-entity "
-        "removal handler deletes them automatically on the next run.",
-    )
     page_size: int = Field(
         default=HEX_API_PAGE_SIZE_DEFAULT,
         ge=1,
