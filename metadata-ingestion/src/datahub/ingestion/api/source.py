@@ -189,7 +189,7 @@ class StructuredLogs(Report):
             # Size the per-entry context list to match the level's configured
             # sample size, so DATAHUB_REPORT_*_SAMPLE_SIZE controls both the
             # number of distinct entries and the number of grouped contexts
-            # under each entry (see ticket #6656).
+            # under each entry.
             context_list: LossyList[str] = LossyList(max_elements=entries.max_elements)
             if context is not None:
                 context_list.append(context)

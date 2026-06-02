@@ -35,9 +35,7 @@ class TestReportSampleSizeFromEnvVars:
     def test_per_entry_context_respects_sample_size(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Regression test for ticket #6656.
-
-        When many items are grouped under one error key (same title+message),
+        """When many items are grouped under one error key (same title+message),
         every context line must be retained up to the configured sample size,
         not silently truncated to the LossyList default of 10.
         """
@@ -87,3 +85,29 @@ class TestReportSampleSizeFromEnvVars:
         assert entry.context.max_elements == 200
         assert not entry.context.sampled
         assert len(list(entry.context)) == 30
+
+    def test_set_sample_sizes_shrinks_existing_context(self) -> None:
+        """set_sample_sizes must prune context lists when shrinking.
+
+        If a source logs many context items at the default sample size, then
+        the pipeline applies a smaller configured limit, excess contexts must
+        be sampled down to the new limit.
+        """
+        report = SourceReport()
+        for i in range(20):
+            report.failure(
+                message="Error processing table",
+                context=f"table_{i}",
+                log=False,
+            )
+
+        report.set_sample_sizes(failure_size=5, warning_size=5, info_size=5)
+
+        (entry,) = list(report.failures)
+        assert entry.context.max_elements == 5
+        assert entry.context.sampled
+        retained = list(entry.context)
+        assert len(retained) == 5
+        # All retained items must come from the original set.
+        original = {f"table_{i}" for i in range(20)}
+        assert set(retained) <= original

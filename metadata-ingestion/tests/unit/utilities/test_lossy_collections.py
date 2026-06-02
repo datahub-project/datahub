@@ -154,16 +154,28 @@ def test_lossylist_resize_grow_is_lossless():
 
 def test_lossylist_resize_shrink_drops_entries():
     """Shrinking below current size drops entries and marks as sampled."""
+    original = list(range(20))
     lst: LossyList[int] = LossyList(max_elements=100)
-    for i in range(20):
+    for i in original:
         lst.append(i)
     lst.resize(5)
     assert lst.max_elements == 5
     assert lst.sampled
     # __len__ reports total_elements seen, not retained count.
     assert lst.total_elements == 20
-    # underlying retained set is capped.
-    assert len(list(lst)) == 5
+    retained = list(lst)
+    # Exactly 5 entries are kept, all drawn from the original set.
+    assert len(retained) == 5
+    assert set(retained) <= set(original)
+
+
+def test_lossylist_resize_rejects_invalid_max_elements():
+    """resize() must reject non-positive max_elements to prevent silent data loss."""
+    lst: LossyList[int] = LossyList(max_elements=10)
+    with pytest.raises(ValueError, match="max_elements must be >= 1"):
+        lst.resize(0)
+    with pytest.raises(ValueError, match="max_elements must be >= 1"):
+        lst.resize(-5)
 
 
 def test_lossylist_resize_to_same_size_is_noop():
