@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
@@ -26,6 +27,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
@@ -57,10 +59,28 @@ public class RestoreGlossaryIndicesStepTest {
   }
 
   @Test
-  public void testSkipAlwaysFalse() {
+  public void testSkipReturnsFalseWhenNoPriorRun() throws Exception {
+    when(mockEntityService.getEntityV2(any(), any(), any(), any())).thenReturn(null);
     RestoreGlossaryIndicesStep step =
         new RestoreGlossaryIndicesStep(mockEntityService, mockEntitySearchService);
     assertFalse(step.skip(mockUpgradeContext));
+  }
+
+  @Test
+  public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
+    DataHubUpgradeRequest upgradeRequest =
+        new DataHubUpgradeRequest().setVersion("1").setTimestampMs(0L);
+    EnvelopedAspect aspect =
+        new EnvelopedAspect().setValue(new com.linkedin.mxe.GenericAspect(upgradeRequest.data()));
+    EnvelopedAspectMap aspectMap =
+        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
+    EntityResponse response = new EntityResponse().setAspects(aspectMap);
+    when(mockEntityService.getEntityV2(
+            any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
+        .thenReturn(response);
+    RestoreGlossaryIndicesStep step =
+        new RestoreGlossaryIndicesStep(mockEntityService, mockEntitySearchService);
+    assertTrue(step.skip(mockUpgradeContext));
   }
 
   @Test
