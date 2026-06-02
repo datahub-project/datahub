@@ -23,6 +23,7 @@ jobs:
       workflow-files: ${{ steps.filter.outputs.workflow-files == 'true' || steps.filter.outputs.lint-job == 'true' }}
       workflow-validation: ${{ steps.filter.outputs.workflow-validation == 'true' || steps.filter.outputs.lint-job == 'true' }}
       code-check-sources: ${{ steps.filter.outputs.code-check-sources == 'true' || steps.filter.outputs.lint-job == 'true' }}
+      pdl: ${{ steps.filter.outputs.pdl == 'true' || steps.filter.outputs.lint-job == 'true' }}
       datahub-web-react: ${{ steps.filter.outputs.datahub-web-react == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-python: ${{ steps.filter.outputs.smoke-test-python == 'true' || steps.filter.outputs.lint-job == 'true' }}
       smoke-test-cypress: ${{ steps.filter.outputs.smoke-test-cypress == 'true' || steps.filter.outputs.lint-job == 'true' }}
@@ -148,6 +149,25 @@ jobs:
           python-version: "3.10"
       - name: run check
         run: python .github/scripts/check_gradle_lockfiles.py
+
+  check-schema-versions:
+    name: check-schema-versions
+    runs-on: ${{ needs.setup.outputs.default-gh-runner }}
+    needs: setup
+    if: needs.setup.outputs.pdl == 'true'
+    steps:
+      # Full history so the script can compute the merge-base against the PR's
+      # base branch and diff the changed PDL aspects against it.
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.10"
+      - name: Verify schemaVersion is bumped for changed PDL aspects
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python .github/scripts/bump_schema_versions.py --check --base-branch "$BASE_REF"
 
   smoke-test-lint:
     name: Lint on smoke tests

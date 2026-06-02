@@ -25,6 +25,7 @@ Usage:
     python3 scripts/bump_schema_versions.py
     python3 scripts/bump_schema_versions.py --base-branch master
     python3 scripts/bump_schema_versions.py --dry-run --verbose
+    python3 scripts/bump_schema_versions.py --check   # CI: fail if a bump is missing
     PDL_ROOTS="metadata-models/src/main/pegasus:other/src/main/pegasus" python3 scripts/bump_schema_versions.py
 """
 
@@ -659,6 +660,12 @@ def main() -> int:
         help="Print what would change without writing files",
     )
     parser.add_argument(
+        "--check",
+        action="store_true",
+        help="CI enforcement mode: write nothing and exit non-zero if any "
+        "changed aspect still needs a schemaVersion bump",
+    )
+    parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -770,7 +777,13 @@ def main() -> int:
             errors.append(filepath)
             continue
 
-        if args.dry_run:
+        if args.check:
+            print(
+                f"NEEDS BUMP  {filepath}  v{current_version} → v{new_version}"
+                f"  [{reason}]"
+            )
+            bumped.append(filepath)
+        elif args.dry_run:
             print(
                 f"BUMP  {filepath}  v{base_version} → v{new_version}"
                 f"  [{reason}]  [dry-run]"
@@ -781,9 +794,23 @@ def main() -> int:
             print(f"BUMP  {filepath}  v{base_version} → v{new_version}  [{reason}]")
             bumped.append(filepath)
 
+    verb = "need bump" if args.check else "bumped"
     print(
-        f"\nSummary: {len(bumped)} bumped, {len(skipped)} skipped, {len(errors)} errors"
+        f"\nSummary: {len(bumped)} {verb}, {len(skipped)} skipped, {len(errors)} errors"
     )
+
+    if args.check and bumped:
+        print(
+            "\nERROR: The following aspect(s) changed but their schemaVersion was "
+            "not bumped:\n"
+            + "\n".join(f"  {f}" for f in bumped)
+            + "\n\nRun the bump hook locally and commit the result:\n"
+            "  pre-commit run bump-schema-versions --all-files\n"
+            "or run the script directly:\n"
+            "  python .github/scripts/bump_schema_versions.py",
+            file=sys.stderr,
+        )
+        return 1
 
     return 1 if errors else 0
 

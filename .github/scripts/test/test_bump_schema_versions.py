@@ -932,3 +932,53 @@ def test_version_bump_dry_run_does_not_write(tmp_path, monkeypatch):
 
     assert rc == 0
     assert aspect.read_text() == original  # file untouched
+
+
+def _run_check(tmp_path, monkeypatch, changed_files, base_content_by_path):
+    """Run main() in --check mode with git/filesystem calls mocked out."""
+    monkeypatch.setenv("PDL_ROOTS", str(tmp_path))
+    monkeypatch.setattr(sys, "argv",
+                        ["bump_schema_versions.py", "--base-branch", "master", "--check"])
+    monkeypatch.setattr(bsv, "get_merge_base", lambda _ref: "deadbeef")
+    monkeypatch.setattr(bsv, "get_base_pdl_changes", lambda _base, _ref: [])
+    monkeypatch.setattr(bsv, "get_changed_pdl_files",
+                        lambda _ref: [str(f) for f in changed_files])
+    monkeypatch.setattr(bsv, "get_file_at_branch",
+                        lambda path, _branch: base_content_by_path.get(path))
+    return bsv.main()
+
+
+def test_check_mode_fails_when_bump_missing(tmp_path, monkeypatch):
+    # Aspect changed but schemaVersion left at base value → CI should fail (rc=1)
+    # and the file must not be modified.
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
+    original = aspect.read_text()
+
+    rc = _run_check(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 1
+    assert aspect.read_text() == original  # check mode writes nothing
+
+
+def test_check_mode_passes_when_bump_present(tmp_path, monkeypatch):
+    # Aspect changed AND already bumped to base+1 → CI should pass (rc=0).
+    base_content = aspect_pdl("myAspect", schema_version=3)
+    current_content = _with_added_field(aspect_pdl("myAspect", schema_version=4))
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", current_content)
+
+    rc = _run_check(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
+
+    assert rc == 0
+
+
+def test_check_mode_passes_for_comment_only_change(tmp_path, monkeypatch):
+    # A doc-only edit needs no bump, so --check must not fail it.
+    enum_base = "namespace com.linkedin.a\nenum Op {\n  /** old */\n  A\n}"
+    enum_current = "namespace com.linkedin.a\nenum Op {\n  /** clarified */\n  A\n}"
+    enum_file = write_pdl(tmp_path, "com/linkedin/a/Op.pdl", enum_current)
+
+    rc = _run_check(tmp_path, monkeypatch, [enum_file], {str(enum_file): enum_base})
+
+    assert rc == 0
