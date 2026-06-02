@@ -407,9 +407,20 @@ class DremioCatalog:
         ]
         return all(query.get(field) for field in required_fields)
 
-    def get_queries(self) -> Iterator[DremioQuery]:
-        """Get all valid Dremio queries for lineage analysis."""
-        for query in self.api.extract_all_queries():
+    def get_queries(
+        self,
+        start_time: Optional[datetime] = None,
+        end_time: Optional[datetime] = None,
+    ) -> Iterator[DremioQuery]:
+        """Get all valid Dremio queries for lineage analysis.
+
+        Optional start_time/end_time override the config-level time window. This
+        is used by the stateful time-window handler to advance start_time to the
+        previous run's end_time, so only new job history is re-processed.
+        """
+        for query in self.api.extract_all_queries(
+            start_time=start_time, end_time=end_time
+        ):
             if not self.is_valid_query(query):
                 continue
             yield DremioQuery(
