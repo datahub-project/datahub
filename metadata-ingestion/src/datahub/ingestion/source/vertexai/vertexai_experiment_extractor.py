@@ -21,6 +21,9 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import MLAssetSubTypes
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
 from datahub.ingestion.source.vertexai.vertexai_builder import (
     VertexAIExternalURLBuilder,
     VertexAINameFormatter,
@@ -87,6 +90,7 @@ class VertexAIExperimentExtractor:
         yield_common_aspects_fn: YieldCommonAspectsProtocol,
         model_usage_tracker: ModelUsageTracker,
         platform: str,
+        report: StaleEntityRemovalSourceReport,
         state_handler: VertexAIStateHandler,
         rate_limiter: Union[RateLimiter, AbstractContextManager[None]] = nullcontext(),
     ):
@@ -99,6 +103,7 @@ class VertexAIExperimentExtractor:
         self._yield_common_aspects = yield_common_aspects_fn
         self.model_usage_tracker = model_usage_tracker
         self.platform = platform
+        self.report = report
         self.state_handler = state_handler
         self.rate_limiter = rate_limiter
 
