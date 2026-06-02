@@ -3,8 +3,9 @@ from typing import Optional
 
 
 class DremioSQLQueries:
-    QUERY_DATASETS_CE = """
-    SELECT* FROM
+    # Fetches all CE datasets in a single query, filtered server-side by schema_pattern.
+    QUERY_DATASETS_CE_GLOBAL = """
+    SELECT * FROM
     (
     SELECT
         T.TABLE_SCHEMA,
@@ -12,6 +13,7 @@ class DremioSQLQueries:
         CONCAT(T.TABLE_SCHEMA, '.', T.TABLE_NAME) AS FULL_TABLE_PATH,
         V.VIEW_DEFINITION,
         C.COLUMN_NAME,
+        C.ORDINAL_POSITION,
         C.IS_NULLABLE,
         C.DATA_TYPE,
         C.COLUMN_SIZE
@@ -27,18 +29,20 @@ class DremioSQLQueries:
         AND C.TABLE_NAME = T.TABLE_NAME
     WHERE
         T.TABLE_TYPE NOT IN ('SYSTEM_TABLE')
-        AND LOCATE('{container_name}', LOWER(T.TABLE_SCHEMA)) = 1
     )
     WHERE 1=1
         {schema_pattern}
         {deny_schema_pattern}
     ORDER BY
         TABLE_SCHEMA ASC,
-        TABLE_NAME ASC
+        TABLE_NAME ASC,
+        ORDINAL_POSITION ASC
+    {limit_clause}
     """
 
-    QUERY_DATASETS_EE = """
-        SELECT* FROM
+    # Fetches all EE datasets in a single query, filtered server-side by schema_pattern.
+    QUERY_DATASETS_EE_GLOBAL = """
+        SELECT * FROM
         (
         SELECT
             RESOURCE_ID,
@@ -120,25 +124,25 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
-        WHERE
-            LOCATE('{container_name}', LOWER(TABLE_SCHEMA)) = 1
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
             CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
         WHERE
             V.TYPE NOT IN ('SYSTEM_TABLE')
-            AND LOCATE('{container_name}', LOWER(PATH)) = 2
         )
         WHERE 1=1
             {schema_pattern}
             {deny_schema_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
-            TABLE_NAME ASC
+            TABLE_NAME ASC,
+            ORDINAL_POSITION ASC
+        {limit_clause}
         """
 
-    QUERY_DATASETS_CLOUD = """
+    # Fetches all Cloud datasets in a single query, filtered server-side by schema_pattern.
+    QUERY_DATASETS_CLOUD_GLOBAL = """
         SELECT * FROM
         (
         SELECT
@@ -221,23 +225,22 @@ class DremioSQLQueries:
             COLUMN_SIZE
         FROM
             INFORMATION_SCHEMA.COLUMNS
-        WHERE
-            LOCATE('{container_name}', LOWER(TABLE_SCHEMA)) = 1
         ) C
         ON
             CONCAT(REPLACE(REPLACE(REPLACE(V.PATH, ', ', '.'), '[', ''), ']', '')) =
             CONCAT(C.TABLE_SCHEMA, '.', C.TABLE_NAME)
         WHERE
             V.TYPE NOT IN ('SYSTEM_TABLE')
-            AND LOCATE('{container_name}', LOWER(PATH)) = 2
         )
         WHERE 1=1
             {schema_pattern}
             {deny_schema_pattern}
         ORDER BY
             TABLE_SCHEMA ASC,
-            TABLE_NAME ASC
-            """
+            TABLE_NAME ASC,
+            ORDINAL_POSITION ASC
+        {limit_clause}
+        """
 
     @staticmethod
     def _get_default_start_timestamp_millis() -> str:
@@ -258,16 +261,7 @@ class DremioSQLQueries:
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
     ) -> str:
-        """
-        Get query for all jobs with optional time filtering.
-
-        Args:
-            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 1 day ago)
-            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
-
-        Returns:
-            SQL query string with time filtering applied
-        """
+        """Get query for all jobs with optional time filtering."""
         if start_timestamp_millis is None:
             start_timestamp_millis = (
                 DremioSQLQueries._get_default_start_timestamp_millis()
@@ -291,6 +285,41 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
+        {{limit_clause}}
+        """
+
+    @staticmethod
+    def get_query_all_jobs_array(
+        start_timestamp_millis: Optional[str] = None,
+        end_timestamp_millis: Optional[str] = None,
+    ) -> str:
+        """All-jobs query for Dremio Software 26.1.0+ (queried_datasets is
+        ARRAY<VARCHAR>). Renders the array as a bracket-string so the
+        existing DremioQuery._get_queried_datasets parser keeps working."""
+        if start_timestamp_millis is None:
+            start_timestamp_millis = (
+                DremioSQLQueries._get_default_start_timestamp_millis()
+            )
+        if end_timestamp_millis is None:
+            end_timestamp_millis = DremioSQLQueries._get_default_end_timestamp_millis()
+
+        return f"""
+        SELECT
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
+        FROM
+            SYS.JOBS_RECENT
+        WHERE
+            STATUS = 'COMPLETED'
+            AND ARRAY_SIZE(queried_datasets)>0
+            AND user_name != '$dremio$'
+            AND query_type not like '%INTERNAL%'
+            AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
+            AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
         """
 
     @staticmethod
@@ -298,16 +327,7 @@ class DremioSQLQueries:
         start_timestamp_millis: Optional[str] = None,
         end_timestamp_millis: Optional[str] = None,
     ) -> str:
-        """
-        Get query for all jobs in Dremio Cloud with optional time filtering.
-
-        Args:
-            start_timestamp_millis: Start timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to 7 days ago)
-            end_timestamp_millis: End timestamp in format 'YYYY-MM-DD HH:MM:SS.mmm' (defaults to now)
-
-        Returns:
-            SQL query string with time filtering applied
-        """
+        """Get query for all jobs in Dremio Cloud with optional time filtering."""
         if start_timestamp_millis is None:
             start_timestamp_millis = (
                 DremioSQLQueries._get_default_start_timestamp_millis()
@@ -331,28 +351,6 @@ class DremioSQLQueries:
             AND query_type not like '%INTERNAL%'
             AND submitted_ts >= TIMESTAMP '{start_timestamp_millis}'
             AND submitted_ts <= TIMESTAMP '{end_timestamp_millis}'
+        ORDER BY submitted_ts DESC
+        {{limit_clause}}
         """
-
-    QUERY_TYPES = [
-        "ALTER TABLE",
-        "ALTER VIEW",
-        "COPY INTO",
-        "CREATE TABLE",
-        "CREATE VIEW",
-        "DROP TABLE",
-        "DROP VIEW",
-        "SELECT",
-        "WITH",
-    ]
-
-    PROFILE_COLUMNS = """
-    SELECT
-        {profile_queries}
-    FROM(
-    SELECT
-        *
-    FROM
-        {dremio_dataset}
-    LIMIT {sample_limit}
-    )
-    """

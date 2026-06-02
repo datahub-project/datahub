@@ -1,0 +1,247 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropAddDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties add test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropAddDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropRemoveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties remove test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropRemoveDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropEditDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties edit test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropEditDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropHiddenDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties hidden property test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropHiddenDataset"]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldAddDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties schema field add test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropSchemaFieldAddDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "PlaywrightStructuredPropSchemaFieldAddSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"PlaywrightStructuredPropSchemaFieldAddSchema\",\"fields\":[{\"name\":\"schemaFieldAddField\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "schemaFieldAddField",
+                  "nullable": false,
+                  "description": "Test field for schema field add structured property test",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldUpdateDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties schema field update test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropSchemaFieldUpdateDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "PlaywrightStructuredPropSchemaFieldUpdateSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"PlaywrightStructuredPropSchemaFieldUpdateSchema\",\"fields\":[{\"name\":\"schemaFieldUpdateField\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "schemaFieldUpdateField",
+                  "nullable": false,
+                  "description": "Test field for schema field update structured property test",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hdfs,PlaywrightStructuredPropSchemaFieldRemoveDataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used in Playwright structured properties schema field remove test",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.common.BrowsePaths": {
+              "paths": ["/prod/hdfs/PlaywrightStructuredPropSchemaFieldRemoveDataset"]
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "PlaywrightStructuredPropSchemaFieldRemoveSchema",
+              "platform": "urn:li:dataPlatform:hdfs",
+              "version": 0,
+              "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:datahub"
+              },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
+                  "documentSchema": "{\"type\":\"record\",\"name\":\"PlaywrightStructuredPropSchemaFieldRemoveSchema\",\"fields\":[{\"name\":\"schemaFieldRemoveField\",\"type\":[\"string\"]}]}"
+                }
+              },
+              "fields": [
+                {
+                  "fieldPath": "schemaFieldRemoveField",
+                  "nullable": false,
+                  "description": "Test field for schema field remove structured property test",
+                  "type": {
+                    "type": {
+                      "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                  },
+                  "nativeDataType": "string",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]
