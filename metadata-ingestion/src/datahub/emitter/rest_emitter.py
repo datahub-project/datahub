@@ -438,29 +438,36 @@ class RequestsSessionConfig(ConfigModel):
 
 
 @dataclass
+class _ChunkItem:
+    """A single serialized item in a batch chunk."""
+
+    payload: str
+    urn: Optional[str] = None
+    aspect_name: Optional[str] = None
+
+    @property
+    def byte_size(self) -> int:
+        return len(self.payload.encode())
+
+
+@dataclass
 class _Chunk:
-    items: List[str]
+    items: List[_ChunkItem] = field(default_factory=list)
     total_bytes: int = 0
-    # (urn, aspect) for each item, kept parallel to `items` so the batch emit
-    # path can log which entities were sent without re-parsing the serialized
-    # payload.
-    urn_aspects: List[Tuple[Optional[str], Optional[str]]] = field(default_factory=list)
 
     def add_item(
         self,
-        item: str,
-        urn_aspect: Optional[Tuple[Optional[str], Optional[str]]] = None,
-    ) -> bool:
-        # Always add at least one item even if over byte limit
+        payload: str,
+        urn: Optional[str] = None,
+        aspect_name: Optional[str] = None,
+    ) -> None:
+        item = _ChunkItem(payload=payload, urn=urn, aspect_name=aspect_name)
         self.items.append(item)
-        self.total_bytes += len(item.encode())
-        if urn_aspect is not None:
-            self.urn_aspects.append(urn_aspect)
-        return True
+        self.total_bytes += item.byte_size
 
     @staticmethod
     def join(chunk: "_Chunk") -> str:
-        return "[" + ",".join(chunk.items) + "]"
+        return "[" + ",".join(item.payload for item in chunk.items) + "]"
 
 
 class DataHubRestEmitter(Closeable, Emitter):
@@ -899,7 +906,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         """
         # Group by entity URL and HTTP method
         batches: Dict[Tuple[str, str], List[_Chunk]] = defaultdict(
-            lambda: [_Chunk(items=[])]
+            lambda: [_Chunk()]
         )  # Initialize with one empty Chunk
 
         for mcp in mcps:
@@ -919,11 +926,11 @@ class DataHubRestEmitter(Closeable, Emitter):
                     current_chunk.total_bytes + item_bytes > INGEST_MAX_PAYLOAD_BYTES
                     or len(current_chunk.items) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
                 ):
-                    new_chunk = _Chunk(items=[])
+                    new_chunk = _Chunk()
                     batches[key].append(new_chunk)
                     current_chunk = new_chunk
 
-                current_chunk.add_item(serialized_item, (mcp.entityUrn, mcp.aspectName))
+                current_chunk.add_item(serialized_item, mcp.entityUrn, mcp.aspectName)
 
         trace_data: List[TraceData] = []
         # Chunks are grouped by (method, url), so track a global index/total to
@@ -951,7 +958,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     len(chunk.items),
                     response.status_code,
                     data.trace_id if data else None,
-                    chunk.urn_aspects,
+                    [(item.urn, item.aspect_name) for item in chunk.items],
                 )
                 if data is not None:
                     if _DATAHUB_EMITTER_TRACE:
