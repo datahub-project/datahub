@@ -1,3 +1,10 @@
 {
-    "loading": "Loading..."
+    "clickToCopy": "Click to copy",
+    "copied": "Copied",
+    "copiedSuccess": "Copied!",
+    "creating": "Creating...",
+    "loading": "Loading...",
+    "saving": "Saving...",
+    "updated": "Updated!",
+    "updating": "Updating..."
 }
