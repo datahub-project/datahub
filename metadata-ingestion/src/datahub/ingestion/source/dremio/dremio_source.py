@@ -1,3 +1,4 @@
+import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
@@ -16,6 +17,10 @@ from datahub.ingestion.api.decorators import (
     config_class,
     platform_name,
     support_status,
+)
+from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
 )
 from datahub.ingestion.api.source import (
     MetadataWorkUnitProcessor,
@@ -40,13 +45,21 @@ from datahub.ingestion.source.dremio.dremio_entities import (
     DremioCatalog,
     DremioContainer,
     DremioDataset,
-    DremioDatasetType,
     DremioGlossaryTerm,
     DremioQuery,
     DremioSourceContainer,
 )
-from datahub.ingestion.source.dremio.dremio_profiling import DremioProfiler
+from datahub.ingestion.source.dremio.dremio_models import DremioDatasetType
+from datahub.ingestion.source.dremio.dremio_profiling import (
+    DremioProfiler,
+    ProfileTarget,
+    build_profile_target,
+)
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
+from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
+from datahub.ingestion.source.state.redundant_run_skip_handler import (
+    RedundantQueriesRunSkipHandler,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -162,9 +175,9 @@ class DremioSchemaResolver(SchemaResolver):
 
         urn = make_dataset_urn_with_platform_instance(
             platform=self.platform,
-            platform_instance=platform_instance,
-            env=self.env,
             name=table_name,
+            env=self.env,
+            platform_instance=platform_instance,
         )
         return urn
 
@@ -235,7 +248,6 @@ class DremioSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = DremioSourceReport()
 
-        # Set time window for query lineage extraction
         self.report.window_start_time, self.report.window_end_time = (
             self.config.start_time,
             self.config.end_time,
@@ -243,12 +255,9 @@ class DremioSource(StatefulIngestionSourceBase):
 
         self.source_map: Dict[str, DremioSourceMapEntry] = dict()
 
-        # Initialize API operations
-        dremio_api = DremioAPIOperations(self.config, self.report)
-        self.source_type_mapper = dremio_api.source_type_mapper
-
-        # Initialize catalog
-        self.dremio_catalog = DremioCatalog(dremio_api)
+        api = DremioAPIOperations(self.config, self.report)
+        self.source_type_mapper = api.source_type_mapper
+        self.dremio_catalog = DremioCatalog(api)
 
         # Full URNs don't need graph resolution — only build a registry for bare names.
         self.domain_registry: Optional[DomainRegistry] = None
@@ -257,7 +266,6 @@ class DremioSource(StatefulIngestionSourceBase):
                 cached_domains=[self.config.domain], graph=self.ctx.graph
             )
 
-        # Initialize aspects
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
@@ -265,11 +273,11 @@ class DremioSource(StatefulIngestionSourceBase):
             ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            ui_url=dremio_api.ui_url,
+            ui_url=api.ui_url,
         )
         self.max_workers = config.max_workers
 
-        # Create a custom schema resolver for Dremio that handles the "dremio." infix (post platform_instance)
+        # Custom resolver handles the "dremio." infix injected after platform_instance.
         self.dremio_schema_resolver = DremioSchemaResolver(
             platform=self.get_platform(),
             platform_instance=self.config.platform_instance,
@@ -295,8 +303,15 @@ class DremioSource(StatefulIngestionSourceBase):
         )
         self.report.sql_aggregator = self.sql_parsing_aggregator.report
 
-        # For profiling
-        self.profiler = DremioProfiler(config, self.report, dremio_api)
+        profiling_handler: Optional[ProfilingHandler] = None
+        if config.stateful_ingestion and config.stateful_ingestion.enabled:
+            profiling_handler = ProfilingHandler(
+                source=self,
+                config=config,
+                pipeline_name=ctx.pipeline_name,
+                run_id=ctx.run_id,
+            )
+        self.profiler = DremioProfiler(config, self.report, api, profiling_handler)
 
     def _is_allowed_table(self, name: str) -> bool:
         allowed = passes_dremio_filters(
@@ -351,20 +366,21 @@ class DremioSource(StatefulIngestionSourceBase):
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
             *super().get_workunit_processors(),
+            functools.partial(
+                auto_incremental_lineage, self.config.incremental_lineage
+            ),
+            functools.partial(
+                auto_incremental_properties, self.config.incremental_properties
+            ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Internal method to generate workunits for Dremio metadata.
-        """
-
         self.source_map = self._build_source_map()
 
         with self.report.new_stage(METADATA_EXTRACTION):
-            # Process Containers
             containers = self.dremio_catalog.get_containers()
             for container in containers:
                 try:
@@ -380,19 +396,19 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Single pass over datasets: buffer for profiling, harvest
-            # glossary terms inline. Both follow-up passes would otherwise
-            # re-run the global catalog query. Dedup by string because
-            # DremioGlossaryTerm has no __eq__/__hash__.
+            # Single pass over the catalog: project to slim ProfileTarget
+            # tuples and harvest glossary terms inline. Both follow-up passes
+            # would otherwise re-run the global catalog query, and pinning
+            # full DremioDataset objects for 10k+ catalogs is expensive.
+            # Dedup glossary terms by string because DremioGlossaryTerm has
+            # no __eq__/__hash__.
             profiling_enabled = self.config.is_profiling_enabled()
-            datasets_for_profiling: Optional[List[DremioDataset]] = (
+            profile_targets: Optional[List[ProfileTarget]] = (
                 [] if profiling_enabled else None
             )
             glossary_terms_seen: Set[str] = set()
             glossary_terms_collected: List[DremioGlossaryTerm] = []
             for dataset_info in self.dremio_catalog.get_datasets():
-                if datasets_for_profiling is not None:
-                    datasets_for_profiling.append(dataset_info)
                 for glossary_term in dataset_info.glossary_terms:
                     if glossary_term.glossary_term not in glossary_terms_seen:
                         glossary_terms_seen.add(glossary_term.glossary_term)
@@ -403,11 +419,19 @@ class DremioSource(StatefulIngestionSourceBase):
                         f"Dremio dataset {'.'.join(dataset_info.path)}.{dataset_info.resource_name} emitted successfully"
                     )
                 except Exception as exc:
-                    self.report.num_datasets_failed += 1  # Increment failed datasets
+                    self.report.num_datasets_failed += 1
                     self.report.report_failure(
                         message="Failed to process Dremio dataset",
                         context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
                         exc=exc,
+                    )
+                    # Don't queue a profile for an emission that already failed.
+                    continue
+                if profile_targets is not None and dataset_info.columns:
+                    profile_targets.append(
+                        build_profile_target(
+                            dataset_info, self._make_dataset_urn(dataset_info)
+                        )
                     )
 
             for glossary_term in glossary_terms_collected:
@@ -420,38 +444,36 @@ class DremioSource(StatefulIngestionSourceBase):
                         exc=exc,
                     )
 
-            # Optionally Process Query Lineage
             if self.config.include_query_lineage:
                 with self.report.new_stage(LINEAGE_EXTRACTION):
                     self.get_query_lineage_workunits()
 
-            # Generate workunit for aggregated SQL parsing results
             for mcp in self.sql_parsing_aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
-            if profiling_enabled and datasets_for_profiling is not None:
+            if profiling_enabled and profile_targets is not None:
                 with (
                     self.report.new_stage(PROFILING),
                     ThreadPoolExecutor(
                         max_workers=self.config.profiling.max_workers
                     ) as executor,
                 ):
-                    future_to_dataset = {
-                        executor.submit(self.generate_profiles, dataset): dataset
-                        for dataset in datasets_for_profiling
+                    future_to_target = {
+                        executor.submit(self.generate_profiles, target): target
+                        for target in profile_targets
                     }
 
-                    for future in as_completed(future_to_dataset):
-                        dataset_info = future_to_dataset[future]
+                    for future in as_completed(future_to_target):
+                        target = future_to_target[future]
                         try:
                             yield from future.result()
                         except Exception as exc:
                             self.report.profiling_skipped_other[
-                                dataset_info.resource_name
+                                target.resource_name
                             ] += 1
                             self.report.report_failure(
                                 message="Failed to profile dataset",
-                                context=f"{'.'.join(dataset_info.path)}.{dataset_info.resource_name}",
+                                context=target.full_table_name,
                                 exc=exc,
                             )
 
@@ -480,8 +502,8 @@ class DremioSource(StatefulIngestionSourceBase):
 
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
 
-        # Filter out Dremio Reflections (internal acceleration structures in _accelerator_ schema)
-        # These are Dremio's internal metadata and should not appear in the DataHub catalog
+        # Drop Dremio Reflections — _accelerator_ holds internal acceleration
+        # structures that should never surface in the DataHub catalog.
         if dataset_info.path and dataset_info.path[0] == "_accelerator_":
             self.report.report_dropped(f"Skipping Dremio reflection: {dataset_name}")
             return
@@ -491,7 +513,6 @@ class DremioSource(StatefulIngestionSourceBase):
             self.report.report_dropped(dataset_name)
             return
 
-        # Track catalog dataset names for query lineage validation
         self.catalog_dataset_names.add(dataset_name)
 
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -505,12 +526,9 @@ class DremioSource(StatefulIngestionSourceBase):
             dataset_urn, dataset_info
         ):
             yield dremio_mcp
-            # Check if the emitted aspect is SchemaMetadataClass
             if isinstance(
                 dremio_mcp.metadata, MetadataChangeProposalWrapper
             ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
-                # Register the schema with the custom Dremio schema resolver
-                # The resolver will ensure all URNs are constructed with the "dremio." infix
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
                     schema=dremio_mcp.metadata.aspect,
@@ -574,18 +592,18 @@ class DremioSource(StatefulIngestionSourceBase):
 
         yield from self.dremio_aspects.populate_glossary_term_mcp(glossary_term_info)
 
-    def generate_profiles(
-        self, dataset_info: DremioDataset
-    ) -> Iterable[MetadataWorkUnit]:
+    def _make_dataset_urn(self, dataset_info: DremioDataset) -> str:
         schema_str = ".".join(dataset_info.path)
         dataset_name = f"{schema_str}.{dataset_info.resource_name}".lower()
-        dataset_urn = make_dataset_urn_with_platform_instance(
+        return make_dataset_urn_with_platform_instance(
             platform=make_data_platform_urn(self.get_platform()),
             name=f"{DREMIO_DATABASE_NAME}.{dataset_name}",
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        yield from self.profiler.get_workunits(dataset_info, dataset_urn)
+
+    def generate_profiles(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
+        yield from self.profiler.get_workunits(target)
 
     def generate_view_lineage(
         self, dataset_urn: str, parents: List[str]
@@ -642,8 +660,42 @@ class DremioSource(StatefulIngestionSourceBase):
         """
         Process query lineage information.
         """
+        effective_start = self.config.start_time
+        effective_end = self.config.end_time
+        redundant_handler: Optional[RedundantQueriesRunSkipHandler] = None
 
-        queries = self.dremio_catalog.get_queries()
+        if self.config.enable_stateful_time_window:
+            redundant_handler = RedundantQueriesRunSkipHandler(
+                source=self,
+                config=self.config,
+                pipeline_name=self.ctx.pipeline_name,
+                run_id=self.ctx.run_id,
+            )
+            if redundant_handler.should_skip_this_run(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            ):
+                self.report.info(
+                    "Skipping query lineage/usage extraction: the current time window "
+                    f"({self.config.start_time} – {self.config.end_time}) was already "
+                    "fully processed in a previous run.",
+                )
+                return
+
+            # Advance start_time to the end of the previous run so only new
+            # job history is fetched.
+            effective_start, effective_end = redundant_handler.suggest_run_time_window(
+                cur_start_time=self.config.start_time,
+                cur_end_time=self.config.end_time,
+            )
+            logger.info(
+                f"Effective query lineage window: {effective_start} – {effective_end} "
+                f"(original: {self.config.start_time} – {self.config.end_time})"
+            )
+
+        queries = self.dremio_catalog.get_queries(
+            start_time=effective_start, end_time=effective_end
+        )
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             future_to_query = {
@@ -660,6 +712,15 @@ class DremioSource(StatefulIngestionSourceBase):
                         context=f"{query.job_id}: {exc}",
                         exc=exc,
                     )
+
+        # Record the time window after successful processing so subsequent runs
+        # can skip or advance past it.
+        if redundant_handler is not None:
+            redundant_handler.update_state(
+                start_time=effective_start,
+                end_time=effective_end,
+                bucket_duration=self.config.bucket_duration,
+            )
 
     def _validate_query_lineage_format(self, query: DremioQuery) -> None:
         for queried_ds in query.queried_datasets:

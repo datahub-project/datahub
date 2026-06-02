@@ -1,8 +1,9 @@
+import logging
 import os
 from typing import Dict, List, Literal, Optional
 
 import certifi
-from pydantic import Field, ValidationInfo, field_validator
+from pydantic import Field, ValidationInfo, field_validator, model_validator
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -15,12 +16,17 @@ from datahub.configuration.source_common import (
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+
+logger = logging.getLogger(__name__)
 
 
 class DremioConnectionConfig(ConfigModel):
@@ -135,9 +141,15 @@ class DremioSourceConfig(
     DremioConnectionConfig,
     StatefulIngestionConfigBase,
     BaseTimeWindowConfig,
+    IncrementalPropertiesConfigMixin,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
+    # StatefulLineageConfigMixin / StatefulProfilingConfigMixin are
+    # intentionally not inherited — their fields are unused on Dremio
+    # (we use enable_stateful_time_window and profile_if_updated_since_days)
+    # and their validators would emit warnings for dead config.
+
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
@@ -204,7 +216,41 @@ class DremioSourceConfig(
         description="Whether to include query-based lineage information.",
     )
 
+    incremental_lineage: bool = Field(
+        default=False,
+        description="When enabled, lineage aspects are emitted as PATCH operations rather than full "
+        "overwrites. This preserves any lineage edges that were manually added in DataHub "
+        "between runs. Disable if you want each run to fully replace lineage. "
+        "PATCH emission requires a GMS that supports patch aspects.",
+    )
+
+    enable_stateful_time_window: bool = Field(
+        default=False,
+        description="Enable stateful time window tracking for query lineage/usage extraction. "
+        "When enabled, subsequent runs will skip time windows already fully processed, "
+        "avoiding redundant API calls. Requires stateful_ingestion to be configured.",
+    )
+
     ingest_owner: bool = Field(
         default=True,
         description="Ingest Owner from source. This will override Owner info entered from UI",
     )
+
+    @model_validator(mode="after")
+    def _warn_if_stateful_time_window_without_stateful_ingestion(
+        self,
+    ) -> "DremioSourceConfig":
+        # Warn when the user opts into time-window skipping but hasn't
+        # enabled stateful_ingestion (the run-skip handler is only
+        # installed in that case, so the flag would otherwise no-op).
+        if self.enable_stateful_time_window and (
+            self.stateful_ingestion is None or not self.stateful_ingestion.enabled
+        ):
+            logger.warning(
+                "`enable_stateful_time_window: true` has no effect because "
+                "`stateful_ingestion.enabled` is not set. Add a "
+                "`stateful_ingestion:` block with `enabled: true` (and a "
+                "configured `pipeline_name`) to activate run-to-run "
+                "time-window skipping."
+            )
+        return self
