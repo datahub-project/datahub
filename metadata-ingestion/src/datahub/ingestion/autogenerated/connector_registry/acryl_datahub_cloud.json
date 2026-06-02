@@ -1,0 +1,62 @@
+{
+  "generated_by": "metadata-ingestion/scripts/connector_registry.py",
+  "package": "acryl_datahub_cloud",
+  "plugin_details": {
+    "datahub-action-request-owner": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.action_request.action_request_owner_source.ActionRequestOwnerSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-forms-notifications": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_forms_notifications.forms_notifications_source.DataHubFormsNotificationsSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-metadata-sharing": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_metadata_sharing.metadata_sharing_source.DataHubMetadataSharingSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-reporting-extract-sql": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_reporting.extract_sql.DataHubReportingExtractSQLSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-reporting-forms": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.datahub_reporting.forms.DataHubReportingFormsSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-restore": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "acryl_datahub_cloud.datahub_restore.source.DataHubRestoreSource",
+      "platform_id": "datahub",
+      "platform_name": "datahub",
+      "support_status": "INCUBATING"
+    },
+    "datahub-user-entity-resolution": {
+      "capabilities": [],
+      "classname": "acryl_datahub_cloud.user_entity_resolution.source.UserEntityResolutionSource",
+      "platform_id": "datahub",
+      "platform_name": "DataHub",
+      "support_status": "INCUBATING"
+    }
+  }
+}
