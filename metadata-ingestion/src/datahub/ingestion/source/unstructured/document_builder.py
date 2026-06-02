@@ -260,30 +260,43 @@ class DocumentEntityBuilder:
         # embeddings and emit SemanticContent aspects directly.
 
         # Create Document using SDK
-        # Determine platform from source_type (e.g., "notion", "local", "s3")
-        platform = self.source_type
-
-        # Determine external_url based on config
-        final_external_url: str
-        if self.config.source.include_external_url:
-            final_external_url = source_url
+        if self.config.source.type == "NATIVE":
+            doc = Document.create_document(
+                id=doc_id,
+                title=title,
+                text=text_content,
+                status=status,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                related_assets=related_assets,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
         else:
-            # Still need to provide a URL (required parameter), use a placeholder
-            final_external_url = f"{self.source_type}://{doc_id}"
+            # Determine platform from source_type (e.g., "notion", "local", "s3")
+            platform = self.source_type
 
-        doc = Document.create_external_document(
-            id=doc_id,
-            title=title,
-            platform=platform,
-            external_url=final_external_url,
-            external_id=source_id,
-            text=text_content,
-            status=status,
-            custom_properties=custom_properties,
-            parent_document=parent_urn,
-            created_time=created_time,
-            last_modified_time=last_modified_time,
-        )
+            # Determine external_url based on config
+            final_external_url: str
+            if self.config.source.include_external_url:
+                final_external_url = source_url
+            else:
+                # Still need to provide a URL (required parameter), use a placeholder
+                final_external_url = f"{self.source_type}://{doc_id}"
+
+            doc = Document.create_external_document(
+                id=doc_id,
+                title=title,
+                platform=platform,
+                external_url=final_external_url,
+                external_id=source_id,
+                text=text_content,
+                status=status,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
 
         return doc
 
@@ -301,6 +314,16 @@ class DocumentEntityBuilder:
         )
 
         # Create Document for folder using SDK
+        if self.config.source.type == "NATIVE":
+            return Document.create_document(
+                id=doc_id,
+                title=folder_name,
+                text=f"Folder: {folder_name}",
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties={"is_folder": "true"},
+                parent_document=parent_urn,
+            )
+
         platform = self.source_type
 
         # Determine external_url based on config (folder_path is always a string)

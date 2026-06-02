@@ -386,3 +386,13 @@ query getRelatedDocuments($urn: String!, $input: RelatedDocumentsInput!) {
         }
     }
 }
+
+mutation importDocumentsFromFiles($input: ImportDocumentsFromFilesInput!) {
+    importDocumentsFromFiles(input: $input) {
+        createdCount
+        updatedCount
+        failedCount
+        errors
+        documentUrns
+    }
+}

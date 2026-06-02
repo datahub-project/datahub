@@ -8,9 +8,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
+import ImportDocumentsButton from '@app/context/import/ImportDocumentsButton';
+import { useDocumentImportSuccess } from '@app/context/import/hooks/useDocumentImportSuccess';
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
+import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useSearchDocuments } from '@app/document/hooks/useSearchDocuments';
 import { DocumentTree } from '@app/homeV2/layout/sidebar/documents/DocumentTree';
 import { SearchResultItem } from '@app/homeV2/layout/sidebar/documents/SearchResultItem';
@@ -67,7 +70,7 @@ const SidebarTitle = styled.div`
 const HeaderButtons = styled.div`
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 8px;
 `;
 
 const StyledButton = styled(Button)`
@@ -179,6 +182,7 @@ export default function ContextSidebar({
     const [isSearchBarFocused, setIsSearchBarFocused] = useState(false);
     const { createDocument } = useCreateDocumentTreeMutation();
     const { expandNode, getNode } = useDocumentTree();
+    const { loadChildren } = useLoadDocumentTree();
     const history = useHistory();
     const entityRegistry = useEntityRegistry();
 
@@ -254,6 +258,8 @@ export default function ContextSidebar({
         [entityRegistry, history],
     );
 
+    const handleImportSuccess = useDocumentImportSuccess({ loadChildren });
+
     return (
         <SidebarContainer
             $width={width}
@@ -265,6 +271,7 @@ export default function ContextSidebar({
             <HeaderControls $isCollapsed={isCollapsed}>
                 {!isCollapsed && <SidebarTitle>Documents</SidebarTitle>}
                 <HeaderButtons>
+                    {!isCollapsed && canCreateDocuments && <ImportDocumentsButton onSuccess={handleImportSuccess} />}
                     {!isCollapsed && (
                         <Tooltip
                             title={

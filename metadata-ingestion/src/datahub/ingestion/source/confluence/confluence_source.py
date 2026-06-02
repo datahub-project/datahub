@@ -39,6 +39,7 @@ from datahub.ingestion.source.confluence.confluence_hierarchy import (
 )
 from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -775,6 +776,44 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             parent_id, platform=self.platform, instance_id=instance_id
         )
 
+    def _build_imported_document(
+        self,
+        doc_id: str,
+        title: str,
+        text: str,
+        url: str,
+        page_id: str,
+        custom_properties: Dict[str, str],
+        parent_urn: Optional[str],
+        created_time: Any,
+        last_modified_time: Any,
+    ) -> Document:
+        if self.config.document_import_mode == DocumentImportMode.NATIVE:
+            return Document.create_document(
+                id=doc_id,
+                title=title,
+                text=text,
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
+
+        return Document.create_external_document(
+            id=doc_id,
+            title=title,
+            platform=self.platform,
+            external_url=url,
+            external_id=page_id,
+            text=text,
+            status=DocumentStateClass.PUBLISHED,
+            custom_properties=custom_properties,
+            parent_document=parent_urn,
+            created_time=created_time,
+            last_modified_time=last_modified_time,
+        )
+
     def _create_document_entity(
         self,
         page: Dict[str, Any],
@@ -896,16 +935,14 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             f"Creating document: doc_id={doc_id}, parent_urn={parent_urn}, url={url}"
         )
 
-        doc = Document.create_external_document(
-            id=doc_id,
+        doc = self._build_imported_document(
+            doc_id=doc_id,
             title=title,
-            platform=self.platform,
-            external_url=url,
-            external_id=page_id,
             text=text,
-            status=DocumentStateClass.PUBLISHED,
+            url=url,
+            page_id=page_id,
             custom_properties=custom_properties,
-            parent_document=parent_urn,
+            parent_urn=parent_urn,
             created_time=created_time,
             last_modified_time=last_modified_time,
         )

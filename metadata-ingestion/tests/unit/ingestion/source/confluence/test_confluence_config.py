@@ -6,6 +6,7 @@ from pydantic import ValidationError
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 
 
 def test_minimal_cloud_config_valid() -> None:
@@ -143,6 +144,41 @@ def test_recursive_default() -> None:
     }
     config = ConfluenceSourceConfig.model_validate(config_dict)
     assert config.recursive is True
+
+
+def test_document_import_mode_defaults_to_external() -> None:
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+    assert config.document_import_mode == DocumentImportMode.EXTERNAL
+    assert config.document_mapping.source.type == "EXTERNAL"
+
+
+def test_native_mode_sets_mapping() -> None:
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "document_import_mode": DocumentImportMode.NATIVE,
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+    assert config.document_import_mode == DocumentImportMode.NATIVE
+    assert config.document_mapping.source.type == "NATIVE"
+
+
+def test_external_mode_sets_mapping() -> None:
+    config_dict = {
+        "url": "https://test.atlassian.net/wiki",
+        "username": "test@example.com",
+        "api_token": "test-token-123",
+        "document_import_mode": DocumentImportMode.EXTERNAL,
+    }
+    config = ConfluenceSourceConfig.model_validate(config_dict)
+    assert config.document_import_mode == DocumentImportMode.EXTERNAL
+    assert config.document_mapping.source.type == "EXTERNAL"
 
 
 def test_advanced_configuration() -> None:

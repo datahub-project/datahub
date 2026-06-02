@@ -1007,6 +1007,16 @@
     displayName: Notion
     type: OTHERS
     logoUrl: "assets/platforms/notionlogo.png"
+- entityUrn: urn:li:dataPlatform:github
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: github
+    displayName: GitHub
+    type: OTHERS
+    logoUrl: "assets/platforms/githublogo.png"
 - entityUrn: urn:li:dataPlatform:fabric
   entityType: dataPlatform
   aspectName: dataPlatformInfo

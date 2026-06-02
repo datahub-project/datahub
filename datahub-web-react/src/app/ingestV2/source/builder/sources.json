@@ -563,7 +563,7 @@
         "displayName": "Notion",
         "description": "Import pages from Notion as Documents.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/notion/",
-        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true",
+        "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true\n    document_import_mode: EXTERNAL",
         "category": "Context Document Sources",
         "isPopular": false,
         "isNew": true
@@ -574,7 +574,18 @@
         "displayName": "Confluence",
         "description": "Import pages and spaces from Confluence as Documents with semantic search support.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/confluence/",
-        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    stateful_ingestion:\n      enabled: true",
+        "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    document_import_mode: EXTERNAL\n    stateful_ingestion:\n      enabled: true",
+        "category": "Context Document Sources",
+        "isPopular": false,
+        "isNew": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:github",
+        "name": "github-documents",
+        "displayName": "GitHub",
+        "description": "Import files from a GitHub repository as context Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/github-documents/",
+        "recipe": "source:\n  type: github-documents\n  config:\n    github_token: null\n    repository: org/repo\n    branch: main\n    path_prefix: \"\"\n    file_extensions:\n      - .md\n      - .txt\n    document_import_mode: NATIVE\n    show_in_global_context: true",
         "category": "Context Document Sources",
         "isPopular": false,
         "isNew": true

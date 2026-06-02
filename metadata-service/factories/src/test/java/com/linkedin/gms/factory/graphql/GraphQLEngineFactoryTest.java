@@ -32,6 +32,7 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.service.*;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -283,6 +284,10 @@ public class GraphQLEngineFactoryTest extends AbstractTestNGSpringContextTests {
   @MockitoBean
   @Qualifier("dataHubFileService")
   private DataHubFileService dataHubFileService;
+
+  @MockitoBean
+  @Qualifier("documentImportService")
+  private DocumentImportService documentImportService;
 
   @Value("${platformAnalytics.enabled}")
   private Boolean isAnalyticsEnabled;

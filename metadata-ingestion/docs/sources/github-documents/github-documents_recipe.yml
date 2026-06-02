@@ -1,0 +1,18 @@
+source:
+  type: github-documents
+  config:
+    github_token: "${GITHUB_TOKEN}"
+    repository: acme/handbook
+    branch: main
+    path_prefix: docs
+    file_extensions:
+      - .md
+      - .txt
+    parent_document_urn: null
+    document_import_mode: NATIVE
+    show_in_global_context: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

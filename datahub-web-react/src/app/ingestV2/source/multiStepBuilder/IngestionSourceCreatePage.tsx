@@ -1,8 +1,8 @@
 import { useApolloClient } from '@apollo/client';
 import { Text } from '@components';
 import { message } from 'antd';
-import React, { useCallback, useState } from 'react';
-import { useHistory } from 'react-router';
+import React, { useCallback, useMemo, useState } from 'react';
+import { useHistory, useLocation } from 'react-router';
 
 import analytics, { EventType } from '@app/analytics';
 import { useIngestionContext } from '@app/ingestV2/IngestionContext';
@@ -10,6 +10,7 @@ import { DEFAULT_PAGE_SIZE } from '@app/ingestV2/constants';
 import { addToListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import { useCreateSource } from '@app/ingestV2/source/hooks/useCreateSource';
 import { IngestionSourceBuilder } from '@app/ingestV2/source/multiStepBuilder/IngestionSourceBuilder';
+import type { IngestionSourceCreatePageLocationState } from '@app/ingestV2/source/multiStepBuilder/ingestionCreatePage.types';
 import { SelectSourceStep } from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceStep';
 import SelectSourceSubtitle from '@app/ingestV2/source/multiStepBuilder/steps/step1SelectSource/SelectSourceSubtitle';
 import { ConnectionDetailsStep } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/ConnectionDetailsStep';
@@ -50,6 +51,7 @@ const STEPS: IngestionSourceFormStep[] = [
 
 export function IngestionSourceCreatePage() {
     const history = useHistory();
+    const location = useLocation<IngestionSourceCreatePageLocationState>();
     const client = useApolloClient();
     const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
     const { setCreatedOrUpdatedSource, setShouldRunCreatedOrUpdatedSource } = useIngestionContext();
@@ -58,7 +60,11 @@ export function IngestionSourceCreatePage() {
 
     const { defaultOwnershipType } = useOwnershipTypes();
 
-    const initialState = {};
+    const initialState = useMemo(
+        () => location.state?.initialBuilderState ?? {},
+        [location.state?.initialBuilderState],
+    );
+    const initialStepIndex = location.state?.initialStepIndex ?? 0;
 
     const onSubmit = useCallback(
         async (data: MultiStepSourceBuilderState | undefined, options: SubmitOptions | undefined) => {
@@ -153,7 +159,13 @@ export function IngestionSourceCreatePage() {
             confirmButtonText="Continue Setup"
             closeButtonText="Exit Without Saving"
         >
-            <IngestionSourceBuilder steps={STEPS} onSubmit={onSubmit} onCancel={onCancel} initialState={initialState} />
+            <IngestionSourceBuilder
+                steps={STEPS}
+                onSubmit={onSubmit}
+                onCancel={onCancel}
+                initialState={initialState}
+                initialStepIndex={initialStepIndex}
+            />
         </DiscardUnsavedChangesConfirmationProvider>
     );
 }

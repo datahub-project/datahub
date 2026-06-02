@@ -180,6 +180,7 @@ export enum EventType {
     IngestionEnterSyncScheduleEvent,
     IngestionExitConfigurationEvent,
     CloseCreateSourceEducationModalEvent,
+    ImportDocumentsEvent,
 }
 
 /**
@@ -1358,6 +1359,17 @@ export interface DeleteDocumentEvent extends BaseEvent {
 }
 
 /**
+ * Logged when a user imports documents from a source (file upload or GitHub).
+ */
+export interface ImportDocumentsEvent extends BaseEvent {
+    type: EventType.ImportDocumentsEvent;
+    source: 'FILE_UPLOAD' | 'GITHUB';
+    createdCount: number;
+    updatedCount: number;
+    failedCount: number;
+}
+
+/**
  * Event consisting of a union of specific event types.
  */
 export type Event =
@@ -1515,4 +1527,5 @@ export type Event =
     | IngestionEnterConfigurationEvent
     | IngestionEnterSyncScheduleEvent
     | IngestionExitConfigurationEvent
-    | CloseCreateSourceEducationModalEvent;
+    | CloseCreateSourceEducationModalEvent
+    | ImportDocumentsEvent;

@@ -23,6 +23,7 @@ import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
+import githubLogo from '@images/githublogo.png';
 import glueLogo from '@images/gluelogo.png';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
@@ -133,6 +134,9 @@ const MYSQL_URN = `urn:li:dataPlatform:${MYSQL}`;
 export const CONFLUENCE = 'confluence';
 const CONFLUENCE_URN = `urn:li:dataPlatform:${CONFLUENCE}`;
 export const NOTION = 'notion';
+export const GITHUB = 'github';
+export const GITHUB_DOCUMENTS = 'github-documents';
+const GITHUB_URN = `urn:li:dataPlatform:${GITHUB}`;
 const NOTION_URN = `urn:li:dataPlatform:${NOTION}`;
 export const OKTA = 'okta';
 const OKTA_URN = `urn:li:dataPlatform:${OKTA}`;
@@ -250,6 +254,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [MSSQL_URN]: mssqlLogo,
     [MYSQL_URN]: mysqlLogo,
     [CONFLUENCE_URN]: confluenceLogo,
+    [GITHUB_URN]: githubLogo,
     [NOTION_URN]: notionLogo,
     [OKTA_URN]: oktaLogo,
     [ORACLE_URN]: oracleLogo,
@@ -301,4 +306,5 @@ export const SOURCE_TO_PLATFORM_URN = {
     [DATAHUB_GC]: DATAHUB_URN,
     [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
     [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
+    [GITHUB_DOCUMENTS]: GITHUB_URN,
 };

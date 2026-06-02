@@ -134,7 +134,17 @@ public class ESUtils {
   public static final String OBJECT_FIELD_TYPE = "object";
   public static final String TEXT_FIELD_TYPE = "text";
   public static final String TOKEN_COUNT_FIELD_TYPE = "token_count";
+
   // End of field types
+
+  /**
+   * {@code ignore_above} for TEXT-derived keyword fields. Lucene rejects indexed terms longer than
+   * 32766 bytes; matching that limit skips oversized values instead of failing the document. See
+   * https://www.elastic.co/guide/en/elasticsearch/reference/current/ignore-above.html and
+   * https://docs.opensearch.org/latest/field-types/supported-field-types/string/ Tokenized text
+   * sub-fields are unaffected.
+   */
+  public static final int KEYWORD_MAXLENGTH = 32766;
 
   public static final Set<SearchableAnnotation.FieldType> FIELD_TYPES_STORED_AS_KEYWORD =
       Set.of(

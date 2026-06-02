@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
+import com.linkedin.gms.factory.knowledge.DocumentImportServiceFactory;
 import com.linkedin.gms.factory.knowledge.DocumentServiceFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -49,6 +50,7 @@ import com.linkedin.metadata.service.PageTemplateService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.service.docimport.DocumentImportService;
 import com.linkedin.metadata.timeline.TimelineService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.aws.S3Util;
@@ -82,6 +84,7 @@ import org.springframework.context.annotation.Import;
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
   DocumentServiceFactory.class,
+  DocumentImportServiceFactory.class,
 })
 public class GraphQLEngineFactory {
 
@@ -220,6 +223,10 @@ public class GraphQLEngineFactory {
   @Qualifier("documentService")
   private DocumentService documentService;
 
+  @Autowired(required = false)
+  @Qualifier("documentImportService")
+  private DocumentImportService documentImportService;
+
   @Autowired
   @Qualifier("pageTemplateService")
   private PageTemplateService pageTemplateService;
@@ -307,6 +314,7 @@ public class GraphQLEngineFactory {
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
     args.setDocumentService(documentService);
+    args.setDocumentImportService(documentImportService);
     args.setMetricUtils(metricUtils);
     args.setS3Util(s3Util);
     args.setSemanticSearchService(semanticSearchService);

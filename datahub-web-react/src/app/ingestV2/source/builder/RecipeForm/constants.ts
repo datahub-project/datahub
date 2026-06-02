@@ -90,6 +90,11 @@ import {
     TARGET_PLATFORM_INSTANCE,
 } from '@app/ingestV2/source/builder/RecipeForm/dbt_cloud';
 import {
+    CONFLUENCE_DOCUMENTS_IMPORT_MODE,
+    GITHUB_DOCUMENTS_IMPORT_MODE,
+    NOTION_DOCUMENTS_IMPORT_MODE,
+} from '@app/ingestV2/source/builder/RecipeForm/documentImportMode';
+import {
     DORIS,
     DORIS_DATABASE,
     DORIS_HOST_PORT,
@@ -113,6 +118,15 @@ import {
     DREMIO_TLS,
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
+import {
+    GITHUB_DOCUMENTS_BRANCH,
+    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+    GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN,
+    GITHUB_DOCUMENTS_PATH_PREFIX,
+    GITHUB_DOCUMENTS_REPOSITORY,
+    GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT,
+    GITHUB_DOCUMENTS_TOKEN,
+} from '@app/ingestV2/source/builder/RecipeForm/github-documents';
 import {
     GLUE,
     GLUE_AWS_ACCESS_KEY_ID,
@@ -342,6 +356,7 @@ import {
     CSV,
     DATABRICKS,
     DBT_CLOUD,
+    GITHUB_DOCUMENTS,
     MATILLION_DPC,
     MYSQL,
     NOTION,
@@ -713,9 +728,21 @@ export const RECIPE_FIELDS: RecipeFields = {
         ],
     },
     [NOTION]: {
-        fields: [NOTION_API_KEY, NOTION_PAGE_IDS],
+        fields: [NOTION_API_KEY, NOTION_PAGE_IDS, NOTION_DOCUMENTS_IMPORT_MODE],
         filterFields: [],
         advancedFields: [],
+    },
+    [GITHUB_DOCUMENTS]: {
+        fields: [
+            GITHUB_DOCUMENTS_TOKEN,
+            GITHUB_DOCUMENTS_REPOSITORY,
+            GITHUB_DOCUMENTS_BRANCH,
+            GITHUB_DOCUMENTS_PATH_PREFIX,
+            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            GITHUB_DOCUMENTS_IMPORT_MODE,
+        ],
+        filterFields: [],
+        advancedFields: [GITHUB_DOCUMENTS_PARENT_DOCUMENT_URN, GITHUB_DOCUMENTS_SHOW_IN_GLOBAL_CONTEXT],
     },
     [CONFLUENCE]: {
         fields: [
@@ -724,6 +751,7 @@ export const RECIPE_FIELDS: RecipeFields = {
             CONFLUENCE_USERNAME,
             CONFLUENCE_API_TOKEN,
             CONFLUENCE_PERSONAL_ACCESS_TOKEN,
+            CONFLUENCE_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [CONFLUENCE_SPACE_ALLOW, CONFLUENCE_SPACE_DENY, CONFLUENCE_PAGE_ALLOW, CONFLUENCE_PAGE_DENY],
         advancedFields: [],

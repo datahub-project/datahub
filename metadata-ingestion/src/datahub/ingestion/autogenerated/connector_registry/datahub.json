@@ -1529,6 +1529,26 @@
       "platform_name": "Google Cloud Storage",
       "support_status": "INCUBATING"
     },
+    "github-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.github_documents.github_documents_source.GitHubDocumentsSource",
+      "platform_id": "github",
+      "platform_name": "GitHub",
+      "support_status": "INCUBATING"
+    },
     "glue": {
       "capabilities": [
         {
