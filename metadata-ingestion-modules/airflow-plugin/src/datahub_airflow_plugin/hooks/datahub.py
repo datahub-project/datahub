@@ -9,7 +9,10 @@ from airflow.exceptions import AirflowException
 try:
     from airflow.sdk import BaseHook
 except ImportError:
-    from airflow.hooks.base import BaseHook
+    # Airflow 3.0.x: airflow.hooks.base provides BaseHook via a (lazy) deprecation
+    # shim that mypy can't resolve statically when checking against 3.1+, hence the
+    # attr-defined/no-redef ignores.
+    from airflow.hooks.base import BaseHook  # type: ignore[no-redef,attr-defined]
 
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter

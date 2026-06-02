@@ -186,6 +186,35 @@ def test_datajob_url_link_taskinstance_rejected_with_migration_message():
             get_lineage_config()
 
 
+def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
+    """BaseHook moved into the Task SDK (airflow.sdk.bases.hook) in Airflow 3.1.
+    On Airflow 3.0.x it is only importable from airflow.hooks.base, so
+    hooks/datahub.py imports it via a try/except. Simulate the 3.0 surface
+    (airflow.sdk without BaseHook) and re-import the module to prove the
+    fallback branch keeps DatahubRestHook working — this guards 3.0 support
+    even though the unit suite itself runs on a newer Airflow."""
+    import importlib
+    import sys
+    import types
+
+    from airflow.hooks.base import BaseHook as LegacyBaseHook
+
+    import datahub_airflow_plugin.hooks.datahub as hook_module
+
+    # Replace airflow.sdk with a stub that lacks BaseHook so
+    # `from airflow.sdk import BaseHook` raises ImportError, as on Airflow 3.0.x.
+    stub_sdk = types.ModuleType("airflow.sdk")
+    monkeypatch.setitem(sys.modules, "airflow.sdk", stub_sdk)
+    try:
+        importlib.reload(hook_module)
+        assert hook_module.BaseHook is LegacyBaseHook
+        assert issubclass(hook_module.DatahubRestHook, LegacyBaseHook)
+    finally:
+        # Restore the real (3.1+) import surface for the rest of the suite.
+        monkeypatch.undo()
+        importlib.reload(hook_module)
+
+
 def test_entities():
     assert (
         Dataset("snowflake", "mydb.schema.tableConsumed").urn
