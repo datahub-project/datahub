@@ -420,17 +420,11 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         """
-        Detects and soft-deletes Dashboard entities that were emitted for
-        Components by the previous connector version (pre-v1.1).
+        Soft-delete legacy Dashboard entities (subtype 'Component') emitted by
+        the previous connector version; Components are now Chart entities.
 
-        In v1.1+ Components are Chart entities; previously they were Dashboard
-        entities with subtype 'Component'. This method paginates through any
-        such Dashboard entities still in DataHub and emits Status(removed=True)
-        to each — ensuring cleanup regardless of whether the stale-entity
-        removal handler was tracking them.
-
-        Requires ctx.graph. If the graph is unavailable the migration is
-        skipped silently.
+        Runs independently of the stale-entity removal handler. Requires
+        ctx.graph; skipped silently if unavailable.
         """
         if not self.ctx.graph:
             return
