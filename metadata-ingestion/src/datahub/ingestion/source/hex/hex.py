@@ -503,11 +503,9 @@ class HexSource(TestableSource, StatefulIngestionSourceBase):
         )
         self.mapper.workspace_id = self.workspace_id
 
-        # One-time migration: soft-delete legacy Dashboard-typed Component entities
-        # from the previous connector version. No-op after the first successful
-        # migration run (search returns 0).
-        with self.report.new_stage("Migrate legacy Component entities"):
-            yield from self._migrate_legacy_component_dashboards()
+        if self.source_config.migrate_legacy_components:
+            with self.report.new_stage("Migrate legacy Component entities"):
+                yield from self._migrate_legacy_component_dashboards()
 
         # Resolve connection IDs to HexConnection records once. After this
         # point, no further type→platform translation happens anywhere

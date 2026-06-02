@@ -48,13 +48,19 @@ Requirements:
 
 - **Docker image tags (`:head` removed, `:quickstart` and `:sha-*` added):** The floating `:head` tag is no longer published to Docker Hub because images were tagged per-service at different times, so `:head` often referred to a mixed set of commits. **Action for Docker Compose / local quickstart:** use `DATAHUB_VERSION=quickstart` (or `datahub docker quickstart --version head`, which resolves to the `quickstart` tag via the version manifest). Immutable `sha-<short_sha>` tags are published during the coordinated depot bake on `master`; the `:quickstart` tag is updated only after the full image matrix passes smoke tests, so all services move together. **Action for Kubernetes / Helm / production:** pin an immutable tag — a release (`v*`) or a commit tag `sha-<7-char short SHA>` (e.g. `sha-38960ae`). Do not use `quickstart` in cluster deployments; it can change on the next green `master` build. Bare short SHA tags (`:abc1234`) are now prefixed: use `:sha-abc1234`. Old CLIs using `--version head` continue to work when they load an updated [`quickstart_version_mapping.yaml`](https://github.com/datahub-project/datahub/blob/master/docker/quickstart/quickstart_version_mapping.yaml) with `docker_tag: quickstart` under the `head` key.
 
+- #17376: **(Ingestion / Hex)** Hex Components are now ingested as **Chart** entities instead of **Dashboard** entities. A Hex Component defines its own visualisation that importing projects cannot override, so it maps to a Chart (analogous to a Looker `Look` or a PowerBI `Tile`), with the project remaining a Dashboard that links to its Components via `DashboardInfo.charts`. **Migration:** if you ran the old version with stateful ingestion enabled, stale-entity removal soft-deletes the pre-existing legacy `Dashboard`-typed Components on the next run in most cases. Because every Component changes URN type, a component-heavy workspace can exceed the stale-removal fail-safe (`stateful_ingestion.fail_safe_threshold`, default 75%), in which case the deletion is skipped and the run reports a failure. For a reliable one-time cleanup — or if you ran the old version _without_ stateful ingestion — set `migrate_legacy_components: true` (off by default), which soft-deletes the legacy entities directly. Either way, Component URNs change entity type, so any saved views, glossary/tag/ownership assignments, and policies that targeted the old Dashboard-typed Component URNs **will be lost and must be manually reapplied** to the new Chart URNs.
+
 ### Known Issues
 
 ### Potential Downtime
 
 ### Deprecations
 
+- #17376: **(Ingestion / Hex)** Three recipe fields are removed and now emit a deprecation warning when set: `lineage_start_time`, `lineage_end_time`, and `datahub_page_size`. These belonged to the old lineage path that searched DataHub for Hex-tagged Query entities. Lineage now comes directly from the Hex REST API (the `queriedTables` API on Hex Enterprise workspaces, or SQL parsing of project/component cells on all workspaces), so these fields no longer have any effect. **Migration:** remove them from your recipe.
+
 ### Other Notable Changes
+
+- #17376: **(Ingestion / Hex)** Major in-place upgrade of the `hex` connector: upstream lineage (table-level and column-level), Project → Component links, run history (`lastRefreshed`), and optional AI context documents are now extracted directly from Hex REST APIs — no external CLI, warehouse-side ingestion dependency, or query-tag scraping required. See the [Hex connector docs](https://docs.datahub.com/docs/generated/ingestion/sources/hex) for the new `include_lineage`, `use_queried_tables_lineage`, `connection_platform_map`, and `include_context_documents` options.
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
 

@@ -42,6 +42,12 @@ The following config fields fed only the old path and are now removed — drop t
 - `lineage_end_time`
 - `datahub_page_size`
 
+#### Migration: Components are now Charts
+
+Components were previously emitted as **Dashboard** entities (subtype `Component`); they are now **Chart** entities, linked from their Project's `DashboardInfo.charts`. This changes their URN entity type, so any saved views, glossary/tag/ownership assignments, and policies that targeted the old Dashboard-typed Component URNs are lost and must be manually reapplied to the new Chart URNs.
+
+Legacy Dashboard-typed Components left over from the old version are soft-deleted by stale-entity removal when `stateful_ingestion` was enabled on the old run — in most cases. Because every Component changes URN type, a component-heavy workspace can exceed the stale-removal fail-safe (`fail_safe_threshold`, default 75%), in which case the deletion is skipped and the run reports a failure. For a reliable one-time cleanup — or if you ran the old version without stateful ingestion — set `migrate_legacy_components: true` (off by default); it soft-deletes the legacy entities directly and is not subject to the fail-safe.
+
 #### Stale Entity Removal
 
 Enable by configuring `stateful_ingestion`. Projects deleted in Hex are soft-deleted in DataHub on the next run.
