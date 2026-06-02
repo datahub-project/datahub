@@ -4,14 +4,14 @@ See [the DataHub Airflow docs](https://docs.datahub.com/docs/lineage/airflow) fo
 
 ## Version Compatibility
 
-The plugin supports Apache Airflow 3.0+. Airflow 2.x is not supported — use the
-last release of `acryl-datahub-airflow-plugin` published before Airflow 2 support was dropped
+The plugin supports Apache Airflow 3.0+. Airflow 2.x is not supported — pin
+`acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support)
 if you need to integrate with Airflow 2.
 
-| Airflow Version | Status             | Notes                       |
-| --------------- | ------------------ | --------------------------- |
-| 2.x             | ❌ Unsupported     | Pin an older plugin release |
-| 3.0+            | ✅ Fully Supported |                             |
+| Airflow Version | Status             | Notes                |
+| --------------- | ------------------ | -------------------- |
+| 2.x             | ❌ Unsupported     | Use version <= 1.6.0 |
+| 3.0+            | ✅ Fully Supported |                      |
 
 ## Installation
 

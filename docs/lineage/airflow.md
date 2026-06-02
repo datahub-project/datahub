@@ -584,7 +584,7 @@ The plugin uses environment variables instead of Airflow's `Variable.get()` beca
 
 We try to support Airflow releases for ~2 years after their release. This is a best-effort guarantee - it's not always possible due to dependency / security issues cropping up in older versions.
 
-We no longer officially support Airflow 2.x — Apache has EOLed the 2.x line. To keep using the plugin against Airflow 2.x, pin an older `acryl-datahub-airflow-plugin` release. Airflow 3.0+ is supported.
+We no longer officially support Airflow 2.x — Apache has EOLed the 2.x line. To keep using the plugin against Airflow 2.x, pin `acryl-datahub-airflow-plugin <= 1.6.0` (the last release with Airflow 2 support). Airflow 3.0+ is supported.
 
 We previously had two implementations of the plugin - v1 and v2. The v2 plugin is now the default, and the v1 plugin has since been removed. The v1 plugin had many limitations, chiefly that it does not support automatic lineage extraction. Docs for the v1 plugin can be accessed in our [docs archive](https://docs-website-r5eolot5n-acryldata.vercel.app/docs/lineage/airflow#datahub-plugin-v1).
 
@@ -595,7 +595,7 @@ All recent versions require Python 3.10+.
 - Airflow 2.2.x, use acryl-datahub-airflow-plugin <= 0.14.1.5 (v2 plugin).
 - Airflow 2.3 - 2.4.3, use acryl-datahub-airflow-plugin <= 1.0.0 (v2 plugin).
 - Airflow 2.5 and 2.6, use acryl-datahub-airflow-plugin <= 1.1.0.4 (v2 plugin).
-- Airflow 2.7 - 2.10, use the last `acryl-datahub-airflow-plugin` release before Airflow 2 support was dropped.
+- Airflow 2.7 - 2.10, use acryl-datahub-airflow-plugin <= 1.6.0 (v2 plugin; the last release with Airflow 2 support).
 - Airflow 3.0+ is supported by the current release.
 
 DataHub also previously supported an Airflow [lineage backend](https://airflow.apache.org/docs/apache-airflow/2.2.0/lineage.html#lineage-backend) implementation. The lineage backend functionality was pretty limited - it did not support automatic lineage extraction, did not capture task failures, and did not work in AWS MWAA - and so it has been removed from the codebase. The [documentation for the lineage backend](https://docs-website-1wmaehubl-acryldata.vercel.app/docs/lineage/airflow/#using-datahubs-airflow-lineage-backend-deprecated) has been archived.
