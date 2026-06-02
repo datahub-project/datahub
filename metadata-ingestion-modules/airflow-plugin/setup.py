@@ -147,6 +147,12 @@ setuptools.setup(
     install_requires=list(base_requirements),
     extras_require={
         "ignore": [],  # This is a dummy extra to allow for trailing commas in the list.
+        # Backward-compatibility no-op: the plugin now always targets Airflow 3,
+        # so `[airflow3]` adds nothing over the base install. Kept so existing
+        # `pip install 'acryl-datahub-airflow-plugin[airflow3]'` commands (and any
+        # pinned recipes/CI) keep working. (`[airflow2]` is intentionally not
+        # restored — Airflow 2 is unsupported.)
+        "airflow3": [],
         **{plugin: list(dependencies) for plugin, dependencies in plugins.items()},
         "dev": list(dev_requirements),
         "integration-tests": list(integration_test_requirements),
