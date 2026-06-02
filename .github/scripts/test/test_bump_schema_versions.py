@@ -629,6 +629,88 @@ def test_unrelated_same_namespace_record_is_not_a_dependency(tmp_path, monkeypat
 
 
 # ---------------------------------------------------------------------------
+# strip_pdl_comments / normalize_pdl_for_compare
+# ---------------------------------------------------------------------------
+
+
+def test_strip_pdl_comments_removes_block_and_line_comments():
+    content = (
+        "record Foo {\n"
+        "  /** doc comment */\n"
+        "  field: string  // trailing note\n"
+        "}"
+    )
+    stripped = bsv.strip_pdl_comments(content)
+    assert "doc comment" not in stripped
+    assert "trailing note" not in stripped
+    assert "field: string" in stripped
+
+
+def test_strip_pdl_comments_preserves_string_literals():
+    # Comment markers inside a string literal must survive — they are data,
+    # not comments. (This is what distinguishes it from _strip_strings_and_comments.)
+    content = 'record Foo { @x = { "v": "a // b /* c */ d" } }'
+    stripped = bsv.strip_pdl_comments(content)
+    assert "a // b /* c */ d" in stripped
+
+
+def test_normalize_pdl_collapses_whitespace_and_comments():
+    a = '@Aspect = {\n  "name": "foo"\n}\nrecord Foo { f: string }'
+    b = '/** added doc */\n@Aspect = {\n    "name":   "foo"\n}\n\nrecord Foo { f: string }'
+    assert bsv.normalize_pdl_for_compare(a) == bsv.normalize_pdl_for_compare(b)
+
+
+def test_normalize_pdl_detects_real_schema_change():
+    a = '@Aspect = { "name": "foo" }\nrecord Foo { f: string }'
+    b = '@Aspect = { "name": "foo" }\nrecord Foo { f: string, g: int }'
+    assert bsv.normalize_pdl_for_compare(a) != bsv.normalize_pdl_for_compare(b)
+
+
+def test_normalize_pdl_detects_string_value_change():
+    # A changed annotation value is a real change, even though it's a string.
+    a = '@Aspect = { "name": "foo" }\nrecord Foo { f: string }'
+    b = '@Aspect = { "name": "bar" }\nrecord Foo { f: string }'
+    assert bsv.normalize_pdl_for_compare(a) != bsv.normalize_pdl_for_compare(b)
+
+
+# ---------------------------------------------------------------------------
+# is_comment_only_change
+# ---------------------------------------------------------------------------
+
+
+def test_is_comment_only_change_true_for_doc_edit(tmp_path, monkeypatch):
+    base = 'enum Op {\n  /** old */\n  A\n}'
+    current = 'enum Op {\n  /** a much longer clarified doc comment */\n  A\n}'
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is True
+
+
+def test_is_comment_only_change_false_for_real_edit(tmp_path, monkeypatch):
+    base = "enum Op {\n  A\n}"
+    current = "enum Op {\n  A\n  B\n}"  # new enum value — real change
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+def test_is_comment_only_change_false_for_new_file(tmp_path, monkeypatch):
+    p = write_pdl(tmp_path, "com/linkedin/x/Op.pdl", "enum Op { A }")
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: None)  # absent on base
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+def test_is_comment_only_change_false_for_mixed_edit(tmp_path, monkeypatch):
+    # A real schema change accompanied by a doc-comment edit must NOT be skipped —
+    # the structural change still has to bump. This is the key safety property.
+    base = "record Foo {\n  /** old */\n  a: string\n}"
+    current = "record Foo {\n  /** new clarified doc */\n  a: string\n  b: int\n}"  # added field
+    p = write_pdl(tmp_path, "com/linkedin/x/Foo.pdl", current)
+    monkeypatch.setattr(bsv, "get_file_at_branch", lambda _f, _b: base)
+    assert bsv.is_comment_only_change(str(p), "deadbeef") is False
+
+
+# ---------------------------------------------------------------------------
 # detect_default_branch / get_merge_base / get_base_pdl_changes
 # ---------------------------------------------------------------------------
 
@@ -719,10 +801,16 @@ def _run_main(tmp_path, monkeypatch, changed_files, base_content_by_path, *,
     return bsv.main()
 
 
+def _with_added_field(content: str) -> str:
+    """Return a real (non-comment) schema change of an aspect_pdl() body."""
+    return content.replace("{ field: string }", "{ field: string, added: int }")
+
+
 def test_version_bump_existing_aspect_no_schema_version(tmp_path, monkeypatch):
     # Base has @Aspect with no schemaVersion (defaults to 1) → should bump to 2
     base_content = aspect_pdl("myAspect")  # no schemaVersion
-    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
 
     rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
 
@@ -733,7 +821,8 @@ def test_version_bump_existing_aspect_no_schema_version(tmp_path, monkeypatch):
 def test_version_bump_existing_aspect_with_schema_version(tmp_path, monkeypatch):
     # Base has schemaVersion=3 → should bump to 4
     base_content = aspect_pdl("myAspect", schema_version=3)
-    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
 
     rc = _run_main(tmp_path, monkeypatch, [aspect], {str(aspect): base_content})
 
@@ -768,7 +857,8 @@ def test_version_bump_new_file_stays_at_1(tmp_path, monkeypatch):
 def test_conflicting_pdl_on_base_branch_exits_with_error(tmp_path, monkeypatch):
     # Base ref is current AND the same PDL changed on both branches → block at stage 2
     base_content = aspect_pdl("myAspect")
-    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
 
     rc = _run_main(
         tmp_path, monkeypatch,
@@ -784,7 +874,8 @@ def test_conflicting_pdl_on_base_branch_exits_with_error(tmp_path, monkeypatch):
 def test_unrelated_base_pdl_changes_do_not_block(tmp_path, monkeypatch):
     # A different PDL changed on the base branch — should not block this branch's bump
     base_content = aspect_pdl("myAspect")
-    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
 
     rc = _run_main(
         tmp_path, monkeypatch,
@@ -797,9 +888,37 @@ def test_unrelated_base_pdl_changes_do_not_block(tmp_path, monkeypatch):
     assert bsv.get_schema_version(aspect.read_text()) == 2  # bumped normally
 
 
+def test_comment_only_change_does_not_bump_or_cascade(tmp_path, monkeypatch):
+    # Mirrors the reported case: an enum's doc comment changes, and an aspect
+    # references that enum as a field type. The doc-only edit must NOT bump the
+    # aspect. The enum file on disk differs from base only by a comment.
+    enum_base = "namespace com.linkedin.a\nenum Op {\n  /** old */\n  A\n}"
+    enum_current = "namespace com.linkedin.a\nenum Op {\n  /** clarified longer doc */\n  A\n}"
+    enum_file = write_pdl(tmp_path, "com/linkedin/a/Op.pdl", enum_current)
+
+    aspect_content = (
+        "namespace com.linkedin.a\n"
+        + aspect_pdl("ruleInfo", schema_version=3).replace(
+            "{ field: string }", '{ op: Op = "A" }'
+        )
+    )
+    aspect = write_pdl(tmp_path, "com/linkedin/a/RuleInfo.pdl", aspect_content)
+
+    rc = _run_main(
+        tmp_path,
+        monkeypatch,
+        changed_files=[enum_file],
+        base_content_by_path={str(enum_file): enum_base, str(aspect): aspect_content},
+    )
+
+    assert rc == 0
+    assert bsv.get_schema_version(aspect.read_text()) == 3  # unchanged, no cascade
+
+
 def test_version_bump_dry_run_does_not_write(tmp_path, monkeypatch):
     base_content = aspect_pdl("myAspect")
-    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl", base_content)
+    aspect = write_pdl(tmp_path, "com/linkedin/dataset/MyAspect.pdl",
+                       _with_added_field(base_content))
     original = aspect.read_text()
 
     monkeypatch.setenv("PDL_ROOTS", str(tmp_path))

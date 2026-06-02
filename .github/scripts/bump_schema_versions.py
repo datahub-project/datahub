@@ -149,6 +149,30 @@ def get_file_at_branch(filepath: str, branch: str) -> str | None:
     return result.stdout if result.returncode == 0 else None
 
 
+def is_comment_only_change(filepath: str, base_ref: str) -> bool:
+    """Return True if filepath's only diff vs base_ref is comments/whitespace.
+
+    PDL doc comments (`/** */`) and line comments (`//`) carry no schema
+    semantics, so a doc-only clarification must not trigger a schemaVersion
+    bump — nor cascade a bump into every aspect that references the edited
+    record. Compares the working-tree file against base_ref with comments
+    removed and whitespace collapsed.
+
+    New files (absent on base_ref) and unreadable files are treated as real
+    changes (returns False) so they are never silently dropped.
+    """
+    base_content = get_file_at_branch(filepath, base_ref)
+    if base_content is None:
+        return False
+    try:
+        current_content = Path(filepath).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return normalize_pdl_for_compare(base_content) == normalize_pdl_for_compare(
+        current_content
+    )
+
+
 # ---------------------------------------------------------------------------
 # PDL parsing
 # ---------------------------------------------------------------------------
@@ -275,6 +299,54 @@ def _strip_strings_and_comments(content: str) -> str:
     content = _BLOCK_COMMENT_RE.sub(" ", content)
     content = _LINE_COMMENT_RE.sub(" ", content)
     return content
+
+
+def strip_pdl_comments(content: str) -> str:
+    """Remove PDL block (`/* */`) and line (`//`) comments.
+
+    Unlike `_strip_strings_and_comments`, this preserves the *contents* of
+    string literals — it only drops comments. That distinction matters for
+    semantic comparison: masking strings to `""` would hide a real change to a
+    string value (e.g. an annotation `"name"`) and mis-classify it as
+    comment-only. A single linear scan tracks string state so comment markers
+    appearing inside a string literal are not treated as comments.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(content)
+    while i < n:
+        ch = content[i]
+        if ch == '"':
+            # Copy the string literal verbatim, honoring backslash escapes.
+            j = i + 1
+            while j < n:
+                if content[j] == "\\":
+                    j += 2
+                    continue
+                if content[j] == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append(content[i:j])
+            i = j
+        elif ch == "/" and i + 1 < n and content[i + 1] == "*":
+            end = content.find("*/", i + 2)
+            i = end + 2 if end != -1 else n
+        elif ch == "/" and i + 1 < n and content[i + 1] == "/":
+            end = content.find("\n", i + 2)
+            i = end if end != -1 else n
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
+
+
+def normalize_pdl_for_compare(content: str) -> str:
+    """Canonical form for semantic comparison: comments removed and runs of
+    whitespace collapsed to single spaces. Two PDL files with identical
+    canonical forms differ only in comments and/or formatting.
+    """
+    return " ".join(strip_pdl_comments(content).split())
 
 
 def _strip_annotation_blocks(content: str) -> str:
@@ -598,6 +670,20 @@ def main() -> int:
     merge_base = get_merge_base(remote_ref)
 
     directly_changed = get_changed_pdl_files(merge_base)
+
+    # Drop files whose only diff vs the merge-base is comments/whitespace. A
+    # doc-comment clarification carries no schema semantics, so it must neither
+    # bump the edited file nor cascade a bump into aspects that reference it.
+    comment_only = [
+        f for f in directly_changed if is_comment_only_change(f, merge_base)
+    ]
+    if comment_only:
+        directly_changed = [f for f in directly_changed if f not in set(comment_only)]
+        if args.verbose:
+            print(f"Ignoring {len(comment_only)} comment-only PDL change(s):")
+            for f in comment_only:
+                print(f"  {f}")
+            print()
 
     if not directly_changed:
         print("No changed PDL files found.")
