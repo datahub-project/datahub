@@ -509,19 +509,6 @@ index 72125d0d21..b561c5224d 100644
      }
    }, {
      "type" : "typeref",
-diff --git a/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
-index 91004299b9..1312dfc4b1 100644
---- a/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
-+++ b/metadata-models/src/main/pegasus/com/linkedin/assertion/AssertionInfo.pdl
-@@ -9,7 +9,7 @@ import com.linkedin.common.AuditStamp
-  */
- @Aspect = {
-   "name": "assertionInfo",
--  "schemaVersion": 2
-+  "schemaVersion": 3
- }
- record AssertionInfo includes CustomProperties, ExternalReference {
-     /**
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
 index 3db2c79704..06cd116c67 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
