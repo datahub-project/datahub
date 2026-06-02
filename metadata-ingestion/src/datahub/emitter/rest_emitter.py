@@ -835,15 +835,6 @@ class DataHubRestEmitter(Closeable, Emitter):
             )
 
         if trace_data:
-            if _DATAHUB_EMITTER_TRACE:
-                try:
-                    logger.info(
-                        f"MCP trace_id={trace_data.trace_id} "
-                        f"timestamp={trace_data.extract_timestamp()} "
-                        f"urn={mcp.entityUrn} aspect={mcp.aspectName}"
-                    )
-                except Exception as e:
-                    logger.debug(f"Failed to log trace data: {e}")
             if self._should_trace(emit_mode):
                 self._await_status(
                     [trace_data],
@@ -947,15 +938,6 @@ class DataHubRestEmitter(Closeable, Emitter):
                     data.trace_id if data else None,
                 )
                 if data is not None:
-                    if _DATAHUB_EMITTER_TRACE:
-                        try:
-                            logger.info(
-                                f"MCP batch trace_id={data.trace_id} "
-                                f"timestamp={data.extract_timestamp()} "
-                                f"urns={list(data.data.keys())}"
-                            )
-                        except Exception as e:
-                            logger.debug(f"Failed to log trace data: {e}")
                     trace_data.append(data)
 
         if trace_data and self._should_trace(emit_mode):
@@ -1042,15 +1024,6 @@ class DataHubRestEmitter(Closeable, Emitter):
                 data.trace_id if data else None,
             )
             if data is not None:
-                if _DATAHUB_EMITTER_TRACE:
-                    try:
-                        logger.info(
-                            f"MCP batch trace_id={data.trace_id} "
-                            f"timestamp={data.extract_timestamp()} "
-                            f"urns={list(data.data.keys())}"
-                        )
-                    except Exception as e:
-                        logger.debug(f"Failed to log trace data: {e}")
                 trace_data.append(data)
 
         return trace_data
@@ -1084,18 +1057,27 @@ class DataHubRestEmitter(Closeable, Emitter):
             logger.warning(
                 f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
             )
+        if _DATAHUB_EMITTER_TRACE:
+            logger.debug(
+                "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
+                payload_size,
+                make_curl_command(self._session, method, url, payload),
+            )
         try:
             method_func = getattr(self._session, method.lower())
             response = method_func(url, data=payload) if payload else method_func(url)
             response.raise_for_status()
             return response
         except HTTPError as e:
-            logger.debug(
-                "Failed to emit to DataHub GMS (status=%s, payload_size=%d bytes); curl equivalent:\n%s",
-                response.status_code,
-                payload_size,
-                make_curl_command(self._session, method, url, payload),
-            )
+            # When tracing is on the curl equivalent was already logged before the
+            # request, so only log it here to avoid emitting it twice on failure.
+            if not _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    "Failed to emit to DataHub GMS (status=%s, payload_size=%d bytes); curl equivalent:\n%s",
+                    response.status_code,
+                    payload_size,
+                    make_curl_command(self._session, method, url, payload),
+                )
             try:
                 info: Dict = response.json()
 
@@ -1121,11 +1103,12 @@ class DataHubRestEmitter(Closeable, Emitter):
                     "Unable to emit metadata to DataHub GMS", {"message": str(e)}
                 ) from e
         except RequestException as e:
-            logger.debug(
-                "Failed to emit to DataHub GMS (no response received, payload_size=%d bytes); curl equivalent:\n%s",
-                payload_size,
-                make_curl_command(self._session, method, url, payload),
-            )
+            if not _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    "Failed to emit to DataHub GMS (no response received, payload_size=%d bytes); curl equivalent:\n%s",
+                    payload_size,
+                    make_curl_command(self._session, method, url, payload),
+                )
             raise OperationalError(
                 "Unable to emit metadata to DataHub GMS", {"message": str(e)}
             ) from e
