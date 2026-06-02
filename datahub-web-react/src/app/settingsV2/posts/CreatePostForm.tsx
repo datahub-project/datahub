@@ -40,8 +40,18 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                 <Label>{t('contentTypeLabel')}</Label>
                 <TabButtons
                     tabs={[
-                        { key: PostContentType.Text, label: t('announcementTab'), content: null },
-                        { key: PostContentType.Link, label: t('pinnedLinkTab'), content: null },
+                        {
+                            key: PostContentType.Text,
+                            label: t('announcementTab'),
+                            content: null,
+                            dataTestId: 'post-type-announcement',
+                        },
+                        {
+                            key: PostContentType.Link,
+                            label: t('pinnedLinkTab'),
+                            content: null,
+                            dataTestId: 'post-type-pinned-link',
+                        },
                     ]}
                     activeTab={formData.type}
                     onTabClick={(key) => onChange('type', key as PostContentType)}

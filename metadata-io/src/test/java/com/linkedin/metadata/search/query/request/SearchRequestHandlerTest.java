@@ -1476,6 +1476,169 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         operationContext, mockResponse, null, "5m", requestedSize, true);
   }
 
+  @Test
+  public void testExtractResultSkipsHitsWithInvalidUrn() {
+    // Regression test for #13181: a hit whose document is missing/has an invalid URN must be
+    // skipped (not crash the whole search), and the remaining valid hits must still be returned.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    // Build the hits as locals first — invoking the stubbing helpers inside the when(...) call
+    // above would nest Mockito stubbing and trigger UnfinishedStubbingException.
+    SearchHit validHit1 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)");
+    SearchHit invalidHit = mockHitWithMissingUrn();
+    SearchHit validHit2 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {validHit1, invalidHit, validHit2});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().stream()
+            .map(e -> e.getEntity().toString())
+            .collect(Collectors.toList()),
+        List.of(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
+    // The reported total still reflects what the search engine matched.
+    assertEquals(result.getNumEntities().intValue(), 3);
+  }
+
+  @Test
+  public void testExtractScrollResultSkipsHitsWithInvalidUrn() {
+    // Same regression as above, exercised through the scroll/pagination code path.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(3L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    when(mockResponse.pointInTimeId()).thenReturn("test-pit-id");
+    SearchHit validHit1 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)");
+    SearchHit invalidHit = mockHitWithMissingUrn();
+    SearchHit validHit2 = mockHitWithUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)");
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {validHit1, invalidHit, validHit2});
+
+    ScrollResult result =
+        handler.extractScrollResult(operationContext, mockResponse, null, "5m", 10, true);
+
+    assertEquals(result.getEntities().size(), 2);
+    assertEquals(
+        result.getEntities().stream()
+            .map(e -> e.getEntity().toString())
+            .collect(Collectors.toList()),
+        List.of(
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid1,PROD)",
+            "urn:li:dataset:(urn:li:dataPlatform:hdfs,valid2,PROD)"));
+  }
+
+  @Test
+  public void testExtractResultAllHitsInvalidReturnsEmpty() {
+    // When every hit is invalid the search must not crash; it returns an empty result while the
+    // engine-reported total is preserved.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(2L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit invalidHit1 = mockHitWithMissingUrn();
+    SearchHit invalidHit2 = mockHitWithMissingUrn();
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {invalidHit1, invalidHit2});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertTrue(result.getEntities().isEmpty());
+    assertEquals(result.getNumEntities().intValue(), 2);
+  }
+
+  @Test
+  public void testExtractResultHandlesNullHighlightsAndMatchedQueries() {
+    // A valid hit with no highlights and no named-query match (the search engine returns null for
+    // both) must still be returned — not crash the search now that getResultSafely only catches
+    // InvalidSearchHitException.
+    SearchRequestHandler handler =
+        SearchRequestHandler.getBuilder(
+            operationContext,
+            TestEntitySpecBuilder.getSpec(),
+            testQueryConfig,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG);
+
+    SearchResponse mockResponse = mock(SearchResponse.class);
+    SearchHits mockHits = mock(SearchHits.class);
+    when(mockResponse.getHits()).thenReturn(mockHits);
+    when(mockHits.getTotalHits()).thenReturn(new TotalHits(1L, TotalHits.Relation.EQUAL_TO));
+    when(mockResponse.getAggregations()).thenReturn(null);
+    when(mockResponse.getSuggest()).thenReturn(null);
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap())
+        .thenReturn(
+            ImmutableMap.of(
+                "urn", "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)"));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(null);
+    when(hit.getMatchedQueries()).thenReturn(null);
+    when(mockHits.getHits()).thenReturn(new SearchHit[] {hit});
+
+    SearchResult result = handler.extractResult(operationContext, mockResponse, null, 0, 10);
+
+    assertEquals(result.getEntities().size(), 1);
+    assertEquals(
+        result.getEntities().get(0).getEntity().toString(),
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,nullHighlights,PROD)");
+  }
+
+  private SearchHit mockHitWithUrn(String urn) {
+    SearchHit hit = mock(SearchHit.class);
+    when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("urn", urn));
+    when(hit.getScore()).thenReturn(1.0f);
+    when(hit.getHighlightFields()).thenReturn(ImmutableMap.of());
+    when(hit.getMatchedQueries()).thenReturn(new String[0]);
+    when(hit.getSortValues()).thenReturn(new Object[] {"sort-" + urn});
+    return hit;
+  }
+
+  private SearchHit mockHitWithMissingUrn() {
+    SearchHit hit = mock(SearchHit.class);
+    // Source map without a "urn" field — mirrors the legacy bootstrap document from #13181.
+    when(hit.getSourceAsMap()).thenReturn(ImmutableMap.of("someOtherField", "value"));
+    when(hit.getIndex()).thenReturn("test-index");
+    when(hit.getId()).thenReturn("bad-doc-id");
+    return hit;
+  }
+
   private BoolQueryBuilder getQuery(final Criterion filterCriterion) {
     return getQuery(filterCriterion, TestEntitySpecBuilder.getSpec(), true);
   }

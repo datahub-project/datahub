@@ -2,7 +2,7 @@ package com.linkedin.gms.factory.system_telemetry;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.system_telemetry.usage.DataHubUsageSpanExporter;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.utils.metrics.MetricSpanExporter;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
@@ -30,9 +30,10 @@ public abstract class OpenTelemetryBaseFactory {
   protected SystemTelemetryContext traceContext(
       MetricUtils metricUtils,
       ConfigurationProvider configurationProvider,
-      GenericProducer<String> dueProducer) {
+      UsageEventPublisher usageEventPublisher) {
 
-    SpanProcessor usageSpanExporter = getUsageSpanExporter(configurationProvider, dueProducer);
+    SpanProcessor usageSpanExporter =
+        getUsageSpanExporter(configurationProvider, usageEventPublisher);
     OpenTelemetry openTelemetry = openTelemetry(metricUtils, usageSpanExporter);
     return SystemTelemetryContext.builder()
         .metricUtils(metricUtils)
@@ -43,13 +44,13 @@ public abstract class OpenTelemetryBaseFactory {
 
   @Nullable
   private SpanProcessor getUsageSpanExporter(
-      ConfigurationProvider configurationProvider, GenericProducer<String> dueProducer) {
-    if (dueProducer != null
+      ConfigurationProvider configurationProvider, UsageEventPublisher usageEventPublisher) {
+    if (usageEventPublisher != null
         && configurationProvider.getPlatformAnalytics().isEnabled()
         && configurationProvider.getPlatformAnalytics().getUsageExport().isEnabled()) {
       return BatchSpanProcessor.builder(
               new DataHubUsageSpanExporter(
-                  dueProducer,
+                  usageEventPublisher,
                   configurationProvider.getKafka().getTopics().getDataHubUsage(),
                   configurationProvider.getPlatformAnalytics().getUsageExport()))
           .build();

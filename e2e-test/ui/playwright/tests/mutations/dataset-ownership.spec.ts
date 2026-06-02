@@ -14,11 +14,13 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { DatasetPage } from '../../pages/dataset.page';
+import { GroupsPage } from '../../pages/groups.page';
+import { LoginPage } from '../../pages/login.page';
 
 const testId = Math.floor(Math.random() * 100000);
 const username = `Example Name ${testId}`;
 const email = `example${testId}@example.com`;
-const password = 'Example password';
+const password = process.env.TEST_USER_PASSWORD ?? 'Example password';
 const groupName = `Test group ${testId}`;
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)';
@@ -34,6 +36,9 @@ test.describe.skip('add, remove ownership for dataset', () => {
   });
 
   test('create test user and test group, add user to a group', async ({ page }) => {
+    const groupsPage = new GroupsPage(page);
+    const loginPage = new LoginPage(page);
+
     // Create user via invite link
     await page.goto('/settings/identities/users');
     await page.getByText('Invite Users').click();
@@ -41,53 +46,33 @@ test.describe.skip('add, remove ownership for dataset', () => {
     const inviteLink = (await page.getByText(/signup\?invite_token=\w{32}/).textContent()) ?? '';
     await page.goto('/settings/identities/users');
 
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
     await page.goto(inviteLink);
-    await page.locator('[data-testid="email"]').fill(email);
-    await page.locator('[data-testid="name"]').fill(username);
-    await page.locator('[data-testid="password"]').fill(password);
-    await page.locator('[data-testid="confirmPassword"]').fill(password);
-    await page.locator('[data-testid="sign-up"]').click();
+    await page.getByTestId('email').fill(email);
+    await page.getByTestId('name').fill(username);
+    await page.getByTestId('password').fill(password);
+    await page.getByTestId('confirmPassword').fill(password);
+    await page.getByTestId('sign-up').click();
     await expect(page.getByText('Welcome back')).toBeVisible({ timeout: 30000 });
     await page.keyboard.press('Control+ +Meta+ +h'); // hideOnboardingTour
     await expect(page.getByText(username)).toBeVisible({ timeout: 15000 });
 
-    await page.locator('[data-testid="manage-account-menu"]').click();
-    await page.locator('[data-testid="log-out-menu-item"]').click({ force: true });
+    await page.getByTestId('manage-account-menu').click();
+    await page.getByTestId('log-out-menu-item').click({ force: true });
 
-    // Log back in as admin
-    await page.locator('[data-testid="username"]').fill('datahub');
-    await page.locator('[data-testid="password"]').fill('datahub');
-    await page.locator('[data-testid="sign-in"]').click();
+    // Log back in as admin to create the group
+    const adminUsername = process.env.DATAHUB_ADMIN_USERNAME ?? 'datahub';
+    const adminPassword = process.env.DATAHUB_ADMIN_PASSWORD ?? 'datahub';
+    await loginPage.login(adminUsername, adminPassword);
 
     // Create group
-    await page.goto('/settings/identities/groups');
-    await page.getByText('Create Group').click();
-    await expect(page.getByText('Create new group')).toBeVisible();
-    await page.locator('#name').fill(groupName);
-    await page.locator('#description').fill('Test group description');
-    await page.getByText('Advanced').click();
-    await expect(page.getByText('Group Id')).toBeVisible();
-    await page.locator('#groupId').fill(String(testId));
-    await page.locator('#createGroupButton').click();
-    await expect(page.getByText('Created group!')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(groupName)).toBeVisible();
+    await groupsPage.navigateToGroups();
+    await groupsPage.createGroup(groupName, 'Test group description', String(testId));
 
     // Add user to group
-    await page.goto(`/group/urn:li:corpGroup:${testId}/assets`);
-    await page.getByText(groupName).click();
-    await expect(page.getByText(groupName)).toBeVisible();
-    await page.getByRole('tab', { name: 'Members' }).click();
-    await page.getByText('Add Member').click();
-    await expect(page.locator('[data-testid="add-members-select"]')).toBeVisible({ timeout: 10000 });
-    await page.locator('[data-testid="add-members-select-base"]').click({ force: true });
-    await page.locator('[data-testid="dropdown-search-input"]').fill(username);
-    await page.locator('[data-testid="add-members-select-dropdown"]').getByText(username).click({ force: true });
-    await page.getByRole('dialog').getByRole('button', { name: 'Add' }).click({ force: true });
-    await expect(page.getByText('Group members added!')).toBeVisible({ timeout: 15000 });
-    await expect(page.getByText(username)).toBeVisible({ timeout: 10000 });
+    await groupsPage.addMember(`urn:li:corpGroup:${testId}`, groupName, username);
   });
 
   for (const ownerType of ['Business Owner', 'Data Steward', 'None', 'Technical Owner']) {

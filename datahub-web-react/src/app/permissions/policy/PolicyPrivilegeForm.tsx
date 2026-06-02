@@ -740,7 +740,9 @@ export default function PolicyPrivilegeForm({
                             </Select.Option>
                         );
                     })}
-                    <Select.Option value={ALL_PRIVILEGES_VALUE}>{t('privilegeForm.allPrivileges')}</Select.Option>
+                    <Select.Option data-testid="option-all-privileges" value={ALL_PRIVILEGES_VALUE}>
+                        {t('privilegeForm.allPrivileges')}
+                    </Select.Option>
                 </Select>
             </Form.Item>
         </PrivilegesForm>

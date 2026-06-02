@@ -256,6 +256,7 @@ const StructuredPropsTable = ({
                         type: 'item' as const,
                         key: '0',
                         title: 'View',
+                        dataTestId: 'structured-prop-action-view',
                         onClick: () => {
                             setIsViewDrawerOpen(true);
                             setSelectedProperty(record);
@@ -269,6 +270,7 @@ const StructuredPropsTable = ({
                         type: 'item' as const,
                         key: '1',
                         title: 'Copy Urn',
+                        dataTestId: 'structured-prop-action-copy-urn',
                         onClick: () => {
                             navigator.clipboard.writeText(record.urn);
                         },
@@ -277,6 +279,7 @@ const StructuredPropsTable = ({
                         type: 'item' as const,
                         key: '2',
                         title: 'Edit',
+                        dataTestId: 'structured-prop-action-edit',
                         disabled: !canEditProps,
                         tooltip: !canEditProps
                             ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
@@ -296,6 +299,7 @@ const StructuredPropsTable = ({
                         type: 'item' as const,
                         key: '3',
                         title: 'Delete',
+                        dataTestId: 'structured-prop-action-delete',
                         disabled: !canEditProps,
                         danger: true,
                         tooltip: !canEditProps

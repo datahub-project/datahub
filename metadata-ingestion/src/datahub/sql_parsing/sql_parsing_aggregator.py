@@ -13,7 +13,11 @@ from typing import Callable, Dict, Iterable, List, Optional, Set, Union, cast
 
 import datahub.emitter.mce_builder as builder
 import datahub.metadata.schema_classes as models
-from datahub.configuration.env_vars import get_sql_agg_query_log, get_sql_agg_skip_joins
+from datahub.configuration.env_vars import (
+    get_report_info_sample_size,
+    get_sql_agg_query_log,
+    get_sql_agg_skip_joins,
+)
 from datahub.configuration.time_window_config import get_time_bucket
 from datahub.emitter.mce_builder import get_sys_time, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -1856,7 +1860,9 @@ class SqlParsingAggregator(Closeable):
         composite_query_id = self._composite_query_id(
             [q.query_id for q in ordered_queries]
         )
-        composed_of_queries_truncated: LossyList[str] = LossyList()
+        composed_of_queries_truncated: LossyList[str] = LossyList(
+            max_elements=get_report_info_sample_size()
+        )
         for query_id in composed_of_queries:
             composed_of_queries_truncated.append(query_id)
         self.report.queries_with_temp_upstreams[composite_query_id] = (

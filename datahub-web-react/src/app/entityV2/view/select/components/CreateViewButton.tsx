@@ -27,7 +27,12 @@ export default function CreateViewButton({ onClick }: Props) {
     const IconWrapper = isShowNavBarRedesign ? ViewIconNavBarRedesign : ViewIcon;
 
     return (
-        <ViewContainer onClick={() => onClick?.()} role="none" $isShowNavBarRedesign={isShowNavBarRedesign}>
+        <ViewContainer
+            onClick={() => onClick?.()}
+            role="none"
+            data-testid="create-view-button"
+            $isShowNavBarRedesign={isShowNavBarRedesign}
+        >
             <IconWrapper>
                 <AddOutlinedIconStyle />
             </IconWrapper>

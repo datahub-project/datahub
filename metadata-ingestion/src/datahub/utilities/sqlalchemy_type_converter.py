@@ -227,11 +227,14 @@ def get_schema_fields_for_sqlalchemy_column(
         ]
 
     # for all non-nested data types an additional modification of the `fieldPath` property is required
+    # NullType (fallback for unrecognised types) is included so that each column gets a unique path;
+    # without it all unrecognised columns would share "[version=2.0].[type=null]".
     if type(column_type) in (
         *SqlAlchemyColumnToAvroConverter.PRIMITIVE_SQL_ALCHEMY_TYPE_TO_AVRO_TYPE.keys(),
         types.TIMESTAMP,
         types.DATE,
         types.DECIMAL,
+        types.NullType,
     ):
         schema_fields[0].fieldPath += f".{column_name}"
 

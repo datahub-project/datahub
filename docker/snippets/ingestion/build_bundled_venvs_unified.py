@@ -22,6 +22,7 @@ from pathlib import Path
 from bundled_venv_config import (
     BundledVenvGroupPlan,
     build_group_plans,
+    bundled_venv_symlink_names,
     extras_to_install_string,
     groups_config_from_plugin_group_env,
 )
@@ -196,14 +197,14 @@ def ensure_plugin_symlinks(
     venv_base_path: str,
 ) -> None:
     """
-    For groups with multiple members, or a single member whose canonical dir name
-    differs from `{plugin}-bundled`, create relative symlinks so each plugin path exists.
+    Create relative symlinks so each required ``{plugin}-bundled`` path exists,
+    including ingestion source aliases (e.g. ``databricks-bundled`` when only
+    ``unity-catalog`` was built).
     """
     canonical = group_plan.canonical_dir_name
     canonical_path = os.path.join(venv_base_path, canonical)
 
-    for plugin in group_plan.members:
-        alias_name = f"{plugin}-bundled"
+    for alias_name in bundled_venv_symlink_names(group_plan):
         if alias_name == canonical:
             continue
 
