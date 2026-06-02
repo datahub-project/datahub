@@ -356,8 +356,10 @@ class AirflowGenerator:
             dataflow = AirflowGenerator.generate_dataflow(config, dag_run.dag)
 
         if start_timestamp_millis is None:
-            assert dag_run.logical_date
-            start_timestamp_millis = int(dag_run.logical_date.timestamp() * 1000)
+            # logical_date is nullable in Airflow 3 (manual / asset-triggered runs),
+            # so fall back to the run's start_date, then now(), instead of asserting.
+            started_at = dag_run.logical_date or dag_run.start_date or datetime.now()
+            start_timestamp_millis = int(started_at.timestamp() * 1000)
 
         assert dag_run.run_id
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)

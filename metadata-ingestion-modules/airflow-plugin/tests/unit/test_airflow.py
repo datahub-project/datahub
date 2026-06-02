@@ -217,6 +217,38 @@ def test_basehook_falls_back_to_legacy_location_on_airflow_30(monkeypatch):
         importlib.reload(hook_module)
 
 
+def test_get_base_url_prefers_api_over_webserver():
+    """_get_base_url should prefer Airflow 3's `[api] base_url` over the legacy
+    `[webserver] base_url`, then fall back to localhost. The integration suite
+    only sets `[api]`, so the precedence and the webserver fallback are unit-tested
+    here."""
+    from datahub_airflow_plugin.client.airflow_generator import _get_base_url
+
+    def conf_get(values):
+        return lambda section, key, fallback=None: values.get((section, key), fallback)
+
+    cases = [
+        # both set -> api wins
+        (
+            {
+                ("api", "base_url"): "http://api:8080",
+                ("webserver", "base_url"): "http://web:8080",
+            },
+            "http://api:8080",
+        ),
+        # only webserver set -> webserver fallback
+        ({("webserver", "base_url"): "http://web:8080"}, "http://web:8080"),
+        # neither set -> localhost default
+        ({}, "http://localhost:8080"),
+    ]
+    for values, expected in cases:
+        with mock.patch(
+            "datahub_airflow_plugin.client.airflow_generator.conf.get",
+            side_effect=conf_get(values),
+        ):
+            assert _get_base_url() == expected
+
+
 def test_entities():
     assert (
         Dataset("snowflake", "mydb.schema.tableConsumed").urn
