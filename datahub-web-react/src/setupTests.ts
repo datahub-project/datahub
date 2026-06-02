@@ -19,6 +19,7 @@ import enEntityProfileSchema from '@src/i18n/locales/en/entity.profile.schema.js
 import enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
+import enEntitySharedContainers from '@src/i18n/locales/en/entity.shared.containers.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
@@ -50,6 +51,7 @@ i18n.use(initReactI18next).init({
         'entity.profile.schema',
         'entity.profile.stats',
         'entity.profile.view',
+        'entity.shared.containers',
         'entity.views',
         'home.v2',
         'home.v3',
@@ -77,6 +79,7 @@ i18n.use(initReactI18next).init({
             'entity.profile.schema': enEntityProfileSchema,
             'entity.profile.stats': enEntityProfileStats,
             'entity.profile.view': enEntityProfileView,
+            'entity.shared.containers': enEntitySharedContainers,
             'entity.views': enEntityViews,
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
