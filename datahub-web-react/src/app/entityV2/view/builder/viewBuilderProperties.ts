@@ -151,6 +151,12 @@ export const viewBuilderProperties: Property[] = [
         valueType: ValueTypeId.BOOLEAN,
     },
     {
+        id: 'hasFailingTests',
+        displayName: 'Has Failing Tests',
+        description: 'Whether the asset has failing metadata tests.',
+        valueType: ValueTypeId.BOOLEAN,
+    },
+    {
         id: 'origin',
         displayName: 'Environment',
         description: 'The environment / origin of the asset (e.g. PROD, DEV).',
