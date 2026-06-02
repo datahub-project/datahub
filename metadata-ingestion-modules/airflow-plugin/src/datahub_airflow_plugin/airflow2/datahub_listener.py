@@ -471,7 +471,7 @@ class DataHubListener:
         extractor-generated task_metadata and write it to the datajob. This
         routine is also responsible for converting the lineage to DataHub URNs.
         """
-        if not self.config.enable_datajob_lineage:
+        if not self.config.should_emit_datajob_lineage(task.dag_id):
             return
 
         input_urns: List[str] = []
@@ -689,7 +689,7 @@ class DataHubListener:
         # which causes FGLs from start and completion to be combined into duplicates.
         # We only emit the aspect on completion when lineage is complete and accurate.
         for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
+            generate_lineage=self.config.should_emit_datajob_lineage(dag.dag_id),
             materialize_iolets=self.config.materialize_iolets,
         ):
             # Skip dataJobInputOutput aspects on task start

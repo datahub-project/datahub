@@ -76,6 +76,7 @@ enabled = True  # default
 | debug_emitter                      | false                | [debug] If true, the plugin will log the emitted events.                                                                         |
 | dag_filter_str                     | { "allow": [".*"] }  | AllowDenyPattern value in form of JSON string to filter the DAGs from running.                                                   |
 | enable_datajob_lineage             | true                 | If true, the plugin will emit input/output lineage for DataJobs.                                                                 |
+| datajob_lineage_dag_filter_str     | { "allow": [".*"] }  | AllowDenyPattern (JSON string) to filter which DAGs emit DataJob lineage. Applies on top of `enable_datajob_lineage`.            |
 | capture_airflow_assets             | true                 | Capture native Airflow Assets/Datasets as DataHub lineage. See [Native Airflow Assets/Datasets](#native-airflow-assetsdatasets). |
 
 ## Automatic lineage extraction

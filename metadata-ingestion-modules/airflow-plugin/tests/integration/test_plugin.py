@@ -282,6 +282,7 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
     platform_instance: Optional[str],
     enable_datajob_lineage: bool,
     cluster: Optional[str] = None,
+    datajob_lineage_dag_filter_str: Optional[str] = None,
 ) -> Iterator[AirflowInstance]:
     airflow_home = tmp_path / "airflow_home"
     print(f"Using airflow home: {airflow_home}")
@@ -465,6 +466,11 @@ def _run_airflow(  # noqa: C901 - Test helper function with necessary complexity
 
     if cluster:
         environment["AIRFLOW__DATAHUB__CLUSTER"] = cluster
+
+    if datajob_lineage_dag_filter_str is not None:
+        environment["AIRFLOW__DATAHUB__DATAJOB_LINEAGE_DAG_FILTER_STR"] = (
+            datajob_lineage_dag_filter_str
+        )
 
     if multiple_connections:
         environment[f"AIRFLOW_CONN_{datahub_connection_name_2.upper()}"] = Connection(
@@ -771,14 +777,21 @@ class DagTestCase:
     multiple_connections: bool = False
     platform_instance: Optional[str] = None
     enable_datajob_lineage: bool = True
+    datajob_lineage_dag_filter_str: Optional[str] = None
     cluster: Optional[str] = None
 
     # used to identify the test case in the golden file when same DAG is used in multiple tests
     test_variant: Optional[str] = None
 
+    golden_variant: Optional[str] = None
+
     @property
     def dag_test_id(self) -> str:
         return f"{self.dag_id}{self.test_variant or ''}"
+
+    @property
+    def golden_test_id(self) -> str:
+        return f"{self.dag_id}{self.golden_variant or self.test_variant or ''}"
 
 
 # Airflow 2.x test cases - these DAGs are in tests/integration/dags/
@@ -792,6 +805,15 @@ test_cases_airflow2 = [
         platform_instance=PLATFORM_INSTANCE,
         enable_datajob_lineage=False,
         test_variant="_no_datajob_lineage",
+    ),
+    # Per-DAG filter denies simple_dag; output matches _no_datajob_lineage variant.
+    DagTestCase(
+        "simple_dag",
+        multiple_connections=True,
+        platform_instance=PLATFORM_INSTANCE,
+        datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
+        test_variant="_per_dag_lineage_denied",
+        golden_variant="_no_datajob_lineage",
     ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase(
@@ -829,6 +851,15 @@ test_cases_airflow3 = [
         enable_datajob_lineage=False,
         test_variant="_no_datajob_lineage",
     ),
+    # Per-DAG filter denies simple_dag; output matches _no_datajob_lineage variant.
+    DagTestCase(
+        "simple_dag",
+        multiple_connections=True,
+        platform_instance=PLATFORM_INSTANCE,
+        datajob_lineage_dag_filter_str='{"deny": ["simple_dag"]}',
+        test_variant="_per_dag_lineage_denied",
+        golden_variant="_no_datajob_lineage",
+    ),
     DagTestCase("basic_iolets", platform_instance=PLATFORM_INSTANCE),
     DagTestCase("airflow_asset_iolets", platform_instance=PLATFORM_INSTANCE),
     # @asset decorated DAGs - Airflow 3.0+ feature
@@ -861,7 +892,7 @@ def _get_test_parameters():
         # Airflow 3.0+: Only run v2 plugin tests with airflow3 suffix
         return [
             pytest.param(
-                f"v2_{test_case.dag_test_id}_airflow3",
+                f"v2_{test_case.golden_test_id}_airflow3",
                 test_case,
                 False,  # is_v1
                 id=f"v2_{test_case.dag_test_id}_airflow3",
@@ -874,7 +905,7 @@ def _get_test_parameters():
             # v1 plugin tests (only on Airflow 2.3)
             *[
                 pytest.param(
-                    f"v1_{test_case.dag_test_id}",
+                    f"v1_{test_case.golden_test_id}",
                     test_case,
                     True,
                     id=f"v1_{test_case.dag_test_id}",
@@ -890,9 +921,9 @@ def _get_test_parameters():
             *[
                 pytest.param(
                     (
-                        f"v2_{test_case.dag_test_id}"
+                        f"v2_{test_case.golden_test_id}"
                         if HAS_AIRFLOW_DAG_LISTENER_API
-                        else f"v2_{test_case.dag_test_id}_no_dag_listener"
+                        else f"v2_{test_case.golden_test_id}_no_dag_listener"
                     ),
                     test_case,
                     False,
@@ -986,6 +1017,7 @@ def test_airflow_plugin(
         platform_instance=test_case.platform_instance,
         enable_datajob_lineage=test_case.enable_datajob_lineage,
         cluster=test_case.cluster,
+        datajob_lineage_dag_filter_str=test_case.datajob_lineage_dag_filter_str,
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
         _wait_for_dag_to_load(airflow_instance, dag_id)

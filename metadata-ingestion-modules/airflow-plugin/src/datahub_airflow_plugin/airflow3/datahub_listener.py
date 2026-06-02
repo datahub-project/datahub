@@ -775,9 +775,9 @@ class DataHubListener:
         logger.debug(
             f"_extract_lineage called for task {task.task_id} (complete={complete}, enable_datajob_lineage={self.config.enable_datajob_lineage})"
         )
-        if not self.config.enable_datajob_lineage:
+        if not self.config.should_emit_datajob_lineage(task.dag_id):
             logger.debug(
-                f"Skipping lineage extraction for task {task.task_id} - enable_datajob_lineage is False"
+                f"Skipping lineage extraction for task {task.task_id} - DataJob lineage disabled or DAG filtered"
             )
             return
 
@@ -1007,7 +1007,7 @@ class DataHubListener:
         # which causes FGLs from start and completion to be combined into duplicates.
         # We only emit the aspect on completion when lineage is complete and accurate.
         for mcp in datajob.generate_mcp(
-            generate_lineage=self.config.enable_datajob_lineage,
+            generate_lineage=self.config.should_emit_datajob_lineage(dag.dag_id),
             materialize_iolets=self.config.materialize_iolets,
         ):
             # Skip dataJobInputOutput aspects on task start

@@ -102,6 +102,17 @@ class DatahubLineageConfig(ConfigModel):
         description="regex patterns for DAGs to ingest",
     )
 
+    datajob_lineage_dag_filter_pattern: AllowDenyPattern = Field(
+        description="regex patterns for DAGs that should emit DataJob lineage",
+    )
+
+    def should_emit_datajob_lineage(self, dag_id: str) -> bool:
+        """Whether DataJob lineage should be emitted for the given dag_id."""
+        return (
+            self.enable_datajob_lineage
+            and self.datajob_lineage_dag_filter_pattern.allowed(dag_id)
+        )
+
     log_level: Optional[str]
     debug_emitter: bool
 
@@ -212,6 +223,13 @@ def get_lineage_config() -> DatahubLineageConfig:
         conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
     )
     enable_lineage = conf.get("datahub", "enable_datajob_lineage", fallback=True)
+    datajob_lineage_dag_filter_pattern = AllowDenyPattern.model_validate_json(
+        conf.get(
+            "datahub",
+            "datajob_lineage_dag_filter_str",
+            fallback='{"allow": [".*"]}',
+        )
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -237,6 +255,7 @@ def get_lineage_config() -> DatahubLineageConfig:
         render_templates=render_templates,
         dag_filter_pattern=dag_filter_pattern,
         enable_datajob_lineage=enable_lineage,
+        datajob_lineage_dag_filter_pattern=datajob_lineage_dag_filter_pattern,
         enable_multi_statement_sql_parsing=enable_multi_statement_sql_parsing,
     )
 
