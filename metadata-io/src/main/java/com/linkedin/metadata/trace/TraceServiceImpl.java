@@ -47,26 +47,20 @@ public class TraceServiceImpl implements TraceService {
   private final EntityRegistry entityRegistry;
   private final SystemMetadataService systemMetadataService;
   private final EntityService<?> entityService;
-  private final MCPTraceReader mcpTraceReader;
-  private final MCPFailedTraceReader mcpFailedTraceReader;
-  private final MCLTraceReader mclVersionedTraceReader;
-  private final MCLTraceReader mclTimeseriesTraceReader;
+  private final McpPendingTracePort mcpTraceReader;
+  private final McpFailedTracePort mcpFailedTraceReader;
 
   public TraceServiceImpl(
       EntityRegistry entityRegistry,
       SystemMetadataService systemMetadataService,
       EntityService<?> entityService,
-      MCPTraceReader mcpTraceReader,
-      MCPFailedTraceReader mcpFailedTraceReader,
-      MCLTraceReader mclVersionedTraceReader,
-      MCLTraceReader mclTimeseriesTraceReader) {
+      McpPendingTracePort mcpTraceReader,
+      McpFailedTracePort mcpFailedTraceReader) {
     this.entityRegistry = entityRegistry;
     this.systemMetadataService = systemMetadataService;
     this.entityService = entityService;
     this.mcpTraceReader = mcpTraceReader;
     this.mcpFailedTraceReader = mcpFailedTraceReader;
-    this.mclVersionedTraceReader = mclVersionedTraceReader;
-    this.mclTimeseriesTraceReader = mclTimeseriesTraceReader;
   }
 
   /**

@@ -12,7 +12,6 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps, ModuleSize } from '@app/homeV3/module/types';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery, useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
@@ -96,21 +95,19 @@ export default function ColumnsModule(props: ModuleProps) {
                 viewAllText="View in Columns"
             >
                 <Wrapper>
-                    <SchemaEditableContext.Provider value={false}>
-                        <SchemaTable
-                            rows={rows}
-                            schemaMetadata={schemaMetadata}
-                            editableSchemaMetadata={editableSchemaMetadata}
-                            usageStats={usageStats}
-                            expandedRowsFromFilter={expandedRowsFromFilter}
-                            filterText=""
-                            expandedDrawerFieldPath={expandedDrawerFieldPath}
-                            setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                            openTimelineDrawer={false}
-                            refetch={refetch}
-                            visibleColumns={size === ModuleSize.FULL ? undefined : ['fieldPath', 'type', 'description']}
-                        />
-                    </SchemaEditableContext.Provider>
+                    <SchemaTable
+                        rows={rows}
+                        schemaMetadata={schemaMetadata}
+                        editableSchemaMetadata={editableSchemaMetadata}
+                        usageStats={usageStats}
+                        expandedRowsFromFilter={expandedRowsFromFilter}
+                        filterText=""
+                        expandedDrawerFieldPath={expandedDrawerFieldPath}
+                        setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                        openTimelineDrawer={false}
+                        refetch={refetch}
+                        visibleColumns={size === ModuleSize.FULL ? undefined : ['fieldPath', 'type', 'description']}
+                    />
                 </Wrapper>
             </LargeModule>
         </SchemaContext.Provider>

@@ -186,7 +186,11 @@ class StructuredLogs(Report):
             logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
 
         if log_key not in entries:
-            context_list: LossyList[str] = LossyList()
+            # Size the per-entry context list to match the level's configured
+            # sample size, so DATAHUB_REPORT_*_SAMPLE_SIZE controls both the
+            # number of distinct entries and the number of grouped contexts
+            # under each entry.
+            context_list: LossyList[str] = LossyList(max_elements=entries.max_elements)
             if context is not None:
                 context_list.append(context)
             entries[log_key] = StructuredLogEntry(
@@ -211,12 +215,20 @@ class StructuredLogs(Report):
         log warnings/errors during __init__, so existing entries are pruned
         if they exceed the new limit.
         """
-        if failure_size is not None:
-            self._entries[StructuredLogLevel.ERROR].resize(failure_size)
-        if warning_size is not None:
-            self._entries[StructuredLogLevel.WARN].resize(warning_size)
-        if info_size is not None:
-            self._entries[StructuredLogLevel.INFO].resize(info_size)
+        for level, size in (
+            (StructuredLogLevel.ERROR, failure_size),
+            (StructuredLogLevel.WARN, warning_size),
+            (StructuredLogLevel.INFO, info_size),
+        ):
+            if size is None:
+                continue
+            entries = self._entries[level]
+            entries.resize(size)
+            # Also resize the nested context list on any entries that were
+            # already recorded (e.g. during source __init__ before pipeline
+            # applied the configured sample size).
+            for entry in entries.values():
+                entry.context.resize(size)
 
     def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
         entries = self._entries[level]
