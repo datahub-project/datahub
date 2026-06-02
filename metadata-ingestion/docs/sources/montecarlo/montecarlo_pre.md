@@ -1,12 +1,12 @@
 ### Overview
 
-Monte Carlo is a data observability platform that monitors data pipelines and tables for freshness,
-volume, schema, and field-level anomalies. It also lets teams author custom SQL rules and threshold
-monitors.
+[Monte Carlo](https://www.montecarlodata.com/) is a data observability platform that monitors
+warehouse and lake tables for freshness, volume, schema and field-quality issues and raises
+alerts/incidents when they breach.
 
-This module ingests Monte Carlo monitors and their evaluation results as DataHub
-[Assertions](https://docs.datahub.com/docs/assertions/), so teams can view data quality status
-directly alongside dataset metadata in DataHub.
+This connector ingests Monte Carlo **monitors**, **custom (SQL) rules** and **alerts/incidents** and
+models them as DataHub **Assertions**, so the native "Validation" tab on a dataset reflects Monte
+Carlo's observability coverage and incident history.
 
 ### Prerequisites
 
