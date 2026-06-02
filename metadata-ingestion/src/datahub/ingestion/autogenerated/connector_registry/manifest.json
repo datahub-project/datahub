@@ -1,6 +1,5 @@
 {
   "packages": [
-    "acryl_datahub_cloud",
     "datahub"
   ]
 }
