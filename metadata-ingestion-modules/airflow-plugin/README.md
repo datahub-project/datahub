@@ -4,15 +4,14 @@ See [the DataHub Airflow docs](https://docs.datahub.com/docs/lineage/airflow) fo
 
 ## Version Compatibility
 
-The plugin supports Apache Airflow 3.1+. Airflow 2.x and 3.0.x are not supported — use the
+The plugin supports Apache Airflow 3.0+. Airflow 2.x is not supported — use the
 last release of `acryl-datahub-airflow-plugin` published before Airflow 2 support was dropped
 if you need to integrate with Airflow 2.
 
-| Airflow Version | Status             | Notes                                             |
-| --------------- | ------------------ | ------------------------------------------------- |
-| 2.x             | ❌ Unsupported     | Pin an older plugin release                       |
-| 3.0.x           | ❌ Unsupported     | Missing `airflow.sdk.bases.hook` (added in 3.1.0) |
-| 3.1+            | ✅ Fully Supported |                                                   |
+| Airflow Version | Status             | Notes                       |
+| --------------- | ------------------ | --------------------------- |
+| 2.x             | ❌ Unsupported     | Pin an older plugin release |
+| 3.0+            | ✅ Fully Supported |                             |
 
 ## Installation
 
@@ -24,7 +23,7 @@ This installs:
 
 - `acryl-datahub[sql-parser,datahub-rest]` — DataHub SDK with SQL parsing and REST emitter
 - `pydantic>=2.4.0`
-- `apache-airflow>=3.1.0,<4.0.0`
+- `apache-airflow>=3.0.0,<4.0.0`
 - `apache-airflow-providers-openlineage>=2.1.0`
 
 ### Optional extras

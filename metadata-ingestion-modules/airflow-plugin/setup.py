@@ -25,10 +25,10 @@ _self_pin = (
 base_requirements = {
     f"acryl-datahub[sql-parser,datahub-rest]{_self_pin}",
     "pydantic>=2.4.0",
-    # Floor is 3.1.0 because we import `airflow.sdk.bases.hook.BaseHook`,
-    # which was added in Airflow 3.1.0. Earlier 3.0.x releases shipped the
-    # task-SDK without that module. See hooks/datahub.py.
-    "apache-airflow>=3.1.0,<4.0.0",
+    # Airflow 3.0+. The only 3.0-vs-3.1 API gap we hit is BaseHook: it moved into
+    # the Task SDK (airflow.sdk.bases.hook) in 3.1, but is still importable from
+    # airflow.hooks.base on 3.0.x. hooks/datahub.py handles both via a fallback.
+    "apache-airflow>=3.0.0,<4.0.0",
     # 2.1.0 added Airflow 3 listener interface support; we deliberately stay at
     # or below the version pinned by Airflow 3.1.0's constraints file (2.7.1) so
     # `pip install acryl-datahub-airflow-plugin` works under those constraints.

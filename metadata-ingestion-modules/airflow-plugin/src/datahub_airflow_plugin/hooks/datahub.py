@@ -1,7 +1,15 @@
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from airflow.exceptions import AirflowException
-from airflow.sdk import BaseHook
+
+# BaseHook entered the Task SDK namespace (airflow.sdk.bases.hook) in Airflow 3.1.
+# On Airflow 3.0.x it is only available at the legacy airflow.hooks.base location.
+# Prefer the SDK import so we stay aligned with 3.1+ (where airflow.hooks.base is a
+# deprecated compatibility shim) and fall back for 3.0.x.
+try:
+    from airflow.sdk import BaseHook
+except ImportError:
+    from airflow.hooks.base import BaseHook
 
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter

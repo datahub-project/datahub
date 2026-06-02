@@ -9,7 +9,11 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonVirtualenvOperator
-from airflow.sdk import BaseHook
+
+try:
+    from airflow.sdk import BaseHook  # Airflow 3.1+
+except ImportError:
+    from airflow.hooks.base import BaseHook  # Airflow 3.0.x
 
 
 def ingest_from_snowflake(snowflake_credentials, datahub_gms_server):
