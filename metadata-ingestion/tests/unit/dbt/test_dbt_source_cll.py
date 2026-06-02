@@ -1,6 +1,13 @@
 from typing import Any, Dict, List
+from unittest import mock
 
-from datahub.ingestion.source.dbt.dbt_common import parse_semantic_view_cll
+from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt.dbt_common import (
+    DBTColumnLineageInfo,
+    DBTNode,
+    parse_semantic_view_cll,
+)
+from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
 from tests.unit.dbt.test_helpers import (  # type: ignore[import-untyped]
     create_mock_dbt_node,
 )
@@ -81,3 +88,117 @@ def test_parse_semantic_view_cll_with_various_functions() -> None:
     assert "median_value" in downstream_cols
     assert "value_stddev" in downstream_cols
     assert "total" in downstream_cols
+
+
+def _make_dbt_source() -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = mock.MagicMock()
+    return DBTCoreSource(
+        DBTCoreConfig(
+            manifest_path="temp/",
+            catalog_path="temp/",
+            target_platform="bigquery",
+            enable_meta_mapping=False,
+        ),
+        ctx,
+    )
+
+
+def _make_model_node(dbt_name: str, upstream_dbt_name: str) -> DBTNode:
+    return DBTNode(
+        database="myproject",
+        schema="mydataset",
+        name="my_model",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="bigquery",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name="mypackage",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        upstream_nodes=[upstream_dbt_name],
+    )
+
+
+def _make_upstream_node(dbt_name: str) -> DBTNode:
+    return DBTNode(
+        database="myproject",
+        schema="internal_staging",
+        name="stg_utm_campaigns",
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="bigquery",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name="mypackage",
+        node_type="source",
+        max_loaded_at=None,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+    )
+
+
+def test_empty_column_names_filtered_from_fine_grained_lineage() -> None:
+    """Regression: sqlglot v30 can produce empty column names from SQL parsing.
+    These must be dropped before emitting schemaField URNs or GMS rejects them with 422."""
+    upstream_dbt_name = "source.mypackage.mydb.stg_utm_campaigns"
+    model_dbt_name = "model.mypackage.my_model"
+
+    node = _make_model_node(model_dbt_name, upstream_dbt_name)
+    upstream_node = _make_upstream_node(upstream_dbt_name)
+
+    node.upstream_cll = [
+        # valid entry — should be kept
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream_dbt_name,
+            upstream_col="campaign_id",
+            downstream_col="campaign_id",
+        ),
+        # empty upstream column — must be dropped
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream_dbt_name,
+            upstream_col="",
+            downstream_col="campaign_name",
+        ),
+        # empty downstream column — must be dropped
+        DBTColumnLineageInfo(
+            upstream_dbt_name=upstream_dbt_name,
+            upstream_col="source_col",
+            downstream_col="",
+        ),
+    ]
+
+    source = _make_dbt_source()
+    all_nodes_map = {
+        model_dbt_name: node,
+        upstream_dbt_name: upstream_node,
+    }
+
+    result = source._create_lineage_aspect_for_dbt_node(node, all_nodes_map)
+
+    assert result is not None
+    assert result.fineGrainedLineages is not None
+    assert len(result.fineGrainedLineages) == 1
+
+    fgl = result.fineGrainedLineages[0]
+    assert fgl.upstreams is not None
+    assert fgl.downstreams is not None
+    assert len(fgl.upstreams) == 1
+    assert len(fgl.downstreams) == 1
+
+    # Neither upstream nor downstream should contain a schemaField URN with an empty field name.
+    for urn in fgl.upstreams + fgl.downstreams:
+        assert not urn.endswith(",)"), f"Empty field name in schemaField URN: {urn}"

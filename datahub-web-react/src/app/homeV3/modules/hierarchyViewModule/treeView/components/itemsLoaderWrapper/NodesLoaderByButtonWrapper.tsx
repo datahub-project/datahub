@@ -1,5 +1,6 @@
 import { Button } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import DepthMargin from '@app/homeV3/modules/hierarchyViewModule/treeView/DepthMargin';
 import ExpandToggler from '@app/homeV3/modules/hierarchyViewModule/treeView/ExpandToggler';
@@ -16,6 +17,7 @@ export default function NodesLoaderByButtonWrapper({
     loading,
     onLoad,
 }: React.PropsWithChildren<NodesLoaderWrapperProps>) {
+    const { t: tc } = useTranslation('common.actions');
     const loadMoreNumber = useMemo(() => Math.min(total - current, pageSize), [total, current, pageSize]);
 
     return (
@@ -27,7 +29,7 @@ export default function NodesLoaderByButtonWrapper({
                     <DepthMargin depth={depth + 1} />
                     <ExpandToggler expandable={false} />
                     <Button onClick={onLoad} variant="link" color="gray">
-                        Show {loadMoreNumber} more
+                        {tc('showCountMore', { count: loadMoreNumber })}
                     </Button>
                 </Row>
             )}

@@ -99,7 +99,11 @@ export const GroupNameCell = ({ group }: { group: CorpGroup }) => {
     const avatarUrl = group?.editableProperties?.pictureLink || undefined;
 
     return (
-        <Link to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)} style={{ textDecoration: 'none' }}>
+        <Link
+            to={entityRegistry.getEntityUrl(EntityType.CorpGroup, group.urn)}
+            style={{ textDecoration: 'none' }}
+            data-testid={`group-link-${group.name}`}
+        >
             <GroupInfo>
                 <Avatar size="xl" name={displayName} imageUrl={avatarUrl} />
                 <GroupDetails>
@@ -252,7 +256,12 @@ export const GroupActionsMenu = ({ group, onDelete }: GroupActionsMenuProps) => 
                             <Button variant="outline" onClick={() => setIsConfirmingDelete(false)}>
                                 Cancel
                             </Button>
-                            <Button variant="filled" color="red" onClick={handleDeleteConfirm}>
+                            <Button
+                                variant="filled"
+                                color="red"
+                                onClick={handleDeleteConfirm}
+                                data-testid="delete-group-confirm-button"
+                            >
                                 Delete
                             </Button>
                         </ModalFooter>

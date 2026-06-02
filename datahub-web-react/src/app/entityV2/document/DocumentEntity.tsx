@@ -127,6 +127,7 @@ export class DocumentEntity implements Entity<Document> {
         return {
             name: data.info?.title,
             externalUrl,
+            lastIngested: data.lastIngested ?? undefined,
             properties: {
                 name: data.info?.title,
                 externalUrl,

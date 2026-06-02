@@ -1,6 +1,7 @@
 import { Text } from '@components';
 import { Form } from 'antd';
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import DomainsSelectableTreeView from '@app/homeV3/modules/hierarchyViewModule/components/domains/DomainsSelectableTreeView';
@@ -19,6 +20,7 @@ const ScrollWrapper = styled.div`
 `;
 
 export default function SelectAssetsSection() {
+    const { t } = useTranslation('modules');
     const form = Form.useFormInstance();
 
     const {
@@ -37,7 +39,7 @@ export default function SelectAssetsSection() {
     const tabs = [
         {
             key: ASSET_TYPE_DOMAINS,
-            label: 'Domains',
+            label: t('hierarchy.domainsTab'),
             content: (
                 <FormItem name="domainAssets">
                     <ScrollWrapper>
@@ -48,7 +50,7 @@ export default function SelectAssetsSection() {
         },
         {
             key: ASSET_TYPE_GLOSSARY,
-            label: 'Glossary',
+            label: t('hierarchy.glossaryTab'),
             content: (
                 <FormItem name="glossaryAssets">
                     <ScrollWrapper>
@@ -61,7 +63,7 @@ export default function SelectAssetsSection() {
 
     return (
         <Wrapper>
-            <Text weight="bold">Search and Select Assets</Text>
+            <Text weight="bold">{t('hierarchy.searchAndSelectHeader')}</Text>
             <FormItem name={FORM_FIELD_ASSET_TYPE}>
                 <ButtonTabs tabs={tabs} onTabClick={onTabClick} defaultKey={assetType ?? defaultAssetsType} />
             </FormItem>

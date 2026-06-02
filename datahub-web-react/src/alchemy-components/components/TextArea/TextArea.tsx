@@ -38,6 +38,7 @@ export const TextArea = ({
     isInvalid = textAreaDefaults.isInvalid,
     isReadOnly = textAreaDefaults.isReadOnly,
     isRequired = textAreaDefaults.isRequired,
+    inputTestId,
     ...props
 }: TextAreaProps) => {
     // Invalid state is always true if error is present
@@ -70,6 +71,7 @@ export const TextArea = ({
                     readOnly={isReadOnly}
                     disabled={isDisabled}
                     required={isRequired}
+                    data-testid={inputTestId}
                     {...props}
                 />
                 {isSuccess && <StyledStatusIcon icon={Check} color="green" size="lg" />}

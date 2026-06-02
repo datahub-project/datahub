@@ -1,6 +1,8 @@
 import { Empty } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const EmptyAnnouncements = () => {
-    return <Empty description="No Announcements Yet!" />;
+    const { t } = useTranslation('home.v2');
+    return <Empty description={t('announcements.empty')} />;
 };

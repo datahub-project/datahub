@@ -2456,6 +2456,51 @@ def test_profiler_engine_uses_user_supplied_client_when_credential_set(
     assert kwargs["connect_args"]["client"] is fake_client
 
 
+@patch(
+    "datahub.ingestion.source.bigquery_v2.bigquery_connection.build_credentials_from_wif_dict"
+)
+@patch("datahub.ingestion.source.bigquery_v2.profiling.profiler.create_engine")
+def test_profiler_engine_uses_user_supplied_client_for_wif(
+    mock_create_engine, mock_build_wif
+):
+    """WIF builds in-memory credentials with no `credential` field set. The
+    profiler must still inject the explicit bigquery.Client so the SQLAlchemy
+    dialect does not fall back to GOOGLE_APPLICATION_CREDENTIALS lookup.
+    """
+    mock_create_engine.side_effect = RuntimeError("intercepted")
+    mock_build_wif.return_value = (MagicMock(), None)
+
+    config = BigQueryV2Config.model_validate(
+        {
+            "project_id": "test-project",
+            "auth_type": "workload_identity_federation",
+            "gcp_wif_configuration_json": {
+                "type": "external_account",
+                "audience": "//iam.googleapis.com/projects/123/locations/global/workloadIdentityPools/pool/providers/provider",
+                "subject_token_type": "urn:ietf:params:oauth:token-type:jwt",
+                "token_url": "https://sts.googleapis.com/v1/token",
+                "credential_source": {"url": "https://example.com/token"},
+            },
+        }
+    )
+    fake_client = MagicMock(spec=bigquery.Client)
+    fake_client.project = "test-project"
+
+    profiler = BigqueryProfiler(config=config, report=BigQueryV2Report())
+    with (
+        patch.object(
+            BigQueryConnectionConfig, "get_bigquery_client", return_value=fake_client
+        ),
+        pytest.raises(RuntimeError, match="intercepted"),
+    ):
+        profiler.get_profiler_instance("test-project")
+
+    args, kwargs = mock_create_engine.call_args
+    url = args[0]
+    assert "user_supplied_client=true" in url
+    assert kwargs["connect_args"]["client"] is fake_client
+
+
 @patch("datahub.ingestion.source.bigquery_v2.profiling.profiler.create_engine")
 def test_profiler_engine_falls_back_to_adc_when_no_credential(mock_create_engine):
     """When NO credential block is provided, the user opted into Application

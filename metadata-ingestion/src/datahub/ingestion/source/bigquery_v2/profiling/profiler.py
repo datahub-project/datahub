@@ -31,7 +31,7 @@ from datahub.ingestion.source.bigquery_v2.profiling.security import (
     validate_and_filter_expressions,
     validate_bigquery_identifier,
 )
-from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
+from datahub.ingestion.source.profiling.common import create_datahub_ge_profiler
 from datahub.ingestion.source.sql.sql_generic import BaseTable
 from datahub.ingestion.source.sql.sql_generic_profiler import (
     GenericProfiler,
@@ -40,6 +40,7 @@ from datahub.ingestion.source.sql.sql_generic_profiler import (
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 
 if TYPE_CHECKING:
+    from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
     from datahub.ingestion.source.sqlalchemy_profiler.sqlalchemy_profiler import (
         SQLAlchemyProfiler,
     )
@@ -93,10 +94,13 @@ class BigqueryProfiler(GenericProfiler):
         logger.debug(f"Getting profiler instance from {self.platform}")
         url = self.config.get_sql_alchemy_url()
         connect_args: Dict[str, object] = {}
-        if self.config.credential is not None:
+        if self.config.has_explicit_credentials():
             # user_supplied_client=true tells the BigQuery dialect to short
             # circuit its own client construction and use the one we pass via
             # connect_args. Requires sqlalchemy-bigquery>=1.5.0.
+            # Covers both the service-account and WIF paths — anywhere we hold
+            # an in-memory credential, we pass it through explicitly rather
+            # than leaking the key via GOOGLE_APPLICATION_CREDENTIALS.
             separator = "&" if "?" in url else "?"
             url = f"{url}{separator}user_supplied_client=true"
             connect_args["client"] = self.config.get_bigquery_client()
@@ -124,7 +128,7 @@ class BigqueryProfiler(GenericProfiler):
             logger.info(
                 f"Using DatahubGEProfiler (Great Expectations) for profiling (platform: {self.platform})"
             )
-            return DatahubGEProfiler(
+            return create_datahub_ge_profiler(
                 conn=inspector.bind,
                 report=self.report,
                 config=self.config.profiling,

@@ -32,12 +32,12 @@
     "aspect": {
         "json": {
             "arrayPrimaryKeys": {
-                "tags": ["tag", "attribution\u241fsource"]
+                "tags": ["attribution\u241fsource", "tag"]
             },
             "patch": [
                 {
                     "op": "add",
-                    "path": "/tags/urn:li:tag:test_tag/",
+                    "path": "/tags//urn:li:tag:test_tag",
                     "value": {
                         "tag": "urn:li:tag:test_tag"
                     }

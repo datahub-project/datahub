@@ -2,7 +2,7 @@ import logging
 import re
 from copy import deepcopy
 from datetime import timedelta
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from pydantic import (
     Field,
@@ -41,6 +41,9 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 logger = logging.getLogger(__name__)
 
 DEFAULT_BQ_SCHEMA_PARALLELISM = get_bigquery_schema_parallelism()
+
+# Tuple (not list) so in-place mutation cannot silently drift the value used by callers.
+DEFAULT_REGION_QUALIFIERS: Tuple[str, ...] = ("region-us", "region-eu")
 
 # Regexp for sharded tables.
 # A sharded table is a table that has a suffix of the form _yyyymmdd or yyyymmdd, where yyyymmdd is a date.
@@ -532,9 +535,17 @@ class BigQueryV2Config(
     )
 
     region_qualifiers: List[str] = Field(
-        default=["region-us", "region-eu"],
+        default_factory=lambda: list(DEFAULT_REGION_QUALIFIERS),
         description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
+    )
+
+    region_qualifiers_auto_discovery: bool = Field(
+        default=False,
+        description="When True, automatically extends `region_qualifiers` with any BigQuery "
+        "regions detected from dataset locations during schema ingestion. "
+        "Defaults to False to avoid unexpected query cost increases. "
+        "Set to True if your project has datasets in regions beyond `region-us` and `region-eu`.",
     )
 
     profiling: BigQueryProfilingConfig = Field(

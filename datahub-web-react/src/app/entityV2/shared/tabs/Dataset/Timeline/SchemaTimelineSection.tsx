@@ -11,6 +11,9 @@ import { ChangeCategoryType } from '@types';
 
 import TimelineIcon from '@images/timeline-icon.svg?react';
 
+const PLACEHOLDER_SUBTITLE = 'subtitle';
+const PLACEHOLDER_DESC = 'description';
+
 const TimeLine = styled(VerticalTimeline)`
     svg {
         height: 10px;
@@ -57,8 +60,8 @@ export const SchemaTimelineSection = () => {
                 title: `${
                     change.parameters?.find((parameter) => parameter.key === 'fieldPath')?.value
                 } was ${change.operation?.toLowerCase()}ed.`,
-                subtitle: 'subtitle',
-                desc: 'description',
+                subtitle: PLACEHOLDER_SUBTITLE,
+                desc: PLACEHOLDER_DESC,
                 time,
             };
             timelineHistory.push(entry);
