@@ -163,7 +163,7 @@ jobs:
           fetch-depth: 0
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: "3.10"
+          python-version: "3.11"
       - name: Verify schemaVersion is bumped for changed PDL aspects
         env:
           BASE_REF: ${{ github.base_ref }}
