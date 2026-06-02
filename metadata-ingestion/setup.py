@@ -59,7 +59,11 @@ framework_common = {
     # avro has historically made breaking changes, so we have a cautious upper bound.
     "avro>=1.11.3,<1.13",
     "python-dateutil>=2.8.0,<3.0.0",
-    "tabulate<0.10.0",
+    # Floor 0.10.0 is allowed so the package can be installed alongside Airflow
+    # 3.2+, whose constraints file pins tabulate==0.10.0. Our usage is limited to
+    # the stable tabulate(data, headers=..., tablefmt=...) call. 0.10.0 requires
+    # Python 3.10+, so 3.9 environments still resolve to 0.9.x.
+    "tabulate<0.11.0",
     "progressbar2<5.0.0",
     "psutil>=5.8.0,<8.0.0",
     "Deprecated<2.0.0",
@@ -901,7 +905,7 @@ mypy_stubs = {
     # The boto3-stubs package seems to have regularly breaking minor releases,
     # we pin to a specific version to avoid this.
     "boto3-stubs[s3,glue,sagemaker,sts,dynamodb, lakeformation]==1.40.0",
-    "types-tabulate<0.10.0",
+    "types-tabulate<0.11.0",
     # avrogen package requires this
     "types-pytz<2026.0.0",
     "types-pyOpenSSL>=24.1.0.20240722,<27.0.0",
