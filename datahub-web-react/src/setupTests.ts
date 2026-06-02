@@ -7,8 +7,10 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
+import enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
 import enEntityIdentity from '@src/i18n/locales/en/entity.identity.json';
 import enEntityOwnership from '@src/i18n/locales/en/entity.ownership.json';
+import enEntityProfileDocumentation from '@src/i18n/locales/en/entity.profile.documentation.json';
 import enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
@@ -29,7 +31,9 @@ i18n.use(initReactI18next).init({
     initImmediate: false,
     ns: [
         'common.actions',
+        'common.feedback',
         'entity.identity',
+        'entity.profile.documentation',
         'entity.ownership',
         'entity.profile.validations',
         'entity.views',
@@ -47,7 +51,9 @@ i18n.use(initReactI18next).init({
     resources: {
         en: {
             'common.actions': enCommonActions,
+            'common.feedback': enCommonFeedback,
             'entity.identity': enEntityIdentity,
+            'entity.profile.documentation': enEntityProfileDocumentation,
             'entity.ownership': enEntityOwnership,
             'entity.profile.validations': enEntityProfileValidations,
             'entity.views': enEntityViews,

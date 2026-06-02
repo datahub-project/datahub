@@ -4,6 +4,7 @@ src/app/entityV2/ownership/OwnershipList.tsx
 src/app/entityV2/ownership/table/ActionsColumn.tsx
 src/app/entityV2/ownership/table/OwnershipTable.tsx
 src/app/entityV2/shared/tabs/Dataset/Validations/**/*.{ts,tsx}
+src/app/entityV2/shared/tabs/Documentation/**/*.{ts,tsx}
 src/app/entityV2/view/builder/constants.ts
 src/app/entityV2/view/builder/SelectedFilterValues.tsx
 src/app/entityV2/view/builder/SelectFilterValuesTab.tsx
