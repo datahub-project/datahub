@@ -25,7 +25,7 @@ from datahub.masking.bootstrap import (
 from datahub.masking.masking_filter import (
     SecretMaskingFilter,
     StreamMaskingWrapper,
-    _update_existing_handlers,
+    _add_filter_to_existing_handlers,
     install_masking_filter,
 )
 from datahub.masking.secret_registry import SecretRegistry
@@ -279,8 +279,10 @@ class TestStreamWrapperErrorHandling:
         assert callable(wrapper.getvalue)
 
 
-class TestUpdateExistingHandlers:
-    """Test _update_existing_handlers function."""
+class TestAddFilterToExistingHandlers:
+    """Test _add_filter_to_existing_handlers: masking attaches to handlers
+    without modifying their streams (the celery-safe replacement for the old
+    stream-redirecting behavior)."""
 
     def setup_method(self):
         shutdown_secret_masking()
@@ -290,79 +292,53 @@ class TestUpdateExistingHandlers:
         shutdown_secret_masking()
         SecretRegistry.reset_instance()
 
-    def test_update_existing_handlers_with_stdout_handler(self):
-        """Test that existing stdout handlers are updated."""
-        # Create a logger with a stdout handler
-        test_logger = logging.getLogger("test_stdout_update")
-        test_logger.handlers.clear()
-
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        test_logger.addHandler(stdout_handler)
-
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
-
-        # Update handlers
-        _update_existing_handlers()
-
-        # Cleanup
-        test_logger.removeHandler(stdout_handler)
-        test_logger.handlers.clear()
-
-    def test_update_existing_handlers_with_stderr_handler(self):
-        """Test that existing stderr handlers are updated."""
-        # Create a logger with a stderr handler
-        test_logger = logging.getLogger("test_stderr_update")
-        test_logger.handlers.clear()
-
-        stderr_handler = logging.StreamHandler(sys.stderr)
-        test_logger.addHandler(stderr_handler)
-
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
-
-        # Update handlers
-        _update_existing_handlers()
-
-        # Cleanup
-        test_logger.removeHandler(stderr_handler)
-        test_logger.handlers.clear()
-
-    def test_update_existing_handlers_with_custom_stream(self):
-        """Test that handlers with custom streams are not updated."""
-        test_logger = logging.getLogger("test_custom_stream")
+    def test_filter_added_without_changing_stream(self):
+        """The filter is attached to an existing handler and its stream is left
+        untouched (repointing the stream is what caused the celery deadlock)."""
+        test_logger = logging.getLogger("test_add_filter_stream")
         test_logger.handlers.clear()
 
         custom_stream = StringIO()
-        custom_handler = logging.StreamHandler(custom_stream)
-        test_logger.addHandler(custom_handler)
+        handler = logging.StreamHandler(custom_stream)
+        test_logger.addHandler(handler)
 
-        # Install masking
         install_masking_filter(install_stdout_wrapper=True)
 
-        # Update handlers
-        _update_existing_handlers()
+        assert handler.stream is custom_stream
+        assert any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
 
-        # Custom handler should not be updated
-        assert custom_handler.stream is custom_stream
-
-        # Cleanup
-        test_logger.removeHandler(custom_handler)
+        test_logger.removeHandler(handler)
         test_logger.handlers.clear()
 
-    def test_update_existing_handlers_skips_placeholders(self):
-        """Test that PlaceHolder objects in logger dict are skipped."""
-        # This tests the check for isinstance(log, logging.Logger)
-        # PlaceHolder objects exist in logging.root.manager.loggerDict
-        # but are not actual Logger instances
+    def test_filter_not_added_twice(self):
+        """Calling the helper again must not add a duplicate filter."""
+        test_logger = logging.getLogger("test_add_filter_idempotent")
+        test_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        test_logger.addHandler(handler)
 
-        # Install masking
-        install_masking_filter(install_stdout_wrapper=True)
+        masking_filter = install_masking_filter(install_stdout_wrapper=False)
+        _add_filter_to_existing_handlers(masking_filter)
 
-        # Call update (should handle placeholders gracefully)
-        _update_existing_handlers()
+        count = sum(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+        assert count == 1
 
-        # Should not raise any errors
+        test_logger.removeHandler(handler)
+        test_logger.handlers.clear()
+
+    def test_masking_namespace_loggers_are_skipped(self):
+        """The masking framework's own loggers bypass masking by design."""
+        masking_logger = logging.getLogger("datahub.masking.test_skip")
+        masking_logger.handlers.clear()
+        handler = logging.StreamHandler(StringIO())
+        masking_logger.addHandler(handler)
+
+        install_masking_filter(install_stdout_wrapper=False)
+
+        assert not any(isinstance(f, SecretMaskingFilter) for f in handler.filters)
+
+        masking_logger.removeHandler(handler)
+        masking_logger.handlers.clear()
 
 
 class TestBootstrapErrorHandling:

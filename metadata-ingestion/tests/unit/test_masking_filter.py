@@ -1175,5 +1175,130 @@ class TestThreadSafetyConcurrent:
         assert all("***REDACTED:EXISTING***" in r for r in results)
 
 
+class TestHandlerCoverageAndCelerySafety:
+    """Regression tests for the executor logging-silencing bug.
+
+    Two invariants must hold:
+    1. Masking must cover records from CHILD loggers (not just records logged
+       directly on root). A filter on the root *logger* does not see propagated
+       child records, so the filter must be installed on the *handlers*.
+    2. Installing masking must NOT redirect existing handlers' streams. Under
+       celery, sys.stderr is a proxy that re-enters the logging system; pointing
+       a console handler at it creates an infinite recursion cycle that silently
+       swallows all log output.
+    """
+
+    def setup_method(self):
+        uninstall_masking_filter()
+        SecretRegistry.reset_instance()
+        self._saved_stderr = sys.stderr
+        self._saved_stdout = sys.stdout
+
+    def teardown_method(self):
+        uninstall_masking_filter()
+        sys.stderr = self._saved_stderr
+        sys.stdout = self._saved_stdout
+        SecretRegistry.reset_instance()
+
+    def test_child_logger_output_is_masked(self):
+        """Secrets in a child logger's output must be masked.
+
+        Reproduces the design flaw: the filter was attached to the root *logger*,
+        which never sees records propagated up from child loggers, so their
+        output went out unmasked.
+        """
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("DB_PASSWORD", "supersecretvalue")
+
+        capture = StringIO()
+        root_logger = logging.getLogger()
+        handler = logging.StreamHandler(capture)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        root_logger.addHandler(handler)
+
+        child = logging.getLogger("datahub.ingestion.source.mysql")
+        child.setLevel(logging.INFO)  # ensure the INFO record is emitted
+
+        try:
+            # Handler exists BEFORE masking installs (as celery's handlers do).
+            install_masking_filter(registry, install_stdout_wrapper=False)
+
+            # Log via a CHILD logger; the record propagates to the root handler.
+            child.info("connecting with password supersecretvalue")
+
+            output = capture.getvalue()
+            assert "supersecretvalue" not in output
+            assert "***REDACTED:DB_PASSWORD***" in output
+        finally:
+            root_logger.removeHandler(handler)
+            child.setLevel(logging.NOTSET)
+
+    def test_celery_style_feedback_stream_does_not_silence_logs(self):
+        """A handler writing to a logging-backed proxy must still deliver output.
+
+        Models celery: sys.stderr is a LoggingProxy that re-enters logging, and a
+        console handler writes to the real terminal. Before the fix, install
+        repointed that console handler at the wrapped proxy, forming a cycle that
+        recursed and silently dropped every log line.
+        """
+
+        class FakeTerminal:
+            # name == "<stderr>" so the (buggy) handler-redirect logic targets it
+            name = "<stderr>"
+
+            def __init__(self) -> None:
+                self.text = ""
+
+            def write(self, s: str) -> int:
+                self.text += s
+                return len(s)
+
+            def flush(self) -> None:
+                pass
+
+        class LoggingProxy:
+            """Like celery's LoggingProxy: writes feed back into logging."""
+
+            name = "<stderr>"
+
+            def __init__(self, target_logger: logging.Logger) -> None:
+                self._logger = target_logger
+
+            def write(self, s: str) -> int:
+                s = s.rstrip("\n")
+                if s:
+                    self._logger.warning(s)
+                return len(s)
+
+            def flush(self) -> None:
+                pass
+
+        terminal = FakeTerminal()
+        redirect_logger = logging.getLogger("test.celery.redirect")
+        redirect_logger.handlers = []
+        redirect_logger.propagate = False
+        redirect_handler = logging.StreamHandler(terminal)
+        redirect_handler.setFormatter(logging.Formatter("%(message)s"))
+        redirect_logger.addHandler(redirect_handler)
+
+        sys.stderr = LoggingProxy(redirect_logger)  # celery redirects stderr
+
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        registry.register_secret("SECRET", "hunter2value")
+
+        try:
+            install_masking_filter(registry, install_stdout_wrapper=True)
+
+            unique = "celery-line-7f3a9"
+            redirect_logger.warning(unique)
+
+            # The line must reach the terminal (no recursion cycle swallowing it).
+            assert unique in terminal.text
+        finally:
+            redirect_logger.removeHandler(redirect_handler)
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
