@@ -1,6 +1,7 @@
 package com.linkedin.datahub.upgrade.system.restoreindices.glossary;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -13,6 +14,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -70,8 +72,7 @@ public class RestoreGlossaryIndicesStepTest {
   public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
     DataHubUpgradeRequest upgradeRequest =
         new DataHubUpgradeRequest().setVersion("1").setTimestampMs(0L);
-    EnvelopedAspect aspect =
-        new EnvelopedAspect().setValue(new com.linkedin.mxe.GenericAspect(upgradeRequest.data()));
+    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
     EnvelopedAspectMap aspectMap =
         new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
     EntityResponse response = new EntityResponse().setAspects(aspectMap);
@@ -81,6 +82,22 @@ public class RestoreGlossaryIndicesStepTest {
     RestoreGlossaryIndicesStep step =
         new RestoreGlossaryIndicesStep(mockEntityService, mockEntitySearchService);
     assertTrue(step.skip(mockUpgradeContext));
+  }
+
+  @Test
+  public void testSkipReturnsFalseWhenVersionMismatch() throws Exception {
+    DataHubUpgradeRequest upgradeRequest =
+        new DataHubUpgradeRequest().setVersion("0").setTimestampMs(0L);
+    EnvelopedAspect aspect = new EnvelopedAspect().setValue(new Aspect(upgradeRequest.data()));
+    EnvelopedAspectMap aspectMap =
+        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
+    EntityResponse response = new EntityResponse().setAspects(aspectMap);
+    when(mockEntityService.getEntityV2(
+            any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
+        .thenReturn(response);
+    RestoreGlossaryIndicesStep step =
+        new RestoreGlossaryIndicesStep(mockEntityService, mockEntitySearchService);
+    assertFalse(step.skip(mockUpgradeContext));
   }
 
   @Test
@@ -131,10 +148,7 @@ public class RestoreGlossaryIndicesStepTest {
         .thenReturn(emptySearchResult());
 
     EnvelopedAspect envelopedAspect =
-        new EnvelopedAspect()
-            .setValue(
-                new com.linkedin.mxe.GenericAspect()
-                    .setValue(com.linkedin.data.ByteString.unsafeWrap(new byte[0])));
+        new EnvelopedAspect().setValue(new Aspect(new com.linkedin.data.DataMap()));
     EnvelopedAspectMap aspectMap =
         new EnvelopedAspectMap(Map.of(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME, envelopedAspect));
     EntityResponse entityResponse = new EntityResponse().setUrn(termUrn).setAspects(aspectMap);
@@ -143,8 +157,8 @@ public class RestoreGlossaryIndicesStepTest {
             any(), eq(Constants.GLOSSARY_TERM_ENTITY_NAME), any(), any()))
         .thenReturn(Map.of(termUrn, entityResponse));
 
-    com.linkedin.common.util.Pair mockPair =
-        com.linkedin.common.util.Pair.of(CompletableFuture.completedFuture(null), null);
+    com.linkedin.util.Pair mockPair =
+        com.linkedin.util.Pair.of(CompletableFuture.completedFuture(null), null);
     when(mockEntityService.alwaysProduceMCLAsync(
             any(),
             eq(termUrn),
@@ -177,6 +191,18 @@ public class RestoreGlossaryIndicesStepTest {
             any(AuditStamp.class),
             eq(ChangeType.RESTATE));
     assertEquals(stepResult.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(mockEntityService)
+        .ingestProposal(
+            any(),
+            argThat(p -> Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME.equals(p.getAspectName())),
+            any(AuditStamp.class),
+            eq(false));
+    verify(mockEntityService)
+        .ingestProposal(
+            any(),
+            argThat(p -> Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME.equals(p.getAspectName())),
+            any(AuditStamp.class),
+            eq(false));
   }
 
   @Test
@@ -189,6 +215,7 @@ public class RestoreGlossaryIndicesStepTest {
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
 
     assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    verify(mockEntityService).deleteUrn(any(), any(Urn.class));
   }
 
   private static SearchResult emptySearchResult() {
