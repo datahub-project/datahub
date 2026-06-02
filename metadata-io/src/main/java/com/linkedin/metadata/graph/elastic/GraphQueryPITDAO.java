@@ -115,6 +115,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int slices,
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults) {
 
     // Create slice-based search requests
@@ -151,6 +152,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
                       slices,
                       remainingTime,
                       entityUrns,
+                      originalQueryUrns,
                       allowPartialResults,
                       tempPitId,
                       keepAlive);
@@ -192,6 +194,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       int totalSlices,
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults,
       String pitId,
       String keepAlive) {
@@ -261,6 +264,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
         List<LineageRelationship> pageRelationships =
             GraphQueryUtils.extractRelationships(
                 entityUrns,
+                originalQueryUrns,
                 response,
                 lineageGraphFilters,
                 visitedEntities,

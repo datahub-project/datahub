@@ -197,12 +197,27 @@
             "type" : "boolean",
             "doc" : "Whether this relationship was ignored as a hop while performing the graph walk",
             "optional" : true
+          }, {
+            "name" : "matchType",
+            "type" : {
+              "type" : "enum",
+              "name" : "LineageMatchType",
+              "doc" : "Type of lineage match between entities",
+              "symbols" : [ "EXACT", "NORMALIZED" ],
+              "symbolDocs" : {
+                "EXACT" : "Exact URN match - entity URNs matched exactly as-is",
+                "NORMALIZED" : "Normalized match - entity URNs matched after case normalization"
+              }
+            },
+            "doc" : "Type of URN match for this lineage relationship.\nEXACT indicates URNs matched exactly as-is.\nNORMALIZED indicates URNs matched after case normalization.\nThis field is used to compute confidence scores at query time.",
+            "default" : "EXACT",
+            "optional" : true
           } ]
         }
       },
       "doc" : "Relationships in the result set"
     } ]
-  }, "com.linkedin.metadata.graph.LineageRelationship" ],
+  }, "com.linkedin.metadata.graph.LineageMatchType", "com.linkedin.metadata.graph.LineageRelationship" ],
   "schema" : {
     "name" : "relationships",
     "namespace" : "com.linkedin.lineage",

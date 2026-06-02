@@ -1614,6 +1614,28 @@ type LineageRelationship {
   The paths traversed for this relationship
   """
   paths: [EntityPath]
+
+  """
+  Type of URN match for this lineage relationship.
+  EXACT indicates URNs matched exactly as-is.
+  NORMALIZED indicates URNs matched after case normalization.
+  """
+  matchType: LineageMatchType
+}
+
+"""
+Type of lineage match between entities
+"""
+enum LineageMatchType {
+  """
+  Exact URN match - entity URNs matched exactly as-is
+  """
+  EXACT
+
+  """
+  Normalized match - entity URNs matched after case normalization
+  """
+  NORMALIZED
 }
 
 """

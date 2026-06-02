@@ -507,4 +507,80 @@ public class ElasticSearchGraphServiceTest {
     assertEquals(result.getTotal(), 1);
     assertEquals(result.getRelationships().size(), 1);
   }
+
+  @Test
+  public void testLineageWithNormalizedUrnMatching() {
+    // Test that normalized URN matching includes confidence scores
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Urn sourceUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.table,PROD)");
+    Urn upstreamUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.upstream,PROD)");
+
+    com.linkedin.metadata.graph.LineageGraphFilters filters =
+        com.linkedin.metadata.graph.LineageGraphFilters.forEntityType(
+            opContext.getLineageRegistry(),
+            "dataset",
+            com.linkedin.metadata.graph.LineageDirection.UPSTREAM);
+
+    // Create a normalized match relationship
+    com.linkedin.metadata.graph.LineageRelationship normalizedRelationship =
+        new com.linkedin.metadata.graph.LineageRelationship()
+            .setEntity(upstreamUrn)
+            .setType("DownstreamOf")
+            .setDegree(1)
+            .setConfidenceScore(0.9f) // Normalized match
+            .setMatchType("normalized");
+
+    // Create an exact match relationship
+    com.linkedin.metadata.graph.LineageRelationship exactRelationship =
+        new com.linkedin.metadata.graph.LineageRelationship()
+            .setEntity(upstreamUrn)
+            .setType("DownstreamOf")
+            .setDegree(1)
+            .setConfidenceScore(1.0f) // Exact match
+            .setMatchType("exact");
+
+    LineageResponse mockLineageResponse =
+        new LineageResponse(2, Arrays.asList(exactRelationship, normalizedRelationship), false);
+
+    when(mockReadDAO.getLineage(
+            eq(opContext), eq(sourceUrn), eq(filters), anyInt(), anyInt(), anyInt()))
+        .thenReturn(mockLineageResponse);
+
+    // Call the method under test
+    com.linkedin.metadata.graph.EntityLineageResult result =
+        test.getLineage(opContext, sourceUrn, filters, 0, 100, 1);
+
+    // Verify results
+    assertNotNull(result, "Result should not be null");
+    assertEquals(result.getTotal(), 2, "Should have 2 relationships");
+    assertEquals(result.getRelationships().size(), 2, "Should have 2 relationships");
+
+    // Verify confidence scores are preserved
+    boolean hasExactMatch = false;
+    boolean hasNormalizedMatch = false;
+
+    for (com.linkedin.metadata.graph.LineageRelationship rel : result.getRelationships()) {
+      if (rel.hasMatchType()) {
+        if ("exact".equals(rel.getMatchType())) {
+          hasExactMatch = true;
+          assertEquals(
+              rel.getConfidenceScore(),
+              Float.valueOf(1.0f),
+              "Exact match should have confidence 1.0");
+        } else if ("normalized".equals(rel.getMatchType())) {
+          hasNormalizedMatch = true;
+          assertEquals(
+              rel.getConfidenceScore(),
+              Float.valueOf(0.9f),
+              "Normalized match should have confidence 0.9");
+        }
+      }
+    }
+
+    assertTrue(hasExactMatch, "Should have at least one exact match");
+    assertTrue(hasNormalizedMatch, "Should have at least one normalized match");
+  }
 }

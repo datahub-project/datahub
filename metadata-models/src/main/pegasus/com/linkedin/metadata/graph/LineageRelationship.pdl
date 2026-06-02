@@ -82,4 +82,12 @@ record LineageRelationship {
     * Whether this relationship was ignored as a hop while performing the graph walk
     */
     ignoredAsHop: optional boolean
+
+   /**
+    * Type of URN match for this lineage relationship.
+    * EXACT indicates URNs matched exactly as-is.
+    * NORMALIZED indicates URNs matched after case normalization.
+    * This field is used to compute confidence scores at query time.
+    */
+    matchType: optional LineageMatchType = "EXACT"
 }

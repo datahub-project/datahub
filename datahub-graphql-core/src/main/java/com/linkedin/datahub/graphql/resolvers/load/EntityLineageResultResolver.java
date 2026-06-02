@@ -20,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.graph.LineageMatchType;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -178,6 +179,18 @@ public class EntityLineageResultResolver
       UrnArrayArray paths = lineageRelationship.getPaths();
       result.setPaths(
           paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
+    }
+
+    // Set matchType
+    // With Plan B (query-time augmentation), all stored edges are EXACT
+    // Query-time URN augmentation would happen in ElasticsearchGraphService
+    if (lineageRelationship.hasMatchType()) {
+      LineageMatchType matchType = lineageRelationship.getMatchType();
+      result.setMatchType(
+          com.linkedin.datahub.graphql.generated.LineageMatchType.valueOf(matchType.name()));
+    } else {
+      // Default to EXACT match (backward compatibility)
+      result.setMatchType(com.linkedin.datahub.graphql.generated.LineageMatchType.EXACT);
     }
 
     return result;

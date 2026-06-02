@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.utils.ConcurrencyUtils;
+import com.linkedin.metadata.utils.UrnNormalizationUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -110,6 +111,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int slices,
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults);
 
   private SearchResponse executeLineageSearchQuery(
@@ -424,6 +426,30 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
 
   // Get 1-hop lineage relationships
   @WithSpan
+  /**
+   * Augments a list of URNs with lowercase normalized variants for case-insensitive lineage
+   * matching.
+   *
+   * <p>For each URN that contains uppercase characters, adds a normalized lowercase variant to
+   * enable matching against edges stored with different casing (e.g., "DB.Table" also matches
+   * "db.table").
+   *
+   * @param originalUrns the original list of URNs to query
+   * @return augmented list containing both original and normalized URNs
+   */
+  private List<Urn> augmentUrnsWithLowercaseVariants(@Nonnull List<Urn> originalUrns) {
+    List<Urn> augmentedUrns = new ArrayList<>(originalUrns);
+
+    for (Urn urn : originalUrns) {
+      if (UrnNormalizationUtils.needsNormalization(urn)) {
+        Urn normalizedUrn = UrnNormalizationUtils.normalizeUrn(urn);
+        augmentedUrns.add(normalizedUrn);
+      }
+    }
+
+    return augmentedUrns;
+  }
+
   private List<LineageRelationship> getLineageRelationships(
       @Nonnull final OperationContext opContext,
       @Nonnull List<Urn> entityUrns,
@@ -436,9 +462,18 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       boolean exploreMultiplePaths) {
     final LineageFlags lineageFlags = opContext.getSearchContext().getLineageFlags();
 
+    // Augment entity URNs with lowercase variants for case-insensitive matching
+    List<Urn> augmentedUrns = augmentUrnsWithLowercaseVariants(entityUrns);
+
+    // Track original URNs for determining EXACT vs NORMALIZED matchType
+    Set<Urn> originalQueryUrns = new HashSet<>(entityUrns);
+
     Map<String, Set<Urn>> urnsPerEntityType =
-        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
-    Set<Urn> entityUrnSet = new HashSet<>(entityUrns);
+        augmentedUrns.stream()
+            .collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+    // Use augmented URNs for matching so edges with normalized URNs are found
+    Set<Urn> entityUrnSet = new HashSet<>(augmentedUrns);
 
     QueryBuilder finalQuery = getLineageQuery(opContext, urnsPerEntityType, lineageGraphFilters);
 
@@ -449,6 +484,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       return relationshipsGroupQuery(
           opContext,
           entityUrnSet,
+          originalQueryUrns,
           finalQuery,
           lineageGraphFilters,
           visitedEntities,
@@ -463,6 +499,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
               opContext, finalQuery, 0, graphServiceConfig.getLimit().getResults().getApiDefault());
       return GraphQueryUtils.extractRelationships(
           entityUrnSet,
+          originalQueryUrns,
           response,
           lineageGraphFilters,
           visitedEntities,
@@ -581,6 +618,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   private List<LineageRelationship> relationshipsGroupQuery(
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> entityUrns,
+      @Nonnull Set<Urn> originalQueryUrns,
       @Nonnull QueryBuilder baseQuery,
       LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
@@ -610,6 +648,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     // Process the stream of responses to extract relationships
     return GraphQueryUtils.extractRelationshipsFromSearchResponses(
         entityUrnSet,
+        originalQueryUrns,
         responseStream,
         lineageGraphFilters,
         visitedEntities,
@@ -1534,8 +1573,15 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int maxRelations,
       boolean allowPartialResults) {
 
+    // Track original query URNs for EXACT vs NORMALIZED matchType determination
+    Set<Urn> originalQueryUrns = new HashSet<>(entityUrns);
+
+    // Augment URNs with lowercase variants for case-insensitive matching
+    List<Urn> augmentedUrns = augmentUrnsWithLowercaseVariants(entityUrns);
+
     Map<String, Set<Urn>> urnsPerEntityType =
-        entityUrns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+        augmentedUrns.stream()
+            .collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
 
     QueryBuilder finalQuery = getLineageQuery(opContext, urnsPerEntityType, lineageGraphFilters);
 
@@ -1551,7 +1597,8 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         existingPaths,
         maxRelations,
         remainingTime,
-        new HashSet<>(entityUrns),
+        new HashSet<>(augmentedUrns),
+        originalQueryUrns,
         allowPartialResults);
   }
 
@@ -1575,6 +1622,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
       int maxRelations, // This is the REMAINING capacity, not the original total limit
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults) {
 
     int defaultPageSize = graphServiceConfig.getLimit().getResults().getApiDefault();
@@ -1594,6 +1642,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
         slices,
         remainingTime,
         entityUrns,
+        originalQueryUrns,
         allowPartialResults);
   }
 

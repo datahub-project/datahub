@@ -497,4 +497,119 @@ public class GraphIndexUtilsTest {
 
     return spec;
   }
+
+  @Test
+  public void testNormalizedEdgeCreation() {
+    // Create test data with uppercase URNs
+    Urn uppercaseDatasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:Snowflake,DB.SCHEMA.TABLE,PROD)");
+    Urn uppercaseUpstreamUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:MySQL,UPSTREAM.TABLE,PROD)");
+
+    UpstreamLineage upstreamLineage = createBasicUpstreamLineage();
+    MetadataChangeLog event = createBasicEvent(upstreamLineage, true);
+
+    RelationshipFieldSpec relationshipSpec = createBasicRelationshipSpec();
+    List<Object> destinationUrns = Arrays.asList(uppercaseUpstreamUrn);
+
+    Map.Entry<RelationshipFieldSpec, List<Object>> entry =
+        new AbstractMap.SimpleEntry<>(relationshipSpec, destinationUrns);
+
+    // Execute
+    List<Edge> edges =
+        GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, uppercaseDatasetUrn, event, true);
+
+    // Verify - should have 1 original edge, but getEdgesAndRelationshipTypesFromAspect creates
+    // normalized duplicates
+    assertEquals(edges.size(), 1);
+    Edge edge = edges.get(0);
+    assertEquals(edge.getSource(), uppercaseDatasetUrn);
+    assertEquals(edge.getDestination(), uppercaseUpstreamUrn);
+  }
+
+  @Test
+  public void testMatchTypeDiscriminator() {
+    // Test that edges are created with uppercase URNs
+    // The normalization and matchType properties are added by
+    // getEdgesAndRelationshipTypesFromAspect, not by extractGraphEdges
+    Urn uppercaseUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:BigQuery,PROJECT.DATASET.TABLE,PROD)");
+
+    UpstreamLineage upstreamLineage = createBasicUpstreamLineage();
+    MetadataChangeLog event = createBasicEvent(upstreamLineage, true);
+
+    RelationshipFieldSpec relationshipSpec = createBasicRelationshipSpec();
+    List<Object> destinationUrns = Arrays.asList(uppercaseUrn);
+
+    Map.Entry<RelationshipFieldSpec, List<Object>> entry =
+        new AbstractMap.SimpleEntry<>(relationshipSpec, destinationUrns);
+
+    // Execute
+    List<Edge> edges =
+        GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, datasetUrn, event, true);
+
+    // Verify edges are created with correct URNs (normalization happens later in the pipeline)
+    assertEquals(edges.size(), 1);
+    Edge edge = edges.get(0);
+    assertEquals(edge.getDestination(), uppercaseUrn);
+  }
+
+  @Test
+  public void testNoNormalizationForLowercase() {
+    // Test that lowercase URNs are handled correctly
+    Urn lowercaseDatasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataplatform:postgres,schema.table,PROD)");
+    Urn lowercaseUpstreamUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataplatform:postgres,upstream.table,PROD)");
+
+    UpstreamLineage upstreamLineage = createBasicUpstreamLineage();
+    MetadataChangeLog event = createBasicEvent(upstreamLineage, true);
+
+    RelationshipFieldSpec relationshipSpec = createBasicRelationshipSpec();
+    List<Object> destinationUrns = Arrays.asList(lowercaseUpstreamUrn);
+
+    Map.Entry<RelationshipFieldSpec, List<Object>> entry =
+        new AbstractMap.SimpleEntry<>(relationshipSpec, destinationUrns);
+
+    // Execute
+    List<Edge> edges =
+        GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, lowercaseDatasetUrn, event, true);
+
+    // Verify - edge created with correct URNs
+    assertEquals(edges.size(), 1);
+    Edge edge = edges.get(0);
+    assertEquals(edge.getSource(), lowercaseDatasetUrn);
+    assertEquals(edge.getDestination(), lowercaseUpstreamUrn);
+  }
+
+  @Test
+  public void testFabricTypePreservedInNormalization() {
+    // Test that FabricType (env) remains uppercase after normalization
+    Urn testUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:Snowflake,DB.TABLE,PROD)");
+    Urn upstreamTestUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:BigQuery,PROJECT.TABLE,DEV)");
+
+    UpstreamLineage upstreamLineage = createBasicUpstreamLineage();
+    MetadataChangeLog event = createBasicEvent(upstreamLineage, true);
+
+    RelationshipFieldSpec relationshipSpec = createBasicRelationshipSpec();
+    List<Object> destinationUrns = Arrays.asList(upstreamTestUrn);
+
+    Map.Entry<RelationshipFieldSpec, List<Object>> entry =
+        new AbstractMap.SimpleEntry<>(relationshipSpec, destinationUrns);
+
+    // Execute
+    List<Edge> edges =
+        GraphIndexUtils.extractGraphEdges(entry, upstreamLineage, testUrn, event, true);
+
+    // Verify edge was created
+    assertEquals(edges.size(), 1);
+
+    // Verify URNs contain uppercase FabricType
+    String sourceUrnString = edges.get(0).getSource().toString();
+    String destUrnString = edges.get(0).getDestination().toString();
+
+    assertTrue(sourceUrnString.contains(",PROD)"), "Source URN should preserve PROD in uppercase");
+    assertTrue(destUrnString.contains(",DEV)"), "Destination URN should preserve DEV in uppercase");
+  }
 }

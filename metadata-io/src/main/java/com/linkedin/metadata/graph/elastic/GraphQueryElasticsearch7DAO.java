@@ -69,6 +69,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int slices,
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults) {
 
     // Create slice-based search requests
@@ -94,6 +95,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
                       slices,
                       remainingTime,
                       entityUrns,
+                      originalQueryUrns,
                       allowPartialResults);
                 });
         sliceFutures.add(sliceFuture);
@@ -130,6 +132,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       int totalSlices,
       long remainingTime,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       boolean allowPartialResults) {
 
     List<LineageRelationship> sliceRelationships = new ArrayList<>();
@@ -178,6 +181,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
           response,
           sliceRelationships,
           entityUrns,
+          originalQueryUrns,
           lineageGraphFilters,
           visitedEntities,
           viaEntities,
@@ -226,6 +230,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
             response,
             sliceRelationships,
             entityUrns,
+            originalQueryUrns,
             lineageGraphFilters,
             visitedEntities,
             viaEntities,
@@ -296,6 +301,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
       SearchResponse response,
       List<LineageRelationship> sliceRelationships,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
       Set<Urn> viaEntities,
@@ -306,6 +312,7 @@ public class GraphQueryElasticsearch7DAO extends GraphQueryBaseDAO {
     List<LineageRelationship> pageRelationships =
         GraphQueryUtils.extractRelationships(
             entityUrns,
+            originalQueryUrns,
             response,
             lineageGraphFilters,
             visitedEntities,

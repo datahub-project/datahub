@@ -13,6 +13,7 @@ import com.linkedin.metadata.aspect.models.graph.EdgeUrnType;
 import com.linkedin.metadata.config.search.GraphQueryConfiguration;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.LineageGraphFilters;
+import com.linkedin.metadata.graph.LineageMatchType;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.elastic.ThreadSafePathStore;
 import com.linkedin.metadata.models.registry.LineageRegistry.EdgeInfo;
@@ -266,6 +267,33 @@ public final class GraphQueryUtils {
     return updatedActorString == null ? null : UrnUtils.getUrn(updatedActorString);
   }
 
+  /**
+   * Determines the matchType for a lineage relationship by comparing the edge URN against the
+   * original query URNs.
+   *
+   * <p>With query-time augmentation (Plan B), edges are found by querying with both original and
+   * normalized URNs. The matchType indicates how the edge was matched:
+   *
+   * <ul>
+   *   <li>EXACT: Edge URN matches an original query URN exactly
+   *   <li>NORMALIZED: Edge URN only matches a normalized (lowercase) query URN
+   * </ul>
+   *
+   * @param edgeUrn the URN of the edge (source or destination)
+   * @param originalQueryUrns the set of original (non-augmented) query URNs
+   * @return EXACT if edgeUrn is in originalQueryUrns, NORMALIZED otherwise
+   */
+  @Nonnull
+  public static LineageMatchType getMatchType(
+      @Nonnull Urn edgeUrn, @Nonnull Set<Urn> originalQueryUrns) {
+    // If the edge URN matches an original query URN exactly, it's an EXACT match
+    if (originalQueryUrns.contains(edgeUrn)) {
+      return LineageMatchType.EXACT;
+    }
+    // Otherwise, it was found via query augmentation (normalized match)
+    return LineageMatchType.NORMALIZED;
+  }
+
   /** Check if a document represents a manual relationship. */
   public static boolean isManual(Map<String, Object> document) {
     Map<String, Object> properties;
@@ -299,7 +327,9 @@ public final class GraphQueryUtils {
    * Extracts lineage relationships from a search response for a set of entity URNs. This method
    * processes search hits and builds lineage relationships based on the search results.
    *
-   * @param entityUrns The set of entity URNs to extract relationships for
+   * @param entityUrns The set of entity URNs to extract relationships for (augmented with
+   *     normalized variants)
+   * @param originalQueryUrns Original query URNs (before augmentation) for matchType determination
    * @param searchResponse The search response containing the hits
    * @param lineageGraphFilters Filters for the lineage graph
    * @param visitedEntities Set of already visited entities
@@ -312,6 +342,7 @@ public final class GraphQueryUtils {
    */
   public static List<LineageRelationship> extractRelationships(
       @Nonnull Set<Urn> entityUrns,
+      @Nonnull Set<Urn> originalQueryUrns,
       @Nonnull org.opensearch.action.search.SearchResponse searchResponse,
       LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
@@ -329,6 +360,7 @@ public final class GraphQueryUtils {
         processSearchHit(
             hit,
             entityUrns,
+            originalQueryUrns,
             index,
             exploreMultiplePaths,
             visitedEntities,
@@ -356,7 +388,8 @@ public final class GraphQueryUtils {
    * timestamps, and other metadata from the search hit document.
    *
    * @param hit The search hit to process
-   * @param entityUrns Set of entity URNs to process
+   * @param entityUrns Set of entity URNs to process (augmented with normalized variants)
+   * @param originalQueryUrns Original query URNs (before augmentation) for matchType determination
    * @param index Index of the current hit
    * @param exploreMultiplePaths Whether to explore multiple paths
    * @param visitedEntities Set of already visited entities
@@ -370,6 +403,7 @@ public final class GraphQueryUtils {
   public static void processSearchHit(
       SearchHit hit,
       Set<Urn> entityUrns,
+      Set<Urn> originalQueryUrns,
       int index,
       boolean exploreMultiplePaths,
       Set<Urn> visitedEntities,
@@ -432,6 +466,9 @@ public final class GraphQueryUtils {
       }
     }
 
+    // For outgoing edges, matchType depends on whether sourceUrn is in originalQueryUrns
+    LineageMatchType outgoingMatchType = getMatchType(sourceUrn, originalQueryUrns);
+
     // Process outgoing edge
     processOutgoingEdge(
         entityUrns,
@@ -450,9 +487,13 @@ public final class GraphQueryUtils {
         updatedOn,
         updatedActor,
         isManual,
+        outgoingMatchType,
         truncatedChildren,
         lineageRelationshipMap,
         viaEntities);
+
+    // For incoming edges, matchType depends on whether destinationUrn is in originalQueryUrns
+    LineageMatchType incomingMatchType = getMatchType(destinationUrn, originalQueryUrns);
 
     // Process incoming edge
     processIncomingEdge(
@@ -471,6 +512,7 @@ public final class GraphQueryUtils {
         updatedOn,
         updatedActor,
         isManual,
+        incomingMatchType,
         truncatedChildren,
         lineageRelationshipMap,
         viaEntities);
@@ -496,6 +538,7 @@ public final class GraphQueryUtils {
    * @param updatedOn Update timestamp
    * @param updatedActor Update actor
    * @param isManual Whether the relationship is manual
+   * @param matchType Type of match (EXACT or NORMALIZED)
    * @param truncatedChildren Whether children are truncated
    * @param lineageRelationshipMap Map to store lineage relationships
    * @param viaEntities Set of via entities
@@ -517,6 +560,7 @@ public final class GraphQueryUtils {
       Long updatedOn,
       Urn updatedActor,
       boolean isManual,
+      LineageMatchType matchType,
       boolean truncatedChildren,
       Map<Urn, LineageRelationship> lineageRelationshipMap,
       Set<Urn> viaEntities) {
@@ -546,6 +590,7 @@ public final class GraphQueryUtils {
                   updatedOn,
                   updatedActor,
                   isManual,
+                  matchType,
                   truncatedChildren);
           log.debug("Adding relationship {} to urn {}", relationship, destinationUrn);
           lineageRelationshipMap.put(relationship.getEntity(), relationship);
@@ -562,6 +607,7 @@ public final class GraphQueryUtils {
                     updatedOn,
                     updatedActor,
                     isManual,
+                    matchType,
                     truncatedChildren);
             viaEntities.add(viaEntity);
             lineageRelationshipMap.put(viaRelationship.getEntity(), viaRelationship);
@@ -592,6 +638,7 @@ public final class GraphQueryUtils {
    * @param updatedOn Update timestamp
    * @param updatedActor Update actor
    * @param isManual Whether the relationship is manual
+   * @param matchType Type of match (EXACT or NORMALIZED)
    * @param truncatedChildren Whether children are truncated
    * @param lineageRelationshipMap Map to store lineage relationships
    * @param viaEntities Set of via entities
@@ -612,6 +659,7 @@ public final class GraphQueryUtils {
       Long updatedOn,
       Urn updatedActor,
       boolean isManual,
+      LineageMatchType matchType,
       boolean truncatedChildren,
       Map<Urn, LineageRelationship> lineageRelationshipMap,
       Set<Urn> viaEntities) {
@@ -642,6 +690,7 @@ public final class GraphQueryUtils {
                   updatedOn,
                   updatedActor,
                   isManual,
+                  matchType,
                   truncatedChildren);
           log.debug("Adding relationship {} to urn {}", relationship, sourceUrn);
           lineageRelationshipMap.put(relationship.getEntity(), relationship);
@@ -659,6 +708,7 @@ public final class GraphQueryUtils {
                     updatedOn,
                     updatedActor,
                     isManual,
+                    matchType,
                     truncatedChildren);
             lineageRelationshipMap.put(viaRelationship.getEntity(), viaRelationship);
             log.debug("Adding via relationship {} to urn {}", viaRelationship, viaEntity);
@@ -681,6 +731,7 @@ public final class GraphQueryUtils {
    * @param updatedOn Update timestamp
    * @param updatedActor Update actor
    * @param isManual Whether the relationship is manual
+   * @param matchType Type of match (EXACT or NORMALIZED)
    * @param truncatedChildren Whether children are truncated
    * @return The created LineageRelationship object
    */
@@ -694,14 +745,17 @@ public final class GraphQueryUtils {
       @Nullable final Long updatedOn,
       @Nullable final Urn updatedActor,
       final boolean isManual,
+      @Nonnull final LineageMatchType matchType,
       final boolean truncatedChildren) {
+
     final LineageRelationship relationship =
         new LineageRelationship()
             .setType(type)
             .setEntity(entityUrn)
             .setDegree(numHops)
             .setDegrees(new IntegerArray(ImmutableList.of(numHops)))
-            .setPaths(paths);
+            .setPaths(paths)
+            .setMatchType(matchType);
     if (createdOn != null) {
       relationship.setCreatedOn(createdOn);
     }
@@ -736,6 +790,7 @@ public final class GraphQueryUtils {
    */
   public static List<LineageRelationship> extractRelationshipsFromSearchResponses(
       @Nonnull Set<Urn> entityUrns,
+      @Nonnull Set<Urn> originalQueryUrns,
       @Nonnull Stream<org.opensearch.action.search.SearchResponse> searchResponses,
       LineageGraphFilters lineageGraphFilters,
       Set<Urn> visitedEntities,
@@ -826,6 +881,9 @@ public final class GraphQueryUtils {
 
             // Process the search hit based on direction
             if (isOutgoing) {
+              // For outgoing edges, matchType depends on whether sourceUrn is in originalQueryUrns
+              LineageMatchType matchType = getMatchType(sourceUrn, originalQueryUrns);
+
               processOutgoingEdge(
                   entityUrns,
                   sourceUrn,
@@ -843,10 +901,15 @@ public final class GraphQueryUtils {
                   extractUpdatedOn(document),
                   extractUpdatedActor(document),
                   isManual(document),
+                  matchType,
                   truncatedResults,
                   lineageRelationshipMap,
                   viaEntities);
             } else {
+              // For incoming edges, matchType depends on whether destinationUrn is in
+              // originalQueryUrns
+              LineageMatchType matchType = getMatchType(destinationUrn, originalQueryUrns);
+
               processIncomingEdge(
                   entityUrns,
                   sourceUrn,
@@ -863,6 +926,7 @@ public final class GraphQueryUtils {
                   extractUpdatedOn(document),
                   extractUpdatedActor(document),
                   isManual(document),
+                  matchType,
                   truncatedResults,
                   lineageRelationshipMap,
                   viaEntities);

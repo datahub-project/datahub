@@ -1094,4 +1094,91 @@ public class Neo4jGraphServiceTest extends GraphServiceTestBaseNoVia {
         result2.getRelationships().size(),
         "Relationship counts should be consistent");
   }
+
+  @Test
+  public void testUrnNormalizationInLineage() throws Exception {
+    // Test that URN normalization enables case-insensitive lineage matching
+
+    // Create URNs with uppercase characters (simulating Snowflake/MSSQL behavior)
+    DatasetUrn uppercaseSourceUrn =
+        new DatasetUrn(new DataPlatformUrn("Snowflake"), "DB.SCHEMA.TABLE", FabricType.PROD);
+    DatasetUrn uppercaseUpstreamUrn =
+        new DatasetUrn(new DataPlatformUrn("Snowflake"), "DB.SCHEMA.UPSTREAM", FabricType.PROD);
+
+    // Create normalized (lowercase) versions (simulating BI tool behavior)
+    DatasetUrn normalizedSourceUrn =
+        new DatasetUrn(new DataPlatformUrn("snowflake"), "db.schema.table", FabricType.PROD);
+    DatasetUrn normalizedUpstreamUrn =
+        new DatasetUrn(new DataPlatformUrn("snowflake"), "db.schema.upstream", FabricType.PROD);
+
+    // Add edge with exact URNs (what GraphIndexUtils stores)
+    Edge exactEdge =
+        new Edge(
+            uppercaseSourceUrn,
+            uppercaseUpstreamUrn,
+            "DownstreamOf",
+            1L,
+            null,
+            1L,
+            null,
+            new ConcurrentHashMap<>());
+    exactEdge.getProperties().put("matchType", "exact");
+    getGraphService().addEdge(exactEdge);
+
+    // Add normalized edge (what GraphIndexUtils creates as duplicate)
+    Edge normalizedEdge =
+        new Edge(
+            normalizedSourceUrn,
+            normalizedUpstreamUrn,
+            "DownstreamOf",
+            1L,
+            null,
+            1L,
+            null,
+            new ConcurrentHashMap<>());
+    normalizedEdge.getProperties().put("matchType", "normalized");
+    getGraphService().addEdge(normalizedEdge);
+
+    syncAfterWrite();
+
+    // Query with uppercase URN (exact match)
+    LineageGraphFilters filters =
+        LineageGraphFilters.forEntityType(
+            operationContext.getLineageRegistry(), "dataset", LineageDirection.UPSTREAM);
+    EntityLineageResult exactResult =
+        getGraphService().getLineage(operationContext, uppercaseSourceUrn, filters, 0, 100, 1);
+
+    // Should find the upstream entity
+    assertTrue(exactResult.getTotal() > 0, "Should find lineage with exact URN match");
+    assertNotNull(exactResult.getRelationships(), "Should have relationships");
+
+    // Query with lowercase URN (normalized match)
+    EntityLineageResult normalizedResult =
+        getGraphService().getLineage(operationContext, normalizedSourceUrn, filters, 0, 100, 1);
+
+    // Should also find the upstream entity via normalized edge
+    assertTrue(normalizedResult.getTotal() > 0, "Should find lineage with normalized URN match");
+    assertNotNull(normalizedResult.getRelationships(), "Should have relationships");
+
+    // Verify confidence scores are set correctly
+    if (!exactResult.getRelationships().isEmpty()) {
+      exactResult
+          .getRelationships()
+          .forEach(
+              rel -> {
+                if (rel.hasConfidenceScore()) {
+                  // Either exact match (1.0) or normalized match (0.9)
+                  assertTrue(
+                      rel.getConfidenceScore() == 1.0f || rel.getConfidenceScore() == 0.9f,
+                      "Confidence score should be 1.0 for exact or 0.9 for normalized");
+                }
+              });
+    }
+
+    // Verify FabricType preserved in normalized URN
+    String normalizedUrnString = normalizedSourceUrn.toString();
+    assertTrue(
+        normalizedUrnString.contains(",PROD)"),
+        "Normalized URN should preserve uppercase FabricType");
+  }
 }

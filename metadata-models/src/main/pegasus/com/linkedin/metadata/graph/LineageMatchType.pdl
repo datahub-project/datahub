@@ -1,0 +1,16 @@
+namespace com.linkedin.metadata.graph
+
+/**
+ * Type of lineage match between entities
+ */
+enum LineageMatchType {
+  /**
+   * Exact URN match - entity URNs matched exactly as-is
+   */
+  EXACT
+
+  /**
+   * Normalized match - entity URNs matched after case normalization
+   */
+  NORMALIZED
+}
