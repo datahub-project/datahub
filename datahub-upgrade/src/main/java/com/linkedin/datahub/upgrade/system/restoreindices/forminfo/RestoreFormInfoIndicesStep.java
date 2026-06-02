@@ -1,37 +1,71 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.restoreindices.forminfo;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ListResult;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.query.ExtraInfo;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RestoreFormInfoIndicesStep extends UpgradeStep {
-  private static final String VERSION = "2";
-  private static final String UPGRADE_ID = "restore-form-info-indices";
+public class RestoreFormInfoIndicesStep implements UpgradeStep {
+
+  private static final String STEP_ID = "restore-form-info-indices";
   private static final Integer BATCH_SIZE = 1000;
 
+  private final EntityService<?> _entityService;
+
   public RestoreFormInfoIndicesStep(@Nonnull final EntityService<?> entityService) {
-    super(entityService, VERSION, UPGRADE_ID);
+    _entityService = entityService;
   }
 
   @Override
-  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
+  public String id() {
+    return STEP_ID;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        execute(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to restore form info indices", e);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
     final AuditStamp auditStamp =
         new AuditStamp()
             .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
@@ -45,12 +79,6 @@ public class RestoreFormInfoIndicesStep extends UpgradeStep {
     }
   }
 
-  @Nonnull
-  @Override
-  public ExecutionMode getExecutionMode() {
-    return ExecutionMode.ASYNC;
-  }
-
   private int getAndRestoreFormInfoIndices(
       @Nonnull OperationContext systemOperationContext, int start, AuditStamp auditStamp) {
     final AspectSpec formInfoAspectSpec =
@@ -60,7 +88,7 @@ public class RestoreFormInfoIndicesStep extends UpgradeStep {
             .getAspectSpec(Constants.FORM_INFO_ASPECT_NAME);
 
     final ListResult<RecordTemplate> latestAspects =
-        entityService.listLatestAspects(
+        _entityService.listLatestAspects(
             systemOperationContext,
             Constants.FORM_ENTITY_NAME,
             Constants.FORM_INFO_ASPECT_NAME,
@@ -75,7 +103,6 @@ public class RestoreFormInfoIndicesStep extends UpgradeStep {
     }
 
     if (latestAspects.getValues().size() != latestAspects.getMetadata().getExtraInfos().size()) {
-      // Bad result -- we should log that we cannot migrate this batch of formInfos.
       log.warn(
           "Failed to match formInfo aspects with corresponding urns. Found mismatched length between aspects ({})"
               + "and metadata ({}) for metadata {}",
@@ -97,7 +124,7 @@ public class RestoreFormInfoIndicesStep extends UpgradeStep {
       }
 
       futures.add(
-          entityService
+          _entityService
               .alwaysProduceMCLAsync(
                   systemOperationContext,
                   urn,

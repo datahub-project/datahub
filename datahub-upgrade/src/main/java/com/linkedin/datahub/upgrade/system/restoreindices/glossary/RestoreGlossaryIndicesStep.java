@@ -1,20 +1,23 @@
-package com.linkedin.metadata.boot.steps;
+package com.linkedin.datahub.upgrade.system.restoreindices.glossary;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.upgrade.UpgradeContext;
+import com.linkedin.datahub.upgrade.UpgradeStep;
+import com.linkedin.datahub.upgrade.UpgradeStepResult;
+import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.boot.UpgradeStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashSet;
@@ -24,27 +27,56 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class RestoreGlossaryIndices extends UpgradeStep {
-  private static final String VERSION = "1";
-  private static final String UPGRADE_ID = "restore-glossary-indices-ui";
-  private static final Integer BATCH_SIZE = 1000;
-  private final EntitySearchService entitySearchService;
+public class RestoreGlossaryIndicesStep implements UpgradeStep {
 
-  public RestoreGlossaryIndices(
-      EntityService<?> entityService,
-      EntitySearchService entitySearchService,
-      EntityRegistry entityRegistry) {
-    super(entityService, VERSION, UPGRADE_ID);
-    this.entitySearchService = entitySearchService;
+  private static final String STEP_ID = "restore-glossary-indices-ui";
+  private static final Integer BATCH_SIZE = 1000;
+
+  private final EntityService<?> _entityService;
+  private final EntitySearchService _entitySearchService;
+
+  public RestoreGlossaryIndicesStep(
+      @Nonnull final EntityService<?> entityService,
+      @Nonnull final EntitySearchService entitySearchService) {
+    _entityService = entityService;
+    _entitySearchService = entitySearchService;
   }
 
   @Override
-  public void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception {
+  public String id() {
+    return STEP_ID;
+  }
+
+  @Override
+  public boolean isOptional() {
+    return true;
+  }
+
+  @Override
+  public boolean skip(final UpgradeContext context) {
+    return false;
+  }
+
+  @Override
+  public Function<UpgradeContext, UpgradeStepResult> executable() {
+    return context -> {
+      try {
+        execute(context.opContext());
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+      } catch (Exception e) {
+        log.error("Failed to restore glossary indices", e);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
+      }
+    };
+  }
+
+  private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
     final AspectSpec termAspectSpec =
         systemOperationContext
             .getEntityRegistry()
@@ -79,12 +111,6 @@ public class RestoreGlossaryIndices extends UpgradeStep {
     }
   }
 
-  @Nonnull
-  @Override
-  public ExecutionMode getExecutionMode() {
-    return ExecutionMode.ASYNC;
-  }
-
   private int getAndRestoreTermAspectIndices(
       @Nonnull OperationContext systemOperationContext,
       int start,
@@ -92,7 +118,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       AspectSpec termAspectSpec)
       throws Exception {
     SearchResult termsResult =
-        entitySearchService.search(
+        _entitySearchService.search(
             systemOperationContext.withSearchFlags(
                 flags ->
                     flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
@@ -106,17 +132,16 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         termsResult.getEntities().stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList());
-    if (termUrns.size() == 0) {
+    if (termUrns.isEmpty()) {
       return 0;
     }
     final Map<Urn, EntityResponse> termInfoResponses =
-        entityService.getEntitiesV2(
+        _entityService.getEntitiesV2(
             systemOperationContext,
             Constants.GLOSSARY_TERM_ENTITY_NAME,
             new HashSet<>(termUrns),
             Collections.singleton(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME));
 
-    //  Loop over Terms and produce changelog
     List<Future<?>> futures = new LinkedList<>();
     for (Urn termUrn : termUrns) {
       EntityResponse termEntityResponse = termInfoResponses.get(termUrn);
@@ -131,7 +156,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       }
 
       futures.add(
-          entityService
+          _entityService
               .alwaysProduceMCLAsync(
                   systemOperationContext,
                   termUrn,
@@ -168,7 +193,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       AspectSpec nodeAspectSpec)
       throws Exception {
     SearchResult nodesResult =
-        entitySearchService.search(
+        _entitySearchService.search(
             systemOperationContext.withSearchFlags(
                 flags ->
                     flags.setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true)),
@@ -182,17 +207,16 @@ public class RestoreGlossaryIndices extends UpgradeStep {
         nodesResult.getEntities().stream()
             .map(SearchEntity::getEntity)
             .collect(Collectors.toList());
-    if (nodeUrns.size() == 0) {
+    if (nodeUrns.isEmpty()) {
       return 0;
     }
     final Map<Urn, EntityResponse> nodeInfoResponses =
-        entityService.getEntitiesV2(
+        _entityService.getEntitiesV2(
             systemOperationContext,
             Constants.GLOSSARY_NODE_ENTITY_NAME,
             new HashSet<>(nodeUrns),
             Collections.singleton(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME));
 
-    //  Loop over Nodes and produce changelog
     List<Future<?>> futures = new LinkedList<>();
     for (Urn nodeUrn : nodeUrns) {
       EntityResponse nodeEntityResponse = nodeInfoResponses.get(nodeUrn);
@@ -207,7 +231,7 @@ public class RestoreGlossaryIndices extends UpgradeStep {
       }
 
       futures.add(
-          entityService
+          _entityService
               .alwaysProduceMCLAsync(
                   systemOperationContext,
                   nodeUrn,
@@ -242,7 +266,6 @@ public class RestoreGlossaryIndices extends UpgradeStep {
     if (!aspectMap.containsKey(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME)) {
       return null;
     }
-
     return new GlossaryTermInfo(
         aspectMap.get(Constants.GLOSSARY_TERM_INFO_ASPECT_NAME).getValue().data());
   }
@@ -252,7 +275,6 @@ public class RestoreGlossaryIndices extends UpgradeStep {
     if (!aspectMap.containsKey(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME)) {
       return null;
     }
-
     return new GlossaryNodeInfo(
         aspectMap.get(Constants.GLOSSARY_NODE_INFO_ASPECT_NAME).getValue().data());
   }
