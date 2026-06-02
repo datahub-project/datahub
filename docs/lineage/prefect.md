@@ -69,7 +69,7 @@ Install `prefect-datahub` using pip:
 pip install 'prefect-datahub'
 ```
 
-Note: Requires Python 3.10+
+Note: Requires Python 3.10+ and Prefect 3.x (`>=3.0.0,<4.0.0`). Prefect 2.x is not supported. If you are upgrading from Prefect 2.x, upgrade Prefect first and re-register the DataHub block (see [Upgrading from Prefect v2](#upgrading-from-prefect-v2)).
 
 ### 2. Saving Configurations to a Block
 
