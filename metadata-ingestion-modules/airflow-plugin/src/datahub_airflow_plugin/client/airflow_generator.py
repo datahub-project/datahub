@@ -21,6 +21,7 @@ from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 if TYPE_CHECKING:
     from airflow import DAG
     from airflow.models import DagRun, TaskInstance
+    from airflow.sdk import DAG as SdkDAG
 
     from datahub_airflow_plugin._airflow_shims import Operator
 
@@ -30,10 +31,15 @@ if TYPE_CHECKING:
             SerializedDAG,
         )
 
-        DagType = Union[DAG, SerializedDAG]
+        # Accept both the core `airflow.models` DAG and the Task SDK `airflow.sdk`
+        # DAG. The listener's task hooks pass SDK DAGs (`task.dag`) while the
+        # DAG-run hooks pass core DAGs. On Airflow 3.0 these are distinct classes
+        # (they converge in 3.1+), so the union keeps both callers typed without
+        # per-call-site `# type: ignore[arg-type]`s.
+        DagType = Union[DAG, SdkDAG, SerializedDAG]
         OperatorType = Union[Operator, SerializedBaseOperator]
     except ImportError:
-        DagType = DAG  # type: ignore[misc]
+        DagType = Union[DAG, SdkDAG]  # type: ignore[misc]
         OperatorType = Operator  # type: ignore[misc]
 
     # `ti.task` may be a MappedOperator whose module path differs across Airflow 3
@@ -330,7 +336,7 @@ class AirflowGenerator:
     def create_datajob_instance(
         cluster: str,
         task: "Operator",
-        dag: "DAG",
+        dag: "DagType",
         data_job: Optional[DataJob] = None,
         config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
@@ -438,7 +444,7 @@ class AirflowGenerator:
     def run_datajob(
         emitter: Emitter,
         ti: "TaskInstance",
-        dag: "DAG",
+        dag: "DagType",
         dag_run: "DagRun",
         config: DatahubLineageConfig,
         start_timestamp_millis: Optional[int] = None,
@@ -511,7 +517,7 @@ class AirflowGenerator:
         emitter: Emitter,
         cluster: str,
         ti: "TaskInstance",
-        dag: "DAG",
+        dag: "DagType",
         dag_run: "DagRun",
         end_timestamp_millis: Optional[int] = None,
         result: Optional[InstanceRunResult] = None,
