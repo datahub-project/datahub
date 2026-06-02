@@ -78,7 +78,7 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
 
   @Override
   public boolean isOptional() {
-    return true;
+    return false;
   }
 
   @Override

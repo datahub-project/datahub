@@ -104,7 +104,7 @@ public class IngestDataPlatformInstancesUpgradeStep implements UpgradeStep {
               .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
               .setTime(System.currentTimeMillis());
 
-      for (String urnStr : _migrationsDao.listAllUrns(start, start + BATCH_SIZE)) {
+      for (String urnStr : _migrationsDao.listAllUrns((int) start, (int) (start + BATCH_SIZE))) {
         Urn urn = Urn.createFromString(urnStr);
         Optional<DataPlatformInstance> dataPlatformInstance =
             getDataPlatformInstance(systemOperationContext, urn);
