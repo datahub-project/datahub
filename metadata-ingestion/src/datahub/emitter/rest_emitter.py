@@ -7,7 +7,7 @@ import re
 import socket
 import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import auto
 from json.decoder import JSONDecodeError
@@ -441,15 +441,21 @@ class RequestsSessionConfig(ConfigModel):
 class _Chunk:
     items: List[str]
     total_bytes: int = 0
+    # (urn, aspect) for each item, kept parallel to `items` so the batch emit
+    # path can log which entities were sent without re-parsing the serialized
+    # payload.
+    urn_aspects: List[Tuple[Optional[str], Optional[str]]] = field(default_factory=list)
 
-    def add_item(self, item: str) -> bool:
-        item_bytes = len(item.encode())
-        if not self.items:  # Always add at least one item even if over byte limit
-            self.items.append(item)
-            self.total_bytes += item_bytes
-            return True
+    def add_item(
+        self,
+        item: str,
+        urn_aspect: Optional[Tuple[Optional[str], Optional[str]]] = None,
+    ) -> bool:
+        # Always add at least one item even if over byte limit
         self.items.append(item)
-        self.total_bytes += item_bytes
+        self.total_bytes += len(item.encode())
+        if urn_aspect is not None:
+            self.urn_aspects.append(urn_aspect)
         return True
 
     @staticmethod
@@ -908,7 +914,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     batches[key].append(new_chunk)
                     current_chunk = new_chunk
 
-                current_chunk.add_item(serialized_item)
+                current_chunk.add_item(serialized_item, (mcp.entityUrn, mcp.aspectName))
 
         trace_data: List[TraceData] = []
         # Chunks are grouped by (method, url), so track a global index/total to
@@ -929,13 +935,14 @@ class DataHubRestEmitter(Closeable, Emitter):
                     else None
                 )
                 logger.debug(
-                    "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s",
+                    "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s urns=%s",
                     chunk_index,
                     total_chunks,
                     method,
                     len(chunk.items),
                     response.status_code,
                     data.trace_id if data else None,
+                    chunk.urn_aspects,
                 )
                 if data is not None:
                     trace_data.append(data)
@@ -1016,12 +1023,13 @@ class DataHubRestEmitter(Closeable, Emitter):
                 else None
             )
             logger.debug(
-                "Sent MCP batch chunk=%d/%d items=%d status=%d trace_id=%s",
+                "Sent MCP batch chunk=%d/%d items=%d status=%d trace_id=%s urns=%s",
                 chunk_index,
                 len(chunks),
                 len(mcp_chunk),
                 response.status_code,
                 data.trace_id if data else None,
+                [(mcp.entityUrn, mcp.aspectName) for mcp in mcp_chunk],
             )
             if data is not None:
                 trace_data.append(data)
