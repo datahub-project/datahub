@@ -19,6 +19,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -170,6 +171,7 @@ public class NonBlockingConfigs {
   @Autowired private OperationContext opContext;
 
   @Bean
+  @Conditional(KafkaMessagingEnabledCondition.class)
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);
@@ -194,9 +196,18 @@ public class NonBlockingConfigs {
       @Qualifier("entityService") final EntityService<?> entityService,
       @Value("${entityService.retention.enabled}") final boolean enabled,
       @Value("${entityService.retention.applyOnBootstrap}") final boolean applyAfterIngest,
+      @Value("${entityService.retention.applyOnPolicyChange}") final boolean applyOnPolicyChange,
+      @Value("${entityService.retention.overwriteNonSystemPolicies}")
+          final boolean overwriteNonSystemPolicies,
       @Value("${datahub.plugin.retention.path}") final String pluginPath) {
     return new IngestRetentionPolicies(
-        retentionService, entityService, enabled, applyAfterIngest, pluginPath);
+        retentionService,
+        entityService,
+        enabled,
+        applyAfterIngest,
+        applyOnPolicyChange,
+        overwriteNonSystemPolicies,
+        pluginPath);
   }
 
   @Bean

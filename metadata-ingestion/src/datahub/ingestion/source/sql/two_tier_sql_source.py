@@ -9,7 +9,7 @@ from sqlalchemy.engine.reflection import Inspector
 
 from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mcp_builder import ContainerKey
+from datahub.emitter.mcp_builder import ContainerKey, SchemaKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, logger
 from datahub.ingestion.source.sql.sql_config import (
@@ -108,6 +108,15 @@ class TwoTierSQLAlchemySource(SQLAlchemySource):
     def gen_schema_key(self, db_name: str, schema: str) -> ContainerKey:
         # Sanity check that we don't try to generate schema containers for 2 tier databases.
         raise NotImplementedError
+
+    def _get_procedure_schema_key(
+        self, db_name: str, schema: str
+    ) -> Optional[SchemaKey]:
+        # Two-tier sources have no schema layer; the loop reuses db_name as
+        # the "schema" argument, which would otherwise build flow names like
+        # ``test_db.test_db.stored_procedures``. Return None so the flow name
+        # falls back to ``{database}.stored_procedures``.
+        return None
 
     def get_inspectors(self):
         # This method can be overridden in the case that you want to dynamically

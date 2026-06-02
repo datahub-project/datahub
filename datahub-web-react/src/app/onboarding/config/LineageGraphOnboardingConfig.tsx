@@ -1,4 +1,4 @@
-import { Typography } from 'antd';
+import { Text } from '@components';
 import React from 'react';
 
 import { OnboardingStep } from '@app/onboarding/OnboardingStep';
@@ -11,7 +11,7 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         id: LINEAGE_GRAPH_INTRO_ID,
         title: 'Lineage Graph',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can view the <strong>Lineage Graph</strong> for an entity on this page.
                 </p>
@@ -29,7 +29,7 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
                         here.
                     </a>
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
     {
@@ -37,13 +37,13 @@ export const LineageGraphOnboardingConfig: OnboardingStep[] = [
         selector: `#${LINEAGE_GRAPH_TIME_FILTER_ID}`,
         title: 'Filter Lineage Edges by Date',
         content: (
-            <Typography.Paragraph>
+            <Text type="div" size="md">
                 <p>
                     You can click which dates you would like to see lineage edges for on this graph. By default, the
                     graph will show edges observed in the last 14 days. Note that manual lineage edges and edges without
                     time information will always be shown.
                 </p>
-            </Typography.Paragraph>
+            </Text>
         ),
     },
 ];

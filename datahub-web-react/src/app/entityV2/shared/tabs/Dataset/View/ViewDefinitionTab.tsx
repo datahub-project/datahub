@@ -109,7 +109,9 @@ export default function ViewDefinitionTab() {
                     <CopyQuery query={showFormatted ? formattedLogic || '' : logic} showCopyText />
                 </ViewHeader>
                 <QueryText>
-                    <NestedSyntax language="sql">{showFormatted ? formattedLogic : logic}</NestedSyntax>
+                    <NestedSyntax language={language?.toLowerCase() ?? 'sql'}>
+                        {showFormatted ? formattedLogic : logic}
+                    </NestedSyntax>
                 </QueryText>
             </InfoSection>
         </>

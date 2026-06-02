@@ -20,6 +20,7 @@ import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
 import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
+import com.linkedin.metadata.config.BootstrapConfigurationSupport;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -86,6 +87,8 @@ public class BootstrapManagerFactory {
   @Nonnull
   protected BootstrapManager createInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
+    final int asyncWorkerThreads =
+        BootstrapConfigurationSupport.requireAsyncWorkerThreads(_configurationProvider);
     final IngestPoliciesStep ingestPoliciesStep =
         new IngestPoliciesStep(
             _entityService, _entitySearchService, _searchDocumentTransformer, _policiesResource);
@@ -127,6 +130,6 @@ public class BootstrapManagerFactory {
       finalSteps.add(migrateHomePageLinksStep);
     }
 
-    return new BootstrapManager(finalSteps);
+    return new BootstrapManager(finalSteps, asyncWorkerThreads);
   }
 }

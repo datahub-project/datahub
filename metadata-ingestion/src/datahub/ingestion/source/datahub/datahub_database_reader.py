@@ -6,6 +6,7 @@ from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
 from sqlalchemy import create_engine, text
 
+from datahub.configuration.env_vars import get_report_failure_sample_size
 from datahub.emitter.aspect import ASPECT_MAP
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.serialization_helper import post_json_transform
@@ -396,7 +397,10 @@ class DataHubDatabaseReader:
                 f"Failed to parse metadata for {row['urn']}: {e}", exc_info=True
             )
             self.report.num_database_parse_errors += 1
+            failure_size = get_report_failure_sample_size()
             self.report.database_parse_errors.setdefault(
-                str(e), LossyDict()
-            ).setdefault(row["aspect"], LossyList()).append(row["urn"])
+                str(e), LossyDict(max_elements=failure_size)
+            ).setdefault(row["aspect"], LossyList(max_elements=failure_size)).append(
+                row["urn"]
+            )
             return None

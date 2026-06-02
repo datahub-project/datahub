@@ -432,6 +432,9 @@ public class OpenLineageToDataHub {
           dataset.getName());
       return null;
     }
+
+    boolean includeIndirect = mappingConfig.isIncludeIndirectColumnLineage();
+
     Set<Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional>> fields =
         columnLineage.getFields().getAdditionalProperties().entrySet();
     for (Map.Entry<String, OpenLineage.ColumnLineageDatasetFacetFieldsAdditional> field : fields) {
@@ -454,12 +457,9 @@ public class OpenLineageToDataHub {
           .getInputFields()
           .forEach(
               inputField -> {
-                OpenLineage.Dataset staticDataset =
-                    staticDatasetBuilder
-                        .name(inputField.getName())
-                        .namespace(inputField.getNamespace())
-                        .build();
-
+                // Capture transformation tags up front so the user can still see that the
+                // SQL involves JOIN/FILTER/GROUP_BY operations even when we drop the URN
+                // that contributed only an INDIRECT role.
                 if (inputField.getTransformations() != null) {
                   for (OpenLineage.InputFieldTransformations transformation :
                       inputField.getTransformations()) {
@@ -468,6 +468,18 @@ public class OpenLineageToDataHub {
                             "%s:%s", transformation.getType(), transformation.getSubtype()));
                   }
                 }
+
+                // Drop input fields whose only role is INDIRECT (JOIN/FILTER/GROUP BY) when
+                // the caller opts out. Mixed DIRECT+INDIRECT and DIRECT-only fields pass.
+                if (!includeIndirect && isIndirectOnly(inputField)) {
+                  return;
+                }
+
+                OpenLineage.Dataset staticDataset =
+                    staticDatasetBuilder
+                        .name(inputField.getName())
+                        .namespace(inputField.getNamespace())
+                        .build();
                 Optional<DatasetUrn> urn =
                     convertOpenlineageDatasetToDatasetUrn(staticDataset, mappingConfig);
                 if (urn.isPresent()) {
@@ -492,6 +504,10 @@ public class OpenLineageToDataHub {
                 }
               });
 
+      if (upstreamFields.isEmpty()) {
+        continue;
+      }
+
       String combinedTransformations = "";
 
       // Capture transformation information from OpenLineage
@@ -511,7 +527,6 @@ public class OpenLineageToDataHub {
         String sqlQuery = job.getFacets().getSql().getQuery();
         if (!sqlQuery.trim().isEmpty()) {
           if (!combinedTransformations.isEmpty()) {
-            // Add the OpenLineage Column Transformations as comments and then add the SQL
             combinedTransformations = "-- " + combinedTransformations + "\n" + sqlQuery;
           } else {
             combinedTransformations = sqlQuery;
@@ -535,6 +550,19 @@ public class OpenLineageToDataHub {
     upstreamLineage.setFineGrainedLineages(fgla);
     upstreamLineage.setUpstreams(upstreams);
     return upstreamLineage;
+  }
+
+  private static boolean isIndirectOnly(OpenLineage.InputField inputField) {
+    List<OpenLineage.InputFieldTransformations> transformations = inputField.getTransformations();
+    if (transformations == null || transformations.isEmpty()) {
+      return false;
+    }
+    for (OpenLineage.InputFieldTransformations t : transformations) {
+      if (!"INDIRECT".equalsIgnoreCase(t.getType())) {
+        return false;
+      }
+    }
+    return true;
   }
 
   private static GlobalTags generateTags(OpenLineage.RunEvent event) {

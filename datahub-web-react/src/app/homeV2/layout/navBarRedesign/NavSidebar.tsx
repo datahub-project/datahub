@@ -13,6 +13,7 @@ import { TextColumns } from '@phosphor-icons/react/dist/csr/TextColumns';
 import { TrendUp } from '@phosphor-icons/react/dist/csr/TrendUp';
 import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components';
 
@@ -109,11 +110,6 @@ const ScrollableContent = styled.div`
     scrollbar-color: ${(props) => props.theme.colors.scrollbarThumbOnDarkBg} transparent;
 `;
 
-const Spacer = styled.div`
-    flex: 1;
-    min-height: 8px;
-`;
-
 const CustomLogo = styled.img`
     object-fit: contain;
     max-height: 26px;
@@ -124,13 +120,25 @@ const CustomLogo = styled.img`
 
 const DEFAULT_LOGO = 'assets/logos/datahublogo.svg';
 
-const MenuWrapper = styled.div`
-    margin-top: 14px;
+const MenuWrapper = styled.div<{ $noTopMargin?: boolean }>`
+    margin-top: ${(props) => (props.$noTopMargin ? '0' : '14px')};
     display: flex;
     flex-direction: column;
 `;
 
+/**
+ * Pushes the footer (Account) menu to the bottom of the sidebar when there's
+ * room. With `min-height: 0`, the spacer collapses entirely once main-content
+ * fills the available height, letting Account flow naturally below the other
+ * groups (and scroll with them) instead of forcing an artificial gap.
+ */
+const Spacer = styled.div`
+    flex: 1;
+    min-height: 0;
+`;
+
 export const NavSidebar = () => {
+    const { t } = useTranslation('home.v2');
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
@@ -168,7 +176,7 @@ export const NavSidebar = () => {
 
     const customLogoUrl = appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
-    const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
+    const logoComponent = hasCustomLogo ? <CustomLogo alt={t('navBar.logoAlt')} src={customLogoUrl} /> : <AcrylIcon />;
 
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
@@ -493,7 +501,7 @@ export const NavSidebar = () => {
                                 />
                             </MenuWrapper>
                             <Spacer />
-                            <MenuWrapper>
+                            <MenuWrapper $noTopMargin>
                                 <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={footerMenu} />
                             </MenuWrapper>
                         </ScrollableContent>

@@ -114,9 +114,20 @@ public class IngestPoliciesStep implements BootstrapStep {
     }
     // If search index for policies is empty, update the policy index with the ingested policies
     // from previous step.
-    // Directly update the ES index, does not produce MCLs
-    if (_entitySearchService.docCount(systemOperationContext, Constants.POLICY_ENTITY_NAME) == 0) {
-      updatePolicyIndex(systemOperationContext);
+    // Directly update the ES index, does not produce MCLs.
+    // Postgres-backed EntitySearchService doesn't support direct writes
+    // (UnsupportedOperationException)
+    // because there is no separate ES policy index in that mode; skip the post-bootstrap index sync
+    // gracefully so the bootstrap doesn't crash on Postgres-only profiles.
+    try {
+      if (_entitySearchService.docCount(systemOperationContext, Constants.POLICY_ENTITY_NAME)
+          == 0) {
+        updatePolicyIndex(systemOperationContext);
+      }
+    } catch (UnsupportedOperationException e) {
+      log.info(
+          "Skipping policy search-index update; current EntitySearchService does not support direct writes ({}).",
+          e.getMessage());
     }
     log.info("Successfully ingested default access policies.");
   }

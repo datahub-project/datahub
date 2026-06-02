@@ -24,7 +24,7 @@ Feature summary:
   - Apply optional static labels from ``LINEAR_LABEL_IDS`` / ``TRIVY_LINEAR_LABEL_IDS``.
   - Apply component labels mapped from image repositories.
   - Apply a dynamic ref label using ``SCAN_REF_NAME`` (team-scoped in Linear). CI sets this to the
-    repository default branch when the scanned image tag is ``head`` or ``latest``; otherwise to the
+    repository default branch when the scanned image tag is ``quickstart``, ``head``, or ``latest``; otherwise to the
     image tag (e.g. a release). Reuses an existing label when present or creates one with a random
     color when absent.
 - Refs comment tracking:
