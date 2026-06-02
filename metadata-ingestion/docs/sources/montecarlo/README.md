@@ -15,13 +15,3 @@ This connector ingests Monte Carlo **monitors**, **custom (SQL) rules** and **al
 | Alert / Incident       | Assertion Run Event                                                                       | Emitted as an `AssertionRunEvent` failure on the corresponding assertion. |
 
 Every monitor/rule is modeled as a `CUSTOM` assertion (matching the established connector pattern, e.g. Snowflake DMFs), with the Monte Carlo native type, resource id and data-quality dimension round-tripped via `customProperties`.
-
-## Prerequisites
-
-### Authentication
-
-The connector authenticates with a Monte Carlo API key pair (`mcd_id` + `mcd_token`). Create one in the Monte Carlo UI under **Settings → API** (see the [Monte Carlo API docs](https://docs.getmontecarlo.com/docs/using-the-api)). The key needs read access to monitors, custom rules, alerts and the catalog (`getTable`).
-
-### Cross-platform URN mapping
-
-A Monte Carlo MCON does not encode the DataHub platform. The connector resolves each MCON to a concrete table via `getTable` and maps the warehouse connection type to a DataHub platform. Use `connection_to_platform_map` to pin the `platform`, `platform_instance` and `env` for each Monte Carlo warehouse so the resulting dataset URNs line up with the URNs emitted by your warehouse sources (Snowflake, BigQuery, etc.).
