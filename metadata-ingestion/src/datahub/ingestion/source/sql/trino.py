@@ -89,9 +89,17 @@ KNOWN_CONNECTOR_PLATFORM_MAPPING = {
     "snowflake_distributed": "snowflake",
     "snowflake_parallel": "snowflake",
     "snowflake_jdbc": "snowflake",
+    "oracle": "oracle",
+    "starrocks": "starrocks",
 }
 
-TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg"]
+# Default tier layout used when no connector_database is configured for a catalog:
+# connectors listed here build two-tier (schema.table) URNs, others build three-tier.
+# Oracle defaults to two-tier (matching the `oracle` source with
+# add_database_name_to_urn=false); setting connector_database overrides this to force a
+# three-tier URN (e.g. Oracle with add_database_name_to_urn=true, or StarRocks reached
+# via the mysql connector).
+TWO_TIER_CONNECTORS = ["clickhouse", "hive", "glue", "mysql", "iceberg", "oracle"]
 
 PROPERTIES_TABLE_SUPPORTED_CONNECTORS = ["hive", "iceberg"]
 
@@ -330,17 +338,23 @@ class TrinoSource(SQLAlchemySource):
             logging.debug(f"Platform '{connector_platform_name}' is not yet supported.")
             return None
 
-        if connector_platform_name in TWO_TIER_CONNECTORS:  # connector is two tier
-            return make_dataset_urn_with_platform_instance(
-                platform=connector_platform_name,
-                name=f"{schema}.{table}",
-                platform_instance=connector_details.platform_instance,
-                env=connector_details.env,
-            )
-        elif connector_details.connector_database:  # else connector is three tier
+        # An explicit connector_database always produces a three-tier
+        # (database.schema.table) URN, taking precedence over TWO_TIER_CONNECTORS. This
+        # lets connectors DataHub can model either way opt into three-tier without a
+        # hard-coded assumption here -- e.g. Oracle ingested with
+        # add_database_name_to_urn=true. Without connector_database, a connector listed
+        # in TWO_TIER_CONNECTORS falls back to a two-tier (schema.table) URN.
+        if connector_details.connector_database:  # three tier
             return make_dataset_urn_with_platform_instance(
                 platform=connector_platform_name,
                 name=f"{connector_details.connector_database}.{schema}.{table}",
+                platform_instance=connector_details.platform_instance,
+                env=connector_details.env,
+            )
+        elif connector_platform_name in TWO_TIER_CONNECTORS:  # two tier
+            return make_dataset_urn_with_platform_instance(
+                platform=connector_platform_name,
+                name=f"{schema}.{table}",
                 platform_instance=connector_details.platform_instance,
                 env=connector_details.env,
             )
