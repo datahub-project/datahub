@@ -968,7 +968,7 @@ class DataHubListener:
             datajob = AirflowGenerator.generate_datajob(
                 cluster=self.config.cluster,
                 task=task,  # type: ignore[arg-type]
-                dag=dag,
+                dag=dag,  # type: ignore[arg-type]
                 capture_tags=self.config.capture_tags_info,
                 capture_owner=self.config.capture_ownership_info,
                 config=self.config,
@@ -981,7 +981,7 @@ class DataHubListener:
         datajob = AirflowGenerator.generate_datajob(
             cluster=self.config.cluster,
             task=task,  # type: ignore[arg-type]
-            dag=dag,
+            dag=dag,  # type: ignore[arg-type]
             capture_tags=self.config.capture_tags_info,
             capture_owner=self.config.capture_ownership_info,
             config=self.config,
@@ -1085,7 +1085,7 @@ class DataHubListener:
                 emitter=emitter,
                 config=self.config,
                 ti=task_instance,
-                dag=dag,
+                dag=dag,  # type: ignore[arg-type]
                 dag_run=dagrun,
                 datajob=datajob,
                 emit_templates=False,
@@ -1168,7 +1168,7 @@ class DataHubListener:
                 emitter=emitter,
                 cluster=self.config.cluster,
                 ti=task_instance,
-                dag=dag,
+                dag=dag,  # type: ignore[arg-type]
                 dag_run=dagrun,
                 datajob=datajob,
                 result=status,

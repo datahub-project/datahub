@@ -2,17 +2,15 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence, Tuple, Un
 
 from airflow.exceptions import AirflowException
 
-# BaseHook entered the Task SDK namespace (airflow.sdk.bases.hook) in Airflow 3.1.
-# On Airflow 3.0.x it is only available at the legacy airflow.hooks.base location.
-# Prefer the SDK import so we stay aligned with 3.1+ (where airflow.hooks.base is a
-# deprecated compatibility shim) and fall back for 3.0.x.
+# BaseHook moved to airflow.sdk.bases.hook in Airflow 3.1; on 3.0.x it is only at
+# airflow.hooks.base. Import from the submodule (which is absent on 3.0 ->
+# ModuleNotFoundError that ignore_missing_imports tolerates) rather than
+# `from airflow.sdk import BaseHook` (present-but-attributeless on 3.0 -> mypy
+# attr-defined). Matches the proven pattern used elsewhere in the codebase.
 try:
-    from airflow.sdk import BaseHook
-except ImportError:
-    # Airflow 3.0.x: airflow.hooks.base provides BaseHook via a (lazy) deprecation
-    # shim that mypy can't resolve statically when checking against 3.1+, hence the
-    # attr-defined/no-redef ignores.
-    from airflow.hooks.base import BaseHook  # type: ignore[no-redef,attr-defined]
+    from airflow.sdk.bases.hook import BaseHook
+except (ModuleNotFoundError, ImportError):
+    from airflow.hooks.base import BaseHook  # type: ignore
 
 from datahub.emitter.composite_emitter import CompositeEmitter
 from datahub.emitter.generic_emitter import Emitter
