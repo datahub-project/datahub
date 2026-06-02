@@ -151,7 +151,6 @@ def glue_source_with_profiling(
             use_s3_object_tags=use_s3_object_tags,
             extract_delta_schema_from_parameters=extract_delta_schema_from_parameters,
             profiling=profiling_config,
-            incremental_properties=False,
         ),
     )
 
@@ -447,7 +446,6 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
     source_config_dict: Dict[str, Any] = {
         "extract_transforms": False,
         "aws_region": "eu-east-1",
-        "incremental_properties": False,
         **stateful_config,
     }
 
