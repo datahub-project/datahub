@@ -9,6 +9,7 @@ import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/
 import { TagTermLabel } from '@app/shared/tags/TagTermLabel';
 import { OperationType, isAddOperation, useBatchTagTermMutation } from '@app/shared/tags/useBatchTagTermMutation';
 import { useEntityPickerState } from '@app/shared/tags/useEntityPickerState';
+import { useGlossaryTreeEntities } from '@app/shared/tags/useGlossaryTreeEntities';
 import { TermTreeOption, useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Modal, SimpleSelect } from '@src/alchemy-components';
@@ -71,10 +72,14 @@ const CaretButton = styled.button`
 /**
  * Modal that lets the user add (or remove) glossary terms on one or more resources.
  *
- * Uses alchemy `SimpleSelect` in multi-select mode (native checkboxes) with options shaped as a
- * tree (`useTermTreeOptions`): each lineage emits an indented node header + its term children, and
- * the user can expand/collapse subtrees via inline carets. While searching the collapse state is
- * ignored so matching descendants stay visible.
+ * Initial state walks the live glossary tree from roots, with lazy-loaded children on expand — the
+ * same data flow the `/glossary` sidebar uses (`useGlossaryTreeEntities`). When the user types into
+ * the search input, we fall through to the autocomplete path from `useEntityPickerState` and
+ * flatten the tree (no expand filtering).
+ *
+ * The list is rendered through alchemy `SimpleSelect` in multi-select mode (native checkboxes).
+ * `useTermTreeOptions` shapes the entities into an indented tree, with node header rows holding
+ * inline expand/collapse carets that flip visibility *and* trigger child fetches.
  */
 export default function AddTermsModal({
     open,
@@ -89,29 +94,62 @@ export default function AddTermsModal({
     const generateColor = useGenerateGlossaryColorFromPalette();
     const { runMutation, disableAction } = useBatchTagTermMutation();
 
-    const { urns, setUrns, removeUrn, entityCache, searchText, handleSearch, currentEntities, isLoading } =
-        useEntityPickerState({ entityType: EntityType.GlossaryTerm, defaultValues });
+    // Picker state owns selection + the autocomplete search path.
+    const {
+        urns,
+        setUrns,
+        removeUrn,
+        entityCache,
+        searchText,
+        handleSearch,
+        currentEntities: searchEntities,
+        isLoading: searchLoading,
+    } = useEntityPickerState({ entityType: EntityType.GlossaryTerm, defaultValues });
+
+    // Glossary-tree data owns the browse path (roots + lazy-loaded children).
+    const {
+        entities: treeEntities,
+        entityCache: treeEntityCache,
+        expandedNodes,
+        expandNode,
+        collapseNode,
+        isLoading: treeLoading,
+    } = useGlossaryTreeEntities();
+
+    // Browse when the search input is empty; flatten autocomplete results when the user is searching.
+    const isSearching = searchText.length > 0;
+    const sourceEntities = isSearching ? searchEntities : treeEntities;
+
+    // Selected chips look up display names from either cache. The picker cache covers search /
+    // recommendations / defaults; the tree cache covers anything the user clicked into via the
+    // browse path (and persists across collapse, unlike `treeEntities`). Picker cache wins on
+    // collision so a freshly-loaded autocomplete result trumps a stale tree row.
+    const mergedEntityCache = useMemo<Record<string, Entity>>(
+        () => ({ ...treeEntityCache, ...entityCache }),
+        [treeEntityCache, entityCache],
+    );
 
     const computeTermColor = useCallback(
         (entity: Entity): string => getGlossaryTermColor(entity as GlossaryTerm, generateColor),
         [generateColor],
     );
 
-    const { visibleOptions, allOptions, disabledValues, nodesWithChildren, collapsedNodes, toggleNodeCollapsed } =
-        useTermTreeOptions({
-            entities: currentEntities,
-            excludeUrns: existingUrns,
-            ignoreCollapsed: !!searchText,
-        });
+    const { visibleOptions, allOptions, disabledValues, nodesWithChildren } = useTermTreeOptions({
+        entities: sourceEntities,
+        excludeUrns: existingUrns,
+        // While searching, show every result flat — the user is disambiguating with the text query,
+        // not the tree. While browsing, only show rows whose ancestors the user has expanded.
+        expandedNodes: isSearching ? undefined : expandedNodes,
+    });
 
-    // Always-render the currently-selected URNs as extras so SimpleSelect can render the chip strip
-    // even after a search clears the underlying options.
+    // Render the currently-selected URNs as extras so SimpleSelect can render the chip strip
+    // even after a search clears the underlying options or a tree branch is collapsed.
     const combinedOptions = useMemo<TermTreeOption[]>(() => {
         const inDropdown = new Set(allOptions.map((o) => o.value));
         const extras = urns
             .filter((urn) => !inDropdown.has(urn))
             .map<TermTreeOption>((urn) => {
-                const entity = entityCache[urn];
+                const entity = mergedEntityCache[urn];
                 if (entity) {
                     return {
                         value: entity.urn,
@@ -123,26 +161,37 @@ export default function AddTermsModal({
                 return { value: urn, label: urn };
             });
         return [...allOptions, ...extras];
-    }, [allOptions, urns, entityCache, entityRegistry, computeTermColor]);
+    }, [allOptions, urns, mergedEntityCache, entityRegistry, computeTermColor]);
+
+    const handleCaretClick = useCallback(
+        (nodeUrn: string) => {
+            if (expandedNodes.has(nodeUrn)) collapseNode(nodeUrn);
+            else expandNode(nodeUrn);
+        },
+        [expandedNodes, collapseNode, expandNode],
+    );
 
     const renderOption = useCallback(
         (option: TermTreeOption) => {
             const depth = option.depth || 0;
             if (option.isNode) {
-                const hasChildren = nodesWithChildren.has(option.value);
-                const isCollapsed = collapsedNodes.has(option.value);
-                const CaretIcon = isCollapsed ? CaretRight : CaretDown;
+                // A node should show a caret if either (a) we already know it has descendant rows
+                // (term lineages from the search path), or (b) it's a standalone node entity that
+                // has not been expanded yet (browse path — caret triggers a child fetch).
+                const hasChildren = nodesWithChildren.has(option.value) || option.isEmptyNode;
+                const isExpanded = expandedNodes.has(option.value);
+                const CaretIcon = isExpanded ? CaretDown : CaretRight;
                 return (
                     <NodeRow $depth={depth} data-testid={`tag-term-option-${option.label}`}>
                         <CaretButton
                             type="button"
-                            aria-label={isCollapsed ? `Expand ${option.label}` : `Collapse ${option.label}`}
-                            aria-expanded={!isCollapsed}
+                            aria-label={isExpanded ? `Collapse ${option.label}` : `Expand ${option.label}`}
+                            aria-expanded={isExpanded}
                             // Stops alchemy SimpleSelect from treating this as an option click.
                             onMouseDown={(e) => e.preventDefault()}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (hasChildren) toggleNodeCollapsed(option.value);
+                                if (hasChildren) handleCaretClick(option.value);
                             }}
                             style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
                         >
@@ -178,7 +227,7 @@ export default function AddTermsModal({
                 </OptionRow>
             );
         },
-        [generateColor, nodesWithChildren, collapsedNodes, toggleNodeCollapsed],
+        [generateColor, nodesWithChildren, expandedNodes, handleCaretClick],
     );
 
     const renderSelectedValue = useCallback(
@@ -245,7 +294,7 @@ export default function AddTermsModal({
                 renderCustomSelectedValue={renderSelectedValue}
                 selectLabelProps={{ variant: 'custom' }}
                 filterResultsByQuery={false}
-                isLoading={isLoading}
+                isLoading={isSearching ? searchLoading : treeLoading}
                 placeholder="Search for glossary term..."
                 width="full"
                 dataTestId="tag-term-modal-input"

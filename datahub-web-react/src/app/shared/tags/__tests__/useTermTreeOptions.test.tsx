@@ -1,4 +1,3 @@
-import { act } from '@testing-library/react';
 import { renderHook } from '@testing-library/react-hooks';
 
 import { useTermTreeOptions } from '@app/shared/tags/useTermTreeOptions';
@@ -18,27 +17,29 @@ vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: mockUseEntityRegistry,
 }));
 
-const makeNode = (urn: string, name: string, colorHex?: string): GlossaryNode =>
-    ({
+const makeNode = (urn: string, name: string, parents: GlossaryNode[] = [], colorHex?: string): GlossaryNode => {
+    const parentNodes: ParentNodesResult = { count: parents.length, nodes: parents };
+    return {
         urn,
         type: EntityType.GlossaryNode,
         properties: { name },
         displayProperties: colorHex ? { colorHex } : undefined,
-    }) as unknown as GlossaryNode;
+        parentNodes,
+    } as unknown as GlossaryNode;
+};
 
-const makeParents = (nodes: GlossaryNode[]): ParentNodesResult => ({ count: nodes.length, nodes });
-
-const makeTerm = (urn: string, name: string, parents: GlossaryNode[] = []): GlossaryTerm =>
-    ({
+const makeTerm = (urn: string, name: string, parents: GlossaryNode[] = []): GlossaryTerm => {
+    const parentNodes: ParentNodesResult = { count: parents.length, nodes: parents };
+    return {
         urn,
         type: EntityType.GlossaryTerm,
         properties: { name },
-        parentNodes: makeParents(parents),
-    }) as unknown as GlossaryTerm;
+        parentNodes,
+    } as unknown as GlossaryTerm;
+};
 
 describe('useTermTreeOptions', () => {
     beforeEach(() => {
-        // Display name = the .properties.name field for our synthetic entities.
         mockUseEntityRegistry.mockReturnValue({
             getDisplayName: (_type: EntityType, entity: Entity) => (entity as any).properties?.name ?? entity.urn,
         });
@@ -97,7 +98,7 @@ describe('useTermTreeOptions', () => {
         // The hook treats colorHex as an opaque pass-through string, so we use a non-hex sentinel
         // here to satisfy the `no-hardcoded-colors` lint rule (which forbids hex literals).
         const FIXTURE_COLOR = 'fixture-color-1';
-        const rootWithColor = makeNode('urn:li:glossaryNode:root', 'Root', FIXTURE_COLOR);
+        const rootWithColor = makeNode('urn:li:glossaryNode:root', 'Root', [], FIXTURE_COLOR);
         const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [rootWithColor]);
         const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
 
@@ -127,42 +128,108 @@ describe('useTermTreeOptions', () => {
         expect(allExcluded.result.current.allOptions).toEqual([]);
     });
 
-    it('hides descendant rows when a node is collapsed and `ignoreCollapsed` is false', () => {
+    it('hides descendant rows whose ancestors are not in `expandedNodes`', () => {
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
+
+        const collapsed = renderHook(() => useTermTreeOptions({ entities: [term], expandedNodes: new Set() }));
+        // Root is depth 0 (no ancestors) so it stays visible; the term is hidden until root expands.
+        expect(collapsed.result.current.visibleOptions.map((o) => o.label)).toEqual(['Root']);
+
+        const expanded = renderHook(() =>
+            useTermTreeOptions({
+                entities: [term],
+                expandedNodes: new Set(['urn:li:glossaryNode:root']),
+            }),
+        );
+        expect(expanded.result.current.visibleOptions.map((o) => o.label)).toEqual(['Root', 'Term1']);
+    });
+
+    it('shows every row when `expandedNodes` is undefined (search/flat mode)', () => {
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
+        expect(result.current.visibleOptions.map((o) => o.label)).toEqual(['Root', 'Term1']);
+    });
+
+    it('marks only nodes with at least one descendant row in `nodesWithChildren`', () => {
         const root = makeNode('urn:li:glossaryNode:root', 'Root');
         const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
         const { result } = renderHook(() => useTermTreeOptions({ entities: [term] }));
 
-        expect(result.current.visibleOptions.map((o) => o.label)).toEqual(['Root', 'Term1']);
-
-        act(() => result.current.toggleNodeCollapsed('urn:li:glossaryNode:root'));
-        expect(result.current.visibleOptions.map((o) => o.label)).toEqual(['Root']);
-
-        act(() => result.current.toggleNodeCollapsed('urn:li:glossaryNode:root'));
-        expect(result.current.visibleOptions.map((o) => o.label)).toEqual(['Root', 'Term1']);
+        expect(result.current.nodesWithChildren.has('urn:li:glossaryNode:root')).toBe(true);
     });
 
-    it('keeps descendants visible when `ignoreCollapsed` is true (search mode)', () => {
+    it('emits a standalone GlossaryNode entity as a header row (browse path before expansion)', () => {
+        // A root node with no fetched children yet. The browse-path flow puts these in `entities`
+        // so the user can see and click into them before any term has been pulled.
         const root = makeNode('urn:li:glossaryNode:root', 'Root');
-        const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
-        const { result } = renderHook(() => useTermTreeOptions({ entities: [term], ignoreCollapsed: true }));
 
-        act(() => result.current.toggleNodeCollapsed('urn:li:glossaryNode:root'));
-        // Even with the root collapsed, ignoreCollapsed forces all rows to stay visible.
-        expect(result.current.visibleOptions.map((o) => o.label)).toEqual(['Root', 'Term1']);
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [root] }));
+
+        expect(result.current.allOptions).toHaveLength(1);
+        expect(result.current.allOptions[0]).toMatchObject({
+            value: 'urn:li:glossaryNode:root',
+            label: 'Root',
+            depth: 0,
+            isNode: true,
+            isEmptyNode: true,
+        });
+        expect(result.current.disabledValues).toEqual(['urn:li:glossaryNode:root']);
     });
 
-    it('marks only nodes that have at least one descendant in `nodesWithChildren`', () => {
+    it('renders a standalone GlossaryNode under its own ancestor chain', () => {
+        // Mid is a child node whose own children haven't been fetched yet, but its parent chain
+        // is known from the expand path.
         const root = makeNode('urn:li:glossaryNode:root', 'Root');
-        const childlessNode = makeNode('urn:li:glossaryNode:standalone', 'Standalone');
-        const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
+        const mid = makeNode('urn:li:glossaryNode:mid', 'Mid', [root]);
 
-        // childlessNode is not on any term's parent chain, so it never gets emitted at all.
-        // root has a descendant term → it's in nodesWithChildren via the term's ancestorUrns chain.
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [mid] }));
+
+        const labels = result.current.allOptions.map((o) => `${o.depth}/${o.label}`);
+        expect(labels).toEqual(['0/Root', '1/Mid']);
+        // Only the leaf (mid) is marked empty; the synthesized root ancestor isn't.
+        expect(result.current.allOptions[0].isEmptyNode).toBeFalsy();
+        expect(result.current.allOptions[1].isEmptyNode).toBe(true);
+    });
+
+    it('preserves the natural order of root nodes when one of them gets expanded with child terms', () => {
+        // Regression: expanding a root used to "promote" it to the top of the list because
+        // term-bearing lineages were emitted before standalone nodes. The order of root entities
+        // in `entities` must drive the output regardless of which roots have children fetched.
+        const rootA = makeNode('urn:li:glossaryNode:adoption', 'Adoption');
+        const rootB = makeNode('urn:li:glossaryNode:classification', 'Classification');
+        const rootC = makeNode('urn:li:glossaryNode:ecommerce', 'Ecommerce');
+        const rootD = makeNode('urn:li:glossaryNode:personalInformation', 'PersonalInformation');
+        const highRisk = makeTerm('urn:li:glossaryTerm:highRisk', 'HighRisk', [rootC]);
+        const returnRate = makeTerm('urn:li:glossaryTerm:returnRate', 'ReturnRate', [rootC]);
+
         const { result } = renderHook(() =>
-            useTermTreeOptions({ entities: [term, childlessNode as unknown as GlossaryTerm] }),
+            useTermTreeOptions({ entities: [rootA, rootB, rootC, rootD, highRisk, returnRate] }),
         );
 
-        expect(result.current.nodesWithChildren.has('urn:li:glossaryNode:root')).toBe(true);
-        expect(result.current.nodesWithChildren.has('urn:li:glossaryNode:standalone')).toBe(false);
+        const labels = result.current.allOptions.map((o) => o.label);
+        expect(labels).toEqual([
+            'Adoption',
+            'Classification',
+            'Ecommerce',
+            'HighRisk',
+            'ReturnRate',
+            'PersonalInformation',
+        ]);
+    });
+
+    it('skips a standalone GlossaryNode that already showed up as a term ancestor', () => {
+        // Root is both passed in as a standalone node AND appears as a term's parent. It should
+        // only be emitted once, not duplicated.
+        const root = makeNode('urn:li:glossaryNode:root', 'Root');
+        const term = makeTerm('urn:li:glossaryTerm:t1', 'Term1', [root]);
+
+        const { result } = renderHook(() => useTermTreeOptions({ entities: [root, term] }));
+
+        const labels = result.current.allOptions.map((o) => o.label);
+        expect(labels).toEqual(['Root', 'Term1']);
+        // Since a term was emitted under root, root is no longer "empty".
+        expect(result.current.allOptions[0].isEmptyNode).toBeFalsy();
     });
 });

@@ -1,6 +1,9 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
+import { ENTITY_INDEX_FILTER_NAME } from '@app/search/utils/constants';
+import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 
-import { EntityType } from '@types';
+import { ScrollAcrossEntitiesQueryVariables } from '@graphql/search.generated';
+import { EntityType, SortOrder } from '@types';
 
 export const ROOT_NODES = 'rootNodes';
 export const ROOT_TERMS = 'rootTerms';
@@ -25,4 +28,43 @@ export function updateGlossarySidebar(
     setUrnsToUpdate: (updatdUrns: string[]) => void,
 ) {
     setUrnsToUpdate([...urnsToUpdate, ...parentNodesToUpdate]);
+}
+
+/** Default page size for a single fetch of a glossary node's direct children. Real glossaries
+ * with more than 50 children per node are rare; consumers that need pagination can scroll. */
+export const DEFAULT_GLOSSARY_CHILDREN_COUNT = 50;
+
+/**
+ * Builds the `scrollAcrossEntities` query variables for fetching the direct children (nodes +
+ * terms) of a glossary node. Shared between the glossary sidebar's `useGlossaryChildren` and the
+ * tag/term picker's `useGlossaryTreeEntities` so both views agree on filter/sort.
+ *
+ * @param parentNodeUrn URN of the parent node whose children to load; pass `''` (or omit) for
+ *     root-level (only used by code paths that need a uniform signature — root entities have
+ *     dedicated queries).
+ * @param scrollId      `nextScrollId` from a prior fetch when paginating, or `null` for the
+ *     first page.
+ * @param count         Page size (defaults to {@link DEFAULT_GLOSSARY_CHILDREN_COUNT}).
+ */
+export function getGlossaryChildrenScrollInput(
+    parentNodeUrn: string,
+    scrollId: string | null = null,
+    count: number = DEFAULT_GLOSSARY_CHILDREN_COUNT,
+): ScrollAcrossEntitiesQueryVariables {
+    return {
+        input: {
+            scrollId,
+            query: '*',
+            types: [EntityType.GlossaryNode, EntityType.GlossaryTerm],
+            orFilters: [{ and: [{ field: 'parentNode', values: [parentNodeUrn || ''] }] }],
+            count,
+            sortInput: {
+                sortCriteria: [
+                    { field: ENTITY_INDEX_FILTER_NAME, sortOrder: SortOrder.Ascending },
+                    { field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending },
+                ],
+            },
+            searchFlags: { skipCache: true },
+        },
+    };
 }
