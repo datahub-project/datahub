@@ -109,6 +109,7 @@ public class RestoreGlossaryIndicesStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {
         log.error("Failed to restore glossary indices", e);
+        _entityService.deleteUrn(context.opContext(), _upgradeUrn);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };

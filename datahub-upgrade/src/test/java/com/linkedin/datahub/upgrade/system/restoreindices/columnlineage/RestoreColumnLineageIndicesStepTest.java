@@ -7,12 +7,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.dataset.UpstreamLineage;
+import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
@@ -23,9 +27,11 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -51,9 +57,26 @@ public class RestoreColumnLineageIndicesStepTest {
   }
 
   @Test
-  public void testSkipAlwaysFalse() {
+  public void testSkipReturnsFalseWhenNoPriorRun() throws Exception {
+    when(mockEntityService.getEntityV2(any(), any(), any(), any())).thenReturn(null);
     RestoreColumnLineageIndicesStep step = new RestoreColumnLineageIndicesStep(mockEntityService);
     assertFalse(step.skip(mockUpgradeContext));
+  }
+
+  @Test
+  public void testSkipReturnsTrueWhenAlreadyRan() throws Exception {
+    DataHubUpgradeRequest upgradeRequest =
+        new DataHubUpgradeRequest().setVersion("1").setTimestampMs(0L);
+    EnvelopedAspect aspect =
+        new EnvelopedAspect().setValue(new com.linkedin.mxe.GenericAspect(upgradeRequest.data()));
+    EnvelopedAspectMap aspectMap =
+        new EnvelopedAspectMap(Map.of(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME, aspect));
+    EntityResponse response = new EntityResponse().setAspects(aspectMap);
+    when(mockEntityService.getEntityV2(
+            any(), eq(Constants.DATA_HUB_UPGRADE_ENTITY_NAME), any(), any()))
+        .thenReturn(response);
+    RestoreColumnLineageIndicesStep step = new RestoreColumnLineageIndicesStep(mockEntityService);
+    assertTrue(step.skip(mockUpgradeContext));
   }
 
   @Test

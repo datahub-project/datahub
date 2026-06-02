@@ -101,6 +101,7 @@ public class RestoreColumnLineageIndicesStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {
         log.error("Failed to restore column lineage indices", e);
+        _entityService.deleteUrn(context.opContext(), _upgradeUrn);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
@@ -257,7 +258,8 @@ public class RestoreColumnLineageIndicesStep implements UpgradeStep {
       @Nonnull OperationContext systemOperationContext,
       String entityName,
       int start,
-      AuditStamp auditStamp) {
+      AuditStamp auditStamp)
+      throws Exception {
     final AspectSpec inputFieldsAspectSpec =
         systemOperationContext
             .getEntityRegistry()
