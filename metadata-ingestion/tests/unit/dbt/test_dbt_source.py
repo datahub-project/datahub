@@ -3827,3 +3827,132 @@ def test_dbt_common_semantic_model_subtype_assignment():
         aspect = wu.metadata.aspect
         assert isinstance(aspect, SubTypesClass)
         assert expected_subtype in aspect.typeNames, f"Failed for node_type={node_type}"
+
+
+def _make_dbt_model_node(dbt_name: str, upstream_nodes: List[str]) -> DBTNode:
+    return DBTNode(
+        database="db",
+        schema="schema",
+        name=dbt_name,
+        alias=None,
+        comment="",
+        description="",
+        language="sql",
+        raw_code=None,
+        dbt_adapter="postgres",
+        dbt_name=dbt_name,
+        dbt_file_path=None,
+        dbt_package_name="my_project",
+        node_type="model",
+        max_loaded_at=None,
+        materialization="table",
+        catalog_type=None,
+        missing_from_catalog=False,
+        owner=None,
+        upstream_nodes=upstream_nodes,
+    )
+
+
+def test_skip_missing_upstreams_in_lineage_config():
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "postgres",
+        "skip_missing_upstreams_in_lineage": True,
+    }
+    config = DBTCoreConfig.model_validate(config_dict)
+    assert config.skip_missing_upstreams_in_lineage is True
+
+
+def test_skip_missing_upstreams_in_lineage_filters_missing():
+    """Upstream URNs that do not exist in DataHub are excluded from lineage."""
+    graph = mock.MagicMock()
+    existing_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.existing,PROD)"
+    )
+    missing_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.missing,PROD)"
+    graph.exists.side_effect = lambda urn: urn == existing_urn
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    existing_node = _make_dbt_model_node("existing", [])
+    missing_node = _make_dbt_model_node("missing", [])
+    downstream_node = _make_dbt_model_node("downstream", ["existing", "missing"])
+    all_nodes_map = {
+        "existing": existing_node,
+        "missing": missing_node,
+        "downstream": downstream_node,
+    }
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is not None
+    upstream_datasets = {u.dataset for u in lineage.upstreams}
+    assert existing_urn in upstream_datasets
+    assert missing_urn not in upstream_datasets
+    assert source.report.lineage_upstreams_skipped_missing == 1
+
+
+def test_skip_missing_upstreams_in_lineage_all_missing_returns_none():
+    """When all upstreams are missing, lineage aspect is None (no empty stub emitted)."""
+    graph = mock.MagicMock()
+    graph.exists.return_value = False
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    upstream_node = _make_dbt_model_node("upstream", [])
+    downstream_node = _make_dbt_model_node("downstream", ["upstream"])
+    all_nodes_map = {"upstream": upstream_node, "downstream": downstream_node}
+
+    lineage = source._create_lineage_aspect_for_dbt_node(downstream_node, all_nodes_map)
+
+    assert lineage is None
+    assert source.report.lineage_upstreams_skipped_missing == 1
+
+
+def test_skip_missing_upstreams_existence_is_cached():
+    """graph.exists() is called only once per unique upstream URN."""
+    graph = mock.MagicMock()
+    graph.exists.return_value = True
+
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    ctx.graph = graph
+
+    config = DBTCoreConfig.model_validate(
+        {
+            **create_base_dbt_config(),
+            "skip_missing_upstreams_in_lineage": True,
+        }
+    )
+    source = DBTCoreSource(config, ctx)
+
+    shared_upstream = _make_dbt_model_node("shared", [])
+    node_a = _make_dbt_model_node("node_a", ["shared"])
+    node_b = _make_dbt_model_node("node_b", ["shared"])
+    all_nodes_map = {"shared": shared_upstream, "node_a": node_a, "node_b": node_b}
+
+    source._create_lineage_aspect_for_dbt_node(node_a, all_nodes_map)
+    source._create_lineage_aspect_for_dbt_node(node_b, all_nodes_map)
+
+    # graph.exists should have been called exactly once for the shared upstream URN
+    shared_urn = "urn:li:dataset:(urn:li:dataPlatform:postgres,db.schema.shared,PROD)"
+    calls = [c for c in graph.exists.call_args_list if c.args[0] == shared_urn]
+    assert len(calls) == 1

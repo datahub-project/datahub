@@ -307,6 +307,8 @@ class DBTSourceReport(StaleEntityRemovalSourceReport):
 
     nodes_filtered: LossyList[str] = field(default_factory=LossyList)
 
+    lineage_upstreams_skipped_missing: int = 0
+
     duplicate_sources_dropped: Optional[int] = None
     duplicate_sources_references_updated: Optional[int] = None
 
@@ -541,6 +543,11 @@ class DBTCommonConfig(
         description="[Experimental] When enabled, dbt sources will not be included in the lineage graph. "
         "Requires that `entities_enabled.sources` is set to `NO`. "
         "This is mainly useful when you have multiple, interdependent dbt projects. ",
+    )
+    skip_missing_upstreams_in_lineage: bool = Field(
+        default=False,
+        description="When enabled, upstream datasets that do not already exist in DataHub are excluded from "
+        "lineage, preventing the creation of empty stub entities. Requires a DataHub graph connection.",
     )
     tag_prefix: str = Field(
         default=f"{DBT_PLATFORM}:", description="Prefix added to tags during ingestion."
@@ -1410,6 +1417,8 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache: Optional[int] = None
         # Exposures loaded by subclass (manifest or dbt Cloud API)
         self._exposures: List[DBTExposure] = []
+        # Cache for upstream existence checks (skip_missing_upstreams_in_lineage)
+        self._upstream_exists_cache: Dict[str, bool] = {}
 
     def _get_query_timestamp(self) -> int:
         """Get timestamp for Query entities, cached for reproducibility."""
@@ -1434,6 +1443,15 @@ class DBTSourceBase(StatefulIngestionSourceBase):
         self._query_timestamp_cache = datetime_to_ts_millis(datetime.now())
         self.report.query_timestamps_fallback_used = True
         return self._query_timestamp_cache
+
+    def _upstream_exists_in_datahub(self, urn: str) -> bool:
+        """Check whether an upstream URN exists in DataHub, with per-run caching."""
+        if urn not in self._upstream_exists_cache:
+            assert self.ctx.graph  # caller ensures graph is available
+            self._upstream_exists_cache[urn] = self.ctx.graph.exists(urn)
+            if not self._upstream_exists_cache[urn]:
+                self.report.lineage_upstreams_skipped_missing += 1
+        return self._upstream_exists_cache[urn]
 
     def create_test_entity_mcps(
         self,
@@ -1793,6 +1811,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
     ) -> Iterable[Union[MetadataWorkUnit, MetadataChangeProposalWrapper]]:
         if self.config.write_semantics == "PATCH":
             self.ctx.require_graph("Using dbt with write_semantics=PATCH")
+        if self.config.skip_missing_upstreams_in_lineage:
+            self.ctx.require_graph(
+                "Using dbt with skip_missing_upstreams_in_lineage=True"
+            )
 
         all_nodes, additional_custom_props = self.load_nodes()
 
@@ -3200,6 +3222,13 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     for downstream, upstreams in groupby_unsorted(
                         valid_cll_entries, lambda x: x.downstream_col
                     )
+                ]
+
+            if self.config.skip_missing_upstreams_in_lineage and self.ctx.graph:
+                upstream_urns = [
+                    urn
+                    for urn in upstream_urns
+                    if self._upstream_exists_in_datahub(urn)
                 ]
 
             if not upstream_urns:
