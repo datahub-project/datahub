@@ -216,7 +216,11 @@ def test_extract_notion_parent_urn_no_parent():
     assert parent_urn is None
 
 
-def test_should_skip_file_page_id_filter_match():
+def test_should_skip_file_does_not_drop_descendants_with_different_id_prefix():
+    """The recursive walker reaches descendants whose Notion v2 IDs diverge in
+    the first 8-13 chars from the root's ID (different time-window prefix).
+    These must not be filtered out — they're legitimate descendants emitted by
+    the indexer, in-scope by construction."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -230,7 +234,8 @@ def test_should_skip_file_page_id_filter_match():
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
 
-    # Use a page_id that matches the exact configured ID (will match prefix)
+    # A descendant with a totally divergent ID — would previously have been
+    # silently dropped by the 13-char prefix heuristic.
     data = {
         "elements": [
             {
@@ -239,39 +244,12 @@ def test_should_skip_file_page_id_filter_match():
         ],
         "metadata": {
             "data_source": {
-                "record_locator": {"page_id": "2bffc6a6-4277-8024-97c9-d0f26faa4480"}
+                "record_locator": {"page_id": "2f6fc6a6-4277-81cb-b744-d1baeec0bda5"}
             }
         },
     }
 
-    # Should NOT skip because prefix matches exactly and has enough content
     assert source._should_skip_file(data, set()) is False
-
-
-def test_should_skip_file_page_id_filter_no_match():
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    ctx = PipelineContext(run_id="test")
-    source = NotionSource(config=config, ctx=ctx)
-
-    data = {
-        "elements": [{"text": "Some content"}],
-        "metadata": {
-            "data_source": {
-                "record_locator": {"page_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
-            }
-        },
-    }
-
-    assert source._should_skip_file(data, set()) is True
 
 
 def test_should_skip_file_empty_document():
@@ -844,3 +822,112 @@ def test_embedding_stats_aggregation(notion_source):
     failures_list = list(final_report.embedding_failures)
     assert "urn:li:document:test1: Error 1" in failures_list
     assert "urn:li:document:test2: Error 2" in failures_list
+
+
+def test_notion_types_filter_unknown_fields_paragraph_icon():
+    """AI-603: Paragraph blocks now include 'icon' which unstructured-ingest 0.7.2 rejects."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    paragraph = Paragraph(color="default", icon={"type": "emoji", "emoji": "📝"})
+    assert paragraph.color == "default"
+    assert not hasattr(paragraph, "icon")
+
+
+def test_notion_types_filter_unknown_fields_page_is_archived():
+    """Observed alongside AI-603: Page now includes 'is_archived'. Filter must cover Page, not just blocks."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.page import Page
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    page = Page(
+        id="abc",
+        created_time="2026-01-01T00:00:00Z",
+        created_by=None,
+        last_edited_time="2026-01-01T00:00:00Z",
+        last_edited_by=None,
+        archived=False,
+        in_trash=False,
+        properties={},
+        parent=None,
+        url="https://www.notion.so/abc",
+        public_url="",
+        is_archived=False,
+    )
+    assert page.id == "abc"
+    assert not hasattr(page, "is_archived")
+
+
+def test_notion_types_filter_unknown_fields_generic_for_future_additions():
+    """Verify the filter covers blocks AND other notion types so any future Notion field is dropped."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import (
+        Heading,
+        Quote,
+        ToDo,
+    )
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    Heading(color="default", is_toggleable=False, hypothetical_future_field="x")
+    Quote(color="default", made_up_field=42)
+    ToDo(color="default", checked=True, brand_new_2030_field=["a", "b"])
+
+
+def test_notion_types_filter_unknown_fields_is_idempotent():
+    """Applying the patch twice must not double-wrap or break valid construction."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    paragraph = Paragraph(color="default")
+    assert paragraph.color == "default"
+
+
+def test_icon_dispatcher_unknown_types_returns_none_for_named_icon():
+    """Notion's new built-in named icon type ({type: 'icon', icon: {...}})
+    must not raise — observed live breaking the indexer's page discovery."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    result = Icon.from_dict(
+        {"type": "icon", "icon": {"name": "departures", "color": "green"}}
+    )
+    assert result is None
+
+
+def test_icon_dispatcher_handles_none_payload():
+    """Callout.from_dict passes data.pop('icon') (which can be None for
+    callouts with no icon) straight into Icon.from_dict — must not crash."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    assert Icon.from_dict(None) is None
+
+
+def test_icon_dispatcher_unknown_types_preserves_known_types():
+    """Emoji and external icons must still parse correctly after the patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        EmojiIcon,
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
+    assert isinstance(emoji_result, EmojiIcon)
+    assert emoji_result.emoji == "📝"

@@ -1,5 +1,6 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -20,7 +21,7 @@ const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
 
     :hover {
         border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid
-            ${(props) => props.theme.colors.hyperlinks};
+            ${(props) => props.theme.colors.borderHover};
     }
 
     display: flex;
@@ -64,6 +65,7 @@ type Props = {
 };
 
 export const DomainCard = ({ domain, assetCount }: Props) => {
+    const { t } = useTranslation('home.v2');
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const name = entityRegistry.getDisplayName(EntityType.Domain, domain);
@@ -80,9 +82,16 @@ export const DomainCard = ({ domain, assetCount }: Props) => {
                 <Text>
                     <Name>{name}</Name>
                     <Counts>
-                        <Count>{formatNumber(assetCount)} assets</Count>
+                        <Count>
+                            {t('domains.assetCount', { count: assetCount, formattedCount: formatNumber(assetCount) })}
+                        </Count>
                         <Divider type="vertical" />
-                        <Count>{formatNumber(dataProductCount)} data products</Count>
+                        <Count>
+                            {t('domains.dataProductCount', {
+                                count: dataProductCount,
+                                formattedCount: formatNumber(dataProductCount),
+                            })}
+                        </Count>
                     </Counts>
                 </Text>
             </Card>

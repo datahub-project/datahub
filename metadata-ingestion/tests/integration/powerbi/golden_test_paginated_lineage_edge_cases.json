@@ -1,0 +1,662 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "rdl-datasources-http-error"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "datasources endpoint returns 500"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/aaaa1111-0000-0000-0000-000000000001"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/aaaa1111-0000-0000-0000-000000000001"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.aaaa1111-0000-0000-0000-000000000001)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "rdl-datasources-empty"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "datasources endpoint returns no rows"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/bbbb2222-0000-0000-0000-000000000002"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/bbbb2222-0000-0000-0000-000000000002"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.bbbb2222-0000-0000-0000-000000000002)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "rdl-dataset-binding-unresolved"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "bound to a dataset that is not in any scanned workspace"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/cccc3333-0000-0000-0000-000000000003"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/cccc3333-0000-0000-0000-000000000003"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.cccc3333-0000-0000-0000-000000000003)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "rdl-unmapped-datasource-type"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "embedded datasource whose type has no DataHub platform mapping"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/dddd4444-0000-0000-0000-000000000004"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/dddd4444-0000-0000-0000-000000000004"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.dddd4444-0000-0000-0000-000000000004)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "PATCH",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/title",
+                "value": "rdl-platform-excluded-from-mapping"
+            },
+            {
+                "op": "add",
+                "path": "/description",
+                "value": "valid platform (Sql) that is excluded from dataset_type_mapping"
+            },
+            {
+                "op": "add",
+                "path": "/dashboardUrl",
+                "value": "https://app.powerbi.com/groups/64ED5CAD-7C10-4684-8180-826122881108/rdlreports/eeee5555-0000-0000-0000-000000000005"
+            },
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "created": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "lastModified": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:powerbi"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "demo-workspace",
+                    "urn": "urn:li:container:a4ed52f9abd3ff9cc34960c0c41f72e9"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "PaginatedReport"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(powerbi,reports.eeee5555-0000-0000-0000-000000000005)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardKey",
+    "aspect": {
+        "json": {
+            "dashboardTool": "powerbi",
+            "dashboardId": "powerbi.linkedin.com/dashboards/eeee5555-0000-0000-0000-000000000005"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643851800000,
+        "runId": "powerbi-paginated-edge-cases-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

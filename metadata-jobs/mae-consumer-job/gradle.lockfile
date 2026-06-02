@@ -3,7 +3,7 @@
 # This file is expected to be part of source control.
 antlr:antlr:2.7.7=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 aopalliance:aopalliance:1.0=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
-at.yawk.lz4:lz4-java:1.10.1=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
+at.yawk.lz4:lz4-java:1.11.0=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 ch.qos.logback:logback-classic:1.5.32=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 ch.qos.logback:logback-core:1.5.32=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 co.elastic.clients:elasticsearch-java:8.17.4=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
@@ -517,6 +517,7 @@ org.ow2.asm:asm-tree:9.9.1=compileClasspath,productionRuntimeClasspath,runtimeCl
 org.ow2.asm:asm-util:9.2=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.ow2.asm:asm:9.7=jacocoAnt
 org.ow2.asm:asm:9.9.1=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
+org.postgresql:postgresql:42.7.11=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.projectlombok:lombok:1.18.42=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath
 org.reactivestreams:reactive-streams:1.0.4=compileClasspath,productionRuntimeClasspath,runtimeClasspath,testCompileClasspath,testRuntimeClasspath
 org.reflections:reflections:0.9.12=productionRuntimeClasspath,runtimeClasspath,testRuntimeClasspath

@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import MetricChartPopover from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/components/MetricChartPopover';
 import useDefaultLookbackWindowType from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsV2/components/sections/ChartsSection/charts/hooks/useDefaultLookbackWindowType';
@@ -11,8 +12,8 @@ import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import MoreInfoModalContent from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
 import {
-    GRAPH_LOOKBACK_WINDOWS_OPTIONS,
     LookbackWindowType,
+    getGraphLookbackWindowsOptions,
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
 import { AggregationFunction } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
@@ -35,12 +36,14 @@ export default function MetricLineChart({
     renderPopoverDatumMetric,
     dataAggregationFunction,
 }: MetricLineChartProps) {
+    const { t } = useTranslation('entity.profile.schema');
     const { properties } = useStatsTabContext();
     const loading = properties?.profilesDataLoading;
     const fieldPath = properties?.expandedField?.fieldPath;
     const profiles = properties?.profiles;
     const data = useExtractMetricStats(profiles, fieldPath, metric);
-    const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(GRAPH_LOOKBACK_WINDOWS_OPTIONS, data?.[0]?.x);
+    const graphLookbackWindowsOptions = useMemo(() => getGraphLookbackWindowsOptions(), []);
+    const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(graphLookbackWindowsOptions, data?.[0]?.x);
     const availableLookbackWindowTyles = useMemo(
         () => timeRangeOptions.map((option) => option.value),
         [timeRangeOptions],
@@ -58,11 +61,12 @@ export default function MetricLineChart({
 
             return (
                 <>
-                    {metricLabel ?? `${capitalizeFirstLetterOnly(metric)} Value`}: {datum.y}
+                    {metricLabel ?? t('statsV2Charts.metricValueLabel', { metric: capitalizeFirstLetterOnly(metric) })}:{' '}
+                    {datum.y}
                 </>
             );
         },
-        [renderPopoverDatumMetric, metric, metricLabel],
+        [renderPopoverDatumMetric, metric, metricLabel, t],
     );
 
     return (

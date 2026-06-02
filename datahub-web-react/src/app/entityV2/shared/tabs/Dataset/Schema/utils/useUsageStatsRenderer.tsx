@@ -1,6 +1,7 @@
 import { Tooltip } from '@components';
 import QueryStatsOutlinedIcon from '@mui/icons-material/QueryStatsOutlined';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FieldPopularity } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/FieldPopularity';
@@ -31,6 +32,7 @@ export default function useUsageStatsRenderer(
     usageStats?: UsageQueryResult | null,
     expandedDrawerFieldPath?: string | null,
 ) {
+    const { t } = useTranslation('entity.profile.schema');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const latestFullTableProfile = baseEntity?.dataset?.latestFullTableProfile?.[0];
     const latestPartitionProfile = baseEntity?.dataset?.latestPartitionProfile?.[0];
@@ -50,7 +52,12 @@ export default function useUsageStatsRenderer(
                         <LineageDisabledIcon height={20} width={20} />
                     </Icon> */}
 
-                <Tooltip placement="top" title={!fieldProfile ? 'No column statistics' : 'Has column statistics'}>
+                <Tooltip
+                    placement="top"
+                    title={
+                        !fieldProfile ? t('usageStatsRenderer.noColumnStats') : t('usageStatsRenderer.hasColumnStats')
+                    }
+                >
                     <IconWrapper hasStats={!!fieldProfile} isFieldSelected={isFieldSelected}>
                         <QueryStatsOutlinedIcon />
                     </IconWrapper>

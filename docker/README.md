@@ -34,9 +34,14 @@ which are continuously deployed to [Docker Hub](https://hub.docker.com/u/acrylda
 You can easily download and run all these images and their dependencies with our
 [quick start guide](../docs/quickstart.md).
 
+**Compose layout:** Quickstart and local development use [Docker Compose profiles](profiles/docker-compose.yml) under
+`docker/profiles/`. The CLI downloads a flattened compose file at
+`docker/quickstart/docker-compose.quickstart-profile.yml`. Legacy root-level `docker-compose*.yml` files and shell
+scripts (`quickstart.sh`, `dev.sh`, `nuke.sh`) have been removed.
+
 DataHub Docker Images:
 
-Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. Please use `head` or tags specific for versions like `v0.8.40`. For production we recommend using version specific tags not `head`.
+Do not use `latest` or `debug` tags for any of the image as those are not supported and present only due to legacy reasons. For local Compose / quickstart, use the coordinated `quickstart` tag or a version-specific tag like `v0.8.40`. For production and Kubernetes, pin a release tag (`v*`) or an immutable commit tag (`sha-<short_sha>`). Do not use `quickstart` in production clusters.
 
 - [acryldata/datahub-ingestion](https://hub.docker.com/r/acryldata/datahub-ingestion/)
 - [acryldata/datahub-gms](https://hub.docker.com/repository/docker/acryldata/datahub-gms/)
@@ -175,7 +180,8 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 - **`quickstartCypressNuke`** - Removes containers and volumes for the cypress configuration (`dh-cypress`)
 - **`quickstartDebugMinNuke`** - Removes containers and volumes for the debug-min configuration (`datahub`)
 - **`quickstartDebugConsumersNuke`** - Removes containers and volumes for the debug-consumers configuration (`datahub`)
-- **`quickstartPgNuke`** - Removes containers and volumes for the postgres configuration (`datahub`)
+- **`quickstartPgNuke`** - Removes containers and volumes for the quickstart-postgres configuration (`datahub`)
+- **`quickstartPgConsumersNuke`** - Removes containers and volumes for the quickstart-postgres-consumers configuration (`datahub`)
 - **`quickstartPgDebugNuke`** - Removes containers and volumes for the debug-postgres configuration (`datahub`)
 - **`quickstartSlimNuke`** - Removes containers and volumes for the backend configuration (`datahub`)
 - **`quickstartSparkNuke`** - Removes containers and volumes for the spark configuration (`datahub`)
@@ -196,7 +202,8 @@ Every quickstart configuration automatically gets a nuke task for targeted clean
 ./gradlew quickstartDebugNuke      # For debug configuration
 ./gradlew quickstartCypressNuke    # For cypress configuration
 ./gradlew quickstartDebugMinNuke   # For debug-min configuration
-./gradlew quickstartPgNuke         # For postgres configuration
+./gradlew quickstartPgNuke           # For quickstart-postgres (slim)
+./gradlew quickstartPgConsumersNuke  # For quickstart-postgres-consumers (with MAE/MCE)
 
 # For general cleanup of all containers
 ./gradlew quickstartDown
@@ -298,4 +305,6 @@ The nuke tasks are automatically generated based on the `quickstart_configs` in 
 
 # Clean up only postgres environment (leaving others intact)
 ./gradlew quickstartPgNuke
+# Or the postgres + consumers variant:
+./gradlew quickstartPgConsumersNuke
 ```

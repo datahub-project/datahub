@@ -1,5 +1,5 @@
 import { Collapse, Form, message } from 'antd';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Label } from '@components/components/TextArea/components';
@@ -59,11 +59,16 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
     );
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
+    const { loaded: userLoaded, user } = useUserContext();
     const [selectedOwnerUrns, setSelectedOwnerUrns] = useState<string[]>([]);
-    const { user } = useUserContext();
+    const [hasInitializedDefaultOwner, setHasInitializedDefaultOwner] = useState(false);
 
-    // Simply provide current user as placeholder - OwnersSection will handle auto-selection
-    const defaultOwners = user ? [user] : [];
+    useEffect(() => {
+        if (!hasInitializedDefaultOwner && userLoaded) {
+            setSelectedOwnerUrns(user?.urn ? [user.urn] : []);
+            setHasInitializedDefaultOwner(true);
+        }
+    }, [hasInitializedDefaultOwner, user?.urn, userLoaded]);
 
     // Stable callback for setting owner URNs
     const handleSetSelectedOwnerUrns = useCallback((ownerUrns: string[]) => {
@@ -154,7 +159,7 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     id: 'createDomainButton',
                     buttonDataTestId: 'create-domain-button',
                     onClick: onCreateDomain,
-                    disabled: !createButtonEnabled,
+                    disabled: !createButtonEnabled || !hasInitializedDefaultOwner,
                 },
             ]}
         >
@@ -208,7 +213,8 @@ export default function CreateDomainModal({ onClose, onCreate }: Props) {
                     <OwnersSection
                         selectedOwnerUrns={selectedOwnerUrns}
                         setSelectedOwnerUrns={handleSetSelectedOwnerUrns}
-                        defaultOwners={defaultOwners}
+                        isDisabled={!hasInitializedDefaultOwner}
+                        isLoading={!hasInitializedDefaultOwner}
                     />
                 </FormItemNoMargin>
                 <Collapse ghost>

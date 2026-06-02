@@ -373,7 +373,11 @@ const StructuredPropsDrawer = ({
             }
             destroyOnClose
         >
-            <StyledSpin spinning={isLoading} indicator={<LoadingOutlined />}>
+            <StyledSpin
+                spinning={isLoading}
+                indicator={<LoadingOutlined />}
+                data-testid="structured-props-drawer-content"
+            >
                 {showAllowedValuesDrawer ? (
                     <>
                         <AllowedValuesDrawer

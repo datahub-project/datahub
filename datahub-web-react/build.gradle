@@ -294,6 +294,18 @@ externalPrettierConfigs.each { config ->
   }
 }
 
+tasks.register('docusaurusMarkdownLint', Exec) {
+  workingDir rootProject.projectDir
+  inputs.files(rootProject.fileTree(rootProject.projectDir) {
+    include '**/*.md'
+    include '**/*.mdx'
+    exclude '**/node_modules/**'
+    exclude '**/.gradle/**'
+    exclude '**/build/**'
+  })
+  commandLine 'python3', '.github/scripts/check_docusaurus_markdown.py'
+}
+
 clean {
   delete 'node_modules/.yarn-integrity'
   delete 'dist'

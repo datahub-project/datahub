@@ -3,7 +3,6 @@ import { Play } from '@phosphor-icons/react/dist/csr/Play';
 import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
 import { Stop } from '@phosphor-icons/react/dist/csr/Stop';
 import { Image, Typography } from 'antd';
-import cronstrue from 'cronstrue';
 import React, { useEffect, useRef, useState } from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -16,6 +15,7 @@ import { capitalizeMonthsAndDays, formatTimezone } from '@app/ingestV2/source/ut
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { capitalizeFirstLetter, capitalizeFirstLetterOnly } from '@app/shared/textUtil';
 import { OwnerAvatarGroup } from '@app/sharedV2/owners/OwnerAvatarGroup';
+import { cronToString, removeTimePrefix } from '@utils/cronstrue';
 
 import { Owner } from '@types';
 
@@ -165,8 +165,8 @@ export function ScheduleColumn({ schedule, timezone }: { schedule: string; timez
     let scheduleText: string;
 
     try {
-        const text = schedule && `${cronstrue.toString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
-        const cleanedText = text.replace(/^at /, '');
+        const text = schedule && `${cronToString(schedule).toLowerCase()} (${formatTimezone(timezone)})`;
+        const cleanedText = removeTimePrefix(text);
         const finalText = capitalizeFirstLetterOnly(capitalizeMonthsAndDays(cleanedText));
         scheduleText = finalText ?? '-';
     } catch (e) {
