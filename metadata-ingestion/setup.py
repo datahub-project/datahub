@@ -837,6 +837,8 @@ plugins: Dict[str, Set[str]] = {
     # sqlparse: transitive runtime dep of SqlParsingAggregator (imported by sigma.py).
     # Not directly imported by the sigma source; revisit if SqlParsingAggregator use is removed.
     "sigma": sqlglot_lib | {"sqlparse<0.6.0", "requests<3.0.0"},
+    # pycarlo is Monte Carlo's official sgqlc-based GraphQL client over the MCD API.
+    "montecarlo": {"pycarlo>=0.10.0,<1.0.0"},
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
@@ -1196,6 +1198,7 @@ entry_points = {
         "snaplogic = datahub.ingestion.source.snaplogic.snaplogic:SnaplogicSource",
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
+        "montecarlo = datahub.ingestion.source.montecarlo.source:MonteCarloSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
         "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
         "neo4j = datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource",
