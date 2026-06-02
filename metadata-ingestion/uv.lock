@@ -169,7 +169,6 @@ all = [
     { name = "okta" },
     { name = "openpyxl" },
     { name = "oracledb" },
-    { name = "packaging" },
     { name = "pandas" },
     { name = "parse" },
     { name = "patchy" },
@@ -179,6 +178,7 @@ all = [
     { name = "psycopg2-binary" },
     { name = "pyarrow" },
     { name = "pyathena", extra = ["sqlalchemy"] },
+    { name = "pycarlo" },
     { name = "pydantic" },
     { name = "pydeequ" },
     { name = "pydruid" },
@@ -1294,8 +1294,10 @@ mode = [
     { name = "tenacity" },
 ]
 mongodb = [
-    { name = "packaging" },
     { name = "pymongo", extra = ["aws"] },
+]
+montecarlo = [
+    { name = "pycarlo" },
 ]
 mssql = [
     { name = "acryl-datahub-classify" },
@@ -1347,7 +1349,6 @@ neo4j = [
     { name = "pandas" },
 ]
 nifi = [
-    { name = "packaging" },
     { name = "requests" },
     { name = "requests-gssapi" },
 ]
@@ -2480,12 +2481,9 @@ requires-dist = [
     { name = "orderly-set", marker = "extra == 'dev'", specifier = "!=5.4.0,<6.0.0" },
     { name = "orderly-set", marker = "extra == 'docs'", specifier = "!=5.4.0,<6.0.0" },
     { name = "orderly-set", marker = "extra == 'testing-utils'", specifier = "!=5.4.0,<6.0.0" },
-    { name = "packaging", specifier = "<27.0.0" },
-    { name = "packaging", marker = "extra == 'all'", specifier = "<26.0.0" },
+    { name = "packaging", specifier = "<26.0.0" },
     { name = "packaging", marker = "extra == 'dev'", specifier = "<26.0.0" },
     { name = "packaging", marker = "extra == 'docs'", specifier = "<26.0.0" },
-    { name = "packaging", marker = "extra == 'mongodb'", specifier = "<26.0.0" },
-    { name = "packaging", marker = "extra == 'nifi'", specifier = "<26.0.0" },
     { name = "pandas", marker = "extra == 'all'", specifier = "<2.2.0" },
     { name = "pandas", marker = "extra == 'databricks'", specifier = "<2.2.0" },
     { name = "pandas", marker = "extra == 'dev'", specifier = "<2.2.0" },
@@ -2665,6 +2663,8 @@ requires-dist = [
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'dev'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'docs'", specifier = ">=2.6.0,<3.0.0" },
     { name = "pyathena", extras = ["sqlalchemy"], marker = "extra == 'integration-tests'", specifier = ">=2.6.0,<3.0.0" },
+    { name = "pycarlo", marker = "extra == 'all'", specifier = ">=0.10.0,<1.0.0" },
+    { name = "pycarlo", marker = "extra == 'montecarlo'", specifier = ">=0.10.0,<1.0.0" },
     { name = "pydantic", specifier = ">=2.4.0,<3.0.0" },
     { name = "pydantic", marker = "extra == 'all'", specifier = "<2.12" },
     { name = "pydantic", marker = "extra == 'dev'", specifier = ">=2.4.0,<2.12" },
@@ -2845,9 +2845,9 @@ requires-dist = [
     { name = "requests-ntlm", marker = "extra == 'powerbi-report-server'", specifier = "<2.0.0" },
     { name = "responses", marker = "extra == 'debug-recording'", specifier = ">=0.25.0,<1.0" },
     { name = "responses", marker = "extra == 'integration-tests'", specifier = ">=0.25.0,<1.0" },
-    { name = "ruamel-yaml", specifier = "<0.20.0" },
-    { name = "ruamel-yaml", marker = "extra == 'dev'", specifier = "<0.20.0" },
-    { name = "ruamel-yaml", marker = "extra == 'docs'", specifier = "<0.20.0" },
+    { name = "ruamel-yaml", specifier = "<0.19.0" },
+    { name = "ruamel-yaml", marker = "extra == 'dev'", specifier = "<0.19.0" },
+    { name = "ruamel-yaml", marker = "extra == 'docs'", specifier = "<0.19.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.11.7" },
     { name = "ruff", marker = "extra == 'docs'", specifier = "==0.11.7" },
     { name = "ruff", marker = "extra == 'lint'", specifier = "==0.11.7" },
@@ -3151,9 +3151,9 @@ requires-dist = [
     { name = "tableschema", marker = "extra == 'integration-tests'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 's3'", specifier = ">=1.20.2,<2.0.0" },
     { name = "tableschema", marker = "extra == 's3-slim'", specifier = ">=1.20.2,<2.0.0" },
-    { name = "tabulate", specifier = "<0.11.0" },
-    { name = "tabulate", marker = "extra == 'dev'", specifier = "<0.11.0" },
-    { name = "tabulate", marker = "extra == 'docs'", specifier = "<0.11.0" },
+    { name = "tabulate", specifier = "<0.10.0" },
+    { name = "tabulate", marker = "extra == 'dev'", specifier = "<0.10.0" },
+    { name = "tabulate", marker = "extra == 'docs'", specifier = "<0.10.0" },
     { name = "tenacity", marker = "extra == 'all'", specifier = ">=8.0.1,!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'athena'", specifier = "!=8.4.0,<9.0.0" },
     { name = "tenacity", marker = "extra == 'dataplex'", specifier = ">=8.0.1,<9.0.0" },
@@ -3219,8 +3219,8 @@ requires-dist = [
     { name = "types-requests", marker = "extra == 'docs'", specifier = ">=2.28.11.6,<=2.31.0.3" },
     { name = "types-six", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "types-six", marker = "extra == 'docs'", specifier = "<2.0.0" },
-    { name = "types-tabulate", marker = "extra == 'dev'", specifier = "<0.11.0" },
-    { name = "types-tabulate", marker = "extra == 'docs'", specifier = "<0.11.0" },
+    { name = "types-tabulate", marker = "extra == 'dev'", specifier = "<0.10.0" },
+    { name = "types-tabulate", marker = "extra == 'docs'", specifier = "<0.10.0" },
     { name = "types-toml", marker = "extra == 'dev'", specifier = "<0.11.0" },
     { name = "types-toml", marker = "extra == 'docs'", specifier = "<0.11.0" },
     { name = "types-ujson", marker = "extra == 'dev'", specifier = ">=5.2.0,<6.0.0" },
@@ -3324,7 +3324,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-data-factory", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "glue", "grafana", "hana", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "json-schema", "kafka", "kafka-connect", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "okta", "omni", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "profiling-ge", "pulsar", "qlik-sense", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sql-parser", "sql-queries", "sqlalchemy", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "cloud", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "acryl-datahub-classify"
@@ -9782,6 +9782,22 @@ sqlalchemy = [
 ]
 
 [[package]]
+name = "pycarlo"
+version = "0.12.447"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dataclasses-json" },
+    { name = "python-box" },
+    { name = "requests" },
+    { name = "responses" },
+    { name = "sgqlc" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/7d/f875a4b3bd5127b0363591b8c1a84f30709ca3bd05f61badfdf604fc3305/pycarlo-0.12.447.tar.gz", hash = "sha256:f17e18d7217870331d9de2dacd43cd05cb5aae3908699e1f06fd7af6bcf73d3e", size = 1528023, upload-time = "2026-06-01T21:53:12.618Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e2/12/91653fe7e2a42d7a4c5105a4f27b4a6e13e4e06a8065b1f986308e265e1b/pycarlo-0.12.447-py3-none-any.whl", hash = "sha256:677054f42021d2d8d165d3ebe3c86de4634fd5d1bb6e8a64a260e7d04f3f92d3", size = 997532, upload-time = "2026-06-01T21:53:10.958Z" },
+]
+
+[[package]]
 name = "pycountry"
 version = "26.2.16"
 source = { registry = "https://pypi.org/simple" }
@@ -10550,6 +10566,29 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/82/4c9ecabab13363e72d880f2fb504c5f750433b2b6f16e99f4ec21ada284c/pytest_timeout-2.4.0.tar.gz", hash = "sha256:7e68e90b01f9eff71332b25001f85c75495fc4e3a836701876183c4bcfd0540a", size = 17973, upload-time = "2025-05-05T19:44:34.99Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/fa/b6/3127540ecdf1464a00e5a01ee60a1b09175f6913f0644ac748494d9c4b21/pytest_timeout-2.4.0-py3-none-any.whl", hash = "sha256:c42667e5cdadb151aeb5b26d114aff6bdf5a907f176a007a30b940d3d865b5c2", size = 14382, upload-time = "2025-05-05T19:44:33.502Z" },
+]
+
+[[package]]
+name = "python-box"
+version = "7.4.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/0f/0f/34e7ee0a72f1464b4c7a2e8bafb389f230477256af586bc82bcfad85295a/python_box-7.4.1.tar.gz", hash = "sha256:e412e36c25fca8223560516d53ef6c7993591c3b0ec8bb4ec582bf7defdd79f0", size = 49859, upload-time = "2026-02-21T16:21:16.008Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f6/7f/0ff288dedf965f504de7a8d9d7353f7b7e57bf18ce9beb328bad49dff026/python_box-7.4.1-cp310-cp310-macosx_10_9_universal2.whl", hash = "sha256:e724eb25bfda0f1dbbe79c8a35ce8877d8ad7afbdd9396757c6f509f0e742f8c", size = 1877032, upload-time = "2026-02-21T16:21:59.509Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/d0/e211693f3ac4f11b553f214fcf2a2687be42052ad6905832258d451003b7/python_box-7.4.1-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:ee7bb8b0c4d1a07f12454a1edc1a936c4bf952adead3eb40c38aee600a2b605b", size = 4307977, upload-time = "2026-02-21T16:26:01.465Z" },
+    { url = "https://files.pythonhosted.org/packages/47/94/94690a217ecb1333a8d796698176456bc03cdf707d903a6bd1aab022a497/python_box-7.4.1-cp310-cp310-win_amd64.whl", hash = "sha256:526dcc3d82a6957b177313e8704ede431b9add0209b76d716eb232c9a5d283e5", size = 1317804, upload-time = "2026-02-21T16:21:58.2Z" },
+    { url = "https://files.pythonhosted.org/packages/f8/a8/c8bcd3ff0905ec549273ea3485e6b9f2039f57baab419123fb18f964f829/python_box-7.4.1-cp311-cp311-macosx_10_9_universal2.whl", hash = "sha256:3f76dad8be9d57d65a3edc792b952f7afe3991515aa6eba616cf5efb2fbb2e0c", size = 1870869, upload-time = "2026-02-21T16:21:34.16Z" },
+    { url = "https://files.pythonhosted.org/packages/0f/bc/9382766d388e258363a18a094e251d2624e3c524614c733d1afa989d9770/python_box-7.4.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:c66582f41a94d46cb0896d468b0efebf9bc4c3a5634cd15373d871767c2e741d", size = 4494287, upload-time = "2026-02-21T16:26:03.131Z" },
+    { url = "https://files.pythonhosted.org/packages/8c/cf/b9d1d4550615f69f6f9c72767f026543442739e5c56adf6f844b50d88251/python_box-7.4.1-cp311-cp311-win_amd64.whl", hash = "sha256:43c62f66d694eb6410f51eb2eb5726f9b466e6f685e5dc90b5cd11f7b3047362", size = 1321085, upload-time = "2026-02-21T16:22:01.093Z" },
+    { url = "https://files.pythonhosted.org/packages/4d/d9/d05f317b38b42253422d8483f5d7dc16d382c99ddc253e426639a0f2f235/python_box-7.4.1-cp312-cp312-macosx_10_13_universal2.whl", hash = "sha256:dfb91effff00d9e23486c4f0db3b19e03d602ebb7c9e20fc6a287c704fad2552", size = 1849441, upload-time = "2026-02-21T16:21:37.314Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/a3/383eb3d658f36c6e531c8cf1e348ccb4b5031231df4aeb7742bb159a3166/python_box-7.4.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:b7f977f00e715b030cee6ffef2322ff8ce100ffbf1dbcc4ef91099c75752d5f8", size = 4485153, upload-time = "2026-02-21T16:26:04.507Z" },
+    { url = "https://files.pythonhosted.org/packages/65/f9/5de3c18415dd6f5286f00e6539c0ae3cceb1c6aaf28d1d5f17b0b568c97f/python_box-7.4.1-cp312-cp312-win_amd64.whl", hash = "sha256:2ca9a18fd15326bc267e9cc7e0e6e3a0cb78d11507940f43f687adf7e156d882", size = 1295520, upload-time = "2026-02-21T16:22:26.192Z" },
+    { url = "https://files.pythonhosted.org/packages/ec/e9/48d1b1eb21efc3f82a31b037b6903c9139018f686d96d251faa4cb0d593a/python_box-7.4.1-cp313-cp313-macosx_10_13_universal2.whl", hash = "sha256:85db37b43094bf6c4884b931fb149a7850db5ce331f6e191edf98b453e6cf2d6", size = 1845195, upload-time = "2026-02-21T16:21:46.235Z" },
+    { url = "https://files.pythonhosted.org/packages/da/79/48d38c855f277223caf3aa79518476f95abc07f04386940855b7bd3d95f6/python_box-7.4.1-cp313-cp313-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:bb204822c7638bd2dbed5c55d6ab264c6903c37d18dee5c45bdbda58b2e1e17a", size = 4468245, upload-time = "2026-02-21T16:26:05.701Z" },
+    { url = "https://files.pythonhosted.org/packages/17/1d/7a1e04f37674399e0f3076cfe1fa358f6a51540ae98299a06f2c0424c471/python_box-7.4.1-cp313-cp313-win_amd64.whl", hash = "sha256:615da3fafd41572aec1b905832555c0ea08b6fbc27cc917356e257a9a5721af7", size = 1295564, upload-time = "2026-02-21T16:22:36.547Z" },
+    { url = "https://files.pythonhosted.org/packages/94/a2/771b5e526bba2214ac2d30e321209a66680c40788616a45cf01005e95204/python_box-7.4.1-cp314-cp314-macosx_10_15_universal2.whl", hash = "sha256:33c6701faa51fd87f0dcc538873c0fad2b3a1cc3750eab85835cd071cadf1948", size = 1875508, upload-time = "2026-02-21T16:21:37.432Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/5f/0e7ea7640ba60ff459ce37e340d816ac5e91b7a9a7c3c161f9dabe622be6/python_box-7.4.1-cp314-cp314-win_amd64.whl", hash = "sha256:ae8c540a0457f52350211d24690211251912018e1e0c1857f50792729d6f562c", size = 1314304, upload-time = "2026-02-21T16:22:22.173Z" },
+    { url = "https://files.pythonhosted.org/packages/06/a6/5d3f3abf46b37aa44b1f6788d287c8b4f2319b55013191dddf25b9e6d62c/python_box-7.4.1-py3-none-any.whl", hash = "sha256:a3b0d84d003882fb6abe505b1b883b3a5dcbf226b0fe168d24bc5ff75d9826e5", size = 30402, upload-time = "2026-02-21T16:21:14.78Z" },
 ]
 
 [[package]]
@@ -11798,6 +11837,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/73e719955c59b8e424d015ab450f51c0af856ae46ea2da83eba51cc88de1/setuptools-81.0.0.tar.gz", hash = "sha256:487b53915f52501f0a79ccfd0c02c165ffe06631443a886740b91af4b7a5845a", size = 1198299, upload-time = "2026-02-06T21:10:39.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/e3/c164c88b2e5ce7b24d667b9bd83589cf4f3520d97cad01534cd3c4f55fdb/setuptools-81.0.0-py3-none-any.whl", hash = "sha256:fdd925d5c5d9f62e4b74b30d6dd7828ce236fd6ed998a08d81de62ce5a6310d6", size = 1062021, upload-time = "2026-02-06T21:10:37.175Z" },
+]
+
+[[package]]
+name = "sgqlc"
+version = "16.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/df/d9/84bb065daa089fd1609f3216f5a1703ed9df7be5e1ac04a330194dee8d75/sgqlc-16.5.tar.gz", hash = "sha256:93edcd29ee138f5305d13f211a2b2091bd77873c404c87b87ae16a4023c62d4a", size = 241469, upload-time = "2025-06-04T18:45:33.056Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ed/62/5b62d18b090546d978ad3788a027603f87b898b53b9772917bcf0eef846c/sgqlc-16.5-py3-none-any.whl", hash = "sha256:56952622e3fcd771e079de290cf8a244dc014cbd9b65059d04f262ec8d8f0f44", size = 82485, upload-time = "2025-06-04T18:45:30.046Z" },
 ]
 
 [[package]]

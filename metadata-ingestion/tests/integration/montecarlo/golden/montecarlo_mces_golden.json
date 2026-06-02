@@ -1,0 +1,449 @@
+[
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b2843a1305aa6f4b582535d82018dec7",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "mon-fresh-orders",
+                "mc_monitor_type": "FRESHNESS",
+                "mc_resource_id": "wh-snow",
+                "mc_dq_dimension": "FRESHNESS",
+                "mc_severity": "SEV-2"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "FRESHNESS",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders should update hourly"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b2843a1305aa6f4b582535d82018dec7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:7ff4d555b4f30def800acce4c440c952",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "mon-vol-orders",
+                "mc_monitor_type": "VOLUME",
+                "mc_resource_id": "wh-snow",
+                "mc_dq_dimension": "VOLUME",
+                "mc_severity": "SEV-3"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "VOLUME",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders row count should be stable"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:7ff4d555b4f30def800acce4c440c952",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:754c2789eabd4dac3167c376af98a919",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "mon-fresh-events",
+                "mc_monitor_type": "FRESHNESS",
+                "mc_resource_id": "wh-bq",
+                "mc_dq_dimension": "FRESHNESS",
+                "mc_severity": "SEV-2"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "FRESHNESS",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "events should be fresh"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:754c2789eabd4dac3167c376af98a919",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8bd78b6b9077b68c83254ff37dd969dd",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "mon-schema-customers",
+                "mc_monitor_type": "SCHEMA_CHANGE",
+                "mc_resource_id": "wh-snow",
+                "mc_dq_dimension": "SCHEMA",
+                "mc_severity": "SEV-4"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "SCHEMA_CHANGE",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.customers,PROD)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "customers schema should not drift"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8bd78b6b9077b68c83254ff37dd969dd",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec6fa5a89297c2d755c6f0746ce3e991",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "rule-orders-not-null",
+                "mc_monitor_type": "CUSTOM_SQL",
+                "mc_severity": "SEV-2"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "CUSTOM_SQL",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+                "logic": "SELECT count(*) FROM analytics.public.orders WHERE total < 0"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "orders.total must be non-negative"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec6fa5a89297c2d755c6f0746ce3e991",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fc37e1c12b7bae319eb1d6c2b9d37404",
+    "changeType": "UPSERT",
+    "aspectName": "assertionInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "mc_monitor_uuid": "rule-events-freshness",
+                "mc_monitor_type": "FRESHNESS",
+                "mc_severity": "SEV-3"
+            },
+            "type": "CUSTOM",
+            "customAssertion": {
+                "type": "FRESHNESS",
+                "entity": "urn:li:dataset:(urn:li:dataPlatform:bigquery,proj.dataset.events,PROD)"
+            },
+            "source": {
+                "type": "EXTERNAL",
+                "created": {
+                    "time": 1780252200000,
+                    "actor": "urn:li:corpuser:__datahub_system"
+                }
+            },
+            "description": "events freshness SLA"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fc37e1c12b7bae319eb1d6c2b9d37404",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:montecarlo"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:b2843a1305aa6f4b582535d82018dec7",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1779264000000,
+            "runId": "alert-1",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "severity": "SEV-2",
+                    "priority": "P1",
+                    "subType": "FRESHNESS_ANOMALY"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:b2843a1305aa6f4b582535d82018dec7",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:7ff4d555b4f30def800acce4c440c952",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1779355800000,
+            "runId": "alert-2",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "severity": "SEV-3",
+                    "priority": "P2",
+                    "subType": "VOLUME_ANOMALY"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:7ff4d555b4f30def800acce4c440c952",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:ec6fa5a89297c2d755c6f0746ce3e991",
+    "changeType": "UPSERT",
+    "aspectName": "assertionRunEvent",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1779444000000,
+            "runId": "alert-3",
+            "asserteeUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.analytics.public.orders,PROD)",
+            "status": "COMPLETE",
+            "result": {
+                "type": "FAILURE",
+                "nativeResults": {
+                    "severity": "SEV-2",
+                    "priority": "P1",
+                    "subType": "CUSTOM_RULE"
+                }
+            },
+            "assertionUrn": "urn:li:assertion:ec6fa5a89297c2d755c6f0746ce3e991",
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:754c2789eabd4dac3167c376af98a919",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:8bd78b6b9077b68c83254ff37dd969dd",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "assertion",
+    "entityUrn": "urn:li:assertion:fc37e1c12b7bae319eb1d6c2b9d37404",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1780252200000,
+        "runId": "montecarlo-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
