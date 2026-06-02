@@ -68,7 +68,7 @@ framework_common = {
     "psutil>=5.8.0,<8.0.0",
     "Deprecated<2.0.0",
     "humanfriendly<11.0.0",
-    "packaging<26.0.0",
+    "packaging<27.0.0",
     # CVE-2025-30304, CVE-2025-32442: aiohttp request smuggling; patched releases are >=3.13.3.
     # Minimum patch is enforced for Docker via docker/snippets/ingestion/constraints.txt only —
     # do not add a lower bound here: Airflow 2.7.x constraints pin aiohttp==3.8.6 and
@@ -80,9 +80,12 @@ framework_common = {
     "requests_file<4.0.0",
     "jsonref<2.0.0",
     "jsonschema<5.0.0",
-    # From ruamel-yaml 0.19.0 (Dec 31, 2025) it requires ruamel-yaml-clibz as a mandatory dependency
-    # which is not available as wheel.
-    "ruamel.yaml<0.19.0",
+    # ruamel.yaml 0.19.0 (Dec 31, 2025) made the compiled ruamel.yaml.clib a
+    # mandatory dependency. It was originally capped at <0.19.0 because clib
+    # wheels were unavailable at the time; clib now ships wheels for all
+    # supported Pythons/platforms, and Airflow 3.2's constraints pin
+    # ruamel.yaml==0.19.1, so allow 0.19.x.
+    "ruamel.yaml<0.20.0",
     # Snappy-compatible codec for pgQueue payload decompression (Java Snappy); not Kafka-specific.
     "cramjam>=2.8.0,<3.0.0",
 }
