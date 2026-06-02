@@ -1,5 +1,6 @@
 import { BarChart, GraphCard } from '@components';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';
@@ -10,7 +11,7 @@ import GraphPopover from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/gra
 import MonthOverMonthPill from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MonthOverMonthPill';
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
-import { AGGRAGATION_TIME_RANGE_OPTIONS } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import { getAggregationTimeRangeOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByTimeRange from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByTimeRange';
 import {
     getPopoverTimeFormat,
@@ -18,10 +19,10 @@ import {
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { formatNumberWithoutAbbreviation } from '@src/app/shared/formatNumber';
-import { pluralize } from '@src/app/shared/textUtil';
 import { TimeRange } from '@src/types.generated';
 
 const QueryCountChart = () => {
+    const { t } = useTranslation('entity.profile.stats');
     const {
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
         statsEntityUrn,
@@ -30,7 +31,8 @@ const QueryCountChart = () => {
         setSectionState,
     } = useStatsSectionsContext();
 
-    const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
+    const aggregationTimeRangeOptions = useMemo(() => getAggregationTimeRangeOptions(), []);
+    const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(aggregationTimeRangeOptions, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
 
     const {
@@ -65,7 +67,10 @@ const QueryCountChart = () => {
                 popoverRenderer={(datum: ChartData) => (
                     <GraphPopover
                         header={getPopoverTimeFormat(groupInterval, datum.x)}
-                        value={`${formatNumberWithoutAbbreviation(datum.y)} ${pluralize(datum.y, 'Query')}`}
+                        value={t('queryCountChart.query', {
+                            count: datum.y,
+                            formattedCount: formatNumberWithoutAbbreviation(datum.y),
+                        })}
                         pills={<MonthOverMonthPill value={datum.mom} />}
                     />
                 )}
@@ -73,7 +78,7 @@ const QueryCountChart = () => {
         );
     };
 
-    const chartName = 'Daily Query Count';
+    const chartName = t('queryCountChart.title');
 
     return (
         <GraphCard
@@ -93,7 +98,7 @@ const QueryCountChart = () => {
             )}
             loading={loading}
             isEmpty={chartData.length === 0 || !canViewDatasetUsage}
-            emptyContent={!canViewDatasetUsage && <NoPermission statName="daily query count" />}
+            emptyContent={!canViewDatasetUsage && <NoPermission statName={t('queryCountChart.statName')} />}
             moreInfoModalContent={<MoreInfoModalContent />}
         />
     );

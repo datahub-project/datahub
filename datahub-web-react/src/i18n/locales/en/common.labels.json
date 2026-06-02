@@ -1,9 +1,15 @@
 {
     "category": "Category",
+    "column": "Column",
+    "columns": "Columns",
+    "description": "Description",
     "details": "Details",
     "na": "N/A",
     "name": "Name",
+    "rows": "Rows",
     "status": "Status",
     "tags": "Tags",
-    "type": "type"
+    "title": "Title",
+    "type": "Type",
+    "usage": "Usage"
 }

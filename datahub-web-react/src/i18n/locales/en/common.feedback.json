@@ -1,4 +1,9 @@
 {
+    "clickToCopy": "Click to copy",
+    "copied": "Copied",
+    "copiedSuccess": "Copied!",
     "loading": "Loading...",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "updated": "Updated!",
+    "updating": "Updating..."
 }

@@ -127,6 +127,8 @@ const PATTERNS_TO_EXCLUDE_UNTRANSLATABLE_ATTRIBUTES = [
     '.*TestId$',
     '.*variant$',
     '.*Variant$',
+    '.*weight$',
+    '.*Weight$',
     '.*width$',
     '.*Width$',
 ];
