@@ -88,6 +88,13 @@ jobs:
             extra_pip_requirements: "apache-airflow~=3.2.0 apache-airflow-providers-openlineage>=2.1.0"
             extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.2.0/constraints-3.11.txt"
             extra_pip_extras: ""
+          # Python 3.12 coverage. Paired with Airflow 3.1 because 3.2's py3.12
+          # constraints pin setuptools==82, which conflicts with acryl-datahub's
+          # setuptools<82 cap (setuptools 82 removed pkg_resources).
+          - python-version: "3.12"
+            extra_pip_requirements: "apache-airflow~=3.1.0 apache-airflow-providers-openlineage>=2.1.0"
+            extra_pip_constraints: "-c https://raw.githubusercontent.com/apache/airflow/constraints-3.1.0/constraints-3.12.txt"
+            extra_pip_extras: ""
       fail-fast: false
     steps:
       - name: Set up JDK 21
