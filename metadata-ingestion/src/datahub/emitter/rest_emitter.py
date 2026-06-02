@@ -938,7 +938,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     else None
                 )
                 logger.debug(
-                    "Sent MCP batch successfully chunk=%d/%d method=%s items=%d status=%d trace_id=%s",
+                    "Sent MCP batch chunk=%d/%d method=%s items=%d status=%d trace_id=%s",
                     chunk_index,
                     total_chunks,
                     method,
@@ -1034,7 +1034,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 else None
             )
             logger.debug(
-                "Sent MCP batch successfully chunk=%d/%d items=%d status=%d trace_id=%s",
+                "Sent MCP batch chunk=%d/%d items=%d status=%d trace_id=%s",
                 chunk_index,
                 len(chunks),
                 len(mcp_chunk),
