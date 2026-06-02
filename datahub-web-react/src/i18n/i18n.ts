@@ -18,6 +18,8 @@ export const NAMESPACES = [
     'entity.profile.stats',
     'entity.profile.view',
     'entity.views',
+    'governance.glossary',
+    'governance.structured-properties',
     'home.v2',
     'home.v3',
     'modules',

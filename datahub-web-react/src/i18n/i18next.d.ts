@@ -12,6 +12,8 @@ import type enEntityProfileStats from '@src/i18n/locales/en/entity.profile.stats
 import type enEntityProfileValidations from '@src/i18n/locales/en/entity.profile.validations.json';
 import type enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.json';
 import type enEntityViews from '@src/i18n/locales/en/entity.views.json';
+import type enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
+import type enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
 import type enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import type enHomeV3 from '@src/i18n/locales/en/home.v3.json';
 import type enModules from '@src/i18n/locales/en/modules.json';
@@ -40,6 +42,8 @@ declare module 'i18next' {
             'entity.profile.stats': typeof enEntityProfileStats;
             'entity.profile.view': typeof enEntityProfileView;
             'entity.views': typeof enEntityViews;
+            'governance.glossary': typeof enGovernanceGlossary;
+            'governance.structured-properties': typeof enGovernanceStructuredProperties;
             'home.v2': typeof enHomeV2;
             'home.v3': typeof enHomeV3;
             modules: typeof enModules;
