@@ -5,15 +5,10 @@ Utilities for extracting attributes from Airflow 3 TaskInstance/RuntimeTaskInsta
 import logging
 from typing import TYPE_CHECKING, Dict
 
-import airflow
-import packaging.version
-
 if TYPE_CHECKING:
     from airflow.models import TaskInstance
 
 logger = logging.getLogger(__name__)
-
-AIRFLOW_VERSION = packaging.version.parse(airflow.__version__)
 
 
 def _get_duration_attribute(ti: "TaskInstance") -> Dict[str, str]:
@@ -107,6 +102,5 @@ def get_task_instance_attributes(ti: "TaskInstance") -> Dict[str, str]:
 
 
 __all__ = [
-    "AIRFLOW_VERSION",
     "get_task_instance_attributes",
 ]

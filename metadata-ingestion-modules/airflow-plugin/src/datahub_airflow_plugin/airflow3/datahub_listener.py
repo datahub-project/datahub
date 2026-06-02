@@ -74,9 +74,6 @@ from datahub_airflow_plugin.entities import (
     entities_to_dataset_urn_list,
 )
 
-# Airflow 3.0+ uses OpenLineage native integration; no extractors here.
-ExtractorManager = None  # type: ignore
-
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
     from airflow.models import DagRun, TaskInstance
@@ -308,20 +305,8 @@ class DataHubListener:
         self._emitter: Optional[Emitter] = None
         self._graph: Optional[DataHubGraph] = None
 
-        # For Airflow 3.0+, we don't need TaskHolder (dict is used as placeholder)
-        self._task_holder: Dict[str, Any] = {}
-
         # Cache initial datajob objects to merge with completion events
         self._datajob_holder: Dict[str, DataJob] = {}
-
-        # Airflow 3.0+ doesn't use extractors
-        self.extractor_manager = None
-
-        # Note: in some older Airflow releases the listener loader required the
-        # listener object to inherit from types.ModuleType. We've never enabled
-        # that workaround here and have not seen failures; keeping the assignment
-        # commented in case the issue resurfaces.
-        # self.__class__ = types.ModuleType
 
     def _get_emitter(self):
         """

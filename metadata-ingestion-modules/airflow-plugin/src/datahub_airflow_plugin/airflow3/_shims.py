@@ -36,13 +36,6 @@ try:
     from airflow.providers.openlineage.plugins.openlineage import (
         OpenLineageProviderPlugin as OpenLineagePlugin,
     )
-    from airflow.providers.openlineage.utils.utils import (
-        get_operator_class,
-        try_import_from_string,
-    )
-
-    # Native provider doesn't need TaskHolder, use dict as placeholder
-    TaskHolder = dict  # type: ignore
 
     def redact_with_exclusions(source: dict) -> dict:
         """Compatibility shim - native provider doesn't expose this."""
@@ -50,10 +43,7 @@ try:
 
 except ImportError:
     # Native provider not installed
-    TaskHolder = dict  # type: ignore
     OpenLineagePlugin = None  # type: ignore
-    get_operator_class = None  # type: ignore
-    try_import_from_string = None  # type: ignore
 
     def redact_with_exclusions(source: dict) -> dict:
         return source
@@ -78,10 +68,7 @@ __all__ = [
     "Operator",
     "MappedOperator",
     "ExternalTaskSensor",
-    "TaskHolder",
     "OpenLineagePlugin",
-    "get_operator_class",
-    "try_import_from_string",
     "redact_with_exclusions",
     "get_task_inlets",
     "get_task_outlets",
