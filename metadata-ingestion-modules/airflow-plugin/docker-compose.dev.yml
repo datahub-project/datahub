@@ -1,0 +1,42 @@
+services:
+  airflow-dev:
+    build:
+      context: ../..
+      dockerfile: metadata-ingestion-modules/airflow-plugin/Dockerfile.dev
+    image: datahub-airflow-dev:latest
+    environment:
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__DAGS_FOLDER: /opt/airflow/dags
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__DATAHUB__CONN_ID: datahub_rest_default
+      AIRFLOW__DATAHUB__ENABLE_DATAJOB_LINEAGE: "true"
+      AIRFLOW__DATAHUB__CAPTURE_AIRFLOW_ASSETS: "true"
+      AIRFLOW__DATAHUB__CLUSTER: PROD
+      # Required by the Airflow 3 listener to initialise OpenLineage
+      AIRFLOW__OPENLINEAGE__TRANSPORT: '{"type": "console"}'
+      # Airflow 3.x SimpleAuthManager: define users as "username:role" pairs
+      AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS: "admin:Admin"
+      # DataHub REST connection as an env var — works in ALL Airflow 3.x listener
+      # contexts (env var connections bypass Connection.get() DB lookup).
+      # Token goes in "password" field so the listener reads it via conn.password.
+      AIRFLOW_CONN_DATAHUB_REST_DEFAULT: >-
+        {"conn_type": "datahub-rest", "host": "http://host.docker.internal:8080", "password": "${DATAHUB_TOKEN}"}
+      # Pass your token: DATAHUB_TOKEN=xxx docker compose -f docker-compose.dev.yml up
+      DATAHUB_TOKEN: ${DATAHUB_TOKEN}
+    volumes:
+      # Live source mounts — plugin/SDK edits take effect without a rebuild
+      - ../../metadata-ingestion:/opt/app/metadata-ingestion
+      - .:/opt/app/airflow-plugin
+      # Test DAGs (airflow_asset_iolets.py with the AssetAlias task lives here)
+      - ./tests/integration/dags/airflow3:/opt/airflow/dags
+      # Persistent SQLite DB so connections and run history survive restarts
+      - airflow-dev-data:/opt/airflow
+    ports:
+      - "8793:8080"
+    entrypoint: ["/bin/bash", "/opt/app/airflow-plugin/scripts/dev-entrypoint.sh"]
+    extra_hosts:
+      # Makes host.docker.internal resolve on Linux; no-op on macOS Docker Desktop
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  airflow-dev-data:
