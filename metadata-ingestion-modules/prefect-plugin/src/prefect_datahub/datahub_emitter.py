@@ -421,6 +421,7 @@ class DatahubEmitter(Block):
         try:
             assert flow_run_ctx.flow_run
 
+            get_run_logger().info("Emitting tasks to datahub...")
             graph_json = run_coro_as_sync(
                 self._get_flow_run_graph(str(flow_run_ctx.flow_run.id))
             )
