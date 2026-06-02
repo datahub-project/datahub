@@ -2,6 +2,7 @@ package com.linkedin.datahub.upgrade.system.restoreindices.glossary;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.DataMap;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
@@ -13,10 +14,16 @@ import com.linkedin.glossary.GlossaryNodeInfo;
 import com.linkedin.glossary.GlossaryTermInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.key.DataHubUpgradeKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.utils.EntityKeyUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.upgrade.DataHubUpgradeRequest;
+import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -36,16 +43,21 @@ import lombok.extern.slf4j.Slf4j;
 public class RestoreGlossaryIndicesStep implements UpgradeStep {
 
   private static final String STEP_ID = "restore-glossary-indices-ui";
+  private static final String VERSION = "1";
   private static final Integer BATCH_SIZE = 1000;
 
   private final EntityService<?> _entityService;
   private final EntitySearchService _entitySearchService;
+  private final Urn _upgradeUrn;
 
   public RestoreGlossaryIndicesStep(
       @Nonnull final EntityService<?> entityService,
       @Nonnull final EntitySearchService entitySearchService) {
     _entityService = entityService;
     _entitySearchService = entitySearchService;
+    _upgradeUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(
+            new DataHubUpgradeKey().setId(STEP_ID), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   @Override
@@ -60,6 +72,30 @@ public class RestoreGlossaryIndicesStep implements UpgradeStep {
 
   @Override
   public boolean skip(final UpgradeContext context) {
+    try {
+      EntityResponse response =
+          _entityService.getEntityV2(
+              context.opContext(),
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              _upgradeUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
+        DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
+        if (request.hasVersion() && request.getVersion().equals(VERSION)) {
+          log.info("Step {} version {} already completed. Skipping.", STEP_ID, VERSION);
+          return true;
+        }
+      }
+    } catch (Exception e) {
+      log.error("Error checking upgrade history for {}. Proceeding with upgrade.", STEP_ID, e);
+    }
     return false;
   }
 
@@ -67,13 +103,49 @@ public class RestoreGlossaryIndicesStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return context -> {
       try {
+        ingestUpgradeRequest(context.opContext());
         execute(context.opContext());
+        ingestUpgradeResult(context.opContext());
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
       } catch (Exception e) {
         log.error("Failed to restore glossary indices", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
+  }
+
+  private void ingestUpgradeRequest(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeRequest()
+                .setTimestampMs(System.currentTimeMillis())
+                .setVersion(VERSION)));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
+  }
+
+  private void ingestUpgradeResult(@Nonnull final OperationContext opContext) throws Exception {
+    final AuditStamp auditStamp =
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final MetadataChangeProposal proposal = new MetadataChangeProposal();
+    proposal.setEntityUrn(_upgradeUrn);
+    proposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+    proposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
+    proposal.setAspect(
+        GenericRecordUtils.serializeAspect(
+            new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis())));
+    proposal.setChangeType(com.linkedin.events.metadata.ChangeType.UPSERT);
+    _entityService.ingestProposal(opContext, proposal, auditStamp, false);
   }
 
   private void execute(@Nonnull final OperationContext systemOperationContext) throws Exception {
