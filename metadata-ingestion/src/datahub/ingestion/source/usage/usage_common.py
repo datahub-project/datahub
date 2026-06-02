@@ -1,11 +1,10 @@
 import dataclasses
 import logging
-from collections import defaultdict
+import os
 from datetime import datetime
 from typing import (
     Callable,
     Counter,
-    Dict,
     Generic,
     Iterable,
     List,
@@ -26,12 +25,17 @@ from datahub.configuration.time_window_config import (
     get_time_bucket,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetFieldUsageCountsClass,
     DatasetUsageStatisticsClass,
     DatasetUserUsageCountsClass,
     TimeWindowSizeClass,
+)
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    FileBackedDict,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -41,6 +45,36 @@ ResourceType = TypeVar("ResourceType")
 
 # The total number of characters allowed across all queries in a single workunit.
 DEFAULT_QUERIES_CHARACTER_LIMIT = 24000
+
+# Default in-memory LRU cache size (number of GenericAggregatedDataset objects) for the
+# SQLite-backed usage aggregation store. Larger than FileBackedDict's library default (900)
+# because usage events for many resources interleave, so a bigger cache reduces
+# deserialize/re-pickle churn on the hot path. Override via env var for heavy workloads.
+DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE = 2000
+
+
+def _get_usage_aggregator_cache_size() -> int:
+    raw = os.environ.get("DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE")
+    if raw is None:
+        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+    # A non-integer or non-positive override is treated as invalid: FileBackedDict
+    # requires a positive cache size (for_mutation asserts > 0), so falling back to the
+    # default avoids crashing on every event from a misconfigured env var.
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 0
+    if value <= 0:
+        logger.warning(
+            "Ignoring invalid DATAHUB_USAGE_AGGREGATOR_CACHE_SIZE=%r; using default %d",
+            raw,
+            DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE,
+        )
+        return DEFAULT_USAGE_AGGREGATOR_CACHE_SIZE
+    return value
+
+
+USAGE_AGGREGATOR_CACHE_SIZE = _get_usage_aggregator_cache_size()
 
 
 def default_user_urn_builder(email: str) -> str:
@@ -240,14 +274,41 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         return v
 
 
-class UsageAggregator(Generic[ResourceType]):
+class UsageAggregator(Generic[ResourceType], Closeable):
     # TODO: Move over other connectors to use this class
 
-    def __init__(self, config: BaseUsageConfig):
+    def __init__(
+        self,
+        config: BaseUsageConfig,
+        *,
+        shared_connection: Optional[ConnectionWrapper] = None,
+        cache_max_size: int = USAGE_AGGREGATOR_CACHE_SIZE,
+    ) -> None:
+        # FileBackedDict.for_mutation asserts cache_max_size > 0; fail fast with a clear
+        # message instead of crashing on the first aggregate_event.
+        if cache_max_size <= 0:
+            raise ValueError(f"cache_max_size must be positive, got {cache_max_size}")
         self.config = config
-        self.aggregation: Dict[
-            datetime, Dict[ResourceType, GenericAggregatedDataset[ResourceType]]
-        ] = defaultdict(dict)
+        # Map of "<bucket_millis>@<resource>" -> GenericAggregatedDataset.
+        # Backed by SQLite so high-cardinality query/user/column counters spill to disk
+        # instead of growing unbounded in memory.
+        self._aggregation: FileBackedDict[GenericAggregatedDataset[ResourceType]] = (
+            FileBackedDict(
+                shared_connection=shared_connection,
+                tablename="usage_aggregation",
+                cache_max_size=cache_max_size,
+            )
+        )
+
+    @staticmethod
+    def _make_key(floored_ts: datetime, resource: ResourceType) -> str:
+        # The (time_bucket, str(resource)) pair IS the aggregation identity: resources
+        # whose str() are equal are intentionally aggregated together. ResourceType must
+        # therefore have a str() that stably and uniquely identifies it. This holds for
+        # UrnStr (identity) and for usage-path TableReference (str() omits last_updated,
+        # which the usage flow never sets — see TableReference.__str__). A ResourceType
+        # whose str() is lossy w.r.t. its __eq__ would silently merge distinct resources.
+        return f"{int(floored_ts.timestamp() * 1000)}@{resource}"
 
     def aggregate_event(
         self,
@@ -260,13 +321,17 @@ class UsageAggregator(Generic[ResourceType]):
         count: int = 1,
     ) -> None:
         floored_ts: datetime = get_time_bucket(start_time, self.config.bucket_duration)
-        self.aggregation[floored_ts].setdefault(
-            resource,
+        key = self._make_key(floored_ts, resource)
+        # for_mutation loads-or-creates and marks the value dirty so the in-place
+        # counter update below survives cache eviction back to SQLite.
+        agg = self._aggregation.for_mutation(
+            key,
             GenericAggregatedDataset[ResourceType](
                 bucket_start_time=floored_ts,
                 resource=resource,
             ),
-        ).add_read_entry(
+        )
+        agg.add_read_entry(
             user,
             query,
             fields,
@@ -279,14 +344,16 @@ class UsageAggregator(Generic[ResourceType]):
         resource_urn_builder: Callable[[ResourceType], str],
         user_urn_builder: Optional[Callable[[str], str]] = None,
     ) -> Iterable[MetadataWorkUnit]:
-        for time_bucket in self.aggregation.values():
-            for aggregate in time_bucket.values():
-                yield aggregate.make_usage_workunit(
-                    bucket_duration=self.config.bucket_duration,
-                    top_n_queries=self.config.top_n_queries,
-                    format_sql_queries=self.config.format_sql_queries,
-                    include_top_n_queries=self.config.include_top_n_queries,
-                    resource_urn_builder=resource_urn_builder,
-                    user_urn_builder=user_urn_builder,
-                    queries_character_limit=self.config.queries_character_limit,
-                )
+        for aggregate in self._aggregation.values():
+            yield aggregate.make_usage_workunit(
+                bucket_duration=self.config.bucket_duration,
+                top_n_queries=self.config.top_n_queries,
+                format_sql_queries=self.config.format_sql_queries,
+                include_top_n_queries=self.config.include_top_n_queries,
+                resource_urn_builder=resource_urn_builder,
+                user_urn_builder=user_urn_builder,
+                queries_character_limit=self.config.queries_character_limit,
+            )
+
+    def close(self) -> None:
+        self._aggregation.close()

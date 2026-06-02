@@ -582,7 +582,11 @@ class SqlParsingAggregator(Closeable):
         self._usage_aggregator: Optional[UsageAggregator[UrnStr]] = None
         if self.generate_usage_statistics:
             assert self.usage_config is not None
-            self._usage_aggregator = UsageAggregator(config=self.usage_config)
+            self._usage_aggregator = UsageAggregator(
+                config=self.usage_config,
+                shared_connection=self._shared_connection,
+            )
+            self._exit_stack.push(self._usage_aggregator)
 
         # Query usage aggregator.
         # Map of query ID -> { bucket -> count }
