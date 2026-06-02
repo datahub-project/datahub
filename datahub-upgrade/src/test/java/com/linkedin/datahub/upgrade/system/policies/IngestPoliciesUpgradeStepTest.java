@@ -98,7 +98,7 @@ public class IngestPoliciesUpgradeStepTest {
     step.executable().apply(mockUpgradeContext);
 
     // Non-editable: hasPolicy check skipped — ingestPolicy always attempted without existence check
-    verify(mockEntityService, never()).getAspect(any(), any(), any(), anyLong());
+    verify(mockEntityService, never()).getAspect(any(), any(), any(), eq(0));
   }
 
   @Test
@@ -133,7 +133,7 @@ public class IngestPoliciesUpgradeStepTest {
             true);
 
     // Policy already exists — getAspect returns non-null
-    when(mockEntityService.getAspect(any(), any(), any(), anyLong()))
+    when(mockEntityService.getAspect(any(), any(), any(), eq(0L)))
         .thenReturn(new DataHubPolicyInfo());
     when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
 
