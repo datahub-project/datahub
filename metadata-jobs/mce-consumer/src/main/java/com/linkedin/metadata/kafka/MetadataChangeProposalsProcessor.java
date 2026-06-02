@@ -1,169 +1,55 @@
 package com.linkedin.metadata.kafka;
 
-import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
-import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
-import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
-import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
-import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
-import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.Topics;
-import io.datahubproject.metadata.context.OperationContext;
-import io.opentelemetry.api.trace.Span;
-import io.opentelemetry.api.trace.StatusCode;
 import jakarta.annotation.PostConstruct;
-import java.io.IOException;
-import java.time.Duration;
-import java.util.List;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Component;
 
+/**
+ * Kafka transport entrypoint for single MCP processing via {@link MetadataChangeProposalConsumer}.
+ * Follow-up: align remaining split-path processors on {@link InboundMetadataEnvelope} (see PE
+ * {@code consumeEnvelope} pattern).
+ */
 @Slf4j
 @Component
 @Import({RestliEntityClientFactory.class})
 @Conditional(MetadataChangeProposalProcessorCondition.class)
-@EnableKafka
 @RequiredArgsConstructor
 public class MetadataChangeProposalsProcessor {
-  private final OperationContext systemOperationContext;
-  private final SystemEntityClient entityClient;
-  private final EventProducer kafkaProducer;
 
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
 
-  private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
-
-  @Value(
-      "${FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME:"
-          + Topics.FAILED_METADATA_CHANGE_PROPOSAL
-          + "}")
-  private String fmcpTopicName;
+  private final ConsumerPauseSupport consumerPauseSupport;
+  private final MetadataChangeProposalConsumer metadataChangeProposalConsumer;
 
   @Value(MCP_CONSUMER_GROUP_ID_VALUE)
   private String mceConsumerGroupId;
 
   @PostConstruct
   public void registerConsumerThrottle() {
-    KafkaListenerUtil.registerThrottle(kafkaThrottle, provider, registry, mceConsumerGroupId);
+    KafkaListenerUtil.registerThrottle(
+        kafkaThrottle, provider, consumerPauseSupport, mceConsumerGroupId);
   }
 
-  @KafkaListener(
-      id = MCP_CONSUMER_GROUP_ID_VALUE,
-      topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = MCP_EVENT_CONSUMER_NAME,
-      autoStartup = "false")
+  /** Used by {@link MetadataChangeProposalsKafkaListener} and tests. */
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
-    try {
-      systemOperationContext
-          .getMetricUtils()
-          .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-
-                // Dropwizard legacy
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-
-                // Micrometer with tags
-                // TODO: include priority level when available
-                metricUtils
-                    .getRegistry()
-                    .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                        "topic",
-                        consumerRecord.topic(),
-                        "consumer.group",
-                        mceConsumerGroupId)
-                    .record(Duration.ofMillis(queueTimeMs));
-              });
-      final GenericRecord record = consumerRecord.value();
-
-      log.info(
-          "Got MCP event key: {}, topic: {}, partition: {}, offset: {}, value size: {}, timestamp: {}",
-          consumerRecord.key(),
-          consumerRecord.topic(),
-          consumerRecord.partition(),
-          consumerRecord.offset(),
-          consumerRecord.serializedValueSize(),
-          consumerRecord.timestamp());
-
-      if (log.isDebugEnabled()) {
-        log.debug("Record {}", record);
-      }
-
-      final MetadataChangeProposal event;
-      try {
-        event = EventUtils.avroToPegasusMCP(record);
-
-        systemOperationContext.withQueueSpan(
-            "consume",
-            event.getSystemMetadata(),
-            consumerRecord.topic(),
-            () -> {
-              try {
-                Urn entityUrn = event.getEntityUrn();
-                String aspectName = event.hasAspectName() ? event.getAspectName() : null;
-                String entityType = event.hasEntityType() ? event.getEntityType() : null;
-                ChangeType changeType = event.hasChangeType() ? event.getChangeType() : null;
-                MDC.put(
-                    MDC_ENTITY_URN, Optional.ofNullable(entityUrn).map(Urn::toString).orElse(""));
-                MDC.put(MDC_ASPECT_NAME, aspectName);
-                MDC.put(MDC_ENTITY_TYPE, entityType);
-                MDC.put(
-                    MDC_CHANGE_TYPE,
-                    Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
-
-                if (log.isDebugEnabled()) {
-                  log.debug("MetadataChangeProposal {}", event);
-                }
-                entityClient.ingestProposal(systemOperationContext, event, false);
-
-                log.info("Successfully processed MCP event urn: {}", event.getEntityUrn());
-              } catch (Throwable throwable) {
-                log.error("MCP Processor Error", throwable);
-                log.error("Message: {}", record);
-                Span currentSpan = Span.current();
-                currentSpan.recordException(throwable);
-                currentSpan.setStatus(StatusCode.ERROR, throwable.getMessage());
-                currentSpan.setAttribute(MetricUtils.ERROR_TYPE, throwable.getClass().getName());
-
-                kafkaProducer.produceFailedMetadataChangeProposal(
-                    systemOperationContext, List.of(event), throwable);
-              }
-            },
-            MetricUtils.DROPWIZARD_NAME,
-            MetricUtils.name(this.getClass(), "consume"));
-      } catch (IOException e) {
-        log.error(
-            "Unrecoverable message deserialization error. Cannot forward to failure topic.", e);
-      }
-    } finally {
-      MDC.clear();
-    }
+    metadataChangeProposalConsumer.accept(
+        InboundMetadataEnvelope.fromKafka(consumerRecord, mceConsumerGroupId), mceConsumerGroupId);
   }
 }

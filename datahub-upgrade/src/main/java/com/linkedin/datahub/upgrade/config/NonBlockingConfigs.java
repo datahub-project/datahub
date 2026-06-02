@@ -19,6 +19,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.aspect.hooks.AspectMigrationMutatorChain;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
@@ -170,6 +171,7 @@ public class NonBlockingConfigs {
   @Autowired private OperationContext opContext;
 
   @Bean
+  @Conditional(KafkaMessagingEnabledCondition.class)
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);

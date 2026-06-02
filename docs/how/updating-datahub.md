@@ -44,6 +44,8 @@ Requirements:
 
 ### Breaking Changes
 
+- #17536: **(prefect-plugin)** The `datahub-prefect` package now requires **Prefect 3.x** (`>=3.0.0,<4.0.0`); Prefect 2.x is no longer supported. The Prefect entry point group also changed from `prefect.block` to `prefect.collections` to match Prefect 3's plugin discovery. **Action:** Upgrade Prefect to 3.x and re-register the DataHub block (`DatahubEmitter`) before upgrading the plugin.
+
 - **(Ingestion / PowerBI Report Server)** The `chart_pattern` config field has been removed from the `powerbi-report-server` source. If your recipe sets `chart_pattern`, ingestion will log a deprecation warning. **Migration:** remove `chart_pattern` from your recipe — chart-level filtering is not yet implemented for this connector.
 
 - **(Docker / local development)** Removed legacy root-level Docker Compose files (`docker/docker-compose*.yml`), shell scripts (`docker/quickstart.sh`, `docker/dev*.sh`, `docker/nuke.sh`), and old generated quickstart bundles under `docker/quickstart/` (except `docker-compose.quickstart-profile.yml`). **Migration:** use `datahub docker quickstart` for CLI installs; use `./gradlew quickstartDebug` or `scripts/dev/datahub-dev.sh start` for contributors; use `datahub docker nuke`, `./gradlew quickstartDebugNuke`, or `scripts/dev/datahub-dev.sh nuke` for teardown; customize installs from `docker/quickstart/docker-compose.quickstart-profile.yml` or profiles in `docker/profiles/`.
@@ -59,6 +61,12 @@ Requirements:
 ### Other Notable Changes
 
 - **(Ingestion / dbt)** dbt test assertion entities now emit an `ownership` aspect when the dbt test node has explicit owner metadata (`meta.owner` / `config.meta.owner`).
+
+- #17646 **(Ingestion / Dremio)** Query lineage and view-parent lineage emission now respect `schema_pattern` and `dataset_pattern` (and skip the `_accelerator_` reflection schema), matching the behavior of Snowflake and Redshift. Previously these filters only applied to the catalog walk: URNs discovered through `sys.jobs_recent` or view-parent references were emitted unconditionally, so DataHub materialized ghost dataset entities for filtered schemas with no parent container or browse path. A new report counter `lineage_dropped_filtered` records how many lineage references were skipped. **If you relied on lineage edges to filtered upstreams** (e.g. to keep references to system schemas that you excluded from the main catalog), widen `schema_pattern` / `dataset_pattern` to admit them — or run with the defaults, which allow everything.
+- #17648 **(Ingestion / Dremio)** Added DataHub platform mappings for several Dremio source types that previously fell through to a lowercased default: `BIGQUERY → bigquery`, `RESTCATALOG → iceberg` (Apache Polaris OSS, Nessie with Iceberg REST, AWS Glue Iceberg REST, S3 Tables, Confluent Tableflow, Microsoft OneLake), `SAPHANA → hana`, `SNOWFLAKEOPENCATALOG → iceberg` (Snowflake's hosted Polaris), and `UNITY → databricks` (Databricks Unity Catalog). Existing Dremio recipes that previously produced lineage URNs like `urn:li:dataPlatform:restcatalog` will now produce `urn:li:dataPlatform:iceberg` (etc.); update any URN-based lineage / dashboards that depend on the old values.
+
+- #17649 **(Ingestion / Dremio)** The `domain` recipe field now actually emits a `Domains` aspect for every Dremio container and dataset. Previously, the config field was documented and plumbed through to the aspect builder, but the aspect was never yielded, so the setting silently did nothing. Recipes that already set `domain` will now start attaching the configured domain to ingested entities — verify the domain URN/name is what you intend before upgrading. Bare names (e.g. `domain: marketing`) are now resolved against the live DataHub graph via `DomainRegistry` (same pattern as Snowflake/BigQuery), so the recipe must have a `datahub_api`/sink with a graph configured; otherwise pass a full `urn:li:domain:<id>`.
+- #17651 **(Ingestion / Dremio)** Dataset properties no longer emit a synthetic `created` timestamp when Dremio does not report one. Previously, missing creation timestamps surfaced as epoch 0 (1970-01-01) on the dataset properties aspect; the field is now omitted entirely. Dashboards or alerting that treated epoch 0 as a valid `created` time should treat it as missing instead.
 
 ## v1.6.0
 
