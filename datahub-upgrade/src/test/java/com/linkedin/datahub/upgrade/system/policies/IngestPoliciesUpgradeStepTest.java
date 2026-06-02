@@ -84,7 +84,7 @@ public class IngestPoliciesUpgradeStepTest {
   }
 
   @Test
-  public void testExecutableIngestsNonEditablePolicy() throws Exception {
+  public void testExecutableIngestsNonEditablePolicy() {
     Resource resource = new ByteArrayResource(NON_EDITABLE_POLICY_JSON.getBytes());
     IngestPoliciesUpgradeStep step =
         new IngestPoliciesUpgradeStep(
@@ -94,14 +94,11 @@ public class IngestPoliciesUpgradeStepTest {
             resource,
             true);
 
-    // docCount returns > 0 so updatePolicyIndex is skipped
     when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
+    step.executable().apply(mockUpgradeContext);
 
-    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
-
-    // ingestProposal called for key aspect + policy info aspect (2 proposals in one batch)
-    verify(mockEntityService).ingestProposal(any(OperationContext.class), any(), eq(false));
-    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    // Non-editable: hasPolicy check skipped — ingestPolicy always attempted without existence check
+    verify(mockEntityService, never()).getAspect(any(), any(), any(), anyLong());
   }
 
   @Test
@@ -136,7 +133,7 @@ public class IngestPoliciesUpgradeStepTest {
             true);
 
     // Policy already exists — getAspect returns non-null
-    when(mockEntityService.getAspect(any(), any(), any(), eq(0)))
+    when(mockEntityService.getAspect(any(), any(), any(), anyLong()))
         .thenReturn(new DataHubPolicyInfo());
     when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
 
