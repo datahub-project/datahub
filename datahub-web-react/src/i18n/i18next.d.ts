@@ -14,6 +14,7 @@ import type enEntityProfileView from '@src/i18n/locales/en/entity.profile.view.j
 import type enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import type enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import type enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import type enMisc from '@src/i18n/locales/en/misc.json';
 import type enModules from '@src/i18n/locales/en/modules.json';
 import type enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import type enSettingsPage from '@src/i18n/locales/en/settings.page.json';
@@ -42,6 +43,7 @@ declare module 'i18next' {
             'entity.views': typeof enEntityViews;
             'home.v2': typeof enHomeV2;
             'home.v3': typeof enHomeV3;
+            misc: typeof enMisc;
             modules: typeof enModules;
             'settings.features': typeof enSettingsFeatures;
             'settings.page': typeof enSettingsPage;

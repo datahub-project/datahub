@@ -20,6 +20,7 @@ export const NAMESPACES = [
     'entity.views',
     'home.v2',
     'home.v3',
+    'misc',
     'modules',
     'settings.features',
     'settings.page',
