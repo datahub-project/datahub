@@ -1,0 +1,22 @@
+source:
+  type: kinesis
+  config:
+    aws_config:
+      aws_endpoint_url: ${AWS_ENDPOINT_URL:-http://localhost:4566}
+      aws_region: us-east-1
+      aws_access_key_id: test
+      aws_secret_access_key: test
+    # platform_instance: omitted (None) — keeps ContainerKey GUID stable across runs.
+    include_streams: true
+    include_firehose: true
+    extract_tags: true
+    extract_owners: true
+    owner_tag_key: owner
+    destination_platform_map: {}
+    stream_pattern:
+      deny:
+        - "^_.*"
+sink:
+  type: file
+  config:
+    filename: ${OUTPUT_FILE}

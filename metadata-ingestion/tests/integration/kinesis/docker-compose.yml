@@ -1,0 +1,10 @@
+version: "3.8"
+services:
+  localstack:
+    image: localstack/localstack:3.0
+    ports:
+      - "4566:4566"
+    environment:
+      SERVICES: kinesis,firehose,s3,iam,sts
+      DEFAULT_REGION: us-east-1
+      DEBUG: "0"

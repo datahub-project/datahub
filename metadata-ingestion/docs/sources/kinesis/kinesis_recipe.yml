@@ -1,0 +1,101 @@
+pipeline_name: "kinesis_ingestion"
+source:
+  type: "kinesis"
+  config:
+    # One recipe per AWS region. Set a distinct platform_instance so
+    # streams in different regions / accounts do not collide on URN.
+    # platform_instance: "us-east-1-prod"
+    env: "PROD"
+
+    # Standard DataHub AWS connection config. Credentials are resolved by
+    # the boto3 chain (env vars, shared credentials file, IAM role on
+    # EC2/ECS/EKS, SSO profile). Prefer IAM roles where possible; the
+    # AWS_*_KEY env vars below are shown only for completeness.
+    # aws_config:
+      # aws_region: "us-west-2"
+      # aws_access_key_id: "${AWS_ACCESS_KEY_ID}"
+      # aws_secret_access_key: "${AWS_SECRET_ACCESS_KEY}"
+      # aws_role: "arn:aws:iam::123456789012:role/datahub-kinesis-ingest"
+
+    # --- Kinesis Data Streams (KDS) -----------------------------------
+    include_streams: true
+    stream_pattern:
+      # Exclude internal / debug / audit streams by default.
+      deny:
+        - "^_.*"
+
+    # --- Kinesis Data Firehose (KDF) ----------------------------------
+    include_firehose: true
+    delivery_stream_pattern:
+      allow:
+        - ".*"
+    include_table_lineage: true
+
+    # --- Tags & ownership ---------------------------------------------
+    extract_tags: true
+    extract_owners: true
+    # AWS resource-tag key whose value identifies the resource owner.
+    # Change this to match your tagging convention (e.g. "team",
+    # "data_owner").
+    owner_tag_key: "owner"
+
+    # --- Cross-platform lineage ---------------------------------------
+    # Required when a destination platform was ingested with a
+    # non-default platform_instance — without it, Firehose lineage
+    # edges reference valid-but-dead URNs. See the Limitations section
+    # of the connector docs.
+    #
+    # Allowed keys (validated at parse time):
+    #   s3, redshift, snowflake, iceberg, mongodb, elasticsearch, glue
+    #
+    # Per-destination fields:
+    #   platform_instance        — match the destination source's setting
+    #   env                      — match the destination source's env
+    #   convert_urns_to_lowercase — default True. Set False for
+    #                              case-sensitive destinations (Iceberg,
+    #                              MongoDB) or when the destination's own
+    #                              source has convert_urns_to_lowercase=False.
+    # destination_platform_map:
+      # snowflake:
+      #   platform_instance: "prod-snowflake-east"
+      #   env: "PROD"
+      #   convert_urns_to_lowercase: false  # only if Snowflake source also has this
+      # redshift:
+      #   platform_instance: "analytics-cluster"
+      #   env: "PROD"
+      # s3:
+      #   platform_instance: "data-lake-prod"
+      # iceberg:
+      #   convert_urns_to_lowercase: false  # Iceberg catalogs are case-sensitive
+
+    # --- Glue Schema Registry (optional) ------------------------------
+    # Disabled by default. Requires the extra `glue:Get*` / `glue:List*`
+    # IAM statement listed in the connector prerequisites.
+    glue_schema_registry:
+      enabled: true
+      registry_name: "default-registry"
+      # Explicit stream -> schema overrides — the recommended way to attach
+      # schemas. Unlike Kafka + Confluent Schema Registry, AWS does NOT define
+      # a relationship between a Kinesis stream and a schema; schemas are
+      # chosen per-record by producers. List your known stream->schema pairs
+      # explicitly:
+      stream_schema_map: {}
+      #   events: "events-v2"
+      #   clicks: "click-events-schema"
+      # Optional heuristic: look up a schema whose name == stream name.
+      # Off by default (no AWS-defined convention). Enable only if your
+      # organization has adopted schema-name == stream-name as an internal
+      # convention.
+      use_naming_convention: true
+
+    # --- Stateful ingestion (deletion detection) ----------------------
+    # Requires platform_instance to be set (it is, above).
+    stateful_ingestion:
+      enabled: true
+      remove_stale_metadata: true
+      fail_safe_threshold: 100
+
+# Default sink is datahub-rest, picked up from ~/.datahubenv (set via
+# `datahub init`). Override here only when you need a different target.
+# See https://docs.datahub.com/docs/metadata-ingestion/sink_docs/datahub
+# for customization options.
