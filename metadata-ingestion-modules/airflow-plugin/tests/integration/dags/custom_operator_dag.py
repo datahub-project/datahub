@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any, List, Tuple
 
 from airflow import DAG
-from airflow.models.baseoperator import BaseOperator
+from airflow.sdk import BaseOperator
 
 from datahub_airflow_plugin.entities import Dataset
 
@@ -62,7 +62,7 @@ with DAG(
     "custom_operator_dag",
     default_args=default_args,
     description="An example dag with custom operator",
-    schedule_interval=None,
+    schedule=None,
     tags=["example_tag"],
     catchup=False,
 ) as dag:

@@ -5,38 +5,27 @@ It covers:
 1. Assets with URI schemes (s3://, gs://, postgresql://)
 2. Plain name assets (like @asset decorator creates)
 3. Mixed with DataHub-native entities
-
-Note: Airflow Dataset was introduced in Airflow 2.4+.
-This DAG will not be loaded on Airflow < 2.4.
 """
 
 from datetime import datetime
 
-import airflow
-import packaging.version
-
-# airflow.datasets was introduced in Airflow 2.4
-# Skip this DAG on older versions
-if packaging.version.parse(airflow.version.version) < packaging.version.parse("2.4.0"):
-    raise ImportError("airflow.datasets requires Airflow 2.4+")
-
 from airflow import DAG
-from airflow.datasets import Dataset as AirflowDataset
 from airflow.operators.bash import BashOperator
+from airflow.sdk import Asset
 
 from datahub_airflow_plugin.entities import Dataset as DataHubDataset
 
-# Native Airflow Assets with different URI schemes
-s3_input = AirflowDataset("s3://my-bucket/input/data.parquet")
-gcs_input = AirflowDataset("gs://analytics-bucket/raw/events.json")
-postgres_input = AirflowDataset("postgresql://myhost/mydb/schema/source_table")
+# Native Airflow Assets with different URI schemes (using Airflow 3 Asset class)
+s3_input = Asset("s3://my-bucket/input/data.parquet")
+gcs_input = Asset("gs://analytics-bucket/raw/events.json")
+postgres_input = Asset("postgresql://myhost/mydb/schema/source_table")
 
 # Plain name asset (like @asset decorator creates)
-plain_asset = AirflowDataset("my_plain_asset")
+plain_asset = Asset("my_plain_asset")
 
 # Output assets
-s3_output = AirflowDataset("s3://my-bucket/output/processed.parquet")
-bigquery_output = AirflowDataset("bigquery://my-project/dataset/result_table")
+s3_output = Asset("s3://my-bucket/output/processed.parquet")
+bigquery_output = Asset("bigquery://my-project/dataset/result_table")
 
 with DAG(
     "airflow_asset_iolets",
