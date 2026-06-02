@@ -15,6 +15,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
+import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -26,6 +27,11 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class IngestPoliciesUpgradeStepTest {
+
+  private static final String EDITABLE_POLICY_JSON =
+      "[{\"urn\":\"urn:li:dataHubPolicy:test\","
+          + "\"info\":{\"type\":\"METADATA\",\"state\":\"ACTIVE\",\"editable\":true,"
+          + "\"actors\":{\"allUsers\":true},\"privileges\":[],\"displayName\":\"Test\"}}]";
 
   private static final String NON_EDITABLE_POLICY_JSON =
       "[{\"urn\":\"urn:li:dataHubPolicy:test\","
@@ -114,6 +120,28 @@ public class IngestPoliciesUpgradeStepTest {
     UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
 
     verify(mockEntityService).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verify(mockEntityService, never()).ingestProposal(any(), any(), eq(false));
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+  }
+
+  @Test
+  public void testExecutableSkipsEditablePolicyWhenExists() throws Exception {
+    Resource resource = new ByteArrayResource(EDITABLE_POLICY_JSON.getBytes());
+    IngestPoliciesUpgradeStep step =
+        new IngestPoliciesUpgradeStep(
+            mockEntityService,
+            mockEntitySearchService,
+            mockSearchDocumentTransformer,
+            resource,
+            true);
+
+    // Policy already exists — getAspect returns non-null
+    when(mockEntityService.getAspect(any(), any(), any(), eq(0)))
+        .thenReturn(new DataHubPolicyInfo());
+    when(mockEntitySearchService.docCount(any(), any())).thenReturn(1L);
+
+    UpgradeStepResult result = step.executable().apply(mockUpgradeContext);
+
     verify(mockEntityService, never()).ingestProposal(any(), any(), eq(false));
     assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
   }

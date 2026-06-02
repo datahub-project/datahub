@@ -175,6 +175,7 @@ public class IngestDefaultGlobalSettingsUpgradeStep implements UpgradeStep {
 
   private DataMap mergeDataMaps(final DataMap map1, final DataMap map2) {
     final DataMap result = new DataMap();
+    // TODO: Replace with a nested merge. This only copies top level keys.
     result.putAll(map1);
     result.putAll(map2);
     return result;
