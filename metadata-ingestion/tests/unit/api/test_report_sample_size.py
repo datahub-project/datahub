@@ -31,3 +31,54 @@ class TestReportSampleSizeFromEnvVars:
         assert (
             report._structured_logs._entries[StructuredLogLevel.WARN].max_elements == 75
         )
+
+    def test_context_list_respects_sample_size(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that the per-entry context LossyList respects the sample size env var.
+
+        When multiple datasets share the same error message they are grouped into one
+        StructuredLogEntry. The context list within that entry must honour
+        DATAHUB_REPORT_FAILURE_SAMPLE_SIZE so all affected datasets are visible.
+        """
+        monkeypatch.setenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "50")
+
+        report = SourceReport()
+        for i in range(30):
+            report.report_failure(
+                message="Error processing table", context=f"table_{i}"
+            )
+
+        failures = report._structured_logs._entries[StructuredLogLevel.ERROR]
+        entry = next(iter(failures.values()))
+        assert entry.context.max_elements == 50, (
+            "context LossyList max_elements should match DATAHUB_REPORT_FAILURE_SAMPLE_SIZE"
+        )
+        assert list(entry.context) == [f"table_{i}" for i in range(30)], (
+            "all 30 context items should be retained (30 < max_elements=50, no sampling)"
+        )
+
+    def test_context_list_truncates_at_configured_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Test that context items are sampled when count exceeds the configured limit.
+
+        This directly reproduces the original bug: before the fix, the context LossyList
+        was hardcoded to max_elements=10, so setting DATAHUB_REPORT_FAILURE_SAMPLE_SIZE=5
+        would still retain 10 items instead of 5, and entry.context.max_elements would be
+        10 rather than the configured 5.
+        """
+        monkeypatch.setenv("DATAHUB_REPORT_FAILURE_SAMPLE_SIZE", "5")
+
+        report = SourceReport()
+        for i in range(20):
+            report.report_failure(message="Permission denied", context=f"table_{i}")
+
+        failures = report._structured_logs._entries[StructuredLogLevel.ERROR]
+        entry = next(iter(failures.values()))
+        assert entry.context.max_elements == 5, (
+            "context LossyList max_elements should match DATAHUB_REPORT_FAILURE_SAMPLE_SIZE"
+        )
+        assert entry.context.sampled, (
+            "context should be sampled when entries (20) exceed max_elements (5)"
+        )
