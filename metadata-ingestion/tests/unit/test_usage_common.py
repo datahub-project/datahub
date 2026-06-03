@@ -549,3 +549,32 @@ def test_usage_aggregator_shared_connection_not_closed_on_close():
         conn.execute("SELECT 1").fetchone()
     finally:
         conn.close()
+
+
+def test_usage_aggregator_parity_with_colons_in_keys():
+    config = BaseUsageConfig()
+    day1 = datetime(2020, 1, 1)
+    events = [
+        (
+            "db:weird.tbl",
+            day1,
+            "SELECT a::int FROM t WHERE x = 'a:b'",
+            "u:1@x.com",
+            ["col:1"],
+            1,
+        ),
+        (
+            "db:weird.tbl",
+            day1,
+            "SELECT a::int FROM t WHERE x = 'a:b'",
+            "u:1@x.com",
+            ["col:1"],
+            1,
+        ),
+    ]
+    agg: UsageAggregator[str] = UsageAggregator(config)
+    _feed(agg, events)
+    actual = sorted(_normalize(wu) for wu in agg.generate_workunits(_urn))
+    agg.close()
+    expected = sorted(_normalize(wu) for wu in _reference_workunits(events, config))
+    assert actual == expected

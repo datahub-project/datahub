@@ -293,6 +293,8 @@ class UsageAggregator(Generic[ResourceType], Closeable):
 
         # FileBackedDict's bounded in-memory cache acts as the write buffer and dedups
         # repeated sets of the same key, so set unconditionally (no per-event read).
+        # This is last-write-wins (a deliberate, immaterial divergence from the prior
+        # first-write-wins, since resources with equal str() are interchangeable).
         self._resources[resource_key] = resource
         # Sentinel item records the group's existence even for denied/empty events, so
         # they still emit an empty workunit (matches the in-memory implementation).

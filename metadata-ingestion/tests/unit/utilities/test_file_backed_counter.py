@@ -83,3 +83,17 @@ def test_counter_increment_defaults_to_one():
     result = dict(c.most_common_by_group())
     c.close()
     assert result["g"] == [("a", 2)]
+
+
+def test_counter_flushes_on_del():
+    conn = ConnectionWrapper()
+    try:
+        c = FileBackedCounter(shared_connection=conn, tablename="del_counter")
+        c.increment("g", "a", 2)
+        del c  # __del__ -> close() -> flush; shared conn stays open
+        rows = conn.execute(
+            "SELECT group_key, item_key, cnt FROM del_counter"
+        ).fetchall()
+        assert [tuple(r) for r in rows] == [("g", "a", 2)]
+    finally:
+        conn.close()

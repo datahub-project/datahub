@@ -686,3 +686,6 @@ class FileBackedCounter(Closeable):
         if self._owns_connection:
             self._conn.close()
         self._closed = True
+
+    def __del__(self) -> None:
+        self.close()
