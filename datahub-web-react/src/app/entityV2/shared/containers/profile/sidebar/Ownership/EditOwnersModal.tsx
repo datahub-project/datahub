@@ -1,5 +1,6 @@
 import { Form, Typography, message } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
@@ -61,6 +62,8 @@ export const EditOwnersModal = ({
     title,
     defaultValues,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
+    const { t: tc } = useTranslation('common.actions');
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const { user } = useUserContext();
@@ -120,14 +123,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: 'Owners Added', duration: 2 });
+            message.success({ content: t('sidebar.ownership.ownersAddedSuccess'), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to add owners: \n ${e.message || ''}`,
+                        content: t('sidebar.ownership.ownersAddFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -148,14 +151,14 @@ export const EditOwnersModal = ({
                     },
                 },
             });
-            message.success({ content: 'Owners Removed', duration: 2 });
+            message.success({ content: t('sidebar.ownership.ownersRemovedSuccess'), duration: 2 });
             emitAnalytics();
         } catch (e: unknown) {
             message.destroy();
             if (e instanceof Error) {
                 message.error(
                     handleBatchError(urns, e, {
-                        content: `Failed to remove owners: \n ${e.message || ''}`,
+                        content: t('sidebar.ownership.ownersRemoveFailed', { message: e.message || '' }),
                         duration: 3,
                     }),
                 );
@@ -210,18 +213,23 @@ export const EditOwnersModal = ({
 
     return (
         <Modal
-            title={title || `${operationType === OperationType.ADD ? 'Add' : 'Remove'} Owners`}
+            title={
+                title ||
+                (operationType === OperationType.ADD
+                    ? t('sidebar.ownership.addOwnersTitle')
+                    : t('sidebar.ownership.removeOwnersTitle'))
+            }
             onCancel={onModalClose}
             keyboard
             dataTestId="add-owners-modal"
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onModalClose,
                 },
                 {
-                    text: 'Add',
+                    text: tc('add'),
                     id: 'addOwnerButton',
                     buttonDataTestId: 'modal-add-owner-button',
                     variant: 'filled',
@@ -232,21 +240,25 @@ export const EditOwnersModal = ({
             getContainer={getModalDomContainer}
         >
             <Form layout="vertical" colon={false}>
-                <Form.Item key="owners" name="owners" label={<Typography.Text strong>Owner</Typography.Text>}>
-                    <Typography.Paragraph>Find a user or group</Typography.Paragraph>
+                <Form.Item
+                    key="owners"
+                    name="owners"
+                    label={<Typography.Text strong>{t('sidebar.ownership.ownerLabel')}</Typography.Text>}
+                >
+                    <Typography.Paragraph>{t('sidebar.ownership.findUserOrGroupText')}</Typography.Paragraph>
                     <FormSection>
                         <ActorsSearchSelect
                             selectedActorUrns={selectedActorUrns}
                             onUpdate={handleActorsUpdate}
-                            placeholder="Search for users or groups..."
+                            placeholder={t('sidebar.ownership.searchUsersPlaceholder')}
                             width="full"
                             dataTestId="add-owners-select"
                         />
                     </FormSection>
                 </Form.Item>
                 {!hideOwnerType && (
-                    <Form.Item label={<Typography.Text strong>Type</Typography.Text>}>
-                        <Typography.Paragraph>Choose an owner type</Typography.Paragraph>
+                    <Form.Item label={<Typography.Text strong>{t('sidebar.ownership.typeLabel')}</Typography.Text>}>
+                        <Typography.Paragraph>{t('sidebar.ownership.chooseOwnerTypeText')}</Typography.Paragraph>
                         <Form.Item name="type">
                             {ownershipTypesLoading && <div />}
                             {!ownershipTypesLoading && (

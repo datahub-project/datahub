@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
@@ -20,7 +19,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -81,16 +79,18 @@ public class EntityAssertionsResolver
                     new HashSet<>(assertionUrns),
                     null);
 
-            // Step 3: Map GMS assertion model to GraphQL model
-            final List<EntityResponse> gmsResults = new ArrayList<>();
-            for (Urn urn : assertionUrns) {
-              gmsResults.add(entities.getOrDefault(urn, null));
-            }
+            // Step 3: Map GMS assertion model to GraphQL model, preserving graph-store order.
+            // The status aspect is already in each EntityResponse from step 2 (batchGetV2 was
+            // called with null aspect names = fetch all). AssertionMapper surfaces it onto
+            // assertion.status.removed, so the soft-delete filter can run in-memory rather than
+            // issuing one entityClient.exists() call per assertion (avoids an N+1 against
+            // metadata_aspect_v2).
             final List<Assertion> assertions =
-                gmsResults.stream()
+                assertionUrns.stream()
+                    .map(entities::get) // null for hard-deleted urns
                     .filter(Objects::nonNull)
                     .map(r -> AssertionMapper.map(context, r))
-                    .filter(assertion -> assertionExists(assertion, includeSoftDeleted, context))
+                    .filter(assertion -> includeSoftDeleted || !isSoftDeleted(assertion))
                     .collect(Collectors.toList());
 
             // Step 4: Package and return result
@@ -108,16 +108,7 @@ public class EntityAssertionsResolver
         "get");
   }
 
-  private boolean assertionExists(
-      Assertion assertion, Boolean includeSoftDeleted, QueryContext context) {
-    try {
-      return _entityClient.exists(
-          context.getOperationContext(), UrnUtils.getUrn(assertion.getUrn()), includeSoftDeleted);
-    } catch (RemoteInvocationException e) {
-      log.error(
-          String.format("Unable to check if assertion %s exists, ignoring it", assertion.getUrn()),
-          e);
-      return false;
-    }
+  private static boolean isSoftDeleted(final Assertion assertion) {
+    return assertion.getStatus() != null && Boolean.TRUE.equals(assertion.getStatus().getRemoved());
   }
 }
