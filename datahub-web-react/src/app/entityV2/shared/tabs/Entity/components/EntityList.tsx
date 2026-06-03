@@ -1,6 +1,6 @@
 import { List, Pagination, Typography } from 'antd';
 import React from 'react';
-import { useTranslation } from 'react-i18next';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
@@ -123,11 +123,15 @@ export const EntityList = ({
             {showPagination && (
                 <PaginationInfoContainer>
                     <PaginationInfo>
-                        {t('entity.paginationRange', {
-                            start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,
-                            end: lastResultIndex,
-                            total: totalAssets,
-                        })}
+                        <Trans
+                            i18nKey="entity.paginationRange"
+                            values={{
+                                start: lastResultIndex > 0 ? ((page as number) - 1) * pageSize + 1 : 0,
+                                end: lastResultIndex,
+                                total: totalAssets,
+                            }}
+                            components={{ b: <b /> }}
+                        />
                     </PaginationInfo>
                     <StyledPagination
                         current={page}
