@@ -1,5 +1,6 @@
 import { Divider } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useEntityData } from '@app/entity/shared/EntityContext';
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export default function LineageEntityView({ entity, displaySearchResult }: Props) {
+    const { t } = useTranslation('lineage');
     const entityRegistry = useEntityRegistry();
     const genericProps = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const { entityData } = useEntityData();
@@ -63,7 +65,11 @@ export default function LineageEntityView({ entity, displaySearchResult }: Props
                 </span>
                 {platformName && <StyledDivider type="vertical" data-testid="divider" />}
                 {platformLogoUrl && (
-                    <PlatformLogo src={platformLogoUrl} alt="platform logo" data-testid="platform-logo" />
+                    <PlatformLogo
+                        src={platformLogoUrl}
+                        alt={t('manualLineage.platformLogoAlt')}
+                        data-testid="platform-logo"
+                    />
                 )}
                 <span>{platformName}</span>
                 <ContainerView remainingContainers={remainingContainers} directContainer={directContainer} />

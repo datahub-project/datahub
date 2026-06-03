@@ -1,6 +1,7 @@
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import { Switch, Tooltip } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
@@ -35,6 +36,7 @@ type Props = {
 };
 
 export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }: Props) {
+    const { t } = useTranslation('lineage');
     const history = useHistory();
     const location = useLocation();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
@@ -50,7 +52,7 @@ export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }:
                     onChange={(checked) => setShowExpandedTitles(checked)}
                 />{' '}
                 <ControlLabel>
-                    <b>Show Full Titles</b>
+                    <b>{t('controls.showFullTitles')}</b>
                 </ControlLabel>
             </ControlDiv>
             {!showSeparateSiblings && (
@@ -68,8 +70,8 @@ export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }:
                         }}
                     />{' '}
                     <ControlLabel>
-                        <b>Compress Lineage</b>
-                        <Tooltip title="Collapses related entities into a single lineage node" placement="topRight">
+                        <b>{t('controls.compressLineage')}</b>
+                        <Tooltip title={t('controls.compressLineageTooltip')} placement="topRight">
                             <HelpIcon />
                         </Tooltip>
                     </ControlLabel>
@@ -90,7 +92,7 @@ export function LineageVizToggles({ showExpandedTitles, setShowExpandedTitles }:
                     }}
                 />{' '}
                 <ControlLabel>
-                    <b>Show Columns</b>
+                    <b>{t('controls.showColumns')}</b>
                 </ControlLabel>
             </ControlDiv>
         </>

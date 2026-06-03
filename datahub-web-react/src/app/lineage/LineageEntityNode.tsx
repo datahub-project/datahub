@@ -1,6 +1,7 @@
 import { Group } from '@visx/group';
 import { LinkHorizontal } from '@visx/shape';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { IconStyleType } from '@app/entity/Entity';
@@ -84,6 +85,7 @@ export default function LineageEntityNode({
     nodesToRenderByUrn: Record<string, VizNode>;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 }) {
+    const { t } = useTranslation('lineage');
     const { direction } = node;
     const { expandTitles, collapsedColumnsNodes, showColumns, refetchCenterNode } = useContext(LineageExplorerContext);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
@@ -452,8 +454,9 @@ export default function LineageEntityNode({
                         fill="black"
                         y={centerY - 20}
                     >
-                        {unexploredHiddenChildren} hidden {direction === Direction.Upstream ? 'downstream' : 'upstream'}{' '}
-                        {unexploredHiddenChildren > 1 ? 'dependencies' : 'dependency'}
+                        {direction === Direction.Upstream
+                            ? t('node.hiddenDependencies_upstream', { count: unexploredHiddenChildren })
+                            : t('node.hiddenDependencies_downstream', { count: unexploredHiddenChildren })}
                     </UnselectableText>
                 ) : null}
                 {showColumns && (node.data.schemaMetadata || node.data.inputFields) && (
