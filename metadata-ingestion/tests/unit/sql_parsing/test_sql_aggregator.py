@@ -1666,6 +1666,12 @@ def test_usage_aggregator_uses_shared_connection() -> None:
         assert aggregator._usage_aggregator is not None
         assert aggregator._shared_connection is not None
         # Usage store reuses the shared connection, not a second DB.
-        assert aggregator._usage_aggregator._conn is aggregator._shared_connection
+        assert (
+            aggregator._usage_aggregator._counts._conn is aggregator._shared_connection
+        )
+        assert (
+            aggregator._usage_aggregator._resources._conn
+            is aggregator._shared_connection
+        )
     finally:
         aggregator.close()
