@@ -284,6 +284,14 @@ class _UsageKeys:
 
 
 class UsageAggregator(Generic[ResourceType], Closeable):
+    """Aggregates usage events into per-(bucket, resource) workunits.
+
+    Single-writer per instance: ``aggregate_event`` must not be called concurrently on
+    the same aggregator. The counter (``FileBackedCounter``) is thread-safe, but the
+    resource store (``FileBackedDict``) is not, so a shared instance would need an
+    external lock. For parallel ingestion, use one aggregator per worker.
+    """
+
     # TODO: Move over other connectors to use this class
 
     def __init__(
