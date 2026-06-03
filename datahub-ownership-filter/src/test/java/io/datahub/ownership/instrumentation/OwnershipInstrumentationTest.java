@@ -127,6 +127,29 @@ class OwnershipInstrumentationTest {
     }
 
     @Test
+    void jwtGroupsClaimAugmentsOwnershipFilterForUnprovisionedUser() throws Exception {
+        DataFetcher<?> capturing = env ->
+                new LinkedHashMap<>((Map<String, Object>) env.getArgument("input"));
+        DataFetcher<?> wrapped = instrumentation.instrumentDataFetcher(capturing,
+                fieldFetchParams("searchAcrossEntities"), null);
+
+        // bob has NO DataHub group membership (groupsFor(bob) -> []), mimicking an external service
+        // that never logged in via OIDC. Its JWT asserts membership in CBP and DHS.
+        Map<String, Object> claims = Map.of("groups", List.of("CBP", "DHS"));
+
+        Map<String, Object> args =
+                (Map<String, Object>) wrapped.get(envForClaims(bob.toString(), claims, baseInput()));
+
+        List<String> vals = (List<String>)
+                ((List<Map<String, Object>>) ((List<Map<String, Object>>) args.get("orFilters"))
+                        .get(0).get("and")).get(0).get("values");
+
+        // The JWT-asserted groups are honored even without provisioned membership.
+        assertThat(vals).contains(bob.toString(),
+                "urn:li:corpGroup:CBP", "urn:li:corpGroup:DHS");
+    }
+
+    @Test
     void adminBypassesFilterInjection() throws Exception {
         AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
         DataFetcher<?> capturing = env -> {

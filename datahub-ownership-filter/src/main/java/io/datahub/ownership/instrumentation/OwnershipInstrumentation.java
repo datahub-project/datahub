@@ -23,7 +23,10 @@ import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +52,16 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
     private static final String OAUTH_SYNTHETIC_ACTOR_PREFIX = "urn:li:corpuser:__oauth_";
 
     private static final String RESOLVED_USER_URN_CLAIM = "__datahub_user_urn";
+
+    /**
+     * JWT claim holding the caller's group names. External services that call the API with a raw
+     * JWT never go through interactive OIDC login, so DataHub has no {@code groupMembership} aspect
+     * for them and group-owned assets would be invisible. We read the groups straight from the token
+     * and map each {@code name -> urn:li:corpGroup:<URLEncoder.encode(name)>} — the same encoding
+     * DataHub's OidcCallbackLogic uses when provisioning groups — then union them with any
+     * DataHub-recorded membership.
+     */
+    private static final String JWT_GROUPS_CLAIM = "groups";
 
     /** Navigational types that are visible to everyone, always (not ownership- or access-gated). */
     private static final Set<String> EXEMPT_TYPES = Set.of("GLOSSARY_TERM", "GLOSSARY_NODE", "TAG");
@@ -122,7 +135,14 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
         Urn actor = resolveEffectiveActor(qc);
         // Intentionally not caught: fail-closed. A transient group-service outage surfaces as
         // a GraphQL error rather than silently granting unfiltered access.
-        List<Urn> groups = groupResolver.groupsFor(qc.getOperationContext(), actor);
+        List<Urn> groups = new ArrayList<>(groupResolver.groupsFor(qc.getOperationContext(), actor));
+        // Augment with groups asserted by the JWT, so a raw-JWT API client (never provisioned via
+        // interactive login) is still matched against its group-owned assets.
+        for (Urn jwtGroup : groupsFromJwt(qc)) {
+            if (!groups.contains(jwtGroup)) {
+                groups.add(jwtGroup);
+            }
+        }
 
         if (adminBypass.isAdmin(actor, groups)) {
             return original.get(env);
@@ -217,6 +237,39 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
             }
         }
         return Urn.createFromString(actorUrn);
+    }
+
+    /**
+     * Groups asserted by the caller's JWT ({@link #JWT_GROUPS_CLAIM}), mapped to corpGroup URNs the
+     * same way DataHub's OIDC provisioning does. Best-effort: returns empty on any problem so a
+     * malformed claim never breaks filtering (DataHub-recorded membership still applies).
+     */
+    private List<Urn> groupsFromJwt(@Nonnull QueryContext qc) {
+        try {
+            Authentication auth = qc.getAuthentication();
+            Map<String, Object> claims = auth == null ? null : auth.getClaims();
+            Object raw = claims == null ? null : claims.get(JWT_GROUPS_CLAIM);
+            if (raw == null) {
+                return List.of();
+            }
+            Collection<?> names = raw instanceof Collection<?> col
+                    ? col
+                    : List.of(raw.toString().split(","));
+            List<Urn> result = new ArrayList<>();
+            for (Object n : names) {
+                String name = n == null ? null : n.toString().trim();
+                if (name == null || name.isEmpty()) {
+                    continue;
+                }
+                String encoded = URLEncoder.encode(name, StandardCharsets.UTF_8);
+                result.add(Urn.createFromString("urn:li:corpGroup:" + encoded));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("OwnershipInstrumentation: failed to derive groups from JWT claim '{}'; "
+                    + "using DataHub-recorded membership only", JWT_GROUPS_CLAIM, e);
+            return List.of();
+        }
     }
 
     /** {@link #filterRecommendations} guarded so a failure never blanks the home page. */
