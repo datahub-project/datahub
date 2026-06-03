@@ -705,6 +705,7 @@ plugins: Dict[str, Set[str]] = {
         "tenacity>=8.0.1,<9.0.0",
         "kerberos>=1.3.0,<2.0.0",
     },
+    "hex": {"requests<3.0.0"} | sqlglot_lib,
     "iceberg": iceberg_common,
     "iceberg-catalog": aws_common,
     "informatica": {

@@ -30,6 +30,9 @@ src/app/entityV2/view/select/ViewsTableColumns.tsx
 src/app/entityV2/view/ViewsList.tsx
 src/app/entityV2/view/ViewsTable.tsx
 src/app/entityV2/view/ViewTypeLabel.tsx
+src/app/glossary/**/*.{ts,tsx}
+src/app/glossaryV2/**/*.{ts,tsx}
+src/app/govern/**/*.{ts,tsx}
 src/app/homeV2/**/*.{ts,tsx}
 src/app/homeV3/**/*.{ts,tsx}
 src/app/identity/group/CreateGroupModal.components.tsx
