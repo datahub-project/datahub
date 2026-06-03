@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 from unittest import mock
 
 import pytest
@@ -3827,3 +3827,1408 @@ def test_dbt_common_semantic_model_subtype_assignment():
         aspect = wu.metadata.aspect
         assert isinstance(aspect, SubTypesClass)
         assert expected_subtype in aspect.typeNames, f"Failed for node_type={node_type}"
+
+
+# ==================== Contract Tests ====================
+
+
+def test_contract_dataclass():
+    """Test DBTContract dataclass."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTContract
+
+    contract = DBTContract(
+        enforced=True,
+        alias_types=True,
+        checksum="abc123",
+    )
+    assert contract.enforced is True
+    assert contract.alias_types is True
+    assert contract.checksum == "abc123"
+
+    # Test default values
+    contract_defaults = DBTContract(enforced=False)
+    assert contract_defaults.enforced is False
+    assert contract_defaults.alias_types is True
+    assert contract_defaults.checksum is None
+
+
+def test_constraint_dataclass():
+    """Test DBTConstraint dataclass."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
+
+    constraint = DBTConstraint(
+        type="not_null",
+        name="nn_col",
+    )
+    assert constraint.type == "not_null"
+    assert constraint.name == "nn_col"
+
+    # Test with all fields
+    constraint_full = DBTConstraint(
+        type="primary_key",
+        name="pk_id",
+        expression="id > 0",
+        columns=["id", "name"],
+    )
+    assert constraint_full.type == "primary_key"
+    assert constraint_full.columns == ["id", "name"]
+
+
+def test_contract_config_options():
+    """Test contract configuration options in DBTCommonConfig."""
+    config = DBTCoreConfig(
+        manifest_path="dummy_path",
+        target_platform="postgres",
+        ingest_contracts=True,
+        contract_test_tag="custom_contract",
+        ingest_column_constraints_as_assertions=False,
+    )
+    assert config.ingest_contracts is True
+    assert config.contract_test_tag == "custom_contract"
+    assert config.ingest_column_constraints_as_assertions is False
+
+
+def test_contract_config_defaults():
+    """Test default values for contract configuration."""
+    config = DBTCoreConfig(
+        manifest_path="dummy_path",
+        target_platform="postgres",
+    )
+    assert config.ingest_contracts is False
+    assert config.contract_test_tag == "contract"
+    assert config.ingest_column_constraints_as_assertions is True
+
+
+def test_contract_extraction_from_manifest() -> None:
+    """Test that contract information is extracted from manifest."""
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        manifest_path="tests/unit/dbt/artifacts/manifest.json",
+        target_platform="dummy",
+        ingest_contracts=True,
+    )
+    source = DBTCoreSource(config, ctx)
+    nodes, *_ = source.loadManifestAndCatalog()
+
+    # Find the model with contract.enforced=true
+    contracted_node = None
+    for node in nodes:
+        if node.dbt_name == "model.tdd.simple":
+            contracted_node = node
+            break
+
+    assert contracted_node is not None, "Expected to find model.tdd.simple"
+    assert contracted_node.contract is not None, "Expected contract to be extracted"
+    assert contracted_node.contract.enforced is True
+    assert contracted_node.contract.checksum is not None
+
+
+def test_column_constraints_extracted() -> None:
+    """Test that column constraints are extracted from DBTColumn."""
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    # Create a column with constraints
+    col = DBTColumn(
+        name="id",
+        comment="",
+        description="ID column",
+        index=0,
+        data_type="integer",
+        constraints=[
+            DBTConstraint(type="not_null"),
+            DBTConstraint(type="primary_key"),
+        ],
+    )
+    assert len(col.constraints) == 2
+    assert col.constraints[0].type == "not_null"
+    assert col.constraints[1].type == "primary_key"
+
+
+def _make_contracted_source(*, ingest_column_constraints: bool = True) -> DBTCoreSource:
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-source")
+    config = DBTCoreConfig(
+        manifest_path="temp/manifest.json",
+        catalog_path="temp/catalog.json",
+        target_platform="snowflake",
+        ingest_contracts=True,
+        ingest_column_constraints_as_assertions=ingest_column_constraints,
+        enable_meta_mapping=False,
+    )
+    return DBTCoreSource(config, ctx)
+
+
+def _make_contracted_node(
+    *,
+    dbt_name: str = "model.test_pkg.orders",
+    name: str = "orders",
+    adapter: str = "snowflake",
+    columns: Optional[List[Any]] = None,
+    model_constraints: Optional[List[Any]] = None,
+) -> DBTNode:
+    from datahub.ingestion.source.dbt.dbt_common import DBTContract
+
+    return DBTNode(
+        dbt_name=dbt_name,
+        dbt_adapter=adapter,
+        dbt_package_name="test_pkg",
+        database="TEST_DB",
+        schema="TEST_SCHEMA",
+        name=name,
+        alias=name,
+        dbt_file_path=f"models/{name}.sql",
+        node_type="model",
+        max_loaded_at=None,
+        comment="",
+        description=f"test contracted model {name}",
+        upstream_nodes=[],
+        materialization="table",
+        catalog_type="BASE TABLE",
+        missing_from_catalog=False,
+        meta={},
+        query_tag={},
+        tags=[],
+        owner="",
+        language="sql",
+        raw_code=None,
+        compiled_code=None,
+        columns=columns or [],
+        model_constraints=model_constraints or [],
+        contract=DBTContract(
+            enforced=True,
+            alias_types=True,
+            checksum=f"checksum_{name}",
+        ),
+    )
+
+
+def _assertion_info_from_mcps(mcps: List[Any]) -> AssertionInfoClass:
+    for mcp in mcps:
+        if isinstance(mcp.aspect, AssertionInfoClass):
+            return mcp.aspect
+    raise AssertionError("expected an AssertionInfoClass aspect in MCPs")
+
+
+def test_constraint_assertion_unique_uses_unique_proportion() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+    from datahub.metadata.schema_classes import (
+        AssertionStdAggregationClass,
+        AssertionStdOperatorClass,
+    )
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="order_id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="unique")],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    assert len(results) == 1
+    info = _assertion_info_from_mcps(results[0][1])
+    dataset_assertion = info.datasetAssertion
+    assert dataset_assertion is not None
+    assert dataset_assertion.operator == AssertionStdOperatorClass.EQUAL_TO
+    assert (
+        dataset_assertion.aggregation == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    )
+    assert dataset_assertion.parameters is not None
+    assert dataset_assertion.parameters.value is not None
+    assert dataset_assertion.parameters.value.value == "1.0"
+
+
+def test_constraint_assertion_primary_key_emits_not_null_and_unique() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+    from datahub.metadata.schema_classes import (
+        AssertionStdAggregationClass,
+        AssertionStdOperatorClass,
+    )
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="primary_key")],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    assert len(results) == 2
+    dataset_assertions = [
+        _assertion_info_from_mcps(mcps).datasetAssertion for _, mcps in results
+    ]
+    assert all(da is not None for da in dataset_assertions)
+    operators = {da.operator for da in dataset_assertions if da is not None}
+    aggregations = {da.aggregation for da in dataset_assertions if da is not None}
+    assert AssertionStdOperatorClass.EQUAL_TO in operators
+    assert AssertionStdOperatorClass.NOT_NULL in operators
+    assert AssertionStdAggregationClass.UNIQUE_PROPOTION in aggregations
+    assert AssertionStdAggregationClass.IDENTITY in aggregations
+
+
+def test_composite_primary_key_emits_single_multi_column_assertion() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTConstraint
+    from datahub.metadata.schema_classes import AssertionStdAggregationClass
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        model_constraints=[
+            DBTConstraint(
+                type="primary_key",
+                columns=["customer_id", "order_date"],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    # One multi-column unique + one not_null per column.
+    assert len(results) == 3
+    infos = [_assertion_info_from_mcps(mcps) for _, mcps in results]
+
+    unique_infos = [
+        i
+        for i in infos
+        if i.datasetAssertion is not None
+        and i.datasetAssertion.aggregation
+        == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    ]
+    assert len(unique_infos) == 1
+    unique_fields = unique_infos[0].datasetAssertion.fields  # type: ignore[union-attr]
+    assert unique_fields is not None and len(unique_fields) == 2
+
+    not_null_infos = [
+        i
+        for i in infos
+        if i.datasetAssertion is not None
+        and i.datasetAssertion.aggregation == AssertionStdAggregationClass.IDENTITY
+    ]
+    assert len(not_null_infos) == 2
+
+
+def test_constraint_assertion_foreign_key_emits_native() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+    from datahub.metadata.schema_classes import (
+        AssertionStdAggregationClass,
+        AssertionStdOperatorClass,
+    )
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="customer_id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[
+                    DBTConstraint(
+                        type="foreign_key",
+                        name="fk_customer",
+                        expression="customers(id)",
+                    )
+                ],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    assert len(results) == 1
+    info = _assertion_info_from_mcps(results[0][1])
+    assert info.datasetAssertion is not None
+    assert info.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
+    assert info.datasetAssertion.aggregation == AssertionStdAggregationClass._NATIVE_
+    assert info.customProperties is not None
+    assert info.customProperties.get("expression") == "customers(id)"
+
+
+def test_constraint_assertion_check_emits_expression_in_custom_props() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="age",
+                comment="",
+                description="",
+                index=0,
+                data_type="int",
+                constraints=[DBTConstraint(type="check", expression="age >= 0")],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    assert len(results) == 1
+    info = _assertion_info_from_mcps(results[0][1])
+    assert info.customProperties is not None
+    assert info.customProperties.get("expression") == "age >= 0"
+    assert info.customProperties.get("constraint_type") == "check"
+
+
+def test_constraint_assertion_unknown_type_is_reported_not_raised() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="something",
+                comment="",
+                description="",
+                index=0,
+                data_type="int",
+                constraints=[DBTConstraint(type="totally_made_up")],
+            )
+        ],
+    )
+
+    results = source._create_constraint_assertions(
+        node=node, entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)"
+    )
+
+    assert results == []
+    skipped = list(source.report.contract_constraints_skipped_unsupported)
+    assert len(skipped) == 1
+    assert "totally_made_up" in skipped[0]
+    assert node.dbt_name in skipped[0]
+
+
+def test_constraint_assertion_enforced_by_is_adapter_aware() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    source = _make_contracted_source()
+
+    snowflake_node = _make_contracted_node(
+        adapter="snowflake",
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="unique")],
+            )
+        ],
+    )
+    snowflake_results = source._create_constraint_assertions(
+        node=snowflake_node,
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)",
+    )
+    sf_info = _assertion_info_from_mcps(snowflake_results[0][1])
+    assert sf_info.customProperties is not None
+    # Snowflake's ``unique`` is metadata-only per dbt's constraint matrix.
+    assert sf_info.customProperties.get("enforced_by") == "dbt_contract"
+
+    postgres_node = _make_contracted_node(
+        adapter="postgres",
+        dbt_name="model.test_pkg.pg_orders",
+        name="pg_orders",
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="bigint",
+                constraints=[DBTConstraint(type="unique")],
+            )
+        ],
+    )
+    postgres_results = source._create_constraint_assertions(
+        node=postgres_node,
+        entity_urn="urn:li:dataset:(urn:li:dataPlatform:dbt,test,PROD)",
+    )
+    pg_info = _assertion_info_from_mcps(postgres_results[0][1])
+    assert pg_info.customProperties is not None
+    assert pg_info.customProperties.get("enforced_by") == "database"
+
+
+def _make_test_node(
+    test_dbt_name: str,
+    upstream_dbt_names: List[str],
+    *,
+    contract_tag: str = "dbt:contract",
+) -> DBTNode:
+    return DBTNode(
+        dbt_name=test_dbt_name,
+        dbt_adapter="snowflake",
+        dbt_package_name="test_pkg",
+        database=None,
+        schema="TEST_SCHEMA",
+        name=test_dbt_name.split(".")[-1],
+        alias=None,
+        dbt_file_path=f"tests/{test_dbt_name}.sql",
+        node_type="test",
+        max_loaded_at=None,
+        comment="",
+        description="",
+        upstream_nodes=upstream_dbt_names,
+        materialization=None,
+        catalog_type=None,
+        missing_from_catalog=True,
+        meta={},
+        query_tag={},
+        tags=[contract_tag],
+        owner="",
+        language="sql",
+        raw_code=None,
+        compiled_code=None,
+        columns=[],
+    )
+
+
+def test_contract_test_urn_matches_when_upstream_filtered() -> None:
+    source = _make_contracted_source()
+
+    contracted_model = _make_contracted_node(
+        dbt_name="model.test_pkg.orders", name="orders"
+    )
+    # One valid upstream + one orphan. all_nodes_map only contains the
+    # valid one, so the filtered upstream count should be 1.
+    test_node = _make_test_node(
+        test_dbt_name="test.test_pkg.orders_has_id",
+        upstream_dbt_names=["model.test_pkg.orders", "model.test_pkg.orphan"],
+    )
+    all_nodes_map = {contracted_model.dbt_name: contracted_model}
+
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[contracted_model],
+            test_nodes=[test_node],
+            all_nodes_map=all_nodes_map,
+        )
+    )
+
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    contract_props = [
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    ]
+    assert len(contract_props) == 1
+    dq_urns = [c.assertion for c in (contract_props[0].dataQuality or [])]
+    assert len(dq_urns) == 1
+
+    # Single filtered upstream → URN uses the backwards-compat form
+    # (no on_dbt_upstream) that create_test_entity_mcps would emit.
+    expected_urn = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=None,
+    )
+    assert dq_urns[0] == expected_urn
+
+
+def test_contract_test_urn_matches_for_multi_upstream() -> None:
+    source = _make_contracted_source()
+
+    model_a = _make_contracted_node(dbt_name="model.test_pkg.a", name="a")
+    model_b = _make_contracted_node(dbt_name="model.test_pkg.b", name="b")
+    test_node = _make_test_node(
+        test_dbt_name="test.test_pkg.shared_test",
+        upstream_dbt_names=["model.test_pkg.a", "model.test_pkg.b"],
+    )
+    all_nodes_map = {model_a.dbt_name: model_a, model_b.dbt_name: model_b}
+
+    mcps = list(
+        source.create_contract_mcps(
+            non_test_nodes=[model_a, model_b],
+            test_nodes=[test_node],
+            all_nodes_map=all_nodes_map,
+        )
+    )
+
+    from datahub.metadata.schema_classes import DataContractPropertiesClass
+
+    contract_props = [
+        mcp.aspect
+        for mcp in mcps
+        if isinstance(mcp.aspect, DataContractPropertiesClass)
+    ]
+    assert len(contract_props) == 2
+
+    expected_a = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=model_a.dbt_name,
+    )
+    expected_b = source._make_test_assertion_urn(
+        test_dbt_name=test_node.dbt_name,
+        upstream_dbt_name=model_b.dbt_name,
+    )
+    assert expected_a != expected_b
+
+    urn_a = model_a.get_urn(
+        target_platform="dbt",
+        env=source.config.env,
+        data_platform_instance=source.config.platform_instance,
+    )
+    urn_b = model_b.get_urn(
+        target_platform="dbt",
+        env=source.config.env,
+        data_platform_instance=source.config.platform_instance,
+    )
+    expected_by_entity = {urn_a: expected_a, urn_b: expected_b}
+
+    for props in contract_props:
+        dq_urns = [c.assertion for c in (props.dataQuality or [])]
+        assert len(dq_urns) == 1
+        assert props.entity in expected_by_entity
+        assert dq_urns[0] == expected_by_entity[props.entity]
+
+
+def test_extract_contract_columns_preserves_declared_types() -> None:
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "data_type": "bigint",
+                "description": "primary key",
+                "constraints": [{"type": "primary_key"}],
+                "meta": {},
+                "tags": [],
+            },
+            "email": {
+                "name": "email",
+                # Deliberately generic — this is what a contract with
+                # alias_types=true looks like at the manifest level.
+                "data_type": "string",
+                "description": "",
+                "constraints": [{"type": "not_null"}],
+                "meta": {},
+                "tags": [],
+            },
+            "created_at": {
+                "name": "created_at",
+                "data_type": "timestamp",
+                "description": "",
+                "meta": {},
+                "tags": [],
+            },
+        }
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert [c.name for c in cols] == ["id", "email", "created_at"]
+    assert [c.data_type for c in cols] == ["bigint", "string", "timestamp"]
+    # Constraints must survive extraction so the downstream constraint
+    # assertion emitter can see them without re-reading the manifest.
+    id_col = cols[0]
+    email_col = cols[1]
+    assert [c.type for c in id_col.constraints] == ["primary_key"]
+    assert [c.type for c in email_col.constraints] == ["not_null"]
+
+
+def test_extract_contract_columns_handles_missing_data_type() -> None:
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {"broken": {"name": "broken", "description": "no type declared"}}
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert len(cols) == 1
+    assert cols[0].name == "broken"
+    assert cols[0].data_type == ""
+
+
+def test_extract_contract_columns_applies_tag_prefix() -> None:
+    from datahub.ingestion.source.dbt.dbt_core import extract_contract_columns
+
+    manifest_node = {
+        "columns": {
+            "id": {
+                "name": "id",
+                "data_type": "int",
+                "tags": ["pii", "sensitive"],
+            }
+        }
+    }
+    cols = extract_contract_columns(manifest_node, tag_prefix="dbt:")
+    assert cols[0].tags == ["dbt:pii", "dbt:sensitive"]
+
+
+def test_schema_assertion_uses_contract_columns_when_available() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn
+
+    source = _make_contracted_source()
+
+    declared_id = DBTColumn(
+        name="id",
+        comment="",
+        description="declared primary key",
+        index=0,
+        data_type="bigint",
+    )
+    # Catalog column's data_type intentionally drifts from the declared
+    # one so the assertion below proves which source was used.
+    catalog_id = DBTColumn(
+        name="id",
+        comment="",
+        description="from catalog",
+        index=0,
+        data_type="VARCHAR(16)",
+    )
+    node = _make_contracted_node(columns=[catalog_id])
+    node.contract_columns = [declared_id]
+
+    schema_metadata = source._build_schema_metadata_for_node(node)
+    assert schema_metadata is not None
+    assert len(schema_metadata.fields) == 1
+    assert schema_metadata.fields[0].fieldPath == "id"
+    assert schema_metadata.fields[0].nativeDataType == "bigint"
+
+
+def test_schema_assertion_falls_back_to_node_columns_when_no_contract_columns() -> None:
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn
+
+    source = _make_contracted_source()
+    node = _make_contracted_node(
+        columns=[
+            DBTColumn(
+                name="id",
+                comment="",
+                description="",
+                index=0,
+                data_type="BIGINT",
+            )
+        ]
+    )
+    assert node.contract_columns is None
+
+    schema_metadata = source._build_schema_metadata_for_node(node)
+    assert len(schema_metadata.fields) == 1
+    assert schema_metadata.fields[0].fieldPath == "id"
+    assert schema_metadata.fields[0].nativeDataType == "BIGINT"
+
+
+def _build_contract_manifest() -> Dict[str, Any]:
+    """Minimal manifest.json with one contracted model + one contract-tagged test."""
+    return {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/manifest/v10.json",
+            "dbt_version": "1.8.0",
+            "generated_at": "2024-01-01T00:00:00.000000Z",
+            "adapter_type": "postgres",
+            "project_name": "contract_test",
+            "project_id": "contract_test",
+            "user_id": None,
+            "invocation_id": "test-invocation",
+            "env": {},
+        },
+        "nodes": {
+            "model.contract_test.orders": {
+                "database": "test_db",
+                "schema": "test_schema",
+                "name": "orders",
+                "resource_type": "model",
+                "package_name": "contract_test",
+                "path": "orders.sql",
+                "original_file_path": "models/orders.sql",
+                "unique_id": "model.contract_test.orders",
+                "fqn": ["contract_test", "orders"],
+                "alias": "orders",
+                "checksum": {"name": "sha256", "checksum": "abc123"},
+                "config": {
+                    "enabled": True,
+                    "materialized": "table",
+                    "tags": [],
+                    "meta": {},
+                    "contract": {"enforced": True, "alias_types": False},
+                },
+                "tags": [],
+                "description": "Orders contracted model",
+                "columns": {
+                    "id": {
+                        "name": "id",
+                        "description": "primary key",
+                        "meta": {},
+                        "data_type": "bigint",
+                        "constraints": [{"type": "primary_key"}],
+                        "tags": [],
+                    },
+                    "email": {
+                        "name": "email",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "varchar(255)",
+                        "constraints": [{"type": "not_null"}],
+                        "tags": [],
+                    },
+                    "age": {
+                        "name": "age",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "int",
+                        "constraints": [
+                            {
+                                "type": "check",
+                                "name": "ck_age_non_negative",
+                                "expression": "age >= 0",
+                            }
+                        ],
+                        "tags": [],
+                    },
+                    "status": {
+                        "name": "status",
+                        "description": "",
+                        "meta": {},
+                        "data_type": "varchar(32)",
+                        "constraints": [{"type": "unique"}],
+                        "tags": [],
+                    },
+                },
+                "constraints": [
+                    {
+                        "type": "foreign_key",
+                        "name": "fk_customer",
+                        "expression": "customers(id)",
+                        "columns": ["id"],
+                    }
+                ],
+                "contract": {
+                    "enforced": True,
+                    "alias_types": False,
+                    "checksum": "contract-checksum-abc",
+                },
+                "meta": {},
+                "sources": [],
+                "depends_on": {"macros": [], "nodes": []},
+                "refs": [],
+                "docs": {"show": True},
+                "compiled": True,
+                "compiled_code": "SELECT * FROM raw.orders",
+                "raw_code": "SELECT * FROM {{ source('raw', 'orders') }}",
+                "language": "sql",
+                "build_path": None,
+                "deferred": False,
+                "unrendered_config": {},
+                "created_at": 1704067200.0,
+            },
+            "test.contract_test.orders_email_not_null": {
+                "database": "test_db",
+                "schema": "test_schema",
+                "name": "orders_email_not_null",
+                "resource_type": "test",
+                "package_name": "contract_test",
+                "path": "not_null_orders_email.sql",
+                "original_file_path": "models/orders.yml",
+                "unique_id": "test.contract_test.orders_email_not_null",
+                "fqn": ["contract_test", "orders_email_not_null"],
+                "alias": "orders_email_not_null",
+                "checksum": {"name": "none", "checksum": ""},
+                "config": {
+                    "enabled": True,
+                    "materialized": "test",
+                    "tags": ["contract"],
+                    "meta": {},
+                    "severity": "ERROR",
+                    "where": None,
+                },
+                # Top-level tags are what DBTNode.tags reads; the contract
+                # detection logic matches on these.
+                "tags": ["contract"],
+                "description": "",
+                "columns": {},
+                "meta": {},
+                "sources": [],
+                "depends_on": {
+                    "macros": ["macro.dbt.test_not_null"],
+                    "nodes": ["model.contract_test.orders"],
+                },
+                "refs": [{"name": "orders", "package": None, "version": None}],
+                "docs": {"show": True},
+                "compiled": True,
+                "compiled_code": "select * from orders where email is null",
+                "raw_code": "{{ test_not_null(**kwargs) }}",
+                "language": "sql",
+                "build_path": None,
+                "deferred": False,
+                "unrendered_config": {},
+                "created_at": 1704067200.0,
+                "column_name": "email",
+                "test_metadata": {
+                    "name": "not_null",
+                    "kwargs": {"column_name": "email", "model": "{{ ref('orders') }}"},
+                    "namespace": None,
+                },
+            },
+        },
+        "sources": {},
+        "macros": {},
+        "parent_map": {
+            "model.contract_test.orders": [],
+            "test.contract_test.orders_email_not_null": ["model.contract_test.orders"],
+        },
+        "child_map": {
+            "model.contract_test.orders": ["test.contract_test.orders_email_not_null"],
+            "test.contract_test.orders_email_not_null": [],
+        },
+        "disabled": {},
+        "exposures": {},
+        "metrics": {},
+        "groups": {},
+        "selectors": {},
+        "docs": {},
+        "semantic_models": {},
+    }
+
+
+def _build_contract_catalog() -> Dict[str, Any]:
+    """Catalog matching ``_build_contract_manifest``.
+
+    Types deliberately differ in case (``BIGINT`` vs ``bigint``) so the
+    end-to-end test can verify the schema assertion sources from
+    ``contract_columns`` and not from the catalog.
+    """
+    return {
+        "metadata": {
+            "dbt_schema_version": "https://schemas.getdbt.com/dbt/catalog/v1.json",
+            "dbt_version": "1.8.0",
+            "generated_at": "2024-01-01T00:00:00.000000Z",
+            "invocation_id": "test-invocation",
+            "env": {},
+        },
+        "nodes": {
+            "model.contract_test.orders": {
+                "metadata": {
+                    "type": "BASE TABLE",
+                    "schema": "test_schema",
+                    "name": "orders",
+                    "database": "test_db",
+                    "comment": None,
+                    "owner": "test_owner",
+                },
+                "columns": {
+                    "id": {
+                        "type": "BIGINT",
+                        "index": 0,
+                        "name": "id",
+                        "comment": None,
+                    },
+                    "email": {
+                        "type": "VARCHAR(255)",
+                        "index": 1,
+                        "name": "email",
+                        "comment": None,
+                    },
+                    "age": {
+                        "type": "INTEGER",
+                        "index": 2,
+                        "name": "age",
+                        "comment": None,
+                    },
+                    "status": {
+                        "type": "VARCHAR(32)",
+                        "index": 3,
+                        "name": "status",
+                        "comment": None,
+                    },
+                },
+                "stats": {},
+            }
+        },
+        "sources": {},
+        "errors": None,
+    }
+
+
+def test_contract_ingestion_end_to_end(tmp_path: Any) -> None:
+    """End-to-end: write manifest/catalog to disk, run a real DBTCoreSource."""
+    import json as _json
+
+    from datahub.metadata.schema_classes import (
+        AssertionInfoClass,
+        AssertionStdAggregationClass,
+        AssertionStdOperatorClass,
+        DataContractPropertiesClass,
+    )
+
+    manifest_path = tmp_path / "manifest.json"
+    catalog_path = tmp_path / "catalog.json"
+    manifest_path.write_text(_json.dumps(_build_contract_manifest()))
+    catalog_path.write_text(_json.dumps(_build_contract_catalog()))
+
+    ctx = PipelineContext(run_id="contract-e2e-test", pipeline_name="dbt-contract-e2e")
+    config = DBTCoreConfig(
+        manifest_path=str(manifest_path),
+        catalog_path=str(catalog_path),
+        target_platform="postgres",
+        ingest_contracts=True,
+        ingest_column_constraints_as_assertions=True,
+        enable_meta_mapping=False,
+        # OVERRIDE so the source doesn't require a real GMS graph.
+        write_semantics="OVERRIDE",
+    )
+    source = DBTCoreSource(config, ctx)
+
+    # get_workunits_internal yields a mix of MetadataWorkUnit and
+    # MetadataChangeProposalWrapper.
+    workunits = list(source.get_workunits_internal())
+
+    def _extract_aspect_and_urn(wu: Any) -> Tuple[Any, Optional[str]]:
+        if isinstance(wu, MetadataChangeProposalWrapper):
+            return wu.aspect, wu.entityUrn
+        meta = getattr(wu, "metadata", None)
+        if meta is None:
+            return None, None
+        return getattr(meta, "aspect", None), getattr(meta, "entityUrn", None)
+
+    emitted = [_extract_aspect_and_urn(wu) for wu in workunits]
+    aspects = [aspect for aspect, _ in emitted if aspect is not None]
+
+    # Data Contract entity is emitted.
+    contract_props = [a for a in aspects if isinstance(a, DataContractPropertiesClass)]
+    assert len(contract_props) == 1
+    props = contract_props[0]
+    assert props.schema is not None
+    assert props.dataQuality is not None and len(props.dataQuality) >= 1
+
+    # Schema assertion sources from contract_columns: the manifest types
+    # (``bigint``/``varchar(255)``/...) differ in case from the catalog
+    # types (``BIGINT``/``VARCHAR(255)``/...), so the nativeDataType values
+    # here tell us which source the assertion was built from.
+    schema_assertion_infos = [
+        a
+        for a in aspects
+        if isinstance(a, AssertionInfoClass) and a.schemaAssertion is not None
+    ]
+    assert len(schema_assertion_infos) == 1
+    schema_info = schema_assertion_infos[0].schemaAssertion
+    assert schema_info is not None
+    assert schema_info.schema is not None
+    field_types = {f.fieldPath: f.nativeDataType for f in schema_info.schema.fields}
+    assert field_types == {
+        "id": "bigint",
+        "email": "varchar(255)",
+        "age": "int",
+        "status": "varchar(32)",
+    }
+
+    dataset_assertion_infos = [
+        a
+        for a in aspects
+        if isinstance(a, AssertionInfoClass) and a.datasetAssertion is not None
+    ]
+    unique_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.aggregation
+        == AssertionStdAggregationClass.UNIQUE_PROPOTION
+    ]
+    not_null_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.operator == AssertionStdOperatorClass.NOT_NULL
+    ]
+    native_assertions = [
+        a
+        for a in dataset_assertion_infos
+        if a.datasetAssertion is not None
+        and a.datasetAssertion.operator == AssertionStdOperatorClass._NATIVE_
+    ]
+
+    # PK on id → 1 unique + 1 not_null; unique on status → 1 more unique;
+    # not_null on email → 1 more not_null. At least 2 of each.
+    assert len(unique_assertions) >= 2
+    assert len(not_null_assertions) >= 2
+
+    # ``age`` has a check constraint, and the model carries a foreign_key —
+    # both should reach custom properties as native-assertion expressions.
+    expressions = {
+        a.customProperties.get("expression")
+        for a in native_assertions
+        if a.customProperties is not None
+    }
+    assert "age >= 0" in expressions
+    assert "customers(id)" in expressions
+
+    expected_test_urn = source._make_test_assertion_urn(
+        test_dbt_name="test.contract_test.orders_email_not_null",
+        upstream_dbt_name=None,
+    )
+    dq_urns = {c.assertion for c in (props.dataQuality or [])}
+    assert expected_test_urn in dq_urns
+
+    # The test assertion URN the contract references must also have been
+    # actually emitted somewhere in the workstream — guards against orphan
+    # references between the contract path and create_test_entity_mcps.
+    emitted_test_urns = {
+        urn
+        for _, urn in emitted
+        if urn is not None and urn.startswith("urn:li:assertion:")
+    }
+    assert expected_test_urn in emitted_test_urns
+
+
+def _base_dbt_cloud_config(**overrides: Any) -> Dict[str, Any]:
+    base: Dict[str, Any] = {
+        "access_url": "https://test.getdbt.com",
+        "token": "dummy_token",
+        "account_id": 123456,
+        "project_id": 1234567,
+        "job_id": 12345678,
+        "run_id": 123456789,
+        "target_platform": "snowflake",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_dbt_cloud_config_requires_environment_id_when_ingesting_contracts() -> None:
+    with pytest.raises(
+        ValidationError,
+        match="environment_id is required when ingest_contracts=true",
+    ):
+        DBTCloudConfig(**_base_dbt_cloud_config(ingest_contracts=True))
+
+
+def test_dbt_cloud_config_accepts_environment_id_when_ingesting_contracts() -> None:
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=999,
+        )
+    )
+    assert config.ingest_contracts is True
+    assert config.environment_id == 999
+
+
+def test_dbt_cloud_config_no_environment_id_when_not_ingesting_contracts() -> None:
+    config = DBTCloudConfig(**_base_dbt_cloud_config())
+    assert config.ingest_contracts is False
+    assert config.environment_id is None
+
+
+def test_fetch_discovery_contract_data_parses_single_page() -> None:
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    fake_response = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.test_pkg.orders",
+                                "contractEnforced": True,
+                                "constraints": [
+                                    {
+                                        "name": "pk_orders",
+                                        "type": "primary_key",
+                                        "expression": None,
+                                        "columns": ["id"],
+                                    },
+                                    {
+                                        "name": "nn_email",
+                                        "type": "not_null",
+                                        "expression": None,
+                                        "columns": ["email"],
+                                    },
+                                ],
+                                "catalog": {
+                                    "columns": [
+                                        {
+                                            "name": "id",
+                                            "description": "primary key",
+                                            "type": "BIGINT",
+                                        },
+                                        {
+                                            "name": "email",
+                                            "description": "",
+                                            "type": "VARCHAR",
+                                        },
+                                    ]
+                                },
+                            }
+                        },
+                        {
+                            "node": {
+                                "uniqueId": "model.test_pkg.no_contract",
+                                "contractEnforced": False,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        },
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+    }
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_send_graphql_query",
+        return_value=fake_response,
+    ) as mock_send:
+        result = DBTCloudSource._fetch_discovery_contract_data(
+            metadata_endpoint="https://metadata.test.getdbt.com/graphql",
+            token="test-token",
+            environment_id=42,
+        )
+
+    assert mock_send.call_count == 1
+
+    # Models with contractEnforced=false are still indexed so the caller
+    # can distinguish "not fetched" from "fetched, no contract".
+    assert set(result.keys()) == {
+        "model.test_pkg.orders",
+        "model.test_pkg.no_contract",
+    }
+
+    contracted = result["model.test_pkg.orders"]
+    assert contracted.contract_enforced is True
+    assert len(contracted.model_constraints) == 2
+    constraint_types = {c.type for c in contracted.model_constraints}
+    assert constraint_types == {"primary_key", "not_null"}
+    assert [c.name for c in contracted.contract_columns] == ["id", "email"]
+    assert [c.data_type for c in contracted.contract_columns] == ["BIGINT", "VARCHAR"]
+
+    unenforced = result["model.test_pkg.no_contract"]
+    assert unenforced.contract_enforced is False
+    assert unenforced.model_constraints == []
+    assert unenforced.contract_columns == []
+
+
+def test_fetch_discovery_contract_data_paginates() -> None:
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    page_1 = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.a",
+                                "contractEnforced": True,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+                }
+            }
+        }
+    }
+    page_2 = {
+        "environment": {
+            "applied": {
+                "models": {
+                    "edges": [
+                        {
+                            "node": {
+                                "uniqueId": "model.b",
+                                "contractEnforced": True,
+                                "constraints": [],
+                                "catalog": {"columns": []},
+                            }
+                        }
+                    ],
+                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                }
+            }
+        }
+    }
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_send_graphql_query",
+        side_effect=[page_1, page_2],
+    ) as mock_send:
+        result = DBTCloudSource._fetch_discovery_contract_data(
+            metadata_endpoint="https://metadata.test.getdbt.com/graphql",
+            token="test-token",
+            environment_id=42,
+        )
+
+    assert mock_send.call_count == 2
+    assert set(result.keys()) == {"model.a", "model.b"}
+    second_call_variables = mock_send.call_args_list[1].kwargs["variables"]
+    assert second_call_variables["after"] == "cursor-1"
+
+
+def test_parse_into_dbt_node_reads_contract_from_discovery_api() -> None:
+    from datahub.ingestion.source.dbt.dbt_cloud import (
+        DBTCloudSource,
+        _DiscoveryContractData,
+    )
+    from datahub.ingestion.source.dbt.dbt_common import DBTColumn, DBTConstraint
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+
+    source._discovery_contract_data = {
+        "model.test_pkg.orders": _DiscoveryContractData(
+            contract_enforced=True,
+            model_constraints=[
+                DBTConstraint(type="primary_key", columns=["id"]),
+                DBTConstraint(type="not_null", columns=["email"]),
+            ],
+            contract_columns=[
+                DBTColumn(
+                    name="id",
+                    comment="",
+                    description="",
+                    index=0,
+                    data_type="BIGINT",
+                ),
+                DBTColumn(
+                    name="email",
+                    comment="",
+                    description="",
+                    index=1,
+                    data_type="VARCHAR",
+                ),
+            ],
+        )
+    }
+
+    raw_node: Dict[str, Any] = {
+        "uniqueId": "model.test_pkg.orders",
+        "name": "orders",
+        "resourceType": "model",
+        "materializedType": "table",
+        "database": "DB",
+        "schema": "SCHEMA",
+        "type": "BASE TABLE",
+        "owner": None,
+        "comment": "",
+        "description": "",
+        "meta": {},
+        "tags": [],
+        "columns": [],
+        "dependsOn": [],
+        "packageName": "test_pkg",
+        "alias": "orders",
+        "status": "success",
+        "rawCode": "select 1",
+        "rawSql": None,
+        "compiledCode": "select 1",
+        "compiledSql": None,
+    }
+
+    parsed = source._parse_into_dbt_node(raw_node)
+
+    assert parsed.contract is not None
+    assert parsed.contract.enforced is True
+    assert len(parsed.model_constraints) == 2
+    assert parsed.contract_columns is not None
+    assert [c.name for c in parsed.contract_columns] == ["id", "email"]
+
+
+def test_parse_into_dbt_node_no_contract_when_discovery_data_missing() -> None:
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+    source._discovery_contract_data = {}
+
+    raw_node: Dict[str, Any] = {
+        "uniqueId": "model.test_pkg.orders",
+        "name": "orders",
+        "resourceType": "model",
+        "materializedType": "table",
+        "database": "DB",
+        "schema": "SCHEMA",
+        "type": "BASE TABLE",
+        "owner": None,
+        "comment": "",
+        "description": "",
+        # meta.contract is intentionally set here to assert the old
+        # fallback path (which read contract data from meta) is gone.
+        "meta": {
+            "contract": {
+                "enforced": True,
+                "alias_types": True,
+                "checksum": "should-be-ignored",
+            }
+        },
+        "tags": [],
+        "columns": [],
+        "dependsOn": [],
+        "packageName": "test_pkg",
+        "alias": "orders",
+        "status": "success",
+        "rawCode": "select 1",
+        "rawSql": None,
+        "compiledCode": "select 1",
+        "compiledSql": None,
+    }
+
+    parsed = source._parse_into_dbt_node(raw_node)
+    assert parsed.contract is None
+    assert parsed.contract_columns is None
+    assert parsed.model_constraints == []
+
+
+def test_discovery_api_failure_is_warned_not_raised() -> None:
+    from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudSource
+
+    config = DBTCloudConfig(
+        **_base_dbt_cloud_config(
+            ingest_contracts=True,
+            environment_id=42,
+        )
+    )
+    ctx = PipelineContext(run_id="test-contract", pipeline_name="dbt-cloud")
+    source = DBTCloudSource(config, ctx)
+
+    with mock.patch.object(
+        DBTCloudSource,
+        "_fetch_discovery_contract_data",
+        side_effect=RuntimeError("simulated API failure"),
+    ):
+        data = source._get_discovery_contract_data()
+
+    assert data == {}
+    # Cached result — a second call must not re-hit the mock.
+    data_again = source._get_discovery_contract_data()
+    assert data_again == {}
+
+    assert any("contract" in str(w).lower() for w in source.report.warnings)

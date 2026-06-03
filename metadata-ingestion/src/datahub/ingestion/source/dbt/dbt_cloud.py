@@ -1,5 +1,6 @@
 import logging
 from copy import deepcopy
+from dataclasses import dataclass
 from datetime import datetime
 from json import JSONDecodeError
 from typing import Dict, List, Literal, Optional, Tuple, cast
@@ -37,6 +38,8 @@ from datahub.ingestion.source.dbt.dbt_common import (
     DBT_EXPOSURE_TYPES,
     DBTColumn,
     DBTCommonConfig,
+    DBTConstraint,
+    DBTContract,
     DBTExposure,
     DBTNode,
     DBTSourceBase,
@@ -108,6 +111,17 @@ class DBTCloudConfig(DBTCommonConfig):
         None,
         description="The ID of the run to ingest metadata from. If not specified, defaults to the latest run. In auto-discovery mode, always uses the latest run for each job.",
     )
+    environment_id: Optional[int] = Field(
+        None,
+        description=(
+            "The dbt Cloud environment ID. Required when ``ingest_contracts`` "
+            "is true, because contract data (``contractEnforced``, "
+            "``constraints``, catalog columns) is only exposed on the "
+            "Discovery API's environment-scoped query — not on the "
+            "job-scoped queries this connector uses for everything else. "
+            "Find it in the dbt Cloud UI under Deploy → Environments."
+        ),
+    )
 
     auto_discovery: Optional[AutoDiscoveryConfig] = Field(
         None,
@@ -143,6 +157,15 @@ class DBTCloudConfig(DBTCommonConfig):
             raise ValueError(
                 "job_id is required in explicit mode. "
                 "Either provide job_id or enable auto_discovery mode."
+            )
+        if self.ingest_contracts and self.environment_id is None:
+            raise ValueError(
+                "environment_id is required when ingest_contracts=true on "
+                "dbt Cloud. Contract data (contractEnforced, constraints, "
+                "catalog columns) is only available via the Discovery API's "
+                "environment endpoint, not via the job-scoped queries. "
+                "Find the environment ID in the dbt Cloud UI under "
+                "Deploy → Environments."
             )
         return self
 
@@ -371,6 +394,65 @@ query DatahubMetadataQuery_{type}($jobId: BigInt!, $runId: BigInt) {{
 """
 
 
+# Environment-scoped Discovery API query. ``contractEnforced`` and
+# ``constraints`` are not available on the job-scoped query above; they only
+# live on ``environment.applied.models``. See
+# https://docs.getdbt.com/docs/dbt-cloud-apis/discovery-schema-environment-applied-models
+_DBT_DISCOVERY_CONTRACT_PAGE_SIZE = 500
+_DBT_DISCOVERY_CONTRACT_QUERY = """
+query DatahubDiscoveryContractQuery(
+  $environmentId: BigInt!,
+  $first: Int!,
+  $after: String
+) {
+  environment(id: $environmentId) {
+    applied {
+      models(first: $first, after: $after) {
+        edges {
+          node {
+            uniqueId
+            contractEnforced
+            constraints {
+              name
+              type
+              expression
+              columns
+            }
+            catalog {
+              columns {
+                name
+                description
+                type
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+}
+"""
+
+
+@dataclass
+class _DiscoveryContractData:
+    """Per-model contract data parsed from ``environment.applied.models``.
+
+    ``contract_columns`` here comes from the applied catalog (post-run
+    warehouse state), not the manifest declaration — the Discovery API does
+    not expose declared types via ``definition.models``. Schema assertions
+    emitted via this path are therefore less strict than on the dbt Core path.
+    """
+
+    contract_enforced: bool
+    model_constraints: List[DBTConstraint]
+    contract_columns: List[DBTColumn]
+
+
 @platform_name("dbt")
 @config_class(DBTCloudConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -381,6 +463,53 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
 
     def __init__(self, config: DBTCloudConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
+        # None = not yet fetched; {} = fetched (whether really empty or
+        # fetched-and-failed, see _get_discovery_contract_data).
+        self._discovery_contract_data: Optional[Dict[str, _DiscoveryContractData]] = (
+            None
+        )
+
+    def _get_discovery_contract_data(
+        self,
+    ) -> Dict[str, _DiscoveryContractData]:
+        """Return cached Discovery API contract data, fetching on first call."""
+        if self._discovery_contract_data is not None:
+            return self._discovery_contract_data
+
+        if not self.config.ingest_contracts or self.config.environment_id is None:
+            self._discovery_contract_data = {}
+            return self._discovery_contract_data
+
+        logger.info(
+            f"Fetching dbt Cloud contract data via Discovery API for "
+            f"environment {self.config.environment_id}"
+        )
+        try:
+            self._discovery_contract_data = self._fetch_discovery_contract_data(
+                metadata_endpoint=self.config.metadata_endpoint,
+                token=self.config.token.get_secret_value(),
+                environment_id=self.config.environment_id,
+            )
+            logger.info(
+                f"Discovery API returned contract data for "
+                f"{len(self._discovery_contract_data)} model(s)"
+            )
+        except Exception as e:
+            # Recoverable: surface via report and proceed without contracts
+            # rather than failing the whole ingestion.
+            self.report.warning(
+                title="Failed to fetch dbt Cloud contract data",
+                message=(
+                    "Could not query the Discovery API for contract data. "
+                    "Contract assertions will not be emitted for this run. "
+                    "Check the environment_id, token permissions, and "
+                    "dbt Cloud Discovery API availability."
+                ),
+                context=f"environment_id={self.config.environment_id}: {e}",
+            )
+            self._discovery_contract_data = {}
+
+        return self._discovery_contract_data
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -453,6 +582,91 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             raise e
 
         return data
+
+    @staticmethod
+    def _fetch_discovery_contract_data(
+        metadata_endpoint: str,
+        token: str,
+        environment_id: int,
+    ) -> Dict[str, _DiscoveryContractData]:
+        """Fetch per-model contract data across all pages of ``applied.models``.
+
+        Models with ``contractEnforced=false`` are included in the result so
+        the caller can distinguish "not fetched" (missing key) from "fetched
+        and has no contract" (key present, ``contract_enforced=False``).
+        """
+        results: Dict[str, _DiscoveryContractData] = {}
+        cursor: Optional[str] = None
+        while True:
+            data = DBTCloudSource._send_graphql_query(
+                metadata_endpoint=metadata_endpoint,
+                token=token,
+                query=_DBT_DISCOVERY_CONTRACT_QUERY,
+                variables={
+                    "environmentId": environment_id,
+                    "first": _DBT_DISCOVERY_CONTRACT_PAGE_SIZE,
+                    "after": cursor,
+                },
+            )
+            try:
+                models_connection = data["environment"]["applied"]["models"]
+            except (KeyError, TypeError) as e:
+                raise ValueError(
+                    f"Unexpected Discovery API response shape: {e}. "
+                    f"Expected environment.applied.models in the payload."
+                ) from e
+
+            for edge in models_connection.get("edges") or []:
+                node = edge.get("node") or {}
+                unique_id = node.get("uniqueId")
+                if not unique_id:
+                    continue
+
+                # A column-level dbt constraint is represented at the model
+                # level with a single-element ``columns`` array. Pass the
+                # list through unchanged — ``_build_constraint_assertions``
+                # fans per-column entries out downstream.
+                model_constraints = [
+                    DBTConstraint(
+                        type=c.get("type", "unknown"),
+                        name=c.get("name"),
+                        expression=c.get("expression"),
+                        columns=c.get("columns"),
+                    )
+                    for c in (node.get("constraints") or [])
+                ]
+
+                raw_columns = (node.get("catalog") or {}).get("columns") or []
+                contract_columns: List[DBTColumn] = [
+                    DBTColumn(
+                        name=col.get("name", ""),
+                        comment="",
+                        description=col.get("description") or "",
+                        index=index,
+                        data_type=col.get("type") or "",
+                        constraints=[],
+                    )
+                    for index, col in enumerate(raw_columns)
+                ]
+
+                results[unique_id] = _DiscoveryContractData(
+                    contract_enforced=bool(node.get("contractEnforced")),
+                    model_constraints=model_constraints,
+                    contract_columns=contract_columns,
+                )
+
+            page_info = models_connection.get("pageInfo") or {}
+            if not page_info.get("hasNextPage"):
+                break
+            cursor = page_info.get("endCursor")
+            if not cursor:
+                logger.warning(
+                    "Discovery API returned hasNextPage=true with no "
+                    "endCursor; stopping pagination to avoid infinite loop."
+                )
+                break
+
+        return results
 
     @staticmethod
     def _get_jobs_for_project(
@@ -960,6 +1174,19 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
                 )
             )
 
+        # Contract data lives on environment.applied.models in the Discovery
+        # API, not on the job-scoped query everything else uses. Neither
+        # ``alias_types`` nor the contract checksum are exposed there.
+        contract = None
+        contract_columns: Optional[List[DBTColumn]] = None
+        model_constraints: List[DBTConstraint] = []
+        if resource_type == "model" and self.config.ingest_contracts:
+            discovery_data = self._get_discovery_contract_data().get(key)
+            if discovery_data and discovery_data.contract_enforced:
+                contract = DBTContract(enforced=True, alias_types=True, checksum=None)
+                model_constraints = discovery_data.model_constraints
+                contract_columns = discovery_data.contract_columns or None
+
         test_info = None
         test_result = None
         if resource_type == "test":
@@ -998,6 +1225,9 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             test_results=[test_result] if test_result else [],
             model_performances=[],  # TODO: support model performance with dbt Cloud
             freshness_info=freshness_info,
+            contract=contract,
+            model_constraints=model_constraints,
+            contract_columns=contract_columns,
         )
 
     def _parse_into_dbt_column(
@@ -1015,6 +1245,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
             data_type=column["type"],
             meta=column["meta"],
             tags=column["tags"],
+            constraints=[],  # dbt Cloud doesn't expose column constraints via API
         )
 
     def _parse_into_dbt_exposure(self, exposure: Dict) -> DBTExposure:
