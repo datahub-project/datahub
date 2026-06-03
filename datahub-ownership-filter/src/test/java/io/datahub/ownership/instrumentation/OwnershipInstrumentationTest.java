@@ -103,6 +103,30 @@ class OwnershipInstrumentationTest {
     }
 
     @Test
+    void oauthSyntheticActorUsesResolvedUserUrnWhenAvailable() throws Exception {
+        DataFetcher<?> capturing = env ->
+                new LinkedHashMap<>((Map<String, Object>) env.getArgument("input"));
+        DataFetcher<?> wrapped = instrumentation.instrumentDataFetcher(capturing,
+                fieldFetchParams("searchAcrossEntities"), null);
+
+        // Authenticated as a synthetic OAuth actor, but the auth layer carries the real user URN.
+        String synthetic = "urn:li:corpuser:__oauth_https___auth_example_com_alice";
+        Map<String, Object> claims = Map.of("__datahub_user_urn", alice.toString());
+
+        Map<String, Object> args =
+                (Map<String, Object>) wrapped.get(envForClaims(synthetic, claims, baseInput()));
+
+        List<Map<String, Object>> orFilters = (List<Map<String, Object>>) args.get("orFilters");
+        List<String> vals = (List<String>)
+                ((List<Map<String, Object>>) orFilters.get(0).get("and")).get(0).get("values");
+
+        // Ownership predicate is built for the REAL user (alice) + her groups (g1), never the
+        // synthetic OAuth actor.
+        assertThat(vals).containsExactlyInAnyOrder(alice.toString(), g1.toString());
+        assertThat(vals).doesNotContain(synthetic);
+    }
+
+    @Test
     void adminBypassesFilterInjection() throws Exception {
         AtomicReference<Map<String, Object>> seen = new AtomicReference<>();
         DataFetcher<?> capturing = env -> {
@@ -237,6 +261,28 @@ class OwnershipInstrumentationTest {
         QueryContext qc = mock(QueryContext.class);
         when(qc.getOperationContext()).thenReturn(opCtx);
         when(qc.getActorUrn()).thenReturn(actor.toString());
+
+        var graphQlContext = graphql.GraphQLContext.newContext()
+                .put(QueryContext.class, qc)
+                .build();
+
+        return DataFetchingEnvironmentImpl.newDataFetchingEnvironment()
+                .arguments(Map.of("input", input))
+                .graphQLContext(graphQlContext)
+                .build();
+    }
+
+    /** Env whose authenticated actor is the given (synthetic) URN, with the supplied JWT claims. */
+    private DataFetchingEnvironment envForClaims(
+            String actorUrn, Map<String, Object> claims, Map<String, Object> input) {
+        OperationContext opCtx = mock(OperationContext.class);
+        com.datahub.authentication.Authentication auth =
+                mock(com.datahub.authentication.Authentication.class);
+        when(auth.getClaims()).thenReturn(claims);
+        QueryContext qc = mock(QueryContext.class);
+        when(qc.getOperationContext()).thenReturn(opCtx);
+        when(qc.getActorUrn()).thenReturn(actorUrn);
+        when(qc.getAuthentication()).thenReturn(auth);
 
         var graphQlContext = graphql.GraphQLContext.newContext()
                 .put(QueryContext.class, qc)

@@ -1,5 +1,6 @@
 package io.datahub.ownership.instrumentation;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -36,6 +37,18 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
     private static final Logger log = LoggerFactory.getLogger(OwnershipInstrumentation.class);
 
     private static final String LIST_RECOMMENDATIONS = "listRecommendations";
+
+    /**
+     * OAuth/OIDC flows can authenticate the caller under a synthetic actor URN (derived from the
+     * token issuer + subject) rather than the real DataHub user, e.g.
+     * {@code urn:li:corpuser:__oauth_https___auth_example_com_alice}. Ownership/group data is stored
+     * against the REAL user URN ({@code urn:li:corpuser:alice}), so filtering by the synthetic actor
+     * matches nothing. When the actor is synthetic we resolve the real user URN from the
+     * {@link #RESOLVED_USER_URN_CLAIM} claim that the upstream auth layer attaches.
+     */
+    private static final String OAUTH_SYNTHETIC_ACTOR_PREFIX = "urn:li:corpuser:__oauth_";
+
+    private static final String RESOLVED_USER_URN_CLAIM = "__datahub_user_urn";
 
     /** Navigational types that are visible to everyone, always (not ownership- or access-gated). */
     private static final Set<String> EXEMPT_TYPES = Set.of("GLOSSARY_TERM", "GLOSSARY_NODE", "TAG");
@@ -103,7 +116,10 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
             return original.get(env);
         }
 
-        Urn actor = Urn.createFromString(qc.getActorUrn());
+        // Resolve the REAL user behind any synthetic OAuth actor, so ownership/group matching uses
+        // the same identity that owns the data. All downstream checks (groups, filter injection,
+        // domain/platform scoping) run as this effective actor.
+        Urn actor = resolveEffectiveActor(qc);
         // Intentionally not caught: fail-closed. A transient group-service outage surfaces as
         // a GraphQL error rather than silently granting unfiltered access.
         List<Urn> groups = groupResolver.groupsFor(qc.getOperationContext(), actor);
@@ -113,14 +129,23 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
         }
 
         // Home-page recommendation cards: filter out domain/platform cards the actor can't access.
+        // This is best-effort navigation, NOT the security boundary (assets are filtered in search),
+        // so it must never break the whole home page: if the access computation or filtering fails,
+        // fall back to the unfiltered recommendations.
         if (LIST_RECOMMENDATIONS.equals(fieldName)) {
-            DomainPlatformAccessResolver.AccessSets access =
-                    accessResolver.resolve(qc.getOperationContext(), actor, groups);
+            DomainPlatformAccessResolver.AccessSets access;
+            try {
+                access = accessResolver.resolve(qc.getOperationContext(), actor, groups);
+            } catch (RuntimeException e) {
+                log.warn("OwnershipInstrumentation: domain/platform access resolution failed for "
+                        + "listRecommendations (actor={}); returning unfiltered recommendations", actor, e);
+                return original.get(env);
+            }
             Object result = original.get(env);
             if (result instanceof CompletableFuture<?> future) {
-                return future.thenApply(r -> filterRecommendations(r, access));
+                return future.thenApply(r -> safeFilterRecommendations(r, access));
             }
-            return filterRecommendations(result, access);
+            return safeFilterRecommendations(result, access);
         }
 
         Object inputObj = env.getArgument("input");
@@ -167,6 +192,42 @@ public class OwnershipInstrumentation extends SimplePerformantInstrumentation {
                 .build();
 
         return original.get(mutatedEnv);
+    }
+
+    /**
+     * Returns the effective actor: the real user URN when the authenticated actor is a synthetic
+     * OAuth principal AND the upstream auth layer supplied a {@link #RESOLVED_USER_URN_CLAIM} claim;
+     * otherwise the authenticated actor URN as-is. Ownership/group data is keyed on the real user,
+     * so this keeps filtering consistent with the authenticated identity. It does not validate the
+     * token (that is the authenticator's job) — it only maps the already-authenticated identity.
+     */
+    private Urn resolveEffectiveActor(@Nonnull QueryContext qc) throws Exception {
+        String actorUrn = qc.getActorUrn();
+        if (actorUrn != null && actorUrn.startsWith(OAUTH_SYNTHETIC_ACTOR_PREFIX)) {
+            try {
+                Authentication auth = qc.getAuthentication();
+                Map<String, Object> claims = auth == null ? null : auth.getClaims();
+                Object resolved = claims == null ? null : claims.get(RESOLVED_USER_URN_CLAIM);
+                if (resolved != null && !resolved.toString().isBlank()) {
+                    return Urn.createFromString(resolved.toString());
+                }
+            } catch (RuntimeException e) {
+                log.warn("OwnershipInstrumentation: could not resolve real user URN from claim '{}' "
+                        + "for synthetic actor {}; using actor as-is", RESOLVED_USER_URN_CLAIM, actorUrn, e);
+            }
+        }
+        return Urn.createFromString(actorUrn);
+    }
+
+    /** {@link #filterRecommendations} guarded so a failure never blanks the home page. */
+    private Object safeFilterRecommendations(Object result, DomainPlatformAccessResolver.AccessSets access) {
+        try {
+            return filterRecommendations(result, access);
+        } catch (RuntimeException e) {
+            log.warn("OwnershipInstrumentation: recommendation filtering failed; "
+                    + "returning unfiltered recommendations", e);
+            return result;
+        }
     }
 
     /** Single-disjunct predicate: {@code urn IN [allowed]} (sentinel when empty so nothing matches). */
