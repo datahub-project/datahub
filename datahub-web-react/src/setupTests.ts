@@ -7,6 +7,7 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 
 import enAnalytics from '@src/i18n/locales/en/analytics.json';
+import enAuth from '@src/i18n/locales/en/auth.json';
 import enCommonActions from '@src/i18n/locales/en/common.actions.json';
 import enCommonFeedback from '@src/i18n/locales/en/common.feedback.json';
 import enCommonLabels from '@src/i18n/locales/en/common.labels.json';
@@ -45,6 +46,7 @@ i18n.use(initReactI18next).init({
     initImmediate: false,
     ns: [
         'analytics',
+        'auth',
         'common.actions',
         'common.feedback',
         'common.labels',
@@ -79,6 +81,7 @@ i18n.use(initReactI18next).init({
     resources: {
         en: {
             analytics: enAnalytics,
+            auth: enAuth,
             'common.actions': enCommonActions,
             'common.feedback': enCommonFeedback,
             'common.labels': enCommonLabels,
