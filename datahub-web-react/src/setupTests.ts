@@ -23,6 +23,7 @@ import enEntityViews from '@src/i18n/locales/en/entity.views.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enHomeV2 from '@src/i18n/locales/en/home.v2.json';
 import enHomeV3 from '@src/i18n/locales/en/home.v3.json';
+import enMisc from '@src/i18n/locales/en/misc.json';
 import enModules from '@src/i18n/locales/en/modules.json';
 import enSettingsFeatures from '@src/i18n/locales/en/settings.features.json';
 import enSettingsPage from '@src/i18n/locales/en/settings.page.json';
@@ -55,6 +56,7 @@ i18n.use(initReactI18next).init({
         'governance.domain',
         'home.v2',
         'home.v3',
+        'misc',
         'modules',
         'settings.features',
         'settings.page',
@@ -83,6 +85,7 @@ i18n.use(initReactI18next).init({
             'governance.domain': enGovernanceDomain,
             'home.v2': enHomeV2,
             'home.v3': enHomeV3,
+            misc: enMisc,
             modules: enModules,
             'settings.features': enSettingsFeatures,
             'settings.page': enSettingsPage,

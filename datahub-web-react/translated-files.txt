@@ -88,3 +88,17 @@ src/app/sharedV2/queryBuilder/valueInputs/AggregationValueInput.tsx
 src/app/sharedV2/queryBuilder/valueInputs/EntitySearchValueInput.tsx
 src/app/sharedV2/queryBuilder/valueInputs/SelectValueInput.tsx
 src/app/sharedV2/queryBuilder/ValuesSelect.tsx
+src/app/*.{ts,tsx}
+src/app/appConfig/**/*.{ts,tsx}
+src/app/applications/**/*.{ts,tsx}
+src/app/authorization/**/*.{ts,tsx}
+src/app/browse/**/*.{ts,tsx}
+src/app/businessAttribute/**/*.{ts,tsx}
+src/app/context/**/*.{ts,tsx}
+src/app/dataviz/**/*.{ts,tsx}
+src/app/document/**/*.{ts,tsx}
+src/app/i18n/**/*.{ts,tsx}
+src/app/mfeframework/**/*.{ts,tsx}
+src/app/recommendations/**/*.{ts,tsx}
+src/app/tags/**/*.{ts,tsx}
+src/app/utils/**/*.{ts,tsx}
