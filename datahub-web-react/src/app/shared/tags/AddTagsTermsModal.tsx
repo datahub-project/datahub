@@ -1,10 +1,10 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { Tag as CustomTag, Empty, Form, Select, Typography, message } from 'antd';
 import React, { useRef, useState } from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { FORBIDDEN_URN_CHARS_REGEX, handleBatchError } from '@app/entity/shared/utils';
 import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
 import ParentEntities from '@app/search/filters/ParentEntities';
@@ -31,6 +31,8 @@ import {
 import { useGetAutoCompleteResultsLazyQuery } from '@graphql/search.generated';
 import { DataHubPageModuleType, Entity, EntityType, ResourceRefInput, Tag } from '@types';
 
+const LOADING_VALUE = 'loading';
+
 export enum OperationType {
     ADD,
     REMOVE,
@@ -53,7 +55,7 @@ const StyleTag = styled(CustomTag)`
     align-items: center;
     white-space: nowrap;
     opacity: 1;
-    color: #434343;
+    color: ${(props) => props.theme.colors.text};
     line-height: 16px;
 `;
 
@@ -64,12 +66,9 @@ export const BrowserWrapper = styled.div<{
     minWidth?: number;
     maxWidth?: number;
 }>`
-    background-color: white;
+    background-color: ${(props) => props.theme.colors.bg};
     border-radius: 5px;
-    box-shadow:
-        0 3px 6px -4px rgb(0 0 0 / 12%),
-        0 6px 16px 0 rgb(0 0 0 / 8%),
-        0 9px 28px 8px rgb(0 0 0 / 5%);
+    box-shadow: ${(props) => props.theme.colors.shadowXl};
     max-height: ${(props) => (props.maxHeight ? props.maxHeight : '380')}px;
     overflow: auto;
     position: absolute;
@@ -100,7 +99,7 @@ const LoadingWrapper = styled.div`
     svg {
         height: 15px;
         width: 15px;
-        color: ${ANTD_GRAY[8]};
+        color: ${(props) => props.theme.colors.icon};
     }
 `;
 
@@ -128,6 +127,9 @@ export default function EditTagTermsModal({
     defaultValues = [],
     onOkOverride,
 }: EditTagsModalProps) {
+    const { t } = useTranslation('shared.tags');
+    const { t: tc } = useTranslation('common.actions');
+    const theme = useTheme();
     const entityRegistry = useEntityRegistry();
     const { reloadByKeyType } = useReloadableContext();
     const [inputValue, setInputValue] = useState('');
@@ -205,7 +207,7 @@ export default function EditTagTermsModal({
     ) {
         tagSearchOptions?.push(
             <Select.Option value={CREATE_TAG_VALUE} key={CREATE_TAG_VALUE}>
-                <Typography.Link> Create {inputValue}</Typography.Link>
+                <Typography.Link>{t('createOption', { inputValue })}</Typography.Link>
             </Select.Option>,
         );
     }
@@ -327,7 +329,7 @@ export default function EditTagTermsModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        content: type === EntityType.GlossaryTerm ? t('addTerms.success') : t('addTags.success'),
                         duration: 2,
                     });
                     sendAnalytics();
@@ -336,7 +338,10 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(urns, e, {
+                        content: t('addTags.error', { error: e.message || '' }),
+                        duration: 3,
+                    }),
                 );
             })
             .finally(() => {
@@ -358,7 +363,7 @@ export default function EditTagTermsModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Added ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        content: type === EntityType.GlossaryTerm ? t('addTerms.success') : t('addTags.success'),
                         duration: 2,
                     });
                     sendAnalytics();
@@ -373,7 +378,10 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to add: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(urns, e, {
+                        content: t('addTags.error', { error: e.message || '' }),
+                        duration: 3,
+                    }),
                 );
             })
             .finally(() => {
@@ -395,7 +403,7 @@ export default function EditTagTermsModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        content: type === EntityType.GlossaryTerm ? t('removeTerms.success') : t('removeTags.success'),
                         duration: 2,
                     });
                 }
@@ -403,7 +411,10 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(urns, e, {
+                        content: t('removeTags.error', { error: e.message || '' }),
+                        duration: 3,
+                    }),
                 );
             })
             .finally(() => {
@@ -425,7 +436,7 @@ export default function EditTagTermsModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Removed ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'}!`,
+                        content: type === EntityType.GlossaryTerm ? t('removeTerms.success') : t('removeTags.success'),
                         duration: 2,
                     });
                     // Reload modules
@@ -439,7 +450,10 @@ export default function EditTagTermsModal({
             .catch((e) => {
                 message.destroy();
                 message.error(
-                    handleBatchError(urns, e, { content: `Failed to remove: \n ${e.message || ''}`, duration: 3 }),
+                    handleBatchError(urns, e, {
+                        content: t('removeTags.error', { error: e.message || '' }),
+                        duration: 3,
+                    }),
                 );
             })
             .finally(() => {
@@ -511,17 +525,21 @@ export default function EditTagTermsModal({
 
     return (
         <Modal
-            title={`${operationType === OperationType.ADD ? 'Add' : 'Remove'} ${entityRegistry.getEntityName(type)}s`}
+            title={
+                operationType === OperationType.ADD
+                    ? t('modal.addTitle', { entity: entityRegistry.getEntityName(type) })
+                    : t('modal.removeTitle', { entity: entityRegistry.getEntityName(type) })
+            }
             open={open}
             onCancel={onCloseModal}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onCloseModal,
                 },
                 {
-                    text: 'Add',
+                    text: tc('add'),
                     id: 'addTagButton',
                     buttonDataTestId: 'add-tag-term-from-modal-btn',
                     variant: 'filled',
@@ -541,7 +559,9 @@ export default function EditTagTermsModal({
                             mode="multiple"
                             ref={inputEl}
                             filterOption={false}
-                            placeholder={`Search for ${entityRegistry.getEntityName(type)?.toLowerCase()}...`}
+                            placeholder={t('searchPlaceholder', {
+                                entity: entityRegistry.getEntityName(type)?.toLowerCase(),
+                            })}
                             showSearch
                             defaultActiveFirstOption={false}
                             onSelect={(asset: any) => onSelectValue(asset)}
@@ -564,15 +584,17 @@ export default function EditTagTermsModal({
                             notFoundContent={
                                 !loading ? (
                                     <Empty
-                                        description={`No ${type === EntityType.GlossaryTerm ? 'Terms' : 'Tags'} found`}
+                                        description={
+                                            type === EntityType.GlossaryTerm ? t('noTermsFound') : t('noTagsFound')
+                                        }
                                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                        style={{ color: ANTD_GRAY[7] }}
+                                        style={{ color: theme.colors.textSecondary }}
                                     />
                                 ) : null
                             }
                         >
                             {loading ? (
-                                <Select.Option value="loading">
+                                <Select.Option value={LOADING_VALUE}>
                                     <LoadingWrapper>
                                         <LoadingOutlined />
                                     </LoadingWrapper>

@@ -31,7 +31,18 @@ export const NAMESPACES = [
     'settings.posts',
     'settings.preferences',
     'settings.tokens',
+    'shared.business-attribute',
+    'shared.confirmation',
+    'shared.error',
+    'shared.health',
+    'shared.misc',
+    'shared.product',
+    'shared.propagation',
     'shared.query-builder',
+    'shared.search',
+    'shared.share',
+    'shared.tags',
+    'shared.time',
 ] as const;
 
 if (import.meta.env.DEV) {
