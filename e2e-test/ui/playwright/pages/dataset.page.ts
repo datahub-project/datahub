@@ -138,8 +138,11 @@ export class DatasetPage extends BasePage {
     await this.tagTermModalInput.click();
     await this.tagTermInput.fill(termName);
     await this.getTagOption(termName).click();
-    // Click the header to close the terms select dropdown if it stayed open.
-    await this.modalComponent.title.click();
+    // Click the modal footer's confirm button directly: it sits below the trigger so the
+    // dropdown popover (which AntD flips upward when results don't fit below) never
+    // covers it, and clicking outside the dropdown dismisses the popover in one step.
+    // We previously clicked `.ant-modal-title` here, but the upward-flipped popover
+    // intercepted the click and hung indefinitely.
     await this.addTagTermConfirmButton.click();
     await expect(this.addTagTermConfirmButton).toBeHidden();
 
@@ -336,8 +339,11 @@ export class DatasetPage extends BasePage {
     await tagOption.waitFor({ state: 'visible' });
     await tagOption.click();
 
-    await this.page.keyboard.press('Escape');
-
+    // Do NOT press Escape: the alchemy Modal wraps AntD `Modal`, which closes on Escape;
+    // the AntD `Dropdown` powering SimpleSelect does NOT consume Escape, so the keypress
+    // bubbles to the Modal and closes it — taking the confirm button with it. The footer
+    // button sits outside the dropdown popover, so clicking it dismisses the dropdown
+    // and submits the modal in one step.
     await expect(this.addTagFromModalButton).toBeEnabled();
     await this.addTagFromModalButton.click();
 
