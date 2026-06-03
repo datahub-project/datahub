@@ -1,0 +1,17 @@
+{
+    "card.nodeGroupCountTooltip_one": "Contains {{count}} term group",
+    "card.nodeGroupCountTooltip_other": "Contains {{count}} term groups",
+    "card.termCountTooltip_one": "Contains {{count}} term",
+    "card.termCountTooltip_other": "Contains {{count}} terms",
+    "empty.addTerm": "Add Term",
+    "empty.addTermGroup": "Add Term Group",
+    "empty.description": "Create Terms and Term Groups to organize data assets using a shared vocabulary.",
+    "empty.title": "Empty Glossary",
+    "list.error": "Failed to load glossary! An unexpected error occurred.",
+    "list.loading": "Loading Glossary...",
+    "page.createGlossary": "Create Glossary",
+    "page.subtitle": "Classify your data assets and columns using data dictionaries",
+    "page.title": "Business Glossary",
+    "section.glossaryTerms": "Glossary Terms",
+    "section.termGroups": "Term Groups"
+}

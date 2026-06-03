@@ -1,6 +1,7 @@
 import { Modal } from '@components';
 import { message } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 
 import { ModalButton } from '@components/components/Modal/Modal';
@@ -35,6 +36,8 @@ type CreateNewTagModalProps = {
 };
 
 const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, initialTagName, resources }) => {
+    const { t } = useTranslation('misc');
+    const { t: tc } = useTranslation('common.actions');
     const theme = useTheme();
     const defaultTagColor = theme.colors.textBrand;
     const [tagName, setTagName] = useState(initialTagName ?? '');
@@ -50,7 +53,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
 
     const onOk = async () => {
         if (!tagName) {
-            message.error('Tag name is required');
+            message.error(t('tags.nameRequiredError'));
             return;
         }
 
@@ -70,7 +73,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             const newTagUrn = createTagResult.data?.createTag;
 
             if (!newTagUrn) {
-                message.error('Failed to create tag. An unexpected error occurred');
+                message.error(t('tags.createError'));
                 setIsLoading(false);
                 return;
             }
@@ -109,7 +112,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
                 });
             }
 
-            message.success(`Tag "${tagName}" successfully created`);
+            message.success(t('tags.createSuccess', { name: tagName }));
             onClose();
             setTagName('');
             setTagDescription('');
@@ -117,7 +120,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
             setSelectedOwnerUrns([]);
         } catch (e: any) {
             message.destroy();
-            message.error(`Failed to create tag. ${e.message}`);
+            message.error(t('tags.createErrorDetail', { error: e.message }));
         } finally {
             setIsLoading(false);
         }
@@ -129,14 +132,14 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
 
     const buttons: ModalButton[] = [
         {
-            text: 'Cancel',
+            text: tc('cancel'),
             color: 'violet',
             variant: 'text',
             onClick: onClose,
             buttonDataTestId: 'create-tag-modal-cancel-button',
         },
         {
-            text: 'Create',
+            text: tc('create'),
             id: 'createNewTagButton',
             color: 'violet',
             variant: 'filled',
@@ -149,7 +152,7 @@ const CreateNewTagModal: React.FC<CreateNewTagModalProps> = ({ onClose, open, in
 
     return (
         <Modal
-            title="Create New Tag"
+            title={t('tags.createModalTitle')}
             onCancel={onClose}
             buttons={buttons}
             open={open}
