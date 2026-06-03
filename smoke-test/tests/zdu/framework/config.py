@@ -89,7 +89,18 @@ class GapSimulationConfig:
 class ZDUTestConfig:
     # ── Docker ──────────────────────────────────────────────────────────────
     project_dir: str = field(default_factory=lambda: _DEFAULT_PROJECT_DIR)
-    compose_files: list[str] = field(default_factory=lambda: ["docker-compose.yml"])
+    # docker-compose.zdu-test-override.yml layers env-var indirection onto
+    # the GMS / system-update volume mounts (DATAHUB_*_HOST_DIR) so the
+    # framework can swap per-worktree OLD/NEW build outputs per phase
+    # without modifying the production base files. It is inert (defaults =
+    # base paths) unless those env vars are set, and production's
+    # docker-compose.yml never includes it.
+    compose_files: list[str] = field(
+        default_factory=lambda: [
+            "docker-compose.yml",
+            "docker-compose.zdu-test-override.yml",
+        ]
+    )
     compose_profiles: list[str] = field(default_factory=lambda: ["debug"])
     rebuild_command: str = "scripts/dev/datahub-dev.sh rebuild --wait"
     rebuild_cwd: str = field(default_factory=lambda: str(REPO_ROOT))

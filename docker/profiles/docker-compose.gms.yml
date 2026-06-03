@@ -116,11 +116,8 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
-    # G20c: env-var indirection lets the ZDU test framework swap in
-    # per-worktree OLD/NEW build outputs per phase. Defaults preserve
-    # current dev behavior for non-ZDU users.
-    - ${DATAHUB_UPGRADE_BIN_HOST_DIR:-../../datahub-upgrade/build/libs/}:/datahub/datahub-upgrade/bin/
-    - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
+    - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
+    - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
 
 #################################
@@ -197,10 +194,8 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
   volumes:
     - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
-    # G20c: env-var indirection — same DATAHUB_MODELS_RESOURCES_HOST_DIR
-    # is used by both GMS and system-update so PDL stays consistent.
-    - ${DATAHUB_MODELS_RESOURCES_HOST_DIR:-../../metadata-models/src/main/resources/}:/datahub/datahub-gms/resources
-    - ${DATAHUB_GMS_WAR_HOST_DIR:-../../metadata-service/war/build/libs/}:/datahub/datahub-gms/bin
+    - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+    - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
     - ${HOME}/.aws:/home/datahub/.aws:ro
