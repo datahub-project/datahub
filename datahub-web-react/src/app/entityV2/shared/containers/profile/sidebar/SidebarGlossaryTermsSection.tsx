@@ -44,7 +44,7 @@ export const SidebarGlossaryTermsSection = ({ readOnly, properties }: Props) => 
     });
 
     const existingTermUrns =
-        glossaryTerms?.terms?.map((t: { term?: { urn?: string } }) => t.term?.urn).filter(Boolean) || [];
+        glossaryTerms?.terms?.map((term: { term?: { urn?: string } }) => term.term?.urn).filter(Boolean) || [];
 
     const canEditTerms = !!entityData?.privileges?.canEditGlossaryTerms;
 
