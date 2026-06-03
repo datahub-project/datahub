@@ -74,18 +74,10 @@ from datahub_airflow_plugin.entities import (
     entities_to_dataset_urn_list,
 )
 
-# Airflow 3.x always has these APIs
-HAS_AIRFLOW_DAG_LISTENER_API: bool = True
-HAS_AIRFLOW_DATASET_LISTENER_API: bool = True
-
-# Airflow 3.0+: No extractors, use OpenLineage native integration
-ExtractorManager = None  # type: ignore
-
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
-    from airflow.datasets import Dataset
     from airflow.models import DagRun, TaskInstance
-    from airflow.sdk.definitions.dag import DAG
+    from airflow.sdk import DAG, Asset
 
     # To placate mypy on Airflow versions that don't have the listener API,
     # we define a dummy hookimpl that's an identity function.
@@ -134,6 +126,15 @@ def _get_dagrun_from_task_instance(task_instance: "TaskInstance") -> "DagRun":
         def run_id(self) -> Any:
             """Get run_id from task instance"""
             return getattr(self.ti, "run_id", None)
+
+        @property
+        def run_type(self) -> Any:
+            from airflow.utils.types import DagRunType
+
+            run_id = str(self.run_id or "")
+            if run_id.startswith("scheduled__"):
+                return DagRunType.SCHEDULED
+            return DagRunType.MANUAL
 
         def __repr__(self) -> str:
             return f"DagRunProxy(dag_id={self.dag_id!r}, run_id={self.run_id!r})"
@@ -197,7 +198,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                 {
                     "airflow-version": airflow.__version__,
                     "datahub-airflow-plugin": "v2",
-                    "datahub-airflow-plugin-dag-events": HAS_AIRFLOW_DAG_LISTENER_API,
+                    "datahub-airflow-plugin-dag-events": True,
                     "capture_executions": plugin_config.capture_executions,
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
@@ -304,19 +305,8 @@ class DataHubListener:
         self._emitter: Optional[Emitter] = None
         self._graph: Optional[DataHubGraph] = None
 
-        # For Airflow 3.0+, we don't need TaskHolder (dict is used as placeholder)
-        self._task_holder: Dict[str, Any] = {}
-
         # Cache initial datajob objects to merge with completion events
         self._datajob_holder: Dict[str, DataJob] = {}
-
-        # Airflow 3.0+ doesn't use extractors
-        self.extractor_manager = None
-
-        # This "inherits" from types.ModuleType to avoid issues with Airflow's listener plugin loader.
-        # It previously (v2.4.x and likely other versions too) would throw errors if it was not a module.
-        # https://github.com/apache/airflow/blob/e99a518970b2d349a75b1647f6b738c8510fa40e/airflow/listeners/listener.py#L56
-        # self.__class__ = types.ModuleType
 
     def _get_emitter(self):
         """
@@ -926,7 +916,6 @@ class DataHubListener:
         Returns:
             Tuple of (dagrun, task, dag) or None if context cannot be prepared
         """
-        # Get dagrun in a version-compatible way (Airflow 2.x vs 3.x)
         dagrun: "DagRun" = _get_dagrun_from_task_instance(task_instance)
 
         if self.config.render_templates:
@@ -1255,7 +1244,7 @@ class DataHubListener:
         logger.debug(f"Generating DataFlow for DAG: {dag.dag_id}")
         dataflow = AirflowGenerator.generate_dataflow(
             config=self.config,
-            dag=dag,  # type: ignore[arg-type]
+            dag=dag,
         )
         logger.debug(
             f"Generated DataFlow URN: {dataflow.urn}, tags: {dataflow.tags}, description: {dataflow.description}"
@@ -1408,54 +1397,52 @@ class DataHubListener:
             logger.debug(f"total pipelines removed = {len(obsolete_pipelines)}")
             logger.debug(f"total tasks removed = {len(obsolete_tasks)}")
 
-    if HAS_AIRFLOW_DAG_LISTENER_API:
+    @hookimpl
+    @run_in_thread
+    def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+        logger.debug(
+            f"DataHub on_dag_run_running called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}, msg={msg}"
+        )
+        if self.check_kill_switch():
+            return
 
-        @hookimpl
-        @run_in_thread
-        def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
-            logger.debug(
-                f"DataHub on_dag_run_running called for dag_id={dag_run.dag_id}, run_id={dag_run.run_id}, msg={msg}"
-            )
-            if self.check_kill_switch():
-                return
+        self._set_log_level()
 
-            self._set_log_level()
+        logger.debug(
+            f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
+        )
 
-            logger.debug(
-                f"DataHub listener got notification about dag run start for {dag_run.dag_id}"
-            )
+        assert dag_run.dag_id
+        if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
+            logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
+            return
 
-            assert dag_run.dag_id
-            if not self.config.dag_filter_pattern.allowed(dag_run.dag_id):
-                logger.debug(f"DAG {dag_run.dag_id} is not allowed by the pattern")
-                return
-
-            self.on_dag_start(dag_run)
-            emitter = self._get_emitter()
-            if emitter:
-                emitter.flush()
+        self.on_dag_start(dag_run)
+        emitter = self._get_emitter()
+        if emitter:
+            emitter.flush()
 
     # TODO: Add hooks for on_dag_run_success, on_dag_run_failed -> call AirflowGenerator.complete_dataflow
 
-    if HAS_AIRFLOW_DATASET_LISTENER_API:
+    # Airflow 3 renamed the dataset listener hooks to on_asset_* (AIP-68).
+    # The old on_dataset_* names are not registered by Airflow 3's hookspec.
+    @hookimpl
+    @run_in_thread
+    def on_asset_created(self, asset: "Asset") -> None:  # type: ignore[no-untyped-def]
+        self._set_log_level()
 
-        @hookimpl
-        @run_in_thread
-        def on_dataset_created(self, dataset: "Dataset") -> None:  # type: ignore[no-untyped-def]
-            self._set_log_level()
+        logger.debug(
+            f"DataHub listener got notification about asset create for {asset}"
+        )
 
-            logger.debug(
-                f"DataHub listener got notification about dataset create for {dataset}"
-            )
+    @hookimpl
+    @run_in_thread
+    def on_asset_changed(self, asset: "Asset") -> None:  # type: ignore[no-untyped-def]
+        self._set_log_level()
 
-        @hookimpl
-        @run_in_thread
-        def on_dataset_changed(self, dataset: "Dataset") -> None:  # type: ignore[no-untyped-def]
-            self._set_log_level()
-
-            logger.debug(
-                f"DataHub listener got notification about dataset change for {dataset}"
-            )
+        logger.debug(
+            f"DataHub listener got notification about asset change for {asset}"
+        )
 
     async def _soft_delete_obsolete_urns(self, obsolete_urns):
         delete_tasks = [self._delete_obsolete_data(urn) for urn in obsolete_urns]
