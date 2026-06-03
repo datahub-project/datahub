@@ -36,6 +36,7 @@ from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedCounter,
     FileBackedDict,
+    GroupedItemCounter,
 )
 from datahub.utilities.sql_formatter import format_sql_query, trim_query
 
@@ -244,6 +245,23 @@ class BaseUsageConfig(BaseTimeWindowConfig):
         return v
 
 
+class _Dim:
+    """The counted dimensions stored as item-key prefixes in the usage counter."""
+
+    USER = "user"
+    QUERY = "query"
+    COLUMN = "column"
+
+
+def _encode_item(dim: str, value: str) -> str:
+    return f"{dim}:{value}"
+
+
+def _decode_item(item_key: str) -> Tuple[str, str]:
+    dim, _, value = item_key.partition(":")
+    return dim, value
+
+
 class UsageAggregator(Generic[ResourceType], Closeable):
     # TODO: Move over other connectors to use this class
 
@@ -253,11 +271,14 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         *,
         shared_connection: Optional[ConnectionWrapper] = None,
         batch_size: int = 50000,
+        counter: Optional[GroupedItemCounter] = None,
     ) -> None:
         self.config = config
         self._closed = False
-        # Counts of (query|user|column) items per (bucket, resource), on disk.
-        self._counts: FileBackedCounter = FileBackedCounter(
+        # Counts of (query|user|column) items per (bucket, resource). Defaults to the
+        # disk-backed counter; an in-memory counter can be injected (e.g. for tests or
+        # small workloads).
+        self._counts: GroupedItemCounter = counter or FileBackedCounter(
             shared_connection=shared_connection,
             tablename="usage_counts",
             batch_size=batch_size,
@@ -303,11 +324,15 @@ class UsageAggregator(Generic[ResourceType], Closeable):
         # Replicate add_read_entry's filter: a denied user records nothing further.
         if not (user and not self.config.user_email_pattern.allowed(user)):
             if user:
-                self._counts.increment(group_key, f"user:{user}", count)
+                self._counts.increment(group_key, _encode_item(_Dim.USER, user), count)
             if query:
-                self._counts.increment(group_key, f"query:{query}", count)
+                self._counts.increment(
+                    group_key, _encode_item(_Dim.QUERY, query), count
+                )
             for field in fields:
-                self._counts.increment(group_key, f"column:{field}", count)
+                self._counts.increment(
+                    group_key, _encode_item(_Dim.COLUMN, field), count
+                )
 
     def generate_workunits(
         self,
@@ -323,13 +348,13 @@ class UsageAggregator(Generic[ResourceType], Closeable):
             column_freq: List[Tuple[str, int]] = []
             query_count = 0
             for item_key, cnt in items:
-                dim, _, item = item_key.partition(":")
-                if dim == "query":
+                dim, item = _decode_item(item_key)
+                if dim == _Dim.QUERY:
                     query_freq.append((item, cnt))
                     query_count += cnt
-                elif dim == "user":
+                elif dim == _Dim.USER:
                     user_freq.append((item, cnt))
-                elif dim == "column":
+                elif dim == _Dim.COLUMN:
                     column_freq.append((item, cnt))
                 # dim == "" -> existence sentinel, skip
 

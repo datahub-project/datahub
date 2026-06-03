@@ -21,7 +21,10 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
 )
 from datahub.testing.doctest import assert_doctest
-from datahub.utilities.file_backed_collections import ConnectionWrapper
+from datahub.utilities.file_backed_collections import (
+    ConnectionWrapper,
+    InMemoryGroupedCounter,
+)
 
 _TestTableRef = str
 
@@ -422,6 +425,19 @@ def test_usage_aggregator_parity_with_reference():
     config = BaseUsageConfig()
     events = _varied_events()
     agg: UsageAggregator[str] = UsageAggregator(config)
+    _feed(agg, events)
+    actual = sorted(_normalize(wu) for wu in agg.generate_workunits(_urn))
+    agg.close()
+    expected = sorted(_normalize(wu) for wu in _reference_workunits(events, config))
+    assert actual == expected
+
+
+@pytest.mark.parametrize("use_in_memory", [False, True])
+def test_usage_aggregator_parity_across_backends(use_in_memory):
+    config = BaseUsageConfig()
+    events = _varied_events()
+    counter = InMemoryGroupedCounter() if use_in_memory else None
+    agg: UsageAggregator[str] = UsageAggregator(config, counter=counter)
     _feed(agg, events)
     actual = sorted(_normalize(wu) for wu in agg.generate_workunits(_urn))
     agg.close()
