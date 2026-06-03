@@ -43,11 +43,12 @@ def _get_sqlite_version_override() -> bool:
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
 
-# As per https://stackoverflow.com/questions/7106016/too-many-sql-variables-error-in-django-with-sqlite3
-# the default SQLITE_MAX_VARIABLE_NUMBER is 999. There's a few places where we embed one id from every
-# item in the cache into a query (e.g. when implementing __len__), so we need to be careful not to
-# exceed this limit.
-_DEFAULT_MEMORY_CACHE_MAX_SIZE = 900
+# In-memory LRU cache size (number of objects). A larger cache reduces the
+# deserialize/re-serialize churn on cache misses for workloads whose working set
+# exceeds the cache. No longer bounded by SQLITE_MAX_VARIABLE_NUMBER (999): __len__
+# previously embedded one variable per cached key, but now flushes and counts instead,
+# so the cache size is independent of that limit.
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
 _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
@@ -418,7 +419,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             yield row[0]
 
     def items_snapshot(
-        self, cond_sql: Optional[str] = None
+        self, cond_sql: Optional[str] = None, *, order_by_rowid: bool = False
     ) -> Iterator[Tuple[str, _VT]]:
         """
         Return a fixed snapshot, rather than a view, of the dictionary's items.
@@ -428,6 +429,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
 
         Args:
             cond_sql: Conditional expression for WHERE statement, e.g. `x = 0 AND y = "value"`
+            order_by_rowid: If True, yield in insertion order (used by items()/values()).
 
         Returns:
             Iterator of filtered (key, value) pairs.
@@ -436,20 +438,31 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         sql = f"SELECT key, value FROM {self.tablename}"
         if cond_sql:
             sql += f" WHERE {cond_sql}"
+        if order_by_rowid:
+            sql += " ORDER BY rowid ASC"
 
         cursor = self._conn.execute(sql)
         for row in cursor:
             yield row[0], self.deserializer(row[1])
 
-    def __len__(self) -> int:
-        cursor = self._conn.execute(
-            # Binding a list of values in SQLite: https://stackoverflow.com/a/1310001/5004662.
-            f"SELECT COUNT(*) FROM {self.tablename} WHERE key NOT IN ({','.join('?' * len(self._active_object_cache))})",
-            (*self._active_object_cache.keys(),),
-        )
-        row = cursor.fetchone()
+    def items(self) -> Iterator[Tuple[str, _VT]]:  # type: ignore[override]
+        # Stream all rows in a single query (in insertion order) rather than the
+        # MutableMapping default, which does one point SELECT + deserialize per key via
+        # __getitem__ and churns the in-memory cache while iterating.
+        return self.items_snapshot(order_by_rowid=True)
 
-        return row[0] + len(self._active_object_cache)
+    def values(self) -> Iterator[_VT]:  # type: ignore[override]
+        for _, value in self.items():
+            yield value
+
+    def __len__(self) -> int:
+        # Flush first so every key lives in the DB exactly once. This avoids binding one
+        # SQL variable per cached key (which would hit SQLITE_MAX_VARIABLE_NUMBER for
+        # large caches) and keeps the count correct independent of the cache size.
+        self.flush()
+        cursor = self._conn.execute(f"SELECT COUNT(*) FROM {self.tablename}")
+        row = cursor.fetchone()
+        return row[0]
 
     def sql_query(
         self,
