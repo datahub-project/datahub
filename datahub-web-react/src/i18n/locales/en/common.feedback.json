@@ -5,6 +5,7 @@
     "creating": "Creating...",
     "loading": "Loading...",
     "saving": "Saving...",
+    "unknownError": "Unknown error",
     "updated": "Updated!",
     "updating": "Updating..."
 }
