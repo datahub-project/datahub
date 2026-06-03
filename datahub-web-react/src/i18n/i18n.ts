@@ -4,6 +4,7 @@ import resourcesToBackend from 'i18next-resources-to-backend';
 import { initReactI18next } from 'react-i18next';
 
 export const NAMESPACES = [
+    'analytics',
     'common.actions',
     'common.feedback',
     'common.labels',

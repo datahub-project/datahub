@@ -1,3 +1,4 @@
+src/app/analyticsDashboardV2/components/AnalyticsPage.tsx
 src/app/domain/**/*.{ts,tsx}
 src/app/domainV2/**/*.{ts,tsx}
 src/app/entityV2/ownership/ManageOwnership.tsx
