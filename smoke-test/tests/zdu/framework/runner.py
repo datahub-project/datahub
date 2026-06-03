@@ -35,11 +35,6 @@ from .phases.setup_old_stack import SetupOldStackPhase
 from .phases.skip_already_migrated_sweep import SkipAlreadyMigratedSweepPhase
 from .phases.snapshot_t0 import SnapshotT0Phase
 from .phases.snapshot_t1 import SnapshotT1Phase
-
-# Tc112FaultInjectionPhase intentionally NOT imported / wired — see plan 19
-# and the TC-109 (was TC-112) skip_reason. Kept as code only for a future
-# fault-injection plan; superseded by SnapshotT1Phase for the data-integrity
-# variant of TC-109.
 from .phases.upgrade_blocking import UpgradeBlockingPhase
 from .phases.upgrade_blocking_rerun import UpgradeBlockingReRunPhase
 from .phases.upgrade_nonblocking import UpgradeNonBlockingPhase
@@ -388,13 +383,6 @@ class ZDUTestRunner:
                     new_image_tag=self._config.new_image_tag,
                 ),
             ),
-            # Plan 19's Tc112FaultInjectionPhase is intentionally NOT wired
-            # in. See the plan doc + TC-112 skip_reason — the fault-injection
-            # design can't break past production's
-            # "No indices require incremental reindex" outer gate without
-            # additional alias-routing pre-staging. Phase code, helpers,
-            # validator, and tests stay as foundation for a future plan that
-            # adds the stale-mapping pre-stage.
             (
                 "validation",
                 ValidationPhase(

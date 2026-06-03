@@ -233,27 +233,6 @@ class UpgradeBlockingReRunResult:
 
 
 @dataclass
-class Tc112FaultInjectionResult:
-    """Captures the TC-112 fault-injection upgrade run.
-
-    Engineered fault: pre-stage MySQL state to point ``alias`` at a manually
-    created ``bad_target_index`` whose doc count differs from the alias's
-    source. Production resume path runs ``validateAndSwapAlias``, detects the
-    mismatch, logs ``Doc count mismatch for alias swap X -> Y: ...``, and
-    exits FAILED. The framework captures each mismatch event in
-    ``mismatch_events_observed`` as ``(alias, bad_target)`` tuples.
-    """
-
-    target_alias: str = ""
-    bad_target_index: str = ""
-    source_doc_count: int = 0
-    target_doc_count: int = 0
-    mismatch_events_observed: list[tuple[str, str]] = field(default_factory=list)
-    upgrade_exit_code: int = -1
-    duration_s: float = 0.0
-
-
-@dataclass
 class DataIntegritySnapshot:
     """Post-Phase-10 ES presence check for gap and dual URNs.
 
@@ -470,12 +449,6 @@ class TestContext:
     # validators to assert no URN was lost across the rolling-restart +
     # catch-up window.
     data_integrity_snapshot: DataIntegritySnapshot | None = None
-
-    # Tc112FaultInjectionPhase writes — engineered doc-count mismatch run.
-    # Phase is currently NOT wired into the runner (see plan 19 — superseded
-    # by the simpler t0/t1 doc-count preservation design for TC-109). Field
-    # remains for the future fault-injection plan.
-    tc112_fault_injection: Tc112FaultInjectionResult | None = None
 
     # InjectTrafficPrePhase writes
     gap_urns: list[str] = field(default_factory=list)

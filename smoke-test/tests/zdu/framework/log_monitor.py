@@ -89,11 +89,6 @@ class Phase1State(Enum):
     # ReindexConfig.isPureMappingsAddition is true (NEW only adds mapped
     # fields, modifies none). Used by TC-103.
     MAPPINGS_UPDATE_IN_PLACE = "mappings_update_in_place"
-    # ESIndexBuilder.validateAndSwapAlias detected current_count != next_count
-    # and refused the swap. Production logs:
-    #   "Doc count mismatch for alias swap X -> Y: current=N, next=M"
-    # Used by TC-112 fault injection.
-    DOC_COUNT_MISMATCH = "doc_count_mismatch"
 
 
 @dataclass
@@ -154,12 +149,6 @@ _PHASE1_PATTERNS: list[tuple[re.Pattern, Phase1State, bool, bool]] = [
         Phase1State.MAPPINGS_UPDATE_IN_PLACE,
         True,
         False,
-    ),
-    (
-        re.compile(r"Doc count mismatch for alias swap (\S+) -> (\S+):"),
-        Phase1State.DOC_COUNT_MISMATCH,
-        True,
-        True,
     ),
 ]
 

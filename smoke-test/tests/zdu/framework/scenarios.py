@@ -855,9 +855,7 @@ SUITE_B_SCENARIOS: list[ZDUTestScenario] = [
     # Active validator — doc-count preservation across the upgrade.
     # Compares ctx.snapshot_t0.doc_counts (post-seed, pre-upgrade) against
     # ctx.snapshot_t1.doc_counts (post-upgrade-blocking-rerun, pre-traffic).
-    # Catches any data-loss or duplication bug — broader than the original
-    # fault-injection design (kept as dead-code _validate_doc_count_mismatch
-    # for a future plan).
+    # Catches any data-loss or duplication bug across the upgrade.
     _phase1_reindex_scenario(
         tc=109,
         name="Doc count preserved across upgrade",
